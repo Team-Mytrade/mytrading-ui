@@ -103,7 +103,7 @@ Never commit directly to `main`.
 
 ```text
 main        → Production
-develop     → Development Integration
+dev     → Development Integration
 feature/*   → New Features
 bugfix/*    → Bug Fixes
 hotfix/*    → Production Hot Fixes
@@ -137,8 +137,8 @@ in the project tracker.
 ### Step 2: Pull Latest Changes
 
 ```bash
-git checkout develop
-git pull origin develop
+git checkout dev
+git pull origin dev
 ```
 
 ### Step 3: Create New Branch
@@ -146,13 +146,13 @@ git pull origin develop
 Create a dedicated branch for the task.
 
 ```bash
-git checkout -b feature/module-task-name
+git checkout -b feature/your-name/module-task-name
 ```
 
 Example:
 
 ```bash
-git checkout -b feature/crm-customer-list
+git checkout -b feature/your-name/crm-customer-list
 ```
 
 ### Step 4: Start Development
@@ -162,7 +162,7 @@ Develop only within the created branch.
 ### Step 5: Push Changes
 
 ```bash
-git push origin feature/crm-customer-list
+git push origin feature/your-name/crm-customer-list
 ```
 
 ### Step 6: Create Pull Request
@@ -253,7 +253,7 @@ Before creating a PR ensure:
 * Create a new branch for every task
 * Never reuse old branches
 * Never push directly to `main`
-* Never push directly to `develop`
+* Never push directly to `dev`
 
 ## Code Quality
 
@@ -354,11 +354,11 @@ Before starting any task:
 
 1. Assign the task to yourself.
 2. Move task status to **In Progress**.
-3. Pull latest `develop`.
+3. Pull latest `dev`.
 4. Create a new branch.
-5. Develop.
+5. Dev.
 6. Raise PR.
 7. Get review approval.
-8. Merge into `develop`.
+8. Merge into `dev`.
 
 **No development should begin without a dedicated branch and task status update.**
