@@ -1,0 +1,10 @@
+/* crm.css */
+.add-button {
+  border-color: #2563eb !important;
+  color: #2563eb !important;
+  background-color: rgba(240, 240, 240, 0.1) !important;
+}
+
+.add-button:hover {
+  background-color: #dbeafe !important;
+}

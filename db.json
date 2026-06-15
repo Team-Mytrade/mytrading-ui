@@ -1,0 +1,667 @@
+{
+  "posts": [
+    {
+      "id": "1",
+      "title": "json-server",
+      "author": "typicode"
+    }
+  ],
+  "comments": [
+    {
+      "id": "1",
+      "body": "some comment",
+      "postId": 1
+    }
+  ],
+  "profile": {
+    "name": "typicode"
+  },
+  "customers": [
+    {
+      "id": "1",
+      "name": "Alice Johnson",
+      "email": "alice.johnson@example.com",
+      "phone": "1234567890",
+      "countryCode": "+1",
+      "type": "Individual",
+      "industry": "Healthcare",
+      "status": "Active",
+      "address": "123 Maple Street, Springfield",
+      "accountManager": "Michael Scott"
+    },
+    {
+      "id": "2",
+      "name": "Bob Smith",
+      "email": "bob.smith@example.com",
+      "phone": "555-2345",
+      "countryCode": "+44",
+      "type": "Company",
+      "industry": "Finance",
+      "status": "Prospect",
+      "address": "456 Oak Avenue, Metropolis",
+      "accountManager": "Pam Beesly"
+    },
+    {
+      "id": "3",
+      "name": "Charlie Brown",
+      "email": "charlie.brown@example.com",
+      "phone": "555-3456",
+      "countryCode": "+1",
+      "type": "Individual",
+      "industry": "Education",
+      "status": "Inactive",
+      "address": "789 Pine Road, Riverdale",
+      "accountManager": "Dwight Schrute"
+    },
+    {
+      "id": "4",
+      "name": "Diana Ross",
+      "email": "diana.ross@example.com",
+      "phone": "555-4567",
+      "countryCode": "+61",
+      "type": "Individual",
+      "industry": "Entertainment",
+      "status": "VIP",
+      "address": "321 Birch Lane, Gotham",
+      "accountManager": "Stanley Hudson"
+    },
+    {
+      "id": "5",
+      "name": "Ethan Hunt",
+      "email": "ethan.hunt@example.com",
+      "phone": "555-5678",
+      "countryCode": "+33",
+      "type": "Individual",
+      "industry": "Security",
+      "status": "Active",
+      "address": "987 Willow Street, Star City",
+      "accountManager": "Jim Halpert"
+    },
+    {
+      "id": "6",
+      "name": "Fiona Gallagher",
+      "email": "fiona.g@example.com",
+      "phone": "555-6789",
+      "countryCode": "+1",
+      "type": "Individual",
+      "industry": "Retail",
+      "status": "Prospect",
+      "address": "654 Cedar Blvd, Sunnyvale",
+      "accountManager": "Kelly Kapoor"
+    },
+    {
+      "id": "7",
+      "name": "George Martin",
+      "email": "george.martin@example.com",
+      "phone": "555-7890",
+      "countryCode": "+49",
+      "type": "Company",
+      "industry": "Publishing",
+      "status": "Active",
+      "address": "852 Redwood Drive, Hill Valley",
+      "accountManager": "Ryan Howard"
+    },
+    {
+      "id": "8",
+      "name": "Hannah Lee",
+      "email": "hannah.lee@example.com",
+      "phone": "555-8901",
+      "countryCode": "+65",
+      "type": "Individual",
+      "industry": "Technology",
+      "status": "Inactive",
+      "address": "741 Palm Street, Central City",
+      "accountManager": "Oscar Martinez"
+    },
+    {
+      "id": "9",
+      "name": "Ian McKellen",
+      "email": "ian.mckellen@example.com",
+      "phone": "555-9012",
+      "countryCode": "+44",
+      "type": "Individual",
+      "industry": "Arts",
+      "status": "VIP",
+      "address": "159 Elm Road, Smallville",
+      "accountManager": "Angela Martin"
+    },
+    {
+      "id": "10",
+      "name": "Julia Roberts",
+      "email": "julia.roberts@example.com",
+      "phone": "555-012311",
+      "countryCode": "+1",
+      "type": "Individual",
+      "industry": "Entertainment",
+      "status": "Active",
+      "address": "753 Ash Avenue, Coast City",
+      "accountManager": "Kevin Malone"
+    },
+    {
+      "id": "12",
+      "name": "Ignatious Antony",
+      "email": "ignatony@hotmail.com",
+      "phone": "995267645",
+      "countryCode": "+91",
+      "type": "Individual",
+      "industry": "Manufacturing",
+      "status": "Prospect",
+      "address": "246 Spruce Street, Emerald City",
+      "accountManager": "Phyllis Vance"
+    },
+    {
+      "id": "13",
+      "name": "Rozann",
+      "email": "roz@roz.com",
+      "phone": "23454345",
+      "countryCode": "+971",
+      "type": "Individual",
+      "industry": "Consulting",
+      "status": "Inactive",
+      "address": "135 Cherry Street, Mystic Falls",
+      "accountManager": "Meredith Palmer"
+    },
+    {
+      "id": "14",
+      "name": "Aharon",
+      "email": "ignatony@hotmail.com",
+      "phone": "995267645",
+      "countryCode": "+972",
+      "type": "Company",
+      "industry": "Logistics",
+      "status": "Active",
+      "address": "579 Magnolia Road, Hawkins",
+      "accountManager": "Creed Bratton"
+    },
+    {
+      "id": "f0b0",
+      "name": "Stuvart",
+      "email": "stuvart@gmail.com",
+      "phone": "9541254120",
+      "type": "Individual",
+      "industry": "Software Company",
+      "status": "Active",
+      "address": "Chennai",
+      "accountManager": "Michael Scott"
+    }
+  ],
+  "opportunities": [
+    {
+      "id": "1",
+      "title": "Q4 Laptop Deal",
+      "customerName": "TechCorp",
+      "stage": "Proposal",
+      "status": "Open",
+      "expectedCloseDate": "2025-10-15",
+      "probability": 75,
+      "value": 45000
+    },
+    {
+      "title": "DeskTop",
+      "customerName": "Dell",
+      "stage": "Proposal",
+      "status": "Open",
+      "expectedCloseDate": "2025-02-02",
+      "probability": "1",
+      "value": "2000",
+      "id": "2"
+    },
+    {
+      "title": "hard Disk",
+      "customerName": "Dell",
+      "stage": "Negotiation",
+      "status": "Closed-Won",
+      "expectedCloseDate": "2025-02-02",
+      "probability": "1",
+      "value": "2000",
+      "id": "3"
+    },
+    {
+      "title": "External Disk",
+      "customerName": "Lenova",
+      "stage": "Negotiation",
+      "status": "Open",
+      "expectedCloseDate": "2000-02-02",
+      "probability": "10",
+      "value": "500",
+      "id": "4"
+    },
+    {
+      "title": "Mobile Phone",
+      "customerName": "Hp",
+      "stage": "Prospect",
+      "status": "Open",
+      "expectedCloseDate": "2025-01-15",
+      "probability": "100",
+      "value": "40",
+      "id": "5"
+    },
+    {
+      "title": "Mobile Phone",
+      "customerName": "Lenova",
+      "stage": "Prospect",
+      "status": "Open",
+      "expectedCloseDate": "2025-03-03",
+      "probability": "10",
+      "value": "4000",
+      "id": "6"
+    }
+  ],
+  "contactPersons": [
+    {
+      "id": "1",
+      "name": "John Doe",
+      "email": "john@company.com",
+      "phone": "1234567890566",
+      "position": "Sales Manager",
+      "company": "Global Corp",
+      "fullName": "AbinandhMJ",
+      "title": "Dev",
+      "customerId": "1",
+      "preferredChannel": "Email",
+      "roleType": "Decision Maker",
+      "notes": "Hello"
+    },
+    {
+      "name": "Ignatious Antony",
+      "email": "ignatony@hotmail.com",
+      "phone": "995267645",
+      "company": "House",
+      "id": "2",
+      "fullName": "serfadffz",
+      "title": "ffgfgfdd"
+    }
+  ],
+  "customerSegments": [
+    {
+      "id": "1",
+      "name": "Enterprise",
+      "description": "Large organizations with 1000+ employees."
+    },
+    {
+      "id": "2",
+      "name": "SMB",
+      "description": "Small and Medium Businesses."
+    }
+  ],
+  "communications": [
+    {
+      "id": "1",
+      "contactName": "Jane Smith",
+      "type": "Phone",
+      "subject": "Project Follow-up",
+      "notes": "Discussed progress and next steps.",
+      "date": "2025-08-20"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "1",
+      "title": "Follow-up with client",
+      "description": "Discuss proposal details",
+      "status": "Pending",
+      "dueDate": "2025-08-30",
+      "assignedTo": "John Doe"
+    },
+    {
+      "title": "client",
+      "assignedTo": "Bob",
+      "status": "Pending",
+      "dueDate": "2025-02-02",
+      "description": "pending task",
+      "id": "2"
+    }
+  ],
+  "priceList": [
+    {
+      "id": "5e65",
+      "productName": "Bag",
+      "basePrice": 25,
+      "discountPercent": 0.5,
+      "validFrom": "2025-06-29"
+    }
+  ],
+  "salespersons": [
+    {
+      "id": "1",
+      "name": "Alex Thomas",
+      "email": "alex@example.com",
+      "phone": "9876543210",
+      "region": "South",
+      "status": "Active",
+      "quota": 100000,
+      "currentSales": 75000
+    },
+    {
+      "name": "Ignatious Antony",
+      "email": "ignatony@hotmail.com",
+      "phone": "995267645",
+      "region": "Kerala",
+      "quota": 1,
+      "currentSales": 1,
+      "id": "2",
+      "status": "Active"
+    }
+  ],
+  "salesTeams": [
+    {
+      "id": 1759147261919,
+      "name": "Test Teaj",
+      "region": "East India",
+      "manager": "Edward",
+      "members": [
+        "1",
+        "2"
+      ]
+    }
+  ],
+  "paymentTerms": [
+    {
+      "id": "1",
+      "name": "Net 30",
+      "description": "Payment due 30 days after invoice date",
+      "dueDays": 30,
+      "discountPercent": 2,
+      "discountDays": 10,
+      "penaltyPercent": 5
+    },
+    {
+      "id": "2",
+      "name": "COD",
+      "description": "Cash on Delivery",
+      "dueDays": 0
+    }
+  ],
+  "deliverySchedules": [
+    {
+      "id": "1",
+      "orderId": 101,
+      "customerId": 201,
+      "deliveryDate": "2025-09-01",
+      "status": "Scheduled",
+      "quantity": 50,
+      "address": "123 Market St, Cityville",
+      "notes": "Deliver before noon"
+    }
+  ],
+  "purchase-orders": [
+    {
+      "orderNumber": "PO-001",
+      "supplier": "Supplier A",
+      "orderDate": "2025-08-20",
+      "status": "Pending",
+      "totalAmount": 15001,
+      "id": "1"
+    },
+    {
+      "id": "2",
+      "orderNumber": "PO-002",
+      "supplier": "Supplier B",
+      "orderDate": "2025-08-22",
+      "status": "Approved",
+      "totalAmount": 2750.5
+    }
+  ],
+  "suppliers": [
+    {
+      "id": "1",
+      "name": "Supplier A",
+      "contactPerson": "Susheer",
+      "phone": "353454354",
+      "email": "ignatony@hotmail.com",
+      "address": "123 Market St, Cityville"
+    }
+  ],
+  "products": [
+    {
+      "id": "1",
+      "sku": "SKU-1001",
+      "name": "Premium Rice",
+      "category": "Grains",
+      "unit": "kg",
+      "price": 45
+    },
+    {
+      "id": "2",
+      "sku": "SKU-1002",
+      "name": "Sunflower Oil",
+      "category": "Oil",
+      "unit": "litre",
+      "price": 120.5
+    }
+  ],
+  "approval-status": [
+    {
+      "id": "1",
+      "documentType": "Purchase Order",
+      "requester": "John Doe",
+      "status": "Pending",
+      "date": "2025-08-26"
+    }
+  ],
+  "goodsReceiptNotes": [
+    {
+      "id": "1",
+      "grnNumber": "GRN-20250826-01",
+      "supplier": "Acme Supplies Ltd.",
+      "receivedDate": "2025-08-26",
+      "referencePO": "PO-1054",
+      "status": "Received"
+    },
+    {
+      "grnNumber": "ARN-20250826-01",
+      "supplier": "Ramco",
+      "receivedDate": "2025-02-02",
+      "referencePO": "P0-1202",
+      "status": "Returned",
+      "id": "2"
+    }
+  ],
+  "delivery-orders": [
+    {
+      "id": "1",
+      "orderNumber": "DO-20250826-01",
+      "customer": "ABC Corp",
+      "dispatchDate": "2025-08-26",
+      "deliveryAddress": "123 Main Street, Trivandrum",
+      "status": "Dispatched"
+    }
+  ],
+  "transporters": [
+    {
+      "id": "1",
+      "name": "SpeedX Logistics",
+      "vehicleNumber": "KA-01-AB-1234",
+      "contactPerson": "Ravi Kumar",
+      "phone": "9876543210",
+      "status": "Active"
+    }
+  ],
+  "vehicles": [
+    {
+      "id": "1",
+      "registrationNumber": "TN-09-AB-2345",
+      "type": "Truck",
+      "capacity": "15 Tons",
+      "status": "Active",
+      "gpsTrackingUrl": "https://maps.google.com?q=12.9716,77.5946"
+    }
+  ],
+  "routes": [
+    {
+      "id": "1",
+      "routeCode": "R001",
+      "routeName": "Bangalore to Chennai",
+      "startPoint": "Bangalore",
+      "endPoint": "Chennai",
+      "scheduledDate": "2025-08-30",
+      "vehicleNumber": "TN-09-AB-1234",
+      "status": "Scheduled"
+    }
+  ],
+  "products-delivery": [
+    {
+      "id": "1",
+      "sku": "SKU12345",
+      "name": "Wireless Mouse",
+      "category": "Electronics",
+      "unit": "pcs",
+      "stock": 150,
+      "price": 599.99,
+      "status": "Active"
+    }
+  ],
+  "delivery-addresses": [
+    {
+      "id": "1",
+      "customerName": "John Doe",
+      "addressLine1": "123 Main St",
+      "addressLine2": "Apt 4B",
+      "city": "New York",
+      "state": "NY",
+      "postalCode": "10001",
+      "country": "USA",
+      "phone": "+1-555-1234",
+      "isDefault": true
+    }
+  ],
+  "delivery-status": [
+    {
+      "id": "1",
+      "orderNumber": "PO12345",
+      "customerName": "Alice Smith",
+      "deliveryDate": "2025-09-01T00:00:00Z",
+      "status": "Dispatched",
+      "remarks": "Left warehouse at 10 AM"
+    }
+  ],
+  "invoices": [],
+  "receipts": [],
+  "accReceivables": [],
+  "accPayables": [
+    {
+      "billNumber": "1001",
+      "supplierName": "sudheer",
+      "dueDate": "2025-01-02",
+      "totalAmount": 100,
+      "amountPaid": 100,
+      "status": "Paid",
+      "id": "1"
+    }
+  ],
+  "ledger": [
+    {
+      "id": "1",
+      "date": "2025-08-26",
+      "accountName": "Cash",
+      "description": "Payment received",
+      "debit": 0,
+      "credit": 1500,
+      "balance": 1500
+    }
+  ],
+  "credit-notes": [],
+  "debit-notes": [],
+  "revenues": [],
+  "expenses": [],
+  "ledgers": [
+    {
+      "date": "2025-02-02",
+      "accountName": "sales",
+      "description": "sales descr",
+      "debit": 100,
+      "credit": 2000,
+      "id": "1"
+    }
+  ],
+  "taxrecords": [
+    {
+      "taxPayerName": "ignatius",
+      "taxId": "10101",
+      "taxYear": 2025,
+      "amount": 1000,
+      "status": "Pending",
+      "dueDate": "2024-02-02",
+      "id": "1"
+    }
+  ],
+  "salary-structures": [
+    {
+      "id": "1",
+      "employeeId": "EMP001",
+      "basic": 30000,
+      "hra": 12000,
+      "allowances": 5000,
+      "deductions": 4000,
+      "netSalary": 43000,
+      "effectiveFrom": "2025-01-01"
+    }
+  ],
+  "attendance-logs": [
+    {
+      "id": "1",
+      "employeeId": "EMP001",
+      "date": "2025-08-25",
+      "checkIn": "09:00",
+      "checkOut": "17:30",
+      "status": "Present"
+    },
+    {
+      "employeeId": "EMP001",
+      "date": "1976-02-02",
+      "checkIn": "09:00",
+      "checkOut": "17:30",
+      "status": "Present",
+      "id": "2"
+    }
+  ],
+  "leave-requests": [
+    {
+      "id": "1",
+      "employeeId": "EMP001",
+      "leaveType": "Annual Leave",
+      "startDate": "2025-08-30",
+      "endDate": "2025-09-02",
+      "reason": "Family vacation",
+      "status": "Approved"
+    }
+  ],
+  "payroll-tax-deductions": [
+    {
+      "id": "1",
+      "employeeId": "EMP001",
+      "deductionType": "Income Tax",
+      "amount": 150,
+      "effectiveDate": "2025-08-01",
+      "remarks": "Monthly income tax deduction"
+    }
+  ],
+  "payroll-runs": [
+    {
+      "id": "1",
+      "period": "2025-08",
+      "runDate": "2025-08-31",
+      "status": "Completed",
+      "totalEmployees": 45,
+      "totalAmount": 125000.5,
+      "payslips": [
+        {
+          "employeeId": "EMP001",
+          "employeeName": "John Doe",
+          "basicSalary": 3000,
+          "allowances": 500,
+          "deductions": 200,
+          "netPay": 3300
+        },
+        {
+          "employeeId": "EMP002",
+          "employeeName": "Jane Smith",
+          "basicSalary": 2800,
+          "allowances": 450,
+          "deductions": 150,
+          "netPay": 3100
+        }
+      ]
+    }
+  ]
+}

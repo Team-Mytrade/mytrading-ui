@@ -1,0 +1,316 @@
+/* =============================
+   Color Palette
+============================= */
+:root {
+--light-teal: rgb(229 231 235 / var(--tw-bg-opacity, 1));
+  /* --light-teal: rgb(220 235 250 / var(--tw-bg-opacity, 1)); */
+  --soft-teal: #66b2b2;
+  --teal: #008080;
+  --dark-teal: #006666;
+  --deep-teal: #004c4c;
+}
+
+/* =============================
+   Base Styling
+============================= */
+body {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  background-color: var(--light-teal);
+}
+
+/* =============================
+   Wrapper Layout
+============================= */
+.auth-wrapper {
+  display: flex;
+  height: 100vh;
+  /* Full screen */
+  overflow: hidden;
+}
+
+/* Left and Right Panels */
+.auth-left,
+.auth-right {
+  flex: 1;
+  padding: 40px;
+  box-sizing: border-box;
+}
+
+/* =============================
+   Left Panel
+============================= */
+.auth-left {
+  background-color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  overflow-y: auto;
+  /* Scrollable if content overflows */
+}
+
+.auth-left::-webkit-scrollbar {
+  width: 6px;
+}
+
+.auth-left::-webkit-scrollbar-thumb {
+  background-color: var(--teal);
+  border-radius: 3px;
+}
+
+.auth-left h2 {
+  color: var(--deep-teal);
+  margin-bottom: 20px;
+}
+
+/* =============================
+   Form Styles
+============================= */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--dark-teal);
+}
+
+.form-control {
+  width: 100%;
+  padding: 10px !important;
+  border: 1px solid var(--soft-teal);
+  border-radius: 5px;
+  outline: none;
+  transition: 0.3s;
+}
+
+.form-control:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 5px rgba(0, 128, 128, 0.5);
+}
+
+/* Error Styles: Border color red when input error */
+.input-error {
+  border-color: red;
+  /* Change border color to red */
+}
+
+.error-text {
+  color: red;
+  font-size: 13px;
+}
+
+/* =============================
+   Checkbox + Forgot Password
+============================= */
+.custom-checkbox {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: var(--dark-teal);
+}
+
+.custom-checkbox a {
+  color: var(--teal);
+  text-decoration: none;
+}
+
+/* =============================
+   Submit Button
+============================= */
+.btn-submit {
+  width: 100%;
+  padding: 12px;
+  background-color: var(--teal);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.btn-submit:hover {
+  background-color: var(--dark-teal);
+}
+
+/* =============================
+   Social Login
+============================= */
+.social-login {
+  display: flex;
+  justify-content: space-between;
+  margin: 20px 0;
+}
+
+.social-login button {
+  flex: 1;
+  color: white;
+  margin-right: 10px;
+  padding: 10px;
+  border: none;
+  border-radius: 5px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.social-login button:last-child {
+  margin-right: 0;
+}
+
+.apple-btn {
+  background-color: #000;
+}
+
+.google-btn {
+  background-color: #db4437;
+}
+
+/* =============================
+   Footer
+============================= */
+.auth-footer {
+  margin-top: 30px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: var(--deep-teal);
+}
+
+.auth-footer a {
+  color: var(--teal);
+  text-decoration: none;
+}
+
+/* =============================
+   Right Panel
+============================= */
+.auth-right {
+  background-color: var(--soft-teal);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  padding: 40px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+}
+
+.auth-img {
+  max-width: 80%;
+  max-height: 80vh;
+  height: auto;
+  margin-bottom: 30px;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* =============================
+   Password Field
+============================= */
+.password-group .password-wrapper {
+  position: relative;
+}
+
+.password-wrapper input {
+  padding-right: 40px;
+  /* space for eye icon */
+}
+
+.toggle-password {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  color: var(--teal);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+/* =============================
+   Calendar Styling
+============================= */
+.calendar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.calendar-day {
+  text-align: center;
+  padding: 5px;
+  font-weight: 500;
+  color: white;
+}
+
+.calendar-date {
+  display: inline-block;
+  margin-top: 5px;
+  padding: 10px;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  line-height: 16px;
+  text-align: center;
+  background-color: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+.calendar-date.today {
+  background-color: white;
+  color: black;
+  font-weight: 700;
+}
+
+/* =============================
+   Responsive Styling
+============================= */
+@media (max-width: 1024px) {
+  .auth-wrapper {
+    flex-direction: column;
+  }
+
+  .auth-left {
+    flex: none;
+    width: 100%;
+    padding: 20px;
+  }
+
+  .auth-right {
+    display: none;
+    /* Hide right panel on tablets and smaller screens */
+  }
+
+  .auth-img {
+    max-height: 40vh;
+    margin-bottom: 20px;
+  }
+}
+
+@media (max-width: 640px) {
+  .auth-left {
+    padding: 15px;
+  }
+
+  .auth-img {
+    max-width: 90%;
+    max-height: 35vh;
+  }
+
+  .calendar-date {
+    width: 28px;
+    height: 28px;
+    line-height: 12px;
+    padding: 5px;
+  }
+
+  .calendar {
+    gap: 6px;
+  }
+}

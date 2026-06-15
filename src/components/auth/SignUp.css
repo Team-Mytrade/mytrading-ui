@@ -1,0 +1,259 @@
+/* Color Palette */
+:root {
+  /* --light-teal: #13296d; */
+  --soft-teal: #66b2b2;
+  --teal: #008080;
+  --dark-teal: #006666;
+  --deep-teal: #004c4c;
+}
+
+body {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  background-color: var(--light-teal);
+}
+
+/* Wrapper */
+.auth-wrapper {
+  display: flex;
+  min-height: 100vh; /* full viewport height */
+  width: 100vw;      /* full viewport width */
+  overflow: hidden;
+}
+
+/* Left & Right Panels */
+.auth-left,
+.auth-right {
+  flex: 1;
+  padding: 40px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Make left panel scrollable */
+.auth-left {
+  background-color: white;
+  max-width: 600px;
+  margin: 0 auto;
+  justify-content: flex-start; /* start from top */
+  overflow-y: auto; /* enable scroll */
+}
+
+.auth-left::-webkit-scrollbar {
+  width: 6px;
+}
+
+.auth-left::-webkit-scrollbar-thumb {
+  background-color: var(--teal);
+  border-radius: 3px;
+}
+
+/* Headings */
+.auth-left h2, .auth-left h1 {
+  color: var(--deep-teal);
+  margin-bottom: 20px;
+}
+
+/* Form Styles */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--dark-teal);
+}
+
+.form-control,
+select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--soft-teal);
+  border-radius: 5px;
+  outline: none;
+  transition: 0.3s;
+  font-size: 16px;
+  height: 40px;
+}
+
+.form-control:focus,
+select:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 5px rgba(0, 128, 128, 0.5);
+}
+
+/* Password field with toggle icon */
+.password-group .password-wrapper {
+  position: relative;
+}
+
+.password-wrapper input {
+  padding-right: 40px; /* space for icon */
+}
+
+.toggle-password {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  color: var(--teal);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+/* Checkbox group */
+.checkbox-group, .flex.items-center.gap-2 {
+  margin-bottom: 20px;
+  font-size: 14px;
+  color: var(--dark-teal);
+  line-height: 1.5;
+}
+
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.checkbox-group a {
+  color: var(--teal);
+  text-decoration: none;
+}
+
+.checkbox-group a:hover {
+  text-decoration: underline;
+}
+
+/* Submit button */
+.btn-submit {
+  /* width: 100%; */
+  padding: 12px;
+  background: linear-gradient(to right, var(--teal), var(--dark-teal));
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.3s;
+  font-size: 16px;
+}
+
+.btn-submit:hover {
+  background: linear-gradient(to right, var(--dark-teal), var(--deep-teal));
+}
+
+/* Footer */
+.auth-footer {
+  margin-top: 30px;
+  font-size: 14px;
+  color: var(--deep-teal);
+  text-align: center;
+}
+
+.auth-footer a {
+  color: var(--teal);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Right panel */
+/* Right panel */
+.auth-right {
+  background-color: var(--soft-teal);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  padding: 40px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.2);
+}
+
+
+.auth-img {
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  margin-bottom: 30px;
+}
+
+.auth-right h3 {
+  font-size: 26px;
+  margin-bottom: 10px;
+  color: white;
+}
+
+.auth-right p {
+  font-size: 16px;
+  color: #f0f0f0;
+}
+
+/* Form Row & Half Width Inputs */
+.form-row {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 1rem;
+}
+
+.half-width {
+  flex: 1;
+}
+/* Hide on tablets and mobiles */
+@media (max-width: 1024px) {
+  .auth-right {
+    display: none !important; /* completely hide */
+  }
+}
+
+@media (max-width: 600px) {
+  .form-row {
+    flex-direction: column;
+  }
+}
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+  .auth-wrapper {
+    flex-direction: column;
+    min-height: auto;
+    width: 100%;
+  }
+  .auth-left,
+  .auth-right {
+    max-width: 100%;
+    padding: 20px;
+  }
+  .auth-right {
+    order: -1; /* image on top */
+    padding-bottom: 0;
+  }
+}
+
+/* Error styling */
+.password-errors {
+  margin-top: 8px;
+}
+
+.error-text {
+  font-size: 13px;
+  color: #c0392b;
+  margin: 3px 0;
+}
+
+.password-errors p:not(.error-text) {
+  transition: opacity 0.3s ease;
+  opacity: 0;
+}
+
+ul {
+  color: red;
+  font-size: small;
+}

@@ -1,0 +1,63 @@
+import { SidebarProvider, useSidebar } from "../context/SidebarContext";
+import { Outlet } from "react-router";
+import AppHeader from "./AppHeader";
+import Backdrop from "./Backdrop";
+import AppSidebar from "./AppSidebar";
+import { AuthContext } from "../context/AuthContext";
+import SignIn from "../pages/AuthPages/SignIn";
+import { useContext } from "react";
+
+
+import { useState, useEffect } from "react";
+
+const LayoutContent: React.FC = () => {
+  const { isExpanded, isHovered, sidebarWidth, isResizing } = useSidebar();
+  const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsLargeScreen(window.innerWidth >= 1024);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  return (
+
+    <div className="min-h-screen xl:flex">
+      <div>
+        <AppSidebar />
+        <Backdrop />
+      </div>
+      <div
+        style={{
+          marginLeft: isLargeScreen
+            ? (isExpanded || isHovered ? `${sidebarWidth}px` : "60px")
+            : "0px"
+        }}
+        className={`flex-1 ${isResizing ? "transition-none" : "transition-all duration-300 ease-in-out"}`}
+      >
+        <AppHeader />
+        <div className="p-4 mx-auto max-w-screen-2xl md:p-6">
+          <Outlet />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AppLayout: React.FC = () => {
+  const { isLoggedIn } = useContext(AuthContext);
+
+  if (!isLoggedIn) {
+    return <SignIn />;
+  }
+
+  return (
+    <SidebarProvider>
+      <LayoutContent />
+    </SidebarProvider>
+  );
+};
+
+export default AppLayout;
