@@ -316,8 +316,8 @@ const DeliverySchedulePage: React.FC = () => {
             <PageMeta title="Delivery Schedules" description="Manage delivery schedules and tracking" />
             <PageBreadcrumb pageTitle="Delivery Schedules" />
 
-            <div className="max-w-7xl mx-auto p-6">
-                <div className="mb-8 -mt-[125px] flex justify-end">
+            <div className="w-full max-w-none px-0 py-6">
+                <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
                     <AddButton label="Add Schedule" onClick={openAdd} />
                 </div>
 

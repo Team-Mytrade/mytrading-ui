@@ -405,7 +405,7 @@ export default function QuotationsManager() {
 
   if (isOpen) {
     return (
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+      <div className="w-full max-w-none px-0 py-6 space-y-6">
         <PageMeta title={editingId ? "Edit Quotation" : "Create New Quotation"} description="Manage your Sales Quotations" />
 
         <div className="bg-gradient-to-br from-white via-slate-50/50 to-slate-100 dark:from-gray-900 dark:via-gray-950/30 dark:to-gray-950 rounded-3xl border border-slate-200/60 dark:border-gray-800/80 shadow-xl shadow-slate-100/50 dark:shadow-none p-8 space-y-8 animate-fadeIn relative overflow-hidden">
@@ -1032,10 +1032,10 @@ export default function QuotationsManager() {
       <PageMeta title="Sales Quotations" description="Manage your Sales Quotations" />
       <PageBreadcrumb pageTitle="Sales Quotations" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
 
         {/* Header */}
-        <div className="mb-8 -mt-[125px] flex justify-end">
+        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton label="New Quotation" onClick={() => { resetForm(); setIsOpen(true); }} />
         </div>
 

@@ -432,8 +432,8 @@ const BatchManager: React.FC = () => {
             <PageMeta title="Batch Manager" description="Manage product batches and expiry tracking" />
             <PageBreadcrumb pageTitle="Batch Manager" />
 
-            <div className="max-w-6xl mx-auto px-4 sm:px-5 lg:px-6 py-6 space-y-5">
-                <div className="mb-8 -mt-[125px] flex justify-end">
+            <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-6 space-y-5">
+                <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
                     <AddButton onClick={openCreateBatch} label="Add Batch" />
                 </div>
 

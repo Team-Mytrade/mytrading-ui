@@ -206,10 +206,10 @@ const PurchaseOrderPage: React.FC = () => {
       <PageMeta title="Purchase Orders" description="Manage your purchase orders" />
       <PageBreadcrumb pageTitle="Purchase Orders" />
 
-      <div className="mx-auto w-full max-w-6xl px-3 py-6 sm:px-4 space-y-6">
+      <div className="w-full max-w-none px-0 py-6 sm:px-4 space-y-6">
 
         {/* Header */}
-        <div className="mb-8 -mt-[125px] flex justify-end">
+        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           {/* <div>
             <h1 className="text-2xl font-bold text-gray-900">Purchase Orders</h1>
             <p className="text-sm text-gray-500 mt-0.5">Create and manage purchase orders</p>

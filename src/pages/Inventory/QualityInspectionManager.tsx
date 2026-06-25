@@ -397,8 +397,8 @@ const QualityInspectionManager: React.FC = () => {
             <PageMeta title="Quality Inspection" description="Manage quality inspection records" />
             <PageBreadcrumb pageTitle="Quality Inspection" />
 
-            <div className="max-w-7xl mx-auto p-6">
-                <div className="mb-8 -mt-[125px] flex justify-end">
+            <div className="w-full max-w-none px-0 py-6">
+                <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
                     <AddButton
                         label="Add Inspection"
                         onClick={() => {

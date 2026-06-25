@@ -10,6 +10,7 @@ import FirstPageIcon from "@mui/icons-material/FirstPage";
 import LastPageIcon from "@mui/icons-material/LastPage";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import noDataImage from "../../images/no_data.png";
 
 
 export interface ColumnDef<T> {
@@ -114,11 +115,17 @@ const SkeletonRow = ({ cols }: { cols: number }) => (
 );
 
 
+const EmptyImage = () => (
+  <img
+    src={noDataImage}
+    alt="No data"
+    className="mx-auto mb-1 h-56 w-56 object-contain opacity-90 sm:h-72 sm:w-72 lg:h-80 lg:w-80"
+  />
+);
+
 const DefaultEmpty = () => (
   <div className="flex flex-col items-center py-4 text-gray-400 dark:text-gray-500">
-    <div className="h-14 w-14 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-3">
-      <MagnifyingGlassIcon className="h-6 w-6 text-gray-400 dark:text-gray-500" />
-    </div>
+    <EmptyImage />
     <span className="text-sm font-medium">No results found</span>
   </div>
 );
@@ -178,6 +185,8 @@ export function ReusableTable<T extends { id?: number | string }>({
     setPage(1);
   };
 
+  const showEmptyState = !loading && paginated.length === 0;
+
   return (
     <div className={className}>
 
@@ -211,6 +220,18 @@ export function ReusableTable<T extends { id?: number | string }>({
         </div>
       )}
 
+      {showEmptyState ? (
+        <div className="flex min-h-[220px] items-start justify-center pt-0 pb-4 text-center sm:min-h-[280px] sm:pt-0">
+          {emptyState ? (
+            <div className="table-empty-with-image flex flex-col items-center justify-center">
+              <EmptyImage />
+              {emptyState}
+            </div>
+          ) : (
+            <DefaultEmpty />
+          )}
+        </div>
+      ) : (
       <div className="bg-white rounded-xl border border-gray-200 overflow-visible shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <div className="overflow-x-auto overflow-y-visible relative">
           <table className="min-w-full table-fixed divide-y divide-gray-200 dark:divide-gray-800">
@@ -254,12 +275,6 @@ export function ReusableTable<T extends { id?: number | string }>({
                 Array.from({ length: Math.min(pageSize, 5) }).map((_, i) => (
                   <SkeletonRow key={i} cols={columns.length} />
                 ))
-              ) : paginated.length === 0 ? (
-                <tr>
-                  <td colSpan={columns.length} className="px-4 py-10 text-center">
-                    {emptyState ?? <DefaultEmpty />}
-                  </td>
-                </tr>
               ) : (
                 paginated.map((row, idx) => (
                   <tr
@@ -377,6 +392,7 @@ export function ReusableTable<T extends { id?: number | string }>({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

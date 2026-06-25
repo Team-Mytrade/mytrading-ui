@@ -120,6 +120,15 @@
   @apply border-brand-500 bg-brand-500;
 }
 
+.table-empty-with-image>div {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.table-empty-with-image>div>svg:first-child {
+  display: none;
+}
+
 /* third-party libraries CSS */
 /* .apexcharts-legend-text {
   @apply !text-gray-700 dark: !text-gray-400;
@@ -716,6 +725,18 @@ span.flatpickr-weekday,
   background-color: #374151;
 }
 
+.dark .bg-white\/80 {
+  background-color: rgb(17 24 39 / 0.92);
+}
+
+.dark .bg-white\/90 {
+  background-color: rgb(17 24 39 / 0.96);
+}
+
+.dark .bg-gray-50\/50 {
+  background-color: rgb(31 41 55 / 0.65);
+}
+
 .dark .bg-cyan-50 {
   background-color: rgb(8 145 178 / 0.16);
 }
@@ -771,6 +792,11 @@ span.flatpickr-weekday,
 .dark .border-gray-300,
 .dark .border-stroke {
   border-color: #374151;
+}
+
+.dark .border-gray-100\/80,
+.dark .border-gray-200\/50 {
+  border-color: rgb(55 65 81 / 0.9);
 }
 
 .dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]),

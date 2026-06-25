@@ -99,10 +99,10 @@ const DepartmentPage: React.FC = () => {
       <PageMeta title="Departments" description="Manage departments" />
       <PageBreadcrumb pageTitle="Departments" />
 
-      <div className="w-full px-4 py-6 space-y-6">
+      <div className="w-full px-0 py-6 space-y-6">
 
         {/* Header */}
-        <div className="mb-8 -mt-[125px] flex justify-end">
+        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           {/* <div>
             <h1 className="text-2xl font-bold text-gray-900">Departments</h1>
             <p className="text-sm text-gray-500 mt-0.5">Create and manage departments</p>

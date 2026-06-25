@@ -310,8 +310,8 @@ const CommunicationHistory: React.FC = () => {
       <PageMeta title="Communication History" description="Manage your communication history" />
       <PageBreadcrumb pageTitle="Communication History" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[125px]">
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
+        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton
             onClick={() => {
               setEditingId(null);

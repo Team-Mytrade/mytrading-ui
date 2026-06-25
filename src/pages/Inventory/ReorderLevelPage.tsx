@@ -395,8 +395,8 @@ const ReorderLevelPage: React.FC = () => {
             <PageMeta title="Reorder Level Management" description="Manage inventory reorder levels" />
             <PageBreadcrumb pageTitle="Reorder Level" />
 
-            <div className="max-w-7xl mx-auto p-6">
-                <div className="mb-8 -mt-[125px] flex justify-end">
+            <div className="w-full max-w-none px-0 py-6">
+                <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
                     <AddButton
                         label="Add Item"
                         onClick={() => {

@@ -194,12 +194,10 @@ const VendorPage: React.FC = () => {
       <PageMeta title="Vendors" description="Manage your Vendors" />
       <PageBreadcrumb pageTitle="Vendors" />
 
-      {/* Main container with no horizontal scroll */}
-      <div className="w-full max-w-full overflow-x-hidden">
-        <div className="px-2 sm:px-3 py-3 sm:py-4 space-y-3">
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
           
           {/* Header */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
             {/* <div className="min-w-0 flex-1">
               <h1 className="text-lg sm:text-xl font-bold text-gray-900">Vendors</h1>
               <p className="text-xs sm:text-sm text-gray-500">Create and manage vendors</p>
@@ -210,7 +208,7 @@ const VendorPage: React.FC = () => {
           </div>
 
           {/* Stats Cards - Responsive */}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <StatsCard label="Total Vendors" value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
             <StatsCard label="Active" value={stats.active} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
             <StatsCard label="Inactive" value={stats.inactive} gradient="from-red-50 to-pink-50" borderColor="border-red-100" labelColor="text-red-600" />
@@ -218,7 +216,7 @@ const VendorPage: React.FC = () => {
           </div>
 
           {/* Table with forced horizontal scroll only when needed */}
-          <div className="w-full overflow-x-auto -mx-2 px-2 sm:-mx-3 sm:px-3">
+          <div className="w-full">
             <div className="min-w-full inline-block align-middle">
               <ReusableTable<Vendor>
                 data={vendors}
@@ -243,7 +241,6 @@ const VendorPage: React.FC = () => {
               />
             </div>
           </div>
-        </div>
       </div>
 
       {/* Delete Popup */}

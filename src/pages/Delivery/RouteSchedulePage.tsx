@@ -176,10 +176,10 @@ const RouteSchedulePage: React.FC = () => {
       <PageMeta title="Route / Schedule Management" description="Manage routes and schedules" />
       <PageBreadcrumb pageTitle="Route / Schedule Management" />
 
-      <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <div className="w-full max-w-none px-0 py-6 space-y-6">
 
         {/* Header */}
-        <div className="mb-8 -mt-[125px] flex justify-end">
+        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           {/* <div>
             <h1 className="text-2xl font-bold text-gray-900">Route / Schedule Management</h1>
             <p className="text-sm text-gray-500 mt-0.5">Manage delivery routes and schedules</p>

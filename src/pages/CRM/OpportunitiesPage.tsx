@@ -316,8 +316,8 @@ export default function OpportunityManager() {
       <PageMeta title="Deals" description="Manage your sales opportunities" />
       <PageBreadcrumb pageTitle="Deals" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[125px]">
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
+        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={() => setShowForm(true)} label="Add Opportunity" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">

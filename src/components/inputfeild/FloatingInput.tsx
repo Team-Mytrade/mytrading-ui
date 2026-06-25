@@ -42,7 +42,7 @@ const floatingStyles = `
   }
   
   .floating-input::placeholder {
-    color: transparent;
+    color: transparent !important;
   }
   
   .floating-input.error {
@@ -87,7 +87,51 @@ const floatingStyles = `
     padding-top: 24px !important;
     padding-bottom: 8px !important;
   }
+
+  .floating-select:focus {
+    border-color: #2563eb !important;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+
+  .dark .floating-input,
+  .dark .floating-select {
+    background-color: #111827 !important;
+    border-color: #374151 !important;
+    color: #f9fafb !important;
+  }
+
+  .dark .floating-input::placeholder {
+    color: transparent !important;
+  }
+
+  .dark .floating-input:disabled,
+  .dark .floating-select:disabled {
+    background-color: #1f2937 !important;
+    color: #94a3b8 !important;
+  }
+
+  .dark .floating-label {
+    background-color: #111827 !important;
+    color: #94a3b8 !important;
+  }
+
+  .dark .floating-input:focus + .floating-label,
+  .dark .floating-input:not(:placeholder-shown) + .floating-label,
+  .dark .floating-label-active {
+    background-color: #111827 !important;
+    color: #22d3ee !important;
+  }
+
+  .dark .floating-select option {
+    background-color: #111827;
+    color: #f9fafb;
+  }
 `;
+
+function getFloatingLabel(label: string, required: boolean) {
+  return `${label}${required && !label.includes("*") ? " *" : ""}`;
+}
 
 export const FloatingInput: React.FC<FloatingInputProps> = ({
   label,
@@ -144,7 +188,7 @@ export const FloatingInput: React.FC<FloatingInputProps> = ({
         style={styles.formInput}
         className={`floating-input ${type === 'date' ? 'floating-datepicker' : ''} ${error ? 'error' : ''} ${className}`}
         required={required}
-        placeholder={label}
+        placeholder=" "
         name={name}
         {...props}
       />
@@ -153,7 +197,7 @@ export const FloatingInput: React.FC<FloatingInputProps> = ({
         className="floating-label"
         htmlFor={name}
       >
-        {label}{required && ' *'}
+        {getFloatingLabel(label, required)}
       </label>
       {error && <span className="error-text">{error}</span>}
     </div>
@@ -215,7 +259,7 @@ export const FloatingTextarea: React.FC<FloatingTextareaProps> = ({
         style={styles.textareaInput}
         className={`floating-input ${error ? 'error' : ''} ${className}`}
         required={required}
-        placeholder={label}
+        placeholder=" "
         name={name}
         rows={rows}
         {...props}
@@ -225,7 +269,7 @@ export const FloatingTextarea: React.FC<FloatingTextareaProps> = ({
         className="floating-label"
         htmlFor={name}
       >
-        {label}{required && ' *'}
+        {getFloatingLabel(label, required)}
       </label>
       {error && <span className="error-text">{error}</span>}
     </div>
@@ -303,7 +347,7 @@ export const FloatingDatePicker: React.FC<FloatingDatePickerProps> = ({
         style={styles.dateInput}
         className={`floating-input floating-datepicker ${error ? 'error' : ''} ${className}`}
         required={required}
-        placeholder={label}
+        placeholder=" "
         name={name}
         min={minDate}
         max={maxDate}
@@ -314,7 +358,7 @@ export const FloatingDatePicker: React.FC<FloatingDatePickerProps> = ({
         className="floating-label"
         htmlFor={name}
       >
-        {label}{required && ' *'}
+        {getFloatingLabel(label, required)}
       </label>
       {/* Calendar icon */}
       <svg 
@@ -411,9 +455,10 @@ export const FloatingSelect: React.FC<FloatingSelectProps> = ({
       </select>
       <label
         style={styles.formLabel}
+        className={isActive ? "floating-label floating-label-active" : "floating-label"}
         htmlFor={name}
       >
-        {label}{required && ' *'}
+        {getFloatingLabel(label, required)}
       </label>
       {error && <span className="error-text">{error}</span>}
     </div>
@@ -484,7 +529,7 @@ export const FloatingSelect1: React.FC<FloatingSelectProps1> = ({
           backgroundSize: "16px",
         }}
       >
-        {includeEmptyOption && <option value="">{emptyOptionLabel ?? `Select ${label}`}</option>}
+        {includeEmptyOption && <option value="">{emptyOptionLabel ?? ""}</option>}
         {options.map((opt) => (
           <option key={opt.id} value={opt.id}>
             {opt.name}
@@ -493,6 +538,7 @@ export const FloatingSelect1: React.FC<FloatingSelectProps1> = ({
       </select>
       <label
         htmlFor={name}
+        className={isActive ? "floating-label floating-label-active" : "floating-label"}
         style={{
           position: "absolute",
           top: isActive ? "0" : "50%",
@@ -510,7 +556,7 @@ export const FloatingSelect1: React.FC<FloatingSelectProps1> = ({
           fontWeight: isActive ? 500 : 400,
         }}
       >
-        {label}{required && ' *'}
+        {getFloatingLabel(label, required)}
       </label>
     </div>
   );
