@@ -59,7 +59,7 @@ const EmployeeRecordsPage: React.FC = () => {
     const fetchEmployees = async () => {
         setLoading(true);
         try {
-            // Handle both direct array response and wrapped { data: [...] } response
+            const res = await axios.get(`${EMPLOYEE_API_URL}/all`);
             const data = res.data;
             setEmployees(Array.isArray(data) ? data : (data?.data || []));
         } catch (err) {
@@ -73,7 +73,7 @@ const EmployeeRecordsPage: React.FC = () => {
     
     const fetchDepartments = async () => {
         try {
-            // Handle both direct array response and wrapped { data: [...] } response
+            const res = await axios.get(`${DEPARTMENT_API_URL}/listAll`);
             const data = res.data;
             setDepartments(Array.isArray(data) ? data : (data?.data || []));
         } catch (err) {
