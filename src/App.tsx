@@ -214,6 +214,7 @@ import AttendanceApprovalPage from "./pages/Attendance/AttendanceApprovalRequest
 import ShiftSchedulePage from "./pages/Attendance/EmployeeShiftSchedulePage";
 
 import PayrollPage from "./pages/Payroll/PayrollPage";
+import PayrollProcessingEnginePage from "./pages/Payroll/PayrollProcessingEnginePage";
 
 import EmployeeDocumentsPage from "./pages/Payroll/EmployeeDocumentsPage";
 import SalesDashboardPage from "./pages/Sales/SalesDashboardPage";
@@ -401,6 +402,7 @@ export default function App() {
             <Route path="/employeeCompensation" element={<EmployeeCompensationPage />} />
             <Route path="/employeeDepartments" element={<EmployeeDepartmentsPage />} />
             <Route path="/employeePayroll" element={<PayrollPage />} />
+            <Route path="/payrollEngine" element={<PayrollProcessingEnginePage />} />
             <Route path="/salaryStructure" element={<SalaryStructurePage />} />
             <Route path="/attendance-management" element={<AttendanceManagementPage />} />
             <Route path="/attendanceLogs" element={<AttendanceLogsPage />} />

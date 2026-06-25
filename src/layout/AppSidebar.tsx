@@ -139,6 +139,7 @@ export const navItems: NavItem[] = [
       { name: "Salary", path: "/employeeSalary"},
       { name: "Payslips", path: "/employeePayroll"},
       { name: "Payroll", path: "/employeePayroll"},
+      { name: "Payroll Engine", path: "/payrollEngine"},
 
       { name: "Salary Structure", path: "/salaryStructure"},
 
