@@ -4,14 +4,10 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import {
-    EllipsisVerticalIcon,
     PencilSquareIcon,
     TrashIcon,
     MagnifyingGlassIcon,
     FunnelIcon,
-    ArrowUpIcon,
-    ArrowDownIcon,
-    BuildingOfficeIcon,
     CheckCircleIcon,
     XCircleIcon,
     DocumentArrowDownIcon,
@@ -26,13 +22,14 @@ import {
     ChartBarIcon,
     ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
-import { Menu } from "@headlessui/react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import StatsCard from "../../components/common/Statscard";
+import ReusableTable, { ColumnDef } from "../../components/common/Table";
 
 interface QualityInspection {
     id: number;
@@ -55,9 +52,6 @@ const QualityInspectionManager: React.FC = () => {
     const [records, setRecords] = useState<QualityInspection[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
-    const [sortKey, setSortKey] = useState<keyof QualityInspection>("inspectionDate");
-    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-    const [page, setPage] = useState(1);
     const [showForm, setShowForm] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
@@ -202,14 +196,6 @@ const QualityInspectionManager: React.FC = () => {
         setShowExportMenu(false);
     };
 
-    const handleSort = (field: keyof QualityInspection) => {
-        if (sortKey === field) setSortOrder(o => o === "asc" ? "desc" : "asc");
-        else { setSortKey(field); setSortOrder("asc"); }
-    };
-
-    const SortIcon = ({ col }: { col: keyof QualityInspection }) =>
-        sortKey !== col ? null : sortOrder === "asc" ? <ArrowUpIcon className="h-3 w-3 inline ml-1" /> : <ArrowDownIcon className="h-3 w-3 inline ml-1" />;
-
     const filtered = useMemo(() => {
         return records.filter(r => {
             const matchesSearch = r.productSKU.toLowerCase().includes(search.toLowerCase()) ||
@@ -220,33 +206,6 @@ const QualityInspectionManager: React.FC = () => {
             return matchesSearch && matchesResult && matchesStatus;
         });
     }, [records, search, resultFilter, statusFilter]);
-
-    const sorted = [...filtered].sort((a, b) => {
-        let valA = a[sortKey];
-        let valB = b[sortKey];
-
-        if (sortKey === "inspectionDate") {
-            valA = new Date(a.inspectionDate).getTime();
-            valB = new Date(b.inspectionDate).getTime();
-        }
-
-        if (valA == null && valB == null) return 0;
-        if (valA == null) return 1;
-        if (valB == null) return -1;
-
-        if (typeof valA === "string" && typeof valB === "string") {
-            return sortOrder === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        }
-
-        if (typeof valA === "number" && typeof valB === "number") {
-            return sortOrder === "asc" ? valA - valB : valB - valA;
-        }
-
-        return 0;
-    });
-
-    const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-    const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
 
     // Calculate stats from real data
     const totalRecords = records.length;
@@ -304,6 +263,135 @@ const QualityInspectionManager: React.FC = () => {
         </svg>
     );
 
+    const tableColumns: ColumnDef<QualityInspection>[] = [
+        {
+            key: "productSKU",
+            label: "Product SKU",
+            sortable: true,
+            headerClassName: "w-[24%] text-left",
+            className: "w-[24%]",
+            render: (record) => (
+                <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <CubeIcon className="h-4 w-4 text-cyan-600" />
+                    </div>
+                    <div className="min-w-0">
+                        <div className="text-sm font-semibold text-slate-900 truncate leading-snug">{record.productSKU}</div>
+                        {record.productName && (
+                            <div className="text-xs text-slate-500 truncate mt-0.5">{record.productName}</div>
+                        )}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            key: "inspectorName",
+            label: "Inspector",
+            sortable: true,
+            headerClassName: "w-[18%] text-left",
+            className: "w-[18%]",
+            render: (record) => (
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <UserIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
+                    <span className="truncate font-medium text-slate-700">{record.inspectorName}</span>
+                </div>
+            ),
+        },
+        {
+            key: "inspectionDate",
+            label: "Inspection Date",
+            sortable: true,
+            headerClassName: "w-[16%] text-left",
+            className: "w-[16%]",
+            sortValueGetter: (record) => new Date(record.inspectionDate).getTime(),
+            render: (record) => (
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <CalendarIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
+                    <span className="font-medium">{new Date(record.inspectionDate).toLocaleDateString()}</span>
+                </div>
+            ),
+        },
+        {
+            key: "result",
+            label: "Result",
+            sortable: true,
+            headerClassName: "w-[12%] text-left",
+            className: "w-[12%]",
+            render: (record) => (
+                <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full border ${getResultBadge(record.result)}`}>
+                    {getResultIcon(record.result)}
+                    {record.result}
+                </span>
+            ),
+        },
+        {
+            key: "status",
+            label: "Status",
+            sortable: true,
+            headerClassName: "w-[14%] text-left",
+            className: "w-[14%]",
+            render: (record) => (
+                <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full border ${getStatusBadge(record.status)}`}>
+                    {getStatusIcon(record.status)}
+                    {record.status}
+                </span>
+            ),
+        },
+        {
+            key: "remarks",
+            label: "Remarks",
+            sortable: true,
+            headerClassName: "w-[10%] text-left",
+            className: "w-[10%]",
+            render: (record) => (
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <DocumentTextIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
+                    <span className="truncate font-medium text-slate-600" title={record.remarks || ""}>
+                        {record.remarks || <span className="text-slate-400 italic">--</span>}
+                    </span>
+                </div>
+            ),
+        },
+        {
+            key: "actions",
+            label: "Actions",
+            sortable: false,
+            headerClassName: "w-[6%] text-right pr-4",
+            className: "w-[6%] text-right",
+            render: (record) => (
+                <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setSelectedRecord(record);
+                            setViewModalOpen(true);
+                        }}
+                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
+                        title="View Details"
+                    >
+                        <EyeIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleEdit(record)}
+                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+                        title="Edit Inspection"
+                    >
+                        <PencilSquareIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleDelete(record.id, record.productSKU)}
+                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+                        title="Delete Inspection"
+                    >
+                        <TrashIcon className="h-4 w-4" />
+                    </button>
+                </div>
+            ),
+        },
+    ];
+
     return (
         <>
             <PageMeta title="Quality Inspection" description="Manage quality inspection records" />
@@ -331,53 +419,38 @@ const QualityInspectionManager: React.FC = () => {
 
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600">Total Inspections</p>
-                                <p className="text-2xl font-semibold text-gray-900">{totalRecords}</p>
-                            </div>
-                            <div className="p-3 bg-blue-100 rounded-full">
-                                <ClipboardDocumentCheckIcon className="h-6 w-6 text-blue-600" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600">Pass Rate</p>
-                                <p className="text-2xl font-semibold text-green-600">{passRate}%</p>
-                            </div>
-                            <div className="p-3 bg-green-100 rounded-full">
-                                <CheckCircleIcon className="h-6 w-6 text-green-600" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600">Passed / Failed</p>
-                                <p className="text-2xl font-semibold text-cyan-600">{passedCount} / {failedCount}</p>
-                            </div>
-                            <div className="p-3 bg-cyan-100 rounded-full">
-                                <ChartBarIcon className="h-6 w-6 text-cyan-600" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600">Pending / Completed</p>
-                                <p className="text-2xl font-semibold text-yellow-600">{pendingCount} / {completedCount}</p>
-                            </div>
-                            <div className="p-3 bg-yellow-100 rounded-full">
-                                <ClockIcon className="h-6 w-6 text-yellow-600" />
-                            </div>
-                        </div>
-                    </div>
+                    <StatsCard
+                        label="Total Inspections"
+                        value={totalRecords}
+                        gradient="from-cyan-50 to-blue-50"
+                        borderColor="border-cyan-100"
+                        labelColor="text-cyan-600"
+                        icon={<ClipboardDocumentCheckIcon />}
+                    />
+                    <StatsCard
+                        label="Pass Rate"
+                        value={`${passRate}%`}
+                        gradient="from-green-50 to-emerald-50"
+                        borderColor="border-green-100"
+                        labelColor="text-green-600"
+                        icon={<CheckCircleIcon />}
+                    />
+                    <StatsCard
+                        label="Passed / Failed"
+                        value={`${passedCount} / ${failedCount}`}
+                        gradient="from-purple-50 to-pink-50"
+                        borderColor="border-purple-100"
+                        labelColor="text-purple-600"
+                        icon={<ChartBarIcon />}
+                    />
+                    <StatsCard
+                        label="Pending / Completed"
+                        value={`${pendingCount} / ${completedCount}`}
+                        gradient="from-orange-50 to-yellow-50"
+                        borderColor="border-orange-100"
+                        labelColor="text-orange-600"
+                        icon={<ClockIcon />}
+                    />
                 </div>
 
                 {/* Toolbar */}
@@ -389,7 +462,7 @@ const QualityInspectionManager: React.FC = () => {
                                 type="text"
                                 placeholder="Search by SKU or Inspector..."
                                 value={search}
-                                onChange={e => { setSearch(e.target.value); setPage(1); }}
+                                onChange={e => setSearch(e.target.value)}
                                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                             />
                         </div>
@@ -464,7 +537,7 @@ const QualityInspectionManager: React.FC = () => {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Result</label>
                                 <select
                                     value={resultFilter}
-                                    onChange={e => { setResultFilter(e.target.value as any); setPage(1); }}
+                                    onChange={e => setResultFilter(e.target.value as any)}
                                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                                 >
                                     <option value="All">All Results</option>
@@ -476,7 +549,7 @@ const QualityInspectionManager: React.FC = () => {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                                 <select
                                     value={statusFilter}
-                                    onChange={e => { setStatusFilter(e.target.value as any); setPage(1); }}
+                                    onChange={e => setStatusFilter(e.target.value as any)}
                                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                                 >
                                     <option value="All">All Status</option>
@@ -501,243 +574,25 @@ const QualityInspectionManager: React.FC = () => {
                 )}
 
                 {/* Table */}
-                <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-visible">
-                    <div className="overflow-x-auto overflow-y-visible">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    {[
-                                        { key: "productSKU", label: "Product SKU" },
-                                        { key: "inspectorName", label: "Inspector" },
-                                        { key: "inspectionDate", label: "Inspection Date" },
-                                        { key: "result", label: "Result" },
-                                        { key: "status", label: "Status" },
-                                        { key: "remarks", label: "Remarks" },
-                                        { key: null, label: "Actions" },
-                                    ].map((col, i) => (
-                                        <th
-                                            key={i}
-                                            onClick={() => col.key && handleSort(col.key as keyof QualityInspection)}
-                                            className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${col.key ? "cursor-pointer hover:bg-gray-100" : ""
-                                                }`}
-                                        >
-                                            <span className="flex items-center">
-                                                {col.label}
-                                                {col.key && <SortIcon col={col.key as keyof QualityInspection} />}
-                                            </span>
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {loading ? (
-                                    <tr>
-                                        <td colSpan={7} className="px-6 py-12 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mb-3"></div>
-                                                <p className="text-gray-500 text-sm">Loading inspection records...</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : paginated.length > 0 ? paginated.map(record => (
-                                    <tr
-                                        key={record.id}
-                                        className="hover:bg-gray-50 transition-colors"
-                                    >
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3">
-                                                    <CubeIcon className="h-4 w-4 text-cyan-600" />
-                                                </div>
-                                                <div>
-                                                    <div className="text-sm font-medium text-gray-900">{record.productSKU}</div>
-                                                    {record.productName && (
-                                                        <div className="text-xs text-gray-500 mt-0.5">{record.productName}</div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <UserIcon className="h-4 w-4 text-gray-400 mr-2" />
-                                                <span className="text-sm text-gray-900">{record.inspectorName}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <CalendarIcon className="h-4 w-4 text-gray-400 mr-2" />
-                                                <span className="text-sm text-gray-600">
-                                                    {new Date(record.inspectionDate).toLocaleDateString()}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getResultBadge(record.result)}`}>
-                                                {getResultIcon(record.result)}
-                                                {record.result}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(record.status)}`}>
-                                                {getStatusIcon(record.status)}
-                                                {record.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className="text-sm text-gray-500 line-clamp-2 max-w-[200px]">
-                                                {record.remarks || "—"}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right relative">
-                                            <Menu as="div" className="relative inline-block text-left">
-                                                <Menu.Button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                                                    <EllipsisVerticalIcon className="h-5 w-5 text-gray-500" />
-                                                </Menu.Button>
-                                                <Menu.Items className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-[100]">
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => {
-                                                                    setSelectedRecord(record);
-                                                                    setViewModalOpen(true);
-                                                                }}
-                                                                className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                                            >
-                                                                <EyeIcon className="h-4 w-4 text-blue-600" />
-                                                                View Details
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => handleEdit(record)}
-                                                                className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                                            >
-                                                                <PencilSquareIcon className="h-4 w-4 text-cyan-600" />
-                                                                Edit
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => handleDelete(record.id, record.productSKU)}
-                                                                className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-red-600`}
-                                                            >
-                                                                <TrashIcon className="h-4 w-4" />
-                                                                Delete
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                </Menu.Items>
-                                            </Menu>
-                                        </td>
-                                    </tr>
-                                )) : (
-                                    <tr>
-                                        <td colSpan={7} className="px-6 py-12 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <ClipboardDocumentCheckIcon className="h-12 w-12 text-gray-400 mb-3" />
-                                                <p className="text-gray-500 text-sm mb-2">No inspection records found</p>
-                                                <p className="text-gray-400 text-xs">Click "Add Inspection" to create one</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Pagination */}
-                    {totalPages > 0 && (
-                        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                            <div className="flex-1 flex justify-between sm:hidden">
-                                <button
-                                    onClick={() => setPage(Math.max(1, page - 1))}
-                                    disabled={page === 1}
-                                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Previous
-                                </button>
-                                <button
-                                    onClick={() => setPage(Math.min(totalPages, page + 1))}
-                                    disabled={page === totalPages}
-                                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Next
-                                </button>
-                            </div>
-                            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                                <div>
-                                    <p className="text-sm text-gray-700">
-                                        Showing <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> to{' '}
-                                        <span className="font-medium">
-                                            {Math.min(page * PAGE_SIZE, filtered.length)}
-                                        </span>{' '}
-                                        of <span className="font-medium">{filtered.length}</span> results
-                                    </p>
-                                </div>
-                                <div>
-                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                                        <button
-                                            onClick={() => setPage(1)}
-                                            disabled={page === 1}
-                                            className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            First
-                                        </button>
-                                        <button
-                                            onClick={() => setPage(Math.max(1, page - 1))}
-                                            disabled={page === 1}
-                                            className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Previous
-                                        </button>
-                                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                            let pageNum: number;
-                                            if (totalPages <= 5) {
-                                                pageNum = i + 1;
-                                            } else if (page <= 3) {
-                                                pageNum = i + 1;
-                                            } else if (page >= totalPages - 2) {
-                                                pageNum = totalPages - 4 + i;
-                                            } else {
-                                                pageNum = page - 2 + i;
-                                            }
-                                            return (
-                                                <button
-                                                    key={pageNum}
-                                                    onClick={() => setPage(pageNum)}
-                                                    className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page === pageNum
-                                                            ? "z-10 bg-cyan-50 border-cyan-500 text-cyan-600"
-                                                            : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                                                        }`}
-                                                >
-                                                    {pageNum}
-                                                </button>
-                                            );
-                                        })}
-                                        <button
-                                            onClick={() => setPage(Math.min(totalPages, page + 1))}
-                                            disabled={page === totalPages}
-                                            className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Next
-                                        </button>
-                                        <button
-                                            onClick={() => setPage(totalPages)}
-                                            disabled={page === totalPages}
-                                            className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Last
-                                        </button>
-                                    </nav>
-                                </div>
-                            </div>
+                <ReusableTable
+                    data={filtered}
+                    columns={tableColumns}
+                    pageSize={PAGE_SIZE}
+                    defaultSortKey="inspectionDate"
+                    defaultSortOrder="desc"
+                    loading={loading}
+                    onRowClick={(record) => {
+                        setSelectedRecord(record);
+                        setViewModalOpen(true);
+                    }}
+                    emptyState={
+                        <div className="flex flex-col items-center justify-center py-12">
+                            <ClipboardDocumentCheckIcon className="h-12 w-12 text-gray-400 mb-3" />
+                            <p className="text-gray-500 text-sm mb-2">No inspection records found</p>
+                            <p className="text-gray-400 text-xs">Click "Add Inspection" to create one</p>
                         </div>
-                    )}
-                </div>
+                    }
+                />
 
                 {/* View Details Modal */}
                 {viewModalOpen && selectedRecord && (

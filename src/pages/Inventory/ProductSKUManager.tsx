@@ -4,7 +4,6 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import {
-    EllipsisVerticalIcon,
     PencilSquareIcon,
     TrashIcon,
     FunnelIcon,
@@ -17,7 +16,6 @@ import {
     TagIcon,
     PrinterIcon,
 } from "@heroicons/react/24/outline";
-import { Menu } from "@headlessui/react";
 import { useNavigate } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -336,50 +334,34 @@ const ProductSKUManager: React.FC = () => {
             headerClassName: "!text-right pr-8",
             className: "text-right",
             render: (product) => (
-                <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                    <Menu as="div" className="relative inline-block text-left">
-                        <Menu.Button className="p-1.5 rounded-full hover:bg-gray-100 transition-colors">
-                            <EllipsisVerticalIcon className="h-4.5 w-4.5 text-gray-500" />
-                        </Menu.Button>
-                        <Menu.Items className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-[100]">
-                            <Menu.Item>
-                                {({ active }) => (
-                                    <button
-                                        onClick={() => {
-                                            setSelectedProduct(product);
-                                            setViewModalOpen(true);
-                                        }}
-                                        className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                    >
-                                        <EyeIcon className="h-4 w-4 text-blue-600" />
-                                        View Details
-                                    </button>
-                                )}
-                            </Menu.Item>
-                            <Menu.Item>
-                                {({ active }) => (
-                                    <button
-                                        onClick={() => handleEdit(product)}
-                                        className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                    >
-                                        <PencilSquareIcon className="h-4 w-4 text-cyan-600" />
-                                        Edit
-                                    </button>
-                                )}
-                            </Menu.Item>
-                            <Menu.Item>
-                                {({ active }) => (
-                                    <button
-                                        onClick={() => promptDelete(product)}
-                                        className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-red-600`}
-                                    >
-                                        <TrashIcon className="h-4 w-4" />
-                                        Delete
-                                    </button>
-                                )}
-                            </Menu.Item>
-                        </Menu.Items>
-                    </Menu>
+                <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setSelectedProduct(product);
+                            setViewModalOpen(true);
+                        }}
+                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
+                        title="View Details"
+                    >
+                        <EyeIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleEdit(product)}
+                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+                        title="Edit Product"
+                    >
+                        <PencilSquareIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => promptDelete(product)}
+                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+                        title="Delete Product"
+                    >
+                        <TrashIcon className="h-4 w-4" />
+                    </button>
                 </div>
             ),
         },

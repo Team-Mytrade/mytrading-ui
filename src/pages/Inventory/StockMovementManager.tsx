@@ -1,5 +1,21 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import {
+  ArrowRightIcon,
+  ArrowsRightLeftIcon,
+  CalendarIcon,
+  CubeIcon,
+  MagnifyingGlassIcon,
+  PencilSquareIcon,
+  TrashIcon,
+  BuildingStorefrontIcon,
+  ClipboardDocumentListIcon,
+} from "@heroicons/react/24/outline";
+import PageMeta from "../../components/common/PageMeta";
+import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import { AddButton } from "../../components/common/AddButton";
+import StatsCard from "../../components/common/Statscard";
+import ReusableTable, { ColumnDef } from "../../components/common/Table";
 
 interface Product {
   id: number;
@@ -47,9 +63,6 @@ const StockMovementsManager: React.FC = () => {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [serialNumbers, setSerialNumbers] = useState<SerialNumber[]>([]);
   const [search, setSearch] = useState("");
-  const [sortField, setSortField] = useState<keyof StockMovement>("movementDate");
-  const [sortAsc, setSortAsc] = useState(false);
-  const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
 
@@ -206,90 +219,196 @@ const StockMovementsManager: React.FC = () => {
     }
   };
 
-  const handleSort = (field: keyof StockMovement) => {
-    if (sortField === field) setSortAsc(!sortAsc);
-    else {
-      setSortField(field);
-      setSortAsc(true);
-    }
-  };
-
   const filtered = stockMovements.filter((sm) =>
     `${sm.movementType || ""} ${sm.fromLocation || ""} ${sm.toLocation || ""} ${sm.reference || ""} ${sm.product?.name || ""}`
       .toLowerCase()
       .includes(search.toLowerCase())
   );
 
-  const sorted = [...filtered].sort((a, b) => {
-    const aVal = a[sortField];
-    const bVal = b[sortField];
+  const totalMovements = stockMovements.length;
+  const totalQuantity = stockMovements.reduce((sum, sm) => sum + (Number(sm.quantity) || 0), 0);
+  const transferCount = stockMovements.filter((sm) => sm.movementType === "Transfer").length;
+  const uniqueProducts = new Set(stockMovements.map((sm) => sm.product?.id ?? sm.product?.name).filter(Boolean)).size;
 
-    if (typeof aVal === "string" && typeof bVal === "string") {
-      return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-    }
-    if (typeof aVal === "number" && typeof bVal === "number") {
-      return sortAsc ? aVal - bVal : bVal - aVal;
-    }
-    return 0;
-  });
-
-  const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
-  const paginated = sorted.slice(
-    (page - 1) * ITEMS_PER_PAGE,
-    page * ITEMS_PER_PAGE
-  );
+  const tableColumns: ColumnDef<StockMovement>[] = [
+    {
+      key: "movementDate",
+      label: "Date",
+      sortable: true,
+      headerClassName: "w-[14%] text-left",
+      className: "w-[14%]",
+      sortValueGetter: (sm) => new Date(sm.movementDate).getTime(),
+      render: (sm) => (
+        <div className="flex items-center gap-2 text-sm text-slate-600">
+          <CalendarIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
+          <span className="font-medium">{new Date(sm.movementDate).toLocaleDateString()}</span>
+        </div>
+      ),
+    },
+    {
+      key: "movementType",
+      label: "Type",
+      sortable: true,
+      headerClassName: "w-[13%] text-left",
+      className: "w-[13%]",
+      render: (sm) => (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/40">
+          <ArrowsRightLeftIcon className="h-3.5 w-3.5 text-cyan-600 opacity-80" />
+          {sm.movementType}
+        </span>
+      ),
+    },
+    {
+      key: "product",
+      label: "Product",
+      sortable: true,
+      sortValueGetter: (sm) => sm.product?.name || "",
+      headerClassName: "w-[18%] text-left",
+      className: "w-[18%]",
+      render: (sm) => (
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
+            <CubeIcon className="h-4 w-4 text-cyan-600" />
+          </div>
+          <span className="text-sm font-semibold text-slate-900 truncate leading-snug">
+            {sm.product?.name || "N/A"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "quantity",
+      label: "Qty",
+      sortable: true,
+      headerClassName: "w-[9%] text-left",
+      className: "w-[9%]",
+      render: (sm) => <span className="text-sm font-semibold text-slate-700">{sm.quantity}</span>,
+    },
+    {
+      key: "route",
+      label: "Movement",
+      sortable: false,
+      headerClassName: "w-[24%] text-left",
+      className: "w-[24%]",
+      render: (sm) => (
+        <div className="flex items-center gap-2 text-sm text-slate-600 min-w-0">
+          <span className="truncate font-medium" title={sm.fromLocation}>{sm.fromLocation || "N/A"}</span>
+          <ArrowRightIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
+          <span className="truncate font-medium" title={sm.toLocation}>{sm.toLocation || "N/A"}</span>
+        </div>
+      ),
+    },
+    {
+      key: "reference",
+      label: "Reference",
+      sortable: true,
+      headerClassName: "w-[14%] text-left",
+      className: "w-[14%]",
+      render: (sm) => (
+        <div className="flex items-center gap-2 text-sm text-slate-600">
+          <ClipboardDocumentListIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
+          <span className="truncate font-medium" title={sm.reference}>{sm.reference || "--"}</span>
+        </div>
+      ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      sortable: false,
+      headerClassName: "w-[8%] text-right pr-4",
+      className: "w-[8%] text-right",
+      render: (sm) => (
+        <div className="flex items-center justify-end gap-0.5">
+          <button
+            type="button"
+            onClick={() => handleEdit(sm)}
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+            title="Edit Stock Movement"
+          >
+            <PencilSquareIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDelete(sm.id)}
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+            title="Delete Stock Movement"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <div className="purchase-order-container">
-      <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ fontSize: "2rem", fontWeight: "600", marginBottom: "0.5rem" }}>
-          Stock Movements Manager
-        </h1>
-        <p style={{ color: "#666" }}>Track and manage inventory stock movements</p>
-      </div>
+    <>
+      <PageMeta title="Stock Movements" description="Track and manage inventory stock movements" />
+      <PageBreadcrumb pageTitle="Stock Movements" />
 
-      {!showForm && (
-        <button
-          onClick={() => {
-            clearForm();
-            setShowForm(true);
-          }}
-          className="btn btn-primary add-btn"
-          style={{
-            padding: "0.75rem 1.5rem",
-            backgroundColor: "#3b82f6",
-            color: "white",
-            border: "none",
-            borderRadius: "0.5rem",
-            cursor: "pointer",
-            fontWeight: "500",
-            marginBottom: "1.5rem",
-          }}
-        >
-          <i className="fas fa-plus" style={{ marginRight: "0.5rem" }}></i>
-          Add Stock Movement
-        </button>
-      )}
+      <div className="max-w-7xl mx-auto p-6">
+        {!showForm && (
+          <>
+            <div className="mb-8 -mt-[125px] flex justify-end">
+              <AddButton
+                label="Add Stock Movement"
+                onClick={() => {
+                  clearForm();
+                  setShowForm(true);
+                }}
+              />
+            </div>
 
-      {!showForm && (
-        <input
-          className="search-input"
-          placeholder="Search by type, location, reference, or product..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          style={{
-            width: "100%",
-            padding: "0.75rem 1rem",
-            border: "1px solid #d1d5db",
-            borderRadius: "0.5rem",
-            marginBottom: "1.5rem",
-            fontSize: "1rem",
-          }}
-        />
-      )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <StatsCard
+                label="Total Movements"
+                value={totalMovements}
+                gradient="from-cyan-50 to-blue-50"
+                borderColor="border-cyan-100"
+                labelColor="text-cyan-600"
+                icon={<ArrowsRightLeftIcon />}
+              />
+              <StatsCard
+                label="Total Quantity"
+                value={totalQuantity.toLocaleString()}
+                gradient="from-green-50 to-emerald-50"
+                borderColor="border-green-100"
+                labelColor="text-green-600"
+                icon={<CubeIcon />}
+              />
+              <StatsCard
+                label="Transfers"
+                value={transferCount}
+                gradient="from-purple-50 to-pink-50"
+                borderColor="border-purple-100"
+                labelColor="text-purple-600"
+                icon={<ArrowRightIcon />}
+              />
+              <StatsCard
+                label="Products Moved"
+                value={uniqueProducts}
+                gradient="from-orange-50 to-yellow-50"
+                borderColor="border-orange-100"
+                labelColor="text-orange-600"
+                icon={<BuildingStorefrontIcon />}
+              />
+            </div>
+
+            <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex-1 max-w-md w-full">
+                <div className="relative">
+                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by type, location, reference, or product..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            </div>
+          </>
+        )}
 
       {showForm && (
         <form
@@ -577,269 +696,25 @@ const StockMovementsManager: React.FC = () => {
         </form>
       )}
 
-      {/* Table */}
-      {!showForm && (
-        <div style={{ overflowX: "auto" }}>
-          <table
-            className="purchase-order-table my-4"
-            style={{
-              width: "100%",
-              backgroundColor: "white",
-              borderRadius: "0.5rem",
-              overflow: "hidden",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-            }}
-          >
-            <thead className="table-header" style={{ backgroundColor: "#f9fafb" }}>
-              <tr>
-                <th
-                  onClick={() => handleSort("movementDate")}
-                  className="table-head cursor-pointer"
-                  style={{
-                    padding: "1rem",
-                    textAlign: "left",
-                    fontWeight: "600",
-                    cursor: "pointer",
-                    userSelect: "none",
-                  }}
-                >
-                  Date
-                  {sortField === "movementDate" && (
-                    <span className="sort-arrow">{sortAsc ? " ↑" : " ↓"}</span>
-                  )}
-                </th>
-                <th
-                  onClick={() => handleSort("movementType")}
-                  className="table-head cursor-pointer"
-                  style={{
-                    padding: "1rem",
-                    textAlign: "left",
-                    fontWeight: "600",
-                    cursor: "pointer",
-                    userSelect: "none",
-                  }}
-                >
-                  Type
-                  {sortField === "movementType" && (
-                    <span className="sort-arrow">{sortAsc ? " ↑" : " ↓"}</span>
-                  )}
-                </th>
-                <th
-                  className="table-head"
-                  style={{
-                    padding: "1rem",
-                    textAlign: "left",
-                    fontWeight: "600",
-                  }}
-                >
-                  Product
-                </th>
-                <th
-                  onClick={() => handleSort("quantity")}
-                  className="table-head cursor-pointer"
-                  style={{
-                    padding: "1rem",
-                    textAlign: "left",
-                    fontWeight: "600",
-                    cursor: "pointer",
-                    userSelect: "none",
-                  }}
-                >
-                  Qty
-                  {sortField === "quantity" && (
-                    <span className="sort-arrow">{sortAsc ? " ↑" : " ↓"}</span>
-                  )}
-                </th>
-                <th
-                  className="table-head"
-                  style={{
-                    padding: "1rem",
-                    textAlign: "left",
-                    fontWeight: "600",
-                  }}
-                >
-                  From
-                </th>
-                <th
-                  className="table-head"
-                  style={{
-                    padding: "1rem",
-                    textAlign: "left",
-                    fontWeight: "600",
-                  }}
-                >
-                  To
-                </th>
-                <th
-                  className="table-head"
-                  style={{
-                    padding: "1rem",
-                    textAlign: "left",
-                    fontWeight: "600",
-                  }}
-                >
-                  Reference
-                </th>
-                <th
-                  className="table-head actions-head"
-                  style={{
-                    padding: "1rem",
-                    textAlign: "left",
-                    fontWeight: "600",
-                  }}
-                >
-                  Actions
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {paginated.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="empty-state"
-                    style={{
-                      padding: "3rem",
-                      textAlign: "center",
-                      color: "#9ca3af",
-                    }}
-                  >
-                    <i
-                      className="fas fa-exchange-alt empty-icon"
-                      style={{ fontSize: "3rem", marginBottom: "1rem", display: "block" }}
-                    ></i>
-                    No stock movements found.
-                  </td>
-                </tr>
-              ) : (
-                paginated.map((sm) => (
-                  <tr
-                    key={sm.id}
-                    className="table-row"
-                    style={{ borderTop: "1px solid #f3f4f6" }}
-                  >
-                    <td className="table-cell" style={{ padding: "1rem" }}>
-                      {new Date(sm.movementDate).toLocaleDateString()}
-                    </td>
-                    <td className="table-cell" style={{ padding: "1rem" }}>
-                      <span
-                        style={{
-                          padding: "0.25rem 0.75rem",
-                          backgroundColor: "#dbeafe",
-                          color: "#1e40af",
-                          borderRadius: "0.375rem",
-                          fontSize: "0.875rem",
-                          fontWeight: "500",
-                        }}
-                      >
-                        {sm.movementType}
-                      </span>
-                    </td>
-                    <td className="table-cell" style={{ padding: "1rem" }}>
-                      {sm.product?.name || "N/A"}
-                    </td>
-                    <td className="table-cell" style={{ padding: "1rem" }}>
-                      {sm.quantity}
-                    </td>
-                    <td className="table-cell" style={{ padding: "1rem" }}>
-                      {sm.fromLocation}
-                    </td>
-                    <td className="table-cell" style={{ padding: "1rem" }}>
-                      {sm.toLocation}
-                    </td>
-                    <td className="table-cell" style={{ padding: "1rem" }}>
-                      {sm.reference}
-                    </td>
-                    <td className="table-cell actions-cell" style={{ padding: "1rem" }}>
-                      <button
-                        onClick={() => handleEdit(sm)}
-                        className="btn edit-btn"
-                        title="Edit"
-                        style={{
-                          padding: "0.5rem 0.75rem",
-                          backgroundColor: "#3b82f6",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "0.375rem",
-                          cursor: "pointer",
-                          marginRight: "0.5rem",
-                        }}
-                      >
-                        <i className="fas fa-edit"></i>
-                      </button>
-                      <button
-                        onClick={() => handleDelete(sm.id)}
-                        className="btn delete-btn"
-                        title="Delete"
-                        style={{
-                          padding: "0.5rem 0.75rem",
-                          backgroundColor: "#ef4444",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "0.375rem",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <i className="fas fa-trash"></i>
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Pagination */}
-      {!showForm && totalPages > 1 && (
-        <div
-          className="pagination-container"
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: "1rem",
-            marginTop: "1.5rem",
-          }}
-        >
-          <button
-            disabled={page === 1}
-            onClick={() => setPage((p) => p - 1)}
-            className="btn btn-secondary pagination-btn"
-            style={{
-              padding: "0.5rem 1rem",
-              backgroundColor: page === 1 ? "#e5e7eb" : "#6b7280",
-              color: "white",
-              border: "none",
-              borderRadius: "0.375rem",
-              cursor: page === 1 ? "not-allowed" : "pointer",
-            }}
-          >
-            Previous
-          </button>
-          <span className="pagination-info" style={{ color: "#4b5563" }}>
-            Page {page} of {totalPages}
-          </span>
-          <button
-            disabled={page === totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            className="btn btn-secondary pagination-btn"
-            style={{
-              padding: "0.5rem 1rem",
-              backgroundColor: page === totalPages ? "#e5e7eb" : "#6b7280",
-              color: "white",
-              border: "none",
-              borderRadius: "0.375rem",
-              cursor: page === totalPages ? "not-allowed" : "pointer",
-            }}
-          >
-            Next
-          </button>
-        </div>
-      )}
-    </div>
+        {/* Table */}
+        {!showForm && (
+          <ReusableTable
+            data={filtered}
+            columns={tableColumns}
+            pageSize={ITEMS_PER_PAGE}
+            defaultSortKey="movementDate"
+            defaultSortOrder="desc"
+            emptyState={
+              <div className="flex flex-col items-center justify-center py-12">
+                <ArrowsRightLeftIcon className="h-12 w-12 text-gray-400 mb-3" />
+                <p className="text-gray-500 text-sm mb-2">No stock movements found</p>
+                <p className="text-gray-400 text-xs">Click "Add Stock Movement" to create one</p>
+              </div>
+            }
+          />
+        )}
+      </div>
+    </>
   );
 };
 

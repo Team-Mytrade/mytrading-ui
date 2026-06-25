@@ -143,8 +143,8 @@ const TaskManager: React.FC = () => {
       <PageMeta title="Task Management" description="Manage CRM tasks" />
       <PageBreadcrumb pageTitle="Task Management" />
 
-      <div className="max-w-7xl mx-auto px-6 pb-6 pt-0 space-y-6">
-        <div className="mb-8 -mt-[100px] flex justify-end">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[125px]">
           <AddButton
             onClick={() => {
               setShowFormModal(true);
@@ -186,7 +186,7 @@ const TaskManager: React.FC = () => {
           />
         </div>
 
-        <div className="flex justify-between items-center mb-4">
+        <div className="mb-4 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
           <div className="relative w-full max-w-md">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
@@ -199,8 +199,9 @@ const TaskManager: React.FC = () => {
           </div>
         </div>
 
-        <div className="shadow overflow-visible border border-gray-200 sm:rounded-lg">
-          <table className="min-w-full divide-y divide-gray-200">
+        <div className="overflow-hidden border border-gray-200 shadow sm:rounded-lg">
+          <div className="overflow-x-auto">
+          <table className="min-w-[760px] divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 {["title", "assignedTo", "status", "dueDate"].map((key) => (
@@ -267,6 +268,7 @@ const TaskManager: React.FC = () => {
               )}
             </tbody>
           </table>
+          </div>
         </div>
 
         {totalPages > 1 && (
@@ -287,8 +289,8 @@ const TaskManager: React.FC = () => {
         )}
 
         {showFormModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className="bg-white rounded-lg shadow w-full max-w-2xl mx-4 max-h-screen overflow-y-auto">
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-40 p-4 sm:items-center">
+            <div className="bg-white rounded-lg shadow w-full max-w-2xl max-h-[calc(100vh-2rem)] overflow-y-auto">
               <div className="flex items-start justify-between p-5 border-b rounded-t">
                 <h3 className="text-xl font-semibold">
                   {editingId !== null ? "Edit Task" : "Add Task"}
@@ -300,7 +302,7 @@ const TaskManager: React.FC = () => {
                   x
                 </button>
               </div>
-              <form onSubmit={handleSubmit} className="p-6 grid grid-cols-6 gap-6 pt-6">
+              <form onSubmit={handleSubmit} className="grid grid-cols-6 gap-4 p-4 pt-5 sm:gap-6 sm:p-6 sm:pt-6">
                 <div className="col-span-6 sm:col-span-3">
                   <FloatingInput
                     label="Title"
@@ -349,7 +351,7 @@ const TaskManager: React.FC = () => {
                     rows={3}
                   />
                 </div>
-                <div className="col-span-6 flex justify-end gap-2 mt-4">
+                <div className="col-span-6 mt-4 flex flex-col justify-end gap-2 sm:flex-row">
                   <button
                     type="button"
                     onClick={() => setShowFormModal(false)}

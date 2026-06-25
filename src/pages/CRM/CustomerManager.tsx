@@ -378,46 +378,11 @@ const CustomerManager: React.FC = () => {
   return (
     <>
       <PageMeta title="Customers" description="Manage your Customers" />
-      
-      <div className="max-w-7xl mx-auto px-6 pb-6 pt-0 space-y-6">
-        <div className="mb-2 flex items-center justify-between pt-0">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="inline-flex items-center justify-center rounded-full border border-gray-300 bg-white p-1.5 text-gray-800 shadow-sm transition-all hover:-translate-x-0.5 hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:border-cyan-800 dark:hover:bg-gray-800 dark:hover:text-cyan-300"
-              aria-label="Go back"
-            >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                />
-              </svg>
-            </button>
-            <h2 className="text-[20px] font-semibold text-cyan-600 dark:text-white/90">
-              Customers
-            </h2>
-          </div>
-          <nav className="max-w-full overflow-x-auto">
-            <ol className="flex items-center gap-2 whitespace-nowrap text-sm font-medium text-gray-500 dark:text-gray-400">
-              <li>
-                <Link className="inline-flex items-center gap-1.5 transition-colors hover:text-cyan-600 dark:hover:text-cyan-400" to="/">Home</Link>
-              </li>
-              <li className="text-gray-500 dark:text-gray-400">{">"}</li>
-              <li>
-                <Link className="inline-flex items-center gap-1.5 transition-colors hover:text-cyan-600 dark:hover:text-cyan-400" to="/crm_dashboard">CRM</Link>
-              </li>
-              <li className="text-gray-500 dark:text-gray-400">{">"}</li>
-              <li className="text-cyan-600 dark:text-white/90">Customers</li>
-            </ol>
-          </nav>
+      <PageBreadcrumb pageTitle="Customers" />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[125px]">
+          <AddButton onClick={handleAddCustomer} label="Add Customer" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
@@ -452,7 +417,7 @@ const CustomerManager: React.FC = () => {
 
         {/* Toolbar */}
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex-1 max-w-md">
+          <div className="w-full sm:flex-1 sm:max-w-md">
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
@@ -465,8 +430,7 @@ const CustomerManager: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <AddButton onClick={handleAddCustomer} label="Add Customer" className="!mb-0" />
+          <div className="flex w-full items-center justify-end gap-3 sm:w-auto">
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`p-2 rounded-lg border flex items-center justify-center transition-colors h-[40px] w-[40px] ${showFilters ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"}`}
@@ -480,7 +444,7 @@ const CustomerManager: React.FC = () => {
         {showFilters && (
           <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div className="flex flex-wrap gap-4">
-              <div className="flex-1 min-w-[200px]">
+              <div className="w-full min-w-0 sm:flex-1 sm:min-w-[200px]">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Status</label>
                 <select
                   value={activeFilter}
@@ -535,8 +499,8 @@ const CustomerManager: React.FC = () => {
 
         {/* Segment Modal */}
         {showSegmentModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto animate-slide-up">
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto animate-slide-up">
               <div className="flex items-center justify-between p-5 border-b border-gray-100">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">Add to Segment</h3>
@@ -580,8 +544,8 @@ const CustomerManager: React.FC = () => {
 
         {/* Communication Modal */}
         {showCommModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-auto animate-slide-up">
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto animate-slide-up">
               <div className="flex items-center justify-between p-5 border-b border-gray-100">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">Record Communication</h3>
@@ -592,7 +556,7 @@ const CustomerManager: React.FC = () => {
                 </button>
               </div>
               <form onSubmit={handleSubmitComm} className="p-5 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <select
                     value={commForm.type}
                     onChange={(e) => setCommForm({ ...commForm, type: e.target.value })}
@@ -626,7 +590,7 @@ const CustomerManager: React.FC = () => {
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                 />
-                <div className="flex justify-end gap-2 pt-2">
+                <div className="flex flex-col justify-end gap-2 pt-2 sm:flex-row">
                   <button
                     type="button"
                     onClick={() => setShowCommModal(false)}

@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import {
+  PencilSquareIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
 
 interface Product {
   id: number;
@@ -586,37 +590,24 @@ const SerialNumberManager: React.FC = () => {
                     {new Date(sn.warrantyEnd).toLocaleDateString()}
                   </td>
                   <td className="table-cell actions-cell" style={{ padding: "1rem" }}>
-                    <button
-                      onClick={() => handleEdit(sn)}
-                      className="btn edit-btn"
-                      title="Edit"
-                      style={{
-                        padding: "0.5rem 0.75rem",
-                        backgroundColor: "#3b82f6",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "0.375rem",
-                        cursor: "pointer",
-                        marginRight: "0.5rem",
-                      }}
-                    >
-                      <i className="fas fa-edit"></i>
-                    </button>
-                    <button
-                      onClick={() => handleDelete(sn.id)}
-                      className="btn delete-btn"
-                      title="Delete"
-                      style={{
-                        padding: "0.5rem 0.75rem",
-                        backgroundColor: "#ef4444",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "0.375rem",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <i className="fas fa-trash"></i>
-                    </button>
+                    <div className="flex items-center justify-end gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(sn)}
+                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+                        title="Edit Serial Number"
+                      >
+                        <PencilSquareIcon className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(sn.id)}
+                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+                        title="Delete Serial Number"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))

@@ -293,7 +293,7 @@ const CustomerFormPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600"></div>
         </div>
@@ -304,11 +304,12 @@ const CustomerFormPage: React.FC = () => {
   return (
     <>
       <PageMeta title={isEditing ? "Edit Customer" : "Create Customer"} description="Manage customer information" />
+      <PageBreadcrumb pageTitle={isEditing ? "Edit Customer" : "Create Customer"} />
 
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* Header */}
-        <div className="relative mb-8 overflow-hidden rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-700 p-8 text-white shadow-xl shadow-cyan-900/10 transition-transform duration-300 hover:scale-[1.01]">
-          <div className="relative z-10 flex items-center gap-5">
+        <div className="relative mb-8 overflow-hidden rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-700 p-5 text-white shadow-xl shadow-cyan-900/10 transition-transform duration-300 hover:scale-[1.01] sm:p-8">
+          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
             <button
               onClick={() => navigate("/customer-management")}
               className="p-2.5 rounded-full bg-white/10 hover:bg-white/25 transition-all backdrop-blur-md"
@@ -316,7 +317,7 @@ const CustomerFormPage: React.FC = () => {
               <ArrowLeftIcon className="h-6 w-6 text-white" />
             </button>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-white mb-1">
+              <h1 className="text-2xl font-bold tracking-tight text-white mb-1 sm:text-3xl">
                 {isEditing ? "Edit Customer" : "Create New Customer"}
               </h1>
               <p className="text-cyan-100 text-sm font-medium">
@@ -332,7 +333,7 @@ const CustomerFormPage: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Basic Information */}
-          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-100 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-cyan-100">
+          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-100 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-cyan-100 sm:p-8">
             <div className="flex items-center gap-4 mb-6 pb-5 border-b border-gray-100/80">
               <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-cyan-50 to-blue-50 flex items-center justify-center text-cyan-600 shadow-sm border border-cyan-100/50">
                 <BuildingOfficeIcon className="h-6 w-6" />
@@ -391,7 +392,7 @@ const CustomerFormPage: React.FC = () => {
           </div>
 
           {/* Contact Information */}
-          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-100 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-cyan-100">
+          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-100 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-cyan-100 sm:p-8">
             <div className="flex items-center gap-4 mb-6 pb-5 border-b border-gray-100/80">
               <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-cyan-50 to-blue-50 flex items-center justify-center text-cyan-600 shadow-sm border border-cyan-100/50">
                 <EnvelopeIcon className="h-6 w-6" />
@@ -426,7 +427,7 @@ const CustomerFormPage: React.FC = () => {
           </div>
 
           {/* Financial Information */}
-          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-100 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-cyan-100">
+          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-100 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-cyan-100 sm:p-8">
             <div className="flex items-center gap-4 mb-6 pb-5 border-b border-gray-100/80">
               <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-cyan-50 to-blue-50 flex items-center justify-center text-cyan-600 shadow-sm border border-cyan-100/50">
                 <CurrencyIcon className="h-6 w-6" />
@@ -474,8 +475,8 @@ const CustomerFormPage: React.FC = () => {
           </div>
 
           {/* Addresses Section */}
-          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-100 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-cyan-100">
-            <div className="flex items-center justify-between mb-6 pb-5 border-b border-gray-100/80">
+          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-100 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-cyan-100 sm:p-8">
+            <div className="mb-6 flex flex-col gap-4 border-b border-gray-100/80 pb-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">
                 <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-cyan-50 to-blue-50 flex items-center justify-center text-cyan-600 shadow-sm border border-cyan-100/50">
                   <MapPinIcon className="h-6 w-6" />
@@ -501,8 +502,8 @@ const CustomerFormPage: React.FC = () => {
             </div>
 
             {showAddressModal ? (
-              <div className="bg-gray-50/50 rounded-xl border border-gray-100 p-6 animate-slide-up">
-                <div className="flex items-center justify-between mb-5">
+              <div className="bg-gray-50/50 rounded-xl border border-gray-100 p-4 animate-slide-up sm:p-6">
+                <div className="mb-5 flex items-start justify-between gap-3">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
                       {editingAddressIndex !== null ? "Edit Address" : "Add Address"}
@@ -531,7 +532,7 @@ const CustomerFormPage: React.FC = () => {
                     value={currentAddress.addressLine2 || ""}
                     onChange={(e) => setCurrentAddress({ ...currentAddress, addressLine2: e.target.value })}
                   />
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <FloatingInput
                       label="City *"
                       value={currentAddress.city}
@@ -545,7 +546,7 @@ const CustomerFormPage: React.FC = () => {
                       required={false}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <FloatingInput
                       label="Postal Code"
                       value={currentAddress.postalCode}
@@ -568,7 +569,7 @@ const CustomerFormPage: React.FC = () => {
                     <span className="text-sm text-gray-700">Set as default address</span>
                   </label>
                 </div>
-                <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
+                <div className="mt-6 flex flex-col justify-end gap-3 border-t border-gray-100 pt-5 sm:flex-row">
                   <button
                     type="button"
                     onClick={() => setShowAddressModal(false)}
@@ -659,18 +660,18 @@ const CustomerFormPage: React.FC = () => {
           </div>
 
           {/* Form Actions */}
-          <div className="mt-8 flex flex-row items-center justify-between sm:justify-end gap-3 sm:gap-4 p-3 sm:p-4 bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+          <div className="mt-8 flex flex-col items-stretch justify-between gap-3 rounded-2xl border border-gray-200/50 bg-white/90 p-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-end sm:gap-4 sm:p-4">
             <button
               type="button"
               onClick={() => navigate("/customer-management")}
-              className="flex-1 sm:flex-none px-2 sm:px-6 h-[44px] flex items-center justify-center rounded-xl text-gray-600 font-semibold hover:bg-gray-100 transition-colors whitespace-nowrap"
+              className="flex h-[44px] items-center justify-center rounded-xl px-2 font-semibold text-gray-600 transition-colors hover:bg-gray-100 sm:flex-none sm:px-6"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex-[1.5] sm:flex-none px-2 sm:px-8 h-[44px] flex items-center justify-center gap-1.5 sm:gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 !text-white rounded-xl font-semibold shadow-md hover:shadow-lg hover:from-cyan-700 hover:to-blue-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              className="flex h-[44px] items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-2 font-semibold !text-white shadow-md transition-all duration-300 hover:from-cyan-700 hover:to-blue-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none sm:gap-2 sm:px-8"
             >
               {saving ? (
                 <>

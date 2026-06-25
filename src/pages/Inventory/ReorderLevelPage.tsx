@@ -4,14 +4,10 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import {
-    EllipsisVerticalIcon,
     PencilSquareIcon,
     TrashIcon,
     MagnifyingGlassIcon,
     FunnelIcon,
-    ArrowUpIcon,
-    ArrowDownIcon,
-    BuildingOfficeIcon,
     CheckCircleIcon,
     XCircleIcon,
     DocumentArrowDownIcon,
@@ -23,13 +19,14 @@ import {
     DocumentTextIcon,
     ChartBarIcon,
 } from "@heroicons/react/24/outline";
-import { Menu } from "@headlessui/react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import StatsCard from "../../components/common/Statscard";
+import ReusableTable, { ColumnDef } from "../../components/common/Table";
 
 interface ReorderItem {
     id: number;
@@ -54,9 +51,6 @@ const ReorderLevelPage: React.FC = () => {
     const [items, setItems] = useState<ReorderItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
-    const [sortKey, setSortKey] = useState<keyof ReorderItem>("product");
-    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-    const [page, setPage] = useState(1);
     const [showForm, setShowForm] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
@@ -216,14 +210,6 @@ const ReorderLevelPage: React.FC = () => {
         setShowExportMenu(false);
     };
 
-    const handleSort = (field: keyof ReorderItem) => {
-        if (sortKey === field) setSortOrder(o => o === "asc" ? "desc" : "asc");
-        else { setSortKey(field); setSortOrder("asc"); }
-    };
-
-    const SortIcon = ({ col }: { col: keyof ReorderItem }) =>
-        sortKey !== col ? null : sortOrder === "asc" ? <ArrowUpIcon className="h-3 w-3 inline ml-1" /> : <ArrowDownIcon className="h-3 w-3 inline ml-1" />;
-
     const filtered = useMemo(() => {
         return items.filter(i => {
             const matchesSearch = i.product.toLowerCase().includes(search.toLowerCase()) ||
@@ -240,28 +226,6 @@ const ReorderLevelPage: React.FC = () => {
             return matchesSearch && matchesStatus;
         });
     }, [items, search, statusFilter]);
-
-    const sorted = [...filtered].sort((a, b) => {
-        let valA = a[sortKey];
-        let valB = b[sortKey];
-
-        if (valA == null && valB == null) return 0;
-        if (valA == null) return 1;
-        if (valB == null) return -1;
-
-        if (typeof valA === "string" && typeof valB === "string") {
-            return sortOrder === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        }
-
-        if (typeof valA === "number" && typeof valB === "number") {
-            return sortOrder === "asc" ? valA - valB : valB - valA;
-        }
-
-        return 0;
-    });
-
-    const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-    const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
 
     // Calculate stats from real data
     const totalItems = items.length;
@@ -297,6 +261,135 @@ const ReorderLevelPage: React.FC = () => {
         return Math.min(percentage, 100);
     };
 
+    const tableColumns: ColumnDef<ReorderItem>[] = [
+        {
+            key: "product",
+            label: "Product",
+            sortable: true,
+            headerClassName: "w-[30%] text-left",
+            className: "w-[30%]",
+            render: (item) => (
+                <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <CubeIcon className="h-4 w-4 text-cyan-600" />
+                    </div>
+                    <div className="min-w-0">
+                        <div className="text-sm font-semibold text-slate-900 truncate leading-snug">{item.product}</div>
+                        {item.productSKU && (
+                            <div className="text-xs text-slate-500 truncate mt-0.5">SKU: {item.productSKU}</div>
+                        )}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            key: "currentStock",
+            label: "Current Stock",
+            sortable: true,
+            headerClassName: "w-[15%] text-left",
+            className: "w-[15%]",
+            render: (item) => {
+                const isReorderNeeded = item.currentStock <= item.reorderLevel;
+                return (
+                    <span className={`text-sm font-semibold ${isReorderNeeded ? "text-red-600" : "text-green-600"}`}>
+                        {item.currentStock}
+                        {item.unit && <span className="text-xs text-slate-400 ml-1 font-medium">{item.unit}</span>}
+                    </span>
+                );
+            },
+        },
+        {
+            key: "reorderLevel",
+            label: "Reorder Level",
+            sortable: true,
+            headerClassName: "w-[15%] text-left",
+            className: "w-[15%]",
+            render: (item) => (
+                <span className="text-sm font-medium text-slate-600">
+                    {item.reorderLevel}
+                    {item.unit && <span className="text-xs text-slate-400 ml-1">{item.unit}</span>}
+                </span>
+            ),
+        },
+        {
+            key: "status",
+            label: "Status",
+            sortable: true,
+            sortValueGetter: (item) => getStatusText(item.currentStock, item.reorderLevel),
+            headerClassName: "w-[18%] text-left",
+            className: "w-[18%]",
+            render: (item) => (
+                <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full border ${getStatusBadge(item.currentStock, item.reorderLevel)}`}>
+                    {getStatusIcon(item.currentStock, item.reorderLevel)}
+                    {getStatusText(item.currentStock, item.reorderLevel)}
+                </span>
+            ),
+        },
+        {
+            key: "stockLevel",
+            label: "Stock Level",
+            sortable: true,
+            sortValueGetter: (item) => getStockPercentage(item.currentStock, item.reorderLevel),
+            headerClassName: "w-[16%] text-left",
+            className: "w-[16%]",
+            render: (item) => {
+                const percentage = getStockPercentage(item.currentStock, item.reorderLevel);
+                const isReorderNeeded = item.currentStock <= item.reorderLevel;
+                return (
+                    <div className="flex items-center gap-2">
+                        <div className="h-2 w-full min-w-[80px] rounded-full bg-slate-100 overflow-hidden">
+                            <div
+                                className={`h-full rounded-full ${isReorderNeeded ? "bg-red-500" : "bg-green-500"}`}
+                                style={{ width: `${percentage}%` }}
+                            />
+                        </div>
+                        <span className="text-xs font-medium text-slate-500 min-w-[38px]">
+                            {Math.min(Math.round(percentage), 100)}%
+                        </span>
+                    </div>
+                );
+            },
+        },
+        {
+            key: "actions",
+            label: "Actions",
+            sortable: false,
+            headerClassName: "w-[6%] text-right pr-4",
+            className: "w-[6%] text-right",
+            render: (item) => (
+                <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setSelectedItem(item);
+                            setViewModalOpen(true);
+                        }}
+                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
+                        title="View Details"
+                    >
+                        <EyeIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleEdit(item)}
+                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+                        title="Edit Reorder Level"
+                    >
+                        <PencilSquareIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleDelete(item.id, item.product)}
+                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+                        title="Delete Reorder Level"
+                    >
+                        <TrashIcon className="h-4 w-4" />
+                    </button>
+                </div>
+            ),
+        },
+    ];
+
     return (
         <>
             <PageMeta title="Reorder Level Management" description="Manage inventory reorder levels" />
@@ -315,53 +408,38 @@ const ReorderLevelPage: React.FC = () => {
 
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600">Total Items</p>
-                                <p className="text-2xl font-semibold text-gray-900">{totalItems}</p>
-                            </div>
-                            <div className="p-3 bg-blue-100 rounded-full">
-                                <CubeIcon className="h-6 w-6 text-blue-600" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600">Reorder Needed</p>
-                                <p className="text-2xl font-semibold text-red-600">{reorderNeeded}</p>
-                            </div>
-                            <div className="p-3 bg-red-100 rounded-full">
-                                <ExclamationTriangleIcon className="h-6 w-6 text-red-600" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600">Stock OK</p>
-                                <p className="text-2xl font-semibold text-green-600">{okItems}</p>
-                            </div>
-                            <div className="p-3 bg-green-100 rounded-full">
-                                <CheckCircleIcon className="h-6 w-6 text-green-600" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600">Total Stock</p>
-                                <p className="text-2xl font-semibold text-purple-600">{totalStock.toLocaleString()}</p>
-                            </div>
-                            <div className="p-3 bg-purple-100 rounded-full">
-                                <ChartBarIcon className="h-6 w-6 text-purple-600" />
-                            </div>
-                        </div>
-                    </div>
+                    <StatsCard
+                        label="Total Items"
+                        value={totalItems}
+                        gradient="from-cyan-50 to-blue-50"
+                        borderColor="border-cyan-100"
+                        labelColor="text-cyan-600"
+                        icon={<CubeIcon />}
+                    />
+                    <StatsCard
+                        label="Reorder Needed"
+                        value={reorderNeeded}
+                        gradient="from-red-50 to-rose-50"
+                        borderColor="border-red-100"
+                        labelColor="text-red-600"
+                        icon={<ExclamationTriangleIcon />}
+                    />
+                    <StatsCard
+                        label="Stock OK"
+                        value={okItems}
+                        gradient="from-green-50 to-emerald-50"
+                        borderColor="border-green-100"
+                        labelColor="text-green-600"
+                        icon={<CheckCircleIcon />}
+                    />
+                    <StatsCard
+                        label="Total Stock"
+                        value={totalStock.toLocaleString()}
+                        gradient="from-purple-50 to-pink-50"
+                        borderColor="border-purple-100"
+                        labelColor="text-purple-600"
+                        icon={<ChartBarIcon />}
+                    />
                 </div>
 
                 {/* Toolbar */}
@@ -373,7 +451,7 @@ const ReorderLevelPage: React.FC = () => {
                                 type="text"
                                 placeholder="Search by product, SKU, or supplier..."
                                 value={search}
-                                onChange={e => { setSearch(e.target.value); setPage(1); }}
+                                onChange={e => setSearch(e.target.value)}
                                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                             />
                         </div>
@@ -448,7 +526,7 @@ const ReorderLevelPage: React.FC = () => {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Stock Status</label>
                                 <select
                                     value={statusFilter}
-                                    onChange={e => { setStatusFilter(e.target.value as any); setPage(1); }}
+                                    onChange={e => setStatusFilter(e.target.value as any)}
                                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                                 >
                                     <option value="All">All Items</option>
@@ -469,248 +547,25 @@ const ReorderLevelPage: React.FC = () => {
                 )}
 
                 {/* Table */}
-                <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-visible">
-                    <div className="overflow-x-auto overflow-y-visible">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    {[
-                                        { key: "product", label: "Product" },
-                                        { key: "currentStock", label: "Current Stock" },
-                                        { key: "reorderLevel", label: "Reorder Level" },
-                                        { key: null, label: "Status" },
-                                        { key: null, label: "Stock Level" },
-                                        { key: null, label: "Actions" },
-                                    ].map((col, i) => (
-                                        <th
-                                            key={i}
-                                            onClick={() => col.key && handleSort(col.key as keyof ReorderItem)}
-                                            className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${col.key ? "cursor-pointer hover:bg-gray-100" : ""
-                                                }`}
-                                        >
-                                            <span className="flex items-center">
-                                                {col.label}
-                                                {col.key && <SortIcon col={col.key as keyof ReorderItem} />}
-                                            </span>
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {loading ? (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mb-3"></div>
-                                                <p className="text-gray-500 text-sm">Loading reorder items...</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : paginated.length > 0 ? paginated.map(item => {
-                                    const percentage = getStockPercentage(item.currentStock, item.reorderLevel);
-                                    const isReorderNeeded = item.currentStock <= item.reorderLevel;
-                                    return (
-                                        <tr
-                                            key={item.id}
-                                            className="hover:bg-gray-50 transition-colors cursor-pointer"
-                                            onClick={() => {
-                                                setSelectedItem(item);
-                                                setViewModalOpen(true);
-                                            }}
-                                        >
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center">
-                                                    <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3">
-                                                        <CubeIcon className="h-4 w-4 text-cyan-600" />
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-sm font-medium text-gray-900">{item.product}</div>
-                                                        {item.productSKU && (
-                                                            <div className="text-xs text-gray-500 mt-0.5">SKU: {item.productSKU}</div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`text-sm font-medium ${isReorderNeeded ? "text-red-600" : "text-green-600"}`}>
-                                                    {item.currentStock}
-                                                </span>
-                                                {item.unit && <span className="text-xs text-gray-400 ml-1">{item.unit}</span>}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="text-sm text-gray-600">{item.reorderLevel}</span>
-                                                {item.unit && <span className="text-xs text-gray-400 ml-1">{item.unit}</span>}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(item.currentStock, item.reorderLevel)}`}>
-                                                    {getStatusIcon(item.currentStock, item.reorderLevel)}
-                                                    {getStatusText(item.currentStock, item.reorderLevel)}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap w-48">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                                        <div
-                                                            className={`h-full rounded-full ${isReorderNeeded ? "bg-red-500" : "bg-green-500"}`}
-                                                            style={{ width: `${percentage}%` }}
-                                                        />
-                                                    </div>
-                                                    <span className="text-xs text-gray-500 min-w-[45px]">
-                                                        {Math.min(Math.round(percentage), 100)}%
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right relative" onClick={e => e.stopPropagation()}>
-                                                <Menu as="div" className="relative inline-block text-left">
-                                                    <Menu.Button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                                                        <EllipsisVerticalIcon className="h-5 w-5 text-gray-500" />
-                                                    </Menu.Button>
-                                                    <Menu.Items className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-[100]">
-                                                        <Menu.Item>
-                                                            {({ active }) => (
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setSelectedItem(item);
-                                                                        setViewModalOpen(true);
-                                                                    }}
-                                                                    className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                                                >
-                                                                    <EyeIcon className="h-4 w-4 text-blue-600" />
-                                                                    View Details
-                                                                </button>
-                                                            )}
-                                                        </Menu.Item>
-                                                        <Menu.Item>
-                                                            {({ active }) => (
-                                                                <button
-                                                                    onClick={() => handleEdit(item)}
-                                                                    className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                                                >
-                                                                    <PencilSquareIcon className="h-4 w-4 text-cyan-600" />
-                                                                    Edit
-                                                                </button>
-                                                            )}
-                                                        </Menu.Item>
-                                                        <Menu.Item>
-                                                            {({ active }) => (
-                                                                <button
-                                                                    onClick={() => handleDelete(item.id, item.product)}
-                                                                    className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-red-600`}
-                                                                >
-                                                                    <TrashIcon className="h-4 w-4" />
-                                                                    Delete
-                                                                </button>
-                                                            )}
-                                                        </Menu.Item>
-                                                    </Menu.Items>
-                                                </Menu>
-                                            </td>
-                                        </tr>
-                                    );
-                                }) : (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <CubeIcon className="h-12 w-12 text-gray-400 mb-3" />
-                                                <p className="text-gray-500 text-sm mb-2">No reorder items found</p>
-                                                <p className="text-gray-400 text-xs">Click "Add Item" to create one</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Pagination */}
-                    {totalPages > 0 && (
-                        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                            <div className="flex-1 flex justify-between sm:hidden">
-                                <button
-                                    onClick={() => setPage(Math.max(1, page - 1))}
-                                    disabled={page === 1}
-                                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Previous
-                                </button>
-                                <button
-                                    onClick={() => setPage(Math.min(totalPages, page + 1))}
-                                    disabled={page === totalPages}
-                                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Next
-                                </button>
-                            </div>
-                            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                                <div>
-                                    <p className="text-sm text-gray-700">
-                                        Showing <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> to{' '}
-                                        <span className="font-medium">
-                                            {Math.min(page * PAGE_SIZE, filtered.length)}
-                                        </span>{' '}
-                                        of <span className="font-medium">{filtered.length}</span> results
-                                    </p>
-                                </div>
-                                <div>
-                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                                        <button
-                                            onClick={() => setPage(1)}
-                                            disabled={page === 1}
-                                            className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            First
-                                        </button>
-                                        <button
-                                            onClick={() => setPage(Math.max(1, page - 1))}
-                                            disabled={page === 1}
-                                            className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Previous
-                                        </button>
-                                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                            let pageNum: number;
-                                            if (totalPages <= 5) {
-                                                pageNum = i + 1;
-                                            } else if (page <= 3) {
-                                                pageNum = i + 1;
-                                            } else if (page >= totalPages - 2) {
-                                                pageNum = totalPages - 4 + i;
-                                            } else {
-                                                pageNum = page - 2 + i;
-                                            }
-                                            return (
-                                                <button
-                                                    key={pageNum}
-                                                    onClick={() => setPage(pageNum)}
-                                                    className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page === pageNum
-                                                            ? "z-10 bg-cyan-50 border-cyan-500 text-cyan-600"
-                                                            : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                                                        }`}
-                                                >
-                                                    {pageNum}
-                                                </button>
-                                            );
-                                        })}
-                                        <button
-                                            onClick={() => setPage(Math.min(totalPages, page + 1))}
-                                            disabled={page === totalPages}
-                                            className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Next
-                                        </button>
-                                        <button
-                                            onClick={() => setPage(totalPages)}
-                                            disabled={page === totalPages}
-                                            className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Last
-                                        </button>
-                                    </nav>
-                                </div>
-                            </div>
+                <ReusableTable
+                    data={filtered}
+                    columns={tableColumns}
+                    pageSize={PAGE_SIZE}
+                    defaultSortKey="product"
+                    defaultSortOrder="asc"
+                    loading={loading}
+                    onRowClick={(item) => {
+                        setSelectedItem(item);
+                        setViewModalOpen(true);
+                    }}
+                    emptyState={
+                        <div className="flex flex-col items-center justify-center py-12">
+                            <CubeIcon className="h-12 w-12 text-gray-400 mb-3" />
+                            <p className="text-gray-500 text-sm mb-2">No reorder items found</p>
+                            <p className="text-gray-400 text-xs">Click "Add Item" to create one</p>
                         </div>
-                    )}
-                </div>
+                    }
+                />
 
                 {/* View Details Modal */}
                 {viewModalOpen && selectedItem && (

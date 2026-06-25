@@ -88,7 +88,7 @@ const SkeletonRow = ({ cols }: { cols: number }) => (
       <td key={i} className="px-4 py-3">
         <div
           className={[
-            "h-4 rounded-lg bg-gray-100",
+            "h-4 rounded-lg bg-gray-100 dark:bg-gray-800",
             i === 0 ? "w-3/4" : i % 3 === 0 ? "w-1/4" : "w-1/2",
           ].join(" ")}
         />
@@ -99,9 +99,9 @@ const SkeletonRow = ({ cols }: { cols: number }) => (
 
 
 const DefaultEmpty = () => (
-  <div className="flex flex-col items-center py-4 text-gray-400">
-    <div className="h-14 w-14 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-      <MagnifyingGlassIcon className="h-6 w-6 text-gray-400" />
+  <div className="flex flex-col items-center py-4 text-gray-400 dark:text-gray-500">
+    <div className="h-14 w-14 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-3">
+      <MagnifyingGlassIcon className="h-6 w-6 text-gray-400 dark:text-gray-500" />
     </div>
     <span className="text-sm font-medium">No results found</span>
   </div>
@@ -176,12 +176,12 @@ export function ReusableTable<T extends { id?: number | string }>({
                 value={search}
                 onChange={(e) => handleSearch(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="w-full pl-10 pr-9 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all"
+                className="w-full pl-10 pr-9 py-2 border border-gray-200 rounded-xl bg-white text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
               />
               {search && (
                 <button
                   onClick={() => handleSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   <XMarkIcon className="h-4 w-4" />
                 </button>
@@ -195,17 +195,17 @@ export function ReusableTable<T extends { id?: number | string }>({
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-visible shadow-sm">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-visible shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <div className="overflow-x-auto overflow-y-visible relative">
-          <table className="min-w-full table-fixed divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full table-fixed divide-y divide-gray-200 dark:divide-gray-800">
+            <thead className="bg-gray-50 dark:bg-gray-800/70">
               <tr>
                 {columns.map((col) => (
                   <th
                     key={col.key}
                     onClick={() => col.sortable && handleSort(col.key)}
                     className={[
-                      "px-4 py-3 text-xs font-semibold text-black dark:text-white uppercase tracking-wider select-none",
+                      "px-4 py-3 text-xs font-semibold text-black dark:text-gray-100 uppercase tracking-wider select-none",
                       col.sortable
                         ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                         : "",
@@ -224,7 +224,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                             <ArrowDownIcon className="h-3.5 w-3.5 text-cyan-600" />
                           )
                         ) : (
-                          <ChevronUpDownIcon className="h-3.5 w-3.5 text-gray-300" />
+                          <ChevronUpDownIcon className="h-3.5 w-3.5 text-gray-300 dark:text-gray-500" />
                         ))}
                     </span>
                   </th>
@@ -233,7 +233,7 @@ export function ReusableTable<T extends { id?: number | string }>({
             </thead>
 
             {/* Body */}
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-200 dark:divide-gray-800 dark:bg-gray-900">
               {loading ? (
                 Array.from({ length: Math.min(pageSize, 5) }).map((_, i) => (
                   <SkeletonRow key={i} cols={columns.length} />
@@ -250,7 +250,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                     key={row.id ?? `row-${idx}`}
                     onClick={() => onRowClick?.(row)}
                     className={[
-                      "transition-colors hover:bg-gray-50",
+                      "transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/60",
                       onRowClick ? "cursor-pointer" : "",
                     ]
                       .filter(Boolean)
@@ -261,7 +261,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                       <td
                         key={col.key}
                         className={[
-                          "px-1.5 py-1.5 text-sm text-gray-700",
+                          "px-1.5 py-1.5 text-sm text-gray-700 dark:text-gray-300",
                           col.className ?? "",
                         ]
                           .filter(Boolean)
@@ -280,15 +280,15 @@ export function ReusableTable<T extends { id?: number | string }>({
         </div>
 
         {!loading && sorted.length > 0 && (
-          <div className="px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 border-t border-gray-100">
+          <div className="px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 border-t border-gray-100 dark:border-gray-800">
 
-            <p className="text-xs text-gray-500 shrink-0">
+            <p className="text-xs text-gray-500 shrink-0 dark:text-gray-400">
               Showing{" "}
-              <span className="font-medium text-gray-700">
+              <span className="font-medium text-gray-700 dark:text-gray-200">
                 {(safePage - 1) * pageSize + 1}
               </span>{" "}
               of{" "}
-              <span className="font-medium text-gray-700">{sorted.length}</span>{" "}
+              <span className="font-medium text-gray-700 dark:text-gray-200">{sorted.length}</span>{" "}
               results
             </p>
 
@@ -299,7 +299,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                 onClick={() => setPage(1)}
                 disabled={safePage === 1}
                 title="First page"
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 <FirstPageIcon style={{ fontSize: 18 }} />
               </button>
@@ -309,7 +309,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={safePage === 1}
                 title="Previous page"
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 <ChevronLeftIcon style={{ fontSize: 18 }} />
               </button>
@@ -322,8 +322,8 @@ export function ReusableTable<T extends { id?: number | string }>({
                   className={[
                     "w-8 h-8 rounded-lg text-xs font-medium transition-colors border",
                     safePage === num
-                      ? "border-cyan-500 text-cyan-600 bg-white font-semibold"
-                      : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50",
+                      ? "border-cyan-500 text-cyan-600 bg-white font-semibold dark:bg-cyan-950/30 dark:text-cyan-300"
+                      : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800",
                   ].join(" ")}
                 >
                   {num}
@@ -335,7 +335,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={safePage === totalPages}
                 title="Next page"
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 <ChevronRightIcon style={{ fontSize: 18 }} />
               </button>
@@ -345,7 +345,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                 onClick={() => setPage(totalPages)}
                 disabled={safePage === totalPages}
                 title="Last page"
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 <LastPageIcon style={{ fontSize: 18 }} />
               </button>

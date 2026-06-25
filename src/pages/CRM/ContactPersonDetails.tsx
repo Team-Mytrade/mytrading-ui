@@ -37,14 +37,17 @@ enum Role {
 
 interface Customer {
   id: number;
-  companyName: string;
-  industry: string;
+  companyName?: string;
+  customerName?: string;
+  tradeName?: string;
+  industry?: string;
   email: string;
   phone: string;
   website: string;
   status: string;
-  address: Address;
-  name: string;
+  address?: Address;
+  name?: string;
+  contacts?: Contact[];
 }
 
 interface Contact {
@@ -58,7 +61,19 @@ interface Contact {
 }
 
 const API_URL = "/v1/api/crm/contacts";
+const CUSTOMER_API_URL = "/v1/api/crm/customers";
 const PAGE_SIZE = 10;
+
+const getCustomerDisplayName = (customer?: Customer | null) =>
+  customer?.customerName || customer?.companyName || customer?.name || customer?.tradeName || "Unnamed Customer";
+
+const mapContactsFromCustomers = (customerList: Customer[]): Contact[] =>
+  customerList.flatMap((customer) =>
+    (customer.contacts ?? []).map((contact) => ({
+      ...contact,
+      customer,
+    }))
+  );
 
 const ContactPersonDetails: React.FC = () => {
   const navigate = useNavigate();
@@ -103,7 +118,6 @@ const ContactPersonDetails: React.FC = () => {
   }, [showAddModal, showEditModal, showAssignModal, showDeletePopup]);
 
   useEffect(() => {
-    fetchContacts();
     fetchCustomers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -143,10 +157,12 @@ const ContactPersonDetails: React.FC = () => {
 
   const fetchCustomers = async () => {
     try {
-      const res = await axios.get<Customer[]>("/v1/api/crm/customers", {
+      const res = await axios.get<Customer[]>(CUSTOMER_API_URL, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setCustomers(res.data);
+      const customerData = Array.isArray(res.data) ? res.data : [];
+      setCustomers(customerData);
+      setContacts(mapContactsFromCustomers(customerData));
     } catch (err) {
       console.error("Error fetching customers", err);
     }
@@ -166,7 +182,7 @@ const ContactPersonDetails: React.FC = () => {
       });
       setShowDeletePopup(false);
       setContactToDelete(null);
-      fetchContacts();
+      fetchCustomers();
       ToasterService.success("Contact deleted successfully!");
     } catch (err) {
       console.error("Error deleting contact", err);
@@ -221,7 +237,7 @@ const ContactPersonDetails: React.FC = () => {
           role: "",
           customerId: "",
         });
-        fetchContacts();
+        fetchCustomers();
       }
     } catch (error) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -255,7 +271,7 @@ const ContactPersonDetails: React.FC = () => {
         ToasterService.success("Contact updated successfully!");
         setShowEditModal(false);
         setEditContact(null);
-        fetchContacts();
+        fetchCustomers();
       }
     } catch (error) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -275,7 +291,7 @@ const ContactPersonDetails: React.FC = () => {
       );
       ToasterService.success("Customer assigned successfully!");
       setShowAssignModal(false);
-      fetchContacts();
+      fetchCustomers();
     } catch (err) {
       console.error("Error assigning customer:", err);
       ToasterService.error("Failed to assign customer");
@@ -302,16 +318,24 @@ const ContactPersonDetails: React.FC = () => {
       key: "fullName",
       label: "Contact Name",
       sortable: true,
+      headerClassName: "w-[24%] text-left",
+      className: "w-[24%]",
       render: (contact) => (
-        <div className="flex items-center">
-          <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3">
+        <div className="flex min-w-0 items-center">
+          <div className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-100">
             <span className="text-sm font-medium text-cyan-700">
               {contact.fullName.charAt(0).toUpperCase()}
             </span>
           </div>
-          <div>
-            <div className="text-sm font-medium text-gray-900">{contact.fullName}</div>
-            {contact.designation && <div className="text-xs text-gray-500 mt-0.5">{contact.designation}</div>}
+          <div className="min-w-0">
+            <div className="max-w-[120px] truncate text-sm font-medium text-gray-900 sm:max-w-[150px]" title={contact.fullName}>
+              {contact.fullName}
+            </div>
+            {contact.designation && (
+              <div className="mt-0.5 max-w-[120px] truncate text-xs text-gray-500 sm:max-w-[150px]" title={contact.designation}>
+                {contact.designation}
+              </div>
+            )}
           </div>
         </div>
       ),
@@ -320,11 +344,13 @@ const ContactPersonDetails: React.FC = () => {
       key: "email",
       label: "Email",
       sortable: true,
+      headerClassName: "w-[22%] text-left",
+      className: "w-[22%]",
       render: (contact) => (
         <div className="space-y-1">
           <div className="flex items-center text-xs text-gray-600">
             <EnvelopeIcon className="h-3 w-3 mr-1 text-gray-400 shrink-0" />
-            <a href={`mailto:${contact.email}`} onClick={(e) => e.stopPropagation()} className="hover:text-cyan-600 truncate max-w-[100px]" title={contact.email}>
+            <a href={`mailto:${contact.email}`} onClick={(e) => e.stopPropagation()} className="max-w-[120px] truncate hover:text-cyan-600 sm:max-w-[150px]" title={contact.email}>
               {contact.email || "-"}
             </a>
           </div>
@@ -335,10 +361,12 @@ const ContactPersonDetails: React.FC = () => {
       key: "phone",
       label: "Phone",
       sortable: true,
+      headerClassName: "w-[16%] text-left",
+      className: "w-[16%]",
       render: (contact) => (
-        <div className="flex items-center text-xs text-gray-600">
-          <PhoneIcon className="h-3 w-3 mr-1 text-gray-400" />
-          <a href={`tel:${contact.phone}`} onClick={(e) => e.stopPropagation()} className="hover:text-gray-900">
+        <div className="flex min-w-0 items-center text-xs text-gray-600">
+          <PhoneIcon className="h-3 w-3 mr-1 shrink-0 text-gray-400" />
+          <a href={`tel:${contact.phone}`} onClick={(e) => e.stopPropagation()} className="max-w-[105px] truncate hover:text-gray-900" title={contact.phone}>
             {contact.phone || "—"}
           </a>
         </div>
@@ -348,6 +376,8 @@ const ContactPersonDetails: React.FC = () => {
       key: "role",
       label: "Role",
       sortable: true,
+      headerClassName: "w-[16%] text-left",
+      className: "w-[16%]",
       render: (contact) =>
         contact.role ? (
           <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap rounded-full border ${contact.role === Role.DECISION_MAKER ? "bg-purple-50 text-purple-700 border-purple-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>
@@ -360,11 +390,15 @@ const ContactPersonDetails: React.FC = () => {
     {
       key: "customer",
       label: "Company",
+      headerClassName: "w-[14%] text-left",
+      className: "w-[14%]",
       render: (contact) =>
         contact.customer ? (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap rounded-full bg-gray-50 text-gray-700 border border-gray-200">
+          <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-gray-700">
             <BuildingOfficeIcon className="h-3 w-3 text-gray-400 shrink-0" />
-            <span className="truncate max-w-[120px]" title={contact.customer.name}>{contact.customer.name}</span>
+            <span className="max-w-[90px] truncate" title={getCustomerDisplayName(contact.customer)}>
+              {getCustomerDisplayName(contact.customer)}
+            </span>
           </span>
         ) : (
           <span className="text-xs text-gray-400 italic">No company</span>
@@ -373,17 +407,17 @@ const ContactPersonDetails: React.FC = () => {
     {
       key: "actions",
       label: "Actions",
-      headerClassName: "!text-right pr-8",
-      className: "text-right",
+      headerClassName: "w-[8%] !text-right pr-3",
+      className: "w-[8%] text-right",
       render: (contact) => (
-        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={() => {
               setEditContact(contact);
               setShowEditModal(true);
             }}
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
             title="Edit Contact"
           >
             <PencilSquareIcon className="h-4 w-4" />
@@ -396,7 +430,7 @@ const ContactPersonDetails: React.FC = () => {
                 setActiveContactId(contact.id);
                 setShowAssignModal(true);
               }}
-              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
+              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
               title="Add Customer"
             >
               <UserPlusIcon className="h-4 w-4" />
@@ -405,7 +439,7 @@ const ContactPersonDetails: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate(`/customer-management/${contact.customer?.id}`)}
-              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
+              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
               title="View Customer"
             >
               <UsersIcon className="h-4 w-4" />
@@ -415,7 +449,7 @@ const ContactPersonDetails: React.FC = () => {
           <button
             type="button"
             onClick={() => handleDelete(contact.id)}
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
             title="Delete Contact"
           >
             <TrashIcon className="h-4 w-4" />
@@ -428,46 +462,11 @@ const ContactPersonDetails: React.FC = () => {
   return (
     <>
       <PageMeta title="Contact Persons" description="Manage your contact persons" />
+      <PageBreadcrumb pageTitle="Contact Persons" />
 
-      <div className="max-w-7xl mx-auto px-6 pb-6 pt-0 space-y-6">
-        <div className="mb-2 flex items-center justify-between pt-0">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="inline-flex items-center justify-center rounded-full border border-gray-300 bg-white p-1.5 text-gray-800 shadow-sm transition-all hover:-translate-x-0.5 hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:border-cyan-800 dark:hover:bg-gray-800 dark:hover:text-cyan-300"
-              aria-label="Go back"
-            >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                />
-              </svg>
-            </button>
-            <h2 className="text-[20px] font-semibold text-cyan-600 dark:text-white/90">
-              Contact Master
-            </h2>
-          </div>
-          <nav className="max-w-full overflow-x-auto">
-            <ol className="flex items-center gap-2 whitespace-nowrap text-sm font-medium text-gray-500 dark:text-gray-400">
-              <li>
-                <Link className="inline-flex items-center gap-1.5 transition-colors hover:text-cyan-600 dark:hover:text-cyan-400" to="/">Home</Link>
-              </li>
-              <li className="text-gray-500 dark:text-gray-400">{">"}</li>
-              <li>
-                <Link className="inline-flex items-center gap-1.5 transition-colors hover:text-cyan-600 dark:hover:text-cyan-400" to="/crm_dashboard">CRM</Link>
-              </li>
-              <li className="text-gray-500 dark:text-gray-400">{">"}</li>
-              <li className="text-cyan-600 dark:text-white/90">Key Contacts</li>
-            </ol>
-          </nav>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[125px]">
+          <AddButton onClick={() => setShowAddModal(true)} label="Add Contact Person" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
@@ -502,7 +501,7 @@ const ContactPersonDetails: React.FC = () => {
 
         {/* Toolbar */}
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex-1 max-w-md">
+          <div className="w-full sm:flex-1 sm:max-w-md">
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
@@ -515,8 +514,7 @@ const ContactPersonDetails: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <AddButton onClick={() => setShowAddModal(true)} label="Add Contact Person" className="!mb-0" />
+          <div className="flex w-full items-center justify-end gap-3 sm:w-auto">
             {/* Filter Button */}
             <button
               onClick={() => setShowFilters(!showFilters)}
@@ -532,7 +530,7 @@ const ContactPersonDetails: React.FC = () => {
         {showFilters && (
           <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div className="flex flex-wrap gap-4">
-              <div className="flex-1 min-w-[200px]">
+              <div className="w-full min-w-0 sm:flex-1 sm:min-w-[200px]">
                 <FloatingSelect
                   label="Filter by Role"
                   name="filter"
@@ -590,7 +588,7 @@ const ContactPersonDetails: React.FC = () => {
 
         {/* Add Contact Modal */}
         {showAddModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-auto overflow-y-auto max-h-[90vh]">
               <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b border-gray-100">
                 <div>
@@ -611,7 +609,7 @@ const ContactPersonDetails: React.FC = () => {
 
               <form onSubmit={handleAddContact} className="p-6 space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                  <div className="col-span-2 sm:col-span-1">
+                  <div className="col-span-1 sm:col-span-1">
                     <FloatingInput
                       label="Full Name"
                       name="fullName"
@@ -621,7 +619,7 @@ const ContactPersonDetails: React.FC = () => {
                     />
                   </div>
 
-                  <div className="col-span-2 sm:col-span-1">
+                  <div className="col-span-1 sm:col-span-1">
                     <FloatingInput
                       label="Email"
                       name="email"
@@ -631,7 +629,7 @@ const ContactPersonDetails: React.FC = () => {
                     />
                   </div>
 
-                  <div className="col-span-2 sm:col-span-1">
+                  <div className="col-span-1 sm:col-span-1">
                     <FloatingInput
                       label="Phone"
                       name="phone"
@@ -641,7 +639,7 @@ const ContactPersonDetails: React.FC = () => {
                     />
                   </div>
 
-                  <div className="col-span-2 sm:col-span-1">
+                  <div className="col-span-1 sm:col-span-1">
                     <FloatingSelect
                       label="Role"
                       name="role"
@@ -651,18 +649,18 @@ const ContactPersonDetails: React.FC = () => {
                     />
                   </div>
 
-                  <div className="col-span-2">
+                  <div className="col-span-1 sm:col-span-2">
                     <FloatingSelect
                       label="Company (Optional)"
                       name="customerId"
                       value={newContact.customerId}
                       onChange={(e) => setNewContact({ ...newContact, customerId: e.target.value })}
-                      options={customers.map(cust => ({ id: cust.id, name: cust.name }))}
+                      options={customers.map(cust => ({ id: cust.id, name: getCustomerDisplayName(cust) }))}
                     />
                   </div>
                 </div>
 
-                <div className="sticky bottom-0 bg-white pt-4 mt-4 border-t border-gray-100 flex justify-end gap-3">
+                <div className="sticky bottom-0 mt-4 flex flex-col justify-end gap-3 border-t border-gray-100 bg-white pt-4 sm:flex-row">
                   <button
                     type="button"
                     onClick={() => setShowAddModal(false)}
@@ -684,7 +682,7 @@ const ContactPersonDetails: React.FC = () => {
 
         {/* Edit Contact Modal */}
         {showEditModal && editContact && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-auto overflow-y-auto max-h-[90vh]">
               <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b border-gray-100">
                 <div>
@@ -705,7 +703,7 @@ const ContactPersonDetails: React.FC = () => {
 
               <form onSubmit={handleEditContact} className="p-6 space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                  <div className="col-span-2 sm:col-span-1">
+                  <div className="col-span-1 sm:col-span-1">
                     <FloatingInput
                       label="Full Name"
                       name="fullName"
@@ -715,7 +713,7 @@ const ContactPersonDetails: React.FC = () => {
                     />
                   </div>
 
-                  <div className="col-span-2 sm:col-span-1">
+                  <div className="col-span-1 sm:col-span-1">
                     <FloatingInput
                       label="Email"
                       name="email"
@@ -725,7 +723,7 @@ const ContactPersonDetails: React.FC = () => {
                     />
                   </div>
 
-                  <div className="col-span-2 sm:col-span-1">
+                  <div className="col-span-1 sm:col-span-1">
                     <FloatingInput
                       label="Phone"
                       name="phone"
@@ -735,7 +733,7 @@ const ContactPersonDetails: React.FC = () => {
                     />
                   </div>
 
-                  <div className="col-span-2 sm:col-span-1">
+                  <div className="col-span-1 sm:col-span-1">
                     <FloatingSelect
                       label="Role"
                       name="role"
@@ -745,7 +743,7 @@ const ContactPersonDetails: React.FC = () => {
                     />
                   </div>
 
-                  <div className="col-span-2">
+                  <div className="col-span-1 sm:col-span-2">
                     <FloatingSelect
                       label="Company"
                       name="customerId"
@@ -756,12 +754,12 @@ const ContactPersonDetails: React.FC = () => {
                           customer: e.target.value ? { id: Number(e.target.value) } as Customer : null,
                         })
                       }
-                      options={customers.map(cust => ({ id: cust.id, name: cust.name }))}
+                      options={customers.map(cust => ({ id: cust.id, name: getCustomerDisplayName(cust) }))}
                     />
                   </div>
                 </div>
 
-                <div className="sticky bottom-0 bg-white pt-4 mt-4 border-t border-gray-100 flex justify-end gap-3">
+                <div className="sticky bottom-0 mt-4 flex flex-col justify-end gap-3 border-t border-gray-100 bg-white pt-4 sm:flex-row">
                   <button
                     type="button"
                     onClick={() => setShowEditModal(false)}
@@ -783,8 +781,8 @@ const ContactPersonDetails: React.FC = () => {
 
         {/* Assign Customer Modal */}
         {showAssignModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-auto">
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto">
               <div className="flex items-center justify-between p-6 border-b border-gray-100">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900">
@@ -823,7 +821,7 @@ const ContactPersonDetails: React.FC = () => {
                           <BuildingOfficeIcon className="h-4 w-4 text-gray-600" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{cust.name}</p>
+                          <p className="text-sm font-medium text-gray-900">{getCustomerDisplayName(cust)}</p>
                           <p className="text-xs text-gray-500">{cust.industry}</p>
                         </div>
                       </button>

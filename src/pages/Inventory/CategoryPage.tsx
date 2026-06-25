@@ -4,10 +4,8 @@ import {
   TrashIcon,
   ChevronUpIcon,
   ChevronDownIcon,
-  EllipsisVerticalIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
-import { Menu } from "@headlessui/react";
 import axios from 'axios';
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -276,41 +274,24 @@ const InventoryCategoryPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">{category.description}</td>
                     <td className="px-6 py-4 text-right">
-                      <Menu as="div" className="relative inline-block text-left">
-                        <Menu.Button className="p-1 rounded hover:bg-gray-100">
-                          <EllipsisVerticalIcon className="h-5 w-5" />
-                        </Menu.Button>
-
-                        <Menu.Items className="absolute right-0 mt-1 w-52 bg-white shadow-lg border rounded-md z-50">
-                          {/* Edit Category */}
-                          <Menu.Item>
-                            {({ active }) => (
-                              <button
-                                onClick={() => handleEdit(category)}
-                                className={`${
-                                  active ? "bg-gray-100" : ""
-                                } w-full text-left px-3 py-2 flex items-center gap-2 text-cyan-600`}
-                              >
-                                <PencilSquareIcon className="h-4 w-4" /> Edit Category
-                              </button>
-                            )}
-                          </Menu.Item>
-
-                          {/* Delete Category */}
-                          <Menu.Item>
-                            {({ active }) => (
-                              <button
-                                onClick={() => handleDeleteCategory(category.id)}
-                                className={`${
-                                  active ? "bg-gray-100" : ""
-                                } w-full text-left px-3 py-2 flex items-center gap-2 text-red-600`}
-                              >
-                                <TrashIcon className="h-4 w-4" /> Delete Category
-                              </button>
-                            )}
-                          </Menu.Item>
-                        </Menu.Items>
-                      </Menu>
+                      <div className="flex items-center justify-end gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(category)}
+                          className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+                          title="Edit Category"
+                        >
+                          <PencilSquareIcon className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCategory(category.id)}
+                          className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+                          title="Delete Category"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

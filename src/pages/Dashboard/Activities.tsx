@@ -20,7 +20,6 @@ import {
   ChevronRightIcon,
   FunnelIcon,
 } from "@heroicons/react/24/outline";
-import { Link, useNavigate } from "react-router-dom";
 import "react-datepicker/dist/react-datepicker.css";
 import { FloatingInput, FloatingSelect1 as FloatingSelect, FloatingTextarea } from "../../components/inputfeild/FloatingInput";
 import PageMeta from "../../components/common/PageMeta";
@@ -71,7 +70,6 @@ interface Activity {
 type Step = 'basic' | 'details' | 'linking';
 
 const Activities: React.FC = () => {
-  const navigate = useNavigate();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [filteredActivities, setFilteredActivities] = useState<Activity[]>([]);
   const [form, setForm] = useState<Partial<Activity>>({});
@@ -446,35 +444,19 @@ const Activities: React.FC = () => {
   return (
     <>
       <PageMeta title="Activities" description="Manage your activities" />
-      <div className="max-w-7xl mx-auto px-6 pb-6 pt-0 space-y-6">
-        <div className="mb-2 flex items-center justify-between pt-0">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="inline-flex items-center justify-center rounded-full border border-gray-300 bg-white p-1.5 text-gray-800 shadow-sm transition-all hover:-translate-x-0.5 hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:border-cyan-800 dark:hover:bg-gray-800 dark:hover:text-cyan-300"
-              aria-label="Go back"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-            </button>
-            <h2 className="text-[20px] font-semibold text-cyan-600 dark:text-white/90">
-              Activities
-            </h2>
-          </div>
-          <nav className="max-w-full overflow-x-auto">
-            <ol className="flex items-center gap-2 whitespace-nowrap text-sm font-medium text-gray-500 dark:text-gray-400">
-              <li>
-                <Link className="inline-flex items-center gap-1.5 transition-colors hover:text-cyan-600 dark:hover:text-cyan-400" to="/">Home</Link>
-              </li>
-              <li className="text-gray-500 dark:text-gray-400">{">"}</li>
-              <li>
-                <Link className="inline-flex items-center gap-1.5 transition-colors hover:text-cyan-600 dark:hover:text-cyan-400" to="/crm_dashboard">CRM</Link>
-              </li>
-              <li className="text-gray-500 dark:text-gray-400">{">"}</li>
-              <li className="text-cyan-600 dark:text-white/90">Tasks</li>
-            </ol>
-          </nav>
+      <PageBreadcrumb pageTitle="Activities" />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <div className="mb-8 -mt-[125px] flex justify-end">
+          <AddButton
+            onClick={() => {
+              setForm({});
+              setCurrentStep('basic');
+              setSteps(prev => prev.map(step => ({ ...step, completed: false })));
+              setShowFormModal(true);
+            }}
+            label="New Activity"
+          />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -524,16 +506,6 @@ const Activities: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <AddButton
-              onClick={() => {
-                setForm({});
-                setCurrentStep('basic');
-                setSteps(prev => prev.map(step => ({ ...step, completed: false })));
-                setShowFormModal(true);
-              }}
-              label="New Activity"
-              className="!mb-0"
-            />
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`p-2 rounded-lg border flex items-center justify-center transition-colors h-[40px] w-[40px] ${showFilters || selectedType || selectedStatus ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"}`}

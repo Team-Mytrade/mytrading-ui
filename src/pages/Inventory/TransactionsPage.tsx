@@ -4,7 +4,6 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import {
-    EllipsisVerticalIcon,
     TrashIcon,
     MagnifyingGlassIcon,
     FunnelIcon,
@@ -24,7 +23,6 @@ import {
     DocumentTextIcon,
     ChartBarIcon,
 } from "@heroicons/react/24/outline";
-import { Menu } from "@headlessui/react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
@@ -643,38 +641,27 @@ const TransactionsPage: React.FC = () => {
                                             <span className="text-sm text-gray-500">{transaction.reference || "—"}</span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right relative">
-                                            <Menu as="div" className="relative inline-block text-left">
-                                                <Menu.Button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                                                    <EllipsisVerticalIcon className="h-5 w-5 text-gray-500" />
-                                                </Menu.Button>
-                                                <Menu.Items className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-[100]">
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => {
-                                                                    setSelectedTransaction(transaction);
-                                                                    setViewModalOpen(true);
-                                                                }}
-                                                                className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                                            >
-                                                                <EyeIcon className="h-4 w-4 text-blue-600" />
-                                                                View Details
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => handleDelete(transaction.id, transaction.product, transaction.type, transaction.quantity)}
-                                                                className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-red-600`}
-                                                            >
-                                                                <TrashIcon className="h-4 w-4" />
-                                                                Delete
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                </Menu.Items>
-                                            </Menu>
+                                            <div className="flex items-center justify-end gap-0.5">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedTransaction(transaction);
+                                                        setViewModalOpen(true);
+                                                    }}
+                                                    className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
+                                                    title="View Details"
+                                                >
+                                                    <EyeIcon className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDelete(transaction.id, transaction.product, transaction.type, transaction.quantity)}
+                                                    className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+                                                    title="Delete Transaction"
+                                                >
+                                                    <TrashIcon className="h-4 w-4" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 )) : (

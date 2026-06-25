@@ -568,16 +568,16 @@ const StockAdjustmentManager: React.FC = () => {
                             setSelectedAdjustment(adjustment);
                             setViewModalOpen(true);
                         }}
-                        className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors"
-                        title="View"
+                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
+                        title="View Details"
                     >
                         <EyeIcon className="h-4 w-4" />
                     </button>
                     <button
                         type="button"
                         onClick={() => handleEdit(adjustment)}
-                        className="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                        title="Edit"
+                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+                        title="Edit Stock Adjustment"
                     >
                         <PencilSquareIcon className="h-4 w-4" />
                     </button>
@@ -587,8 +587,8 @@ const StockAdjustmentManager: React.FC = () => {
                             setAdjustmentToDelete(adjustment);
                             setShowDeletePopup(true);
                         }}
-                        className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                        title="Delete"
+                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+                        title="Delete Stock Adjustment"
                     >
                         <TrashIcon className="h-4 w-4" />
                     </button>
