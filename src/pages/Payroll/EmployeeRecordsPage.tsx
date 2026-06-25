@@ -59,8 +59,9 @@ const EmployeeRecordsPage: React.FC = () => {
     const fetchEmployees = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${EMPLOYEE_API_URL}/all`);
-            setEmployees(res.data);
+            // Handle both direct array response and wrapped { data: [...] } response
+            const data = res.data;
+            setEmployees(Array.isArray(data) ? data : (data?.data || []));
         } catch (err) {
             console.error("Error loading employees:", err);
             ToasterService.error("Failed to load employees");
@@ -72,8 +73,9 @@ const EmployeeRecordsPage: React.FC = () => {
     
     const fetchDepartments = async () => {
         try {
-            const res = await axios.get(`${DEPARTMENT_API_URL}/listAll`);
-            setDepartments(res.data);
+            // Handle both direct array response and wrapped { data: [...] } response
+            const data = res.data;
+            setDepartments(Array.isArray(data) ? data : (data?.data || []));
         } catch (err) {
             console.error("Error loading departments:", err);
         }
@@ -199,11 +201,20 @@ const EmployeeRecordsPage: React.FC = () => {
         setShowExportMenu(false);
     };
 
-    const filtered = employees.filter(e => {
-        const fullName = `${e.firstName} ${e.lastName}`.toLowerCase();
+    const safeEmployees = Array.isArray(employees) ? employees : [];
+    
+    const filtered = safeEmployees.filter(e => {
+        const firstName = e.firstName || "";
+        const lastName = e.lastName || "";
+        const fullName = `${firstName} ${lastName}`.toLowerCase();
+        
+        const employeeCode = e.employeeCode || "";
+        const email = e.officialEmail || "";
+
         const matchSearch = fullName.includes(search.toLowerCase()) ||
-            e.employeeCode.toLowerCase().includes(search.toLowerCase()) ||
-            e.officialEmail?.toLowerCase().includes(search.toLowerCase());
+            employeeCode.toLowerCase().includes(search.toLowerCase()) ||
+            email.toLowerCase().includes(search.toLowerCase());
+            
         const matchDept = selectedDept ? e.department?.name === selectedDept : true;
         return matchSearch && matchDept;
     });
@@ -244,9 +255,9 @@ const EmployeeRecordsPage: React.FC = () => {
     const SortIcon = ({ col }: { col: keyof Employee | "name" }) =>
         sortKey !== col ? null : sortOrder === "asc" ? <ArrowUpIcon className="h-3 w-3 inline ml-1" /> : <ArrowDownIcon className="h-3 w-3 inline ml-1" />;
 
-    // Calculate stats
-    const activeEmployees = employees.filter(e => e.active).length;
-    const totalDepartments = new Set(employees.map(e => e.department?.id)).size;
+    // Calculate stats safely
+    const activeEmployees = safeEmployees.filter(e => e.active).length;
+    const totalDepartments = new Set(safeEmployees.map(e => e.department?.id)).size;
 
     return (
         <>
@@ -264,7 +275,7 @@ const EmployeeRecordsPage: React.FC = () => {
                     <StatsCard label="Departments" value={departments.length} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BuildingOfficeIcon className="h-6 w-6" />} />
                     <StatsCard
                         label="Onboarded (30d)"
-                        value={employees.filter(e => {
+                        value={safeEmployees.filter(e => {
                             if (!e.createdAt) return false;
                             const thirtyDaysAgo = new Date();
                             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
