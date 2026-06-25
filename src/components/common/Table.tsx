@@ -45,6 +45,22 @@ function getCellValue<T>(row: T, key: string): unknown {
   return (row as Record<string, unknown>)[key];
 }
 
+function renderDefaultCell(value: unknown): React.ReactNode {
+  const text = String(value ?? "--");
+  return (
+    <span className="block max-w-full truncate" title={text}>
+      {text}
+    </span>
+  );
+}
+
+function getCellTitle(value: unknown): string | undefined {
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  return undefined;
+}
+
 function rowMatchesSearch<T>(
   row: T,
   term: string,
@@ -214,8 +230,8 @@ export function ReusableTable<T extends { id?: number | string }>({
                       .filter(Boolean)
                       .join(" ")}
                   >
-                    <span className="inline-flex items-center gap-1.5">
-                      {col.label}
+                    <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
+                      <span className="truncate" title={col.label}>{col.label}</span>
                       {col.sortable &&
                         (sortKey === col.key ? (
                           sortOrder === "asc" ? (
@@ -258,19 +274,26 @@ export function ReusableTable<T extends { id?: number | string }>({
                     style={{ animationDelay: `${idx * 40}ms` }}
                   >
                     {columns.map((col) => (
-                      <td
-                        key={col.key}
-                        className={[
-                          "px-1.5 py-1.5 text-sm text-gray-700 dark:text-gray-300",
-                          col.className ?? "",
-                        ]
-                          .filter(Boolean)
-                          .join(" ")}
-                      >
-                        {col.render
-                          ? col.render(row, getCellValue(row, col.key))
-                          : String(getCellValue(row, col.key) ?? "--")}
-                      </td>
+                      (() => {
+                        const value = getCellValue(row, col.key);
+                        return (
+                          <td
+                            key={col.key}
+                            className={[
+                              "max-w-0 px-1.5 py-1.5 text-sm text-gray-700 dark:text-gray-300",
+                              col.className ?? "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                          >
+                            <div className="min-w-0 max-w-full" title={col.render ? getCellTitle(value) : undefined}>
+                              {col.render
+                                ? col.render(row, value)
+                                : renderDefaultCell(value)}
+                            </div>
+                          </td>
+                        );
+                      })()
                     ))}
                   </tr>
                 ))
