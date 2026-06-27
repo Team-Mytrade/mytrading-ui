@@ -1,4 +1,5 @@
 import React, { useState, useEffect, FormEvent } from "react";
+import { createPortal } from "react-dom";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import {
@@ -493,8 +494,9 @@ const LeadsPage: React.FC = () => {
         />
 
         {/* Add/Edit Lead Modal */}
-        {showModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto p-4">
+        {showModal &&
+          createPortal(
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto animate-slide-up">
               <div className="flex items-center justify-between p-5 border-b border-gray-100">
                 <div>
@@ -577,12 +579,14 @@ const LeadsPage: React.FC = () => {
                 </div>
               </form>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* Assign Customer Modal */}
-        {showAssignModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+        {showAssignModal &&
+          createPortal(
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto animate-slide-up">
               <div className="flex items-center justify-between p-5 border-b border-gray-100">
                 <div>
@@ -633,7 +637,8 @@ const LeadsPage: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
 

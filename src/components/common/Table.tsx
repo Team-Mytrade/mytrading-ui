@@ -166,6 +166,10 @@ export function ReusableTable<T extends { id?: number | string }>({
     (safePage - 1) * pageSize,
     safePage * pageSize
   );
+  const skeletonRowCount = Math.max(
+    1,
+    Math.min(pageSize, paginated.length || sorted.length || data.length || 1)
+  );
 
   const pageNumbers = useMemo(() => {
     if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
@@ -272,7 +276,7 @@ export function ReusableTable<T extends { id?: number | string }>({
             {/* Body */}
             <tbody className="bg-white divide-y divide-gray-200 dark:divide-gray-800 dark:bg-gray-900">
               {loading ? (
-                Array.from({ length: Math.min(pageSize, 5) }).map((_, i) => (
+                Array.from({ length: skeletonRowCount }).map((_, i) => (
                   <SkeletonRow key={i} cols={columns.length} />
                 ))
               ) : (

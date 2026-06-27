@@ -23,6 +23,32 @@ import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 
+const ADD_DRAFT_STORAGE_KEY = "contactPerson:addDraft";
+const EDIT_DRAFT_STORAGE_KEY = "contactPerson:editDraft";
+
+type ContactDraft = {
+  modalOpen: boolean;
+  data: {
+    fullName: string;
+    email: string;
+    phone: string;
+    role: string;
+    customerId: string;
+  };
+};
+
+type EditContactDraft = {
+  modalOpen: boolean;
+  data: {
+    id: number;
+    fullName: string;
+    email: string;
+    phone: string;
+    role: string;
+    customerId: string;
+  };
+};
+
 interface Address {
   street: string;
   city: string;
@@ -80,6 +106,7 @@ const ContactPersonDetails: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
   const [showFilters, setShowFilters] = useState(false);
@@ -118,13 +145,57 @@ const ContactPersonDetails: React.FC = () => {
   }, [showAddModal, showEditModal, showAssignModal, showDeletePopup]);
 
   useEffect(() => {
-    fetchCustomers();
+    fetchCustomers(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const savedAddDraft = localStorage.getItem(ADD_DRAFT_STORAGE_KEY);
+    if (savedAddDraft) {
+      try {
+        const parsedDraft: ContactDraft = JSON.parse(savedAddDraft);
+        setNewContact(parsedDraft.data);
+        if (parsedDraft.modalOpen) {
+          setShowAddModal(true);
+        }
+      } catch (error) {
+        console.error("Error restoring add contact draft", error);
+      }
+    }
   }, []);
 
   // Handle deep-linked edit modal
   useEffect(() => {
     if (contacts.length > 0) {
+      const savedEditDraft = localStorage.getItem(EDIT_DRAFT_STORAGE_KEY);
+      if (savedEditDraft) {
+        try {
+          const parsedDraft: EditContactDraft = JSON.parse(savedEditDraft);
+          const matchedContact = contacts.find((contact) => contact.id === parsedDraft.data.id);
+
+          setEditContact({
+            ...(matchedContact || { id: parsedDraft.data.id, designation: "", customer: null }),
+            fullName: parsedDraft.data.fullName,
+            email: parsedDraft.data.email,
+            phone: parsedDraft.data.phone,
+            role: parsedDraft.data.role,
+            customer: parsedDraft.data.customerId
+              ? ({
+                  ...(matchedContact?.customer || {}),
+                  id: Number(parsedDraft.data.customerId),
+                } as Customer)
+              : null,
+          });
+
+          if (parsedDraft.modalOpen) {
+            setShowEditModal(true);
+          }
+          return;
+        } catch (error) {
+          console.error("Error restoring edit contact draft", error);
+        }
+      }
+
       const searchParams = new URLSearchParams(location.search);
       const editId = searchParams.get("editId");
       if (editId) {
@@ -144,6 +215,38 @@ const ContactPersonDetails: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showAssignModal, showAddModal, showEditModal]);
 
+  useEffect(() => {
+    localStorage.setItem(
+      ADD_DRAFT_STORAGE_KEY,
+      JSON.stringify({
+        modalOpen: showAddModal,
+        data: newContact,
+      } satisfies ContactDraft)
+    );
+  }, [newContact, showAddModal]);
+
+  useEffect(() => {
+    if (!editContact) {
+      localStorage.removeItem(EDIT_DRAFT_STORAGE_KEY);
+      return;
+    }
+
+    localStorage.setItem(
+      EDIT_DRAFT_STORAGE_KEY,
+      JSON.stringify({
+        modalOpen: showEditModal,
+        data: {
+          id: editContact.id,
+          fullName: editContact.fullName,
+          email: editContact.email,
+          phone: editContact.phone,
+          role: editContact.role || "",
+          customerId: editContact.customer?.id ? String(editContact.customer.id) : "",
+        },
+      } satisfies EditContactDraft)
+    );
+  }, [editContact, showEditModal]);
+
   const fetchContacts = async () => {
     try {
       const res = await axios.get<Contact[]>(API_URL, {
@@ -155,16 +258,30 @@ const ContactPersonDetails: React.FC = () => {
     }
   };
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = async (showFeedback = false) => {
+    setLoading(true);
     try {
       const res = await axios.get<Customer[]>(CUSTOMER_API_URL, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const customerData = Array.isArray(res.data) ? res.data : [];
       setCustomers(customerData);
-      setContacts(mapContactsFromCustomers(customerData));
+      const mappedContacts = mapContactsFromCustomers(customerData);
+      setContacts(mappedContacts);
+
+      if (showFeedback && mappedContacts.length === 0) {
+        ToasterService.noData(
+          "No contact data found",
+          "The API responded successfully, but there are no contact persons to display yet."
+        );
+      }
     } catch (err) {
       console.error("Error fetching customers", err);
+      if (showFeedback) {
+        ToasterService.error("Failed to load contact data");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -237,6 +354,7 @@ const ContactPersonDetails: React.FC = () => {
           role: "",
           customerId: "",
         });
+        localStorage.removeItem(ADD_DRAFT_STORAGE_KEY);
         fetchCustomers();
       }
     } catch (error) {
@@ -271,6 +389,7 @@ const ContactPersonDetails: React.FC = () => {
         ToasterService.success("Contact updated successfully!");
         setShowEditModal(false);
         setEditContact(null);
+        localStorage.removeItem(EDIT_DRAFT_STORAGE_KEY);
         fetchCustomers();
       }
     } catch (error) {
@@ -562,6 +681,7 @@ const ContactPersonDetails: React.FC = () => {
               data={filtered}
               columns={tableColumns}
               searchable={false}
+              loading={loading}
               pageSize={PAGE_SIZE}
               defaultSortKey="fullName"
               defaultSortOrder="asc"

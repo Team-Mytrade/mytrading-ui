@@ -47,7 +47,20 @@ const LayoutContent: React.FC = () => {
 };
 
 const AppLayout: React.FC = () => {
-  const { isLoggedIn } = useContext(AuthContext);
+  const { isLoggedIn, loading } = useContext(AuthContext);
+  const hasStoredSession = !!localStorage.getItem("accessToken");
+
+  if (loading && hasStoredSession) {
+    return (
+      <SidebarProvider>
+        <LayoutContent />
+      </SidebarProvider>
+    );
+  }
+
+  if (loading) {
+    return null;
+  }
 
   if (!isLoggedIn) {
     return <SignIn />;

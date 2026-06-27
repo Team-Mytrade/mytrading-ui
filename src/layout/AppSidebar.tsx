@@ -480,7 +480,7 @@ const AppSidebar: React.FC = () => {
         }}
         className={`
           fixed top-0 left-0 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800
-          shadow-lg z-50 flex flex-col
+          shadow-lg z-30 flex flex-col
           ${isResizing ? "transition-none select-none" : "transition-all duration-300 ease-in-out"}
           ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
           lg:translate-x-0
@@ -566,7 +566,7 @@ const AppSidebar: React.FC = () => {
         {(isExpanded || isMobileOpen) && (
           <div
             onMouseDown={handleMouseDown}
-            className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-cyan-500/30 active:bg-cyan-500 transition-colors z-50 group flex items-center justify-center"
+            className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-cyan-500/30 active:bg-cyan-500 transition-colors z-30 group flex items-center justify-center"
           >
             <div className="w-0.5 h-8 bg-gray-200 dark:bg-gray-700 group-hover:bg-cyan-500 rounded transition-colors" />
           </div>

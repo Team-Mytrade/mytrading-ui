@@ -1,4 +1,5 @@
 import React, { useEffect, useState, ChangeEvent, FormEvent, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import axios from "axios";
 import {
   PencilSquareIcon,
@@ -553,7 +554,8 @@ const CustomerSegmentDetails: React.FC = () => {
         />
 
         {/* Segment Modal */}
-        {showFormModal && (
+        {showFormModal &&
+          createPortal(
           <div key="segment-modal" className="fixed inset-0 z-50 flex items-start justify-center bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto p-4 sm:items-center">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto animate-slide-up">
               <div className="flex items-center justify-between p-5 border-b border-gray-100">
@@ -611,11 +613,13 @@ const CustomerSegmentDetails: React.FC = () => {
                 </div>
               </form>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* Redesigned Customer Modal */}
-        {showCustomerModal && (
+        {showCustomerModal &&
+          createPortal(
           <div key="customer-modal" className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-auto animate-slide-up max-h-[90vh] flex flex-col">
               {/* Header */}
@@ -791,7 +795,8 @@ const CustomerSegmentDetails: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
 

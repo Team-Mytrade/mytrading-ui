@@ -13,6 +13,7 @@ import {
 } from "@heroicons/react/24/outline";
 import PageMeta from "../../../components/common/PageMeta";
 import PageBreadcrumb from "../../../components/common/PageBreadCrumb";
+import PageLoader from "../../../components/common/PageLoader";
 import { ToasterService } from "../../../Services/ToasterService";
 
 const BASE_URL = "/v1/api/invoice/purchase-invoices";
@@ -78,7 +79,7 @@ const PurchaseInvoiceDetails: React.FC = () => {
         }
     };
 
-    if (loading) return <div className="p-6 text-center">Loading...</div>;
+    if (loading) return <PageLoader message="Loading purchase invoice..." />;
     if (!invoice) return <div className="p-6 text-center text-red-500">Purchase Invoice not found</div>;
 
     return (
