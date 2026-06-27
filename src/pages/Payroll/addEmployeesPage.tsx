@@ -568,7 +568,7 @@ const AddEmployeePage: React.FC = () => {
         personalEmail: form.personalEmail,
         officialEmail: form.officialEmail,
         maritalStatus: form.maritalStatus,
-        fatheName: form.fatheName,
+        fatherName: form.fatheName,
         phone: form.phone,
         gender: form.gender,
         dateOfBirth: form.dateOfBirth?.toISOString().split("T")[0],
@@ -589,7 +589,7 @@ const AddEmployeePage: React.FC = () => {
           ? { id: -1, name: customDepartment }
           : { id: form.department.id },
         domain: form.domain ? { id: form.domain.id } : null,
-        roleNames: form.roleNames.map(role => role.roleName),
+        role: form.roleNames.length > 0 ? form.roleNames[0].roleName : "EMPLOYEE",
 
         userDetails: {
           phoneNumber: form.userDetails.phoneNumber || form.phone,
