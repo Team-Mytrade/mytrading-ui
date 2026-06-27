@@ -35,7 +35,10 @@ const PayrollProcessingEnginePage: React.FC = () => {
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [isFetching, setIsFetching] = useState(false);
     const [summaryData, setSummaryData] = useState({ totalDeductions: 0, totalEarnings: 0 });
-    const [salaryMonth, setSalaryMonth] = useState("");
+    const [salaryMonth, setSalaryMonth] = useState(() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    });
 
     useEffect(() => {
         if (workflowStep === 2) {
@@ -106,6 +109,12 @@ const PayrollProcessingEnginePage: React.FC = () => {
     const handleProcessAll = async () => {
         if (!salaryMonth) {
             ToasterService.error("Please enter the salary month (e.g., 2026-06)");
+            return;
+        }
+        
+        const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+        if (salaryMonth > currentMonth) {
+            ToasterService.error("Future date payroll run is not allowed");
             return;
         }
         setIsProcessing(true);
@@ -370,6 +379,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                             className="shadow-sm focus:ring-purple-500 focus:border-purple-500 block w-full sm:text-sm border-gray-300 rounded-md py-2 px-3 border bg-white"
                                             value={salaryMonth}
                                             onChange={(e) => setSalaryMonth(e.target.value)}
+                                            max={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
                                         />
                                     </div>
                                     <button

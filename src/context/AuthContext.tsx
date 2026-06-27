@@ -43,6 +43,7 @@ axios.interceptors.request.use(
     // Skip for auth endpoints
     const isAuthEndpoint = config.url?.includes('/signin');
     
+    /* Temporarily disabled - tenant processing pending backend confirmation
     if (!isAuthEndpoint) {
       const tenantId = getTenantId();
       
@@ -57,6 +58,7 @@ axios.interceptors.request.use(
         };
       }
     }
+    */
     
     return config;
   },
