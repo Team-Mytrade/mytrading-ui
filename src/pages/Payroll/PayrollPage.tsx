@@ -25,6 +25,7 @@ import {
     ChartBarIcon,
     PlayCircleIcon,
     ClockIcon,
+    ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import { Menu } from "@headlessui/react";
 import PageMeta from "../../components/common/PageMeta";
@@ -35,7 +36,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 
-const BASE_URL = "/v1/api/payroll/payroll";
+const BASE_URL = "/v1/api/payroll";
 const PAGE_SIZE = 10;
 
 interface Employee {
@@ -82,6 +83,12 @@ const PayrollPage: React.FC = () => {
     const [processMonth, setProcessMonth] = useState("");
     const [viewItem, setViewItem] = useState<EmployeeSalary | null>(null);
     const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
+    const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
+    const [generateMonth, setGenerateMonth] = useState("");
+    const [isZipModalOpen, setIsZipModalOpen] = useState(false);
+    const [zipEmployee, setZipEmployee] = useState<{ id: number, name: string } | null>(null);
+    const [fromMonth, setFromMonth] = useState("");
+    const [toMonth, setToMonth] = useState("");
     const [showFilters, setShowFilters] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [selectedStatus, setSelectedStatus] = useState<string>("");
@@ -100,7 +107,7 @@ const PayrollPage: React.FC = () => {
     const fetchAll = async () => {
         setLoading(true);
         try {
-            const response = await axios.get(`${BASE_URL}/all`);
+            const response = await axios.get(`${BASE_URL}`);
             setSalaries(response.data);
         } catch (err) {
             console.error("Error loading salaries", err);
@@ -138,6 +145,70 @@ const PayrollPage: React.FC = () => {
         }
     };
 
+    const generatePayslips = async () => {
+        if (!generateMonth) {
+            ToasterService.warning("Please select a month to generate payslips");
+            return;
+        }
+        
+        const ok = await confirm({
+            message: `Are you sure you want to generate payslips for ${generateMonth}?`,
+            confirmLabel: "Generate",
+            variant: "info",
+        });
+        if (!ok) return;
+        
+        setLoading(true);
+        try {
+            await axios.post(`/v1/api/payroll/payslips/generatePayslips`, { yearMonth: generateMonth });
+            ToasterService.success(`Payslips generated successfully for ${generateMonth}`);
+            setIsGenerateModalOpen(false);
+            setGenerateMonth("");
+        } catch (err: any) {
+            ToasterService.error(err.response?.data?.message || "Failed to generate payslips");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const downloadZipRange = async () => {
+        if (!zipEmployee || !fromMonth || !toMonth) {
+            ToasterService.warning("Please select both from and to months");
+            return;
+        }
+        if (fromMonth > toMonth) {
+            ToasterService.warning("From Month cannot be after To Month");
+            return;
+        }
+        
+        setLoading(true);
+        try {
+            const response = await axios.get(`/v1/api/payroll/payslips/download-zip`, { 
+                params: {
+                    employeeId: zipEmployee.id,
+                    fromMonth,
+                    toMonth
+                },
+                responseType: "blob" 
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", `payslips_${zipEmployee.name.replace(/\s+/g, '_')}_${fromMonth}_to_${toMonth}.zip`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            ToasterService.success(`ZIP downloaded successfully`);
+            setIsZipModalOpen(false);
+            setFromMonth("");
+            setToMonth("");
+        } catch (err) {
+            ToasterService.error("Failed to download ZIP file");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const rollback = async (id: number, employeeName: string) => {
         const ok = await confirm({
             message: `Are you sure you want to rollback salary record for ${employeeName}? This action cannot be undone.`,
@@ -155,15 +226,19 @@ const PayrollPage: React.FC = () => {
         }
     };
 
-    const downloadPayslip = async (id: number, employeeName: string) => {
+    const downloadPayslip = async (employeeId: number, month: string, employeeName: string) => {
         try {
-            const response = await axios.get(`${BASE_URL}/payslip/${id}`, { 
+            const response = await axios.get(`/v1/api/payroll/payslips/download`, { 
+                params: {
+                    employeeId,
+                    month
+                },
                 responseType: "blob" 
             });
             const url = window.URL.createObjectURL(response.data);
             const a = document.createElement("a");
             a.href = url;
-            a.download = `payslip_${employeeName.replace(/\s/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`;
+            a.download = `payslip_${employeeName.replace(/\s/g, "_")}_${month}.pdf`;
             a.click();
             window.URL.revokeObjectURL(url);
             ToasterService.success("Payslip downloaded successfully");
@@ -286,7 +361,7 @@ const PayrollPage: React.FC = () => {
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
                 <div className="mb-8 -mt-[125px] flex justify-end">
-                    <AddButton label="Run Payroll" onClick={() => setIsProcessModalOpen(true)} />
+                    <AddButton label="Generate Payslips" onClick={() => setIsGenerateModalOpen(true)} />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -364,8 +439,8 @@ const PayrollPage: React.FC = () => {
                         <button
                             onClick={fetchAll}
                             className={`p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors ${loading ? 'animate-spin' : ''}`}
-                        >refresh
-                            {/* <RefreshIcon className="h-5 w-5 text-gray-600" /> */}
+                        >
+                            <ArrowPathIcon className="h-5 w-5 text-gray-600" />
                         </button>
 
                     </div>
@@ -504,11 +579,25 @@ const PayrollPage: React.FC = () => {
                                                     <Menu.Item>
                                                         {({ active }) => (
                                                             <button
-                                                                onClick={() => downloadPayslip(salary.id, `${salary.employee?.firstName} ${salary.employee?.lastName}`)}
+                                                                onClick={() => downloadPayslip(salary.employee.id, salary.month, `${salary.employee?.firstName} ${salary.employee?.lastName}`)}
                                                                 className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
                                                             >
                                                                 <DocumentArrowDownIcon className="h-4 w-4 text-green-600" />
                                                                 Download Payslip
+                                                            </button>
+                                                        )}
+                                                    </Menu.Item>
+                                                    <Menu.Item>
+                                                        {({ active }) => (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setZipEmployee({ id: salary.employee.id, name: `${salary.employee.firstName} ${salary.employee.lastName}` });
+                                                                    setIsZipModalOpen(true);
+                                                                }}
+                                                                className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
+                                                            >
+                                                                <DocumentArrowDownIcon className="h-4 w-4 text-purple-600" />
+                                                                Download Range (ZIP)
                                                             </button>
                                                         )}
                                                     </Menu.Item>
@@ -690,6 +779,133 @@ const PayrollPage: React.FC = () => {
                     </div>
                 )}
 
+                {/* Generate Payslips Modal */}
+                {isGenerateModalOpen && (
+                    <div className="fixed inset-0 z-50 overflow-y-auto">
+                        <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setIsGenerateModalOpen(false)}></div>
+                            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                                    <div className="sm:flex sm:items-start">
+                                        <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                                            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                                                Generate Payslips
+                                            </h3>
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                        Select Month
+                                                    </label>
+                                                    <input
+                                                        type="month"
+                                                        value={generateMonth}
+                                                        onChange={(e) => setGenerateMonth(e.target.value)}
+                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
+                                                        required
+                                                    />
+                                                </div>
+                                                <div className="p-4 bg-cyan-50 rounded-lg border border-cyan-200">
+                                                    <p className="text-sm text-cyan-800">
+                                                        <strong>Info:</strong> This action will generate payslips for all processed salary records in the selected month.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                                    <button
+                                        type="button"
+                                        onClick={generatePayslips}
+                                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
+                                    >
+                                        Generate
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsGenerateModalOpen(false)}
+                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Download ZIP Modal */}
+                {isZipModalOpen && zipEmployee && (
+                    <div className="fixed inset-0 z-50 overflow-y-auto">
+                        <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setIsZipModalOpen(false)}></div>
+                            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                                    <div className="sm:flex sm:items-start">
+                                        <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                                            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                                                Download Payslips (ZIP)
+                                            </h3>
+                                            <p className="text-sm text-gray-500 mb-4">
+                                                Employee: <span className="font-semibold text-gray-900">{zipEmployee.name}</span>
+                                            </p>
+                                            <div className="space-y-4">
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                            From Month
+                                                        </label>
+                                                        <input
+                                                            type="month"
+                                                            value={fromMonth}
+                                                            onChange={(e) => setFromMonth(e.target.value)}
+                                                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
+                                                            required
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                            To Month
+                                                        </label>
+                                                        <input
+                                                            type="month"
+                                                            value={toMonth}
+                                                            onChange={(e) => setToMonth(e.target.value)}
+                                                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
+                                                            required
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="p-4 bg-cyan-50 rounded-lg border border-cyan-200">
+                                                    <p className="text-sm text-cyan-800">
+                                                        <strong>Info:</strong> This will download a single ZIP file containing the payslips for the selected range.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                                    <button
+                                        type="button"
+                                        onClick={downloadZipRange}
+                                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
+                                    >
+                                        Download ZIP
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsZipModalOpen(false)}
+                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* View Details Modal */}
                 {viewItem && (
                     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -795,7 +1011,7 @@ const PayrollPage: React.FC = () => {
                                 <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                                     <button
                                         type="button"
-                                        onClick={() => downloadPayslip(viewItem.id, `${viewItem.employee?.firstName} ${viewItem.employee?.lastName}`)}
+                                        onClick={() => downloadPayslip(viewItem.employee.id, viewItem.month, `${viewItem.employee?.firstName} ${viewItem.employee?.lastName}`)}
                                         className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
                                         <DocumentArrowDownIcon className="h-4 w-4 mr-2" />

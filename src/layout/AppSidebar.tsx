@@ -138,7 +138,6 @@ export const navItems: NavItem[] = [
       { name: "Records", path: "/employeeRecords"}, //SKU (Stock Keeping Unit)
       { name: "Salary", path: "/employeeSalary"},
       { name: "Payslips", path: "/employeePayroll"},
-      { name: "Payroll", path: "/employeePayroll"},
       { name: "Payroll Engine", path: "/payrollEngine"},
 
       { name: "Salary Structure", path: "/salaryStructure"},

@@ -184,7 +184,7 @@ const AddEmployeePage: React.FC = () => {
       ctc: 0,
       role: "",
       country: "INDIA",
-      regime: Regime.OLD,
+      regime: Regime.NEW,
       earnings: [] as Earning[],
       additionalBenefits: [] as AdditionalBenefit[],
       countrySpecificData: {
@@ -879,7 +879,7 @@ const AddEmployeePage: React.FC = () => {
                           selected={form.dateOfBirth}
                           onChange={(date) => handleChange("dateOfBirth", date)}
                           dateFormat="dd/MM/yyyy"
-                          maxDate={new Date()}
+                          maxDate={new Date(new Date().setFullYear(new Date().getFullYear() - 18))}
                           showYearDropdown
                           scrollableYearDropdown
                           yearDropdownItemNumber={100}
