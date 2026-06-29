@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useContext, useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -21,7 +21,6 @@ import {
     CalendarIcon,
     PrinterIcon,
     DocumentTextIcon,
-    ChartBarIcon,
 } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -29,6 +28,9 @@ import { AddButton } from "../../components/common/AddButton";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import StatsCard from "../../components/common/Statscard";
+import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import { AuthContext } from "../../context/AuthContext";
 
 type TransactionType = "IN" | "OUT";
 
@@ -45,12 +47,19 @@ interface Transaction {
     createdBy?: string;
     createdAt?: string;
     updatedAt?: string;
+    fromLocation?: string;
+    toLocation?: string;
+    warehouse?: string;
+    batch?: { batchNumber?: string } | string;
+    serialNumber?: { serial?: string; productNumber?: string } | string;
 }
 
-const API_URL = "/v1/api/inventory/transactions";
+const API_URL = "/v1/api/inventory/stock-movements";
+const STOCK_MOVEMENTS_API = API_URL;
 const PAGE_SIZE = 10;
 
 const TransactionsPage: React.FC = () => {
+    const { user } = useContext(AuthContext);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
@@ -83,7 +92,19 @@ const TransactionsPage: React.FC = () => {
         setLoading(true);
         try {
             const response = await axios.get(API_URL);
-            setTransactions(response.data);
+            const rows = Array.isArray(response.data) ? response.data : response.data?.content || response.data?.data || [];
+            setTransactions(rows.map((row: any) => normalizeStockMovement(row, {
+                id: row.id,
+                product: row.productName || row.productNumber || (row.productId ? `Product ${row.productId}` : "N/A"),
+                productId: row.productId,
+                quantity: row.quantity || 0,
+                type: row.movementType === "OUT" || row.movementType === "ISSUE" ? "OUT" : "IN",
+                date: row.movementDate || row.createdDate || new Date().toISOString(),
+                reference: row.reference || "",
+                createdBy: row.createdBy,
+                createdAt: row.createdDate,
+                updatedAt: row.updatedDate,
+            })));
         } catch (err) {
             console.error("Failed to load transactions", err);
             ToasterService.error("Failed to load transactions");
@@ -93,11 +114,79 @@ const TransactionsPage: React.FC = () => {
         }
     };
 
-    const handleAdd = async (e: React.FormEvent) => {
-        e.preventDefault();
-        
+    const buildStockMovementPayload = () => {
+        const now = new Date().toISOString();
+        const today = now.split("T")[0];
+        const tenantId = user?.tenantId || "";
+        const createdBy = user?.userId || user?.username || "";
+        const productId = Number(form.product) || 0;
+        const movementType = form.type === "IN" ? "GRN" : "ISSUE";
+
+        const inspection = {
+            id: 0,
+            createdDate: now,
+            updatedDate: now,
+            createdBy,
+            tenantId,
+            inspectionDate: today,
+            inspector: "",
+            result: "PASS",
+            remarks: "",
+            productId,
+            batch: "",
+            serialNumber: "",
+        };
+
+        const batch = {
+            id: 0,
+            createdDate: now,
+            updatedDate: now,
+            createdBy,
+            tenantId,
+            batchNumber: "",
+            manufacturingDate: today,
+            expiryDate: today,
+            productId,
+            warehouse: "",
+            inspections: [inspection],
+        };
+
+        return {
+            id: 0,
+            createdDate: now,
+            updatedDate: now,
+            createdBy,
+            tenantId,
+            movementDate: today,
+            movementType,
+            quantity: Number(form.quantity) || 0,
+            fromLocation: "",
+            toLocation: "",
+            reference: form.reference || "",
+            productId,
+            warehouse: "",
+            batch,
+            serialNumber: {
+                id: 0,
+                createdDate: now,
+                updatedDate: now,
+                createdBy,
+                tenantId,
+                serial: "",
+                warrantyStart: today,
+                warrantyEnd: today,
+                productId,
+                productNumber: form.product || "",
+                warehouse: "",
+                batch,
+                inspections: [inspection],
+            },
+        };
+    };
+
+    const handleAdd = async () => {
         if (!form.product.trim()) {
-            ToasterService.warning("Please enter a product name");
+            ToasterService.warning("Please enter a product ID");
             return;
         }
         if (form.quantity <= 0) {
@@ -106,17 +195,14 @@ const TransactionsPage: React.FC = () => {
         }
 
         try {
-            const payload = {
-                ...form,
-                date: new Date().toISOString(),
-            };
+            const payload = buildStockMovementPayload();
             await axios.post(API_URL, payload);
             ToasterService.success("Transaction added successfully");
             await fetchTransactions();
             resetForm();
             setShowForm(false);
         } catch (err: any) {
-            ToasterService.error(err.response?.data?.message || "Failed to add transaction");
+            ToasterService.error(err.response?.data?.message || err.response?.data?.error || "Failed to add transaction");
         }
     };
 
@@ -135,6 +221,42 @@ const TransactionsPage: React.FC = () => {
         } catch (err: any) {
             ToasterService.error(err.response?.data?.message || "Delete failed");
         }
+    };
+
+    const normalizeStockMovement = (movement: any, fallback: Transaction): Transaction => ({
+        ...fallback,
+        id: movement.id ?? fallback.id,
+        product: movement.productName || movement.productNumber || (movement.productId ? `Product ${movement.productId}` : fallback.product),
+        productId: movement.productId ?? fallback.productId,
+        quantity: movement.quantity ?? fallback.quantity,
+        type: movement.movementType === "OUT" || movement.movementType === "ISSUE" ? "OUT" : fallback.type,
+        date: movement.movementDate || movement.createdDate || fallback.date,
+        reference: movement.reference || fallback.reference,
+        createdBy: movement.createdBy || fallback.createdBy,
+        createdAt: movement.createdDate || fallback.createdAt,
+        updatedAt: movement.updatedDate || fallback.updatedAt,
+        fromLocation: movement.fromLocation,
+        toLocation: movement.toLocation,
+        warehouse: movement.warehouse,
+        batch: movement.batch,
+        serialNumber: movement.serialNumber,
+    });
+
+    const fetchStockMovementById = async (transaction: Transaction) => {
+        try {
+            const response = await axios.get(`${STOCK_MOVEMENTS_API}/${transaction.id}`);
+            return normalizeStockMovement(response.data, transaction);
+        } catch (err: any) {
+            console.error("Failed to load stock movement details", err);
+            ToasterService.error(err.response?.data?.message || err.response?.data?.error || "Failed to load transaction details");
+            return transaction;
+        }
+    };
+
+    const handleView = async (transaction: Transaction) => {
+        const detail = await fetchStockMovementById(transaction);
+        setSelectedTransaction(detail);
+        setViewModalOpen(true);
     };
 
     const resetForm = () => {
@@ -267,6 +389,94 @@ const TransactionsPage: React.FC = () => {
         return <ArrowDownTrayIcon className="h-3 w-3 mr-1" />;
     };
 
+    const tableColumns: ColumnDef<Transaction>[] = [
+        {
+            key: "product",
+            label: "Product",
+            sortable: true,
+            render: (transaction) => (
+                <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-xl bg-cyan-50 border border-cyan-100 flex items-center justify-center flex-shrink-0">
+                        <CubeIcon className="h-4 w-4 text-cyan-600" />
+                    </div>
+                    <div className="min-w-0">
+                        <div className="text-sm font-semibold text-slate-900 truncate leading-snug">{transaction.product}</div>
+                        {transaction.productSKU && (
+                            <div className="text-xs text-slate-500 mt-0.5">SKU: {transaction.productSKU}</div>
+                        )}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            key: "quantity",
+            label: "Quantity",
+            sortable: true,
+            render: (transaction) => (
+                <span className={`text-sm font-semibold ${transaction.type === "IN" ? "text-green-600" : "text-red-600"}`}>
+                    {transaction.type === "IN" ? "+" : "-"}{transaction.quantity}
+                </span>
+            ),
+        },
+        {
+            key: "type",
+            label: "Type",
+            sortable: true,
+            render: (transaction) => (
+                <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full border ${getTypeBadge(transaction.type)}`}>
+                    {getTypeIcon(transaction.type)}
+                    {transaction.type === "IN" ? "Stock In" : "Stock Out"}
+                </span>
+            ),
+        },
+        {
+            key: "date",
+            label: "Date",
+            sortable: true,
+            sortValueGetter: (transaction) => new Date(transaction.date).getTime(),
+            render: (transaction) => (
+                <div className="flex items-center text-sm text-slate-600">
+                    <CalendarIcon className="h-4 w-4 text-slate-400 mr-2 flex-shrink-0" />
+                    {new Date(transaction.date).toLocaleDateString()}
+                </div>
+            ),
+        },
+        {
+            key: "reference",
+            label: "Reference",
+            sortable: true,
+            render: (transaction) => (
+                <span className="text-sm text-slate-500">{transaction.reference || "-"}</span>
+            ),
+        },
+        {
+            key: "actions",
+            label: "Actions",
+            headerClassName: "!text-right pr-8",
+            className: "text-right",
+            render: (transaction) => (
+                <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+                    <button
+                        type="button"
+                        onClick={() => handleView(transaction)}
+                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
+                        title="View Details"
+                    >
+                        <EyeIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleDelete(transaction.id, transaction.product, transaction.type, transaction.quantity)}
+                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+                        title="Delete Transaction"
+                    >
+                        <TrashIcon className="h-4 w-4" />
+                    </button>
+                </div>
+            ),
+        },
+    ];
+
     return (
         <>
             <PageMeta title="Stock Transactions" description="Manage inventory stock movements" />
@@ -285,131 +495,38 @@ const TransactionsPage: React.FC = () => {
 
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600">Total Transactions</p>
-                                <p className="text-2xl font-semibold text-gray-900">{totalTransactions}</p>
-                            </div>
-                            <div className="p-3 bg-blue-100 rounded-full">
-                                <DocumentTextIcon className="h-6 w-6 text-blue-600" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600">Total In</p>
-                                <p className="text-2xl font-semibold text-green-600">{totalIn.toLocaleString()}</p>
-                            </div>
-                            <div className="p-3 bg-green-100 rounded-full">
-                                <ArrowUpTrayIcon className="h-6 w-6 text-green-600" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600">Total Out</p>
-                                <p className="text-2xl font-semibold text-red-600">{totalOut.toLocaleString()}</p>
-                            </div>
-                            <div className="p-3 bg-red-100 rounded-full">
-                                <ArrowDownTrayIcon className="h-6 w-6 text-red-600" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600">Net Stock</p>
-                                <p className={`text-2xl font-semibold ${netStock >= 0 ? 'text-cyan-600' : 'text-red-600'}`}>
-                                    {netStock.toLocaleString()}
-                                </p>
-                            </div>
-                            <div className="p-3 bg-cyan-100 rounded-full">
-                                <CubeIcon className="h-6 w-6 text-cyan-600" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Toolbar */}
-                <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="flex-1 max-w-md">
-                        <div className="relative">
-                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search by product, SKU, or reference..."
-                                value={search}
-                                onChange={e => { setSearch(e.target.value); setPage(1); }}
-                                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                        {/* Export Menu */}
-                        <div className="relative">
-                            <button
-                                onClick={() => setShowExportMenu(!showExportMenu)}
-                                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                                disabled={transactions.length === 0}
-                            >
-                                <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
-                            </button>
-
-                            {showExportMenu && (
-                                <div className="absolute right-0 mt-1 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50">
-                                    <button
-                                        onClick={exportPDF}
-                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
-                                    >
-                                        <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
-                                        Export PDF
-                                    </button>
-                                    <button
-                                        onClick={exportExcel}
-                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
-                                    >
-                                        <TableCellsIcon className="h-4 w-4 text-green-600" />
-                                        Export Excel
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Print Button */}
-                        <button
-                            onClick={() => window.print()}
-                            className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                            disabled={transactions.length === 0}
-                        >
-                            <PrinterIcon className="h-5 w-5 text-gray-600" />
-                        </button>
-
-                        {/* Filter Button */}
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className={`p-2 rounded-lg border ${showFilters ? 'bg-cyan-50 border-cyan-300' : 'border-gray-300 hover:bg-gray-50'
-                                }`}
-                        >
-                            <FunnelIcon className={`h-5 w-5 ${showFilters ? 'text-cyan-600' : 'text-gray-600'}`} />
-                        </button>
-
-                        {/* Refresh Button */}
-                        <button
-                            onClick={fetchTransactions}
-                            className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                        >
-                            <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                        </button>
-                    </div>
+                    <StatsCard
+                        label="Total Transactions"
+                        value={totalTransactions}
+                        gradient="from-cyan-50 to-blue-50"
+                        borderColor="border-cyan-100"
+                        labelColor="text-cyan-600"
+                        icon={<DocumentTextIcon />}
+                    />
+                    <StatsCard
+                        label="Total In"
+                        value={totalIn.toLocaleString()}
+                        gradient="from-green-50 to-emerald-50"
+                        borderColor="border-green-100"
+                        labelColor="text-green-600"
+                        icon={<ArrowUpTrayIcon />}
+                    />
+                    <StatsCard
+                        label="Total Out"
+                        value={totalOut.toLocaleString()}
+                        gradient="from-red-50 to-rose-50"
+                        borderColor="border-red-100"
+                        labelColor="text-red-600"
+                        icon={<ArrowDownTrayIcon />}
+                    />
+                    <StatsCard
+                        label="Net Stock"
+                        value={netStock.toLocaleString()}
+                        gradient={netStock >= 0 ? "from-cyan-50 to-blue-50" : "from-red-50 to-rose-50"}
+                        borderColor={netStock >= 0 ? "border-cyan-100" : "border-red-100"}
+                        labelColor={netStock >= 0 ? "text-cyan-600" : "text-red-600"}
+                        icon={<CubeIcon />}
+                    />
                 </div>
 
                 {/* Filters Panel */}
@@ -474,15 +591,15 @@ const TransactionsPage: React.FC = () => {
                                             <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
                                                 Add Stock Transaction
                                             </h3>
-                                            <form onSubmit={handleAdd} className="space-y-4">
+                                            <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Product Name</label>
+                                                    <label className="block text-sm font-medium text-gray-700">Product ID</label>
                                                     <input
                                                         type="text"
                                                         value={form.product}
                                                         onChange={e => setForm({ ...form, product: e.target.value })}
                                                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        placeholder="Enter product name"
+                                                        placeholder="Enter product ID"
                                                         required
                                                     />
                                                 </div>
@@ -543,7 +660,7 @@ const TransactionsPage: React.FC = () => {
                                 </div>
                                 <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                                     <button
-                                        type="submit"
+                                        type="button"
                                         onClick={handleAdd}
                                         className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
@@ -562,8 +679,64 @@ const TransactionsPage: React.FC = () => {
                     </div>
                 )}
 
-                {/* Transactions Table */}
-                <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-visible">
+                <ReusableTable<Transaction>
+                    data={filtered}
+                    columns={tableColumns}
+                    searchable
+                    searchPlaceholder="Search by product, SKU, or reference..."
+                    searchFields={["product", "productSKU", "reference"]}
+                    pageSize={PAGE_SIZE}
+                    defaultSortKey="date"
+                    defaultSortOrder="desc"
+                    loading={loading}
+                    onRowClick={handleView}
+                    toolbar={
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowExportMenu(!showExportMenu)}
+                                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                                    disabled={transactions.length === 0}
+                                >
+                                    <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
+                                </button>
+                                {showExportMenu && (
+                                    <div className="absolute right-0 mt-1 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50">
+                                        <button onClick={exportPDF} className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50">
+                                            <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
+                                            Export PDF
+                                        </button>
+                                        <button onClick={exportExcel} className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50">
+                                            <TableCellsIcon className="h-4 w-4 text-green-600" />
+                                            Export Excel
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                            <button onClick={() => window.print()} className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors" disabled={transactions.length === 0}>
+                                <PrinterIcon className="h-5 w-5 text-gray-600" />
+                            </button>
+                            <button onClick={() => setShowFilters(!showFilters)} className={`p-2 rounded-lg border ${showFilters ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"}`}>
+                                <FunnelIcon className={`h-5 w-5 ${showFilters ? "text-cyan-600" : "text-gray-600"}`} />
+                            </button>
+                            <button onClick={fetchTransactions} className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors">
+                                <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                            </button>
+                        </div>
+                    }
+                    emptyState={
+                        <div className="flex flex-col items-center justify-center py-12">
+                            <ArrowUpTrayIcon className="h-12 w-12 text-gray-400 mb-3" />
+                            <p className="text-gray-500 text-sm mb-2">No transactions found</p>
+                            <p className="text-gray-400 text-xs">Click "Add Transaction" to create one</p>
+                        </div>
+                    }
+                />
+
+                {/* Legacy custom table disabled after switching to ReusableTable */}
+                {false && <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-visible">
                     <div className="overflow-x-auto overflow-y-visible">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
@@ -767,7 +940,7 @@ const TransactionsPage: React.FC = () => {
                             </div>
                         </div>
                     )}
-                </div>
+                </div>}
 
                 {/* View Details Modal */}
                 {viewModalOpen && selectedTransaction && (
@@ -820,6 +993,36 @@ const TransactionsPage: React.FC = () => {
                                                         <div>
                                                             <p className="text-xs text-gray-500">Reference</p>
                                                             <p className="text-sm text-gray-700">{selectedTransaction.reference}</p>
+                                                        </div>
+                                                    )}
+                                                    {selectedTransaction.fromLocation && (
+                                                        <div>
+                                                            <p className="text-xs text-gray-500">From Location</p>
+                                                            <p className="text-sm text-gray-700">{selectedTransaction.fromLocation}</p>
+                                                        </div>
+                                                    )}
+                                                    {selectedTransaction.toLocation && (
+                                                        <div>
+                                                            <p className="text-xs text-gray-500">To Location</p>
+                                                            <p className="text-sm text-gray-700">{selectedTransaction.toLocation}</p>
+                                                        </div>
+                                                    )}
+                                                    {selectedTransaction.warehouse && (
+                                                        <div>
+                                                            <p className="text-xs text-gray-500">Warehouse</p>
+                                                            <p className="text-sm text-gray-700">{selectedTransaction.warehouse}</p>
+                                                        </div>
+                                                    )}
+                                                    {selectedTransaction.batch && typeof selectedTransaction.batch !== "string" && selectedTransaction.batch.batchNumber && (
+                                                        <div>
+                                                            <p className="text-xs text-gray-500">Batch</p>
+                                                            <p className="text-sm text-gray-700">{selectedTransaction.batch.batchNumber}</p>
+                                                        </div>
+                                                    )}
+                                                    {selectedTransaction.serialNumber && typeof selectedTransaction.serialNumber !== "string" && selectedTransaction.serialNumber.serial && (
+                                                        <div>
+                                                            <p className="text-xs text-gray-500">Serial Number</p>
+                                                            <p className="text-sm text-gray-700">{selectedTransaction.serialNumber.serial}</p>
                                                         </div>
                                                     )}
                                                     {selectedTransaction.remarks && (

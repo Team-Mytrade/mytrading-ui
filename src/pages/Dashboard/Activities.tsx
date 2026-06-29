@@ -1,4 +1,4 @@
-import React, { useEffect, useState, ChangeEvent, FormEvent } from "react";
+import React, { useEffect, useState, ChangeEvent } from "react";
 import axios from "axios";
 import {
   PencilSquareIcon,
@@ -44,12 +44,17 @@ interface Lead {
 
 interface Customer {
   id: number;
-  name: string;
+  name?: string;
+  customerName?: string;
+  contacts?: Contact[];
 }
 
 interface Contact {
   id: number;
   fullName: string;
+  customerId?: number | null;
+  customerName?: string | null;
+  customerCode?: string | null;
 }
 
 interface Activity {
@@ -68,6 +73,8 @@ interface Activity {
 }
 
 type Step = 'basic' | 'details' | 'linking';
+
+const getCustomerLabel = (customer?: Customer | null) => customer?.customerName || customer?.name || "";
 
 const Activities: React.FC = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -122,7 +129,7 @@ const Activities: React.FC = () => {
         a.status,
         a.assignedTo,
         a.lead?.name,
-        a.customer?.name,
+        getCustomerLabel(a.customer),
         a.contact?.fullName,
       ]
         .filter(Boolean)
@@ -141,17 +148,19 @@ const Activities: React.FC = () => {
 
   const fetchAll = async () => {
     try {
-      const [actRes, leadRes, custRes, contactRes] = await Promise.all([
+      const [actRes, leadRes, custRes] = await Promise.all([
         axios.get(API_BASE),
         axios.get(LEADS_API),
         axios.get(CUSTOMERS_API),
-        axios.get(CONTACTS_API),
       ]);
+      const contactRes = await axios.get(CONTACTS_API).catch(() => ({ data: [] }));
+      const customersList = custRes.data || [];
+      const customerContacts = customersList.flatMap((customer: Customer) => customer.contacts || []);
       setActivities(actRes.data || []);
       setFilteredActivities(actRes.data || []);
       setLeads(leadRes.data || []);
-      setCustomers(custRes.data || []);
-      setContacts(contactRes.data || []);
+      setCustomers(customersList);
+      setContacts(customerContacts.length ? customerContacts : contactRes.data || []);
     } catch (err) {
       console.error("Fetch error:", err);
     }
@@ -169,8 +178,7 @@ const Activities: React.FC = () => {
     }));
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSave = async () => {
     try {
       const payload = {
         title: form.title,
@@ -186,11 +194,18 @@ const Activities: React.FC = () => {
       const leadId = form.lead ? (form.lead as Lead).id : undefined;
       const customerId = form.customer ? (form.customer as Customer).id : undefined;
       const contactId = form.contact ? (form.contact as Contact).id : undefined;
+      const params = new URLSearchParams();
+
+      if (leadId) params.set("leadId", String(leadId));
+      if (customerId) params.set("customerId", String(customerId));
+      if (contactId) params.set("contactId", String(contactId));
+
+      const query = params.toString() ? `?${params.toString()}` : "";
 
       if (form.id) {
-        await axios.put(`${API_BASE}/${form.id}?leadId=${leadId}&customerId=${customerId}&contactId=${contactId}`, payload);
+        await axios.put(`${API_BASE}/${form.id}${query}`, payload);
       } else {
-        await axios.post(`${API_BASE}?leadId=${leadId}&customerId=${customerId}&contactId=${contactId}`, payload);
+        await axios.post(`${API_BASE}${query}`, payload);
       }
 
       await fetchAll();
@@ -405,7 +420,7 @@ const Activities: React.FC = () => {
           {activity.customer && (
             <div className="flex items-center gap-1 text-xs text-gray-600">
               <BuildingOfficeIcon className="h-3 w-3 text-gray-400 flex-shrink-0" />
-              <span className="truncate max-w-[100px]">Customer: {activity.customer.name}</span>
+              <span className="truncate max-w-[100px]">Customer: {getCustomerLabel(activity.customer)}</span>
             </div>
           )}
           {activity.contact && (
@@ -668,7 +683,7 @@ const Activities: React.FC = () => {
                       {selectedActivity.customer && (
                         <div className="flex items-center gap-2 p-2 bg-purple-50 rounded-lg">
                           <BuildingOfficeIcon className="h-4 w-4 text-purple-600" />
-                          <div><p className="text-xs font-medium text-purple-900">Customer</p><p className="text-sm text-purple-800">{selectedActivity.customer.name}</p></div>
+                          <div><p className="text-xs font-medium text-purple-900">Customer</p><p className="text-sm text-purple-800">{getCustomerLabel(selectedActivity.customer)}</p></div>
                         </div>
                       )}
                       {selectedActivity.contact && (
@@ -719,7 +734,7 @@ const Activities: React.FC = () => {
                 </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-5">
+              <form onSubmit={(e) => e.preventDefault()} className="p-5">
                 {currentStep === 'basic' && (
                   <div className="space-y-4 pt-2">
                     <FloatingInput
@@ -820,7 +835,7 @@ const Activities: React.FC = () => {
                         name="customer"
                         value={form.customer?.id ?? ""}
                         onChange={(e) => setForm((f) => ({ ...f, customer: e.target.value ? customers.find((c) => c.id === Number(e.target.value)) : null }))}
-                        options={customers.map((c) => ({ id: c.id, name: c.name }))}
+                        options={customers.map((c) => ({ id: c.id, name: getCustomerLabel(c) }))}
                       />
                       <FloatingSelect
                         label="Contact"
@@ -849,7 +864,7 @@ const Activities: React.FC = () => {
                         Next <ChevronRightIcon className="h-4 w-4" />
                       </button>
                     ) : (
-                      <button type="submit" className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 transition-all duration-200 shadow-sm">
+                      <button type="button" onClick={handleSave} className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 transition-all duration-200 shadow-sm">
                         {form.id ? "Update Activity" : "Add Activity"}
                       </button>
                     )}

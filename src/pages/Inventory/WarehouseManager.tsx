@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import axios from "axios";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -26,6 +26,7 @@ import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import DynamicPopup from "../../components/common/Popup";
+import { AuthContext } from "../../context/AuthContext";
 
 interface Warehouse {
     id: number;
@@ -57,7 +58,9 @@ const PAGE_SIZE = 10;
 
 const WarehousePage: React.FC = () => {
     const navigate = useNavigate();
+    const { user } = useContext(AuthContext);
     const token = localStorage.getItem("accessToken");
+    const tenantId = user?.tenantId;
     const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
     const [showForm, setShowForm] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
@@ -143,25 +146,38 @@ const WarehousePage: React.FC = () => {
         setShowForm(false);
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const buildWarehousePayload = () => ({
+        tenantId: tenantId || "",
+        code: form.code,
+        name: form.name,
+        locationType: form.locationType,
+        stockLevels: [],
+        batches: [],
+        serialNumbers: [],
+        stockMovements: [],
+        stockAdjustments: [],
+        stockEntries: [],
+    });
+
+    const handleSave = async () => {
+        const payload = buildWarehousePayload();
 
         try {
             if (editingId) {
-                await axios.put(`${API_URL}/${editingId}`, form, {
-                    headers: { Authorization: `Bearer ${token}` },
+                await axios.put(`${API_URL}/${editingId}`, payload, {
+                    headers: { Authorization: `Bearer ${token}`, ...(tenantId ? { "X-Tenant-ID": tenantId } : {}) },
                 });
                 ToasterService.success("Warehouse updated successfully");
             } else {
-                await axios.post(API_URL, form, {
-                    headers: { Authorization: `Bearer ${token}` },
+                await axios.post(API_URL, payload, {
+                    headers: { Authorization: `Bearer ${token}`, ...(tenantId ? { "X-Tenant-ID": tenantId } : {}) },
                 });
                 ToasterService.success("Warehouse created successfully");
             }
             await fetchWarehouses();
             clearForm();
         } catch (err: any) {
-            ToasterService.error(err.response?.data?.message || "Save failed");
+            ToasterService.error(err.response?.data?.message || err.response?.data?.error || "Save failed");
         }
     };
 
@@ -186,14 +202,14 @@ const WarehousePage: React.FC = () => {
         if (!deletingWarehouse) return;
         try {
             await axios.delete(`${API_URL}/${deletingWarehouse.id}`, {
-                headers: { Authorization: `Bearer ${token}` },
+                headers: { Authorization: `Bearer ${token}`, ...(tenantId ? { "X-Tenant-ID": tenantId } : {}) },
             });
             ToasterService.success("Warehouse deleted successfully");
             await fetchWarehouses();
             setShowDeletePopup(false);
             setDeletingWarehouse(null);
         } catch (err: any) {
-            ToasterService.error(err.response?.data?.message || "Delete failed");
+            ToasterService.error(err.response?.data?.message || err.response?.data?.error || "Delete failed");
         }
     };
 
@@ -472,7 +488,7 @@ const WarehousePage: React.FC = () => {
                                             <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
                                                 {editingId ? "Edit Warehouse" : "Add New Warehouse"}
                                             </h3>
-                                            <form onSubmit={handleSubmit} className="space-y-4">
+                                            <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium text-gray-700">Warehouse Code</label>
@@ -588,8 +604,8 @@ const WarehousePage: React.FC = () => {
                                 </div>
                                 <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                                     <button
-                                        type="submit"
-                                        onClick={handleSubmit}
+                                        type="button"
+                                        onClick={handleSave}
                                         className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
                                         {editingId ? "Update" : "Create"}

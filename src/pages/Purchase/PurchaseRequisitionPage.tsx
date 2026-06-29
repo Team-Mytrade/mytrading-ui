@@ -98,6 +98,28 @@ const PRODUCT_API    = "/v1/api/purchase/products";
 const DEPARTMENT_API = "/v1/api/purchase/department";
 const USER_API       = "/v1/api/user/getAll";
 
+const asArray = (data: any) =>
+  Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : Array.isArray(data?.content) ? data.content : [];
+
+const normalizeOption = (row: any): Option => ({
+  id: row.id ?? row.departmentId ?? row.categoryId ?? row.code ?? "",
+  name: row.name || row.departmentName || row.categoryName || row.productName || row.fullName || row.userId || "",
+});
+
+const normalizeProduct = (row: any): Product => ({
+  id: row.id,
+  name: row.name || row.productName || row.productCode || `Product #${row.id}`,
+  categoryId: row.categoryId ?? row.category?.id ?? row.category?.categoryId ?? "",
+});
+
+const normalizeRequisition = (row: any) => ({
+  ...row,
+  requesterId: row.requester?.userId || row.requesterId || "",
+  requesterName: row.requester?.fullName || row.requester?.userId || "",
+  departmentId: row.departmentId ?? row.department?.id ?? "",
+  items: asArray(row.items),
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PurchaseRequisitionPage: React.FC = () => {
@@ -137,7 +159,7 @@ const PurchaseRequisitionPage: React.FC = () => {
             ? rawUsers.content
             : [];
 
-      setDepartments(deptRes.data);
+      setDepartments(asArray(deptRes.data).map(normalizeOption).filter((item: Option) => item.id !== "" && item.name));
       setRequesters(
         users
           .map((u) => ({
@@ -146,14 +168,17 @@ const PurchaseRequisitionPage: React.FC = () => {
           }))
           .filter((u) => u.id && u.name)
       );
-      setCategories(catRes.data);
-      setProducts(prodRes.data);
+      setCategories(asArray(catRes.data).map(normalizeOption).filter((item: Option) => item.id !== "" && item.name));
+      setProducts(asArray(prodRes.data).map(normalizeProduct));
     } catch (err) { console.error("Error loading master data:", err); }
   };
 
   const loadRequisitions = async () => {
     setLoading(true);
-    try { const res = await axios.get(API); setRequisitions(res.data); }
+    try {
+      const res = await axios.get(API);
+      setRequisitions(asArray(res.data).map(normalizeRequisition));
+    }
     catch (err) { console.error("Error loading requisitions:", err); }
     finally { setLoading(false); }
   };
@@ -242,10 +267,17 @@ const PurchaseRequisitionPage: React.FC = () => {
   };
 
   const handleEdit = (req: any) => {
+    const items = asArray(req.items);
     setForm({
       id: req.id, notes: req.notes, requiredByDate: req.requiredByDate, status: req.status,
-      departmentId: req.department.id, requesterId: req.requester.userId,
-      items: req.items.map((i: any) => ({ categoryId: i.category.id, productId: i.product.id, quantity: i.quantity, unitOfMeasure: i.unitOfMeasure, remarks: i.remarks })),
+      departmentId: req.departmentId ?? req.department?.id ?? "", requesterId: req.requester?.userId || req.requesterId || "",
+      items: items.map((i: any) => ({
+        categoryId: i.category?.id ?? i.categoryId ?? "",
+        productId: i.product?.id ?? i.productId ?? "",
+        quantity: i.quantity,
+        unitOfMeasure: i.unitOfMeasure,
+        remarks: i.remarks
+      })),
     });
     setShowForm(true);
   };
@@ -282,6 +314,14 @@ const PurchaseRequisitionPage: React.FC = () => {
     {
       key: "requiredByDate", label: "Required Date", sortable: true,
       render: (_, v) => <span className="text-sm text-gray-700">{String(v)}</span>,
+    },
+    {
+      key: "requesterName", label: "Requester", sortable: true,
+      render: (_, v) => <span className="text-sm text-gray-700">{String(v) || "-"}</span>,
+    },
+    {
+      key: "items", label: "Items", sortable: false,
+      render: (row) => <span className="text-sm text-gray-700">{asArray(row.items).length}</span>,
     },
     {
       key: "status", label: "Status", sortable: true,

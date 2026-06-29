@@ -188,6 +188,23 @@ const StockLevelsManager: React.FC = () => {
         setShowForm(true);
     };
 
+    const fetchStockLevelById = async (stock: StockLevel) => {
+        try {
+            const response = await axios.get(`${API_URL}/stock-levels/${stock.id}`);
+            return response.data || stock;
+        } catch (err: any) {
+            console.error("Failed to load stock level details", err);
+            ToasterService.error(err.response?.data?.message || err.response?.data?.error || "Failed to load stock level details");
+            return stock;
+        }
+    };
+
+    const handleView = async (stock: StockLevel) => {
+        const stockDetails = await fetchStockLevelById(stock);
+        setSelectedStock(stockDetails);
+        setViewModalOpen(true);
+    };
+
     const confirmDelete = async () => {
         if (!deletingStock) return;
         try {
@@ -393,10 +410,7 @@ const StockLevelsManager: React.FC = () => {
                 <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
                     <button
                         type="button"
-                        onClick={() => {
-                            setSelectedStock(stock);
-                            setViewModalOpen(true);
-                        }}
+                        onClick={() => handleView(stock)}
                         className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
                         title="View Details"
                     >

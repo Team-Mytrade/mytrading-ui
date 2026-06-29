@@ -41,6 +41,19 @@ interface PurchaseOrder {
   items: LineItemUI[]; totalAmount: number;
 }
 
+const asArray = (data: any) =>
+  Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : Array.isArray(data?.content) ? data.content : [];
+
+const normalizeVendor = (vendor: any): Vendor => ({
+  id: vendor.id,
+  name: vendor.name || vendor.vendorName || vendor.contactName || `Vendor #${vendor.id}`,
+});
+
+const normalizeTerms = (terms: any): Terms => ({
+  id: terms.id,
+  title: terms.title || terms.name || `Terms #${terms.id}`,
+});
+
 /* ── Status style — OUTSIDE component ───────────────────────────────────────*/
 const getStatusColor = (status: string) => {
   switch (status.toUpperCase()) {
@@ -75,19 +88,39 @@ const PurchaseOrderPage: React.FC = () => {
 
   useEffect(() => { loadData(); }, []);
 
+  const loadVendors = async () => {
+    try {
+      const res = await axios.get("/v1/api/purchase/vendors");
+      setVendors(asArray(res.data).map(normalizeVendor).filter((vendor: Vendor) => vendor.id && vendor.name));
+    } catch (error) {
+      console.error("Error loading vendors:", error);
+      setVendors([]);
+    }
+  };
+
+  const loadTerms = async () => {
+    try {
+      const res = await axios.get("/v1/api/purchase/terms");
+      setTerms(asArray(res.data).map(normalizeTerms).filter((terms: Terms) => terms.id && terms.title));
+    } catch (error) {
+      console.error("Error loading terms:", error);
+      setTerms([]);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [v, r, c, p, t, po] = await Promise.all([
-        axios.get<Vendor[]>("/v1/api/purchase/vendors"),
+      await loadVendors();
+      await loadTerms();
+      const [r, c, p, po] = await Promise.all([
         axios.get<Requisition[]>("/v1/api/purchase/purchase-requisitions"),
         axios.get<Category[]>("/v1/api/purchase/categories"),
         axios.get<Product[]>("/v1/api/purchase/products"),
-        axios.get<Terms[]>("/v1/api/purchase/terms"),
         axios.get<PurchaseOrder[]>(API_BASE),
       ]);
-      setVendors(v.data); setRequisitions(r.data); setCategories(c.data);
-      setProducts(p.data); setTerms(t.data); setPurchaseOrders(po.data);
+      setRequisitions(r.data); setCategories(c.data);
+      setProducts(p.data); setPurchaseOrders(po.data);
     } catch (e) { console.error("Error loading data:", e); }
     finally { setLoading(false); }
   };
@@ -119,6 +152,8 @@ const PurchaseOrderPage: React.FC = () => {
   };
 
   const openCreatePopup = () => {
+    loadVendors();
+    loadTerms();
     setForm(emptyForm);
     setShowForm(true);
   };

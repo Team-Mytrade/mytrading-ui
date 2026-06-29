@@ -23,8 +23,23 @@ import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 
-const API_URL = "/v1/api/crm/opportunities";
+const API_URL = "/v1/api/crm/deals";
 const PAGE_SIZE = 10;
+
+const stageOptions = [
+  { id: "PROSPECTING", name: "Prospecting" },
+  { id: "NEGOTIATION", name: "Negotiation" },
+  { id: "CLOSED_WON", name: "Closed Won" },
+  { id: "CLOSED_LOST", name: "Closed Lost" },
+];
+
+const normalizeStage = (stage?: string) =>
+  stage ? stage.trim().toUpperCase().replace(/\s+/g, "_") : "PROSPECTING";
+
+const getStageLabel = (stage?: string) => {
+  const normalized = normalizeStage(stage);
+  return stageOptions.find((option) => option.id === normalized)?.name || stage || "-";
+};
 
 interface Opportunity {
   id: number;
@@ -34,17 +49,22 @@ interface Opportunity {
   stage: string;
   status: "ACTIVE" | "INACTIVE";
   lead?: { id: number; name: string };
-  customer?: { id: number; name: string };
+  customer?: { id: number; name?: string; customerName?: string };
 }
 
 interface Lead {
   id: number;
   name: string;
+  email?: string;
+  phone?: string;
+  status?: string;
+  converted?: boolean;
 }
 
 interface Customer {
   id: number;
-  name: string;
+  name?: string;
+  customerName?: string;
 }
 
 export default function OpportunityManager() {
@@ -120,28 +140,41 @@ export default function OpportunityManager() {
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => ({ ...prev, [name]: name === "amount" ? Number(value) : value }));
+  };
+
+  const buildDealPayload = () => {
+    const selectedLead = leads.find((lead) => lead.id === form.lead?.id);
+    const selectedCustomer = customers.find((customer) => customer.id === form.customer?.id);
+
+    return {
+      dealName: form.dealName?.trim(),
+      amount: Number(form.amount) || 0,
+      stage: normalizeStage(form.stage),
+      expectedCloseDate: form.expectedCloseDate || null,
+      status: form.status || "ACTIVE",
+      lead: selectedLead
+        ? {
+            id: selectedLead.id,
+            name: selectedLead.name,
+            email: selectedLead.email,
+            phone: selectedLead.phone,
+            status: selectedLead.status,
+            converted: selectedLead.converted,
+          }
+        : { id: form.lead?.id },
+      customer: selectedCustomer ? { id: selectedCustomer.id } : undefined,
+    };
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
       if (form.id) {
-        await axios.put(`${API_URL}/${form.id}`, form);
+        await axios.put(`${API_URL}/${form.id}`, buildDealPayload());
         ToasterService.success("Opportunity updated successfully!");
       } else if (form.lead?.id) {
-        const payload = {
-          dealName: form.dealName,
-          amount: form.amount,
-          stage: form.stage?.toUpperCase(),
-          expectedCloseDate: form.expectedCloseDate
-            ? new Date(form.expectedCloseDate).toISOString().split("T")[0]
-            : null,
-          status: form.status?.toUpperCase(),
-          lead: { id: form.lead.id },
-          customer: { id: form?.customer?.id },
-        };
-        await axios.post(`${API_URL}/lead/${form.lead.id}`, payload);
+        await axios.post(`${API_URL}/lead/${form.lead.id}`, buildDealPayload());
         ToasterService.success("Opportunity created successfully!");
       } else {
         ToasterService.warning("Please select a lead before creating an opportunity");
@@ -150,9 +183,9 @@ export default function OpportunityManager() {
       fetchOpportunities();
       setShowForm(false);
       setForm({});
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error saving opportunity", err);
-      ToasterService.error("Failed to save opportunity");
+      ToasterService.error(err.response?.data?.message || "Failed to save opportunity");
     }
   };
 
@@ -189,11 +222,11 @@ export default function OpportunityManager() {
     }).format(amount);
 
   const getStageColor = (stage: string) => {
-    switch (stage) {
-      case "Prospecting": return "bg-blue-100 text-blue-800";
-      case "Negotiation": return "bg-yellow-100 text-yellow-800";
-      case "Closed Won": return "bg-green-100 text-green-800";
-      case "Closed Lost": return "bg-red-100 text-red-800";
+    switch (normalizeStage(stage)) {
+      case "PROSPECTING": return "bg-blue-100 text-blue-800";
+      case "NEGOTIATION": return "bg-yellow-100 text-yellow-800";
+      case "CLOSED_WON": return "bg-green-100 text-green-800";
+      case "CLOSED_LOST": return "bg-red-100 text-red-800";
       default: return "bg-gray-100 text-gray-800";
     }
   };
@@ -215,7 +248,7 @@ export default function OpportunityManager() {
           <div>
             <div className="text-sm font-medium text-gray-900 truncate max-w-[150px]">{o.dealName}</div>
             {(o.lead || o.customer) && (
-              <div className="text-xs text-gray-500 truncate max-w-[150px]">{o.lead?.name || o.customer?.name}</div>
+              <div className="text-xs text-gray-500 truncate max-w-[150px]">{o.lead?.name || o.customer?.name || o.customer?.customerName}</div>
             )}
           </div>
         </div>
@@ -251,7 +284,7 @@ export default function OpportunityManager() {
       sortable: true,
       render: (o) => (
         <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getStageColor(o.stage)}`}>
-          {o.stage}
+          {getStageLabel(o.stage)}
         </span>
       ),
     },
@@ -318,7 +351,7 @@ export default function OpportunityManager() {
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={() => setShowForm(true)} label="Add Opportunity" />
+          <AddButton onClick={() => { setForm({ status: "ACTIVE", stage: "PROSPECTING" }); setShowForm(true); }} label="Add Opportunity" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
@@ -418,7 +451,7 @@ export default function OpportunityManager() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => setShowForm(true)}
+                  onClick={() => { setForm({ status: "ACTIVE", stage: "PROSPECTING" }); setShowForm(true); }}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >
                   Add your first opportunity
@@ -479,12 +512,7 @@ export default function OpportunityManager() {
                       name="stage"
                       value={form.stage || ""}
                       onChange={handleChange}
-                      options={[
-                        { id: "Prospecting", name: "Prospecting" },
-                        { id: "Negotiation", name: "Negotiation" },
-                        { id: "Closed Won", name: "Closed Won" },
-                        { id: "Closed Lost", name: "Closed Lost" }
-                      ]}
+                      options={stageOptions}
                     />
 
                     <FloatingSelect
@@ -512,7 +540,7 @@ export default function OpportunityManager() {
                       name="customerId"
                       value={form.customer?.id || ""}
                       onChange={(e) => setForm((prev) => ({ ...prev, customer: e.target.value ? { id: parseInt(e.target.value), name: "" } : undefined }))}
-                      options={customers.map(c => ({ id: c.id, name: c.name }))}
+                      options={customers.map(c => ({ id: c.id, name: c.customerName || c.name || `Customer #${c.id}` }))}
                     />
                   </div>
                 </div>

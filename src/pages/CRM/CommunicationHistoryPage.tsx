@@ -32,9 +32,9 @@ interface CommunicationEntry {
   subject: string;
   notes: string;
   communicationTime: string;
-  contact: { id: number };
-  customer: { id: number };
-  lead: { id: number };
+  contact: ContactPerson;
+  customer: Customer;
+  lead: Lead;
 }
 
 interface ContactPerson {
@@ -42,16 +42,25 @@ interface ContactPerson {
   fullName: string;
   email?: string;
   phone?: string;
+  designation?: string;
+  role?: string;
+  customer?: Customer;
 }
 
 interface Customer {
   id: number;
-  name: string;
+  name?: string;
+  customerName?: string;
+  contacts?: ContactPerson[];
 }
 
 interface Lead {
   id: number;
   name: string;
+  email?: string;
+  phone?: string;
+  status?: string;
+  converted?: boolean;
 }
 
 const API_BASE = "/v1/api/crm";
@@ -60,6 +69,8 @@ const CONTACTS_API = "/contacts";
 const CUSTOMERS_API = "/customers";
 const LEADS_API = "/leads";
 const PAGE_SIZE = 10;
+
+const getCustomerLabel = (customer?: Customer) => customer?.customerName || customer?.name || "";
 
 const CommunicationHistory: React.FC = () => {
   const navigate = useNavigate();
@@ -98,7 +109,7 @@ const CommunicationHistory: React.FC = () => {
       const contact = contacts.find((c) => c.id === entry.contact.id);
       const customer = customers.find((c) => c.id === entry.customer.id);
       const lead = leads.find((l) => l.id === entry.lead.id);
-      const matchesSearch = [entry.subject, entry.notes, entry.type, contact?.fullName, customer?.name, lead?.name]
+      const matchesSearch = [entry.subject, entry.notes, entry.type, contact?.fullName, getCustomerLabel(customer), lead?.name]
         .filter(Boolean).some((text) => text?.toLowerCase().includes(term));
       const matchesType = selectedType ? entry.type === selectedType : true;
       return matchesSearch && matchesType;
@@ -108,15 +119,16 @@ const CommunicationHistory: React.FC = () => {
 
   const fetchAllData = async () => {
     try {
-      const [comm, cont, cust, lead] = await Promise.all([
+      const [comm, cust, lead] = await Promise.all([
         axios.get(`${API_BASE}${COMMUNICATIONS_API}`),
-        axios.get(`${API_BASE}${CONTACTS_API}`),
         axios.get(`${API_BASE}${CUSTOMERS_API}`),
         axios.get(`${API_BASE}${LEADS_API}`),
       ]);
+      const cont = await axios.get(`${API_BASE}${CONTACTS_API}`).catch(() => ({ data: [] }));
       setEntries(comm.data);
       setFilteredEntries(comm.data);
-      setContacts(cont.data);
+      const customerContacts = (cust.data || []).flatMap((customer: Customer) => customer.contacts || []);
+      setContacts(customerContacts.length ? customerContacts : cont.data);
       setCustomers(cust.data);
       setLeads(lead.data);
     } catch (err) {
@@ -178,10 +190,27 @@ const CommunicationHistory: React.FC = () => {
       ToasterService.success("Communication deleted successfully!");
       setDeleteId(null);
       setShowDeletePopup(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error deleting:", err);
-      ToasterService.error("Failed to delete communication");
+      ToasterService.error(err.response?.data?.message || err.response?.data?.error || "Failed to delete communication");
     }
+  };
+
+  const fetchCommunicationById = async (entry: CommunicationEntry) => {
+    try {
+      const res = await axios.get<CommunicationEntry>(`${API_BASE}${COMMUNICATIONS_API}/${entry.id}`);
+      return res.data;
+    } catch (err) {
+      console.error("Error fetching communication details:", err);
+      ToasterService.error("Failed to load communication details");
+      return entry;
+    }
+  };
+
+  const openNotesModal = async (entry: CommunicationEntry) => {
+    const detail = await fetchCommunicationById(entry);
+    setSelectedEntry(detail);
+    setShowNotesModal(true);
   };
 
   const getTypeIcon = (type: string) => {
@@ -288,7 +317,7 @@ const CommunicationHistory: React.FC = () => {
             className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600" title="Edit">
             <PencilSquareIcon className="h-4 w-4" />
           </button>
-          <button type="button" onClick={() => { setSelectedEntry(entry); setShowNotesModal(true); }}
+          <button type="button" onClick={() => openNotesModal(entry)}
             className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600" title="View Notes">
             <DocumentTextIcon className="h-4 w-4" />
           </button>
@@ -302,8 +331,8 @@ const CommunicationHistory: React.FC = () => {
   ];
 
   const getContactName = (entry: CommunicationEntry) => contacts.find((c) => c.id === entry.contact.id)?.fullName || "N/A";
-  const getCustomerName = (entry: CommunicationEntry) => customers.find((c) => c.id === entry.customer.id)?.name || "N/A";
-  const getLeadName = (entry: CommunicationEntry) => leads.find((l) => l.id === entry.lead.id)?.name || "N/A";
+  const getCustomerName = (entry: CommunicationEntry) => getCustomerLabel(entry.customer) || getCustomerLabel(customers.find((c) => c.id === entry.customer.id)) || "N/A";
+  const getLeadName = (entry: CommunicationEntry) => entry.lead.name || leads.find((l) => l.id === entry.lead.id)?.name || "N/A";
 
   return (
     <>
@@ -413,7 +442,7 @@ const CommunicationHistory: React.FC = () => {
           pageSize={PAGE_SIZE}
           defaultSortKey="communicationTime"
           defaultSortOrder="desc"
-          onRowClick={(entry) => { setSelectedEntry(entry); setShowNotesModal(true); }}
+          onRowClick={openNotesModal}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <ChatBubbleLeftIcon className="h-12 w-12 text-gray-400 mb-3" />
@@ -459,7 +488,7 @@ const CommunicationHistory: React.FC = () => {
                     name="customerId"
                     value={form.customerId}
                     onChange={handleChange}
-                    options={customers.map(c => ({ id: c.id, name: c.name }))}
+                    options={customers.map(c => ({ id: c.id, name: getCustomerLabel(c) }))}
                     required
                   />
                   <FloatingSelect
@@ -549,9 +578,9 @@ const CommunicationHistory: React.FC = () => {
                   <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedEntry.notes || "No notes available for this communication."}</p>
                 </div>
                 <div className="mt-4 space-y-2 text-xs text-gray-500">
-                  <div className="flex items-center gap-2"><UserIcon className="h-3.5 w-3.5" /><span>Contact: {contacts.find(c => c.id === selectedEntry.contact.id)?.fullName || 'N/A'}</span></div>
-                  <div className="flex items-center gap-2"><BuildingOfficeIcon className="h-3.5 w-3.5" /><span>Customer: {customers.find(c => c.id === selectedEntry.customer.id)?.name || 'N/A'}</span></div>
-                  <div className="flex items-center gap-2"><UsersIcon className="h-3.5 w-3.5" /><span>Lead: {leads.find(l => l.id === selectedEntry.lead.id)?.name || 'N/A'}</span></div>
+                  <div className="flex items-center gap-2"><UserIcon className="h-3.5 w-3.5" /><span>Contact: {selectedEntry.contact.fullName || contacts.find(c => c.id === selectedEntry.contact.id)?.fullName || 'N/A'}</span></div>
+                  <div className="flex items-center gap-2"><BuildingOfficeIcon className="h-3.5 w-3.5" /><span>Customer: {getCustomerLabel(selectedEntry.customer) || getCustomerLabel(customers.find(c => c.id === selectedEntry.customer.id)) || 'N/A'}</span></div>
+                  <div className="flex items-center gap-2"><UsersIcon className="h-3.5 w-3.5" /><span>Lead: {selectedEntry.lead.name || leads.find(l => l.id === selectedEntry.lead.id)?.name || 'N/A'}</span></div>
                 </div>
               </div>
               <div className="sticky bottom-0 bg-white flex justify-end p-5 border-t border-gray-100">
@@ -572,7 +601,7 @@ const CommunicationHistory: React.FC = () => {
         subText={deleteId ? `Are you sure you want to delete "${entries.find((e) => e.id === deleteId)?.subject || "this communication"}"? This action cannot be undone.` : "Are you sure you want to delete this communication?"}
         confirmLabel="Delete"
         cancelLabel="Cancel"
-        onConfirm={() => { if (deleteId) handleDelete(deleteId); }}
+        onConfirm={() => { if (deleteId !== null) handleDelete(deleteId); }}
         onCancel={() => setDeleteId(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
       />

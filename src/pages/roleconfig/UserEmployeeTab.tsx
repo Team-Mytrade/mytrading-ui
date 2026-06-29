@@ -1,4 +1,4 @@
-import React, { useEffect, useState, FormEvent, useContext } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import {
   PencilSquareIcon,
   TrashIcon,
@@ -18,7 +18,8 @@ import { AuthContext } from "../../context/AuthContext";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 
 const EMPLOYEE_API_BASE = "/v1/api/user";
-const ROLE_API_BASE = "/v1/api/user/roles";
+const ADD_USER_EMPLOYEE_API = "/v1/api/user/add/userEmployee";
+const ROLE_API_BASE = "/v1/api/user/roles/getAll";
 const DOMAIN_API_BASE = "/v1/api/user/domains";
 const DEPARTMENT_API_BASE = "/v1/api/user/departments";
 const TENANT_API_BASE = "/v1/api/user/tenants";
@@ -33,9 +34,11 @@ interface Tenant {
 
 interface Department {
   id: number;
-  departmentName: string;
+  name?: string;
+  departmentName?: string;
   departmentCode: string;
   domainId?: number;
+  domain?: { id: number };
 }
 
 const UserEmployeeTab: React.FC = () => {
@@ -49,7 +52,7 @@ const UserEmployeeTab: React.FC = () => {
   const [form, setForm] = useState<Record<string, any>>({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [users, setUsers] = useState<any[]>([]);
-  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
+  const [roleOptions, setRoleOptions] = useState<any[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
 
   const [showPassword, setShowPassword] = useState(false);
@@ -62,6 +65,22 @@ const UserEmployeeTab: React.FC = () => {
   const [loadingDomains, setLoadingDomains] = useState(false);
   const [loadingDepartments, setLoadingDepartments] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const getDepartmentDomainId = (dept: Department) => dept.domainId ?? dept.domain?.id;
+  const getDepartmentLabel = (dept: Department) => dept.name || dept.departmentName || dept.departmentCode || `Department #${dept.id}`;
+  const getRoleValue = (role: any) => role.roleName || role.roleCode || "";
+  const getRoleLabel = (role: any) => role.roleName || role.roleCode || `Role #${role.id}`;
+  const findRoleByValue = (roleValue: string) =>
+    roleOptions.find((role) => role.roleName === roleValue || role.roleCode === roleValue);
+  const getVisibleDomains = () => {
+    if (!form.tenantId) return filteredDomains;
+    const matchingDomains = domains.filter(domain => (domain as any).tenantId === form.tenantId || !(domain as any).tenantId);
+    return matchingDomains.length ? matchingDomains : domains;
+  };
+  const getVisibleDepartments = () =>
+    form.domainId
+      ? departments.filter(dept => getDepartmentDomainId(dept) === Number(form.domainId))
+      : filteredDepartments;
 
   const getToken = () => localStorage.getItem("accessToken");
 
@@ -163,6 +182,29 @@ const UserEmployeeTab: React.FC = () => {
     }
   };
 
+  const fetchRoles = async () => {
+    if (!ensureToken()) return;
+
+    try {
+      const response = await fetch(ROLE_API_BASE, {
+        method: "GET",
+        headers: getHeaders(),
+      });
+
+      if (!response.ok) {
+        console.error("Fetch roles error");
+        setRoleOptions([]);
+        return;
+      }
+
+      const data = await response.json();
+      setRoleOptions(Array.isArray(data) ? data : data?.data || data?.content || []);
+    } catch (error) {
+      console.error("Error fetching roles:", error);
+      setRoleOptions([]);
+    }
+  };
+
   const handleTenantChange = (selectedTenantId: string) => {
     const selectedTenant = tenants.find(t => t.tenantId === selectedTenantId);
     setForm({
@@ -227,17 +269,53 @@ const UserEmployeeTab: React.FC = () => {
     fetchTenants();
     fetchDomains();
     fetchDepartments();
+    fetchRoles();
   }, [tenantId]);
 
+  useEffect(() => {
+    if (!form.tenantId) {
+      setFilteredDomains([]);
+      return;
+    }
+
+    const filtered = domains.filter(domain =>
+      (domain as any).tenantId === form.tenantId || !(domain as any).tenantId
+    );
+    setFilteredDomains(filtered.length ? filtered : domains);
+  }, [domains, form.tenantId]);
+
+  useEffect(() => {
+    if (!form.domainId) {
+      setFilteredDepartments([]);
+      return;
+    }
+
+    setFilteredDepartments(
+      departments.filter(dept => getDepartmentDomainId(dept) === Number(form.domainId))
+    );
+  }, [departments, form.domainId]);
+
   const buildPayload = () => {
+    const selectedDepartment = departments.find((dept) => dept.id === Number(form.departmentId));
+    const selectedDomain = domains.find((domain) => domain.id === Number(form.domainId));
+    const roleNames = parseRoles(String(form.roleNames ?? ""));
+    const selectedRole = form.role || roleNames[0] || "";
+    const selectedRoles = roleNames.map(findRoleByValue).filter(Boolean);
+    const selectedRoleIds = selectedRoles.map((role) => role.id).filter(Boolean);
+    const selectedRoleId = selectedRoleIds[0] || null;
+
     const payload: any = {
+      // TEMP USER CREATE TEST VALUES: filled for backend request validation.
+      userId: form.userId || `USER-${String(form.username || "TEST").trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_")}`,
       username: form.username,
       email: form.email,
       firstName: form.firstName,
       lastName: form.lastName,
+      officialEmail: form.officialEmail || form.email,
       tenantId: form.tenantId,
       active: form.active !== false,
-      userType: form.userType || "USER",
+      superAdmin: form.userType === "SUPER_ADMIN",
+      userType: form.userType || "EMPLOYEE",
       userDetails: {
         phoneNumber: form.phoneNumber || "",
         country: form.country || "",
@@ -245,19 +323,50 @@ const UserEmployeeTab: React.FC = () => {
         address: form.address || "",
         postalCode: form.postalCode || "",
         aboutMe: form.aboutMe || "",
+        imageName: "",
+        imageType: "",
       },
-      employee: {
-        firstName: form.firstName,
-        lastName: form.lastName,
-        officialEmail: form.officialEmail || form.email,
-        designation: form.designation || "",
-        taxId: form.taxId || "",
-        panNo: form.panNo || "",
-      },
-      department: form.departmentId ? { id: Number(form.departmentId) } : null,
-      domain: form.domainId ? { id: Number(form.domainId) } : null,
-      roleNames: parseRoles(String(form.roleNames ?? ""))
+      employeeId: 0,
+      designation: form.designation || "",
+      department: selectedDepartment
+        ? {
+            id: selectedDepartment.id,
+            departmentCode: selectedDepartment.departmentCode || "",
+            name: getDepartmentLabel(selectedDepartment),
+            description: (selectedDepartment as any).description || "",
+            domainId: getDepartmentDomainId(selectedDepartment) || 0,
+            domainName: (selectedDepartment as any).domainName || "",
+            empId: (selectedDepartment as any).empId || 0,
+            empName: (selectedDepartment as any).empName || "",
+            active: (selectedDepartment as any).active ?? true,
+          }
+        : null,
+      domain: selectedDomain
+        ? {
+            id: selectedDomain.id,
+            name: (selectedDomain as any).domainName || (selectedDomain as any).name || "",
+            domainCode: selectedDomain.domainCode || "",
+          }
+        : null,
+      roleNames,
+      role: selectedRole,
+      // TEMP USER CREATE TEST VALUES: backend is failing user_roles.role_id, so send selected checkbox role id explicitly.
+      roleId: selectedRoleId,
+      roleIds: selectedRoleIds,
     };
+
+    payload.permissions = selectedRoles.map((role) => ({
+      id: 0,
+      roleId: role.id,
+      roleName: role.roleName || role.roleCode || "",
+      permissionId: 0,
+      permissionName: "",
+      tenantId: form.tenantId,
+      createdBy: "",
+      active: true,
+      validFrom: new Date().toISOString().split("T")[0],
+      validTo: new Date().toISOString().split("T")[0],
+    }));
 
     if (!editingId && form.password) {
       payload.password = form.password;
@@ -271,13 +380,26 @@ const UserEmployeeTab: React.FC = () => {
   const parseRoles = (value: string): string[] =>
     value.split(",").map((s) => s.trim()).filter(Boolean);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (currentStep < totalSteps) {
-      handleNextStep();
-      return;
-    }
+  const getSelectedRoleNames = () => parseRoles(String(form.roleNames ?? ""));
 
+  const setSelectedRoleNames = (roleNames: string[]) => {
+    setForm({ ...form, roleNames: roleNames.join(", "), role: roleNames[0] || "" });
+  };
+
+  const toggleRole = (roleName: string) => {
+    const selected = getSelectedRoleNames();
+    const nextSelectedRoles = selected.includes(roleName)
+      ? selected.filter((name) => name !== roleName)
+      : [...selected, roleName];
+
+    setForm({
+      ...form,
+      roleNames: nextSelectedRoles.join(", "),
+      role: selected.includes(roleName) ? nextSelectedRoles[0] || "" : roleName,
+    });
+  };
+
+  const handleSave = async () => {
     if (!form.username || !form.email || !form.firstName || !form.lastName) {
       ToasterService.error("Username, email, first name and last name are required");
       return;
@@ -298,12 +420,17 @@ const UserEmployeeTab: React.FC = () => {
       ToasterService.error("Password is required for new users");
       return;
     }
+    if (getSelectedRoleNames().length === 0) {
+      ToasterService.error("Please select at least one role");
+      return;
+    }
 
     try {
       const isEdit = editingId !== null;
-      const url = isEdit ? `${EMPLOYEE_API_BASE}/${editingId}` : EMPLOYEE_API_BASE;
+      const url = isEdit ? `${EMPLOYEE_API_BASE}/${editingId}` : ADD_USER_EMPLOYEE_API;
       const method = isEdit ? "PUT" : "POST";
       const payload = buildPayload();
+      console.log("User employee payload:", JSON.stringify(payload, null, 2));
 
       const response = await fetch(url, {
         method,
@@ -357,8 +484,8 @@ const UserEmployeeTab: React.FC = () => {
       lastName: item.lastName,
       tenantId: item.tenantId ?? tenantId ?? "",
       active: item.active ?? true,
-      userType: item.userType || "USER",
-      roleNames: item.roles?.map((r: any) => r.role?.roleName).filter(Boolean).join(", ") || "",
+      userType: item.userType || "EMPLOYEE",
+      roleNames: item.roles?.map((r: any) => getRoleValue(r.role || r)).filter(Boolean).join(", ") || "",
       password: "",
     });
     setEditingId(item.userId);
@@ -379,7 +506,7 @@ const UserEmployeeTab: React.FC = () => {
     lastName: "",
     tenantId: "",
     active: true,
-    userType: "USER",
+    userType: "EMPLOYEE",
     phoneNumber: "",
     country: "",
     city: "",
@@ -525,7 +652,7 @@ const UserEmployeeTab: React.FC = () => {
     { key: "email", label: "Email", type: "email", required: true, step: 1 },
     { key: "firstName", label: "First Name", type: "text", required: true, step: 2 },
     { key: "lastName", label: "Last Name", type: "text", required: true, step: 2 },
-    { key: "userType", label: "User Type", type: "select", options: ["SUPER_ADMIN", "ADMIN", "USER"], required: true, step: 2 },
+    { key: "userType", label: "User Type", type: "select", options: ["SUPER_ADMIN", "ADMIN", "EMPLOYEE"], required: true, step: 2 },
     { key: "phoneNumber", label: "Phone", type: "text", step: 2 },
     { key: "country", label: "Country", type: "text", step: 3 },
     { key: "city", label: "City", type: "text", step: 3 },
@@ -656,7 +783,7 @@ const UserEmployeeTab: React.FC = () => {
               disabled={!form.tenantId || loadingDomains}
             >
               <option value="">{!form.tenantId ? "Select tenant first" : loadingDomains ? "Loading..." : "Select Domain"}</option>
-              {filteredDomains.map((domain) => (
+              {getVisibleDomains().map((domain) => (
                 <option key={domain.id} value={domain.id}>{(domain as any).domainName || (domain as any).domainCode}</option>
               ))}
             </select>
@@ -671,8 +798,8 @@ const UserEmployeeTab: React.FC = () => {
               disabled={!form.domainId || loadingDepartments}
             >
               <option value="">{!form.domainId ? "Select domain first" : loadingDepartments ? "Loading..." : "Select Department"}</option>
-              {filteredDepartments.map((dept) => (
-                <option key={dept.id} value={dept.id}>{dept.departmentName}</option>
+              {getVisibleDepartments().map((dept) => (
+                <option key={dept.id} value={dept.id}>{getDepartmentLabel(dept)}</option>
               ))}
             </select>
           </div>
@@ -682,6 +809,10 @@ const UserEmployeeTab: React.FC = () => {
       );
     }
 
+    const selectedRoleNames = getSelectedRoleNames();
+    const allRoleNames = roleOptions.map((role) => getRoleValue(role)).filter(Boolean);
+    const allRolesSelected = allRoleNames.length > 0 && allRoleNames.every((roleName) => selectedRoleNames.includes(roleName));
+
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -689,14 +820,49 @@ const UserEmployeeTab: React.FC = () => {
           <Toggle value={form.active !== false} onChange={(v) => setForm({ ...form, active: v })} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Roles</label>
-          <input
-            type="text"
-            value={form.roleNames || ""}
-            onChange={(e) => setForm({ ...form, roleNames: e.target.value })}
+          <div className="mb-1 flex items-center justify-between">
+            <label className="block text-sm font-medium text-gray-700">Roles</label>
+            <label className="flex items-center gap-2 text-xs font-medium text-gray-600">
+              <input
+                type="checkbox"
+                checked={allRolesSelected}
+                onChange={() => setSelectedRoleNames(allRolesSelected ? [] : allRoleNames)}
+                className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+              />
+              Select all
+            </label>
+          </div>
+          <select
+            multiple
+            value={selectedRoleNames}
+            onChange={(e) => setSelectedRoleNames(Array.from(e.target.selectedOptions, (option) => option.value))}
             className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
-            placeholder="Comma-separated role names"
-          />
+          >
+            {roleOptions.map((role) => {
+              const roleName = getRoleValue(role);
+              return (
+                <option key={role.id} value={roleName}>
+                  {getRoleLabel(role)}
+                </option>
+              );
+            })}
+          </select>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {roleOptions.map((role) => {
+              const roleName = getRoleValue(role);
+              return (
+                <label key={role.id} className="flex items-center gap-2 rounded-lg border border-gray-100 px-3 py-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={selectedRoleNames.includes(roleName)}
+                    onChange={() => toggleRole(roleName)}
+                    className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                  />
+                  <span>{getRoleLabel(role)}</span>
+                </label>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
@@ -802,7 +968,7 @@ const UserEmployeeTab: React.FC = () => {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-5 overflow-y-auto flex-1">
+            <form id="user-employee-form" onSubmit={(e) => e.preventDefault()} className="p-5 overflow-y-auto flex-1">
               {renderCurrentStep()}
             </form>
 
@@ -820,7 +986,7 @@ const UserEmployeeTab: React.FC = () => {
                 {currentStep < totalSteps ? (
                   <button type="button" onClick={handleNextStep} className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 rounded-lg hover:bg-cyan-700">Next</button>
                 ) : (
-                  <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 rounded-lg hover:bg-cyan-700">{editingId ? "Update" : "Create"}</button>
+                  <button type="button" onClick={handleSave} className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 rounded-lg hover:bg-cyan-700">{editingId ? "Update" : "Create"}</button>
                 )}
               </div>
             </div>

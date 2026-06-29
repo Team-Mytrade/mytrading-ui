@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useContext, useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -30,25 +30,33 @@ import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import { AuthContext } from "../../context/AuthContext";
 
 interface QualityInspection {
     id: number;
     productSKU: string;
     productName?: string;
+    productId?: number;
     inspectionDate: string;
     inspectorName: string;
+    inspector?: string;
     inspectorId?: string;
-    result: "Pass" | "Fail";
+    result: "Pass" | "Fail" | "PASS" | "FAIL";
     remarks?: string;
     status: "Pending" | "Completed" | "InProgress";
+    batch?: string;
+    serialNumber?: string;
     createdAt?: string;
     updatedAt?: string;
+    createdDate?: string;
+    updatedDate?: string;
 }
 
-const API_URL = "/v1/api/quality/inspections";
+const API_URL = "/v1/api/inventory/quality-inspections";
 const PAGE_SIZE = 10;
 
 const QualityInspectionManager: React.FC = () => {
+    const { user } = useContext(AuthContext);
     const [records, setRecords] = useState<QualityInspection[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
@@ -65,11 +73,15 @@ const QualityInspectionManager: React.FC = () => {
 
     const [formData, setFormData] = useState<Omit<QualityInspection, "id">>({
         productSKU: "",
+        productId: 0,
         inspectionDate: new Date().toISOString().split('T')[0],
         inspectorName: "",
+        inspector: "",
         result: "Pass",
         remarks: "",
         status: "Pending",
+        batch: "",
+        serialNumber: "",
     });
 
     useEffect(() => {
@@ -90,21 +102,40 @@ const QualityInspectionManager: React.FC = () => {
         }
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const buildPayload = () => {
+        const now = new Date().toISOString();
+
+        return {
+            id: editingId || 0,
+            createdDate: now,
+            updatedDate: now,
+            createdBy: user?.userId || user?.username || "",
+            tenantId: user?.tenantId || "",
+            inspectionDate: formData.inspectionDate,
+            inspector: formData.inspectorName || formData.inspector || "",
+            result: String(formData.result).toUpperCase(),
+            remarks: formData.remarks || "",
+            productId: Number(formData.productId || formData.productSKU) || 0,
+            batch: formData.batch || "",
+            serialNumber: formData.serialNumber || "",
+        };
+    };
+
+    const handleSave = async () => {
+        const payload = buildPayload();
 
         try {
             if (formMode === "edit" && editingId) {
-                await axios.put(`${API_URL}/${editingId}`, formData);
+                await axios.put(`${API_URL}/${editingId}`, payload);
                 ToasterService.success("Inspection record updated successfully");
             } else {
-                await axios.post(API_URL, formData);
+                await axios.post(API_URL, payload);
                 ToasterService.success("Inspection record created successfully");
             }
             await fetchRecords();
             closeForm();
         } catch (err: any) {
-            ToasterService.error(err.response?.data?.message || "Save failed");
+            ToasterService.error(err.response?.data?.message || err.response?.data?.error || "Save failed");
         }
     };
 
@@ -112,14 +143,46 @@ const QualityInspectionManager: React.FC = () => {
         setEditingId(record.id);
         setFormData({
             productSKU: record.productSKU,
+            productId: record.productId || Number(record.productSKU) || 0,
             inspectionDate: record.inspectionDate.split('T')[0],
             inspectorName: record.inspectorName,
+            inspector: record.inspector || record.inspectorName,
             result: record.result,
             remarks: record.remarks || "",
             status: record.status,
+            batch: record.batch || "",
+            serialNumber: record.serialNumber || "",
         });
         setFormMode("edit");
         setShowForm(true);
+    };
+
+    const normalizeInspectionDetail = (detail: any, fallback: QualityInspection): QualityInspection => ({
+        ...fallback,
+        ...detail,
+        productSKU: detail.productSKU || detail.productNumber || (detail.productId ? String(detail.productId) : fallback.productSKU),
+        inspectorName: detail.inspectorName || detail.inspector || fallback.inspectorName,
+        result: detail.result === "PASS" ? "Pass" : detail.result === "FAIL" ? "Fail" : detail.result || fallback.result,
+        status: detail.status || fallback.status,
+        createdAt: detail.createdAt || detail.createdDate || fallback.createdAt,
+        updatedAt: detail.updatedAt || detail.updatedDate || fallback.updatedAt,
+    });
+
+    const fetchInspectionById = async (record: QualityInspection) => {
+        try {
+            const response = await axios.get(`${API_URL}/${record.id}`);
+            return normalizeInspectionDetail(response.data, record);
+        } catch (err: any) {
+            console.error("Failed to load quality inspection details", err);
+            ToasterService.error(err.response?.data?.message || err.response?.data?.error || "Failed to load inspection details");
+            return record;
+        }
+    };
+
+    const handleView = async (record: QualityInspection) => {
+        const detail = await fetchInspectionById(record);
+        setSelectedRecord(detail);
+        setViewModalOpen(true);
     };
 
     const handleDelete = async (id: number, productSKU: string) => {
@@ -145,11 +208,15 @@ const QualityInspectionManager: React.FC = () => {
         setEditingId(null);
         setFormData({
             productSKU: "",
+            productId: 0,
             inspectionDate: new Date().toISOString().split('T')[0],
             inspectorName: "",
+            inspector: "",
             result: "Pass",
             remarks: "",
             status: "Pending",
+            batch: "",
+            serialNumber: "",
         });
     };
 
@@ -362,10 +429,7 @@ const QualityInspectionManager: React.FC = () => {
                 <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
                     <button
                         type="button"
-                        onClick={() => {
-                            setSelectedRecord(record);
-                            setViewModalOpen(true);
-                        }}
+                        onClick={() => handleView(record)}
                         className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
                         title="View Details"
                     >
@@ -406,11 +470,15 @@ const QualityInspectionManager: React.FC = () => {
                             setEditingId(null);
                             setFormData({
                                 productSKU: "",
+                                productId: 0,
                                 inspectionDate: new Date().toISOString().split('T')[0],
                                 inspectorName: "",
+                                inspector: "",
                                 result: "Pass",
                                 remarks: "",
                                 status: "Pending",
+                                batch: "",
+                                serialNumber: "",
                             });
                             setShowForm(true);
                         }}
@@ -581,10 +649,7 @@ const QualityInspectionManager: React.FC = () => {
                     defaultSortKey="inspectionDate"
                     defaultSortOrder="desc"
                     loading={loading}
-                    onRowClick={(record) => {
-                        setSelectedRecord(record);
-                        setViewModalOpen(true);
-                    }}
+                    onRowClick={handleView}
                     emptyState={
                         <div className="flex flex-col items-center justify-center py-12">
                             <ClipboardDocumentCheckIcon className="h-12 w-12 text-gray-400 mb-3" />
@@ -712,7 +777,7 @@ const QualityInspectionManager: React.FC = () => {
                                             <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
                                                 {formMode === "add" ? "Add Inspection Record" : "Edit Inspection Record"}
                                             </h3>
-                                            <form onSubmit={handleSubmit} className="space-y-4">
+                                            <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700">Product SKU</label>
                                                     <input
@@ -785,8 +850,8 @@ const QualityInspectionManager: React.FC = () => {
                                 </div>
                                 <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                                     <button
-                                        type="submit"
-                                        onClick={handleSubmit}
+                                        type="button"
+                                        onClick={handleSave}
                                         className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
                                         {formMode === "add" ? "Create" : "Update"}
