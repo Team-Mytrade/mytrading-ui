@@ -119,7 +119,7 @@ const EmptyImage = () => (
   <img
     src={noDataImage}
     alt="No data"
-    className="mx-auto mb-1 h-56 w-56 object-contain opacity-90 sm:h-72 sm:w-72 lg:h-80 lg:w-80"
+    className="mx-auto -mt-15 h-72 w-72 object-contain opacity-90 sm:h-80 sm:w-80 lg:h-[26rem] lg:w-[26rem] xl:h-[28rem] xl:w-[28rem]"
   />
 );
 
@@ -225,7 +225,7 @@ export function ReusableTable<T extends { id?: number | string }>({
       )}
 
       {showEmptyState ? (
-        <div className="flex min-h-[220px] items-start justify-center pt-0 pb-4 text-center sm:min-h-[280px] sm:pt-0">
+        <div className="flex min-h-[340px] items-start justify-center pb-0 pt-0 text-center sm:min-h-[390px] lg:min-h-[430px] xl:min-h-[460px]">
           {emptyState ? (
             <div className="table-empty-with-image flex flex-col items-center justify-center">
               <EmptyImage />
