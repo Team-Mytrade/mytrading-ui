@@ -8,6 +8,7 @@ const SalarySummaryTab: React.FC = () => {
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     });
     const [overallSalarySummary, setOverallSalarySummary] = useState<any>(null);
+    const [departmentSummary, setDepartmentSummary] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -21,27 +22,38 @@ const SalarySummaryTab: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
-            // Using the new API endpoint
-            const res = await axios.get(`/v1/api/payroll/reports/getPayrollSummary`, { 
-                params: { payrollMonth: salaryMonth } 
-            });
+            // Fetch both overall and department summaries
+            const [summaryRes, deptRes] = await Promise.allSettled([
+                axios.get(`/v1/api/payroll/reports/getPayrollSummary`, { params: { payrollMonth: salaryMonth } }),
+                axios.get(`/v1/api/payroll/reports/department-summary`, { params: { payrollMonth: salaryMonth } })
+            ]);
             
-            // Handle if it's an array (e.g. [{ metric: ..., value: ... }] or [{ totalEarnings: ... }])
-            let data = res.data;
-            if (Array.isArray(data)) {
-                if (data.length === 1 && typeof data[0] === 'object') {
-                    data = data[0]; // If it's just a single object wrapped in an array
-                } else {
-                    // Flatten array of objects into a single object for display
-                    data = data.reduce((acc, curr) => {
-                        if (typeof curr === 'object' && curr !== null) {
-                            return { ...acc, ...curr };
-                        }
-                        return acc;
-                    }, {});
+            if (summaryRes.status === 'fulfilled') {
+                let data = summaryRes.value.data;
+                if (Array.isArray(data)) {
+                    if (data.length === 1 && typeof data[0] === 'object') {
+                        data = data[0]; 
+                    } else {
+                        data = data.reduce((acc, curr) => {
+                            if (typeof curr === 'object' && curr !== null) {
+                                return { ...acc, ...curr };
+                            }
+                            return acc;
+                        }, {});
+                    }
                 }
+                setOverallSalarySummary(data);
+            } else {
+                throw new Error("Failed to fetch salary summary.");
             }
-            setOverallSalarySummary(data);
+
+            if (deptRes.status === 'fulfilled') {
+                const data = deptRes.value.data;
+                setDepartmentSummary(Array.isArray(data) ? data : []);
+            } else {
+                setDepartmentSummary([]);
+            }
+
         } catch (err: any) {
             console.error("Failed to fetch salary summary:", err);
             setError("Failed to fetch salary summary. It may not be generated yet.");
@@ -144,8 +156,42 @@ const SalarySummaryTab: React.FC = () => {
                         )}
                     </div>
                 ) : (
-                    <div className="text-sm text-gray-400 py-8">
-                        No data available for {salaryMonth}.
+                    <div className="text-sm text-gray-400 py-8 text-center bg-gray-50 rounded-lg">
+                        No summary data available for {salaryMonth}.
+                    </div>
+                )}
+
+                {/* Department Summary Table */}
+                {!loading && departmentSummary.length > 0 && (
+                    <div className="mt-8 border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                            <h3 className="text-sm font-semibold text-gray-800">Department Summary</h3>
+                            <span className="text-xs text-gray-500">{departmentSummary.length} Departments</span>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm whitespace-nowrap">
+                                <thead className="bg-white text-gray-500 border-b border-gray-100">
+                                    <tr>
+                                        <th className="px-6 py-3 font-medium">Department</th>
+                                        <th className="px-6 py-3 font-medium text-right">Employees</th>
+                                        <th className="px-6 py-3 font-medium text-right">Total Gross</th>
+                                        <th className="px-6 py-3 font-medium text-right">Total Deductions</th>
+                                        <th className="px-6 py-3 font-medium text-right">Net Salary</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 bg-white">
+                                    {departmentSummary.map((dept, idx) => (
+                                        <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-6 py-4 font-medium text-gray-900">{dept.departmentName || dept.department || 'Unknown'}</td>
+                                            <td className="px-6 py-4 text-right text-gray-600">{formatNumber(dept.employeeCount || dept.totalEmployees)}</td>
+                                            <td className="px-6 py-4 text-right text-gray-900">{formatCurrency(dept.totalGrossSalary || dept.grossSalary)}</td>
+                                            <td className="px-6 py-4 text-right text-gray-900">{formatCurrency(dept.totalDeductions || dept.deductions)}</td>
+                                            <td className="px-6 py-4 text-right font-semibold text-cyan-600">{formatCurrency(dept.totalNetSalary || dept.netSalary)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 )}
             </div>

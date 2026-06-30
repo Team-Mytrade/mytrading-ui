@@ -356,6 +356,30 @@ const PayrollPage: React.FC = () => {
         setShowExportMenu(false);
     };
 
+    const handleExportDetailedReport = async () => {
+        try {
+            const response = await axios.get(`/v1/api/payroll/reports/getPayrollDetailReportByMonth`, {
+                params: { payrollMonth: filterMonth }
+            });
+            
+            const data = response.data;
+            if (!data || !Array.isArray(data) || data.length === 0) {
+                ToasterService.warning("No detailed report data found for this month");
+                return;
+            }
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Detailed Report");
+            XLSX.writeFile(wb, `Payroll_Detailed_Report_${filterMonth}.xlsx`);
+            
+            ToasterService.success("Detailed report exported successfully");
+        } catch (error) {
+            console.error("Error exporting detailed report:", error);
+            ToasterService.error("Failed to export detailed report");
+        }
+    };
+
     const filtered = salaries.filter((s) => {
         const term = search.toLowerCase();
         const name = `${s.employee?.firstName || ""} ${s.employee?.lastName || ""}`.toLowerCase();
@@ -418,7 +442,14 @@ const PayrollPage: React.FC = () => {
             <PageBreadcrumb pageTitle="Salary Records" />
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-                <div className="mb-8 -mt-[125px] flex justify-end">
+                <div className="mb-8 -mt-[125px] flex justify-end gap-3">
+                    <button
+                        onClick={handleExportDetailedReport}
+                        className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors font-medium"
+                    >
+                        <DocumentArrowDownIcon className="h-5 w-5 text-white" />
+                        Export Detailed Report
+                    </button>
                     <AddButton label="Generate Payslips" onClick={() => setIsGenerateModalOpen(true)} />
                 </div>
 
