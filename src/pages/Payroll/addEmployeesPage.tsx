@@ -37,7 +37,8 @@ import {
   MaritalStatus,
   Gender,
 } from "../../shared/types/employee.types";
-import { COUNTRY_OPTIONS, ALL_CURRENCIES, getStatesByCountry } from "../../shared/utils/country-list";
+import { COUNTRY_OPTIONS, ALL_CURRENCIES } from "../../shared/utils/country-list";
+import { State, City } from "country-state-city";
 
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 const DEPARTMENT_API_URL = "/v1/api/payroll/department";
@@ -524,16 +525,6 @@ const AddEmployeePage: React.FC = () => {
         if (!form.bankAccountNumber.trim()) newErrors.bankAccountNumber = "Account number is required";
         if (form.permanentAddress.country?.value === "India") {
           if (!form.ifscCode.trim()) newErrors.ifscCode = "IFSC code is required";
-          if (!form.countrySpecificData.pan.trim()) {
-            newErrors["countrySpecificData.pan"] = "PAN is required";
-          } else if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(form.countrySpecificData.pan)) {
-            newErrors["countrySpecificData.pan"] = "Invalid PAN format";
-          }
-          if (!form.countrySpecificData.aadhaar.trim()) {
-            newErrors["countrySpecificData.aadhaar"] = "Aadhaar is required";
-          } else if (!/^\d{12}$/.test(form.countrySpecificData.aadhaar)) {
-            newErrors["countrySpecificData.aadhaar"] = "Aadhaar must be 12 digits";
-          }
         }
         break;
     }
@@ -1226,29 +1217,20 @@ const AddEmployeePage: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                          City <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={form.permanentAddress.city}
-                          onChange={(e) => handleChange("permanentAddress.city", e.target.value)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors["permanentAddress.city"] ? "border-red-500" : "border-gray-300"}`}
-                        />
-                        <ErrorMessage message={errors["permanentAddress.city"]} />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
                           State <span className="text-red-500">*</span>
                         </label>
-                        {getStatesByCountry(form.permanentAddress.country?.value).length > 0 ? (
+                        {State.getStatesOfCountry(form.permanentAddress.country?.code || '').length > 0 ? (
                           <select
                             value={form.permanentAddress.state}
-                            onChange={(e) => handleChange("permanentAddress.state", e.target.value)}
+                            onChange={(e) => {
+                                handleChange("permanentAddress.state", e.target.value);
+                                handleChange("permanentAddress.city", ""); // Reset city when state changes
+                            }}
                             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors["permanentAddress.state"] ? "border-red-500" : "border-gray-300"}`}
                           >
                             <option value="">Select State</option>
-                            {getStatesByCountry(form.permanentAddress.country?.value).map((state) => (
-                              <option key={state} value={state}>{state}</option>
+                            {State.getStatesOfCountry(form.permanentAddress.country?.code || '').map((state) => (
+                              <option key={state.isoCode} value={state.name}>{state.name}</option>
                             ))}
                           </select>
                         ) : (
@@ -1261,6 +1243,37 @@ const AddEmployeePage: React.FC = () => {
                           />
                         )}
                         <ErrorMessage message={errors["permanentAddress.state"]} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                          City <span className="text-red-500">*</span>
+                        </label>
+                        {(() => {
+                            const cCode = form.permanentAddress.country?.code || '';
+                            const stateObj = State.getStatesOfCountry(cCode).find(s => s.name === form.permanentAddress.state);
+                            const cities = stateObj ? City.getCitiesOfState(cCode, stateObj.isoCode) : [];
+                            return cities.length > 0 ? (
+                              <select
+                                value={form.permanentAddress.city}
+                                onChange={(e) => handleChange("permanentAddress.city", e.target.value)}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors["permanentAddress.city"] ? "border-red-500" : "border-gray-300"}`}
+                              >
+                                <option value="">Select City</option>
+                                {cities.map((city) => (
+                                  <option key={city.name} value={city.name}>{city.name}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type="text"
+                                value={form.permanentAddress.city}
+                                onChange={(e) => handleChange("permanentAddress.city", e.target.value)}
+                                placeholder="Enter city"
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors["permanentAddress.city"] ? "border-red-500" : "border-gray-300"}`}
+                              />
+                            );
+                        })()}
+                        <ErrorMessage message={errors["permanentAddress.city"]} />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -1338,31 +1351,21 @@ const AddEmployeePage: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                          City <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={form.currentAddress.city}
-                          onChange={(e) => handleChange("currentAddress.city", e.target.value)}
-                          disabled={sameAsPermanent}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition disabled:bg-gray-100 disabled:cursor-not-allowed ${errors["currentAddress.city"] ? "border-red-500" : "border-gray-300"}`}
-                        />
-                        <ErrorMessage message={errors["currentAddress.city"]} />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
                           State <span className="text-red-500">*</span>
                         </label>
-                        {getStatesByCountry(form.currentAddress.country?.value).length > 0 ? (
+                        {State.getStatesOfCountry(form.currentAddress.country?.code || '').length > 0 ? (
                           <select
                             value={form.currentAddress.state}
-                            onChange={(e) => handleChange("currentAddress.state", e.target.value)}
+                            onChange={(e) => {
+                                handleChange("currentAddress.state", e.target.value);
+                                handleChange("currentAddress.city", ""); // Reset city
+                            }}
                             disabled={sameAsPermanent}
                             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white disabled:bg-gray-100 disabled:cursor-not-allowed ${errors["currentAddress.state"] ? "border-red-500" : "border-gray-300"}`}
                           >
                             <option value="">Select State</option>
-                            {getStatesByCountry(form.currentAddress.country?.value).map((state) => (
-                              <option key={state} value={state}>{state}</option>
+                            {State.getStatesOfCountry(form.currentAddress.country?.code || '').map((state) => (
+                              <option key={state.isoCode} value={state.name}>{state.name}</option>
                             ))}
                           </select>
                         ) : (
@@ -1376,6 +1379,39 @@ const AddEmployeePage: React.FC = () => {
                           />
                         )}
                         <ErrorMessage message={errors["currentAddress.state"]} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                          City <span className="text-red-500">*</span>
+                        </label>
+                        {(() => {
+                            const cCode = form.currentAddress.country?.code || '';
+                            const stateObj = State.getStatesOfCountry(cCode).find(s => s.name === form.currentAddress.state);
+                            const cities = stateObj ? City.getCitiesOfState(cCode, stateObj.isoCode) : [];
+                            return cities.length > 0 ? (
+                              <select
+                                value={form.currentAddress.city}
+                                onChange={(e) => handleChange("currentAddress.city", e.target.value)}
+                                disabled={sameAsPermanent}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white disabled:bg-gray-100 disabled:cursor-not-allowed ${errors["currentAddress.city"] ? "border-red-500" : "border-gray-300"}`}
+                              >
+                                <option value="">Select City</option>
+                                {cities.map((city) => (
+                                  <option key={city.name} value={city.name}>{city.name}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type="text"
+                                value={form.currentAddress.city}
+                                onChange={(e) => handleChange("currentAddress.city", e.target.value)}
+                                disabled={sameAsPermanent}
+                                placeholder="Enter city"
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition disabled:bg-gray-100 disabled:cursor-not-allowed ${errors["currentAddress.city"] ? "border-red-500" : "border-gray-300"}`}
+                              />
+                            );
+                        })()}
+                        <ErrorMessage message={errors["currentAddress.city"]} />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -1430,8 +1466,9 @@ const AddEmployeePage: React.FC = () => {
                         </label>
                         <input
                           type="text"
+                          inputMode="numeric"
                           value={form.bankAccountNumber}
-                          onChange={(e) => handleChange("bankAccountNumber", e.target.value)}
+                          onChange={(e) => handleChange("bankAccountNumber", e.target.value.replace(/\D/g, ''))}
                           className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.bankAccountNumber ? "border-red-500" : "border-gray-300"}`}
                         />
                         <ErrorMessage message={errors.bankAccountNumber} />
@@ -1506,7 +1543,7 @@ const AddEmployeePage: React.FC = () => {
                           </span>
                           <input
                             type="number"
-                            value={form.salary.ctc}
+                            value={form.salary.ctc === 0 ? "" : form.salary.ctc}
                             onChange={(e) => handleChange("salary.ctc", Number(e.target.value))}
                             className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                             placeholder="Enter CTC amount"
@@ -1549,7 +1586,7 @@ const AddEmployeePage: React.FC = () => {
                                 <span className="absolute left-3 top-2.5 text-gray-500">{currencySymbol}</span>
                                 <input
                                   type="number"
-                                  value={earning.amount}
+                                  value={earning.amount === 0 ? "" : earning.amount}
                                   onChange={(e) => handleEarningChange(idx, "amount", e.target.value)}
                                   placeholder="Amount"
                                   className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
@@ -1598,7 +1635,7 @@ const AddEmployeePage: React.FC = () => {
                                 <span className="absolute left-3 top-2.5 text-gray-500">{currencySymbol}</span>
                                 <input
                                   type="number"
-                                  value={benefit.amount}
+                                  value={benefit.amount === 0 ? "" : benefit.amount}
                                   onChange={(e) => handleAdditionalBenefitsChange(idx, "amount", e.target.value)}
                                   placeholder="Amount"
                                   className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
@@ -1614,102 +1651,7 @@ const AddEmployeePage: React.FC = () => {
                     )}
                   </div>
 
-                  {/* India-specific: Tax Regime, ESI, Metro City & Documents */}
-                  {isIndia && (
-                    <div className="space-y-4 pt-6 border-t border-gray-100">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">Tax Regime</label>
-                          <select
-                            value={form.salary.regime}
-                            onChange={(e) => handleChange("salary.regime", e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white"
-                          >
-                            <option value="NEW">New Regime</option>
-                            <option value="OLD">Old Regime</option>
-                          </select>
-                        </div>
-                      </div>
 
-                      {/* ESI and Metro City Checkboxes */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <label className="flex items-center gap-3 cursor-pointer p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-                          <input
-                            type="checkbox"
-                            checked={form.salary.countrySpecificData.esi_applicable}
-                            onChange={(e) => handleChange("salary.countrySpecificData.esi_applicable", e.target.checked)}
-                            className="w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
-                          />
-                          <div>
-                            <span className="text-sm font-medium text-gray-700">ESI Applicable</span>
-                            <p className="text-xs text-gray-500">Employee State Insurance Corporation</p>
-                          </div>
-                        </label>
-
-                        <label className="flex items-center gap-3 cursor-pointer p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-                          <input
-                            type="checkbox"
-                            checked={form.salary.countrySpecificData.isMetrocity}
-                            onChange={(e) => handleChange("salary.countrySpecificData.isMetrocity", e.target.checked)}
-                            className="w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
-                          />
-                          <div>
-                            <span className="text-sm font-medium text-gray-700">Metro City</span>
-                            <p className="text-xs text-gray-500">Applicable for HRA calculations</p>
-                          </div>
-                        </label>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">PAN Number *</label>
-                          <input
-                            type={editId && !showPAN ? "password" : "text"}
-                            value={editId && !showPAN ? maskString(form.countrySpecificData.pan, 4) : form.countrySpecificData.pan}
-                            onChange={(e) => handleChange("countrySpecificData.pan", e.target.value.toUpperCase())}
-                            onFocus={() => editId && setShowPAN(true)}
-                            onBlur={() => editId && setShowPAN(false)}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors["countrySpecificData.pan"] ? "border-red-500" : "border-gray-300"}`}
-                            placeholder="ABCDE1234F"
-                          />
-                          <ErrorMessage message={errors["countrySpecificData.pan"]} />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">Aadhaar Number *</label>
-                          <input
-                            type={editId && !showAadhaar ? "password" : "text"}
-                            value={editId && !showAadhaar ? maskString(form.countrySpecificData.aadhaar, 4) : form.countrySpecificData.aadhaar}
-                            onChange={(e) => handleChange("countrySpecificData.aadhaar", e.target.value)}
-                            onFocus={() => editId && setShowAadhaar(true)}
-                            onBlur={() => editId && setShowAadhaar(false)}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors["countrySpecificData.aadhaar"] ? "border-red-500" : "border-gray-300"}`}
-                            placeholder="784578581234"
-                          />
-                          <ErrorMessage message={errors["countrySpecificData.aadhaar"]} />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">PF Number</label>
-                          <input
-                            type="text"
-                            value={form.salary.countrySpecificData.pf_number}
-                            onChange={(e) => handleChange("salary.countrySpecificData.pf_number", e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
-                            placeholder="KN1234567890"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">UAN</label>
-                          <input
-                            type="text"
-                            value={form.salary.countrySpecificData.uan}
-                            onChange={(e) => handleChange("salary.countrySpecificData.uan", e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
-                            placeholder="100200300400"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -1859,26 +1801,7 @@ const AddEmployeePage: React.FC = () => {
                             ))}
                           </div>
                         )}
-                        {isIndia && (
-                          <>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Tax Regime</span>
-                              <span className="font-semibold text-gray-900">{form.salary.regime}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">ESI Applicable</span>
-                              <span className="font-semibold text-gray-900">
-                                {form.salary.countrySpecificData.esi_applicable ? "Yes" : "No"}
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Metro City</span>
-                              <span className="font-semibold text-gray-900">
-                                {form.salary.countrySpecificData.isMetrocity ? "Yes" : "No"}
-                              </span>
-                            </div>
-                          </>
-                        )}
+
                       </div>
                     </div>
                   </div>

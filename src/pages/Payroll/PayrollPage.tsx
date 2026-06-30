@@ -28,6 +28,7 @@ import {
     ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import { Menu } from "@headlessui/react";
+import { useSearchParams } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
@@ -35,6 +36,7 @@ import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import SalarySummaryTab from "./SalarySummaryTab";
 
 const BASE_URL = "/v1/api/payroll";
 const PAGE_SIZE = 10;
@@ -74,14 +76,22 @@ interface EmployeeSalary {
 }
 
 const PayrollPage: React.FC = () => {
+    const [searchParams] = useSearchParams();
     const [salaries, setSalaries] = useState<EmployeeSalary[]>([]);
-    const [search, setSearch] = useState("");
+    const [search, setSearch] = useState(() => {
+        const empCode = searchParams.get("employeeCode");
+        const empName = searchParams.get("employeeName");
+        return empCode || empName || "";
+    });
     const [sortKey, setSortKey] = useState<keyof EmployeeSalary>("month");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(false);
+    const [filterMonth, setFilterMonth] = useState("2026-06");
     const [processMonth, setProcessMonth] = useState("");
     const [viewItem, setViewItem] = useState<EmployeeSalary | null>(null);
+    const [viewDetails, setViewDetails] = useState<any>(null);
+    const [detailsLoading, setDetailsLoading] = useState(false);
     const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
     const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
     const [generateMonth, setGenerateMonth] = useState("");
@@ -102,13 +112,42 @@ const PayrollPage: React.FC = () => {
 
     useEffect(() => {
         fetchAll();
-    }, []);
+    }, [filterMonth]);
 
     const fetchAll = async () => {
+        if (!filterMonth) return;
         setLoading(true);
         try {
-            const response = await axios.get(`${BASE_URL}`);
-            setSalaries(response.data);
+            const [salariesRes, empRes] = await Promise.all([
+                axios.get(`/v1/api/payroll/salary-summary?yearMonth=${filterMonth}`),
+                axios.get(`/v1/api/payroll/employee/all`)
+            ]);
+            
+            const salaryData = Array.isArray(salariesRes.data) ? salariesRes.data : (salariesRes.data?.data || []);
+            const empData = Array.isArray(empRes.data) ? empRes.data : (empRes.data?.data || []);
+            
+            const employeeMap = new Map();
+            empData.forEach((emp: any) => {
+                employeeMap.set(emp.id, emp);
+            });
+
+            const merged = salaryData.map((s: any, index: number) => ({
+                id: s.employeeSalaryId || s.employeeId || index,
+                month: s.month || filterMonth,
+                grossSalary: s.grossSalary || 0,
+                netSalary: s.netSalary || 0,
+                basic: s.basic || 0,
+                hra: s.hra || 0,
+                bonus: s.bonus || 0,
+                currency: s.currency || 'INR',
+                isProcessed: !!s.processedDate,
+                processedDate: s.processedDate || null,
+                totalEarnings: s.totalEarnings || s.grossSalary || 0,
+                totalDeductions: s.totalDeductions || 0,
+                employee: employeeMap.get(s.employeeId) || null,
+            }));
+
+            setSalaries(merged);
         } catch (err) {
             console.error("Error loading salaries", err);
             ToasterService.error("Failed to load salary records");
@@ -123,14 +162,14 @@ const PayrollPage: React.FC = () => {
             ToasterService.warning("Please select a month to process");
             return;
         }
-        
+
         const ok = await confirm({
             message: `Are you sure you want to process payroll for ${processMonth}? This action will mark all salaries for this month as processed.`,
             confirmLabel: "Process",
             variant: "info",
         });
         if (!ok) return;
-        
+
         setLoading(true);
         try {
             await axios.post(`${BASE_URL}/process-all?month=${processMonth}`);
@@ -145,23 +184,42 @@ const PayrollPage: React.FC = () => {
         }
     };
 
+    const handleViewDetails = async (salary: EmployeeSalary) => {
+        setViewItem(salary);
+        setDetailsLoading(true);
+        setViewDetails(null);
+        try {
+            const res = await axios.get(`/v1/api/payroll/payslips/preview/${salary.employee?.id}?month=${salary.month}`);
+            setViewDetails(res.data);
+        } catch (err) {
+            console.error("Failed to fetch salary details", err);
+            ToasterService.error("Failed to fetch detailed salary breakdown.");
+        } finally {
+            setDetailsLoading(false);
+        }
+    };
+
     const generatePayslips = async () => {
         if (!generateMonth) {
             ToasterService.warning("Please select a month to generate payslips");
             return;
         }
-        
+
         const ok = await confirm({
             message: `Are you sure you want to generate payslips for ${generateMonth}?`,
             confirmLabel: "Generate",
             variant: "info",
         });
         if (!ok) return;
-        
+
         setLoading(true);
         try {
-            await axios.post(`/v1/api/payroll/payslips/generatePayslips`, { yearMonth: generateMonth });
-            ToasterService.success(`Payslips generated successfully for ${generateMonth}`);
+            const res = await axios.post(`/v1/api/payroll/payslips/generatePayslips`, { yearMonth: generateMonth });
+            const message = typeof res.data === 'string' && res.data.trim() !== '' 
+                ? res.data 
+                : `Payslips generated successfully for ${generateMonth}`;
+            ToasterService.success(message);
+            await fetchAll();
             setIsGenerateModalOpen(false);
             setGenerateMonth("");
         } catch (err: any) {
@@ -180,16 +238,16 @@ const PayrollPage: React.FC = () => {
             ToasterService.warning("From Month cannot be after To Month");
             return;
         }
-        
+
         setLoading(true);
         try {
-            const response = await axios.get(`/v1/api/payroll/payslips/download-zip`, { 
+            const response = await axios.get(`/v1/api/payroll/payslips/download-zip`, {
                 params: {
                     employeeId: zipEmployee.id,
                     fromMonth,
                     toMonth
                 },
-                responseType: "blob" 
+                responseType: "blob"
             });
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement("a");
@@ -216,7 +274,7 @@ const PayrollPage: React.FC = () => {
             variant: "danger",
         });
         if (!ok) return;
-        
+
         try {
             await axios.post(`${BASE_URL}/rollback/${id}`);
             ToasterService.success("Salary record rolled back successfully");
@@ -228,12 +286,12 @@ const PayrollPage: React.FC = () => {
 
     const downloadPayslip = async (employeeId: number, month: string, employeeName: string) => {
         try {
-            const response = await axios.get(`/v1/api/payroll/payslips/download`, { 
+            const response = await axios.get(`/v1/api/payroll/payslips/download`, {
                 params: {
                     employeeId,
                     month
                 },
-                responseType: "blob" 
+                responseType: "blob"
             });
             const url = window.URL.createObjectURL(response.data);
             const a = document.createElement("a");
@@ -254,7 +312,7 @@ const PayrollPage: React.FC = () => {
         doc.setFontSize(10);
         doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
         doc.text(`Total Records: ${filtered.length}`, 14, 28);
-        
+
         autoTable(doc, {
             head: [["Employee", "Month", "Gross Salary", "Net Salary", "Status"]],
             body: filtered.map(s => [
@@ -301,7 +359,7 @@ const PayrollPage: React.FC = () => {
     const filtered = salaries.filter((s) => {
         const term = search.toLowerCase();
         const name = `${s.employee?.firstName || ""} ${s.employee?.lastName || ""}`.toLowerCase();
-        const matchSearch = 
+        const matchSearch =
             s.month.toLowerCase().includes(term) ||
             s.employee?.employeeCode?.toLowerCase().includes(term) ||
             name.includes(term);
@@ -312,28 +370,28 @@ const PayrollPage: React.FC = () => {
     const sorted = [...filtered].sort((a, b) => {
         let valA = a[sortKey];
         let valB = b[sortKey];
-        
+
         if (sortKey === "employee") {
             valA = a.employee ? `${a.employee.firstName} ${a.employee.lastName}` : "";
             valB = b.employee ? `${b.employee.firstName} ${b.employee.lastName}` : "";
         }
-        
+
         if (valA == null && valB == null) return 0;
         if (valA == null) return 1;
         if (valB == null) return -1;
-        
+
         if (typeof valA === "string" && typeof valB === "string") {
             return sortOrder === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
         }
-        
+
         if (typeof valA === "number" && typeof valB === "number") {
             return sortOrder === "asc" ? valA - valB : valB - valA;
         }
-        
+
         if (typeof valA === "boolean" && typeof valB === "boolean") {
             return sortOrder === "asc" ? (valA === valB ? 0 : valA ? 1 : -1) : (valA === valB ? 0 : valA ? -1 : 1);
         }
-        
+
         return 0;
     });
 
@@ -371,16 +429,29 @@ const PayrollPage: React.FC = () => {
                     <StatsCard label="Total Disbursement" value={"Rs " + (totalDisbursement / 100000).toFixed(1) + "L"} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-6 w-6" />} />
                 </div>
 
+                <div className="mt-6 mb-8">
+                    <SalarySummaryTab />
+                </div>
+
                 {/* Toolbar */}
                 <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="flex-1 max-w-md">
-                        <div className="relative">
+                    <div className="flex-1 max-w-2xl flex gap-3">
+                        <div className="relative flex-1">
                             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Search by employee name, code, or month..."
+                                placeholder="Search by employee name, code..."
                                 value={search}
                                 onChange={e => { setSearch(e.target.value); setPage(1); }}
+                                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                            />
+                        </div>
+                        <div className="relative w-48">
+                            <CalendarIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            <input
+                                type="month"
+                                value={filterMonth}
+                                onChange={e => { setFilterMonth(e.target.value); setPage(1); }}
                                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                             />
                         </div>
@@ -559,63 +630,42 @@ const PayrollPage: React.FC = () => {
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right relative">
-                                            <Menu as="div" className="relative inline-block text-left">
-                                                <Menu.Button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                                                    <EllipsisVerticalIcon className="h-5 w-5 text-gray-500" />
-                                                </Menu.Button>
-                                                <Menu.Items className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-[100]">
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => setViewItem(salary)}
-                                                                className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                                            >
-                                                                <EyeIcon className="h-4 w-4 text-blue-600" />
-                                                                View Details
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => downloadPayslip(salary.employee.id, salary.month, `${salary.employee?.firstName} ${salary.employee?.lastName}`)}
-                                                                className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                                            >
-                                                                <DocumentArrowDownIcon className="h-4 w-4 text-green-600" />
-                                                                Download Payslip
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => {
-                                                                    setZipEmployee({ id: salary.employee.id, name: `${salary.employee.firstName} ${salary.employee.lastName}` });
-                                                                    setIsZipModalOpen(true);
-                                                                }}
-                                                                className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                                            >
-                                                                <DocumentArrowDownIcon className="h-4 w-4 text-purple-600" />
-                                                                Download Range (ZIP)
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                    {salary.isProcessed && (
-                                                        <Menu.Item>
-                                                            {({ active }) => (
-                                                                <button
-                                                                    onClick={() => rollback(salary.id, `${salary.employee?.firstName} ${salary.employee?.lastName}`)}
-                                                                    className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-red-600`}
-                                                                >
-                                                                    {/* <RefreshIcon className="h-4 w-4" /> */}
-                                                                    Rollback
-                                                                </button>
-                                                            )}
-                                                        </Menu.Item>
-                                                    )}
-                                                </Menu.Items>
-                                            </Menu>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={() => handleViewDetails(salary)}
+                                                    title="View Details"
+                                                    className="p-1.5 rounded-md text-blue-600 hover:bg-blue-50 transition-colors"
+                                                >
+                                                    <EyeIcon className="h-5 w-5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => downloadPayslip(salary.employee.id, salary.month, `${salary.employee?.firstName} ${salary.employee?.lastName}`)}
+                                                    title="Download Payslip"
+                                                    className="p-1.5 rounded-md text-green-600 hover:bg-green-50 transition-colors"
+                                                >
+                                                    <DocumentArrowDownIcon className="h-5 w-5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setZipEmployee({ id: salary.employee.id, name: `${salary.employee.firstName} ${salary.employee.lastName}` });
+                                                        setIsZipModalOpen(true);
+                                                    }}
+                                                    title="Download Range (ZIP)"
+                                                    className="p-1.5 rounded-md text-purple-600 hover:bg-purple-50 transition-colors"
+                                                >
+                                                    <DocumentArrowDownIcon className="h-5 w-5" />
+                                                </button>
+                                                {salary.isProcessed && (
+                                                    <button
+                                                        onClick={() => rollback(salary.id, `${salary.employee?.firstName} ${salary.employee?.lastName}`)}
+                                                        title="Rollback"
+                                                        className="p-1.5 rounded-md text-red-600 hover:bg-red-50 transition-colors"
+                                                    >
+                                                        <ArrowPathIcon className="h-5 w-5" />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 )) : (
@@ -694,8 +744,8 @@ const PayrollPage: React.FC = () => {
                                                     key={pageNum}
                                                     onClick={() => setPage(pageNum)}
                                                     className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page === pageNum
-                                                            ? "z-10 bg-cyan-50 border-cyan-500 text-cyan-600"
-                                                            : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
+                                                        ? "z-10 bg-cyan-50 border-cyan-500 text-cyan-600"
+                                                        : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
                                                         }`}
                                                 >
                                                     {pageNum}
@@ -750,7 +800,7 @@ const PayrollPage: React.FC = () => {
                                                 </div>
                                                 <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                                                     <p className="text-sm text-yellow-800">
-                                                        <strong>Warning:</strong> This action will mark all salary records for the selected month as processed. 
+                                                        <strong>Warning:</strong> This action will mark all salary records for the selected month as processed.
                                                         This cannot be undone for individual records without a rollback operation.
                                                     </p>
                                                 </div>
@@ -926,7 +976,7 @@ const PayrollPage: React.FC = () => {
                                                     <XCircleIcon className="h-6 w-6" />
                                                 </button>
                                             </div>
-                                            
+
                                             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                                                 <h4 className="text-sm font-medium text-gray-700 mb-2">Employee Information</h4>
                                                 <div className="grid grid-cols-2 gap-2 text-sm">
@@ -943,28 +993,32 @@ const PayrollPage: React.FC = () => {
                                                 </div>
                                             </div>
 
+                                            {detailsLoading ? (
+                                                <div className="flex justify-center p-8">
+                                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div>
+                                                </div>
+                                            ) : (
+                                            <>
                                             <div className="mb-6">
                                                 <h4 className="text-sm font-medium text-gray-700 mb-2">Earnings</h4>
                                                 <div className="space-y-2">
                                                     <div className="flex justify-between text-sm">
                                                         <span className="text-gray-500">Basic Salary:</span>
-                                                        <span className="font-medium">₹{viewItem.basic?.toLocaleString() || 0}</span>
+                                                        <span className="font-medium">₹{viewDetails?.basic?.toLocaleString() || 0}</span>
                                                     </div>
                                                     <div className="flex justify-between text-sm">
                                                         <span className="text-gray-500">HRA:</span>
-                                                        <span className="font-medium">₹{viewItem.hra?.toLocaleString() || 0}</span>
+                                                        <span className="font-medium">₹{viewDetails?.hra?.toLocaleString() || 0}</span>
                                                     </div>
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-500">Bonus:</span>
-                                                        <span className="font-medium">₹{viewItem.bonus?.toLocaleString() || 0}</span>
-                                                    </div>
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-500">Special Allowance:</span>
-                                                        <span className="font-medium">₹{viewItem.specialAllowance?.toLocaleString() || 0}</span>
-                                                    </div>
+                                                    {viewDetails?.earnings?.map((e: any, i: number) => (
+                                                        <div key={i} className="flex justify-between text-sm">
+                                                            <span className="text-gray-500">{e.componentName || e.name || e.earningName}:</span>
+                                                            <span className="font-medium">₹{e.amount?.toLocaleString() || 0}</span>
+                                                        </div>
+                                                    ))}
                                                     <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
                                                         <span className="font-medium text-gray-700">Gross Salary:</span>
-                                                        <span className="font-bold text-cyan-600">₹{viewItem.grossSalary?.toLocaleString() || 0}</span>
+                                                        <span className="font-bold text-cyan-600">₹{viewDetails?.grossSalary?.toLocaleString() || viewItem.grossSalary?.toLocaleString() || 0}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -972,28 +1026,22 @@ const PayrollPage: React.FC = () => {
                                             <div className="mb-6">
                                                 <h4 className="text-sm font-medium text-gray-700 mb-2">Deductions</h4>
                                                 <div className="space-y-2">
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-500">TDS:</span>
-                                                        <span className="font-medium">₹{viewItem.tds?.toLocaleString() || 0}</span>
-                                                    </div>
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-500">Professional Tax:</span>
-                                                        <span className="font-medium">₹{viewItem.professionalTax?.toLocaleString() || 0}</span>
-                                                    </div>
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-500">PF (Employee):</span>
-                                                        <span className="font-medium">₹{viewItem.pfEmployee?.toLocaleString() || 0}</span>
-                                                    </div>
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-500">Other Deductions:</span>
-                                                        <span className="font-medium">₹{viewItem.otherDeductions?.toLocaleString() || 0}</span>
-                                                    </div>
+                                                    {viewDetails?.deductions?.length > 0 ? viewDetails.deductions.map((d: any, i: number) => (
+                                                        <div key={i} className="flex justify-between text-sm">
+                                                            <span className="text-gray-500">{d.componentName || d.name || d.deductionName}:</span>
+                                                            <span className="font-medium">₹{d.amount?.toLocaleString() || 0}</span>
+                                                        </div>
+                                                    )) : (
+                                                        <div className="text-sm text-gray-500 italic">No deductions</div>
+                                                    )}
                                                     <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
                                                         <span className="font-medium text-gray-700">Total Deductions:</span>
-                                                        <span className="font-bold text-red-600">₹{viewItem.totalDeductions?.toLocaleString() || 0}</span>
+                                                        <span className="font-bold text-red-600">₹{viewDetails?.totalDeductions?.toLocaleString() || 0}</span>
                                                     </div>
                                                 </div>
                                             </div>
+                                            </>
+                                            )}
 
                                             <div className="p-4 bg-cyan-50 rounded-lg">
                                                 <div className="flex justify-between items-center">

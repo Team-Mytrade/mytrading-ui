@@ -31,7 +31,7 @@ export const navItems: NavItem[] = [
   {
     icon: <Users className="w-5 h-5" />,
     name: "CRM",
-      subItems: [
+    subItems: [
       { name: "Segments", path: "/customer-segment" },
       { name: "Customers", path: "/customer-management" },
       { name: "Key Contacts", path: "/contactPerson" },
@@ -41,15 +41,15 @@ export const navItems: NavItem[] = [
       { name: "Tasks", path: "/activities" },
     ],
   },
- 
+
   {
     icon: <ShoppingCart className="w-5 h-5" />,
     name: "Sales",
-      subItems: [
+    subItems: [
 
-    { name: "Category", path: "/sales-categories"},
-      { name: "Products", path: "/products"},
-      { name: "Quotations", path: "/quotationsPage"},
+      { name: "Category", path: "/sales-categories" },
+      { name: "Products", path: "/products" },
+      { name: "Quotations", path: "/quotationsPage" },
       { name: "Order Items", path: "/sales-order-items" },
       { name: "Orders", path: "/ordersPage" },
       { name: "Channels", path: "/sales-channels" },
@@ -67,15 +67,15 @@ export const navItems: NavItem[] = [
       // { name: "Sales Reports", path: "/salesReportPage"},
     ],
   },
-   
+
   {
     icon: <Package className="w-5 h-5" />,
     name: "Inventory",
     subItems: [
-   { name: "Product / SKU ", path: "/product-sku" }, //SKU (Stock Keeping Unit)
-      { name: "Warehouse / Location", path: "/warehouse"},
-      { name: "Stock Level", path: "/stock-level"},
-      { name: "Batch / Serial Number", path: "/batchSerial"},
+      { name: "Product / SKU ", path: "/product-sku" }, //SKU (Stock Keeping Unit)
+      { name: "Warehouse / Location", path: "/warehouse" },
+      { name: "Stock Level", path: "/stock-level" },
+      { name: "Batch / Serial Number", path: "/batchSerial" },
       { name: "Quality Inspection Record", path: "/qualityInspection" },
       { name: "Stock Movement / Transactions", path: "/transactions" },
       { name: "Salesperson / Sales Team", path: "/salesTargetPage" },
@@ -88,18 +88,18 @@ export const navItems: NavItem[] = [
     name: "Purchase",
     subItems: [
 
-      { name: "Purchase Requisition", path: "/purchaseRequisition"}, //SKU (Stock Keeping Unit)
+      { name: "Purchase Requisition", path: "/purchaseRequisition" }, //SKU (Stock Keeping Unit)
       { name: "Purchase Order", path: "/purchaseOrder" },
       { name: "Supplier / Vendor", path: "/supplier" },
       { name: "Product / SKU", path: "/product" },
       { name: "Deparment", path: "/department" },
-      { name: "Terms and Conditions", path: "/term-condition"},
-      { name: "Delivery Date", path: "/deliveryDate"},
-      { name: "Approval Status", path: "/approvalStatus"},
-      { name: "Goods Receipt Note (GRN)", path: "/goodseceiptNote"},
+      { name: "Terms and Conditions", path: "/term-condition" },
+      { name: "Delivery Date", path: "/deliveryDate" },
+      { name: "Approval Status", path: "/approvalStatus" },
+      { name: "Goods Receipt Note (GRN)", path: "/goodseceiptNote" },
     ],
   },
- 
+
   {
     icon: <CreditCard className="w-5 h-5" />,
     name: "Invoice",
@@ -118,7 +118,7 @@ export const navItems: NavItem[] = [
       // { name: "Payment Invoice", path: "/payment-invoice" },
     ],
   },
-   {
+  {
     icon: <Truck className="w-5 h-5" />,
     name: "Delivery",
     subItems: [
@@ -133,21 +133,21 @@ export const navItems: NavItem[] = [
     icon: <Users className="w-5 h-5" />,
     name: "HRMS",
     subItems: [
-      { name: "Department", path: "/employeeDepartments"},
-      { name: "Compensation", path: "/employeeCompensation"},
-      { name: "Records", path: "/employeeRecords"}, //SKU (Stock Keeping Unit)
-      { name: "Salary", path: "/employeeSalary"},
-      { name: "Payslips", path: "/employeePayroll"},
-      { name: "Payroll Engine", path: "/payrollEngine"},
+      { name: "Department", path: "/employeeDepartments" },
+      { name: "Compensation", path: "/employeeCompensation" },
+      { name: "Records", path: "/employeeRecords" }, //SKU (Stock Keeping Unit)
+      { name: "Salary", path: "/employeeSalary" },
+      { name: "Payslips", path: "/employeePayroll" },
+      { name: "Payroll Engine", path: "/payrollEngine" },
 
-      { name: "Salary Structure", path: "/salaryStructure"},
+      { name: "Salary Structure", path: "/salaryStructure" },
 
       // { name: "Attendance Logs", path: "/attendanceLogs"},
       // { name: "Leave Requests / Approvals", path: "/leaveRequests"},
       // { name: "Tax Deductions", path: "/taxDeductions"},
-      { name: "Payroll Runs / Payslips", path: "/payrollRuns"},
+      { name: "Payroll Runs / Payslips", path: "/payrollRuns" },
       // { name: "Benefits / Allowances", path: "/benefits"},
-      { name: "Documents", path: "/employeeDocuments"},
+      { name: "Documents", path: "/employeeDocuments" },
     ],
   },
   {
@@ -385,7 +385,7 @@ const AppSidebar: React.FC = () => {
   // Render menu item with tooltip
   const renderMenuItem = (nav: NavItem, index: number) => {
     const isCollapsed = !isExpanded && !isMobileOpen;
-    
+
     if (nav.subItems) {
       return (
         <div key={nav.name} className="relative">
@@ -611,7 +611,7 @@ const AppSidebar: React.FC = () => {
               {navItems[tooltipVisible]?.name}
             </div>
           )}
-          
+
           {/* Subtle triangle tail connecting to the sidebar */}
           <div
             className="absolute top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-white dark:bg-gray-800 border-l border-b border-gray-100 dark:border-gray-700/80 rotate-45"
