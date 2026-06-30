@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import axios from "axios";
 import {
   ArrowRightIcon,
@@ -16,6 +16,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import { AuthContext } from "../../context/AuthContext";
 
 interface Product {
   id: number;
@@ -25,6 +26,7 @@ interface Product {
 interface Warehouse {
   id: number;
   name: string;
+  code?: string;
 }
 
 interface Batch {
@@ -39,24 +41,40 @@ interface SerialNumber {
 
 interface StockMovement {
   id: number;
+  createdDate?: string;
+  updatedDate?: string;
+  createdBy?: string;
+  tenantId?: string;
   movementDate: string;
   movementType: string;
   quantity: number;
   fromLocation: string;
   toLocation: string;
   reference: string;
+  productId?: number;
   product?: Product;
-  warehouse?: Warehouse;
-  batch?: Batch;
-  serialNumber?: SerialNumber;
+  warehouse?: Warehouse | string;
+  batch?: Batch | string;
+  serialNumber?: SerialNumber | string;
 }
 
 const API_URL = "/v1/api/inventory";
+const stockMovementApi = axios.create();
+
+stockMovementApi.interceptors.request.use((config) => {
+  const token = localStorage.getItem("accessToken");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 const ITEMS_PER_PAGE = 5;
 
 const MOVEMENT_TYPES = ["GRN", "Transfer", "Adjustment", "Return", "Sale"];
 
 const StockMovementsManager: React.FC = () => {
+  const { user } = useContext(AuthContext);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -89,7 +107,7 @@ const StockMovementsManager: React.FC = () => {
 
   const fetchStockMovements = async () => {
     try {
-      const res = await axios.get(`${API_URL}/stock-movements`);
+      const res = await stockMovementApi.get(`${API_URL}/stock-movements`);
       setStockMovements(res.data);
     } catch (err) {
       console.error("Failed to load stock movements", err);
@@ -98,7 +116,7 @@ const StockMovementsManager: React.FC = () => {
 
   const fetchProducts = async () => {
     try {
-      const res = await axios.get(`${API_URL}/products`);
+      const res = await stockMovementApi.get(`${API_URL}/products`);
       setProducts(res.data);
     } catch (err) {
       console.error("Failed to load products", err);
@@ -107,7 +125,7 @@ const StockMovementsManager: React.FC = () => {
 
   const fetchWarehouses = async () => {
     try {
-      const res = await axios.get(`${API_URL}/warehouses`);
+      const res = await stockMovementApi.get(`${API_URL}/warehouses`);
       setWarehouses(res.data);
     } catch (err) {
       console.error("Failed to load warehouses", err);
@@ -116,7 +134,7 @@ const StockMovementsManager: React.FC = () => {
 
   const fetchBatches = async () => {
     try {
-      const res = await axios.get(`${API_URL}/batches`);
+      const res = await stockMovementApi.get(`${API_URL}/batches`);
       setBatches(res.data);
     } catch (err) {
       console.error("Failed to load batches", err);
@@ -125,7 +143,7 @@ const StockMovementsManager: React.FC = () => {
 
   const fetchSerialNumbers = async () => {
     try {
-      const res = await axios.get(`${API_URL}/serial-numbers`);
+      const res = await stockMovementApi.get(`${API_URL}/serial-numbers`);
       setSerialNumbers(res.data);
     } catch (err) {
       console.error("Failed to load serial numbers", err);
@@ -153,35 +171,69 @@ const StockMovementsManager: React.FC = () => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const buildPayload = () => ({
-    movementDate: form.movementDate,
-    movementType: form.movementType,
-    quantity: Number(form.quantity),
-    fromLocation: form.fromLocation,
-    toLocation: form.toLocation,
-    reference: form.reference,
-    product: {
-      id: Number(form.productId),
-    },
-    warehouse: {
-      id: Number(form.warehouseId),
-    },
-    batch: {
-      id: Number(form.batchId),
-    },
-    serialNumber: {
-      id: Number(form.serialNumberId),
-    },
-  });
+  const getWarehouseValue = (warehouseId: string) => {
+    const warehouse = warehouses.find((item) => item.id === Number(warehouseId));
+    return warehouse?.code || warehouse?.name || warehouseId;
+  };
+
+  const getBatchValue = (batchId: string) => {
+    const batch = batches.find((item) => item.id === Number(batchId));
+    return batch?.batchNumber || batchId;
+  };
+
+  const getSerialNumberValue = (serialNumberId: string) => {
+    const serialNumber = serialNumbers.find((item) => item.id === Number(serialNumberId));
+    return serialNumber?.serial || serialNumberId;
+  };
+
+  const getWarehouseId = (warehouse?: Warehouse | string) => {
+    if (!warehouse) return "";
+    if (typeof warehouse !== "string") return warehouse.id?.toString() || "";
+    return warehouses.find((item) => item.code === warehouse || item.name === warehouse)?.id?.toString() || "";
+  };
+
+  const getBatchId = (batch?: Batch | string) => {
+    if (!batch) return "";
+    if (typeof batch !== "string") return batch.id?.toString() || "";
+    return batches.find((item) => item.batchNumber === batch)?.id?.toString() || "";
+  };
+
+  const getSerialNumberId = (serialNumber?: SerialNumber | string) => {
+    if (!serialNumber) return "";
+    if (typeof serialNumber !== "string") return serialNumber.id?.toString() || "";
+    return serialNumbers.find((item) => item.serial === serialNumber)?.id?.toString() || "";
+  };
+
+  const buildPayload = () => {
+    const now = new Date().toISOString();
+
+    return {
+      id: editingId || 0,
+      createdDate: now,
+      updatedDate: now,
+      createdBy: user?.userId || user?.username || "",
+      tenantId: user?.tenantId || "",
+      movementDate: form.movementDate,
+      movementType: form.movementType,
+      quantity: Number(form.quantity) || 0,
+      fromLocation: form.fromLocation,
+      toLocation: form.toLocation,
+      reference: form.reference,
+      productId: Number(form.productId) || 0,
+      warehouse: getWarehouseValue(form.warehouseId),
+      batch: getBatchValue(form.batchId),
+      serialNumber: getSerialNumberValue(form.serialNumberId),
+    };
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
       if (editingId) {
-        await axios.put(`${API_URL}/stock-movements/${editingId}`, buildPayload());
+        await stockMovementApi.put(`${API_URL}/stock-movements/${editingId}`, buildPayload());
       } else {
-        await axios.post(`${API_URL}/stock-movements`, buildPayload());
+        await stockMovementApi.post(`${API_URL}/stock-movements`, buildPayload());
       }
 
       fetchStockMovements();
@@ -200,10 +252,10 @@ const StockMovementsManager: React.FC = () => {
       fromLocation: sm.fromLocation || "",
       toLocation: sm.toLocation || "",
       reference: sm.reference || "",
-      productId: sm.product?.id?.toString() || "",
-      warehouseId: sm.warehouse?.id?.toString() || "",
-      batchId: sm.batch?.id?.toString() || "",
-      serialNumberId: sm.serialNumber?.id?.toString() || "",
+      productId: sm.productId?.toString() || sm.product?.id?.toString() || "",
+      warehouseId: getWarehouseId(sm.warehouse),
+      batchId: getBatchId(sm.batch),
+      serialNumberId: getSerialNumberId(sm.serialNumber),
     });
     setShowForm(true);
   };
@@ -212,7 +264,7 @@ const StockMovementsManager: React.FC = () => {
     if (!window.confirm("Delete this stock movement?")) return;
 
     try {
-      await axios.delete(`${API_URL}/stock-movements/${id}`);
+      await stockMovementApi.delete(`${API_URL}/stock-movements/${id}`);
       fetchStockMovements();
     } catch (err) {
       console.error("Delete failed", err);

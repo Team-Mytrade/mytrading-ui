@@ -54,13 +54,30 @@ interface Transaction {
     serialNumber?: { serial?: string; productNumber?: string } | string;
 }
 
+interface Warehouse {
+    id: number;
+    code?: string;
+    name?: string;
+}
+
 const API_URL = "/v1/api/inventory/stock-movements";
 const STOCK_MOVEMENTS_API = API_URL;
+const stockMovementsApi = axios.create();
+
+stockMovementsApi.interceptors.request.use((config) => {
+    const token = localStorage.getItem("accessToken");
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
+
 const PAGE_SIZE = 10;
 
 const TransactionsPage: React.FC = () => {
     const { user } = useContext(AuthContext);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
     const [sortKey, setSortKey] = useState<keyof Transaction>("date");
@@ -82,16 +99,18 @@ const TransactionsPage: React.FC = () => {
         type: "IN" as TransactionType,
         reference: "",
         remarks: "",
+        warehouseId: "",
     });
 
     useEffect(() => {
         fetchTransactions();
+        fetchWarehouses();
     }, []);
 
     const fetchTransactions = async () => {
         setLoading(true);
         try {
-            const response = await axios.get(API_URL);
+            const response = await stockMovementsApi.get(API_URL);
             const rows = Array.isArray(response.data) ? response.data : response.data?.content || response.data?.data || [];
             setTransactions(rows.map((row: any) => normalizeStockMovement(row, {
                 id: row.id,
@@ -114,6 +133,18 @@ const TransactionsPage: React.FC = () => {
         }
     };
 
+    const fetchWarehouses = async () => {
+        try {
+            const response = await stockMovementsApi.get("/v1/api/inventory/warehouses");
+            const rows = Array.isArray(response.data) ? response.data : response.data?.content || response.data?.data || [];
+            setWarehouses(rows);
+        } catch (err) {
+            console.error("Failed to load warehouses", err);
+            ToasterService.error("Failed to load warehouses");
+            setWarehouses([]);
+        }
+    };
+
     const buildStockMovementPayload = () => {
         const now = new Date().toISOString();
         const today = now.split("T")[0];
@@ -122,36 +153,7 @@ const TransactionsPage: React.FC = () => {
         const productId = Number(form.product) || 0;
         const movementType = form.type === "IN" ? "GRN" : "ISSUE";
 
-        const inspection = {
-            id: 0,
-            createdDate: now,
-            updatedDate: now,
-            createdBy,
-            tenantId,
-            inspectionDate: today,
-            inspector: "",
-            result: "PASS",
-            remarks: "",
-            productId,
-            batch: "",
-            serialNumber: "",
-        };
-
-        const batch = {
-            id: 0,
-            createdDate: now,
-            updatedDate: now,
-            createdBy,
-            tenantId,
-            batchNumber: "",
-            manufacturingDate: today,
-            expiryDate: today,
-            productId,
-            warehouse: "",
-            inspections: [inspection],
-        };
-
-        return {
+        const payload: Record<string, any> = {
             id: 0,
             createdDate: now,
             updatedDate: now,
@@ -164,24 +166,31 @@ const TransactionsPage: React.FC = () => {
             toLocation: "",
             reference: form.reference || "",
             productId,
-            warehouse: "",
-            batch,
-            serialNumber: {
-                id: 0,
-                createdDate: now,
-                updatedDate: now,
-                createdBy,
-                tenantId,
-                serial: "",
-                warrantyStart: today,
-                warrantyEnd: today,
-                productId,
-                productNumber: form.product || "",
-                warehouse: "",
-                batch,
-                inspections: [inspection],
+            warehouse: {
+                id: Number(form.warehouseId) || 0,
             },
         };
+
+        return payload;
+    };
+
+    const validateStockLevelExists = async () => {
+        const productId = Number(form.product) || 0;
+        const warehouseId = Number(form.warehouseId) || 0;
+
+        try {
+            await stockMovementsApi.get(`/v1/api/inventory/stock/product/${productId}/warehouse/${warehouseId}`);
+            return true;
+        } catch (err: any) {
+            const message = err.response?.data?.message || err.response?.data?.error;
+            if (err.response?.status === 404 || message?.toLowerCase?.().includes("not found")) {
+                ToasterService.error("Stock level not found for this product and warehouse");
+                return false;
+            }
+
+            ToasterService.error(message || "Failed to validate stock level");
+            return false;
+        }
     };
 
     const handleAdd = async () => {
@@ -193,10 +202,17 @@ const TransactionsPage: React.FC = () => {
             ToasterService.warning("Quantity must be greater than 0");
             return;
         }
+        if (!form.warehouseId) {
+            ToasterService.warning("Please select a warehouse");
+            return;
+        }
+
+        const stockLevelExists = await validateStockLevelExists();
+        if (!stockLevelExists) return;
 
         try {
             const payload = buildStockMovementPayload();
-            await axios.post(API_URL, payload);
+            await stockMovementsApi.post(API_URL, payload);
             ToasterService.success("Transaction added successfully");
             await fetchTransactions();
             resetForm();
@@ -215,7 +231,7 @@ const TransactionsPage: React.FC = () => {
         if (!ok) return;
 
         try {
-            await axios.delete(`${API_URL}/${id}`);
+            await stockMovementsApi.delete(`${API_URL}/${id}`);
             ToasterService.success("Transaction deleted successfully");
             await fetchTransactions();
         } catch (err: any) {
@@ -244,7 +260,7 @@ const TransactionsPage: React.FC = () => {
 
     const fetchStockMovementById = async (transaction: Transaction) => {
         try {
-            const response = await axios.get(`${STOCK_MOVEMENTS_API}/${transaction.id}`);
+            const response = await stockMovementsApi.get(`${STOCK_MOVEMENTS_API}/${transaction.id}`);
             return normalizeStockMovement(response.data, transaction);
         } catch (err: any) {
             console.error("Failed to load stock movement details", err);
@@ -266,6 +282,7 @@ const TransactionsPage: React.FC = () => {
             type: "IN",
             reference: "",
             remarks: "",
+            warehouseId: "",
         });
     };
 
@@ -602,6 +619,22 @@ const TransactionsPage: React.FC = () => {
                                                         placeholder="Enter product ID"
                                                         required
                                                     />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Warehouse</label>
+                                                    <select
+                                                        value={form.warehouseId}
+                                                        onChange={e => setForm({ ...form, warehouseId: e.target.value })}
+                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
+                                                        required
+                                                    >
+                                                        <option value="">Select warehouse</option>
+                                                        {warehouses.map((warehouse) => (
+                                                            <option key={warehouse.id} value={warehouse.id}>
+                                                                {warehouse.name || warehouse.code || `Warehouse ${warehouse.id}`}
+                                                            </option>
+                                                        ))}
+                                                    </select>
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>

@@ -69,7 +69,7 @@ function Root() {
 }
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>
+  // <StrictMode>
     <Root />
-  </StrictMode>
+  // </StrictMode>
 );

@@ -57,14 +57,9 @@ axios.interceptors.request.use(
       const tenantId = getTenantId();
       
       if (tenantId) {
-        // Add as header (required by your API)
+        // Tenant-aware APIs expect this as a header. Adding it globally as
+        // a query parameter breaks endpoints such as /v1/api/product-categories.
         config.headers['X-Tenant-ID'] = tenantId;
-        
-        // Optionally keep as query param if some endpoints still need it
-        config.params = {
-          ...config.params,
-          tenantId: tenantId
-        };
       }
     }
     
@@ -387,6 +382,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const responseInterceptor = axios.interceptors.response.use(
       (response) => response,
       (error) => {
+        if ((error?.config as any)?.skipSessionExpiredHandling) {
+          return Promise.reject(error);
+        }
+
         const status = error?.response?.status;
         const message =
           error?.response?.data?.message ||

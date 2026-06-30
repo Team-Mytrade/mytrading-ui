@@ -34,6 +34,8 @@ export interface ReusableTableProps<T extends { id?: number | string }> {
   defaultSortOrder?: "asc" | "desc";
   toolbar?: React.ReactNode;
   onRowClick?: (row: T) => void;
+  enableRowDetails?: boolean;
+  rowDetailsTitle?: string;
   loading?: boolean;
   emptyState?: React.ReactNode;
   className?: string;
@@ -60,6 +62,57 @@ function getCellTitle(value: unknown): string | undefined {
     return String(value);
   }
   return undefined;
+}
+
+function formatDetailLabel(key: string): string {
+  return key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^./, (char) => char.toUpperCase());
+}
+
+function renderDetailValue(value: unknown): React.ReactNode {
+  if (value == null || value === "") return <span className="text-gray-400">--</span>;
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <span className="text-gray-400">--</span>;
+    return (
+      <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-2 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    );
+  }
+  if (typeof value === "object") {
+    return (
+      <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-2 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    );
+  }
+  return String(value);
+}
+
+function getDetailEntries<T>(row: T, columns: ColumnDef<T>[]) {
+  const record = row as Record<string, unknown>;
+  const orderedKeys = [
+    ...columns.map((column) => column.key),
+    ...Object.keys(record).filter((key) => !columns.some((column) => column.key === key)),
+  ];
+
+  return orderedKeys
+    .filter((key, index, arr) => arr.indexOf(key) === index)
+    .filter((key) => key !== "actions" && typeof record[key] !== "function")
+    .map((key) => {
+      const column = columns.find((item) => item.key === key);
+      return {
+        key,
+        label: column?.label || formatDetailLabel(key),
+        value: record[key],
+      };
+    });
 }
 
 function rowMatchesSearch<T>(
@@ -142,6 +195,8 @@ export function ReusableTable<T extends { id?: number | string }>({
   defaultSortOrder = "asc",
   toolbar,
   onRowClick,
+  enableRowDetails = true,
+  rowDetailsTitle = "Row Details",
   loading = false,
   emptyState,
   className = "",
@@ -150,6 +205,7 @@ export function ReusableTable<T extends { id?: number | string }>({
   const [sortKey, setSortKey] = useState<string | undefined>(defaultSortKey);
   const [sortOrder, setSortOrder] = useState<SortOrder>(defaultSortOrder);
   const [page, setPage] = useState(1);
+  const [selectedRow, setSelectedRow] = useState<T | null>(null);
 
   const filtered = useMemo(() => {
     return data.filter((row) => rowMatchesSearch(row, search, searchFields));
@@ -187,6 +243,20 @@ export function ReusableTable<T extends { id?: number | string }>({
   const handleSearch = (val: string) => {
     setSearch(val);
     setPage(1);
+  };
+
+  const handleRowClick = (row: T, event: React.MouseEvent<HTMLTableRowElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest("button, a, input, select, textarea, [role='button']")) return;
+
+    if (onRowClick) {
+      onRowClick(row);
+      return;
+    }
+
+    if (enableRowDetails) {
+      setSelectedRow(row);
+    }
   };
 
   const showEmptyState = !loading && paginated.length === 0;
@@ -283,10 +353,10 @@ export function ReusableTable<T extends { id?: number | string }>({
                 paginated.map((row, idx) => (
                   <tr
                     key={row.id ?? `row-${idx}`}
-                    onClick={() => onRowClick?.(row)}
+                    onClick={(event) => handleRowClick(row, event)}
                     className={[
                       "transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/60",
-                      onRowClick ? "cursor-pointer" : "",
+                      onRowClick || enableRowDetails ? "cursor-pointer" : "",
                     ]
                       .filter(Boolean)
                       .join(" ")}
@@ -396,6 +466,50 @@ export function ReusableTable<T extends { id?: number | string }>({
           </div>
         )}
       </div>
+      )}
+
+      {selectedRow && (
+        <div className="fixed inset-0 z-[9999] overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4 text-center">
+            <button
+              type="button"
+              aria-label="Close details"
+              className="fixed inset-0 bg-gray-900/50"
+              onClick={() => setSelectedRow(null)}
+            />
+            <div className="relative w-full max-w-3xl overflow-hidden rounded-xl bg-white text-left shadow-xl dark:bg-gray-900">
+              <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-800">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{rowDetailsTitle}</h3>
+                  <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Read-only record details</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRow(null)}
+                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                  title="Close"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="max-h-[70vh] overflow-y-auto p-5">
+                <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {getDetailEntries(selectedRow, columns).map((entry) => (
+                    <div key={entry.key} className="rounded-lg border border-gray-100 bg-gray-50/60 p-3 dark:border-gray-800 dark:bg-gray-800/40">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        {entry.label}
+                      </dt>
+                      <dd className="mt-1 break-words text-sm text-gray-900 dark:text-gray-100">
+                        {renderDetailValue(entry.value)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

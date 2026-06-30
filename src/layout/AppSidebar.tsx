@@ -87,16 +87,18 @@ export const navItems: NavItem[] = [
     icon: <FileText className="w-5 h-5" />,
     name: "Purchase",
     subItems: [
-
-      { name: "Purchase Requisition", path: "/purchaseRequisition"}, //SKU (Stock Keeping Unit)
-      { name: "Purchase Order", path: "/purchaseOrder" },
-      { name: "Supplier / Vendor", path: "/supplier" },
-      { name: "Product / SKU", path: "/product" },
-      { name: "Deparment", path: "/department" },
-      { name: "Terms and Conditions", path: "/term-condition"},
-      { name: "Delivery Date", path: "/deliveryDate"},
-      { name: "Approval Status", path: "/approvalStatus"},
-      { name: "Goods Receipt Note (GRN)", path: "/goodseceiptNote"},
+      { name: "Vendors", path: "/vendors" },
+      { name: "Terms and Conditions", path: "/terms-and-conditions" },
+      { name: "Product Categories", path: "/product-categories" },
+      { name: "Products", path: "/purchase-products" },
+      { name: "Purchase Requisitions", path: "/purchase-requisitions" },
+      { name: "Requisition Line Items", path: "/requisition-line-items" },
+      { name: "Purchase Orders", path: "/purchase-orders" },
+      { name: "Goods Receipt Notes", path: "/goods-receipt-notes" },
+      { name: "Deliveries", path: "/deliveries" },
+      { name: "Approval Status", path: "/approval-status" },
+      { name: "Inventory", path: "/purchase-inventory" },
+      { name: "Purchase Reports", path: "/purchase-reports" },
     ],
   },
  

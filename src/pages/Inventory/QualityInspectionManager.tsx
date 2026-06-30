@@ -44,8 +44,8 @@ interface QualityInspection {
     result: "Pass" | "Fail" | "PASS" | "FAIL";
     remarks?: string;
     status: "Pending" | "Completed" | "InProgress";
-    batch?: string;
-    serialNumber?: string;
+    batch?: string | { id?: number; batchNumber?: string };
+    serialNumber?: string | { id?: number; serial?: string };
     createdAt?: string;
     updatedAt?: string;
     createdDate?: string;
@@ -53,6 +53,16 @@ interface QualityInspection {
 }
 
 const API_URL = "/v1/api/inventory/quality-inspections";
+const qualityInspectionApi = axios.create();
+
+qualityInspectionApi.interceptors.request.use((config) => {
+    const token = localStorage.getItem("accessToken");
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
+
 const PAGE_SIZE = 10;
 
 const QualityInspectionManager: React.FC = () => {
@@ -88,11 +98,52 @@ const QualityInspectionManager: React.FC = () => {
         fetchRecords();
     }, []);
 
+    const getBatchValue = (batch: QualityInspection["batch"]) => {
+        if (!batch) return "";
+        return typeof batch === "string" ? batch : batch.batchNumber || "";
+    };
+
+    const getSerialNumberValue = (serialNumber: QualityInspection["serialNumber"]) => {
+        if (!serialNumber) return "";
+        return typeof serialNumber === "string" ? serialNumber : serialNumber.serial || "";
+    };
+
+    const normalizeInspection = (record: any): QualityInspection => {
+        const result = record?.result === "PASS" ? "Pass" : record?.result === "FAIL" ? "Fail" : record?.result || "Pass";
+        const status = record?.status || "Pending";
+        const productSKU =
+            record?.productSKU ||
+            record?.productNumber ||
+            record?.serialNumber?.productNumber ||
+            (record?.productId != null ? String(record.productId) : "");
+
+        return {
+            ...record,
+            id: record?.id ?? 0,
+            productSKU,
+            productName: record?.productName || record?.product?.name || "",
+            productId: record?.productId,
+            inspectionDate: record?.inspectionDate || new Date().toISOString().split("T")[0],
+            inspectorName: record?.inspectorName || record?.inspector || "",
+            inspector: record?.inspector || record?.inspectorName || "",
+            result,
+            remarks: record?.remarks || "",
+            status,
+            batch: record?.batch,
+            serialNumber: record?.serialNumber,
+            createdAt: record?.createdAt || record?.createdDate,
+            updatedAt: record?.updatedAt || record?.updatedDate,
+            createdDate: record?.createdDate,
+            updatedDate: record?.updatedDate,
+        };
+    };
+
     const fetchRecords = async () => {
         setLoading(true);
         try {
-            const response = await axios.get(API_URL);
-            setRecords(response.data);
+            const response = await qualityInspectionApi.get(API_URL);
+            const rows = Array.isArray(response.data) ? response.data : response.data?.content || response.data?.data || [];
+            setRecords(rows.map(normalizeInspection));
         } catch (err) {
             console.error("Failed to load quality inspections", err);
             ToasterService.error("Failed to load inspection records");
@@ -104,8 +155,11 @@ const QualityInspectionManager: React.FC = () => {
 
     const buildPayload = () => {
         const now = new Date().toISOString();
+        const productId = Number(formData.productSKU) || Number(formData.productId) || 0;
+        const batchNumber = getBatchValue(formData.batch);
+        const serial = getSerialNumberValue(formData.serialNumber);
 
-        return {
+        const payload: Record<string, any> = {
             id: editingId || 0,
             createdDate: now,
             updatedDate: now,
@@ -115,10 +169,44 @@ const QualityInspectionManager: React.FC = () => {
             inspector: formData.inspectorName || formData.inspector || "",
             result: String(formData.result).toUpperCase(),
             remarks: formData.remarks || "",
-            productId: Number(formData.productId || formData.productSKU) || 0,
-            batch: formData.batch || "",
-            serialNumber: formData.serialNumber || "",
+            productId,
         };
+
+        if (batchNumber) {
+            payload.batch = {
+                id: 0,
+                createdDate: now,
+                updatedDate: now,
+                createdBy: user?.userId || user?.username || "",
+                tenantId: user?.tenantId || "",
+                batchNumber,
+                manufacturingDate: formData.inspectionDate,
+                expiryDate: formData.inspectionDate,
+                productId,
+                warehouse: null,
+                inspections: [],
+            };
+        }
+
+        if (serial) {
+            payload.serialNumber = {
+                id: 0,
+                createdDate: now,
+                updatedDate: now,
+                createdBy: user?.userId || user?.username || "",
+                tenantId: user?.tenantId || "",
+                serial,
+                warrantyStart: formData.inspectionDate,
+                warrantyEnd: formData.inspectionDate,
+                productId,
+                productNumber: formData.productSKU,
+                warehouse: null,
+                batch: null,
+                inspections: [],
+            };
+        }
+
+        return payload;
     };
 
     const handleSave = async () => {
@@ -126,13 +214,19 @@ const QualityInspectionManager: React.FC = () => {
 
         try {
             if (formMode === "edit" && editingId) {
-                await axios.put(`${API_URL}/${editingId}`, payload);
+                const response = await qualityInspectionApi.put(`${API_URL}/${editingId}`, payload);
+                const updatedRecord = normalizeInspection({
+                    ...(response.data || {}),
+                    ...payload,
+                    id: editingId,
+                });
+                setRecords(prev => prev.map(record => record.id === editingId ? updatedRecord : record));
                 ToasterService.success("Inspection record updated successfully");
             } else {
-                await axios.post(API_URL, payload);
+                await qualityInspectionApi.post(API_URL, payload);
                 ToasterService.success("Inspection record created successfully");
+                await fetchRecords();
             }
-            await fetchRecords();
             closeForm();
         } catch (err: any) {
             ToasterService.error(err.response?.data?.message || err.response?.data?.error || "Save failed");
@@ -150,27 +244,19 @@ const QualityInspectionManager: React.FC = () => {
             result: record.result,
             remarks: record.remarks || "",
             status: record.status,
-            batch: record.batch || "",
-            serialNumber: record.serialNumber || "",
+            batch: getBatchValue(record.batch),
+            serialNumber: getSerialNumberValue(record.serialNumber),
         });
         setFormMode("edit");
         setShowForm(true);
     };
 
-    const normalizeInspectionDetail = (detail: any, fallback: QualityInspection): QualityInspection => ({
-        ...fallback,
-        ...detail,
-        productSKU: detail.productSKU || detail.productNumber || (detail.productId ? String(detail.productId) : fallback.productSKU),
-        inspectorName: detail.inspectorName || detail.inspector || fallback.inspectorName,
-        result: detail.result === "PASS" ? "Pass" : detail.result === "FAIL" ? "Fail" : detail.result || fallback.result,
-        status: detail.status || fallback.status,
-        createdAt: detail.createdAt || detail.createdDate || fallback.createdAt,
-        updatedAt: detail.updatedAt || detail.updatedDate || fallback.updatedAt,
-    });
+    const normalizeInspectionDetail = (detail: any, fallback: QualityInspection): QualityInspection =>
+        normalizeInspection({ ...fallback, ...detail });
 
     const fetchInspectionById = async (record: QualityInspection) => {
         try {
-            const response = await axios.get(`${API_URL}/${record.id}`);
+            const response = await qualityInspectionApi.get(`${API_URL}/${record.id}`);
             return normalizeInspectionDetail(response.data, record);
         } catch (err: any) {
             console.error("Failed to load quality inspection details", err);
@@ -194,7 +280,7 @@ const QualityInspectionManager: React.FC = () => {
         if (!ok) return;
 
         try {
-            await axios.delete(`${API_URL}/${id}`);
+            await qualityInspectionApi.delete(`${API_URL}/${id}`);
             ToasterService.success("Inspection record deleted successfully");
             await fetchRecords();
         } catch (err: any) {
@@ -248,7 +334,7 @@ const QualityInspectionManager: React.FC = () => {
 
     const exportExcel = () => {
         const ws = XLSX.utils.json_to_sheet(filtered.map(r => ({
-            'Product SKU': r.productSKU,
+            'Product ID': r.productSKU,
             'Product Name': r.productName || "-",
             'Inspector Name': r.inspectorName,
             'Inspection Date': new Date(r.inspectionDate).toLocaleDateString(),
@@ -265,8 +351,8 @@ const QualityInspectionManager: React.FC = () => {
 
     const filtered = useMemo(() => {
         return records.filter(r => {
-            const matchesSearch = r.productSKU.toLowerCase().includes(search.toLowerCase()) ||
-                r.inspectorName.toLowerCase().includes(search.toLowerCase()) ||
+            const matchesSearch = (r.productSKU || "").toLowerCase().includes(search.toLowerCase()) ||
+                (r.inspectorName || "").toLowerCase().includes(search.toLowerCase()) ||
                 (r.productName?.toLowerCase().includes(search.toLowerCase()) || false);
             const matchesResult = resultFilter === "All" || r.result === resultFilter;
             const matchesStatus = statusFilter === "All" || r.status === statusFilter;
@@ -333,7 +419,7 @@ const QualityInspectionManager: React.FC = () => {
     const tableColumns: ColumnDef<QualityInspection>[] = [
         {
             key: "productSKU",
-            label: "Product SKU",
+            label: "Product ID",
             sortable: true,
             headerClassName: "w-[24%] text-left",
             className: "w-[24%]",
@@ -683,7 +769,7 @@ const QualityInspectionManager: React.FC = () => {
                                             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Product SKU</p>
+                                                        <p className="text-xs text-gray-500">Product ID</p>
                                                         <p className="text-sm font-medium text-gray-900">{selectedRecord.productSKU}</p>
                                                         {selectedRecord.productName && (
                                                             <p className="text-xs text-gray-500 mt-1">{selectedRecord.productName}</p>
@@ -779,13 +865,18 @@ const QualityInspectionManager: React.FC = () => {
                                             </h3>
                                             <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Product SKU</label>
+                                                    <label className="block text-sm font-medium text-gray-700">Product ID</label>
                                                     <input
-                                                        type="text"
+                                                        type="number"
+                                                        min={0}
                                                         value={formData.productSKU}
-                                                        onChange={e => setFormData({ ...formData, productSKU: e.target.value.toUpperCase() })}
+                                                        onChange={e => setFormData({
+                                                            ...formData,
+                                                            productSKU: e.target.value,
+                                                            productId: Number(e.target.value) || 0,
+                                                        })}
                                                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        placeholder="e.g., SKU-001"
+                                                        placeholder="e.g., 12345"
                                                         required
                                                     />
                                                 </div>

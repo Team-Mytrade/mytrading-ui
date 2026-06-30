@@ -50,14 +50,18 @@ import QualityInspectionManager from "./pages/Inventory/QualityInspectionManager
 import TransactionsPage from "./pages/Inventory/TransactionsPage";
 import ReorderLevelPage from "./pages/Inventory/ReorderLevelPage";
 import StockAdjustmentPage from "./pages/Inventory/StockAdjustmentPage";
-import PurchaseRequisitionPage from "./pages/Purchase/PurchaseRequisitionPage";
-import PurchaseOrderPage from "./pages/Purchase/PurchaseOrderPage";
-import SupplierPage from "./pages/Purchase/SupplierPage";
-import ProductPurchasePage from "./pages/Purchase/ProductPurchasePage";
+import PurchaseRequisitions from "./pages/Purchase/PurchaseRequisitions";
+import RequisitionLineItems from "./pages/Purchase/RequisitionLineItems";
+import PurchaseOrders from "./pages/Purchase/PurchaseOrders";
+import Vendors from "./pages/Purchase/Vendors";
+import Products from "./pages/Purchase/Products";
+import ProductCategories from "./pages/Purchase/ProductCategories";
 import TermsAndConditions from "./pages/Purchase/TermsAndConditions";
-import DeliveryDatePage from "./pages/Purchase/DeliveryDatePage";
-import ApprovalStatusPage from "./pages/Purchase/ApprovalStatusPage";
-import GoodsReceiptNotePage from "./pages/Purchase/GoodsReceiptNotePage";
+import Deliveries from "./pages/Purchase/Deliveries";
+import ApprovalStatus from "./pages/Purchase/ApprovalStatus";
+import GoodsReceiptNotes from "./pages/Purchase/GoodsReceiptNotes";
+import Inventory from "./pages/Purchase/Inventory";
+import PurchaseReports from "./pages/Purchase/PurchaseReports";
 import DeliveryOrderPage from "./pages/Delivery/DeliveryOrderPage";
 import TransporterPage from "./pages/Delivery/TransporterPage";
 import VehiclePage from "./pages/Delivery/VehiclePage";
@@ -161,7 +165,6 @@ import CrmViewPage from "./pages/CRM/CrmViewPage";
 import SalesCategoryPage from "./pages/Sales/SalesCategoryPage";
 import SalesChannels from "./pages/Sales/SalesChannels";
 import SalesOrderItemsPage from "./pages/Sales/SalesOrderPage";
-import DepartmentPage from "./pages/Purchase/DepartmentPage";
 import SalesCustomer from "./pages/Sales/SalesCustomers";
 import SalesContactPersonDetails from "./pages/Sales/SalesContactPersonDetails";
 import AttendanceRecordPage from "./pages/Attendance/AttendanceRecordPage";
@@ -265,16 +268,28 @@ export default function AppRouter() {
           <Route path="/stockAdjustment" element={<StockAdjustmentPage />} />
           <Route path="/inventory_dashboard" element={<InventoryDashboard />} />
 
-          <Route path="/purchaseRequisition" element={<PurchaseRequisitionPage />} />
-          <Route path="/purchaseOrder" element={<PurchaseOrderPage />} />
-          <Route path="/supplier" element={<SupplierPage />} />
-          <Route path="/product" element={<ProductPurchasePage />} />
-          <Route path="/department" element={<DepartmentPage />} />
-          <Route path="/term-condition" element={<TermsAndConditions />} />
-          <Route path="/deliveryDate" element={<DeliveryDatePage />} />
-          <Route path="/approvalStatus" element={<ApprovalStatusPage />} />
-          <Route path="/goodseceiptNote" element={<GoodsReceiptNotePage />} />
+          <Route path="/purchase-requisitions" element={<PurchaseRequisitions />} />
+          <Route path="/requisition-line-items" element={<RequisitionLineItems />} />
+          <Route path="/purchase-orders" element={<PurchaseOrders />} />
+          <Route path="/vendors" element={<Vendors />} />
+          <Route path="/purchase-products" element={<Products />} />
+          <Route path="/product-categories" element={<ProductCategories />} />
+          <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+          <Route path="/deliveries" element={<Deliveries />} />
+          <Route path="/approvalStatus" element={<ApprovalStatus />} />
+          <Route path="/approval-status" element={<ApprovalStatus />} />
+          <Route path="/goods-receipt-notes" element={<GoodsReceiptNotes />} />
+          <Route path="/purchase-inventory" element={<Inventory />} />
+          <Route path="/purchase-reports" element={<PurchaseReports />} />
           <Route path="/purchase_dashboard" element={<ProcurementDashboard />} />
+
+          <Route path="/purchaseRequisition" element={<PurchaseRequisitions />} />
+          <Route path="/purchaseOrder" element={<PurchaseOrders />} />
+          <Route path="/supplier" element={<Vendors />} />
+          <Route path="/product" element={<Products />} />
+          <Route path="/term-condition" element={<TermsAndConditions />} />
+          <Route path="/deliveryDate" element={<Deliveries />} />
+          <Route path="/goodseceiptNote" element={<GoodsReceiptNotes />} />
 
           <Route path="/delivery-order" element={<DeliveryOrderPage />} />
           <Route path="/transporter" element={<TransporterPage />} />
