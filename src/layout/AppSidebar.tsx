@@ -135,8 +135,9 @@ export const navItems: NavItem[] = [
     subItems: [
       { name: "Department", path: "/employeeDepartments" },
       { name: "Compensation", path: "/employeeCompensation" },
-      { name: "Records", path: "/employeeRecords" }, //SKU (Stock Keeping Unit)
+      { name: "Records", path: "/employeeRecords" },
       { name: "Salary", path: "/employeeSalary" },
+      { name: "Payroll Summary", path: "/payrollSummary" },
       { name: "Payslips", path: "/employeePayroll" },
       { name: "Payroll Engine", path: "/payrollEngine" },
 

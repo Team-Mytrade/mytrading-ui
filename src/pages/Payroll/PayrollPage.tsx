@@ -36,7 +36,6 @@ import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
-import SalarySummaryTab from "./SalarySummaryTab";
 
 const BASE_URL = "/v1/api/payroll";
 const PAGE_SIZE = 10;
@@ -122,10 +121,10 @@ const PayrollPage: React.FC = () => {
                 axios.get(`/v1/api/payroll/salary-summary?yearMonth=${filterMonth}`),
                 axios.get(`/v1/api/payroll/employee/all`)
             ]);
-            
+
             const salaryData = Array.isArray(salariesRes.data) ? salariesRes.data : (salariesRes.data?.data || []);
             const empData = Array.isArray(empRes.data) ? empRes.data : (empRes.data?.data || []);
-            
+
             const employeeMap = new Map();
             empData.forEach((emp: any) => {
                 employeeMap.set(emp.id, emp);
@@ -215,8 +214,8 @@ const PayrollPage: React.FC = () => {
         setLoading(true);
         try {
             const res = await axios.post(`/v1/api/payroll/payslips/generatePayslips`, { yearMonth: generateMonth });
-            const message = typeof res.data === 'string' && res.data.trim() !== '' 
-                ? res.data 
+            const message = typeof res.data === 'string' && res.data.trim() !== ''
+                ? res.data
                 : `Payslips generated successfully for ${generateMonth}`;
             ToasterService.success(message);
             await fetchAll();
@@ -361,7 +360,7 @@ const PayrollPage: React.FC = () => {
             const response = await axios.get(`/v1/api/payroll/reports/getPayrollDetailReportByMonth`, {
                 params: { payrollMonth: filterMonth }
             });
-            
+
             const data = response.data;
             if (!data || !Array.isArray(data) || data.length === 0) {
                 ToasterService.warning("No detailed report data found for this month");
@@ -372,7 +371,7 @@ const PayrollPage: React.FC = () => {
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Detailed Report");
             XLSX.writeFile(wb, `Payroll_Detailed_Report_${filterMonth}.xlsx`);
-            
+
             ToasterService.success("Detailed report exported successfully");
         } catch (error) {
             console.error("Error exporting detailed report:", error);
@@ -445,10 +444,10 @@ const PayrollPage: React.FC = () => {
                 <div className="mb-8 -mt-[125px] flex justify-end gap-3">
                     <button
                         onClick={handleExportDetailedReport}
-                        className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors font-medium"
+                        className="flex items-center gap-2 px-4 py-2 bg-cyan-600 !text-white rounded-lg hover:bg-cyan-700 transition-colors font-medium"
                     >
                         <DocumentArrowDownIcon className="h-5 w-5 text-white" />
-                        Export Detailed Report
+                        <span className="text-white">Export Detailed Report</span>
                     </button>
                     <AddButton label="Generate Payslips" onClick={() => setIsGenerateModalOpen(true)} />
                 </div>
@@ -458,10 +457,6 @@ const PayrollPage: React.FC = () => {
                     <StatsCard label="Processed" value={totalProcessed} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
                     <StatsCard label="Draft" value={totalDraft} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ClockIcon className="h-6 w-6" />} />
                     <StatsCard label="Total Disbursement" value={"Rs " + (totalDisbursement / 100000).toFixed(1) + "L"} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-6 w-6" />} />
-                </div>
-
-                <div className="mt-6 mb-8">
-                    <SalarySummaryTab />
                 </div>
 
                 {/* Toolbar */}
@@ -1029,49 +1024,49 @@ const PayrollPage: React.FC = () => {
                                                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div>
                                                 </div>
                                             ) : (
-                                            <>
-                                            <div className="mb-6">
-                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Earnings</h4>
-                                                <div className="space-y-2">
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-500">Basic Salary:</span>
-                                                        <span className="font-medium">₹{viewDetails?.basic?.toLocaleString() || 0}</span>
-                                                    </div>
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-500">HRA:</span>
-                                                        <span className="font-medium">₹{viewDetails?.hra?.toLocaleString() || 0}</span>
-                                                    </div>
-                                                    {viewDetails?.earnings?.map((e: any, i: number) => (
-                                                        <div key={i} className="flex justify-between text-sm">
-                                                            <span className="text-gray-500">{e.componentName || e.name || e.earningName}:</span>
-                                                            <span className="font-medium">₹{e.amount?.toLocaleString() || 0}</span>
+                                                <>
+                                                    <div className="mb-6">
+                                                        <h4 className="text-sm font-medium text-gray-700 mb-2">Earnings</h4>
+                                                        <div className="space-y-2">
+                                                            <div className="flex justify-between text-sm">
+                                                                <span className="text-gray-500">Basic Salary:</span>
+                                                                <span className="font-medium">₹{viewDetails?.basic?.toLocaleString() || 0}</span>
+                                                            </div>
+                                                            <div className="flex justify-between text-sm">
+                                                                <span className="text-gray-500">HRA:</span>
+                                                                <span className="font-medium">₹{viewDetails?.hra?.toLocaleString() || 0}</span>
+                                                            </div>
+                                                            {viewDetails?.earnings?.map((e: any, i: number) => (
+                                                                <div key={i} className="flex justify-between text-sm">
+                                                                    <span className="text-gray-500">{e.componentName || e.name || e.earningName}:</span>
+                                                                    <span className="font-medium">₹{e.amount?.toLocaleString() || 0}</span>
+                                                                </div>
+                                                            ))}
+                                                            <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+                                                                <span className="font-medium text-gray-700">Gross Salary:</span>
+                                                                <span className="font-bold text-cyan-600">₹{viewDetails?.grossSalary?.toLocaleString() || viewItem.grossSalary?.toLocaleString() || 0}</span>
+                                                            </div>
                                                         </div>
-                                                    ))}
-                                                    <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-                                                        <span className="font-medium text-gray-700">Gross Salary:</span>
-                                                        <span className="font-bold text-cyan-600">₹{viewDetails?.grossSalary?.toLocaleString() || viewItem.grossSalary?.toLocaleString() || 0}</span>
                                                     </div>
-                                                </div>
-                                            </div>
 
-                                            <div className="mb-6">
-                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Deductions</h4>
-                                                <div className="space-y-2">
-                                                    {viewDetails?.deductions?.length > 0 ? viewDetails.deductions.map((d: any, i: number) => (
-                                                        <div key={i} className="flex justify-between text-sm">
-                                                            <span className="text-gray-500">{d.componentName || d.name || d.deductionName}:</span>
-                                                            <span className="font-medium">₹{d.amount?.toLocaleString() || 0}</span>
+                                                    <div className="mb-6">
+                                                        <h4 className="text-sm font-medium text-gray-700 mb-2">Deductions</h4>
+                                                        <div className="space-y-2">
+                                                            {viewDetails?.deductions?.length > 0 ? viewDetails.deductions.map((d: any, i: number) => (
+                                                                <div key={i} className="flex justify-between text-sm">
+                                                                    <span className="text-gray-500">{d.componentName || d.name || d.deductionName}:</span>
+                                                                    <span className="font-medium">₹{d.amount?.toLocaleString() || 0}</span>
+                                                                </div>
+                                                            )) : (
+                                                                <div className="text-sm text-gray-500 italic">No deductions</div>
+                                                            )}
+                                                            <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+                                                                <span className="font-medium text-gray-700">Total Deductions:</span>
+                                                                <span className="font-bold text-red-600">₹{viewDetails?.totalDeductions?.toLocaleString() || 0}</span>
+                                                            </div>
                                                         </div>
-                                                    )) : (
-                                                        <div className="text-sm text-gray-500 italic">No deductions</div>
-                                                    )}
-                                                    <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-                                                        <span className="font-medium text-gray-700">Total Deductions:</span>
-                                                        <span className="font-bold text-red-600">₹{viewDetails?.totalDeductions?.toLocaleString() || 0}</span>
                                                     </div>
-                                                </div>
-                                            </div>
-                                            </>
+                                                </>
                                             )}
 
                                             <div className="p-4 bg-cyan-50 rounded-lg">

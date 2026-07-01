@@ -306,34 +306,34 @@ const EmployeeSalaryPage: React.FC = () => {
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("employeeName")}>
+                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("employeeName")}>
                                         <span className="flex items-center">Employee <SortIcon col="employeeName" /></span>
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("month")}>
+                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("month")}>
                                         <span className="flex items-center">Month <SortIcon col="month" /></span>
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("basic")}>
+                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("basic")}>
                                         <span className="flex items-center">Basic <SortIcon col="basic" /></span>
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("hra")}>
+                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("hra")}>
                                         <span className="flex items-center">HRA <SortIcon col="hra" /></span>
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("bonus")}>
+                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("bonus")}>
                                         <span className="flex items-center">Bonus <SortIcon col="bonus" /></span>
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("grossSalary")}>
+                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("grossSalary")}>
                                         <span className="flex items-center">Gross <SortIcon col="grossSalary" /></span>
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("totalDeductions")}>
+                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("totalDeductions")}>
                                         <span className="flex items-center">Deductions <SortIcon col="totalDeductions" /></span>
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("netSalary")}>
+                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("netSalary")}>
                                         <span className="flex items-center">Net Salary <SortIcon col="netSalary" /></span>
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("regime")}>
+                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("regime")}>
                                         <span className="flex items-center">Regime <SortIcon col="regime" /></span>
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
@@ -348,7 +348,7 @@ const EmployeeSalaryPage: React.FC = () => {
                                     </tr>
                                 ) : paginated.length > 0 ? paginated.map(salary => (
                                     <tr key={salary.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
                                                 <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3">
                                                     <span className="text-xs font-medium text-cyan-700">
@@ -361,34 +361,34 @@ const EmployeeSalaryPage: React.FC = () => {
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
                                                 <CalendarIcon className="h-4 w-4 text-gray-400 mr-2" />
                                                 <span className="text-sm font-medium text-gray-900">{salary.month}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             <span className="text-sm text-gray-900">₹{salary.basic.toLocaleString()}</span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             <span className="text-sm text-gray-900">₹{salary.hra.toLocaleString()}</span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             <span className="text-sm text-green-600">₹{salary.bonus.toLocaleString()}</span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             <span className="text-sm font-medium text-gray-900">₹{salary.grossSalary.toLocaleString()}</span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             <span className="text-sm text-red-600">₹{salary.totalDeductions.toLocaleString()}</span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             <span className="text-sm font-bold text-cyan-600">₹{salary.netSalary.toLocaleString()}</span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             <span className="text-sm text-gray-600">{salary.regime}</span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             {salary.isProcessed ? (
                                                 <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
                                                     <CheckCircleIcon className="h-3 w-3 mr-1" />

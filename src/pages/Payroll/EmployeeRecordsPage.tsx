@@ -394,7 +394,7 @@ const EmployeeRecordsPage: React.FC = () => {
                                         <th
                                             key={i}
                                             onClick={() => col.key && handleSort(col.key as keyof Employee | "name")}
-                                            className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${col.key ? "cursor-pointer hover:bg-gray-100" : ""
+                                            className={`px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${col.key ? "cursor-pointer hover:bg-gray-100" : ""
                                                 }`}
                                         >
                                             <span className="flex items-center">
@@ -421,10 +421,10 @@ const EmployeeRecordsPage: React.FC = () => {
                                         className="hover:bg-gray-50 transition-colors cursor-pointer"
                                         onClick={() => navigate(`/employee-view/${employee.id}`)}
                                     >
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             <span className="text-sm font-mono font-medium text-gray-900">{employee.employeeCode}</span>
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-2 py-4">
                                             <div className="flex items-center">
                                                 <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3">
                                                     <span className="text-sm font-medium text-cyan-700">
@@ -432,34 +432,38 @@ const EmployeeRecordsPage: React.FC = () => {
                                                     </span>
                                                 </div>
                                                 <div>
-                                                    <div className="text-sm font-medium text-gray-900">
-                                                        {employee.firstName} {employee.lastName}
+                                                    <div className="text-sm font-medium text-gray-900" title={`${employee.firstName || ''} ${employee.lastName || ''}`}>
+                                                        {`${employee.firstName || ''} ${employee.lastName || ''}`.trim().length > 4 
+                                                            ? `${`${employee.firstName || ''} ${employee.lastName || ''}`.trim().substring(0, 4)}...` 
+                                                            : `${employee.firstName || ''} ${employee.lastName || ''}`.trim()}
                                                     </div>
-                                                    <div className="text-xs text-gray-500 mt-0.5">
-                                                        {employee.designation || "No designation"}
+                                                    <div className="text-xs text-gray-500 mt-0.5" title={employee.designation || "No designation"}>
+                                                        {(employee.designation || "No designation").length > 4 
+                                                            ? `${(employee.designation || "No designation").substring(0, 4)}...` 
+                                                            : (employee.designation || "No designation")}
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-2 py-4">
                                             <div className="space-y-1">
-                                                <div className="flex items-center text-xs text-gray-600">
+                                                <div className="flex items-center text-xs text-gray-600" title={employee.officialEmail || "—"}>
                                                     <EnvelopeIcon className="h-3 w-3 mr-1 text-gray-400" />
-                                                    {employee.officialEmail || "—"}
+                                                    {(employee.officialEmail || "—").length > 4 ? `${(employee.officialEmail || "—").substring(0, 4)}...` : (employee.officialEmail || "—")}
                                                 </div>
-                                                <div className="flex items-center text-xs text-gray-600">
+                                                <div className="flex items-center text-xs text-gray-600" title={employee.phone || "—"}>
                                                     <PhoneIcon className="h-3 w-3 mr-1 text-gray-400" />
-                                                    {employee.phone || "—"}
+                                                    {(employee.phone || "—").length > 4 ? `${(employee.phone || "—").substring(0, 4)}...` : (employee.phone || "—")}
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                        <td className="px-2 py-4 whitespace-nowrap">
+                                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800" title={employee.department?.name || "—"}>
                                                 <BuildingOfficeIcon className="h-3 w-3 mr-1" />
-                                                {employee.department?.name || "—"}
+                                                {(employee.department?.name || "—").length > 4 ? `${(employee.department?.name || "—").substring(0, 4)}...` : (employee.department?.name || "—")}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             {employee.active ? (
                                                 <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
                                                     <CheckCircleIcon className="h-3 w-3 mr-1" />
@@ -472,47 +476,30 @@ const EmployeeRecordsPage: React.FC = () => {
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right relative" onClick={e => e.stopPropagation()}>
-                                            <Menu as="div" className="relative inline-block text-left">
-                                                <Menu.Button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                                                    <EllipsisVerticalIcon className="h-5 w-5 text-gray-500" />
-                                                </Menu.Button>
-                                                <Menu.Items className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-[100]">
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => navigate(`/employee-view/${employee.id}`)}
-                                                                className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                                            >
-                                                                <EyeIcon className="h-4 w-4 text-blue-600" />
-                                                                View Details
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => navigate(`/addEmployee?editId=${employee.id}`)}
-                                                                className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                                            >
-                                                                <PencilSquareIcon className="h-4 w-4 text-cyan-600" />
-                                                                Edit
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => handleDelete(employee.id)}
-                                                                className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-red-600`}
-                                                            >
-                                                                <TrashIcon className="h-4 w-4" />
-                                                                Delete
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                </Menu.Items>
-                                            </Menu>
+                                        <td className="px-2 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <div className="flex items-center justify-end gap-3" onClick={e => e.stopPropagation()}>
+                                                <button
+                                                    onClick={() => navigate(`/employee-view/${employee.id}`)}
+                                                    className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-1.5 rounded-md transition-colors"
+                                                    title="View Details"
+                                                >
+                                                    <EyeIcon className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => navigate(`/addEmployee?editId=${employee.id}`)}
+                                                    className="text-cyan-600 hover:text-cyan-900 bg-cyan-50 hover:bg-cyan-100 p-1.5 rounded-md transition-colors"
+                                                    title="Edit"
+                                                >
+                                                    <PencilSquareIcon className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(employee.id)}
+                                                    className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 p-1.5 rounded-md transition-colors"
+                                                    title="Delete"
+                                                >
+                                                    <TrashIcon className="h-4 w-4" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 )) : (

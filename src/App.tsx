@@ -235,6 +235,7 @@ import BatchManager from "./pages/Inventory/BatchManager";
 import EmployeeCompensationPage from "./pages/Payroll/EmployeeCompensationPage";
 import EmployeeDepartmentsPage from "./pages/Payroll/EmployeeDepartments";
 import EmployeeSalaryPage from "./pages/Payroll/EmployeeSalaryPage";
+import PayrollSummaryPage from "./pages/Payroll/PayrollSummaryPage";
 import CustomerFormPage from "./pages/CRM/CustomerFormPage";
 
 
@@ -402,6 +403,7 @@ export default function App() {
             <Route path="/employeeCompensation" element={<EmployeeCompensationPage />} />
             <Route path="/employeeDepartments" element={<EmployeeDepartmentsPage />} />
             <Route path="/employeePayroll" element={<PayrollPage />} />
+            <Route path="/payrollSummary" element={<PayrollSummaryPage />} />
             <Route path="/payrollEngine" element={<PayrollProcessingEnginePage />} />
             <Route path="/salaryStructure" element={<SalaryStructurePage />} />
             <Route path="/attendance-management" element={<AttendanceManagementPage />} />

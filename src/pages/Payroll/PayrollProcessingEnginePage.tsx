@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
 import {
@@ -18,6 +18,7 @@ import {
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
+import { ReusableTable, ColumnDef } from "../../components/common/Table";
 
 export interface UploadedFile {
     fileName: string;
@@ -260,7 +261,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
             <PageMeta title="Payroll Processing Engine" description="Run the end-to-end payroll processing workflow" />
             <PageBreadcrumb pageTitle="Payroll Engine" />
 
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-0 -mt-2">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <div className="px-6 py-5 border-b border-gray-200 bg-gray-50 flex items-center gap-3">
                         <CogIcon className="h-6 w-6 text-cyan-600" />
@@ -269,19 +270,19 @@ const PayrollProcessingEnginePage: React.FC = () => {
                         </h3>
                     </div>
 
-                    <div className="p-6 sm:p-10">
+                    <div className="p-4 sm:p-6">
                         {/* Tabs */}
-                        <div className="border-b border-gray-200 mb-8">
+                        <div className="border-b border-gray-200 mb-4">
                             <nav className="-mb-px flex space-x-8" aria-label="Tabs">
                                 <button
                                     onClick={() => setActiveTab('process')}
-                                    className={`${activeTab === 'process' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+                                    className={`${activeTab === 'process' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors`}
                                 >
                                     Process Payroll
                                 </button>
                                 <button
                                     onClick={() => { setActiveTab('history'); fetchBatchInfo(); }}
-                                    className={`${activeTab === 'history' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+                                    className={`${activeTab === 'history' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors`}
                                 >
                                     Batch History
                                 </button>
@@ -291,7 +292,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                         {activeTab === 'process' && (
                             <>
                                 {/* Stepper */}
-                                <div className="mb-12 relative max-w-3xl mx-auto">
+                                <div className="mb-6 relative max-w-3xl mx-auto">
                                     <div className="absolute inset-0 flex items-center" aria-hidden="true">
                                         <div className="w-full border-t-2 border-gray-200"></div>
                                     </div>
@@ -308,10 +309,10 @@ const PayrollProcessingEnginePage: React.FC = () => {
 
                                 {/* Step 1 */}
                                 {workflowStep === 1 && (
-                                    <div className="text-center py-8">
-                                        <CloudArrowDownIcon className="mx-auto h-20 w-20 text-cyan-500 mb-6" />
-                                        <h4 className="text-2xl font-semibold text-gray-900 mb-4">Download Employee Template</h4>
-                                        <p className="text-base text-gray-600 mb-6 max-w-xl mx-auto">
+                                    <div className="text-center py-4">
+                                        <CloudArrowDownIcon className="mx-auto h-12 w-12 text-cyan-500 mb-3" />
+                                        <h4 className="text-2xl font-semibold text-gray-900 mb-2">Download Employee Template</h4>
+                                        <p className="text-base text-gray-600 mb-4 max-w-xl mx-auto">
                                             First, download the Excel sheet containing basic info of all employees. After downloading, you can add different deductions/earnings for each employee.
                                         </p>
 
@@ -323,7 +324,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                             Download Template
                                         </button>
 
-                                        <div className="mt-8 flex justify-center">
+                                        <div className="mt-4 flex justify-center">
                                             <button onClick={() => setWorkflowStep(2)} className="text-gray-500 hover:text-cyan-600 text-sm font-medium flex items-center">
                                                 Skip to Upload Step <ArrowRightIcon className="ml-1 w-4 h-4" />
                                             </button>
@@ -403,43 +404,51 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                         {/* Uploaded Files List */}
                                         {!fetchError && uploadedFiles.length > 0 && (
                                             <div className="mb-8">
-                                                <h5 className="text-lg font-semibold text-gray-800 mb-4">Files Validated Successfully</h5>
-                                                <div className="bg-white border border-gray-200 shadow-sm rounded-lg overflow-hidden">
-                                                    <table className="min-w-full divide-y divide-gray-200">
-                                                        <thead className="bg-gray-50">
-                                                            <tr>
-                                                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">File Name</th>
-                                                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Type</th>
-                                                                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
-                                                                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Total Amount</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y divide-gray-200">
-                                                            {uploadedFiles.map((file, idx) => (
-                                                                <tr key={idx} className="hover:bg-gray-50">
-                                                                    <td className="px-6 py-4 flex items-center gap-3">
-                                                                        <DocumentTextIcon className="h-5 w-5 text-gray-400" />
-                                                                        <span className="text-sm font-medium text-gray-900">{file.fileName}</span>
-                                                                    </td>
-                                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${file.type?.toLowerCase() === 'earnings' ? 'bg-green-100 text-green-800' : file.type?.toLowerCase() === 'deductions' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
-                                                                            {file.type}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td className="px-6 py-4 text-center whitespace-nowrap">
-                                                                        <div className="flex flex-col items-center">
-                                                                            <CheckCircleIcon className="h-5 w-5 text-green-500" />
-                                                                            <span className="text-xs text-green-600 mt-1">Valid</span>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
-                                                                        ₹{file.totalAmount?.toLocaleString()}
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
+                                                <ReusableTable
+                                                    data={uploadedFiles.map((f, i) => ({ ...f, id: i }))}
+                                                    columns={[
+                                                        {
+                                                            key: "fileName",
+                                                            label: "File Name",
+                                                            render: (row) => (
+                                                                <div className="flex items-center gap-3">
+                                                                    <DocumentTextIcon className="h-5 w-5 text-gray-400" />
+                                                                    <span className="text-sm font-medium text-gray-900">{row.fileName}</span>
+                                                                </div>
+                                                            )
+                                                        },
+                                                        {
+                                                            key: "type",
+                                                            label: "Type",
+                                                            render: (row) => (
+                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${row.type?.toLowerCase() === 'earnings' ? 'bg-green-100 text-green-800' : row.type?.toLowerCase() === 'deductions' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
+                                                                    {row.type}
+                                                                </span>
+                                                            )
+                                                        },
+                                                        {
+                                                            key: "status",
+                                                            label: "Status",
+                                                            className: "text-center",
+                                                            headerClassName: "text-center",
+                                                            render: () => (
+                                                                <div className="flex flex-col items-center">
+                                                                    <CheckCircleIcon className="h-5 w-5 text-green-500" />
+                                                                    <span className="text-xs text-green-600 mt-1">Valid</span>
+                                                                </div>
+                                                            )
+                                                        },
+                                                        {
+                                                            key: "totalAmount",
+                                                            label: "Total Amount",
+                                                            className: "text-right font-medium text-gray-900",
+                                                            headerClassName: "text-right",
+                                                            render: (row) => `₹${row.totalAmount?.toLocaleString()}`
+                                                        }
+                                                    ]}
+                                                    searchable={false}
+                                                    pageSize={10}
+                                                />
                                             </div>
                                         )}
 
@@ -478,11 +487,11 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto mb-10">
                                             <div className="bg-red-50 rounded-xl p-6 border border-red-100 text-center shadow-sm">
                                                 <h5 className="text-sm font-semibold text-red-800 uppercase tracking-wide mb-2">Total Deductions</h5>
-                                                <span className="text-3xl font-bold text-red-600">â‚¹{summaryData.totalDeductions.toLocaleString()}</span>
+                                                <span className="text-3xl font-bold text-red-600">₹{summaryData.totalDeductions.toLocaleString()}</span>
                                             </div>
                                             <div className="bg-green-50 rounded-xl p-6 border border-green-100 text-center shadow-sm">
                                                 <h5 className="text-sm font-semibold text-green-800 uppercase tracking-wide mb-2">Total Earnings</h5>
-                                                <span className="text-3xl font-bold text-green-600">â‚¹{summaryData.totalEarnings.toLocaleString()}</span>
+                                                <span className="text-3xl font-bold text-green-600">₹{summaryData.totalEarnings.toLocaleString()}</span>
                                             </div>
                                         </div>
 
@@ -509,12 +518,11 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                     <><ArrowPathIcon className="animate-spin -ml-1 mr-3 h-5 w-5" /> Processing Engine...</>
                                                 ) : "Run Payroll Engine"}
                                             </button>
-                                            <p className="mt-4 text-xs text-gray-500">This action will process all files currently in the salary folder.</p>
                                         </div>
 
                                         <div className="flex justify-center mt-12">
                                             <button onClick={() => setWorkflowStep(2)} className="text-gray-500 hover:text-gray-700 text-sm font-medium">
-                                                â† Back to File Upload
+                                                ← Back to File Upload
                                             </button>
                                         </div>
                                     </div>
@@ -538,97 +546,62 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 rounded-xl border border-gray-200">
-                                    <table className="min-w-full divide-y divide-gray-300">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                <th scope="col" className="px-6 py-4 w-10"></th>
-                                                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Batch Reference</th>
-                                                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Salary Month</th>
-                                                <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Employees</th>
-                                                <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Amount</th>
-                                                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                                <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
-                                            {batchInfo.length > 0 ? batchInfo.map((batch, idx) => (
-                                                <React.Fragment key={idx}>
-                                                    <tr className="hover:bg-gray-50 transition-colors">
-                                                        <td className="px-6 py-4 whitespace-nowrap w-10">
-                                                            <button onClick={() => toggleBatchExpansion(batch.batchReference)} className="text-gray-500 hover:text-gray-700">
-                                                                {expandedBatch === batch.batchReference ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
-                                                            </button>
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{batch.batchReference}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{batch.salaryMonth}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{batch.employeeCount}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 text-right">₹{batch.totalSalaryAmount?.toLocaleString()}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap">
-                                                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${batch.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                                {batch.status}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                            <button
-                                                                onClick={() => handleDownloadReport(batch.batchReference, batch.salaryMonth)}
-                                                                className="text-cyan-600 hover:text-cyan-900 bg-cyan-50 p-2.5 rounded-full transition-colors inline-block"
-                                                                title="Download Bank Report"
-                                                            >
-                                                                <DocumentArrowDownIcon className="h-5 w-5" />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                    {expandedBatch === batch.batchReference && (
-                                                        <tr className="bg-gray-50 border-b border-gray-200">
-                                                            <td colSpan={7} className="px-10 py-6">
-                                                                <h5 className="text-sm font-semibold text-gray-900 mb-3">Employees Processed in this Batch</h5>
-                                                                {batch.employees && batch.employees.length > 0 ? (
-                                                                    <div className="bg-white rounded border border-gray-200 shadow-sm overflow-x-auto">
-                                                                        <table className="min-w-full divide-y divide-gray-200">
-                                                                            <thead className="bg-gray-100">
-                                                                                <tr>
-                                                                                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500">Employee ID</th>
-                                                                                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500">Employee Name</th>
-                                                                                    <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500">Action</th>
-                                                                                </tr>
-                                                                            </thead>
-                                                                            <tbody className="divide-y divide-gray-200">
-                                                                                {batch.employees.map((emp: any, eIdx: number) => (
-                                                                                    <tr key={eIdx}>
-                                                                                        <td className="px-4 py-2 text-sm text-gray-900">{emp.employeeId}</td>
-                                                                                        <td className="px-4 py-2 text-sm text-gray-900">{emp.employeeName}</td>
-                                                                                        <td className="px-4 py-2 text-right text-sm">
-                                                                                            <button
-                                                                                                onClick={() => handleDownloadPayslip(emp.employeeId, batch.salaryMonth)}
-                                                                                                className="text-cyan-600 hover:text-cyan-900 text-xs font-medium border border-cyan-200 rounded px-2 py-1 hover:bg-cyan-50 transition-colors"
-                                                                                            >
-                                                                                                Download Payslip
-                                                                                            </button>
-                                                                                        </td>
-                                                                                    </tr>
-                                                                                ))}
-                                                                            </tbody>
-                                                                        </table>
-                                                                    </div>
-                                                                ) : (
-                                                                    <p className="text-sm text-gray-500 italic">No employee details available for this batch.</p>
-                                                                )}
-                                                            </td>
-                                                        </tr>
-                                                    )}
-                                                </React.Fragment>
-                                            )) : (
-                                                <tr>
-                                                    <td colSpan={7} className="px-6 py-12 text-center">
-                                                        <ArrowPathIcon className="mx-auto h-8 w-8 text-gray-400 mb-3 animate-spin" />
-                                                        <p className="text-gray-500 text-sm">Waiting for batch information to appear...</p>
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                <ReusableTable
+                                    data={batchInfo.map((b, i) => ({ ...b, id: b.batchReference || i }))}
+                                    columns={[
+                                        { key: "batchReference", label: "Batch Reference", sortable: true },
+                                        { key: "salaryMonth", label: "Salary Month", sortable: true },
+                                        { 
+                                            key: "employeeCount", 
+                                            label: "Employees", 
+                                            sortable: true,
+                                            className: "text-center",
+                                            headerClassName: "text-center" 
+                                        },
+                                        { 
+                                            key: "totalSalaryAmount", 
+                                            label: "Total Amount", 
+                                            sortable: true,
+                                            className: "text-center font-semibold",
+                                            headerClassName: "text-center",
+                                            render: (row: any) => `₹${row.totalSalaryAmount?.toLocaleString() || 0}`
+                                        },
+                                        { 
+                                            key: "status", 
+                                            label: "Status", 
+                                            sortable: true,
+                                            render: (row: any) => (
+                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${row.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                    {row.status}
+                                                </span>
+                                            )
+                                        },
+                                        {
+                                            key: "action",
+                                            label: "Action",
+                                            className: "text-right",
+                                            headerClassName: "text-right",
+                                            render: (row: any) => (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleDownloadReport(row.batchReference, row.salaryMonth); }}
+                                                    className="text-cyan-600 hover:text-cyan-900 bg-cyan-50 p-2.5 rounded-full transition-colors inline-block"
+                                                    title="Download Bank Report"
+                                                >
+                                                    <DocumentArrowDownIcon className="h-5 w-5" />
+                                                </button>
+                                            )
+                                        }
+                                    ]}
+                                    searchable={false}
+                                    pageSize={10}
+                                    emptyState={
+                                        <div className="flex flex-col items-center py-12 text-gray-500">
+                                            <ArrowPathIcon className="h-8 w-8 text-gray-400 mb-3 animate-spin" />
+                                            <p className="text-sm">Waiting for batch information to appear...</p>
+                                        </div>
+                                    }
+                                />
+
                             </div>
                         )}
                     </div>

@@ -420,7 +420,7 @@ const SalaryStructurePage: React.FC = () => {
                                         <th
                                             key={i}
                                             onClick={() => col.key && handleSort(col.key as keyof SalaryStructure)}
-                                            className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${col.key ? "cursor-pointer hover:bg-gray-100" : ""
+                                            className={`px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${col.key ? "cursor-pointer hover:bg-gray-100" : ""
                                                 }`}
                                         >
                                             <span className="flex items-center">
@@ -446,7 +446,7 @@ const SalaryStructurePage: React.FC = () => {
                                         key={structure.id}
                                         className="hover:bg-gray-50 transition-colors"
                                     >
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
                                                 <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3">
                                                     <span className="text-xs font-medium text-cyan-700">
@@ -456,25 +456,25 @@ const SalaryStructurePage: React.FC = () => {
                                                 <span className="text-sm font-medium text-gray-900">{structure.employeeId}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             <span className="text-sm text-gray-900">₹{structure.basic.toLocaleString()}</span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             <span className="text-sm text-gray-900">₹{structure.hra.toLocaleString()}</span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             <span className="text-sm text-green-600">₹{structure.allowances.toLocaleString()}</span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             <span className="text-sm text-red-600">₹{(structure.totalDeductions || 0).toLocaleString()}</span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             <span className="text-sm font-bold text-cyan-600">₹{structure.netSalary.toLocaleString()}</span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             <span className="text-sm text-purple-600 font-medium">₹{(structure.ctc / 100000).toFixed(1)}L</span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
                                                 <CalendarIcon className="h-4 w-4 text-gray-400 mr-1" />
                                                 <span className="text-sm text-gray-600">
@@ -482,7 +482,7 @@ const SalaryStructurePage: React.FC = () => {
                                                 </span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right relative">
+                                        <td className="px-2 py-4 whitespace-nowrap text-right relative">
                                             <Menu as="div" className="relative inline-block text-left">
                                                 <Menu.Button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
                                                     <EllipsisVerticalIcon className="h-5 w-5 text-gray-500" />
