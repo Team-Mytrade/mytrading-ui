@@ -20,6 +20,7 @@ export type PurchaseRecord = Record<string, any> & { id?: number | string };
 export type SelectOption = {
   value: string | number;
   label: string;
+  raw?: PurchaseRecord;
 };
 
 export type FieldType =
@@ -70,7 +71,11 @@ export type PurchaseResourceConfig = {
   searchFields?: string[];
   pageSize?: number;
   getListParams?: () => Record<string, string | number | boolean>;
-  buildPayload?: (form: PurchaseRecord, editingRow: PurchaseRecord | null) => PurchaseRecord;
+  buildPayload?: (
+    form: PurchaseRecord,
+    editingRow: PurchaseRecord | null,
+    context: { options: Record<string, SelectOption[]> }
+  ) => PurchaseRecord;
   normalizeForm?: (row: PurchaseRecord) => PurchaseRecord;
 };
 
@@ -118,6 +123,7 @@ function formatCellValue(value: any) {
   if (typeof value === "boolean") return value ? "Active" : "Inactive";
   if (typeof value === "object") {
     return (
+      value.username ||
       value.name ||
       value.title ||
       value.productName ||
@@ -191,16 +197,17 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     const next: Record<string, SelectOption[]> = {};
     let hasFailure = false;
     await Promise.all(
-      optionFields.map(async (field) => {
-        try {
-          const res = await axios.get(field.optionsEndpoint || "");
-          next[field.name] = asArray(res.data)
-            .map((row) => ({
-              value: optionValue(row, field.optionValue),
-              label: optionText(row, field.optionLabel),
-            }))
-            .filter((item) => item.value !== "" && item.label);
-        } catch (error) {
+        optionFields.map(async (field) => {
+          try {
+            const res = await axios.get(field.optionsEndpoint || "");
+            next[field.name] = asArray(res.data)
+              .map((row) => ({
+                value: optionValue(row, field.optionValue),
+                label: optionText(row, field.optionLabel),
+                raw: row,
+              }))
+              .filter((item) => item.value !== "" && item.label);
+          } catch (error) {
           console.error(`Failed to load options for ${field.name}`, error);
           next[field.name] = [];
           hasFailure = true;
@@ -253,7 +260,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const payload = config.buildPayload ? config.buildPayload(form, editingRow) : form;
+    const payload = config.buildPayload ? config.buildPayload(form, editingRow, { options }) : form;
 
     try {
       if (editingRow && config.allowEdit !== false) {

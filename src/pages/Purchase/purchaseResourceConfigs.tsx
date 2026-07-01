@@ -10,6 +10,7 @@ import {
 const PURCHASE = "/v1/api/purchase";
 const CATEGORIES = "/v1/api/product-categories";
 const USER_DEPARTMENTS = "/v1/api/user/departments";
+const USERS = "/v1/api/user/getAll";
 
 const boolText = (value: boolean) => (
   <span className={value ? "text-green-700" : "text-gray-500"}>{value ? "Yes" : "No"}</span>
@@ -30,6 +31,45 @@ const statusBadge = (value: string) => {
 };
 
 const dateOnly = (value: any) => (value ? String(value).slice(0, 10) : "");
+const getStoredUser = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem("user");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+const getSessionMeta = () => {
+  const storedUser = getStoredUser();
+  return {
+    userId: storedUser?.userId || storedUser?.id || "system",
+    tenantId: storedUser?.tenantId || "TENANT_1",
+  };
+};
+const toUserActiveStatus = (value: unknown) => {
+  if (typeof value === "string") return value;
+  if (value === true) return "ACTIVE";
+  if (value === false) return "INACTIVE";
+  return "ACTIVE";
+};
+const toRequesterRole = (value: unknown) => {
+  const role = String(value || "").toUpperCase();
+  if (role === "ADMIN" || role === "USER") return role;
+  if (role.includes("ADMIN")) return "ADMIN";
+  return "USER";
+};
+const emptyUserDetails = {
+  phoneNumber: "",
+  country: "",
+  city: "",
+  address: "",
+  postalCode: "",
+  designation: "",
+  aboutMe: "",
+  imageName: "",
+  imageType: "",
+};
 
 const withAudit = (form: PurchaseRecord, editingRow: PurchaseRecord | null) => ({
   ...(editingRow || {}),
@@ -99,21 +139,26 @@ export const productCategoryConfig: PurchaseResourceConfig = {
     { name: "categoryName", label: "Category Name", required: true },
     { name: "shortCode", label: "Short Code" },
     { name: "parentId", label: "Parent Category", type: "select", optionsEndpoint: CATEGORIES, optionLabel: "categoryName" },
-    { name: "parentName", label: "Parent Name" },
     { name: "description", label: "Description", type: "textarea", gridClassName: "md:col-span-2" },
     { name: "active", label: "Active", type: "checkbox", defaultValue: true },
   ],
   searchFields: ["categoryCode", "categoryName", "shortCode", "parentName"],
-  buildPayload: (form, editingRow) => ({
-    ...(editingRow?.id ? { id: editingRow.id } : {}),
-    categoryCode: form.categoryCode,
-    categoryName: form.categoryName,
-    shortCode: form.shortCode,
-    description: form.description,
-    parentId: toNumberOrZero(form.parentId),
-    parentName: form.parentName,
-    active: Boolean(form.active),
-  }),
+  buildPayload: (form, editingRow, context) => {
+    const parentOption = context.options.parentId?.find(
+      (option) => String(option.value) === String(form.parentId)
+    );
+
+    return {
+      ...(editingRow?.id ? { id: editingRow.id } : {}),
+      categoryCode: form.categoryCode,
+      categoryName: form.categoryName,
+      shortCode: form.shortCode,
+      description: form.description,
+      parentId: toNumberOrZero(form.parentId),
+      parentName: parentOption?.label || "",
+      active: Boolean(form.active),
+    };
+  },
 };
 
 export const productConfig: PurchaseResourceConfig = {
@@ -179,7 +224,11 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
     { key: "requiredByDate", label: "Required By" },
     { key: "status", label: "Status", render: (row) => statusBadge(row.status) },
     { key: "departmentId", label: "Department" },
-    { key: "requester.fullName", label: "Requester" },
+    {
+      key: "requester",
+      label: "Requester",
+      render: (row) => row.requester?.fullName || row.requester?.username || row.requester?.userId || "--",
+    },
   ],
   fields: [
     { name: "notes", label: "Notes", type: "textarea", required: true, gridClassName: "md:col-span-2" },
@@ -191,11 +240,19 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
       type: "select",
       required: true,
       optionsEndpoint: USER_DEPARTMENTS,
-      optionLabel: (row) => [row.name, row.departmentCode ? `(${row.departmentCode})` : ""].filter(Boolean).join(" "),
+        optionLabel: (row) => [row.name, row.departmentCode ? `(${row.departmentCode})` : ""].filter(Boolean).join(" "),
     },
-    { name: "requesterId", label: "Requester User ID", required: true },
+    {
+      name: "requesterId",
+      label: "Requester",
+      type: "select",
+      required: true,
+      optionsEndpoint: USERS,
+      optionLabel: (row) => row.username || row.fullName || [row.firstName, row.lastName].filter(Boolean).join(" ").trim() || row.userId,
+      optionValue: "userId",
+    },
   ],
-  searchFields: ["id", "notes", "status", "departmentId"],
+  searchFields: ["id", "notes", "status", "departmentId", "requester.username", "requester.fullName", "requester.userId"],
   normalizeForm: (row) => ({
     notes: row.notes || "",
     requiredByDate: dateOnly(row.requiredByDate),
@@ -203,14 +260,47 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
     departmentId: row.departmentId ?? "",
     requesterId: row.requester?.userId || row.requesterId || "",
   }),
-  buildPayload: (form, editingRow) => ({
-    ...(editingRow || {}),
-    notes: form.notes,
-    requiredByDate: form.requiredByDate,
-    status: form.status || "DRAFT",
-    departmentId: toNumberOrZero(form.departmentId),
-    requester: form.requesterId ? { userId: form.requesterId } : null,
-  }),
+  buildPayload: (form, editingRow, context) => {
+    const now = new Date().toISOString();
+    const session = getSessionMeta();
+    const requesterOption = context.options.requesterId?.find(
+      (option) => String(option.value) === String(form.requesterId)
+    );
+    const requester = requesterOption?.raw;
+
+    return {
+      id: Number(editingRow?.id ?? 0),
+      createdDate: editingRow?.createdDate || now,
+      updatedDate: now,
+      createdBy: editingRow?.createdBy || session.userId,
+      tenantId: editingRow?.tenantId || session.tenantId,
+      notes: form.notes,
+      requiredByDate: form.requiredByDate,
+      status: form.status || "DRAFT",
+      departmentId: toNumberOrZero(form.departmentId),
+      requester: requester
+        ? {
+            userId: requester.userId || "",
+            email: requester.email || "",
+            role: toRequesterRole(requester.role),
+            active: toUserActiveStatus(requester.active),
+            fullName:
+              requester.fullName ||
+              requester.username ||
+              [requester.firstName, requester.lastName].filter(Boolean).join(" ").trim(),
+            userDetails: {
+              ...emptyUserDetails,
+              ...(requester.userDetails || {}),
+            },
+              requisitions: requester.requisitions || [],
+              createdDate: requester.createdDate || new Date().toISOString(),
+              updatedDate: requester.updatedDate || new Date().toISOString(),
+              createdBy: requester.createdBy || requester.userId || "system",
+              tenantId: requester.tenantId || session.tenantId,
+            }
+          : null,
+    };
+  },
 };
 
 export const requisitionLineItemConfig: PurchaseResourceConfig = {
