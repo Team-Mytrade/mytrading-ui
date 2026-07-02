@@ -55,6 +55,34 @@ interface CustomerSegment {
 
 const API_URL = "/v1/api/crm/segments";
 const PAGE_SIZE = 10;
+const getTenantIdFromToken = (token: string) => {
+  try {
+    const payload = token.split(".")[1];
+    const decoded = JSON.parse(atob(payload));
+    return decoded?.tenantId || null;
+  } catch {
+    return null;
+  }
+};
+
+const getTenantId = () => {
+  try {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      if (user?.tenantId) return user.tenantId;
+    }
+
+    const token = localStorage.getItem("accessToken");
+    if (token) {
+      return getTenantIdFromToken(token);
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+};
 
 const CustomerSegmentDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -71,6 +99,7 @@ const CustomerSegmentDetails: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState("ALL");
   const [showFilters, setShowFilters] = useState(false);
   const token = localStorage.getItem("accessToken");
+  const tenantId = getTenantId();
 
   const processedEditIdRef = useRef<number | null>(null);
 
@@ -121,7 +150,10 @@ const CustomerSegmentDetails: React.FC = () => {
   const fetchCustomers = async () => {
     try {
       const res = await axios.get("/v1/api/crm/customers", {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        params: tenantId ? { tenantId } : {},
       });
       // Ensure customers is always an array
       setCustomers(Array.isArray(res.data) ? res.data : []);
@@ -134,7 +166,12 @@ const CustomerSegmentDetails: React.FC = () => {
   const fetchSegments = async () => {
     try {
       setIsLoading(true);
-      const res = await axios.get<CustomerSegment[]>(API_URL);
+      const res = await axios.get<CustomerSegment[]>(API_URL, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        params: tenantId ? { tenantId } : {},
+      });
       if (id) {
         const filteredSegment = res.data.filter((seg) => seg.id === Number(id));
         setSegments(filteredSegment);
