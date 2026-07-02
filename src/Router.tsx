@@ -32,17 +32,15 @@ import ContactPersonDetails from "./pages/CRM/ContactPersonDetails";
 import CustomerSegmentDetails from "./pages/CRM/CustomerSegmentDetails";
 import CommunicationHistoryPage from "./pages/CRM/CommunicationHistoryPage";
 import TaskManager from "./pages/CRM/TaskManager";
-import OrdersPage from "./pages/Sales/OrdersPage";
-import QuotationsPage from "./pages/Sales/QuotationsPage";
-import PriceListDiscountPage from "./pages/Sales/PriceListDiscountPage";
-import SalespersonPage from "./pages/Sales/SalespersonPage";
-import SalesTeamPage from "./pages/Sales/SalesTeamPage";
-import PaymentTerms from "./pages/Sales/PaymentTerms";
-import DeliverySchedulePage from "./pages/Sales/DeliverySchedulePage";
-import InvoicesPage from "./pages/Sales/InvoicesPage";
-import ProductManagement from "./pages/Sales/ProductManagement";
-import SalesTargetPage from "./pages/Sales/SalesTargetPage";
-import SalesReportPage from "./pages/Sales/SalesReportPage";
+import SalesOrders from "./pages/Sales/SalesOrders";
+import Quotations from "./pages/Sales/Quotations";
+import SalesPersons from "./pages/Sales/SalesPersons";
+import ServiceSchedules from "./pages/Sales/ServiceSchedules";
+import SalesTargets from "./pages/Sales/SalesTargets";
+import ServiceScheduleNotify from "./pages/Sales/ServiceScheduleNotify";
+import ReturnRequests from "./pages/Sales/ReturnRequests";
+import Refunds from "./pages/Sales/Refunds";
+import CreditLimit from "./pages/Sales/CreditLimit";
 import ProductSKUManager from "./pages/Inventory/ProductSKUManager";
 import WarehouseManager from "./pages/Inventory/WarehouseManager";
 import StockLevelManager from "./pages/Inventory/StockLevelManager";
@@ -162,11 +160,7 @@ import Alert from "./pages/Notification/Alerts";
 import UserPreferences from "./pages/Notification/UserPreferences";
 import AuthLayout from "./pages/AuthPages/AuthPageLayout";
 import CrmViewPage from "./pages/CRM/CrmViewPage";
-import SalesCategoryPage from "./pages/Sales/SalesCategoryPage";
 import SalesChannels from "./pages/Sales/SalesChannels";
-import SalesOrderItemsPage from "./pages/Sales/SalesOrderPage";
-import SalesCustomer from "./pages/Sales/SalesCustomers";
-import SalesContactPersonDetails from "./pages/Sales/SalesContactPersonDetails";
 import AttendanceRecordPage from "./pages/Attendance/AttendanceRecordPage";
 import LeaveBalancePage from "./pages/Attendance/LeaveBalancePage";
 import LeaveRequestPage from "./pages/Attendance/LeaveRequestPage";
@@ -186,7 +180,7 @@ import AttendanceApprovalPage from "./pages/Attendance/AttendanceApprovalRequest
 import ShiftSchedulePage from "./pages/Attendance/EmployeeShiftSchedulePage";
 import PayrollPage from "./pages/Payroll/PayrollPage";
 import EmployeeDocumentsPage from "./pages/Payroll/EmployeeDocumentsPage";
-import SalesDashboardPage from "./pages/Sales/SalesDashboardPage";
+import SalesDashboard from "./pages/Sales/SalesDashboard";
 import CrmDashboardPage from "./pages/CRM/CrmDashboardPage";
 import InventoryDashboard from "./pages/Inventory/InventoryDashboard";
 import ProcurementDashboard from "./pages/Purchase/ProcurementDashboard";
@@ -238,25 +232,18 @@ export default function AppRouter() {
 
           <Route path="/role_config" element={<Mainrole />} />
 
-          <Route path="/ordersPage" element={<OrdersPage />} />
-          <Route path="/quotationsPage" element={<QuotationsPage />} />
-          <Route path="/quote-view/:id" element={<QuotationsPage />} />
-          <Route path="/priceList" element={<PriceListDiscountPage />} />
-          <Route path="/sales-person" element={<SalespersonPage />} />
-          <Route path="/sales-team" element={<SalesTeamPage />} />
-          <Route path="/payment-term" element={<PaymentTerms />} />
-          <Route path="/delivery-schedule" element={<DeliverySchedulePage />} />
-          <Route path="/invoicesPage" element={<InvoicesPage />} />
-          <Route path="/products" element={<ProductManagement />} />
-          <Route path="/salesTargetPage" element={<SalesTargetPage />} />
-          <Route path="/salesReportPage" element={<SalesReportPage />} />
-          <Route path="/sales-categories" element={<SalesCategoryPage />} />
+          <Route path="/service-schedule-notify" element={<ServiceScheduleNotify />} />
+          <Route path="/sales-targets" element={<SalesTargets />} />
+          <Route path="/sales-persons" element={<SalesPersons />} />
+          <Route path="/sales-orders" element={<SalesOrders />} />
+          <Route path="/return-requests" element={<ReturnRequests />} />
+          <Route path="/refunds" element={<Refunds />} />
+          <Route path="/quotations" element={<Quotations />} />
+          <Route path="/credit-limit" element={<CreditLimit />} />
           <Route path="/sales-channels" element={<SalesChannels />} />
-          <Route path="/sales-order-items" element={<SalesOrderItemsPage />} />
-          <Route path="/sales-customer" element={<SalesCustomer />} />
-          <Route path="/sales-contact-persons" element={<SalesContactPersonDetails />} />
-          <Route path="/sales_dashboard" element={<SalesDashboardPage />} />
-          <Route path="/slaes_dashborad" element={<SalesDashboardPage />} />
+          <Route path="/service-schedules" element={<ServiceSchedules />} />
+          <Route path="/sales-dashboard" element={<SalesDashboard />} />
+          <Route path="/quote-view/:id" element={<Quotations />} />
 
           <Route path="/product-sku" element={<ProductSKUManager />} />
           <Route path="/warehouse" element={<WarehouseManager />} />

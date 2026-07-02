@@ -45,26 +45,18 @@ export const navItems: NavItem[] = [
   {
     icon: <ShoppingCart className="w-5 h-5" />,
     name: "Sales",
-      subItems: [
-
-    { name: "Category", path: "/sales-categories"},
-      { name: "Products", path: "/products"},
-      { name: "Quotations", path: "/quotationsPage"},
-      { name: "Order Items", path: "/sales-order-items" },
-      { name: "Orders", path: "/ordersPage" },
-      { name: "Channels", path: "/sales-channels" },
-      // { name: "Price List / Discounts", path: "/priceList" },
-      { name: "Customer", path: "/sales-customer" },
-      { name: "Contact Persons", path: "/sales-contact-persons" },
-      // { name: "Invoices", path: "/invoicesPage"},
-
-      // { name: "Salesperson", path: "/sales-person"},
-      // { name: "Sales Team", path: "/sales-team"},
-      // { name: "Payment Terms", path: "/payment-term"},
-      // { name: "Delivery Schedule", path: "/delivery-schedule"},
-
-      // { name: "Sales Targets", path: "/salesTargetPage"},
-      // { name: "Sales Reports", path: "/salesReportPage"},
+    subItems: [
+      { name: "Sales Persons", path: "/sales-persons" },
+      { name: "Sales Targets", path: "/sales-targets" },
+      { name: "Sales Channels", path: "/sales-channels" },
+      { name: "Credit Limit", path: "/credit-limit" },
+      { name: "Quotations", path: "/quotations" },
+      { name: "Sales Orders", path: "/sales-orders" },
+      { name: "Return Requests", path: "/return-requests" },
+      { name: "Refunds", path: "/refunds" },
+      { name: "Service Schedules", path: "/service-schedules" },
+      { name: "Service Schedule Notify", path: "/service-schedule-notify" },
+      { name: "Sales Dashboard", path: "/sales-dashboard" },
     ],
   },
    
@@ -78,7 +70,6 @@ export const navItems: NavItem[] = [
       { name: "Batch / Serial Number", path: "/batchSerial"},
       { name: "Quality Inspection Record", path: "/qualityInspection" },
       { name: "Stock Movement / Transactions", path: "/transactions" },
-      { name: "Salesperson / Sales Team", path: "/salesTargetPage" },
       { name: "Reorder Level", path: "/reorderLevel" },
       { name: "Stock Adjustment", path: "/stockAdjustment" },
     ],

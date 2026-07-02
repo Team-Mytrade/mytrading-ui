@@ -10,7 +10,6 @@ import axios from 'axios';
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { CUSTOMER_UTILS } from '../../config/constants';
-import { Link } from 'react-router';
 
 interface Product {
   id: number;
@@ -353,7 +352,7 @@ const ProductPage: React.FC = () => {
                   <tr key={product.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">{product.sku}</td>
                     <td className="px-6 py-4">{product.name}</td>
-                    <td className="px-6 py-4"> <Link to="/sales-categories" >{product.category.name}</Link></td>
+                    <td className="px-6 py-4">{product.category.name}</td>
                     <td className="px-6 py-4 font-semibold">{CUSTOMER_UTILS.CURRENCY}{product.price.toFixed(2)}</td>
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full font-semibold text-sm ${

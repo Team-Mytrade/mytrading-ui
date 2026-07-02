@@ -1,192 +1,287 @@
-import React, { useState, useEffect, Fragment } from 'react';
+import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import axios from "axios";
 import {
-  PencilSquareIcon,
-  TrashIcon,
-  RadioIcon,
   BuildingStorefrontIcon,
+  CheckCircleIcon,
+  MagnifyingGlassIcon,
+  PencilSquareIcon,
+  RadioIcon,
+  TrashIcon,
   XMarkIcon,
-  PhoneIcon,
-  GlobeAltIcon,
-  // EyeIcon,
 } from "@heroicons/react/24/outline";
-import { Transition, Dialog } from "@headlessui/react";
-import axios from 'axios';
-import PageMeta from "../../components/common/PageMeta";
-import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import { AddButton } from '../../components/common/AddButton';
-import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
+import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import PageMeta from "../../components/common/PageMeta";
+import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
-import { useNavigate } from 'react-router-dom';
+import {
+  FloatingInput,
+  FloatingSelect1 as FloatingSelect,
+  FloatingTextarea,
+} from "../../components/inputfeild/FloatingInput";
+import { ToasterService } from "../../Services/ToasterService";
 
-interface Channel {
+type SalesChannel = {
   id: number;
+  createdDate?: string;
+  updatedDate?: string;
+  createdBy?: string;
+  tenantId: string;
   name: string;
   channelType: string;
   contactInfo: string;
-}
-
-const API_URL = "/v1/api/sales/channels";
-
-const channelTypes = [
-  { value: 'DISTRIBUTTER', label: 'Distributor', icon: BuildingStorefrontIcon, color: 'bg-blue-500' },
-  { value: 'RETAIL', label: 'Retail', icon: BuildingStorefrontIcon, color: 'bg-green-500' },
-  { value: 'ONLINE', label: 'Online', icon: GlobeAltIcon, color: 'bg-purple-500' },
-];
-
-const getChannelTypeDetails = (type: string) =>
-  channelTypes.find(ct => ct.value === type) || channelTypes[0];
-
-const typeBadgeClass = (type: string) => {
-  if (type === 'DISTRIBUTTER') return 'bg-blue-50 text-blue-700 border-blue-200';
-  if (type === 'RETAIL') return 'bg-green-50 text-green-700 border-green-200';
-  if (type === 'ONLINE') return 'bg-purple-50 text-purple-700 border-purple-200';
-  return 'bg-gray-50 text-gray-700 border-gray-200';
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+type ChannelForm = {
+  tenantId: string;
+  name: string;
+  channelType: string;
+  contactInfo: string;
+};
+
+const API_URL = "/v1/api/sales/channels";
+const PAGE_SIZE = 10;
+const channelTypeOptions = ["DIRECT", "DISTRIBUTOR", "RETAIL", "ONLINE"];
+
+function getStoredTenantId() {
+  try {
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+    return user?.tenantId || "";
+  } catch {
+    return "";
+  }
+}
+
+const emptyForm: ChannelForm = {
+  tenantId: getStoredTenantId(),
+  name: "",
+  channelType: "DIRECT",
+  contactInfo: "",
+};
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data;
+    if (typeof data === "string") return data;
+    return data?.message || data?.detail || data?.error || data?.title || fallback;
+  }
+  return fallback;
+}
+
+const badgeClass = (type: string) => {
+  if (type === "DIRECT") return "bg-blue-50 text-blue-700 border-blue-200";
+  if (type === "DISTRIBUTOR") return "bg-purple-50 text-purple-700 border-purple-200";
+  if (type === "RETAIL") return "bg-green-50 text-green-700 border-green-200";
+  if (type === "ONLINE") return "bg-cyan-50 text-cyan-700 border-cyan-200";
+  return "bg-gray-50 text-gray-700 border-gray-200";
+};
 
 const SalesChannels: React.FC = () => {
-  const navigate = useNavigate();
   const token = localStorage.getItem("accessToken");
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [channels, setChannels] = useState<SalesChannel[]>([]);
+  const [form, setForm] = useState<ChannelForm>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [formData, setFormData] = useState({ name: '', channelType: 'DISTRIBUTTER', contactInfo: '' });
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [search, setSearch] = useState("");
+  const [lookupId, setLookupId] = useState("");
+  const [deleteChannel, setDeleteChannel] = useState<SalesChannel | null>(null);
 
-  // Delete popup
-  const [showDeletePopup, setShowDeletePopup] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-
-  useEffect(() => { fetchChannels(); }, []);
+  useEffect(() => {
+    fetchChannels();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchChannels = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(API_URL, { headers: { Authorization: `Bearer ${token}` } });
-      setChannels(res.data);
-    } catch (err) {
-      console.error(err);
+      const res = await axios.get<SalesChannel[]>(API_URL, { headers });
+      const data = Array.isArray(res.data) ? res.data : [];
+      setChannels(data);
+      if (data.length === 0) ToasterService.noData("No sales channels found");
+    } catch (error) {
+      ToasterService.error("Failed to load sales channels", getErrorMessage(error, "Please try again."));
+      setChannels([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const fetchById = async () => {
+    if (!lookupId) {
+      ToasterService.error("Channel ID is required");
+      return;
+    }
+
     try {
-      if (isEditMode) {
-        await axios.put(`${API_URL}/${editingId}`, formData, {
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        });
-      } else {
-        await axios.post(API_URL, formData, {
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        });
-      }
-      await fetchChannels();
-      closeModal();
-    } catch (err) {
-      console.error(err);
-      alert('Operation failed.');
+      setLoading(true);
+      const res = await axios.get<SalesChannel>(`${API_URL}/${lookupId}`, { headers });
+      setChannels([res.data]);
+      ToasterService.success("Sales channel loaded");
+    } catch (error) {
+      ToasterService.error("Failed to load sales channel", getErrorMessage(error, "Please try again."));
+    } finally {
+      setLoading(false);
     }
   };
 
-  const promptDelete = (id: number) => { setDeletingId(id); setShowDeletePopup(true); };
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const buildPayload = () => ({
+    id: editingId || 0,
+    tenantId: form.tenantId.trim(),
+    name: form.name.trim(),
+    channelType: form.channelType,
+    contactInfo: form.contactInfo.trim(),
+  });
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+
+    if (!form.name.trim() || !form.channelType) {
+      ToasterService.error("Required fields missing", "Name and channel type are required.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const payload = buildPayload();
+      const res = editingId
+        ? await axios.put<SalesChannel>(`${API_URL}/${editingId}`, payload, { headers })
+        : await axios.post<SalesChannel>(API_URL, payload, { headers });
+
+      setChannels((current) => {
+        const exists = current.some((item) => item.id === res.data.id);
+        if (exists) return current.map((item) => (item.id === res.data.id ? res.data : item));
+        return [res.data, ...current];
+      });
+      ToasterService.success(editingId ? "Sales channel updated" : "Sales channel created");
+      closeForm();
+    } catch (error) {
+      ToasterService.error("Failed to save sales channel", getErrorMessage(error, "Please try again."));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openCreate = () => {
+    setEditingId(null);
+    setForm({ ...emptyForm, tenantId: getStoredTenantId() });
+    setShowFormModal(true);
+  };
+
+  const openEdit = (channel: SalesChannel) => {
+    setEditingId(channel.id);
+    setForm({
+      tenantId: channel.tenantId || getStoredTenantId(),
+      name: channel.name || "",
+      channelType: channel.channelType || "DIRECT",
+      contactInfo: channel.contactInfo || "",
+    });
+    setShowFormModal(true);
+  };
+
+  const closeForm = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setShowFormModal(false);
+  };
 
   const confirmDelete = async () => {
-    if (!deletingId) return;
+    if (!deleteChannel) return;
+
     try {
-      await axios.delete(`${API_URL}/${deletingId}`, { headers: { Authorization: `Bearer ${token}` } });
-      await fetchChannels();
-    } catch (err) {
-      console.error(err);
+      await axios.delete(`${API_URL}/${deleteChannel.id}`, {
+        headers,
+        skipSessionExpiredHandling: true,
+      } as any);
+      setChannels((current) => current.filter((item) => item.id !== deleteChannel.id));
+      ToasterService.success("Sales channel deleted");
+    } catch (error) {
+      ToasterService.error("Failed to delete sales channel", getErrorMessage(error, "Please try again."));
     } finally {
-      setDeletingId(null);
+      setDeleteChannel(null);
     }
   };
 
-  const openAdd = () => {
-    setIsEditMode(false);
-    setFormData({ name: '', channelType: 'DISTRIBUTTER', contactInfo: '' });
-    setEditingId(null);
-    setIsModalOpen(true);
-  };
+  const filteredChannels = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return channels;
+    return channels.filter((channel) =>
+      [channel.id, channel.name, channel.channelType, channel.contactInfo, channel.tenantId]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term))
+    );
+  }, [channels, search]);
 
-  const openEdit = (ch: Channel) => {
-    setIsEditMode(true);
-    setFormData({ name: ch.name, channelType: ch.channelType, contactInfo: ch.contactInfo });
-    setEditingId(ch.id);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setFormData({ name: '', channelType: 'DISTRIBUTTER', contactInfo: '' });
-    setEditingId(null);
-  };
-
-  // Stats
-  const stats = {
+  const stats = useMemo(() => ({
     total: channels.length,
-    distributors: channels.filter(c => c.channelType === 'DISTRIBUTTER').length,
-    retail: channels.filter(c => c.channelType === 'RETAIL').length,
-    online: channels.filter(c => c.channelType === 'ONLINE').length,
-  };
+    direct: channels.filter((item) => item.channelType === "DIRECT").length,
+    online: channels.filter((item) => item.channelType === "ONLINE").length,
+    activeTypes: new Set(channels.map((item) => item.channelType).filter(Boolean)).size,
+  }), [channels]);
 
-  // ── Column definitions ──────────────────────────────────────────────────────
-  const columns: ColumnDef<Channel>[] = [
+  const columns: ColumnDef<SalesChannel>[] = [
     {
-      key: 'name', label: 'Channel Name', sortable: true,
-      render: (row) => {
-        const td = getChannelTypeDetails(row.channelType);
-        const Icon = td.icon;
-        return (
-          <div className="flex items-center gap-3">
-            <div className={`h-9 w-9 rounded-lg ${td.color} bg-opacity-10 flex items-center justify-center shrink-0`}>
-              <Icon className={`h-5 w-5 ${td.color.replace('bg-', 'text-')}`} />
-            </div>
-            <span className="text-sm font-medium text-gray-900">{row.name}</span>
+      key: "name",
+      label: "Channel",
+      sortable: true,
+      render: (channel) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50">
+            <BuildingStorefrontIcon className="h-4 w-4 text-cyan-700" />
           </div>
-        );
-      },
-    },
-    {
-      key: 'channelType', label: 'Channel Type', sortable: true,
-      render: (row) => {
-        const td = getChannelTypeDetails(row.channelType);
-        return (
-          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${typeBadgeClass(row.channelType)}`}>
-            {td.label}
-          </span>
-        );
-      },
-    },
-    {
-      key: 'contactInfo', label: 'Contact Info', sortable: true,
-      render: (_, value) => (
-        <span className="text-sm text-gray-600 max-w-xs truncate block">{String(value)}</span>
+          <div>
+            <div className="text-sm font-semibold text-slate-900">{channel.name || "Unnamed"}</div>
+            <div className="text-xs text-slate-500">ID: {channel.id}</div>
+          </div>
+        </div>
       ),
     },
     {
-      key: 'actions', label: 'Actions',
-      headerClassName: '!text-right pr-8',
-      className: 'text-right',
-      render: (row) => (
-        <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-          <button onClick={() => navigate(`/sales/channels/view/${row.id}`)} title="View"
-            className="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
-            {/* <EyeIcon className="h-4 w-4" /> */}
-          </button>
-          <button onClick={() => openEdit(row)} title="Edit"
-            className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors">
+      key: "channelType",
+      label: "Type",
+      sortable: true,
+      render: (channel) => (
+        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClass(channel.channelType)}`}>
+          {channel.channelType || "N/A"}
+        </span>
+      ),
+    },
+    { key: "contactInfo", label: "Contact Info", sortable: true },
+    { key: "tenantId", label: "Tenant", sortable: true },
+    {
+      key: "actions",
+      label: "Actions",
+      sortable: false,
+      headerClassName: "text-right",
+      className: "text-right",
+      render: (channel) => (
+        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => openEdit(channel)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            title="Edit"
+          >
             <PencilSquareIcon className="h-4 w-4" />
           </button>
-          <button onClick={() => promptDelete(row.id)} title="Delete"
-            className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
+          <button
+            type="button"
+            onClick={() => setDeleteChannel(channel)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            title="Delete"
+          >
             <TrashIcon className="h-4 w-4" />
           </button>
         </div>
@@ -196,147 +291,180 @@ const SalesChannels: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Sales Channels" description="Manage your sales channels" />
+      <PageMeta title="Sales Channels" description="Manage sales channels" />
       <PageBreadcrumb pageTitle="Sales Channels" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-
-        {/* Header */}
-        <div className="mb-8 -mt-[110px] flex justify-end">
-          <AddButton label="Add Channel" onClick={openAdd} />
+      <div className="w-full max-w-none px-0 py-8 space-y-6">
+        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+          <AddButton onClick={openCreate} label="Add Sales Channel" />
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <StatsCard label="Total Channels" value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-          <StatsCard label="Distributors" value={stats.distributors} gradient="from-blue-50 to-indigo-50" borderColor="border-blue-100" labelColor="text-blue-600" />
-          <StatsCard label="Retail" value={stats.retail} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-          <StatsCard label="Online" value={stats.online} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatsCard label="Channels" value={stats.total} icon={<BuildingStorefrontIcon />} />
+          <StatsCard
+            label="Direct"
+            value={stats.direct}
+            gradient="from-blue-50 to-cyan-50"
+            borderColor="border-blue-100"
+            labelColor="text-blue-600"
+            icon={<RadioIcon />}
+          />
+          <StatsCard
+            label="Online"
+            value={stats.online}
+            gradient="from-green-50 to-emerald-50"
+            borderColor="border-green-100"
+            labelColor="text-green-600"
+            icon={<CheckCircleIcon />}
+          />
+          <StatsCard
+            label="Active Types"
+            value={stats.activeTypes}
+            gradient="from-purple-50 to-pink-50"
+            borderColor="border-purple-100"
+            labelColor="text-purple-600"
+            icon={<BuildingStorefrontIcon />}
+          />
         </div>
 
-        {/* Table */}
-        <ReusableTable<Channel>
-          data={channels}
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+            <FloatingInput
+              label="Channel ID"
+              type="number"
+              value={lookupId}
+              onChange={(e) => setLookupId(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={fetchById}
+              className="h-[52px] rounded-lg bg-cyan-600 px-5 text-sm font-medium text-white transition hover:bg-cyan-700"
+            >
+              Get By ID
+            </button>
+            <button
+              type="button"
+              onClick={fetchChannels}
+              className="h-[52px] rounded-lg bg-gray-100 px-5 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
+            >
+              Load All
+            </button>
+          </div>
+        </div>
+
+        <div className="relative w-full sm:max-w-md">
+          <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search sales channels..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <XMarkIcon className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        <ReusableTable
+          data={filteredChannels}
           columns={columns}
           loading={loading}
-          onRowClick={(row) => navigate(`/sales/channels/view/${row.id}`)}
-          searchable
-          searchPlaceholder="Search channels by name, type, or contact..."
-          searchFields={["name", "channelType", "contactInfo"]}
-          pageSize={10}
+          pageSize={PAGE_SIZE}
           defaultSortKey="name"
-          toolbar={
-            <select
-              onChange={e => {/* typeFilter handled internally via searchFields */ }}
-              className="px-4 h-10 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all bg-white min-w-[160px]"
-              defaultValue="ALL"
-            >
-              <option value="ALL">All Types</option>
-              {channelTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-          }
+          defaultSortOrder="asc"
           emptyState={
-            <div className="flex flex-col items-center py-4">
-              <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <BuildingStorefrontIcon className="h-8 w-8 text-gray-400" />
-              </div>
-              <p className="text-gray-500 text-sm font-medium mb-2">No channels found</p>
-              <button onClick={openAdd} className="text-cyan-600 hover:text-cyan-700 text-sm font-medium">
-                Add your first channel →
+            <div className="flex flex-col items-center justify-center py-12">
+              <BuildingStorefrontIcon className="mb-3 h-12 w-12 text-gray-400" />
+              <p className="mb-2 text-sm text-gray-500">No sales channels found</p>
+              <button type="button" onClick={openCreate} className="text-xs font-medium text-cyan-600 hover:text-cyan-700">
+                Create your first sales channel
               </button>
             </div>
           }
         />
       </div>
 
-      {/* Delete popup */}
+      {showFormModal &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-4 backdrop-blur-sm sm:items-center">
+            <div className="mx-auto max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl">
+              <div className="flex items-center justify-between border-b border-gray-100 p-5">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {editingId ? "Edit Sales Channel" : "Create Sales Channel"}
+                  </h3>
+                  <p className="mt-0.5 text-xs text-gray-500">Enter sales channel details from the API schema</p>
+                </div>
+                <button type="button" onClick={closeForm} className="text-gray-400 hover:text-gray-600">
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="p-5">
+                <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
+                  <FloatingInput label="Name" name="name" value={form.name} onChange={handleChange} required />
+                  <FloatingSelect
+                    label="Channel Type"
+                    name="channelType"
+                    value={form.channelType}
+                    onChange={handleChange}
+                    includeEmptyOption={false}
+                    options={channelTypeOptions.map((item) => ({ id: item, name: item }))}
+                    required
+                  />
+                </div>
+                <FloatingTextarea
+                  label="Contact Info"
+                  name="contactInfo"
+                  value={form.contactInfo}
+                  onChange={handleChange}
+                  rows={3}
+                />
+
+                <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={closeForm}
+                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {submitting ? "Saving..." : editingId ? "Update Sales Channel" : "Create Sales Channel"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+
       <DynamicPopup
-        isPopupOpen={showDeletePopup}
-        setIsPopupOpen={setShowDeletePopup}
+        isPopupOpen={!!deleteChannel}
+        setIsPopupOpen={(open) => {
+          if (!open) setDeleteChannel(null);
+        }}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
-        innerText="Delete Channel"
-        subText="Are you sure you want to delete this channel? This action cannot be undone."
+        innerText="Delete Sales Channel"
+        subText={deleteChannel ? `Are you sure you want to delete channel #${deleteChannel.id}?` : "Are you sure?"}
         confirmLabel="Delete"
         cancelLabel="Cancel"
         onConfirm={confirmDelete}
+        onCancel={() => setDeleteChannel(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
       />
-
-      {/* Form Modal */}
-      <Transition show={isModalOpen} as={Fragment}>
-        <Dialog onClose={closeModal} className="relative z-50">
-          <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
-            <div className="fixed inset-0 bg-black/50" />
-          </Transition.Child>
-          <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4">
-              <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
-                <Dialog.Panel className="bg-white rounded-xl w-full max-w-2xl shadow-2xl">
-                  <div className="flex justify-between items-center p-6 border-b">
-                    <Dialog.Title className="text-xl font-semibold text-gray-900">
-                      {isEditMode ? 'Edit Channel' : 'Add New Channel'}
-                    </Dialog.Title>
-                    <button onClick={closeModal} className="text-gray-400 hover:text-gray-500 rounded-lg p-1 hover:bg-gray-100 transition-colors">
-                      <XMarkIcon className="h-6 w-6" />
-                    </button>
-                  </div>
-
-                  <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Channel Name <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <BuildingStorefrontIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                        <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })}
-                          placeholder="Enter channel name" required
-                          className="w-full pl-10 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent" />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Channel Type <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <RadioIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                        <select value={formData.channelType} onChange={e => setFormData({ ...formData, channelType: e.target.value })} required
-                          className="w-full pl-10 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
-                          {channelTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Contact Info <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <PhoneIcon className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                        <textarea value={formData.contactInfo} onChange={e => setFormData({ ...formData, contactInfo: e.target.value })}
-                          rows={3} required placeholder="Enter contact information (phone, email, address, etc.)"
-                          className="w-full pl-10 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent" />
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-4 border-t">
-                      <button type="button" onClick={closeModal}
-                        className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium">
-                        Cancel
-                      </button>
-                      <button type="submit"
-                        className="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-500 text-white rounded-lg hover:from-cyan-700 hover:to-cyan-600 transition-colors font-medium shadow-lg shadow-cyan-500/25">
-                        {isEditMode ? 'Update Channel' : 'Add Channel'}
-                      </button>
-                    </div>
-                  </form>
-                </Dialog.Panel>
-              </Transition.Child>
-            </div>
-          </div>
-        </Dialog>
-      </Transition>
     </>
   );
 };

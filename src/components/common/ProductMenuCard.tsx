@@ -23,7 +23,7 @@ const ProductMenuCard: React.FC = () => {
       color: "blue"
     },
     {
-      href: "/sales_dashboard",
+      href: "/sales-dashboard",
       icon: Tag,
       title: "Sales",
       description: "Sales Management",
