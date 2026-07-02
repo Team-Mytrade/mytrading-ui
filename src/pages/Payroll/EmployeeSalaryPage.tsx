@@ -104,32 +104,73 @@ const EmployeeSalaryPage: React.FC = () => {
     const fetchAllSalaries = async () => {
         setLoading(true);
         try {
-            const response = await axios.get(SALARY_API);
-            const data = Array.isArray(response.data) ? response.data : [];
+            const [salariesRes, empRes] = await Promise.all([
+                axios.get(SALARY_API),
+                axios.get('/v1/api/payroll/employee/all')
+            ]);
+            
+            const data = Array.isArray(salariesRes.data) ? salariesRes.data : [];
+            const empData = Array.isArray(empRes.data) ? empRes.data : (empRes.data?.data || []);
+
+            const employeeMap = new Map();
+            empData.forEach((emp: any) => {
+                employeeMap.set(emp.id, emp);
+            });
 
             // Transform the API response to match our DTO
-            const transformedData: SalaryDTO[] = data.map((record: SalaryResponse) => ({
-                id: record.id,
-                employeeId: record.employee?.id || 0,
-                employeeName: record.employee ? `${record.employee.firstName} ${record.employee.lastName}` : '',
-                employeeCode: record.employee?.employeeCode || '',
-                month: record.month || new Date().toISOString().split('T')[0].slice(0, 7),
-                basic: record.basic || 0,
-                hra: record.hra || 0,
-                bonus: record.bonus || 0,
-                specialAllowance: record.specialAllowance || 0,
-                allowance: record.allowance || 0,
-                tds: record.tds || 0,
-                professionalTax: record.professionalTax || 0,
-                pfEmployee: record.pfEmployee || 0,
-                otherDeductions: record.otherDeductions || 0,
-                grossSalary: record.grossSalary || 0,
-                totalEarnings: record.totalEarnings || 0,
-                totalDeductions: record.totalDeductions || 0,
-                netSalary: record.netSalary || 0,
-                isProcessed: record.processed || false,
-                regime: record.regime || 'NEW',
-            }));
+            const transformedData: SalaryDTO[] = data.map((record: any, index: number) => {
+                // Support both flat structure (record.employeeId) and nested structure (record.employee?.id)
+                const empId = record.employeeId || record.employee?.id;
+                const emp = employeeMap.get(empId);
+                
+                const basic = record.basic || 0;
+                const hra = record.hra || 0;
+                
+                let sumEarnings = 0;
+                let bonus = record.bonus || 0;
+                if (record.earnings && typeof record.earnings === 'object') {
+                    for (const [key, val] of Object.entries(record.earnings)) {
+                        const numVal = Number(val) || 0;
+                        sumEarnings += numVal;
+                        if (key.toLowerCase().includes('bonus')) {
+                            bonus += numVal;
+                        }
+                    }
+                }
+
+                let sumDeductions = record.totalDeductions || 0;
+                if (!sumDeductions && record.deductions && typeof record.deductions === 'object') {
+                    for (const val of Object.values(record.deductions)) {
+                        sumDeductions += Number(val) || 0;
+                    }
+                }
+
+                const grossSalary = record.grossSalary || (basic + hra + sumEarnings);
+                const netSalary = record.netSalary || (grossSalary - sumDeductions);
+
+                return {
+                    id: record.id || record.employeeSalaryId || empId || index,
+                    employeeId: empId || 0,
+                    employeeName: emp ? `${emp.firstName || ''} ${emp.lastName || ''}`.trim() : (record.employee ? `${record.employee.firstName} ${record.employee.lastName}` : ''),
+                    employeeCode: emp?.employeeCode || record.employee?.employeeCode || '',
+                    month: record.month || new Date().toISOString().split('T')[0].slice(0, 7),
+                    basic: basic,
+                    hra: hra,
+                    bonus: bonus,
+                    specialAllowance: record.specialAllowance || 0,
+                    allowance: record.allowance || 0,
+                    tds: record.tds || 0,
+                    professionalTax: record.professionalTax || 0,
+                    pfEmployee: record.pfEmployee || 0,
+                    otherDeductions: record.otherDeductions || 0,
+                    grossSalary: grossSalary,
+                    totalEarnings: record.totalEarnings || grossSalary,
+                    totalDeductions: sumDeductions,
+                    netSalary: netSalary,
+                    isProcessed: record.processed || false,
+                    regime: record.regime || 'NEW',
+                };
+            });
 
             setSalaries(transformedData);
         } catch (err) {
@@ -221,8 +262,8 @@ const EmployeeSalaryPage: React.FC = () => {
             <PageMeta title="Employee Salaries" description="View employee salary records" />
             <PageBreadcrumb pageTitle="Employee Salaries" />
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-                <div className="mb-8 -mt-[125px] flex justify-end">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-2">
+                <div className="-mt-[125px] flex justify-end">
                     <AddButton label="Refresh Salaries" onClick={fetchAllSalaries} />
                 </div>
 
@@ -234,8 +275,19 @@ const EmployeeSalaryPage: React.FC = () => {
                 </div>
 
                 {/* Toolbar - All buttons in single line */}
-                <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex-1 max-w-md">
+                        <div className="relative">
+                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Search by employee name or code..."
+                                value={searchEmployee}
+                                onChange={(e) => setSearchEmployee(e.target.value)}
+                                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                            />
+                        </div>
+                    </div>
 
                     <div className="flex items-center gap-2">
                         <button
@@ -255,7 +307,7 @@ const EmployeeSalaryPage: React.FC = () => {
 
                 {/* Filters Panel */}
                 {showFilters && (
-                    <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <div className="flex flex-wrap gap-4">
                             <div className="flex-1 min-w-[200px]">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>

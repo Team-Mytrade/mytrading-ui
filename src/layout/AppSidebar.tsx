@@ -15,11 +15,17 @@ import {
 import { useSidebar } from "../context/SidebarContext";
 import { AuthContext } from "../context/AuthContext";
 
+type SubItem = {
+  name: string;
+  path?: string;
+  subItems?: { name: string; path: string }[];
+};
+
 type NavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
-  subItems?: { name: string; path: string }[];
+  subItems?: SubItem[];
 };
 
 export const navItems: NavItem[] = [
@@ -137,16 +143,22 @@ export const navItems: NavItem[] = [
       { name: "Compensation", path: "/employeeCompensation" },
       { name: "Records", path: "/employeeRecords" },
       { name: "Salary", path: "/employeeSalary" },
-      { name: "Payroll Summary", path: "/payrollSummary" },
+      { 
+        name: "Reports", 
+        subItems: [
+          { name: "Payroll Summary", path: "/payrollSummary" },
+          { name: "Department Summary", path: "/departmentSummary" }
+        ]
+      },
       { name: "Payslips", path: "/employeePayroll" },
       { name: "Payroll Engine", path: "/payrollEngine" },
 
-      { name: "Salary Structure", path: "/salaryStructure" },
+      // { name: "Salary Structure", path: "/salaryStructure" },
 
       // { name: "Attendance Logs", path: "/attendanceLogs"},
       // { name: "Leave Requests / Approvals", path: "/leaveRequests"},
       // { name: "Tax Deductions", path: "/taxDeductions"},
-      { name: "Payroll Runs / Payslips", path: "/payrollRuns" },
+      // { name: "Payroll Runs / Payslips", path: "/payrollRuns" },
       // { name: "Benefits / Allowances", path: "/benefits"},
       { name: "Documents", path: "/employeeDocuments" },
     ],
@@ -227,6 +239,10 @@ const AppSidebar: React.FC = () => {
   const [subMenuHeight, setSubMenuHeight] = useState<Record<number, number>>({});
   const subMenuRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const menuItemRefs = useRef<Record<number, HTMLElement | null>>({});
+
+  const [openSubSubmenu, setOpenSubSubmenu] = useState<string | null>(null);
+  const [subSubMenuHeight, setSubSubMenuHeight] = useState<Record<string, number>>({});
+  const subSubMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const [userName, setUserName] = useState<string>("User");
   const [userRole, setUserRole] = useState<string>("Admin");
@@ -355,15 +371,34 @@ const AppSidebar: React.FC = () => {
 
   useEffect(() => {
     if (openSubmenu !== null && subMenuRefs.current[openSubmenu]) {
+      // Recalculate height, taking into account any open sub-sub-menus
+      const baseHeight = subMenuRefs.current[openSubmenu]?.scrollHeight || 0;
       setSubMenuHeight(prev => ({
         ...prev,
-        [openSubmenu]: subMenuRefs.current[openSubmenu]?.scrollHeight || 0,
+        [openSubmenu]: baseHeight,
       }));
     }
-  }, [openSubmenu]);
+  }, [openSubmenu, openSubSubmenu]);
+
+  useEffect(() => {
+    if (openSubSubmenu !== null && subSubMenuRefs.current[openSubSubmenu]) {
+      setSubSubMenuHeight(prev => ({
+        ...prev,
+        [openSubSubmenu]: subSubMenuRefs.current[openSubSubmenu]?.scrollHeight || 0,
+      }));
+    }
+  }, [openSubSubmenu]);
 
   const handleSubmenuToggle = (index: number) => {
     setOpenSubmenu(prev => prev === index ? null : index);
+    if (openSubmenu !== index) {
+      setOpenSubSubmenu(null); // Close inner menus when toggling main menu
+    }
+  };
+
+  const handleSubSubmenuToggle = (key: string, e: React.MouseEvent) => {
+    e.preventDefault(); // prevent navigation if it's a button
+    setOpenSubSubmenu(prev => prev === key ? null : key);
   };
 
   const handleTooltipEnter = (index: number, event: React.MouseEvent<HTMLElement>) => {
@@ -420,21 +455,70 @@ const AppSidebar: React.FC = () => {
               style={{ height: openSubmenu === index ? `${subMenuHeight[index]}px` : "0px" }}
             >
               <div className="ml-9 pl-2 mt-1 space-y-0.5 border-l border-gray-200 dark:border-gray-700">
-                {nav.subItems.map((subItem) => (
-                  <Link
-                    key={subItem.name}
-                    to={subItem.path}
-                    className={`
-                      block px-3 py-1.5 text-sm rounded-md transition-all duration-200
-                      ${isActive(subItem.path)
-                        ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
-                        : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800"
-                      }
-                    `}
-                  >
-                    {subItem.name}
-                  </Link>
-                ))}
+                {nav.subItems.map((subItem, subIndex) => {
+                  const subKey = `${index}-${subIndex}`;
+                  const hasSubSubItems = subItem.subItems && subItem.subItems.length > 0;
+                  
+                  if (hasSubSubItems) {
+                    return (
+                      <div key={subItem.name} className="relative mt-0.5">
+                        <button
+                          onClick={(e) => handleSubSubmenuToggle(subKey, e)}
+                          className={`
+                            w-full flex items-center justify-between px-3 py-1.5 text-sm rounded-md transition-all duration-200
+                            ${openSubSubmenu === subKey
+                              ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
+                              : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800"
+                            }
+                          `}
+                        >
+                          <span>{subItem.name}</span>
+                          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openSubSubmenu === subKey ? "rotate-180" : ""}`} />
+                        </button>
+                        
+                        <div
+                          ref={(el) => { subSubMenuRefs.current[subKey] = el; }}
+                          className="overflow-hidden transition-all duration-300"
+                          style={{ height: openSubSubmenu === subKey ? `${subSubMenuHeight[subKey]}px` : "0px" }}
+                        >
+                          <div className="ml-4 pl-2 mt-0.5 space-y-0.5 border-l border-gray-200 dark:border-gray-700">
+                            {subItem.subItems!.map((ssItem) => (
+                              <Link
+                                key={ssItem.name}
+                                to={ssItem.path!}
+                                className={`
+                                  block px-3 py-1.5 text-xs rounded-md transition-all duration-200
+                                  ${isActive(ssItem.path!)
+                                    ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
+                                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800"
+                                  }
+                                `}
+                              >
+                                {ssItem.name}
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <Link
+                      key={subItem.name}
+                      to={subItem.path!}
+                      className={`
+                        block px-3 py-1.5 text-sm rounded-md transition-all duration-200
+                        ${isActive(subItem.path!)
+                          ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
+                          : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800"
+                        }
+                      `}
+                    >
+                      {subItem.name}
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           )}

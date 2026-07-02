@@ -236,6 +236,7 @@ import EmployeeCompensationPage from "./pages/Payroll/EmployeeCompensationPage";
 import EmployeeDepartmentsPage from "./pages/Payroll/EmployeeDepartments";
 import EmployeeSalaryPage from "./pages/Payroll/EmployeeSalaryPage";
 import PayrollSummaryPage from "./pages/Payroll/PayrollSummaryPage";
+import DepartmentSummaryPage from "./pages/Payroll/DepartmentSummaryPage";
 import CustomerFormPage from "./pages/CRM/CustomerFormPage";
 
 
@@ -404,6 +405,7 @@ export default function App() {
             <Route path="/employeeDepartments" element={<EmployeeDepartmentsPage />} />
             <Route path="/employeePayroll" element={<PayrollPage />} />
             <Route path="/payrollSummary" element={<PayrollSummaryPage />} />
+            <Route path="/departmentSummary" element={<DepartmentSummaryPage />} />
             <Route path="/payrollEngine" element={<PayrollProcessingEnginePage />} />
             <Route path="/salaryStructure" element={<SalaryStructurePage />} />
             <Route path="/attendance-management" element={<AttendanceManagementPage />} />

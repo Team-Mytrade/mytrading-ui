@@ -27,7 +27,8 @@ import {
     ClockIcon,
     ArrowPathIcon,
 } from "@heroicons/react/24/outline";
-import { Menu } from "@headlessui/react";
+import { Menu, Transition } from "@headlessui/react";
+import { Fragment } from "react";
 import { useSearchParams } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -355,30 +356,6 @@ const PayrollPage: React.FC = () => {
         setShowExportMenu(false);
     };
 
-    const handleExportDetailedReport = async () => {
-        try {
-            const response = await axios.get(`/v1/api/payroll/reports/getPayrollDetailReportByMonth`, {
-                params: { payrollMonth: filterMonth }
-            });
-
-            const data = response.data;
-            if (!data || !Array.isArray(data) || data.length === 0) {
-                ToasterService.warning("No detailed report data found for this month");
-                return;
-            }
-
-            const ws = XLSX.utils.json_to_sheet(data);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Detailed Report");
-            XLSX.writeFile(wb, `Payroll_Detailed_Report_${filterMonth}.xlsx`);
-
-            ToasterService.success("Detailed report exported successfully");
-        } catch (error) {
-            console.error("Error exporting detailed report:", error);
-            ToasterService.error("Failed to export detailed report");
-        }
-    };
-
     const filtered = salaries.filter((s) => {
         const term = search.toLowerCase();
         const name = `${s.employee?.firstName || ""} ${s.employee?.lastName || ""}`.toLowerCase();
@@ -442,13 +419,6 @@ const PayrollPage: React.FC = () => {
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
                 <div className="mb-8 -mt-[125px] flex justify-end gap-3">
-                    <button
-                        onClick={handleExportDetailedReport}
-                        className="flex items-center gap-2 px-4 py-2 bg-cyan-600 !text-white rounded-lg hover:bg-cyan-700 transition-colors font-medium"
-                    >
-                        <DocumentArrowDownIcon className="h-5 w-5 text-white" />
-                        <span className="text-white">Export Detailed Report</span>
-                    </button>
                     <AddButton label="Generate Payslips" onClick={() => setIsGenerateModalOpen(true)} />
                 </div>
 
@@ -657,41 +627,76 @@ const PayrollPage: React.FC = () => {
                                             )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <button
-                                                    onClick={() => handleViewDetails(salary)}
-                                                    title="View Details"
-                                                    className="p-1.5 rounded-md text-blue-600 hover:bg-blue-50 transition-colors"
+                                            <Menu as="div" className="relative inline-block text-left">
+                                                <Menu.Button className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                                                    <EllipsisVerticalIcon className="h-5 w-5" />
+                                                </Menu.Button>
+                                                <Transition
+                                                    as={Fragment}
+                                                    enter="transition ease-out duration-100"
+                                                    enterFrom="transform opacity-0 scale-95"
+                                                    enterTo="transform opacity-100 scale-100"
+                                                    leave="transition ease-in duration-75"
+                                                    leaveFrom="transform opacity-100 scale-100"
+                                                    leaveTo="transform opacity-0 scale-95"
                                                 >
-                                                    <EyeIcon className="h-5 w-5" />
-                                                </button>
-                                                <button
-                                                    onClick={() => downloadPayslip(salary.employee.id, salary.month, `${salary.employee?.firstName} ${salary.employee?.lastName}`)}
-                                                    title="Download Payslip"
-                                                    className="p-1.5 rounded-md text-green-600 hover:bg-green-50 transition-colors"
-                                                >
-                                                    <DocumentArrowDownIcon className="h-5 w-5" />
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        setZipEmployee({ id: salary.employee.id, name: `${salary.employee.firstName} ${salary.employee.lastName}` });
-                                                        setIsZipModalOpen(true);
-                                                    }}
-                                                    title="Download Range (ZIP)"
-                                                    className="p-1.5 rounded-md text-purple-600 hover:bg-purple-50 transition-colors"
-                                                >
-                                                    <DocumentArrowDownIcon className="h-5 w-5" />
-                                                </button>
-                                                {salary.isProcessed && (
-                                                    <button
-                                                        onClick={() => rollback(salary.id, `${salary.employee?.firstName} ${salary.employee?.lastName}`)}
-                                                        title="Rollback"
-                                                        className="p-1.5 rounded-md text-red-600 hover:bg-red-50 transition-colors"
-                                                    >
-                                                        <ArrowPathIcon className="h-5 w-5" />
-                                                    </button>
-                                                )}
-                                            </div>
+                                                    <Menu.Items className="absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-xl bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none divide-y divide-gray-100">
+                                                        <div className="py-1">
+                                                            <Menu.Item>
+                                                                {({ active }) => (
+                                                                    <button
+                                                                        onClick={() => handleViewDetails(salary)}
+                                                                        className={`${active ? 'bg-blue-50 text-blue-700' : 'text-gray-700'} group flex w-full items-center px-4 py-2 text-sm transition-colors`}
+                                                                    >
+                                                                        <EyeIcon className={`${active ? 'text-blue-600' : 'text-gray-400'} h-4 w-4 mr-3 group-hover:text-blue-600 transition-colors`} />
+                                                                        View Details
+                                                                    </button>
+                                                                )}
+                                                            </Menu.Item>
+                                                            <Menu.Item>
+                                                                {({ active }) => (
+                                                                    <button
+                                                                        onClick={() => downloadPayslip(salary.employee.id, salary.month, `${salary.employee?.firstName} ${salary.employee?.lastName}`)}
+                                                                        className={`${active ? 'bg-green-50 text-green-700' : 'text-gray-700'} group flex w-full items-center px-4 py-2 text-sm transition-colors`}
+                                                                    >
+                                                                        <DocumentArrowDownIcon className={`${active ? 'text-green-600' : 'text-gray-400'} h-4 w-4 mr-3 group-hover:text-green-600 transition-colors`} />
+                                                                        Download Payslip
+                                                                    </button>
+                                                                )}
+                                                            </Menu.Item>
+                                                            <Menu.Item>
+                                                                {({ active }) => (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setZipEmployee({ id: salary.employee.id, name: `${salary.employee.firstName} ${salary.employee.lastName}` });
+                                                                            setIsZipModalOpen(true);
+                                                                        }}
+                                                                        className={`${active ? 'bg-purple-50 text-purple-700' : 'text-gray-700'} group flex w-full items-center px-4 py-2 text-sm transition-colors`}
+                                                                    >
+                                                                        <DocumentArrowDownIcon className={`${active ? 'text-purple-600' : 'text-gray-400'} h-4 w-4 mr-3 group-hover:text-purple-600 transition-colors`} />
+                                                                        Download Range (ZIP)
+                                                                    </button>
+                                                                )}
+                                                            </Menu.Item>
+                                                        </div>
+                                                        {salary.isProcessed && (
+                                                            <div className="py-1">
+                                                                <Menu.Item>
+                                                                    {({ active }) => (
+                                                                        <button
+                                                                            onClick={() => rollback(salary.id, `${salary.employee?.firstName} ${salary.employee?.lastName}`)}
+                                                                            className={`${active ? 'bg-red-50 text-red-700' : 'text-gray-700'} group flex w-full items-center px-4 py-2 text-sm transition-colors`}
+                                                                        >
+                                                                            <ArrowPathIcon className={`${active ? 'text-red-600' : 'text-gray-400'} h-4 w-4 mr-3 group-hover:text-red-600 transition-colors`} />
+                                                                            Rollback
+                                                                        </button>
+                                                                    )}
+                                                                </Menu.Item>
+                                                            </div>
+                                                        )}
+                                                    </Menu.Items>
+                                                </Transition>
+                                            </Menu>
                                         </td>
                                     </tr>
                                 )) : (
