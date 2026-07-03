@@ -124,13 +124,18 @@ export const navItems: NavItem[] = [
     icon: <Truck className="w-5 h-5" />,
     name: "Delivery",
     subItems: [
-      { name: "Delivery Orders", path: "/delivery-order" },
       { name: "Transporters", path: "/transporter" },
-      { name: "Vehicles", path: "/vechile" },
       { name: "Routes", path: "/route" },
+      { name: "Vehicles", path: "/vechile" },
+      { name: "Customer Address", path: "/customerAddress" },
+      { name: "Delivery Note", path: "/delivery-note"},
+      { name: "Shipment", path: "/shipment"},
+      { name: "Delivery Order", path: "/deliveryOrder"},
       { name: "Delivery Status", path: "/deliveryStatus" },
     ],
   },
+
+  
   {
     icon: <Users className="w-5 h-5" />,
     name: "HRMS",

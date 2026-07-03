@@ -204,6 +204,11 @@ import EmployeeCompensationPage from "./pages/Payroll/EmployeeCompensationPage";
 import EmployeeDepartmentsPage from "./pages/Payroll/EmployeeDepartments";
 import EmployeeSalaryPage from "./pages/Payroll/EmployeeSalaryPage";
 import CustomerFormPage from "./pages/CRM/CustomerFormPage";
+import ShipmentPage from "./pages/Delivery/Shipment";
+import DeliveryDispatch from "./pages/Delivery/DeliveryNote";
+// import DeliveryOrderPage from "./pages/Delivery/DeliveryOrderPage";
+import CustomerAddressPage from "./pages/Delivery/CustomerAddress";
+import DeliveryNote from "./pages/Delivery/DeliveryNote";
 
 export default function AppRouter() {
   return (
@@ -291,9 +296,14 @@ export default function AppRouter() {
           <Route path="/deliveryDate" element={<Deliveries />} />
           <Route path="/goodseceiptNote" element={<GoodsReceiptNotes />} />
 
-          <Route path="/delivery-order" element={<DeliveryOrderPage />} />
+          <Route path="/deliveryOrder" element={<DeliveryOrderPage />} />
           <Route path="/transporter" element={<TransporterPage />} />
           <Route path="/vechile" element={<VehiclePage />} />
+          <Route path="/shipment" element={<ShipmentPage />} />
+          <Route path="/delivery-note" element={<DeliveryNote />} />
+          <Route path="/customerAddress" element={<CustomerAddressPage />} />
+
+          
           <Route path="/route" element={<RouteSchedulePage />} />
           <Route path="/productDelivery" element={<ProductPage />} />
           <Route path="/deliveryAddress" element={<DeliveryAddressPage />} />
