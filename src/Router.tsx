@@ -204,6 +204,8 @@ import EmployeeCompensationPage from "./pages/Payroll/EmployeeCompensationPage";
 import EmployeeDepartmentsPage from "./pages/Payroll/EmployeeDepartments";
 import EmployeeSalaryPage from "./pages/Payroll/EmployeeSalaryPage";
 import CustomerFormPage from "./pages/CRM/CustomerFormPage";
+import GoodsIssuePage from "./pages/Delivery/GoodsIssue";
+import Schedule from "./pages/Delivery/Schedule";
 
 export default function AppRouter() {
   return (
@@ -293,12 +295,14 @@ export default function AppRouter() {
 
           <Route path="/delivery-order" element={<DeliveryOrderPage />} />
           <Route path="/transporter" element={<TransporterPage />} />
-          <Route path="/vechile" element={<VehiclePage />} />
+          <Route path="/vehicle" element={<VehiclePage />} />
           <Route path="/route" element={<RouteSchedulePage />} />
           <Route path="/productDelivery" element={<ProductPage />} />
           <Route path="/deliveryAddress" element={<DeliveryAddressPage />} />
           <Route path="/deliveryStatus" element={<DeliveryStatusPage />} />
           <Route path="/delivery_dashboard" element={<DeliveryDashboard />} />
+          <Route path="/schedule" element={<Schedule />} />
+          <Route path="/goodsIssue" element={<GoodsIssuePage />} />
 
           <Route path="/invoice-billing" element={<InvoiceList />} />
           <Route path="/invoice-billing/add" element={<InvoiceForm />} />
