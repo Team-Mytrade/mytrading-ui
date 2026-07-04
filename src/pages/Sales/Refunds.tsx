@@ -28,7 +28,7 @@ type Refund = {
   amount: number;
   refundDate: string;
   status: string;
-  paymentMethod: string;
+  paymentMethod: PaymentMethod | string;
   returnRequestId: number;
 };
 
@@ -43,14 +43,31 @@ type RefundForm = {
   amount: string;
   refundDate: string;
   status: string;
-  paymentMethod: string;
+  paymentMethod: PaymentMethod;
   returnRequestId: string;
 };
+
+type PaymentMethod =
+  | "BANK_TRANSFER"
+  | "CREDIT_CARD"
+  | "DEBIT_CARD"
+  | "CASH"
+  | "WALLET"
+  | "CHEQUE"
+  | "UPI";
 
 const API_URL = "/v1/api/sales/refunds";
 const PAGE_SIZE = 10;
 const statusOptions = ["PENDING", "PROCESSED", "FAILED"];
-const paymentMethodOptions = ["BANK_TRANSFER"];
+const paymentMethodOptions: PaymentMethod[] = [
+  "BANK_TRANSFER",
+  "CREDIT_CARD",
+  "DEBIT_CARD",
+  "CASH",
+  "WALLET",
+  "CHEQUE",
+  "UPI",
+];
 
 const emptyForm: RefundForm = {
   amount: "",
@@ -249,7 +266,9 @@ const Refunds: React.FC = () => {
       amount: String(refund.amount || ""),
       refundDate: toInputDateTime(refund.refundDate),
       status: refund.status || "PENDING",
-      paymentMethod: refund.paymentMethod || "BANK_TRANSFER",
+      paymentMethod: paymentMethodOptions.includes(refund.paymentMethod as PaymentMethod)
+        ? (refund.paymentMethod as PaymentMethod)
+        : "BANK_TRANSFER",
       returnRequestId: String(refund.returnRequestId || ""),
     });
     setShowFormModal(true);

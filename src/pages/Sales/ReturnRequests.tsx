@@ -46,17 +46,24 @@ type ReturnRequest = {
   id: number;
   requestDate: string;
   status: string;
-  reason: string;
+  reason: ReturnReason | string;
   salesOrderId: number;
   remarks: string;
   items: ReturnItem[];
   refund?: Refund;
 };
 
+type ReturnReason =
+  | "DAMAGED_PRODUCT"
+  | "WRONG_ITEM"
+  | "CUSTOMER_CHANGED_MIND"
+  | "LATE_DELIVERY"
+  | "OTHER";
+
 type ReturnForm = {
   requestDate: string;
   status: string;
-  reason: string;
+  reason: ReturnReason;
   salesOrderId: string;
   remarks: string;
   itemSalesOrderItemId: string;
@@ -76,7 +83,13 @@ type RefundForm = {
 const API_URL = "/v1/api/sales/returns";
 const PAGE_SIZE = 10;
 const statusOptions = ["REQUESTED"];
-const reasonOptions = ["DAMAGED_PRODUCT"];
+const reasonOptions: ReturnReason[] = [
+  "DAMAGED_PRODUCT",
+  "WRONG_ITEM",
+  "CUSTOMER_CHANGED_MIND",
+  "LATE_DELIVERY",
+  "OTHER",
+];
 const refundStatusOptions = ["PENDING"];
 const paymentMethodOptions = ["BANK_TRANSFER"];
 
@@ -196,7 +209,7 @@ const ReturnRequests: React.FC = () => {
     id: editingId || 0,
     requestDate: form.requestDate,
     status: "REQUESTED",
-    reason: "DAMAGED_PRODUCT",
+    reason: form.reason,
     salesOrderId: toNumber(form.salesOrderId),
     remarks: form.remarks,
     items: [
@@ -253,7 +266,9 @@ const ReturnRequests: React.FC = () => {
     setForm({
       requestDate: request.requestDate || emptyReturnForm.requestDate,
       status: request.status || "REQUESTED",
-      reason: request.reason || "DAMAGED_PRODUCT",
+      reason: reasonOptions.includes(request.reason as ReturnReason)
+        ? (request.reason as ReturnReason)
+        : "DAMAGED_PRODUCT",
       salesOrderId: String(request.salesOrderId || ""),
       remarks: request.remarks || "",
       itemSalesOrderItemId: String(item?.salesOrderItemId || ""),

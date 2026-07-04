@@ -35,7 +35,7 @@ type TargetStatus =
   | "ONGOING"
   | "COMPLETED";
 
-type TargetType = "REVENUE";
+type TargetType = "REVENUE" | "QUANTITY" | "ORDERS" | "CUSTOMERS" | "PROFIT";
 
 type Period = {
   year: number;
@@ -95,7 +95,7 @@ const statusOptions: TargetStatus[] = [
   "COMPLETED",
 ];
 
-const targetTypeOptions: TargetType[] = ["REVENUE"];
+const targetTypeOptions: TargetType[] = ["REVENUE", "QUANTITY", "ORDERS", "CUSTOMERS", "PROFIT"];
 
 const monthNames = [
   "JANUARY",
@@ -337,7 +337,7 @@ const SalesTargets: React.FC = () => {
       salesPersonId: Number(form.salesPersonId),
       salesPersonName: form.salesPersonName,
       salesPersonCode: form.salesPersonCode,
-      targetType: "REVENUE",
+      targetType: form.targetType,
       targetAmount: Number(form.targetAmount || 0),
       period: formatPeriod(year, month),
       achievedAmount: Number(form.achievedAmount || 0),
@@ -387,7 +387,9 @@ const SalesTargets: React.FC = () => {
       salesPersonId: String(target.salesPersonId || ""),
       salesPersonName: target.salesPersonName || "",
       salesPersonCode: target.salesPersonCode || "",
-      targetType: target.targetType === "REVENUE" ? "REVENUE" : "REVENUE",
+      targetType: targetTypeOptions.includes(target.targetType as TargetType)
+        ? (target.targetType as TargetType)
+        : "REVENUE",
       targetAmount: String(target.targetAmount ?? ""),
       achievedAmount: String(target.achievedAmount ?? 0),
       targetYear: String(target.targetYear || getPeriodYear(target.period) || new Date().getFullYear()),

@@ -222,7 +222,12 @@ const StockMovementsManager: React.FC = () => {
       productId: Number(form.productId) || 0,
       warehouse: getWarehouseValue(form.warehouseId),
       batch: getBatchValue(form.batchId),
-      serialNumber: getSerialNumberValue(form.serialNumberId),
+      serialNumber: form.serialNumberId
+        ? {
+            id: Number(form.serialNumberId),
+            serial: getSerialNumberValue(form.serialNumberId),
+          }
+        : null,
     };
   };
 

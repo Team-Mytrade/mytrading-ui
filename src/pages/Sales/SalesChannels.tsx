@@ -30,20 +30,39 @@ type SalesChannel = {
   createdBy?: string;
   tenantId: string;
   name: string;
-  channelType: string;
+  channelType: SalesChannelType | string;
   contactInfo: string;
 };
+
+type SalesChannelType =
+  | "DIRECT"
+  | "ONLINE"
+  | "RETAIL"
+  | "DISTRIBUTOR"
+  | "PARTNER"
+  | "MARKETPLACE"
+  | "SOCIAL"
+  | "TELESALES";
 
 type ChannelForm = {
   tenantId: string;
   name: string;
-  channelType: string;
+  channelType: SalesChannelType;
   contactInfo: string;
 };
 
 const API_URL = "/v1/api/sales/channels";
 const PAGE_SIZE = 10;
-const channelTypeOptions = ["DIRECT", "DISTRIBUTOR", "RETAIL", "ONLINE"];
+const channelTypeOptions: SalesChannelType[] = [
+  "DIRECT",
+  "ONLINE",
+  "RETAIL",
+  "DISTRIBUTOR",
+  "PARTNER",
+  "MARKETPLACE",
+  "SOCIAL",
+  "TELESALES",
+];
 
 function getStoredTenantId() {
   try {
@@ -185,7 +204,9 @@ const SalesChannels: React.FC = () => {
     setForm({
       tenantId: channel.tenantId || getStoredTenantId(),
       name: channel.name || "",
-      channelType: channel.channelType || "DIRECT",
+      channelType: channelTypeOptions.includes(channel.channelType as SalesChannelType)
+        ? (channel.channelType as SalesChannelType)
+        : "DIRECT",
       contactInfo: channel.contactInfo || "",
     });
     setShowFormModal(true);

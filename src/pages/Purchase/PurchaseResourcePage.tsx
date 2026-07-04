@@ -274,7 +274,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         ToasterService.success(`${config.title} created`);
       }
       closeForm();
-      loadRows();
+      await Promise.all([loadRows(), loadOptions()]);
     } catch (error: any) {
       console.error(`Failed to save ${config.title}`, error);
       ToasterService.error(error.response?.data?.message || `Failed to save ${config.title}`);

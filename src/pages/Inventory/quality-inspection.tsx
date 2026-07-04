@@ -172,21 +172,7 @@ const QualityInspectionManager: React.FC = () => {
             productId,
         };
 
-        if (batchNumber) {
-            payload.batch = {
-                id: 0,
-                createdDate: now,
-                updatedDate: now,
-                createdBy: user?.userId || user?.username || "",
-                tenantId: user?.tenantId || "",
-                batchNumber,
-                manufacturingDate: formData.inspectionDate,
-                expiryDate: formData.inspectionDate,
-                productId,
-                warehouse: null,
-                inspections: [],
-            };
-        }
+        payload.batch = batchNumber;
 
         if (serial) {
             payload.serialNumber = {

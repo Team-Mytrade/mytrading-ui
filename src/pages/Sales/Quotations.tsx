@@ -62,6 +62,12 @@ type QuotationItem = {
   additionalDiscount: number;
 };
 
+type QuotationItemPayload = Omit<QuotationItem, "categoryId" | "productId" | "serviceItemId"> & {
+  categoryId?: number;
+  productId?: number;
+  serviceItemId?: number;
+};
+
 type SalesPerson = {
   id: number;
   createdDate?: string;
@@ -75,6 +81,33 @@ type SalesPerson = {
   active: boolean;
   userId: string | number | null;
   employeeId: number | null;
+};
+
+type CustomerContact = {
+  id: number;
+  fullName: string;
+  phone: string;
+  email: string;
+  primaryContact: boolean | null;
+  role: string;
+};
+
+type Customer = {
+  id: number;
+  tenantId: string;
+  customerCode: string;
+  customerName: string;
+  tradeName: string;
+  customerType: string;
+  status: string;
+  phone: string;
+  email: string;
+  currencyCode: string;
+  salesPersonId: number | null;
+  salesPersonName: string | null;
+  active: boolean;
+  addresses: Address[];
+  contacts: CustomerContact[];
 };
 
 type Quotation = {
@@ -108,6 +141,8 @@ type Quotation = {
 type QuotationForm = {
   tenantId: string;
   customerId: string;
+  customerName: string;
+  customerCode: string;
   quotationType: string;
   validUntil: string;
   currencyCode: string;
@@ -176,6 +211,8 @@ const today = new Date().toISOString().split("T")[0];
 const emptyForm: QuotationForm = {
   tenantId: getStoredTenantId(),
   customerId: "",
+  customerName: "",
+  customerCode: "",
   quotationType: "PRODUCT",
   validUntil: today,
   currencyCode: "INR",
@@ -264,9 +301,9 @@ function buildAddress(form: QuotationForm, type: "BILLING" | "SHIPPING"): Addres
   return {
     id: 0,
     customerId: toNumber(form.customerId),
-    customerName: "",
-    customerCode: "",
-    type: "BILLING",
+    customerName: form.customerName,
+    customerCode: form.customerCode,
+    type,
     addressLine1: form[`${prefix}AddressLine1` as keyof QuotationForm] as string,
     addressLine2: "",
     street: "",
@@ -296,6 +333,7 @@ const Quotations: React.FC = () => {
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
   const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [salesPersons, setSalesPersons] = useState<SalesPerson[]>([]);
   const [form, setForm] = useState<QuotationForm>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -308,10 +346,12 @@ const Quotations: React.FC = () => {
 
   useEffect(() => {
     fetchQuotations();
+    fetchCustomers();
     fetchSalesPersons();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const selectedCustomer = customers.find((customer) => String(customer.id) === form.customerId);
   const selectedSalesPerson = salesPersons.find((person) => String(person.id) === form.salesPersonId);
 
   const fetchQuotations = async () => {
@@ -335,6 +375,15 @@ const Quotations: React.FC = () => {
       setSalesPersons(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       ToasterService.error("Failed to load sales persons", getErrorMessage(error, "Please try again."));
+    }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      const res = await axios.get<Customer[]>("/v1/api/crm/customers", { headers });
+      setCustomers(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      ToasterService.error("Failed to load customers", getErrorMessage(error, "Please try again."));
     }
   };
 
@@ -362,6 +411,26 @@ const Quotations: React.FC = () => {
     const { name, value } = e.target;
     setForm((current) => {
       const next = { ...current, [name]: value };
+      if (name === "customerId") {
+        const customer = customers.find((item) => String(item.id) === value);
+        const billingAddress = customer?.addresses?.find((address) => address.type === "BILLING") || customer?.addresses?.[0];
+        const shippingAddress =
+          customer?.addresses?.find((address) => address.type === "SHIPPING") || billingAddress;
+
+        next.customerName = customer?.customerName || "";
+        next.customerCode = customer?.customerCode || "";
+        next.currencyCode = customer?.currencyCode || current.currencyCode || "INR";
+        next.billingAddressLine1 = billingAddress?.addressLine1 || "";
+        next.billingCity = billingAddress?.city || "";
+        next.billingState = billingAddress?.state || "";
+        next.billingCountry = billingAddress?.country || "";
+        next.billingPostalCode = billingAddress?.postalCode || "";
+        next.shippingAddressLine1 = shippingAddress?.addressLine1 || "";
+        next.shippingCity = shippingAddress?.city || "";
+        next.shippingState = shippingAddress?.state || "";
+        next.shippingCountry = shippingAddress?.country || "";
+        next.shippingPostalCode = shippingAddress?.postalCode || "";
+      }
       if (name === "salesPersonId") {
         const person = salesPersons.find((item) => String(item.id) === value);
         next.email = person?.email || "";
@@ -370,8 +439,9 @@ const Quotations: React.FC = () => {
     });
   };
 
-  const buildItem = () => {
-    const item: Partial<QuotationItem> = {
+  const buildItem = (): QuotationItemPayload => {
+    const calculated = calculateItem(form);
+    const item: QuotationItemPayload = {
       id: 0,
       categoryName: form.itemCategoryName,
       itemType: form.itemType,
@@ -382,7 +452,7 @@ const Quotations: React.FC = () => {
       quantity: toNumber(form.itemQuantity),
       unitPrice: toNumber(form.itemUnitPrice),
       discountPercentage: toNumber(form.itemDiscountPercentage),
-      discountAmount: calculateItem(form).discountAmount,
+      discountAmount: calculated.discountAmount,
       taxRate: toNumber(form.itemTaxRate),
       taxCode: form.itemTaxCode,
       remarks: form.itemRemarks,
@@ -390,13 +460,14 @@ const Quotations: React.FC = () => {
     };
 
     const categoryId = optionalPositiveNumber(form.itemCategoryId);
-    if (categoryId && !form.itemCategoryName.trim()) item.categoryId = categoryId;
+    const productId = optionalPositiveNumber(form.itemProductId);
+    const serviceItemId = optionalPositiveNumber(form.itemServiceItemId);
 
+    if (categoryId) item.categoryId = categoryId;
     if (form.itemType === "SERVICE") {
-      const serviceItemId = optionalPositiveNumber(form.itemServiceItemId);
       if (serviceItemId) item.serviceItemId = serviceItemId;
-    } else {
-      item.productId = toNumber(form.itemProductId);
+    } else if (productId) {
+      item.productId = productId;
     }
 
     return item;
@@ -404,44 +475,51 @@ const Quotations: React.FC = () => {
 
   const buildSalesPerson = (): Partial<SalesPerson> => ({
     id: toNumber(form.salesPersonId),
+    createdDate: selectedSalesPerson?.createdDate,
+    updatedDate: selectedSalesPerson?.updatedDate,
+    createdBy: selectedSalesPerson?.createdBy,
     tenantId: form.tenantId.trim(),
     name: selectedSalesPerson?.name || "",
     code: selectedSalesPerson?.code || "",
     email: selectedSalesPerson?.email || "",
     region: selectedSalesPerson?.region || "",
     active: selectedSalesPerson?.active ?? true,
-    userId: selectedSalesPerson?.userId ?? null,
-    employeeId: selectedSalesPerson?.employeeId ?? null,
+    userId: selectedSalesPerson?.userId ?? "",
+    employeeId: selectedSalesPerson?.employeeId ?? 0,
   });
 
-  const buildPayload = () => ({
-    id: editingId || 0,
-    tenantId: form.tenantId.trim(),
-    customerId: toNumber(form.customerId),
-    quotationType: form.quotationType,
-    validUntil: form.validUntil,
-    currencyCode: form.currencyCode,
-    remarks: form.remarks,
-    internalNotes: form.internalNotes,
-    customerNotes: form.customerNotes,
-    subject: form.subject,
-    email: form.email,
-    billingAddress: buildAddress(form, "BILLING"),
-    shippingAddress: buildAddress(form, "SHIPPING"),
-    items: [buildItem()],
-    quoteNumber: form.quoteNumber,
-    quoteDate: form.quoteDate,
-    status: form.status,
-    subTotal: toNumber(form.subTotal),
-    discountAmount: toNumber(form.discountAmount),
-    additionalDiscount: toNumber(form.additionalDiscount),
-    discountPercentage: toNumber(form.discountPercentage),
-    taxAmount: toNumber(form.taxAmount),
-    grandTotal: toNumber(form.grandTotal),
-    salesPerson: buildSalesPerson(),
-    termsAndConditions: form.termsAndConditions,
-    versionNo: toNumber(form.versionNo),
-  });
+  const buildPayload = () => {
+    const calculated = calculateItem(form);
+
+    return {
+      id: editingId || 0,
+      tenantId: form.tenantId.trim(),
+      customerId: toNumber(form.customerId),
+      quotationType: form.quotationType,
+      validUntil: form.validUntil,
+      currencyCode: form.currencyCode,
+      remarks: form.remarks,
+      internalNotes: form.internalNotes,
+      customerNotes: form.customerNotes,
+      subject: form.subject,
+      email: form.email,
+      billingAddress: buildAddress(form, "BILLING"),
+      shippingAddress: buildAddress(form, "SHIPPING"),
+      items: [buildItem()],
+      quoteNumber: form.quoteNumber,
+      quoteDate: form.quoteDate,
+      status: form.status,
+      subTotal: calculated.grossAmount,
+      discountAmount: calculated.discountAmount,
+      additionalDiscount: calculated.additionalDiscount,
+      discountPercentage: toNumber(form.discountPercentage),
+      taxAmount: calculated.taxAmount,
+      grandTotal: Number(calculated.lineTotal.toFixed(2)),
+      salesPerson: buildSalesPerson(),
+      termsAndConditions: form.termsAndConditions,
+      versionNo: toNumber(form.versionNo),
+    };
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -462,12 +540,8 @@ const Quotations: React.FC = () => {
       ToasterService.error("Line item required", "Quantity and unit price must be greater than zero.");
       return;
     }
-    if (form.itemType === "PRODUCT" && !isPositiveNumber(form.itemProductId)) {
-      ToasterService.error("Product ID required", "For PRODUCT quotations, enter a valid product ID.");
-      return;
-    }
-    if (form.itemType === "SERVICE" && !isPositiveNumber(form.itemServiceItemId)) {
-      ToasterService.error("Service item ID required", "For SERVICE quotations, enter a valid service item ID.");
+    if (!form.itemProductName.trim() && !form.itemDescription.trim()) {
+      ToasterService.error("Line item required", "Enter a product name or description.");
       return;
     }
     if (!isPercent(form.discountPercentage) || !isPercent(form.itemDiscountPercentage) || !isPercent(form.itemTaxRate)) {
@@ -478,9 +552,13 @@ const Quotations: React.FC = () => {
     try {
       setSubmitting(true);
       const payload = buildPayload();
+      const requestConfig = {
+        headers,
+        params: { tenantId: form.tenantId.trim() },
+      };
       const res = editingId
-        ? await axios.put<Quotation>(`${API_URL}/${editingId}`, payload, { headers })
-        : await axios.post<Quotation>(API_URL, payload, { headers });
+        ? await axios.put<Quotation>(`${API_URL}/${editingId}`, payload, requestConfig)
+        : await axios.post<Quotation>(API_URL, payload, requestConfig);
 
       setQuotations((current) => {
         const exists = current.some((item) => item.id === res.data.id);
@@ -510,7 +588,12 @@ const Quotations: React.FC = () => {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ ...emptyForm, tenantId: getStoredTenantId(), validUntil: today, quoteDate: today });
+    setForm({
+      ...emptyForm,
+      tenantId: getStoredTenantId(),
+      validUntil: today,
+      quoteDate: today,
+    });
     setShowFormModal(true);
   };
 
@@ -524,6 +607,14 @@ const Quotations: React.FC = () => {
       setForm({
         tenantId: getStoredTenantId(),
         customerId: String(full.customerId || ""),
+        customerName:
+          customers.find((customer) => Number(customer.id) === Number(full.customerId))?.customerName ||
+          full.billingAddress?.customerName ||
+          "",
+        customerCode:
+          customers.find((customer) => Number(customer.id) === Number(full.customerId))?.customerCode ||
+          full.billingAddress?.customerCode ||
+          "",
         quotationType: full.quotationType || "PRODUCT",
         validUntil: full.validUntil || today,
         currencyCode: full.currencyCode || "INR",
@@ -611,6 +702,7 @@ const Quotations: React.FC = () => {
         quotation.id,
         quotation.quoteNumber,
         quotation.customerId,
+        customers.find((customer) => Number(customer.id) === Number(quotation.customerId))?.customerName,
         quotation.subject,
         quotation.email,
         quotation.status,
@@ -640,7 +732,24 @@ const Quotations: React.FC = () => {
         </div>
       ),
     },
-    { key: "customerId", label: "Customer", sortable: true },
+    {
+      key: "customerId",
+      label: "Customer",
+      sortable: true,
+      render: (quotation) => {
+        const customer = customers.find((item) => Number(item.id) === Number(quotation.customerId));
+        return (
+          <div>
+            <div className="text-sm font-semibold text-slate-900">
+              {customer?.customerName || quotation.billingAddress?.customerName || `Customer #${quotation.customerId}`}
+            </div>
+            <div className="text-xs text-slate-500">
+              {customer?.customerCode || quotation.billingAddress?.customerCode || `ID: ${quotation.customerId}`}
+            </div>
+          </div>
+        );
+      },
+    },
     {
       key: "salesPerson",
       label: "Sales Person",
@@ -697,6 +806,268 @@ const Quotations: React.FC = () => {
       ),
     },
   ];
+
+  if (showFormModal) {
+    const itemTotals = calculateItem(form);
+
+    return (
+      <>
+        <PageMeta title={editingId ? "Edit Quotation" : "Create New Quotation"} description="Manage sales quotations" />
+        <PageBreadcrumb pageTitle={editingId ? "Edit Quotation" : "Create Quotation"} />
+
+        <div className="w-full max-w-none px-0 py-6">
+          <div className="relative overflow-hidden rounded-3xl border border-slate-200/70 bg-gradient-to-br from-white via-slate-50/70 to-slate-100 p-6 shadow-xl shadow-slate-100/70 lg:p-8">
+            <div className="absolute left-0 right-0 top-0 h-1.5 bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500" />
+
+            <div className="mb-8 flex items-center justify-between border-b border-slate-200/70 pb-5">
+              <div>
+                <h2 className="flex items-center gap-3 text-2xl font-black tracking-tight text-slate-900">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
+                    <DocumentTextIcon className="h-6 w-6" />
+                  </span>
+                  {editingId ? "Edit Quote" : "New Quote"}
+                </h2>
+                <p className="mt-1 text-xs text-slate-400">Configure quotation details and customer info</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeForm}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:rotate-90 hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-600"
+                title="Close"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="flex w-full max-w-5xl flex-col gap-6">
+                <div className="group flex flex-col gap-2 md:flex-row md:items-start md:gap-6">
+                  <label className="mt-3 shrink-0 text-[13px] font-bold uppercase tracking-wider text-slate-500 transition-colors group-focus-within:text-blue-600 md:w-48">
+                    Customer ID <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex-1">
+                    <div className="flex max-w-[520px] overflow-hidden rounded-xl shadow-sm transition focus-within:ring-2 focus-within:ring-blue-500/20">
+                      <select
+                        name="customerId"
+                        value={form.customerId}
+                        onChange={handleChange}
+                        required
+                        className="min-w-0 flex-1 border border-slate-200 border-r-0 bg-slate-50 px-4 py-2.5 text-[15px] font-medium text-slate-800 transition hover:bg-slate-100 focus:border-blue-500 focus:bg-white focus:outline-none"
+                      >
+                        <option value="">Select Customer</option>
+                        {form.customerId &&
+                          !customers.some((customer) => String(customer.id) === form.customerId) && (
+                            <option value={form.customerId}>
+                              {form.customerName || `Customer #${form.customerId}`}
+                            </option>
+                          )}
+                        {customers.map((customer) => (
+                          <option key={customer.id} value={customer.id}>
+                            {customer.customerName || customer.tradeName || `Customer #${customer.id}`}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedCustomer && (
+                        <div className="flex items-center justify-center border border-l-0 border-slate-200 bg-white px-4">
+                          <span className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-emerald-700 shadow-sm">
+                              ₹
+                            </span>
+                            {selectedCustomer.currencyCode || form.currencyCode}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {selectedCustomer && (
+                      <div className="mt-3 max-w-xl rounded-xl border border-slate-100 bg-white p-3 text-xs text-slate-600 shadow-sm">
+                        <div className="font-semibold text-slate-900">
+                          {selectedCustomer.customerName}
+                          {selectedCustomer.customerCode ? ` (${selectedCustomer.customerCode})` : ""}
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                          {selectedCustomer.email && <span>{selectedCustomer.email}</span>}
+                          {selectedCustomer.phone && <span>{selectedCustomer.phone}</span>}
+                          {selectedCustomer.customerType && <span>{selectedCustomer.customerType}</span>}
+                        </div>
+                      </div>
+                    )}
+                    <div className="mt-3 grid max-w-xl grid-cols-1 gap-3 sm:grid-cols-2">
+                      <input
+                        name="billingAddressLine1"
+                        value={form.billingAddressLine1}
+                        onChange={handleChange}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                        placeholder="Billing address"
+                      />
+                      <input
+                        name="shippingAddressLine1"
+                        value={form.shippingAddressLine1}
+                        onChange={handleChange}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                        placeholder="Shipping address"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="group flex flex-col gap-2 md:flex-row md:items-center md:gap-6">
+                  <label className="shrink-0 text-[13px] font-bold uppercase tracking-wider text-slate-500 transition-colors group-focus-within:text-blue-600 md:w-48">
+                    Quote# <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    name="quoteNumber"
+                    value={form.quoteNumber}
+                    onChange={handleChange}
+                    className="w-full max-w-[320px] rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-[15px] font-medium text-slate-800 shadow-sm transition hover:bg-slate-100 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    placeholder="QT-000001"
+                  />
+                </div>
+
+                <div className="group flex flex-col gap-2 md:flex-row md:items-center md:gap-6">
+                  <label className="shrink-0 text-[13px] font-bold uppercase tracking-wider text-slate-500 transition-colors group-focus-within:text-blue-600 md:w-48">
+                    Quote Details
+                  </label>
+                  <div className="grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <input name="quoteDate" type="date" value={form.quoteDate} onChange={handleChange} required className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+                    <input name="validUntil" type="date" value={form.validUntil} onChange={handleChange} required className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+                    <select name="status" value={form.status} onChange={handleChange} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+                      {statusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+                    </select>
+                    <select name="quotationType" value={form.quotationType} onChange={handleChange} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+                      {quotationTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="group flex flex-col gap-2 md:flex-row md:items-center md:gap-6">
+                  <label className="shrink-0 text-[13px] font-bold uppercase tracking-wider text-slate-500 transition-colors group-focus-within:text-blue-600 md:w-48">
+                    Sales Person <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2">
+                    <select name="salesPersonId" value={form.salesPersonId} onChange={handleChange} required className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+                      <option value="">Select sales person</option>
+                      {form.salesPersonId &&
+                        !salesPersons.some((person) => String(person.id) === form.salesPersonId) && (
+                          <option value={form.salesPersonId}>Sales Person #{form.salesPersonId}</option>
+                        )}
+                      {salesPersons.map((person) => (
+                        <option key={person.id} value={person.id}>{person.name || `Person #${person.id}`}</option>
+                      ))}
+                    </select>
+                    <input name="email" type="email" value={form.email} onChange={handleChange} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" placeholder="Email" />
+                  </div>
+                </div>
+
+                <div className="group flex flex-col gap-2 md:flex-row md:items-start md:gap-6">
+                  <label className="mt-3 shrink-0 text-[13px] font-bold uppercase tracking-wider text-slate-500 transition-colors group-focus-within:text-blue-600 md:w-48">
+                    Subject
+                  </label>
+                  <textarea
+                    name="subject"
+                    value={form.subject}
+                    onChange={handleChange}
+                    rows={2}
+                    className="w-full max-w-xl resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[15px] font-medium text-slate-800 shadow-sm transition hover:bg-slate-100 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    placeholder="Sample purchase"
+                  />
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+                <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50/80 p-3">
+                  <h4 className="text-[13px] font-bold uppercase tracking-wider text-gray-800">Item Table</h4>
+                  <button type="button" onClick={applyCalculatedTotals} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700">
+                    Calculate Totals
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-sm">
+                    <thead className="border-b border-gray-200 bg-white text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                      <tr>
+                        <th className="min-w-[300px] border-r border-gray-100 px-3 py-2">Item Details</th>
+                        <th className="w-28 border-r border-gray-100 px-3 py-2 text-right">Quantity</th>
+                        <th className="w-32 border-r border-gray-100 px-3 py-2 text-right">Rate</th>
+                        <th className="w-28 border-r border-gray-100 px-3 py-2 text-right">Discount %</th>
+                        <th className="w-28 border-r border-gray-100 px-3 py-2 text-right">Tax %</th>
+                        <th className="w-36 px-3 py-2 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="bg-white transition hover:bg-gray-50/60">
+                        <td className="border-r border-gray-100 px-3 py-2 align-top">
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            {editingId && (
+                              <input
+                                name="itemProductId"
+                                type="number"
+                                value={form.itemProductId}
+                                onChange={handleChange}
+                                className="rounded-lg border border-transparent bg-transparent p-1 text-[13px] font-medium text-gray-900 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white"
+                                placeholder="Product ID"
+                              />
+                            )}
+                            <input name="itemProductName" value={form.itemProductName} onChange={handleChange} className="rounded-lg border border-transparent bg-transparent p-1 text-[13px] font-medium text-gray-900 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Product name" />
+                            <input name="itemDescription" value={form.itemDescription} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white sm:col-span-2" placeholder="Add a description to your item" />
+                            <input name="itemProductCode" value={form.itemProductCode} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Product code" />
+                            <input name="itemUom" value={form.itemUom} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="UOM" />
+                          </div>
+                        </td>
+                        <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
+                          <input name="itemQuantity" type="number" min="1" value={form.itemQuantity} onChange={handleChange} required className="w-full border-0 bg-transparent p-1 text-right text-[13px] font-medium text-gray-900 focus:ring-0" />
+                        </td>
+                        <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
+                          <input name="itemUnitPrice" type="number" min="0" step="0.01" value={form.itemUnitPrice} onChange={handleChange} required className="w-full border-0 bg-transparent p-1 text-right text-[13px] font-medium text-gray-900 focus:ring-0" />
+                        </td>
+                        <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
+                          <input name="itemDiscountPercentage" type="number" min="0" max="100" value={form.itemDiscountPercentage} onChange={handleChange} className="w-full border-0 bg-transparent p-1 text-right text-[13px] font-medium text-gray-900 focus:ring-0" />
+                        </td>
+                        <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
+                          <input name="itemTaxRate" type="number" min="0" max="100" value={form.itemTaxRate} onChange={handleChange} className="w-full border-0 bg-transparent p-1 text-right text-[13px] font-medium text-gray-900 focus:ring-0" />
+                        </td>
+                        <td className="bg-white px-3 py-2 text-right align-top">
+                          <div className="p-1 text-[13px] font-semibold text-gray-900">{money(itemTotals.lineTotal)}</div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <textarea name="customerNotes" value={form.customerNotes} onChange={handleChange} rows={3} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" placeholder="Customer notes" />
+                    <textarea name="termsAndConditions" value={form.termsAndConditions} onChange={handleChange} rows={3} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" placeholder="Terms and conditions" />
+                    <textarea name="remarks" value={form.remarks} onChange={handleChange} rows={3} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" placeholder="Remarks" />
+                    <textarea name="internalNotes" value={form.internalNotes} onChange={handleChange} rows={3} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" placeholder="Internal notes" />
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between"><span className="text-slate-500">Sub Total</span><span className="font-semibold text-slate-900">{money(form.subTotal)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Discount</span><span className="font-semibold text-rose-600">-{money(form.discountAmount)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Additional Discount</span><span className="font-semibold text-rose-600">-{money(form.additionalDiscount)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Tax</span><span className="font-semibold text-slate-900">{money(form.taxAmount)}</span></div>
+                    <div className="flex justify-between border-t border-slate-200 pt-3 text-lg font-black"><span>Grand Total</span><span className="text-cyan-600">{money(form.grandTotal)}</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col justify-end gap-2 border-t border-slate-200 pt-5 sm:flex-row">
+                <button type="button" onClick={closeForm} className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50">
+                  Cancel
+                </button>
+                <button type="submit" disabled={submitting} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">
+                  {submitting ? "Saving..." : editingId ? "Update Quotation" : "Create Quotation"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -818,7 +1189,18 @@ const Quotations: React.FC = () => {
 
               <form onSubmit={handleSubmit} className="p-5">
                 <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-3">
-                  <FloatingInput label="Customer ID" name="customerId" type="number" value={form.customerId} onChange={handleChange} required />
+                  <FloatingSelect
+                    label="Customer"
+                    name="customerId"
+                    value={form.customerId}
+                    onChange={handleChange}
+                    emptyOptionLabel="Select customer"
+                    options={customers.map((customer) => ({
+                      id: String(customer.id),
+                      name: customer.customerName || customer.tradeName || `Customer #${customer.id}`,
+                    }))}
+                    required
+                  />
                   <FloatingSelect
                     label="Sales Person"
                     name="salesPersonId"
@@ -886,7 +1268,9 @@ const Quotations: React.FC = () => {
                     </button>
                   </div>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <FloatingInput label="Category ID Optional" name="itemCategoryId" type="number" value={form.itemCategoryId} onChange={handleChange} />
+                    {editingId && (
+                      <FloatingInput label="Category ID Optional" name="itemCategoryId" type="number" value={form.itemCategoryId} onChange={handleChange} />
+                    )}
                     <FloatingInput label="Category Name" name="itemCategoryName" value={form.itemCategoryName} onChange={handleChange} />
                     <FloatingSelect
                       label="Item Type"
@@ -899,9 +1283,13 @@ const Quotations: React.FC = () => {
                         { id: "SERVICE", name: "SERVICE" },
                       ]}
                     />
-                    <FloatingInput label="Product ID" name="itemProductId" type="number" value={form.itemProductId} onChange={handleChange} required />
+                    {editingId && (
+                      <FloatingInput label="Product ID" name="itemProductId" type="number" value={form.itemProductId} onChange={handleChange} />
+                    )}
                     <FloatingInput label="Product Name" name="itemProductName" value={form.itemProductName} onChange={handleChange} />
-                    <FloatingInput label="Service Item ID" name="itemServiceItemId" type="number" value={form.itemServiceItemId} onChange={handleChange} />
+                    {editingId && (
+                      <FloatingInput label="Service Item ID" name="itemServiceItemId" type="number" value={form.itemServiceItemId} onChange={handleChange} />
+                    )}
                     <FloatingInput label="Product Code" name="itemProductCode" value={form.itemProductCode} onChange={handleChange} />
                     <FloatingInput label="Description" name="itemDescription" value={form.itemDescription} onChange={handleChange} />
                     <FloatingInput label="UOM" name="itemUom" value={form.itemUom} onChange={handleChange} />

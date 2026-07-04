@@ -41,13 +41,15 @@ import ServiceScheduleNotify from "./pages/Sales/ServiceScheduleNotify";
 import ReturnRequests from "./pages/Sales/ReturnRequests";
 import Refunds from "./pages/Sales/Refunds";
 import CreditLimit from "./pages/Sales/CreditLimit";
-import ProductSKUManager from "./pages/Inventory/ProductSKUManager";
-import WarehouseManager from "./pages/Inventory/WarehouseManager";
-import StockLevelManager from "./pages/Inventory/StockLevelManager";
-import QualityInspectionManager from "./pages/Inventory/QualityInspectionManager";
-import TransactionsPage from "./pages/Inventory/TransactionsPage";
-import ReorderLevelPage from "./pages/Inventory/ReorderLevelPage";
-import StockAdjustmentPage from "./pages/Inventory/StockAdjustmentPage";
+import Warehouse from "./pages/Inventory/warehouse";
+import InventoryModule from "./pages/Inventory/inventory";
+import StockLevel from "./pages/Inventory/stock-level";
+import QualityInspection from "./pages/Inventory/quality-inspection";
+import SerialNumber from "./pages/Inventory/serial-number";
+import StockMovement from "./pages/Inventory/stock-movement";
+import InventoryReservation from "./pages/Inventory/inventory-reservation";
+import InventoryReport from "./pages/Inventory/inventory-report";
+import StockAdjustment from "./pages/Inventory/stock-adjustment";
 import PurchaseRequisitions from "./pages/Purchase/PurchaseRequisitions";
 import RequisitionLineItems from "./pages/Purchase/RequisitionLineItems";
 import PurchaseOrders from "./pages/Purchase/PurchaseOrders";
@@ -182,7 +184,6 @@ import PayrollPage from "./pages/Payroll/PayrollPage";
 import EmployeeDocumentsPage from "./pages/Payroll/EmployeeDocumentsPage";
 import SalesDashboard from "./pages/Sales/SalesDashboard";
 import CrmDashboardPage from "./pages/CRM/CrmDashboardPage";
-import InventoryDashboard from "./pages/Inventory/InventoryDashboard";
 import ProcurementDashboard from "./pages/Purchase/ProcurementDashboard";
 import DeliveryDashboard from "./pages/Delivery/DeliveryDashboard";
 import FinanceDashboard from "./pages/Invoice/FinanceDashboard";
@@ -193,7 +194,7 @@ import AccountsPayableForm from "./pages/Invoice/AccountPayable/AccountPayableFo
 import AccountsPayableDetails from "./pages/Invoice/AccountPayable/AccountPayableDetails";
 import AccountsPayableList from "./pages/Invoice/AccountPayable/AccountPayableList";
 import Mainrole from "./pages/roleconfig/Mainrole";
-import BatchManager from "./pages/Inventory/BatchManager";
+import Batch from "./pages/Inventory/batch";
 import EmployeeCompensationPage from "./pages/Payroll/EmployeeCompensationPage";
 import EmployeeDepartmentsPage from "./pages/Payroll/EmployeeDepartments";
 import EmployeeSalaryPage from "./pages/Payroll/EmployeeSalaryPage";
@@ -245,15 +246,16 @@ export default function AppRouter() {
           <Route path="/sales-dashboard" element={<SalesDashboard />} />
           <Route path="/quote-view/:id" element={<Quotations />} />
 
-          <Route path="/product-sku" element={<ProductSKUManager />} />
-          <Route path="/warehouse" element={<WarehouseManager />} />
-          <Route path="/stock-level" element={<StockLevelManager />} />
-          <Route path="/qualityInspection" element={<QualityInspectionManager />} />
-          <Route path="/batchSerial" element={<BatchManager />} />
-          <Route path="/transactions" element={<TransactionsPage />} />
-          <Route path="/reorderLevel" element={<ReorderLevelPage />} />
-          <Route path="/stockAdjustment" element={<StockAdjustmentPage />} />
-          <Route path="/inventory_dashboard" element={<InventoryDashboard />} />
+          <Route path="/warehouse" element={<Warehouse />} />
+          <Route path="/inventory" element={<InventoryModule />} />
+          <Route path="/stock-movement" element={<StockMovement />} />
+          <Route path="/stock-level" element={<StockLevel />} />
+          <Route path="/stock-adjustment" element={<StockAdjustment />} />
+          <Route path="/serial-number" element={<SerialNumber />} />
+          <Route path="/quality-inspection" element={<QualityInspection />} />
+          <Route path="/inventory-reservation" element={<InventoryReservation />} />
+          <Route path="/batch" element={<Batch />} />
+          <Route path="/inventory-report" element={<InventoryReport />} />
 
           <Route path="/purchase-requisitions" element={<PurchaseRequisitions />} />
           <Route path="/requisition-line-items" element={<RequisitionLineItems />} />

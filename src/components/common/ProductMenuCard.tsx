@@ -30,7 +30,7 @@ const ProductMenuCard: React.FC = () => {
       color: "emerald"
     },
     {
-      href: "/inventory_dashboard",
+      href: "/warehouse",
       icon: Warehouse,
       title: "Inventory",
       description: "Inventory and Quality Management",
