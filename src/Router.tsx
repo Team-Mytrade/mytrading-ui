@@ -209,6 +209,8 @@ import DeliveryDispatch from "./pages/Delivery/DeliveryNote";
 // import DeliveryOrderPage from "./pages/Delivery/DeliveryOrderPage";
 import CustomerAddressPage from "./pages/Delivery/CustomerAddress";
 import DeliveryNote from "./pages/Delivery/DeliveryNote";
+import GoodsIssuePage from "./pages/Delivery/GoodsIssue";
+import Schedule from "./pages/Delivery/Schedule";
 
 export default function AppRouter() {
   return (
@@ -304,11 +306,14 @@ export default function AppRouter() {
           <Route path="/customerAddress" element={<CustomerAddressPage />} />
 
           
+          <Route path="/vehicle" element={<VehiclePage />} />
           <Route path="/route" element={<RouteSchedulePage />} />
           <Route path="/productDelivery" element={<ProductPage />} />
           <Route path="/deliveryAddress" element={<DeliveryAddressPage />} />
           <Route path="/deliveryStatus" element={<DeliveryStatusPage />} />
           <Route path="/delivery_dashboard" element={<DeliveryDashboard />} />
+          <Route path="/schedule" element={<Schedule />} />
+          <Route path="/goodsIssue" element={<GoodsIssuePage />} />
 
           <Route path="/invoice-billing" element={<InvoiceList />} />
           <Route path="/invoice-billing/add" element={<InvoiceForm />} />

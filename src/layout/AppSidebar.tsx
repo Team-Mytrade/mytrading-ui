@@ -125,6 +125,7 @@ export const navItems: NavItem[] = [
     name: "Delivery",
     subItems: [
       { name: "Transporters", path: "/transporter" },
+      { name: "Vehicles", path: "/vehicle" },
       { name: "Routes", path: "/route" },
       { name: "Vehicles", path: "/vechile" },
       { name: "Customer Address", path: "/customerAddress" },
@@ -132,6 +133,8 @@ export const navItems: NavItem[] = [
       { name: "Shipment", path: "/shipment"},
       { name: "Delivery Order", path: "/deliveryOrder"},
       { name: "Delivery Status", path: "/deliveryStatus" },
+      { name: "Schedule", path: "/schedule" },
+      { name: "Goods Issue", path: "/goodsIssue" },
     ],
   },
 
