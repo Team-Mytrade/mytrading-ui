@@ -1,30 +1,36 @@
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import { FloatingInput } from "../../components/inputfeild/FloatingInput";
 
-import { FloatingSelect, FloatingDatePicker, FloatingInput, FloatingTextarea } from "../../components/inputfeild/FloatingInput";
-
-import { 
-  MagnifyingGlassIcon, 
-  BuildingOfficeIcon,
+import {
+  MagnifyingGlassIcon,
   UserIcon,
   CalendarIcon,
   ShoppingBagIcon,
+  PencilSquareIcon,
+  XMarkIcon,
+  
 } from "@heroicons/react/24/solid";
-import { 
-  FunnelIcon, 
-  PackageIcon, 
+import {
+  FunnelIcon,
+  PackageIcon,
   ClipboardListIcon,
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
   TruckIcon,
-  RefreshCwIcon
+  RefreshCwIcon,
+  EyeIcon,
+  TrashIcon,
+  PlusIcon,
 } from "lucide-react";
 
 // ================= TYPES =================
@@ -33,10 +39,6 @@ type DeliveryStatus = "PENDING" | "IN_PROGRESS" | "SHIPPED" | "DELIVERED" | "CAN
 
 interface DeliveryItem {
   id?: number;
-  createdDate?: string;
-  updatedDate?: string;
-  createdBy?: string;
-  tenantId?: string;
   productId: number;
   orderedQty: number;
   deliveredQty: number;
@@ -59,87 +61,53 @@ interface Delivery {
 
 // ================= API CONFIGURATION =================
 
-// SIMPLE FIX: Hardcode your API URL here
-const API_BASE_URL = "http://localhost:8080"; // Change this to your actual API URL
+const API_BASE_URL = "/v1/api/delivery";
 
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-// Add auth token interceptor (optional)
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem("authToken");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// ================= API SERVICE =================
-
-class DeliveryService {
-  // GET /v1/api/delivery/delivery-notes
-  static async getAll(): Promise<Delivery[]> {
-    try {
-      const response = await apiClient.get("/v1/api/delivery/delivery-notes");
-      return response.data;
-    } catch (error) {
-      console.error("Error fetching deliveries:", error);
-      throw error;
-    }
-  }
-
-  // GET /v1/api/delivery/delivery-notes/{id}
-  static async getById(id: number): Promise<Delivery> {
-    try {
-      const response = await apiClient.get(`/v1/api/delivery/delivery-notes/${id}`);
-      return response.data;
-    } catch (error) {
-      console.error(`Error fetching delivery ${id}:`, error);
-      throw error;
-    }
-  }
-
-  // POST /v1/api/delivery/delivery-notes
-  static async create(data: Partial<Delivery>): Promise<Delivery> {
-    try {
-      const response = await apiClient.post("/v1/api/delivery/delivery-notes", data);
-      return response.data;
-    } catch (error) {
-      console.error("Error creating delivery:", error);
-      throw error;
-    }
-  }
-
-  // PUT /v1/api/delivery/delivery-notes/{id}
-  static async update(id: number, data: Partial<Delivery>): Promise<Delivery> {
-    try {
-      const response = await apiClient.put(`/v1/api/delivery/delivery-notes/${id}`, data);
-      return response.data;
-    } catch (error) {
-      console.error(`Error updating delivery ${id}:`, error);
-      throw error;
-    }
-  }
-
-  // DELETE /v1/api/delivery/delivery-notes/{id}
-  static async delete(id: number): Promise<void> {
-    try {
-      await apiClient.delete(`/v1/api/delivery/delivery-notes/${id}`);
-    } catch (error) {
-      console.error(`Error deleting delivery ${id}:`, error);
-      throw error;
-    }
-  }
-}
+const API = {
+  getAll: `${API_BASE_URL}/delivery-notes`,
+  getById: (id: number) => `${API_BASE_URL}/delivery-notes/${id}`,
+  create: `${API_BASE_URL}/delivery-notes`,
+  update: (id: number) => `${API_BASE_URL}/delivery-notes/${id}`,
+  delete: (id: number) => `${API_BASE_URL}/delivery-notes/${id}`,
+};
 
 // ================= CONSTANTS =================
 
 const PAGE_SIZE = 10;
 const STATUS_OPTIONS: DeliveryStatus[] = ["PENDING", "IN_PROGRESS", "SHIPPED", "DELIVERED", "CANCELLED", "FAILED"];
+
+const STATUS_CONFIG: Record<DeliveryStatus, { color: string; icon: React.ReactNode; label: string }> = {
+  PENDING: {
+    color: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    icon: <ClockIcon className="h-3 w-3" />,
+    label: "Pending"
+  },
+  IN_PROGRESS: {
+    color: "bg-blue-50 text-blue-700 border-blue-200",
+    icon: <RefreshCwIcon className="h-3 w-3" />,
+    label: "In Progress"
+  },
+  SHIPPED: {
+    color: "bg-purple-50 text-purple-700 border-purple-200",
+    icon: <TruckIcon className="h-3 w-3" />,
+    label: "Shipped"
+  },
+  DELIVERED: {
+    color: "bg-green-50 text-green-700 border-green-200",
+    icon: <CheckCircleIcon className="h-3 w-3" />,
+    label: "Delivered"
+  },
+  CANCELLED: {
+    color: "bg-red-50 text-red-700 border-red-200",
+    icon: <XCircleIcon className="h-3 w-3" />,
+    label: "Cancelled"
+  },
+  FAILED: {
+    color: "bg-orange-50 text-orange-700 border-orange-200",
+    icon: <XCircleIcon className="h-3 w-3" />,
+    label: "Failed"
+  }
+};
 
 // ================= COMPONENT =================
 
@@ -148,43 +116,87 @@ const DeliveryNote: React.FC = () => {
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<DeliveryStatus | "ALL">("ALL");
   const [dateFilter, setDateFilter] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     id: null as number | null,
     deliveryNo: "",
     deliveryDate: "",
-    salesOrderId: 0,
-    customerId: 0,
+    salesOrderId:1,
+    customerId: 1,
     status: "PENDING" as DeliveryStatus,
     items: [] as DeliveryItem[],
   });
 
   const [showFormModal, setShowFormModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+
+  // ================= API FUNCTIONS =================
+
+  const fetchDeliveries = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(API.getAll);
+      setDeliveries(response.data || []);
+      if (response.data?.length > 0) {
+        toast.success(`Loaded ${response.data.length} delivery(s)`);
+      }
+    } catch (err: any) {
+      console.error("Error fetching deliveries:", err);
+      toast.error(err.response?.data?.message || "Failed to fetch deliveries!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createDelivery = async (data: any) => {
+    try {
+      const response = await axios.post(API.create, data);
+      toast.success("Delivery created successfully!");
+      return response.data;
+    } catch (err: any) {
+      console.error("Error creating delivery:", err);
+      toast.error(err.response?.data?.message || "Failed to create delivery!");
+      throw err;
+    }
+  };
+
+  const updateDelivery = async (id: number, data: any) => {
+    try {
+      const response = await axios.put(API.update(id), data);
+      toast.success("Delivery updated successfully!");
+      return response.data;
+    } catch (err: any) {
+      console.error("Error updating delivery:", err);
+      toast.error(err.response?.data?.message || "Failed to update delivery!");
+      throw err;
+    }
+  };
+
+  const deleteDelivery = async (id: number) => {
+    try {
+      await axios.delete(API.delete(id));
+      toast.success("Delivery deleted successfully!");
+      setShowDeleteModal(false);
+      setSelectedDelivery(null);
+      await fetchDeliveries();
+    } catch (err: any) {
+      console.error("Error deleting delivery:", err);
+      toast.error(err.response?.data?.message || "Failed to delete delivery!");
+      throw err;
+    }
+  };
 
   // ================= FETCH =================
 
   useEffect(() => {
     fetchDeliveries();
   }, []);
-
-  const fetchDeliveries = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await DeliveryService.getAll();
-      setDeliveries(data);
-    } catch (err) {
-      console.error("Error fetching deliveries:", err);
-      setError("Failed to load deliveries. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // ================= FILTER =================
 
@@ -208,121 +220,21 @@ const DeliveryNote: React.FC = () => {
 
   // ================= STATS =================
 
-  const getStats = () => {
-    const stats = {
-      total: deliveries.length,
-      pending: deliveries.filter(d => d.status === "PENDING").length,
-      inProgress: deliveries.filter(d => d.status === "IN_PROGRESS").length,
-      shipped: deliveries.filter(d => d.status === "SHIPPED").length,
-      delivered: deliveries.filter(d => d.status === "DELIVERED").length,
-      cancelled: deliveries.filter(d => d.status === "CANCELLED").length,
-      failed: deliveries.filter(d => d.status === "FAILED").length,
-    };
-    return stats;
-  };
+  const getStats = () => ({
+    total: deliveries.length,
+    pending: deliveries.filter(d => d.status === "PENDING").length,
+    inProgress: deliveries.filter(d => d.status === "IN_PROGRESS").length,
+    shipped: deliveries.filter(d => d.status === "SHIPPED").length,
+    delivered: deliveries.filter(d => d.status === "DELIVERED").length,
+    cancelled: deliveries.filter(d => d.status === "CANCELLED" || d.status === "FAILED").length,
+  });
 
   const stats = getStats();
-
-  // ================= TABLE =================
-
-  const tableColumns: ColumnDef<Delivery>[] = [
-    {
-      key: "deliveryNo",
-      label: "Delivery No",
-      render: (row) => (
-        <span className="font-medium text-cyan-600">
-          {row.deliveryNo || `DEL-${row.id}`}
-        </span>
-      )
-    },
-    {
-      key: "customerId",
-      label: "Customer",
-      render: (row) => (
-        <div>
-          <span className="font-medium">#{row.customerId}</span>
-        </div>
-      )
-    },
-    {
-      key: "salesOrderId",
-      label: "Sales Order",
-      render: (row) => (
-        <span className="text-sm text-gray-600">SO-{row.salesOrderId}</span>
-      )
-    },
-    {
-      key: "status",
-      label: "Status",
-      render: (row) => {
-        const statusConfig: Record<string, { color: string; icon: React.JSX.Element }> = {
-          PENDING: { 
-            color: "bg-yellow-100 text-yellow-700 border-yellow-200",
-            icon: <ClockIcon className="h-3 w-3" />
-          },
-          IN_PROGRESS: { 
-            color: "bg-blue-100 text-blue-700 border-blue-200",
-            icon: <RefreshCwIcon className="h-3 w-3" />
-          },
-          SHIPPED: { 
-            color: "bg-purple-100 text-purple-700 border-purple-200",
-            icon: <TruckIcon className="h-3 w-3" />
-          },
-          DELIVERED: { 
-            color: "bg-green-100 text-green-700 border-green-200",
-            icon: <CheckCircleIcon className="h-3 w-3" />
-          },
-          CANCELLED: { 
-            color: "bg-red-100 text-red-700 border-red-200",
-            icon: <XCircleIcon className="h-3 w-3" />
-          },
-          FAILED: { 
-            color: "bg-orange-100 text-orange-700 border-orange-200",
-            icon: <XCircleIcon className="h-3 w-3" />
-          }
-        };
-
-        const config = statusConfig[row.status] || statusConfig.PENDING;
-        return (
-          <span className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-1 ${config.color}`}>
-            {config.icon}
-            {row.status.replace('_', ' ')}
-          </span>
-        );
-      }
-    },
-    {
-      key: "deliveryDate",
-      label: "Delivery Date",
-      render: (row) => (
-        <div className="text-sm">
-          {row.deliveryDate ? new Date(row.deliveryDate).toLocaleDateString() : "-"}
-        </div>
-      )
-    },
-    {
-      key: "items",
-      label: "Items",
-      render: (row) => (
-        <span className="text-sm text-gray-600">
-          {row.items?.length || 0} items
-        </span>
-      )
-    },
-    {
-      key: "createdDate",
-      label: "Created",
-      render: (row) => (
-        <div className="text-xs text-gray-500">
-          {new Date(row.createdDate).toLocaleDateString()}
-        </div>
-      )
-    }
-  ];
 
   // ================= HANDLERS =================
 
   const handleAddDelivery = () => {
+    setEditingId(null);
     setForm({
       id: null,
       deliveryNo: `DEL-${Date.now()}`,
@@ -340,23 +252,51 @@ const DeliveryNote: React.FC = () => {
     setShowDetailModal(true);
   };
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value, type } = e.target;
-    
-    if (type === "number") {
-      setForm((prev) => ({
-        ...prev,
-        [name]: value === "" ? 0 : Number(value),
-      }));
-    } else {
-      setForm((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    }
+  const handleEditDelivery = (delivery: Delivery) => {
+    setEditingId(delivery.id);
+    setForm({
+      id: delivery.id,
+      deliveryNo: delivery.deliveryNo,
+      deliveryDate: delivery.deliveryDate?.split('T')[0] || "",
+      salesOrderId: delivery.salesOrderId,
+      customerId: delivery.customerId,
+      status: delivery.status,
+      items: delivery.items.map(item => ({ ...item })),
+    });
+    setShowFormModal(true);
   };
+
+  const handleDeleteClick = (delivery: Delivery) => {
+    setSelectedDelivery(delivery);
+    setShowDeleteModal(true);
+  };
+
+  
+  const handleChange = (
+  e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+) => {
+  const { name, value, type } = e.target;
+  
+  if (type === "checkbox") {
+    const checked = (e.target as HTMLInputElement).checked;
+    setForm((prev) => ({
+      ...prev,
+      [name]: checked,
+    }));
+  } else if (type === "number") {
+    // 🔥 FIX: Convert to number and remove leading zeros
+    const numValue = value === "" ? 0 : Number(value);
+    setForm((prev) => ({
+      ...prev,
+      [name]: numValue,
+    }));
+  } else {
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  }
+};
 
   const handleAddItem = () => {
     const newItem: DeliveryItem = {
@@ -386,78 +326,214 @@ const DeliveryNote: React.FC = () => {
   };
 
   const handleSaveDelivery = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    // Validate required fields
-    if (!form.customerId || !form.salesOrderId || form.items.length === 0) {
-      alert("Please fill in all required fields (Customer, Sales Order, and at least one item)");
+  // Validate
+  if (!form.customerId || !form.salesOrderId || form.items.length === 0) {
+    toast.warning("Please fill in all required fields");
+    return;
+  }
+
+  console.log("🔍 RAW DATE BEFORE CONVERSION:", form.deliveryDate);
+  console.log("🔍 DATE TYPE:", typeof form.deliveryDate);
+  console.log("🔍 DATE LENGTH:", form.deliveryDate?.length);
+  for (const item of form.items) {
+    if (!item.productId || item.orderedQty <= 0 || item.deliveredQty < 0) {
+      toast.warning("Please ensure all items have valid Product ID, Ordered Qty (>0), and Delivered Qty (>=0)");
       return;
     }
+  }
 
-    // Validate items
-    for (const item of form.items) {
-      if (!item.productId || item.orderedQty <= 0 || item.deliveredQty < 0) {
-        alert("Please ensure all items have valid Product ID, Ordered Qty (>0), and Delivered Qty (>=0)");
-        return;
+  // 🔥 SIMPLEST FIX: Use the date as-is (it's already in YYYY-MM-DD format)
+ const payload = {
+  deliveryNo: form.deliveryNo || `DEL-${Date.now()}`,
+  deliveryDate: form.deliveryDate,
+  salesOrderId: Number(form.salesOrderId),
+  customerId: Number(form.customerId),
+  status: form.status,
+  createdBy: "ADMIN",
+  tenantId: "TENANT-001",
+  items: form.items.map(item => ({
+    // id: 0,  // ← Comment out if auto-generated
+    productId: Number(item.productId),
+    orderedQty: Number(item.orderedQty),
+    deliveredQty: Number(item.deliveredQty),
+    deliveryNote: item.deliveryNote || "",
+    createdBy: "ADMIN",
+    tenantId: "TENANT-001",
+    createdDate: new Date().toISOString(),
+    updatedDate: new Date().toISOString(),
+  })),
+};
+
+  console.log("📦 FINAL PAYLOAD:", JSON.stringify(payload, null, 2));
+
+  setSubmitting(true);
+  try {
+    const response = await axios.post(
+      API.create, 
+      payload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
       }
+    );
+    
+    console.log("✅ SUCCESS:", response.data);
+    toast.success("Delivery created successfully!");
+    setShowFormModal(false);
+    setEditingId(null);
+    await fetchDeliveries();
+  } catch (err: any) {
+    console.error("❌ ERROR:", err);
+    if (err.response) {
+      console.error("Server Response:", err.response.data);
+      toast.error(err.response.data?.detail || err.response.data?.message || "Failed to save delivery!");
+    } else {
+      toast.error("Failed to save delivery. Please try again.");
     }
+  } finally {
+    setSubmitting(false);
+  }
+};
 
-    const payload = {
-      deliveryNo: form.deliveryNo,
-      deliveryDate: form.deliveryDate || new Date().toISOString().split('T')[0],
-      salesOrderId: Number(form.salesOrderId),
-      customerId: Number(form.customerId),
-      status: form.status,
-      items: form.items.map(item => ({
-        productId: Number(item.productId) || 0,
-        orderedQty: Number(item.orderedQty) || 0,
-        deliveredQty: Number(item.deliveredQty) || 0,
-        deliveryNote: item.deliveryNote || "",
-      })),
-    };
 
-    console.log("📦 DELIVERY PAYLOAD:", payload);
-
-    setLoading(true);
-    try {
-      let result: Delivery;
-      if (form.id) {
-        result = await DeliveryService.update(form.id, payload);
-        console.log("✅ Delivery updated:", result);
-      } else {
-        result = await DeliveryService.create(payload);
-        console.log("✅ Delivery created:", result);
-      }
-      
-      await fetchDeliveries();
-      setShowFormModal(false);
-      setError(null);
-    } catch (err) {
-      console.error("Error saving delivery:", err);
-      setError("Failed to save delivery. Please try again.");
-      alert("Failed to save delivery. Please check the console for details.");
-    } finally {
-      setLoading(false);
+  const handleConfirmDelete = async () => {
+    if (selectedDelivery) {
+      await deleteDelivery(selectedDelivery.id);
     }
   };
 
-  const handleDeleteDelivery = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this delivery?")) return;
+  // ================= TABLE COLUMNS =================
 
-    setLoading(true);
-    try {
-      await DeliveryService.delete(id);
-      await fetchDeliveries();
-      setShowDetailModal(false);
-      setError(null);
-    } catch (err) {
-      console.error("Error deleting delivery:", err);
-      setError("Failed to delete delivery.");
-      alert("Failed to delete delivery.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const tableColumns: ColumnDef<Delivery>[] = [
+    {
+      key: "deliveryNo",
+      label: "Delivery No",
+      sortable: true,
+      headerClassName: "w-[15%] text-left",
+      className: "w-[15%]",
+      render: (row) => (
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
+            <ClipboardListIcon className="h-4 w-4 text-cyan-600" />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-semibold text-slate-900 truncate leading-snug">
+              {row.deliveryNo || `DEL-${row.id}`}
+            </span>
+            <span className="text-xs text-slate-400 truncate">ID: #{row.id}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "customerId",
+      label: "Customer",
+      sortable: true,
+      headerClassName: "w-[12%] text-left",
+      className: "w-[12%]",
+      render: (row) => (
+        <div className="flex items-center gap-1.5">
+          <UserIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+          <span className="text-sm font-medium text-slate-700">#{row.customerId}</span>
+        </div>
+      ),
+    },
+    {
+      key: "salesOrderId",
+      label: "Sales Order",
+      sortable: true,
+      headerClassName: "w-[12%] text-left",
+      className: "w-[12%]",
+      render: (row) => (
+        <div className="flex items-center gap-1.5">
+          <ShoppingBagIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+          <span className="text-sm font-medium text-slate-700">SO-{row.salesOrderId}</span>
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      headerClassName: "w-[15%] text-left",
+      className: "w-[15%]",
+      render: (row) => {
+        const config = STATUS_CONFIG[row.status];
+        return (
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border ${config.color}`}>
+            {config.icon}
+            {config.label}
+          </span>
+        );
+      },
+    },
+    {
+      key: "deliveryDate",
+      label: "Delivery Date",
+      sortable: true,
+      headerClassName: "w-[12%] text-left",
+      className: "w-[12%]",
+      render: (row) => (
+        <div className="flex items-center gap-1.5">
+          <CalendarIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+          <span className="text-sm text-slate-600">
+            {row.deliveryDate ? new Date(row.deliveryDate).toLocaleDateString() : "-"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "items",
+      label: "Items",
+      sortable: false,
+      headerClassName: "w-[10%] text-left",
+      className: "w-[10%]",
+      render: (row) => (
+        <div className="flex items-center gap-1.5">
+          <PackageIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+          <span className="text-sm font-medium text-slate-600">{row.items?.length || 0}</span>
+        </div>
+      ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      sortable: false,
+      headerClassName: "w-[24%] text-right pr-4",
+      className: "w-[24%] text-right",
+      render: (row) => (
+        <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => handleViewDelivery(row)}
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
+            title="View Delivery"
+          >
+            <EyeIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleEditDelivery(row)}
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+            title="Edit Delivery"
+          >
+            <PencilSquareIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDeleteClick(row)}
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+            title="Delete Delivery"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   // ================= UI =================
 
@@ -473,60 +549,46 @@ const DeliveryNote: React.FC = () => {
           <AddButton onClick={handleAddDelivery} label="Add Delivery" />
         </div>
 
-        {/* Error Display */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            <span className="font-medium">Error: </span>
-            {error}
-            <button 
-              onClick={() => setError(null)}
-              className="float-right text-red-700 hover:text-red-900"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
         {/* STATS */}
         <div className="grid grid-cols-3 lg:grid-cols-6 gap-4">
-          <StatsCard 
-            label="Total" 
-            value={stats.total} 
+          <StatsCard
+            label="Total"
+            value={stats.total}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
             labelColor="text-cyan-600"
           />
-          <StatsCard 
-            label="Pending" 
+          <StatsCard
+            label="Pending"
             value={stats.pending}
             gradient="from-yellow-50 to-amber-50"
             borderColor="border-yellow-100"
             labelColor="text-yellow-600"
           />
-          <StatsCard 
-            label="In Progress" 
+          <StatsCard
+            label="In Progress"
             value={stats.inProgress}
             gradient="from-blue-50 to-indigo-50"
             borderColor="border-blue-100"
             labelColor="text-blue-600"
           />
-          <StatsCard 
-            label="Shipped" 
+          <StatsCard
+            label="Shipped"
             value={stats.shipped}
             gradient="from-purple-50 to-violet-50"
             borderColor="border-purple-100"
             labelColor="text-purple-600"
           />
-          <StatsCard 
-            label="Delivered" 
+          <StatsCard
+            label="Delivered"
             value={stats.delivered}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
           />
-          <StatsCard 
-            label="Cancelled" 
-            value={stats.cancelled + stats.failed}
+          <StatsCard
+            label="Cancelled"
+            value={stats.cancelled}
             gradient="from-red-50 to-rose-50"
             borderColor="border-red-100"
             labelColor="text-red-600"
@@ -546,7 +608,7 @@ const DeliveryNote: React.FC = () => {
               />
             </div>
           </div>
-        
+
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="p-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2"
@@ -571,7 +633,7 @@ const DeliveryNote: React.FC = () => {
                 <option value="ALL">All Statuses</option>
                 {STATUS_OPTIONS.map(status => (
                   <option key={status} value={status}>
-                    {status.replace('_', ' ')}
+                    {STATUS_CONFIG[status].label}
                   </option>
                 ))}
               </select>
@@ -642,7 +704,7 @@ const DeliveryNote: React.FC = () => {
             >
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <ClipboardListIcon className="h-6 w-6 text-cyan-600" />
-                {form.id ? "Edit Delivery" : "Create Delivery"}
+                {editingId ? "Edit Delivery" : "Create Delivery"}
               </h2>
 
               <div className="grid grid-cols-2 gap-4">
@@ -654,16 +716,12 @@ const DeliveryNote: React.FC = () => {
                   disabled
                 />
 
-                <FloatingDatePicker
+                <FloatingInput
                   label="Delivery Date *"
                   name="deliveryDate"
+                  type="date"
                   value={form.deliveryDate}
-                  onChange={(e) =>
-                    setForm((p) => ({
-                      ...p,
-                      deliveryDate: e.target.value,
-                    }))
-                  }
+                  onChange={handleChange}
                   required
                 />
 
@@ -685,7 +743,7 @@ const DeliveryNote: React.FC = () => {
                   required
                 />
 
-                <div>
+                <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Status *
                   </label>
@@ -698,7 +756,7 @@ const DeliveryNote: React.FC = () => {
                   >
                     {STATUS_OPTIONS.map(status => (
                       <option key={status} value={status}>
-                        {status.replace('_', ' ')}
+                        {STATUS_CONFIG[status].label}
                       </option>
                     ))}
                   </select>
@@ -715,9 +773,10 @@ const DeliveryNote: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleAddItem}
-                    className="text-sm text-cyan-600 hover:text-cyan-800 font-medium"
+                    className="inline-flex items-center gap-1 px-3 py-1 bg-cyan-50 text-cyan-600 rounded-lg hover:bg-cyan-100 text-sm font-medium"
                   >
-                    + Add Item
+                    <PlusIcon className="h-4 w-4" />
+                    Add Item
                   </button>
                 </div>
 
@@ -756,14 +815,14 @@ const DeliveryNote: React.FC = () => {
                           placeholder="Note"
                           value={item.deliveryNote || ''}
                           onChange={(e) => handleItemChange(index, 'deliveryNote', e.target.value)}
-                          className="w-32 p-1 border rounded text-sm"
+                          className="flex-1 p-1 border rounded text-sm"
                         />
                         <button
                           type="button"
                           onClick={() => handleRemoveItem(index)}
-                          className="text-red-500 hover:text-red-700 text-sm"
+                          className="p-1 text-red-500 hover:text-red-700 rounded-lg hover:bg-red-50"
                         >
-                          ✕
+                          <XMarkIcon className="h-4 w-4" />
                         </button>
                       </div>
                     ))}
@@ -774,19 +833,22 @@ const DeliveryNote: React.FC = () => {
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
                 <button
                   type="button"
-                  onClick={() => setShowFormModal(false)}
+                  onClick={() => {
+                    setShowFormModal(false);
+                    setEditingId(null);
+                  }}
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
-                  disabled={loading}
+                  disabled={submitting}
                 >
                   Cancel
                 </button>
 
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm font-medium disabled:opacity-50"
-                  disabled={loading}
+                  disabled={submitting}
+                  className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? "Saving..." : (form.id ? "Update" : "Create") + " Delivery"}
+                  {submitting ? "Saving..." : (editingId ? "Update" : "Create")}
                 </button>
               </div>
             </form>
@@ -802,67 +864,42 @@ const DeliveryNote: React.FC = () => {
                   <ClipboardListIcon className="h-6 w-6 text-cyan-600" />
                   {selectedDelivery.deliveryNo || `DEL-${selectedDelivery.id}`}
                 </h2>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleDeleteDelivery(selectedDelivery.id)}
-                    className="px-3 py-1 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm"
-                    disabled={loading}
-                  >
-                    {loading ? "Deleting..." : "Delete"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setForm({
-                        id: selectedDelivery.id,
-                        deliveryNo: selectedDelivery.deliveryNo,
-                        deliveryDate: selectedDelivery.deliveryDate,
-                        salesOrderId: selectedDelivery.salesOrderId,
-                        customerId: selectedDelivery.customerId,
-                        status: selectedDelivery.status,
-                        items: selectedDelivery.items.map(item => ({...item})),
-                      });
-                      setShowDetailModal(false);
-                      setShowFormModal(true);
-                    }}
-                    className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 text-sm"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => setShowDetailModal(false)}
-                    className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-sm"
-                  >
-                    Close
-                  </button>
-                </div>
+                <button
+                  onClick={() => setShowDetailModal(false)}
+                  className="p-1.5 hover:bg-gray-100 rounded-lg"
+                >
+                  <XMarkIcon className="h-5 w-5 text-gray-500" />
+                </button>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-gray-500">Customer</label>
-                  <p className="font-medium">#{selectedDelivery.customerId}</p>
+                  <p className="font-medium flex items-center gap-1.5">
+                    <UserIcon className="h-4 w-4 text-slate-400" />
+                    #{selectedDelivery.customerId}
+                  </p>
                 </div>
                 <div>
                   <label className="text-xs text-gray-500">Sales Order</label>
-                  <p className="font-medium">SO-{selectedDelivery.salesOrderId}</p>
+                  <p className="font-medium flex items-center gap-1.5">
+                    <ShoppingBagIcon className="h-4 w-4 text-slate-400" />
+                    SO-{selectedDelivery.salesOrderId}
+                  </p>
                 </div>
                 <div>
                   <label className="text-xs text-gray-500">Status</label>
                   <p className="font-medium">
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      selectedDelivery.status === "DELIVERED" ? "bg-green-100 text-green-700" :
-                      selectedDelivery.status === "SHIPPED" ? "bg-purple-100 text-purple-700" :
-                      selectedDelivery.status === "IN_PROGRESS" ? "bg-blue-100 text-blue-700" :
-                      selectedDelivery.status === "CANCELLED" || selectedDelivery.status === "FAILED" ? "bg-red-100 text-red-700" :
-                      "bg-yellow-100 text-yellow-700"
-                    }`}>
-                      {selectedDelivery.status}
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border ${STATUS_CONFIG[selectedDelivery.status].color}`}>
+                      {STATUS_CONFIG[selectedDelivery.status].icon}
+                      {STATUS_CONFIG[selectedDelivery.status].label}
                     </span>
                   </p>
                 </div>
                 <div>
                   <label className="text-xs text-gray-500">Delivery Date</label>
-                  <p className="font-medium">
+                  <p className="font-medium flex items-center gap-1.5">
+                    <CalendarIcon className="h-4 w-4 text-slate-400" />
                     {selectedDelivery.deliveryDate ? new Date(selectedDelivery.deliveryDate).toLocaleDateString() : "-"}
                   </p>
                 </div>
@@ -877,7 +914,7 @@ const DeliveryNote: React.FC = () => {
                   {selectedDelivery.items?.map((item, index) => (
                     <div key={index} className="flex justify-between items-center bg-gray-50 p-2 rounded">
                       <div>
-                        <span className="font-medium">Product #{item.productId}</span>
+                        <span className="font-medium text-sm">Product #{item.productId}</span>
                       </div>
                       <div className="text-sm space-x-3">
                         <span className="text-gray-500">Ordered: {item.orderedQty}</span>
@@ -891,9 +928,75 @@ const DeliveryNote: React.FC = () => {
                 </div>
               </div>
 
+              <div className="mt-4 border-t pt-4 flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setShowDetailModal(false);
+                    handleEditDelivery(selectedDelivery);
+                  }}
+                  className="px-4 py-2 bg-cyan-50 text-cyan-600 rounded-lg hover:bg-cyan-100 text-sm font-medium"
+                >
+                  <PencilSquareIcon className="h-4 w-4 inline mr-1" />
+                  Edit
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDetailModal(false);
+                    handleDeleteClick(selectedDelivery);
+                  }}
+                  className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-medium"
+                >
+                  <TrashIcon className="h-4 w-4 inline mr-1" />
+                  Delete
+                </button>
+              </div>
+
               <div className="mt-4 border-t pt-4 text-xs text-gray-400">
                 <p>Created: {new Date(selectedDelivery.createdDate).toLocaleString()} by {selectedDelivery.createdBy}</p>
                 <p>Updated: {new Date(selectedDelivery.updatedDate).toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================= DELETE CONFIRMATION MODAL ================= */}
+        {showDeleteModal && selectedDelivery && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-xl w-[450px]">
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <TrashIcon className="h-6 w-6 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">Delete Delivery</h3>
+                  <p className="text-sm text-gray-500">
+                    Are you sure you want to delete delivery <span className="font-semibold text-gray-700">{selectedDelivery.deliveryNo}</span>?
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Customer: #{selectedDelivery.customerId} • Items: {selectedDelivery.items?.length || 0}
+                  </p>
+                  <p className="text-xs text-red-500 mt-2">⚠️ This action cannot be undone.</p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setSelectedDelivery(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
+                >
+                  Delete Delivery
+                </button>
               </div>
             </div>
           </div>

@@ -1,23 +1,34 @@
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-
 import { FloatingInput } from "../../components/inputfeild/FloatingInput";
 
 import { 
   MagnifyingGlassIcon, 
-  MapPinIcon
+  MapPinIcon,
+  EnvelopeIcon,
+  PhoneIcon,
+  UserIcon,
+  HomeIcon,
+  BuildingOfficeIcon,
+  GlobeAltIcon,
+  XMarkIcon,
+  PencilSquareIcon,
+
+
 } from "@heroicons/react/24/solid";
 import { 
-  FunnelIcon, 
-  ClipboardListIcon,
-  CheckCircleIcon,
-  XCircleIcon
+  FunnelIcon,
+  EyeIcon,
+  TrashIcon,
+  CheckIcon
 } from "lucide-react";
 
 // ================= TYPES =================
@@ -41,10 +52,14 @@ interface CustomerAddress {
 
 // ================= API CONFIGURATION =================
 
+const API_BASE_URL = "/v1/api/delivery/customer-addresses";
+
 const API = {
-  getAll: (customerId: number) => `/v1/api/delivery/customer-addresses/by-customer/${customerId}`,
-  create: "/v1/api/delivery/customer-addresses",
-  delete: (id: number) => `/v1/api/delivery/customer-addresses/${id}`,
+  getAll: (customerId: number) => `${API_BASE_URL}/by-customer/${customerId}`,
+  getById: (id: number) => `${API_BASE_URL}/${id}`,
+  create: API_BASE_URL,
+  update: (id: number) => `${API_BASE_URL}/${id}`,
+  delete: (id: number) => `${API_BASE_URL}/${id}`,
 };
 
 // ================= CONSTANTS =================
@@ -58,9 +73,10 @@ const CustomerAddress: React.FC = () => {
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [filterCustomerId, setFilterCustomerId] = useState<string>("");
+  const [filterCustomerId, setFilterCustomerId] = useState<string>("1");
   const [activeFilter, setActiveFilter] = useState<string>("ALL");
   const [defaultFilter, setDefaultFilter] = useState<string>("ALL");
+  const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     id: null as number | null,
@@ -81,6 +97,7 @@ const CustomerAddress: React.FC = () => {
 
   const [showFormModal, setShowFormModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<CustomerAddress | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
 
@@ -95,10 +112,13 @@ const CustomerAddress: React.FC = () => {
     setLoading(true);
     try {
       const response = await axios.get(API.getAll(customerId));
-      setAddresses(response.data);
-    } catch (error) {
-      console.error("Error fetching addresses:", error);
-      alert("Failed to fetch addresses. Please try again.");
+      setAddresses(response.data || []);
+      if (response.data?.length > 0) {
+        toast.success(`Loaded ${response.data.length} address(es)`);
+      }
+    } catch (err: any) {
+      console.error("Error fetching addresses:", err);
+      toast.error(err.response?.data?.message || "Failed to fetch addresses!");
     } finally {
       setLoading(false);
     }
@@ -107,19 +127,40 @@ const CustomerAddress: React.FC = () => {
   const createAddress = async (data: any) => {
     try {
       const response = await axios.post(API.create, data);
+      toast.success("Address created successfully!");
       return response.data;
-    } catch (error) {
-      console.error("Error creating address:", error);
-      throw error;
+    } catch (err: any) {
+      console.error("Error creating address:", err);
+      toast.error(err.response?.data?.message || "Failed to create address!");
+      throw err;
+    }
+  };
+
+  const updateAddress = async (id: number, data: any) => {
+    try {
+      const response = await axios.put(API.update(id), data);
+      toast.success("Address updated successfully!");
+      return response.data;
+    } catch (err: any) {
+      console.error("Error updating address:", err);
+      toast.error(err.response?.data?.message || "Failed to update address!");
+      throw err;
     }
   };
 
   const deleteAddress = async (id: number) => {
     try {
       await axios.delete(API.delete(id));
-    } catch (error) {
-      console.error("Error deleting address:", error);
-      throw error;
+      toast.success("Address deleted successfully!");
+      setShowDeleteModal(false);
+      setSelectedAddress(null);
+      if (filterCustomerId) {
+        await fetchAddresses(Number(filterCustomerId));
+      }
+    } catch (err: any) {
+      console.error("Error deleting address:", err);
+      toast.error(err.response?.data?.message || "Failed to delete address!");
+      throw err;
     }
   };
 
@@ -161,109 +202,21 @@ const CustomerAddress: React.FC = () => {
 
   // ================= STATS =================
 
-  const getStats = () => {
-    const stats = {
-      total: addresses.length,
-      active: addresses.filter(a => a.active).length,
-      inactive: addresses.filter(a => !a.active).length,
-      defaultDelivery: addresses.filter(a => a.defaultDelivery).length,
-      defaultBilling: addresses.filter(a => a.defaultBilling).length,
-      uniqueCustomers: new Set(addresses.map(a => a.customerId)).size,
-    };
-    return stats;
-  };
+  const getStats = () => ({
+    total: addresses.length,
+    active: addresses.filter(a => a.active).length,
+    inactive: addresses.filter(a => !a.active).length,
+    defaultDelivery: addresses.filter(a => a.defaultDelivery).length,
+    defaultBilling: addresses.filter(a => a.defaultBilling).length,
+  });
 
   const stats = getStats();
 
-  // ================= TABLE =================
-
-  const tableColumns: ColumnDef<CustomerAddress>[] = [
-    {
-      key: "customerName",
-      label: "Customer",
-      render: (row) => (
-        <div>
-          <div className="font-medium text-gray-800">{row.customerName}</div>
-          <div className="text-xs text-gray-500">#{row.customerNumber}</div>
-        </div>
-      )
-    },
-    {
-      key: "address",
-      label: "Address",
-      render: (row) => (
-        <div className="text-sm">
-          <div>{row.addressLine1}</div>
-          {row.addressLine2 && <div className="text-gray-500">{row.addressLine2}</div>}
-          <div className="text-gray-500">{row.city}, {row.state}</div>
-          <div className="text-gray-400 text-xs">{row.country} - {row.postalCode}</div>
-        </div>
-      )
-    },
-    {
-      key: "defaultDelivery",
-      label: "Default",
-      render: (row) => (
-        <div className="space-y-1">
-          {row.defaultDelivery && (
-            <span className="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
-              📦 Delivery
-            </span>
-          )}
-          {row.defaultBilling && (
-            <span className="inline-block px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs ml-1">
-              💳 Billing
-            </span>
-          )}
-          {!row.defaultDelivery && !row.defaultBilling && (
-            <span className="text-xs text-gray-400">None</span>
-          )}
-        </div>
-      )
-    },
-    {
-      key: "active",
-      label: "Status",
-      render: (row) => (
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-          row.active 
-            ? "bg-green-100 text-green-700" 
-            : "bg-red-100 text-red-700"
-        }`}>
-          {row.active ? "Active" : "Inactive"}
-        </span>
-      )
-    },
-    {
-      key: "customerId",
-      label: "Customer ID",
-      render: (row) => (
-        <span className="text-sm text-gray-600">#{row.customerId}</span>
-      )
-    }
-  ];
-
   // ================= HANDLERS =================
 
-  const handleAddAddress = () => {
-    setEditingId(null);
-    setForm({
-      id: null,
-      customerId: filterCustomerId ? Number(filterCustomerId) : 0,
-      customerNumber: "",
-      customerName: "",
-      addressLine1: "",
-      addressLine2: "",
-      city: "",
-      state: "",
-      country: "",
-      postalCode: "",
-      landmark: "",
-      active: true,
-      defaultDelivery: false,
-      defaultBilling: false,
-    });
-    setShowFormModal(true);
+  const handleViewAddress = (address: CustomerAddress) => {
+    setSelectedAddress(address);
+    setShowDetailModal(true);
   };
 
   const handleEditAddress = (address: CustomerAddress) => {
@@ -287,9 +240,30 @@ const CustomerAddress: React.FC = () => {
     setShowFormModal(true);
   };
 
-  const handleViewAddress = (address: CustomerAddress) => {
+  const handleDeleteClick = (address: CustomerAddress) => {
     setSelectedAddress(address);
-    setShowDetailModal(true);
+    setShowDeleteModal(true);
+  };
+
+  const handleAddAddress = () => {
+    setEditingId(null);
+    setForm({
+      id: null,
+      customerId: filterCustomerId ? Number(filterCustomerId) : 0,
+      customerNumber: "",
+      customerName: "",
+      addressLine1: "",
+      addressLine2: "",
+      city: "",
+      state: "",
+      country: "",
+      postalCode: "",
+      landmark: "",
+      active: true,
+      defaultDelivery: false,
+      defaultBilling: false,
+    });
+    setShowFormModal(true);
   };
 
   const handleChange = (
@@ -319,9 +293,8 @@ const CustomerAddress: React.FC = () => {
   const handleSaveAddress = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate required fields
     if (!form.customerId || !form.customerName || !form.addressLine1 || !form.city || !form.state || !form.postalCode) {
-      alert("Please fill in all required fields");
+      toast.warning("Please fill in all required fields");
       return;
     }
 
@@ -341,42 +314,175 @@ const CustomerAddress: React.FC = () => {
       defaultBilling: form.defaultBilling,
     };
 
-    console.log("📍 ADDRESS PAYLOAD:", payload);
-
+    setSubmitting(true);
     try {
       if (editingId) {
-        // Update - using POST with ID in URL or body
-        await axios.put(`/v1/api/delivery/customer-addresses/${editingId}`, payload);
+        await updateAddress(editingId, payload);
       } else {
         await createAddress(payload);
       }
       
-      // Refresh the list
-      if (filterCustomerId) {
-        await fetchAddresses(Number(filterCustomerId));
-      }
       setShowFormModal(false);
-      
-    } catch (error) {
-      console.error("Error saving address:", error);
-      alert("Failed to save address. Please try again.");
-    }
-  };
-
-  const handleDeleteAddress = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this address?")) return;
-
-    try {
-      await deleteAddress(id);
+      setEditingId(null);
       if (filterCustomerId) {
         await fetchAddresses(Number(filterCustomerId));
       }
-      setShowDetailModal(false);
-    } catch (error) {
-      console.error("Error deleting address:", error);
-      alert("Failed to delete address. Please try again.");
+    } catch (err) {
+      // Error already handled by the individual functions
+    } finally {
+      setSubmitting(false);
     }
   };
+
+  const handleConfirmDelete = async () => {
+    if (selectedAddress) {
+      await deleteAddress(selectedAddress.id);
+    }
+  };
+
+  // ================= TABLE COLUMNS =================
+
+  const tableColumns: ColumnDef<CustomerAddress>[] = [
+    {
+      key: "customerName",
+      label: "Customer",
+      sortable: true,
+      headerClassName: "w-[20%] text-left",
+      className: "w-[20%]",
+      render: (address) => (
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
+            <span className="text-sm font-semibold text-cyan-700">
+              {address.customerName?.charAt(0).toUpperCase() || "C"}
+            </span>
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-semibold text-slate-900 truncate leading-snug">
+              {address.customerName}
+            </span>
+            <span className="text-xs text-slate-400 truncate">#{address.customerNumber}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "address",
+      label: "Address",
+      sortable: false,
+      headerClassName: "w-[30%] text-left",
+      className: "w-[30%]",
+      render: (address) => (
+        <div className="flex flex-col min-w-0">
+          <div className="flex items-center gap-1.5">
+            <HomeIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+            <span className="text-sm font-medium text-slate-700 truncate">{address.addressLine1}</span>
+          </div>
+          {address.addressLine2 && (
+            <span className="text-xs text-slate-500 truncate ml-5">{address.addressLine2}</span>
+          )}
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 ml-5">
+            <span>{address.city}</span>
+            <span>•</span>
+            <span>{address.state}</span>
+            <span>•</span>
+            <span className="text-slate-400">{address.postalCode}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-slate-400 ml-5">
+            <GlobeAltIcon className="h-3 w-3" />
+            <span>{address.country}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "defaults",
+      label: "Defaults",
+      sortable: false,
+      headerClassName: "w-[15%] text-left",
+      className: "w-[15%]",
+      render: (address) => (
+        <div className="flex flex-wrap gap-1">
+          {address.defaultDelivery && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-medium">
+              📦 Delivery
+            </span>
+          )}
+          {address.defaultBilling && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-xs font-medium">
+              💳 Billing
+            </span>
+          )}
+          {!address.defaultDelivery && !address.defaultBilling && (
+            <span className="text-xs text-slate-400">—</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      headerClassName: "w-[10%] text-left",
+      className: "w-[10%]",
+      render: (address) => (
+        <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full border ${
+          address.active 
+            ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+            : "bg-slate-50 text-slate-600 border-slate-200"
+        }`}>
+          <span className={`h-1.5 w-1.5 rounded-full mr-1.5 ${
+            address.active ? "bg-emerald-500" : "bg-slate-400"
+          }`} />
+          {address.active ? "Active" : "Inactive"}
+        </span>
+      ),
+    },
+    {
+      key: "customerId",
+      label: "Customer ID",
+      sortable: true,
+      headerClassName: "w-[10%] text-left",
+      className: "w-[10%]",
+      render: (address) => (
+        <span className="text-sm font-mono text-slate-600">#{address.customerId}</span>
+      ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      sortable: false,
+      headerClassName: "w-[15%] text-right pr-4",
+      className: "w-[15%] text-right",
+      render: (address) => (
+        <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => handleViewAddress(address)}
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
+            title="View Address"
+          >
+            <EyeIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleEditAddress(address)}
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+            title="Edit Address"
+          >
+            <PencilSquareIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDeleteClick(address)}
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+            title="Delete Address"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   // ================= UI =================
 
@@ -678,15 +784,17 @@ const CustomerAddress: React.FC = () => {
                   type="button"
                   onClick={() => setShowFormModal(false)}
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                  disabled={submitting}
                 >
                   Cancel
                 </button>
 
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm font-medium"
+                  disabled={submitting}
+                  className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {editingId ? "Update" : "Create"} Address
+                  {submitting ? "Saving..." : (editingId ? "Update" : "Create")}
                 </button>
               </div>
             </form>
@@ -702,29 +810,12 @@ const CustomerAddress: React.FC = () => {
                   <MapPinIcon className="h-6 w-6 text-cyan-600" />
                   Address #{selectedAddress.id}
                 </h2>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setShowDetailModal(false);
-                      handleEditAddress(selectedAddress);
-                    }}
-                    className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 text-sm"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDeleteAddress(selectedAddress.id)}
-                    className="px-3 py-1 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm"
-                  >
-                    Delete
-                  </button>
-                  <button
-                    onClick={() => setShowDetailModal(false)}
-                    className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-sm"
-                  >
-                    Close
-                  </button>
-                </div>
+                <button
+                  onClick={() => setShowDetailModal(false)}
+                  className="p-1.5 hover:bg-gray-100 rounded-lg"
+                >
+                  <XMarkIcon className="h-5 w-5 text-gray-500" />
+                </button>
               </div>
 
               <div className="space-y-4">
@@ -779,6 +870,72 @@ const CustomerAddress: React.FC = () => {
                     </div>
                   </div>
                 </div>
+
+                <div className="border-t pt-4 flex justify-end gap-2">
+                  <button
+                    onClick={() => {
+                      setShowDetailModal(false);
+                      handleEditAddress(selectedAddress);
+                    }}
+                    className="px-4 py-2 bg-cyan-50 text-cyan-600 rounded-lg hover:bg-cyan-100 text-sm font-medium"
+                  >
+                    <PencilSquareIcon className="h-4 w-4 inline mr-1" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDetailModal(false);
+                      handleDeleteClick(selectedAddress);
+                    }}
+                    className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-medium"
+                  >
+                    <TrashIcon className="h-4 w-4 inline mr-1" />
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================= DELETE CONFIRMATION MODAL ================= */}
+        {showDeleteModal && selectedAddress && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-xl w-[450px]">
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <TrashIcon className="h-6 w-6 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">Delete Address</h3>
+                  <p className="text-sm text-gray-500">
+                    Are you sure you want to delete the address for <span className="font-semibold text-gray-700">{selectedAddress.customerName}</span>?
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Address: {selectedAddress.addressLine1}, {selectedAddress.city}
+                  </p>
+                  <p className="text-xs text-red-500 mt-2">⚠️ This action cannot be undone.</p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setSelectedAddress(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
+                >
+                  Delete Address
+                </button>
               </div>
             </div>
           </div>

@@ -1,51 +1,48 @@
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import { FloatingInput } from "../../components/inputfeild/FloatingInput";
 
-import { FloatingSelect, FloatingDatePicker, FloatingInput } from "../../components/inputfeild/FloatingInput";
+import {
+  MagnifyingGlassIcon,
+  BuildingOfficeIcon,
+  TruckIcon as TruckSolidIcon,
+  XMarkIcon,
 
-import { MagnifyingGlassIcon, BuildingOfficeIcon } from "@heroicons/react/24/solid";
-import { FunnelIcon, TruckIcon, EyeIcon, PencilIcon, XCircleIcon } from "lucide-react";
+} from "@heroicons/react/24/solid";
+import {
+  FunnelIcon,
+  TruckIcon,
+  EyeIcon,
+  PencilIcon,
+  TrashIcon,
+  PlusIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  PackageIcon,
+  MapPinIcon,
+} from "lucide-react";
 
 // ================= TYPES =================
 
 type ShipmentStatus = "DRAFT" | "SHIPPED" | "DELIVERED";
 
-// For API payload (simplified items without auto-generated fields)
-interface ShipmentItemPayload {
+interface ShipmentItem {
   id?: number;
   productId: number;
   shippedQty: number;
-}
-
-// Full Shipment Item with all fields (from API response)
-interface ShipmentItem extends ShipmentItemPayload {
-  createdDate: string;
-  updatedDate: string;
-  createdBy: string;
-  tenantId: string;
-  shipment: string;
-}
-
-// For API create payload - using the simplified item type
-interface ShipmentCreatePayload {
-  shipmentNo: string;
-  shipmentDate: string;
-  salesOrderId: number;
-  reservationId: number;
-  warehouseId: number;
-  carrier: string;
-  trackingNumber: string;
-  status: ShipmentStatus;
-  active: boolean;
-  createdBy: string;
-  tenantId: string;
-  items: ShipmentItemPayload[]; // Use simplified type here
+  createdDate?: string;
+  updatedDate?: string;
+  createdBy?: string;
+  tenantId?: string;
+  shipment?: string;
 }
 
 interface Shipment {
@@ -66,129 +63,54 @@ interface Shipment {
   items: ShipmentItem[];
 }
 
-// For form state
+interface Warehouse {
+  id: number;
+  name: string;
+  code?: string;
+}
+
 interface FormShipmentItem {
-  id?: number;
   productId: number;
   shippedQty: number;
 }
 
-interface Warehouse {
-  id: number;
-  name: string;
-}
-
 // ================= API CONFIGURATION =================
 
-const API_BASE_URL = "http://localhost:8080"; // Change this to your actual API URL
+const API_BASE_URL = "/v1/api/delivery";
 
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-// Add auth token interceptor
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem("authToken");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// ================= API SERVICE =================
-
-class ShipmentService {
-  // GET /v1/api/delivery/shipments
-  static async getAll(): Promise<Shipment[]> {
-    try {
-      const response = await apiClient.get("/v1/api/delivery/shipments");
-      return response.data;
-    } catch (error) {
-      console.error("Error fetching shipments:", error);
-      throw error;
-    }
-  }
-
-  // GET /v1/api/delivery/shipments/{id}
-  static async getById(id: number): Promise<Shipment> {
-    try {
-      const response = await apiClient.get(`/v1/api/delivery/shipments/${id}`);
-      return response.data;
-    } catch (error) {
-      console.error(`Error fetching shipment ${id}:`, error);
-      throw error;
-    }
-  }
-
-  // POST /v1/api/delivery/shipments
-  static async create(data: ShipmentCreatePayload): Promise<Shipment> {
-    try {
-      const response = await apiClient.post("/v1/api/delivery/shipments", data);
-      return response.data;
-    } catch (error) {
-      console.error("Error creating shipment:", error);
-      throw error;
-    }
-  }
-
-  // PUT /v1/api/delivery/shipments/{id}/status
-  static async updateStatus(id: number, status: ShipmentStatus): Promise<Shipment> {
-    try {
-      const response = await apiClient.put(`/v1/api/delivery/shipments/${id}/status`, { status });
-      return response.data;
-    } catch (error) {
-      console.error(`Error updating shipment status ${id}:`, error);
-      throw error;
-    }
-  }
-
-  // DELETE /v1/api/delivery/shipments/{id}
-  static async delete(id: number): Promise<void> {
-    try {
-      await apiClient.delete(`/v1/api/delivery/shipments/${id}`);
-    } catch (error) {
-      console.error(`Error deleting shipment ${id}:`, error);
-      throw error;
-    }
-  }
-}
-
-class WarehouseService {
-  // GET /v1/api/warehouse
-  static async getAll(): Promise<Warehouse[]> {
-    try {
-      const response = await apiClient.get("/v1/api/warehouse");
-      return response.data;
-    } catch (error) {
-      console.error("Error fetching warehouses:", error);
-      throw error;
-    }
-  }
-}
+const API = {
+  shipments: `${API_BASE_URL}/shipments`,
+  shipmentById: (id: number) => `${API_BASE_URL}/shipments/${id}`,
+  shipmentStatus: (id: number) => `${API_BASE_URL}/shipments/${id}/status`,
+  warehouses: "/v1/api/inventory/warehouses",
+  customers: `${API_BASE_URL}/customers`,
+  salesOrders: `${API_BASE_URL}/sales-orders`,
+  products: `${API_BASE_URL}/products`,
+};
 
 // ================= CONSTANTS =================
 
 const PAGE_SIZE = 10;
 const STATUS_OPTIONS: ShipmentStatus[] = ["DRAFT", "SHIPPED", "DELIVERED"];
 
-const STATUS_CONFIG: Record<string, { color: string; bgColor: string; icon: React.JSX.Element }> = {
+const STATUS_CONFIG: Record<ShipmentStatus, { color: string; bgColor: string; icon: React.ReactNode; label: string }> = {
   DRAFT: {
     color: "text-yellow-700",
-    bgColor: "bg-yellow-100",
-    icon: <span className="text-xs">📝</span>
+    bgColor: "bg-yellow-50 border-yellow-200",
+    icon: <ClockIcon className="h-3 w-3" />,
+    label: "Draft"
   },
   SHIPPED: {
     color: "text-blue-700",
-    bgColor: "bg-blue-100",
-    icon: <span className="text-xs">🚚</span>
+    bgColor: "bg-blue-50 border-blue-200",
+    icon: <TruckIcon className="h-3 w-3" />,
+    label: "Shipped"
   },
   DELIVERED: {
     color: "text-green-700",
-    bgColor: "bg-green-100",
-    icon: <span className="text-xs">✅</span>
+    bgColor: "bg-green-50 border-green-200",
+    icon: <CheckCircleIcon className="h-3 w-3" />,
+    label: "Delivered"
   }
 };
 
@@ -199,7 +121,7 @@ const Shipment: React.FC = () => {
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [statusFilter, setStatusFilter] = useState<ShipmentStatus | "ALL">("ALL");
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
 
@@ -210,37 +132,34 @@ const Shipment: React.FC = () => {
     carrier: "",
     shipmentDate: "",
     status: "DRAFT" as ShipmentStatus,
-    warehouseId: "",
+    warehouseId: 0,
     salesOrderId: 0,
     reservationId: 0,
     active: true,
     items: [] as FormShipmentItem[],
-    createdBy: "",
-    tenantId: "",
   });
 
   const [showFormModal, setShowFormModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [newStatus, setNewStatus] = useState<ShipmentStatus>("DRAFT");
 
-  // ================= FETCH =================
-
-  useEffect(() => {
-    fetchShipments();
-    fetchWarehouses();
-  }, []);
+  // ================= API FUNCTIONS =================
 
   const fetchShipments = async () => {
     setLoading(true);
-    setError(null);
     try {
-      const data = await ShipmentService.getAll();
-      setShipments(data);
-    } catch (err) {
+      const response = await axios.get(API.shipments);
+      setShipments(response.data || []);
+      if (response.data?.length > 0) {
+        toast.success(`Loaded ${response.data.length} shipment(s)`);
+      }
+    } catch (err: any) {
       console.error("Error fetching shipments:", err);
-      setError("Failed to load shipments. Please try again.");
+      toast.error(err.response?.data?.message || "Failed to fetch shipments!");
     } finally {
       setLoading(false);
     }
@@ -248,12 +167,65 @@ const Shipment: React.FC = () => {
 
   const fetchWarehouses = async () => {
     try {
-      const data = await WarehouseService.getAll();
-      setWarehouses(data);
-    } catch (err) {
+      const response = await axios.get(API.warehouses);
+      setWarehouses(response.data || []);
+       if (response.data?.length > 0) {
+      console.log(`✅ Loaded ${response.data.length} warehouses`);
+      }
+     } catch (err: any) {
       console.error("Error fetching warehouses:", err);
+      toast.error("Failed to load warehouses");
     }
   };
+  useEffect(() => {
+  fetchShipments();
+  fetchWarehouses(); 
+}, []);
+
+  const createShipment = async (data: any) => {
+    try {
+      const response = await axios.post(API.shipments, data);
+      toast.success("Shipment created successfully!");
+      return response.data;
+    } catch (err: any) {
+      console.error("Error creating shipment:", err);
+      toast.error(err.response?.data?.message || "Failed to create shipment!");
+      throw err;
+    }
+  };
+
+  const updateShipmentStatus = async (id: number, status: ShipmentStatus) => {
+    try {
+      const response = await axios.put(API.shipmentStatus(id), { status });
+      toast.success(`Status updated to ${status}!`);
+      return response.data;
+    } catch (err: any) {
+      console.error("Error updating status:", err);
+      toast.error(err.response?.data?.message || "Failed to update status!");
+      throw err;
+    }
+  };
+
+  const deleteShipment = async (id: number) => {
+    try {
+      await axios.delete(API.shipmentById(id));
+      toast.success("Shipment deleted successfully!");
+      setShowDeleteModal(false);
+      setSelectedShipment(null);
+      await fetchShipments();
+    } catch (err: any) {
+      console.error("Error deleting shipment:", err);
+      toast.error(err.response?.data?.message || "Failed to delete shipment!");
+      throw err;
+    }
+  };
+
+  // ================= FETCH =================
+
+  useEffect(() => {
+    fetchShipments();
+    fetchWarehouses();
+  }, []);
 
   // ================= FILTER =================
 
@@ -274,121 +246,19 @@ const Shipment: React.FC = () => {
 
   // ================= STATS =================
 
-  const getStats = () => {
-    const stats = {
-      total: shipments.length,
-      draft: shipments.filter(s => s.status === "DRAFT").length,
-      shipped: shipments.filter(s => s.status === "SHIPPED").length,
-      delivered: shipments.filter(s => s.status === "DELIVERED").length,
-    };
-    return stats;
-  };
+  const getStats = () => ({
+    total: shipments.length,
+    draft: shipments.filter(s => s.status === "DRAFT").length,
+    shipped: shipments.filter(s => s.status === "SHIPPED").length,
+    delivered: shipments.filter(s => s.status === "DELIVERED").length,
+  });
 
   const stats = getStats();
-
-  // ================= TABLE =================
-
-  const tableColumns: ColumnDef<Shipment>[] = [
-    {
-      key: "shipmentNo",
-      label: "Shipment No",
-      render: (row) => (
-        <span className="font-medium text-cyan-600">
-          {row.shipmentNo || `SHIP-${row.id}`}
-        </span>
-      )
-    },
-    {
-      key: "trackingNumber",
-      label: "Tracking No",
-      render: (row) => (
-        <span className="text-sm text-gray-600">
-          {row.trackingNumber || "-"}
-        </span>
-      )
-    },
-    {
-      key: "carrier",
-      label: "Carrier",
-      render: (row) => (
-        <span className="text-sm text-gray-600">
-          {row.carrier || "-"}
-        </span>
-      )
-    },
-    {
-      key: "status",
-      label: "Status",
-      render: (row) => {
-        const config = STATUS_CONFIG[row.status] || STATUS_CONFIG.DRAFT;
-        return (
-          <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 w-fit ${config.bgColor} ${config.color}`}>
-            {config.icon}
-            {row.status}
-          </span>
-        );
-      }
-    },
-    {
-      key: "shipmentDate",
-      label: "Shipment Date",
-      render: (row) => (
-        <div className="text-sm">
-          {row.shipmentDate ? new Date(row.shipmentDate).toLocaleDateString() : "-"}
-        </div>
-      )
-    },
-    {
-      key: "items",
-      label: "Items",
-      render: (row) => (
-        <span className="text-sm text-gray-600">
-          {row.items?.length || 0} items
-        </span>
-      )
-    },
-    {
-      key: "active",
-      label: "Active",
-      render: (row) => (
-        <span className={`text-xs font-medium ${row.active ? 'text-green-600' : 'text-red-600'}`}>
-          {row.active ? '✅' : '❌'}
-        </span>
-      )
-    },
-    {
-      key: "actions",
-      label: "Actions",
-      render: (row) => (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleViewShipment(row);
-            }}
-            className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-            title="View Details"
-          >
-            <EyeIcon className="h-4 w-4" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleOpenStatusModal(row);
-            }}
-            className="p-1 text-purple-600 hover:bg-purple-50 rounded transition-colors"
-            title="Update Status"
-          >
-            <PencilIcon className="h-4 w-4" />
-          </button>
-        </div>
-      )
-    }
-  ];
 
   // ================= HANDLERS =================
 
   const handleAddShipment = () => {
+    setEditingId(null);
     setForm({
       id: null,
       shipmentNo: `SHIP-${Date.now()}`,
@@ -396,13 +266,11 @@ const Shipment: React.FC = () => {
       carrier: "",
       shipmentDate: new Date().toISOString().split('T')[0],
       status: "DRAFT",
-      warehouseId: "",
+      warehouseId: 0,
       salesOrderId: 0,
       reservationId: 0,
       active: true,
       items: [],
-      createdBy: "",
-      tenantId: "",
     });
     setShowFormModal(true);
   };
@@ -410,6 +278,32 @@ const Shipment: React.FC = () => {
   const handleViewShipment = (shipment: Shipment) => {
     setSelectedShipment(shipment);
     setShowDetailModal(true);
+  };
+
+  const handleEditShipment = (shipment: Shipment) => {
+    setEditingId(shipment.id);
+    setForm({
+      id: shipment.id,
+      shipmentNo: shipment.shipmentNo,
+      trackingNumber: shipment.trackingNumber || "",
+      carrier: shipment.carrier || "",
+      shipmentDate: shipment.shipmentDate?.split('T')[0] || "",
+      status: shipment.status,
+      warehouseId: shipment.warehouseId || 0,
+      salesOrderId: shipment.salesOrderId || 0,
+      reservationId: shipment.reservationId || 0,
+      active: shipment.active,
+      items: shipment.items.map(item => ({
+        productId: item.productId,
+        shippedQty: item.shippedQty,
+      })),
+    });
+    setShowFormModal(true);
+  };
+
+  const handleDeleteClick = (shipment: Shipment) => {
+    setSelectedShipment(shipment);
+    setShowDeleteModal(true);
   };
 
   const handleOpenStatusModal = (shipment: Shipment) => {
@@ -422,8 +316,14 @@ const Shipment: React.FC = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value, type } = e.target;
-    
-    if (type === "number") {
+
+    if (type === "checkbox") {
+      const checked = (e.target as HTMLInputElement).checked;
+      setForm((prev) => ({
+        ...prev,
+        [name]: checked,
+      }));
+    } else if (type === "number") {
       setForm((prev) => ({
         ...prev,
         [name]: value === "" ? 0 : Number(value),
@@ -441,7 +341,6 @@ const Shipment: React.FC = () => {
       productId: 0,
       shippedQty: 0,
     };
-
     setForm(prev => ({
       ...prev,
       items: [...prev.items, newItem]
@@ -464,30 +363,33 @@ const Shipment: React.FC = () => {
   const handleSaveShipment = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!form.shipmentNo || !form.warehouseId) {
-      alert("Shipment No and Warehouse are required!");
+    if (!form.shipmentNo) {
+      toast.warning("Shipment No is required!");
+      return;
+    }
+
+    if (!form.warehouseId || form.warehouseId <= 0) {
+      toast.warning("Please select a warehouse!");
       return;
     }
 
     if (form.items.length === 0) {
-      alert("Please add at least one item to the shipment!");
+      toast.warning("Please add at least one item to the shipment!");
       return;
     }
 
-    // Validate items
     for (const item of form.items) {
       if (!item.productId || item.productId <= 0) {
-        alert("Please enter a valid Product ID for all items!");
+        toast.warning("Please enter a valid Product ID for all items!");
         return;
       }
       if (!item.shippedQty || item.shippedQty <= 0) {
-        alert("Please enter a valid quantity (>0) for all items!");
+        toast.warning("Please enter a valid quantity (>0) for all items!");
         return;
       }
     }
 
-    // Build payload with proper typing
-    const payload: ShipmentCreatePayload = {
+    const payload = {
       shipmentNo: form.shipmentNo,
       shipmentDate: form.shipmentDate || new Date().toISOString().split('T')[0],
       salesOrderId: Number(form.salesOrderId) || 0,
@@ -497,41 +399,32 @@ const Shipment: React.FC = () => {
       trackingNumber: form.trackingNumber || "",
       status: form.status,
       active: true,
-      createdBy: localStorage.getItem("username") || "system",
-      tenantId: "default",
+      createdBy: localStorage.getItem("username") || "ADMIN",
+      tenantId: "TENANT-001",
       items: form.items.map(item => ({
         productId: Number(item.productId),
         shippedQty: Number(item.shippedQty),
-        ...(item.id && { id: item.id })
       })),
     };
 
-    console.log("📦 SAVE PAYLOAD:", payload);
+    console.log("📦 SAVE PAYLOAD:", JSON.stringify(payload, null, 2));
 
-    setLoading(true);
+    setSubmitting(true);
     try {
-      let result: Shipment;
-      if (form.id) {
-        // Since we don't have a PUT endpoint for full update, we'll use the status endpoint
-        alert("Edit functionality is limited. Please use the status update feature.");
-        setShowFormModal(false);
-        return;
+      if (editingId) {
+        // For edit, update status (since full update might not be available)
+        await updateShipmentStatus(editingId, form.status);
       } else {
-        // POST /v1/api/delivery/shipments
-        result = await ShipmentService.create(payload);
-        console.log("✅ Shipment created:", result);
+        await createShipment(payload);
       }
-      
-      await fetchShipments();
+
       setShowFormModal(false);
-      setError(null);
-      alert("Shipment created successfully!");
+      setEditingId(null);
+      await fetchShipments();
     } catch (err) {
-      console.error("Error saving shipment:", err);
-      setError("Failed to save shipment. Please try again.");
-      alert("Failed to save shipment. Please try again.");
+      // Error already handled by individual functions
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -539,54 +432,172 @@ const Shipment: React.FC = () => {
     if (!selectedShipment) return;
 
     if (newStatus === selectedShipment.status) {
-      alert("New status is the same as current status.");
+      toast.info("Status is already set to " + newStatus);
+      setShowStatusModal(false);
       return;
     }
 
-    setLoading(true);
+    setSubmitting(true);
     try {
-      // PUT /v1/api/delivery/shipments/{id}/status
-      await ShipmentService.updateStatus(selectedShipment.id, newStatus);
-      await fetchShipments();
+      await updateShipmentStatus(selectedShipment.id, newStatus);
       setShowStatusModal(false);
       setShowDetailModal(false);
-      setError(null);
-      alert(`Status updated to ${newStatus} successfully!`);
-    } catch (err) {
-      console.error("Error updating status:", err);
-      setError("Failed to update status.");
-      alert("Failed to update status. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteShipment = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this shipment?")) return;
-
-    setLoading(true);
-    try {
-      // DELETE /v1/api/delivery/shipments/{id}
-      await ShipmentService.delete(id);
       await fetchShipments();
-      setShowDetailModal(false);
-      setError(null);
-      alert("Shipment deleted successfully!");
     } catch (err) {
-      console.error("Error deleting shipment:", err);
-      setError("Failed to delete shipment.");
-      alert("Failed to delete shipment.");
+      // Error already handled
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
+
+  const handleConfirmDelete = async () => {
+    if (selectedShipment) {
+      await deleteShipment(selectedShipment.id);
+    }
+  };
+
+  // ================= TABLE COLUMNS =================
+
+  const tableColumns: ColumnDef<Shipment>[] = [
+    {
+      key: "shipmentNo",
+      label: "Shipment No",
+      sortable: true,
+      headerClassName: "w-[15%] text-left",
+      className: "w-[15%]",
+      render: (row) => (
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
+            <TruckIcon className="h-4 w-4 text-cyan-600" />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-semibold text-slate-900 truncate leading-snug">
+              {row.shipmentNo || `SHIP-${row.id}`}
+            </span>
+            <span className="text-xs text-slate-400 truncate">ID: #{row.id}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "trackingNumber",
+      label: "Tracking No",
+      sortable: true,
+      headerClassName: "w-[12%] text-left",
+      className: "w-[12%]",
+      render: (row) => (
+        <span className="text-sm font-mono text-slate-600">
+          {row.trackingNumber || "-"}
+        </span>
+      ),
+    },
+    {
+      key: "carrier",
+      label: "Carrier",
+      sortable: true,
+      headerClassName: "w-[12%] text-left",
+      className: "w-[12%]",
+      render: (row) => (
+        <span className="text-sm text-slate-600">{row.carrier || "-"}</span>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      headerClassName: "w-[12%] text-left",
+      className: "w-[12%]",
+      render: (row) => {
+        const config = STATUS_CONFIG[row.status];
+        return (
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border ${config.bgColor} ${config.color}`}>
+            {config.icon}
+            {config.label}
+          </span>
+        );
+      },
+    },
+    {
+      key: "shipmentDate",
+      label: "Shipment Date",
+      sortable: true,
+      headerClassName: "w-[12%] text-left",
+      className: "w-[12%]",
+      render: (row) => (
+        <div className="text-sm text-slate-600">
+          {row.shipmentDate ? new Date(row.shipmentDate).toLocaleDateString() : "-"}
+        </div>
+      ),
+    },
+    {
+      key: "items",
+      label: "Items",
+      sortable: false,
+      headerClassName: "w-[10%] text-left",
+      className: "w-[10%]",
+      render: (row) => (
+        <div className="flex items-center gap-1.5">
+          <PackageIcon className="h-3.5 w-3.5 text-slate-400" />
+          <span className="text-sm font-medium text-slate-600">{row.items?.length || 0}</span>
+        </div>
+      ),
+    },
+    {
+      key: "warehouseId",
+      label: "Warehouse",
+      sortable: true,
+      headerClassName: "w-[12%] text-left",
+      className: "w-[12%]",
+      render: (row) => (
+        <div className="flex items-center gap-1.5">
+          <MapPinIcon className="h-3.5 w-3.5 text-slate-400" />
+          <span className="text-sm text-slate-600">#{row.warehouseId}</span>
+        </div>
+      ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      sortable: false,
+      headerClassName: "w-[15%] text-right pr-4",
+      className: "w-[15%] text-right",
+      render: (row) => (
+        <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => handleViewShipment(row)}
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
+            title="View Details"
+          >
+            <EyeIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleOpenStatusModal(row)}
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-purple-50 hover:text-purple-600"
+            title="Update Status"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDeleteClick(row)}
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+            title="Delete Shipment"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   // ================= UI =================
 
   return (
     <>
-      <PageMeta title="Shipment" description="Manage shipments" />
-      <PageBreadcrumb pageTitle="Shipment" />
+      <PageMeta title="Shipments" description="Manage shipments" />
+      <PageBreadcrumb pageTitle="Shipments" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
 
@@ -595,45 +606,31 @@ const Shipment: React.FC = () => {
           <AddButton onClick={handleAddShipment} label="Add Shipment" />
         </div>
 
-        {/* Error Display */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            <span className="font-medium">Error: </span>
-            {error}
-            <button 
-              onClick={() => setError(null)}
-              className="float-right text-red-700 hover:text-red-900"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
         {/* STATS */}
         <div className="grid grid-cols-4 gap-4">
-          <StatsCard 
-            label="Total" 
-            value={stats.total} 
+          <StatsCard
+            label="Total"
+            value={stats.total}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
             labelColor="text-cyan-600"
           />
-          <StatsCard 
-            label="Draft" 
+          <StatsCard
+            label="Draft"
             value={stats.draft}
             gradient="from-yellow-50 to-amber-50"
             borderColor="border-yellow-100"
             labelColor="text-yellow-600"
           />
-          <StatsCard 
-            label="Shipped" 
+          <StatsCard
+            label="Shipped"
             value={stats.shipped}
             gradient="from-blue-50 to-indigo-50"
             borderColor="border-blue-100"
             labelColor="text-blue-600"
           />
-          <StatsCard 
-            label="Delivered" 
+          <StatsCard
+            label="Delivered"
             value={stats.delivered}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -654,7 +651,7 @@ const Shipment: React.FC = () => {
               />
             </div>
           </div>
-        
+
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="p-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2"
@@ -679,7 +676,7 @@ const Shipment: React.FC = () => {
                 <option value="ALL">All Statuses</option>
                 {STATUS_OPTIONS.map(status => (
                   <option key={status} value={status}>
-                    {status}
+                    {STATUS_CONFIG[status].label}
                   </option>
                 ))}
               </select>
@@ -709,7 +706,7 @@ const Shipment: React.FC = () => {
           loading={loading}
           emptyState={
             <div className="flex flex-col items-center -mt-10">
-              <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />
+              <TruckIcon className="h-12 w-12 text-gray-400 mb-3" />
               <p className="text-gray-500 text-sm mb-2">No Shipments Found</p>
               {search || statusFilter !== "ALL" ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
@@ -726,7 +723,7 @@ const Shipment: React.FC = () => {
           }
         />
 
-        {/* ================= CREATE MODAL ================= */}
+        {/* ================= CREATE/EDIT MODAL ================= */}
         {showFormModal && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
             <form
@@ -735,7 +732,7 @@ const Shipment: React.FC = () => {
             >
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <TruckIcon className="h-6 w-6 text-cyan-600" />
-                {form.id ? "Edit Shipment" : "Create Shipment"}
+                {editingId ? "Edit Shipment" : "Create Shipment"}
               </h2>
 
               <div className="grid grid-cols-2 gap-4">
@@ -745,7 +742,6 @@ const Shipment: React.FC = () => {
                   value={form.shipmentNo}
                   onChange={handleChange}
                   disabled
-                  required
                 />
 
                 <FloatingInput
@@ -762,16 +758,12 @@ const Shipment: React.FC = () => {
                   onChange={handleChange}
                 />
 
-                <FloatingDatePicker
+                <FloatingInput
                   label="Shipment Date"
                   name="shipmentDate"
+                  type="date"
                   value={form.shipmentDate}
-                  onChange={(e) =>
-                    setForm((p) => ({
-                      ...p,
-                      shipmentDate: e.target.value,
-                    }))
-                  }
+                  onChange={handleChange}
                 />
 
                 <div>
@@ -785,7 +777,7 @@ const Shipment: React.FC = () => {
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                     required
                   >
-                    <option value="">Select Warehouse</option>
+                    <option value={0}>Select Warehouse</option>
                     {warehouses.map((w) => (
                       <option key={w.id} value={w.id}>
                         {w.name || `Warehouse #${w.id}`}
@@ -806,7 +798,7 @@ const Shipment: React.FC = () => {
                   >
                     {STATUS_OPTIONS.map(status => (
                       <option key={status} value={status}>
-                        {status}
+                        {STATUS_CONFIG[status].label}
                       </option>
                     ))}
                   </select>
@@ -833,15 +825,16 @@ const Shipment: React.FC = () => {
               <div className="mt-4 border-t pt-4">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
-                    <span>📦</span>
+                    <PackageIcon className="h-5 w-5 text-cyan-600" />
                     Items ({form.items.length}) *
                   </h3>
                   <button
                     type="button"
                     onClick={handleAddItem}
-                    className="text-sm text-cyan-600 hover:text-cyan-800 font-medium"
+                    className="inline-flex items-center gap-1 px-3 py-1 bg-cyan-50 text-cyan-600 rounded-lg hover:bg-cyan-100 text-sm font-medium"
                   >
-                    + Add Item
+                    <PlusIcon className="h-4 w-4" />
+                    Add Item
                   </button>
                 </div>
 
@@ -854,7 +847,7 @@ const Shipment: React.FC = () => {
                 {form.items.length > 0 && (
                   <div className="space-y-2 max-h-60 overflow-y-auto">
                     {form.items.map((item, index) => (
-                      <div key={index} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+                      <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
                         <input
                           type="number"
                           placeholder="Product ID *"
@@ -875,9 +868,9 @@ const Shipment: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleRemoveItem(index)}
-                          className="text-red-500 hover:text-red-700 text-sm ml-auto"
+                          className="p-1 text-red-500 hover:text-red-700 rounded-lg hover:bg-red-50"
                         >
-                          ✕
+                          <XMarkIcon className="h-4 w-4" />
                         </button>
                       </div>
                     ))}
@@ -888,19 +881,22 @@ const Shipment: React.FC = () => {
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
                 <button
                   type="button"
-                  onClick={() => setShowFormModal(false)}
+                  onClick={() => {
+                    setShowFormModal(false);
+                    setEditingId(null);
+                  }}
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
-                  disabled={loading}
+                  disabled={submitting}
                 >
                   Cancel
                 </button>
 
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm font-medium disabled:opacity-50"
-                  disabled={loading}
+                  disabled={submitting}
+                  className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? "Saving..." : (form.id ? "Update" : "Create") + " Shipment"}
+                  {submitting ? "Saving..." : (editingId ? "Update" : "Create")}
                 </button>
               </div>
             </form>
@@ -916,30 +912,12 @@ const Shipment: React.FC = () => {
                   <TruckIcon className="h-6 w-6 text-cyan-600" />
                   {selectedShipment.shipmentNo || `SHIP-${selectedShipment.id}`}
                 </h2>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setNewStatus(selectedShipment.status);
-                      setShowStatusModal(true);
-                    }}
-                    className="px-3 py-1 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 text-sm"
-                  >
-                    Update Status
-                  </button>
-                  <button
-                    onClick={() => handleDeleteShipment(selectedShipment.id)}
-                    className="px-3 py-1 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm"
-                    disabled={loading}
-                  >
-                    {loading ? "Deleting..." : "Delete"}
-                  </button>
-                  <button
-                    onClick={() => setShowDetailModal(false)}
-                    className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-sm"
-                  >
-                    Close
-                  </button>
-                </div>
+                <button
+                  onClick={() => setShowDetailModal(false)}
+                  className="p-1.5 hover:bg-gray-100 rounded-lg"
+                >
+                  <XMarkIcon className="h-5 w-5 text-gray-500" />
+                </button>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -954,8 +932,9 @@ const Shipment: React.FC = () => {
                 <div>
                   <label className="text-xs text-gray-500">Status</label>
                   <p className="font-medium">
-                    <span className={`px-2 py-1 rounded-full text-xs ${STATUS_CONFIG[selectedShipment.status]?.bgColor} ${STATUS_CONFIG[selectedShipment.status]?.color}`}>
-                      {selectedShipment.status}
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border ${STATUS_CONFIG[selectedShipment.status].bgColor} ${STATUS_CONFIG[selectedShipment.status].color}`}>
+                      {STATUS_CONFIG[selectedShipment.status].icon}
+                      {STATUS_CONFIG[selectedShipment.status].label}
                     </span>
                   </p>
                 </div>
@@ -973,25 +952,56 @@ const Shipment: React.FC = () => {
                   <label className="text-xs text-gray-500">Warehouse</label>
                   <p className="font-medium">#{selectedShipment.warehouseId}</p>
                 </div>
+                <div>
+                  <label className="text-xs text-gray-500">Reservation ID</label>
+                  <p className="font-medium">#{selectedShipment.reservationId}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Active</label>
+                  <p className="font-medium">{selectedShipment.active ? '✅ Yes' : '❌ No'}</p>
+                </div>
               </div>
 
               <div className="mt-4 border-t pt-4">
                 <h3 className="text-md font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                  <span>📦</span>
+                  <PackageIcon className="h-5 w-5 text-cyan-600" />
                   Items ({selectedShipment.items?.length || 0})
                 </h3>
                 <div className="space-y-1 max-h-40 overflow-y-auto">
                   {selectedShipment.items?.map((item, index) => (
                     <div key={index} className="flex justify-between items-center bg-gray-50 p-2 rounded">
                       <div>
-                        <span className="font-medium">Product #{item.productId}</span>
+                        <span className="font-medium text-sm">Product #{item.productId}</span>
                       </div>
-                      <div className="text-sm space-x-3">
+                      <div className="text-sm">
                         <span className="text-gray-500">Qty: {item.shippedQty}</span>
                       </div>
                     </div>
                   ))}
                 </div>
+              </div>
+
+              <div className="mt-4 border-t pt-4 flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setShowDetailModal(false);
+                    handleOpenStatusModal(selectedShipment);
+                  }}
+                  className="px-4 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 text-sm font-medium"
+                >
+                  <PencilIcon className="h-4 w-4 inline mr-1" />
+                  Update Status
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDetailModal(false);
+                    handleDeleteClick(selectedShipment);
+                  }}
+                  className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-medium"
+                >
+                  <TrashIcon className="h-4 w-4 inline mr-1" />
+                  Delete
+                </button>
               </div>
 
               <div className="mt-4 border-t pt-4 text-xs text-gray-400">
@@ -1002,10 +1012,53 @@ const Shipment: React.FC = () => {
           </div>
         )}
 
+        {/* ================= DELETE CONFIRMATION MODAL ================= */}
+        {showDeleteModal && selectedShipment && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-xl w-[450px]">
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <TrashIcon className="h-6 w-6 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">Delete Shipment</h3>
+                  <p className="text-sm text-gray-500">
+                    Are you sure you want to delete shipment <span className="font-semibold text-gray-700">{selectedShipment.shipmentNo}</span>?
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Carrier: {selectedShipment.carrier || "N/A"} • Items: {selectedShipment.items?.length || 0}
+                  </p>
+                  <p className="text-xs text-red-500 mt-2">⚠️ This action cannot be undone.</p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setSelectedShipment(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
+                >
+                  Delete Shipment
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ================= UPDATE STATUS MODAL ================= */}
         {showStatusModal && selectedShipment && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-xl w-[400px]">
+            <div className="bg-white p-6 rounded-xl w-[450px]">
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <PencilIcon className="h-6 w-6 text-purple-600" />
                 Update Status
@@ -1023,8 +1076,9 @@ const Shipment: React.FC = () => {
                   Current Status
                 </label>
                 <p className="text-gray-600 font-medium">
-                  <span className={`px-2 py-1 rounded-full text-xs ${STATUS_CONFIG[selectedShipment.status]?.bgColor} ${STATUS_CONFIG[selectedShipment.status]?.color}`}>
-                    {selectedShipment.status}
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border ${STATUS_CONFIG[selectedShipment.status].bgColor} ${STATUS_CONFIG[selectedShipment.status].color}`}>
+                    {STATUS_CONFIG[selectedShipment.status].icon}
+                    {STATUS_CONFIG[selectedShipment.status].label}
                   </span>
                 </p>
               </div>
@@ -1040,7 +1094,7 @@ const Shipment: React.FC = () => {
                 >
                   {STATUS_OPTIONS.map(status => (
                     <option key={status} value={status}>
-                      {status}
+                      {STATUS_CONFIG[status].label}
                     </option>
                   ))}
                 </select>
@@ -1051,7 +1105,7 @@ const Shipment: React.FC = () => {
                   type="button"
                   onClick={() => setShowStatusModal(false)}
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
-                  disabled={loading}
+                  disabled={submitting}
                 >
                   Cancel
                 </button>
@@ -1059,10 +1113,10 @@ const Shipment: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleUpdateStatus}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium disabled:opacity-50"
-                  disabled={loading}
+                  disabled={submitting}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? "Updating..." : "Update Status"}
+                  {submitting ? "Updating..." : "Update Status"}
                 </button>
               </div>
             </div>

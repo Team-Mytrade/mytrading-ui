@@ -24,7 +24,7 @@ export default defineConfig({
       },
       // Proxy /v1/api requests to the backend
       "/v1/api": {
-        target: "http://193.181.209.14:9595",
+        target: "http://192.168.1.3:9595/",
         changeOrigin: true,
         secure: false,
       },
