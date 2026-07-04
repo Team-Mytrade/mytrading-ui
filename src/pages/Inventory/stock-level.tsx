@@ -140,11 +140,14 @@ const StockLevelsManager: React.FC = () => {
     };
 
     const buildPayload = () => ({
+        id: editingId || 0,
         quantity: Number(form.quantity),
         reserved: Number(form.reserved),
         available: Number(form.available),
-        product: form.productId ? { id: Number(form.productId) } : null,
-        warehouse: form.warehouseId ? { id: Number(form.warehouseId) } : null,
+        productId: Number(form.productId) || 0,
+        warehouse: warehouses.find((item) => item.id === Number(form.warehouseId))?.code ||
+            warehouses.find((item) => item.id === Number(form.warehouseId))?.name ||
+            form.warehouseId,
     });
 
     const handleSubmit = async (e: React.FormEvent) => {

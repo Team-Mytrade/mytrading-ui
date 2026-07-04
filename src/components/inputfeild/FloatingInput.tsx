@@ -7,7 +7,7 @@ interface BaseFloatingProps {
 }
 
 interface FloatingInputProps extends BaseFloatingProps, Omit<InputHTMLAttributes<HTMLInputElement>, 'placeholder'> {
-  type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'datetime-local' | 'url' | 'tel';
+  type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'time' | 'datetime-local' | 'url' | 'tel';
 }
 
 interface FloatingSelectProps extends BaseFloatingProps, Omit<SelectHTMLAttributes<HTMLSelectElement>, 'placeholder'> {

@@ -35,6 +35,7 @@ interface Product {
 interface Warehouse {
     id: number;
     name: string;
+    code?: string;
     location?: string;
 }
 
@@ -142,12 +143,19 @@ const BatchManager: React.FC = () => {
     };
 
     const buildPayload = () => ({
+        id: editingId || 0,
         batchNumber: form.batchNumber,
         manufacturingDate: form.manufacturingDate,
         expiryDate: form.expiryDate,
-        product: form.productId ? { id: Number(form.productId) } : null,
-        warehouse: form.warehouseId ? { id: Number(form.warehouseId) } : null,
-        quantity: form.quantity,
+        productId: Number(form.productId) || 0,
+        warehouse: form.warehouseId
+            ? {
+                id: Number(form.warehouseId),
+                name: warehouses.find((item) => item.id === Number(form.warehouseId))?.name || "",
+                code: warehouses.find((item) => item.id === Number(form.warehouseId))?.code || "",
+            }
+            : null,
+        inspections: [],
     });
 
     const handleSubmit = async (e: React.FormEvent) => {

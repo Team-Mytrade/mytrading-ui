@@ -23,14 +23,14 @@ const ProductMenuCard: React.FC = () => {
       color: "blue"
     },
     {
-      href: "/sales_dashboard",
+      href: "/sales-dashboard",
       icon: Tag,
       title: "Sales",
       description: "Sales Management",
       color: "emerald"
     },
     {
-      href: "/inventory_dashboard",
+      href: "/warehouse",
       icon: Warehouse,
       title: "Inventory",
       description: "Inventory and Quality Management",

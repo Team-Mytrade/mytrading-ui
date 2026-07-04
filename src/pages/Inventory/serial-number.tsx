@@ -46,6 +46,7 @@ const SerialNumberManager: React.FC = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
 
   const [form, setForm] = useState({
+    serial: "",
     warrantyStart: "",
     warrantyEnd: "",
     productId: "",
@@ -98,6 +99,7 @@ const SerialNumberManager: React.FC = () => {
 
   const clearForm = () => {
     setForm({
+      serial: "",
       warrantyStart: "",
       warrantyEnd: "",
       productId: "",
@@ -113,17 +115,15 @@ const SerialNumberManager: React.FC = () => {
   };
 
   const buildPayload = () => ({
+    id: editingId || 0,
+    serial: form.serial,
     warrantyStart: form.warrantyStart,
     warrantyEnd: form.warrantyEnd,
-    product: {
-      id: Number(form.productId),
-    },
-    warehouse: {
-      id: Number(form.warehouseId),
-    },
-    batch: {
-      id: Number(form.batchId),
-    },
+    productId: Number(form.productId) || 0,
+    productNumber: products.find((item) => item.id === Number(form.productId))?.name || form.productId,
+    warehouse: warehouses.find((item) => item.id === Number(form.warehouseId))?.name || form.warehouseId,
+    batch: batches.find((item) => item.id === Number(form.batchId))?.batchNumber || form.batchId,
+    inspections: [],
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -146,6 +146,7 @@ const SerialNumberManager: React.FC = () => {
   const handleEdit = (sn: SerialNumber) => {
     setEditingId(sn.id);
     setForm({
+      serial: sn.serial || "",
       warrantyStart: sn.warrantyStart || "",
       warrantyEnd: sn.warrantyEnd || "",
       productId: sn.product?.id?.toString() || "",
@@ -250,6 +251,25 @@ const SerialNumberManager: React.FC = () => {
             marginBottom: "2rem",
           }}
         >
+          <div style={{ marginBottom: "1.5rem" }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", color: "#374151" }}>
+              Serial
+            </label>
+            <input
+              type="text"
+              value={form.serial}
+              onChange={(e) => handleChange("serial", e.target.value)}
+              required
+              style={{
+                width: "100%",
+                padding: "0.75rem",
+                border: "1px solid #d1d5db",
+                borderRadius: "0.5rem",
+                fontSize: "1rem",
+              }}
+            />
+          </div>
+
           {/* Product */}
           <div className="floating-input-container" style={{ marginBottom: "1.5rem", position: "relative" }}>
             <select

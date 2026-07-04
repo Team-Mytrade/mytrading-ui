@@ -283,14 +283,22 @@ const StockAdjustmentManager: React.FC = () => {
     };
 
     const buildPayload = () => ({
+        id: editingId || 0,
         adjustmentDate: form.adjustmentDate,
         reason: form.reason,
         quantity: Number(form.quantity),
         adjustmentType: form.adjustmentType,
-        product: form.productId ? { id: Number(form.productId) } : null,
-        warehouse: form.warehouseId ? { id: Number(form.warehouseId) } : null,
-        batch: form.batchId ? { id: Number(form.batchId) } : null,
-        serialNumber: form.serialNumberId ? { id: Number(form.serialNumberId) } : null,
+        productId: Number(form.productId) || 0,
+        warehouse: warehouses.find((item) => item.id === Number(form.warehouseId))?.code ||
+            warehouses.find((item) => item.id === Number(form.warehouseId))?.name ||
+            form.warehouseId,
+        batch: filteredBatches.find((item) => item.id === Number(form.batchId))?.batchNumber || form.batchId,
+        serialNumber: form.serialNumberId
+            ? {
+                id: Number(form.serialNumberId),
+                serial: filteredSerialNumbers.find((item) => item.id === Number(form.serialNumberId))?.serial || "",
+            }
+            : null,
         reference: form.reference || undefined,
     });
 
