@@ -7,114 +7,206 @@ import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 
-import { FloatingSelect, FloatingDatePicker, FloatingInput, FloatingTextarea } from "../../components/inputfeild/FloatingInput";
-
 import { 
   MagnifyingGlassIcon, 
-  BuildingOfficeIcon,
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
-  TruckIcon
+  TruckIcon,
+
+  EyeIcon,
+  PencilIcon
 } from "@heroicons/react/24/solid";
 import { 
   FunnelIcon, 
+  PackageIcon, 
   ClipboardListIcon,
-  AlertCircleIcon,
+  CalendarIcon,
+  UserIcon,
   RefreshCwIcon
+  
 } from "lucide-react";
 
 // ================= TYPES =================
 
-// ✅ GET Response Schema
-interface DeliveryStatusResponse {
+type DeliveryStatus = "PENDING" | "IN_PROGRESS" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "FAILED";
+
+interface DeliveryStatusHistory {
   id: number;
   deliveryOrderId: number;
-  currentStatus: string;
-  remarks: string;
+  status: DeliveryStatus;
+  note: string;
   updatedBy: string;
-  deliveredSuccessfully: boolean;
-  failureReason?: string;
-  statusUpdatedAt: string;
-  createdAt?: string;
-  updatedAt?: string;
+  createdDate: string;
 }
 
-// ✅ POST/PUT Request Schema
-interface DeliveryStatusRequest {
-  deliveryOrderId: number;
-  currentStatus: string;
-  remarks: string;
-  updatedBy: string;
-  deliveredSuccessfully: boolean;
-  failureReason?: string;
+interface Delivery {
+  id: number;
+  createdDate: string;
+  updatedDate: string;
+  createdBy: string;
+  tenantId: string;
+  deliveryNo: string;
+  deliveryDate: string;
+  salesOrderId: number;
+  customerId: number;
+  status: DeliveryStatus;
+  items: DeliveryItem[];
 }
 
-// ✅ Form State
-interface DeliveryStatusForm {
-  id: number | null;
+interface DeliveryItem {
+  id?: number;
+  productId: number;
+  orderedQty: number;
+  deliveredQty: number;
+  deliveryNote?: string;
+}
+
+interface DeliveryStatusUpdate {
   deliveryOrderId: number;
-  currentStatus: string;
-  remarks: string;
-  updatedBy: string;
-  deliveredSuccessfully: boolean;
-  failureReason: string;
-  statusUpdatedAt: string;
+  status: DeliveryStatus;
+  note?: string;
+  updatedBy?: string;
+}
+
+// ================= API CONFIGURATION =================
+
+const API_BASE_URL = "http://localhost:8080"; // Change this to your actual API URL
+
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Add auth token interceptor
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem("authToken");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// ================= API SERVICE =================
+
+class DeliveryStatusService {
+  // GET /v1/api/delivery/delivery-orders
+  static async getAllDeliveries(): Promise<Delivery[]> {
+    try {
+      const response = await apiClient.get("/v1/api/delivery/delivery-orders");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching deliveries:", error);
+      throw error;
+    }
+  }
+
+  // GET /v1/api/delivery/delivery-status/{deliveryOrderId}
+  static async getStatusHistory(deliveryOrderId: number): Promise<DeliveryStatusHistory[]> {
+    try {
+      const response = await apiClient.get(`/v1/api/delivery/delivery-status/${deliveryOrderId}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching status history for ${deliveryOrderId}:`, error);
+      throw error;
+    }
+  }
+
+  // POST /v1/api/delivery/delivery-status
+  static async updateStatus(statusData: DeliveryStatusUpdate): Promise<any> {
+    try {
+      const response = await apiClient.post("/v1/api/delivery/delivery-status", statusData);
+      return response.data;
+    } catch (error) {
+      console.error("Error updating delivery status:", error);
+      throw error;
+    }
+  }
+
+  // DELETE /v1/api/delivery/delivery-orders/{id}
+  static async deleteDelivery(id: number): Promise<void> {
+    try {
+      await apiClient.delete(`/v1/api/delivery/delivery-orders/${id}`);
+    } catch (error) {
+      console.error(`Error deleting delivery ${id}:`, error);
+      throw error;
+    }
+  }
 }
 
 // ================= CONSTANTS =================
 
 const PAGE_SIZE = 10;
-const STATUS_OPTIONS = [
-  "PENDING",
-  "IN_PROGRESS", 
-  "SHIPPED",
-  "DELIVERED",
-  "COMPLETED",
-  "CANCELLED",
-  "FAILED",
-  "RETURNED"
-];
+const STATUS_OPTIONS: DeliveryStatus[] = ["PENDING", "IN_PROGRESS", "SHIPPED", "DELIVERED", "CANCELLED", "FAILED"];
+
+const STATUS_CONFIG: Record<string, { color: string; bgColor: string; icon: React.JSX.Element }> = {
+  PENDING: { 
+    color: "text-yellow-700",
+    bgColor: "bg-yellow-100",
+    icon: <ClockIcon className="h-4 w-4" />
+  },
+  IN_PROGRESS: { 
+    color: "text-blue-700",
+    bgColor: "bg-blue-100",
+    icon: <RefreshCwIcon className="h-4 w-4" />
+  },
+  SHIPPED: { 
+    color: "text-purple-700",
+    bgColor: "bg-purple-100",
+    icon: <TruckIcon className="h-4 w-4" />
+  },
+  DELIVERED: { 
+    color: "text-green-700",
+    bgColor: "bg-green-100",
+    icon: <CheckCircleIcon className="h-4 w-4" />
+  },
+  CANCELLED: { 
+    color: "text-red-700",
+    bgColor: "bg-red-100",
+    icon: <XCircleIcon className="h-4 w-4" />
+  },
+  FAILED: { 
+    color: "text-orange-700",
+    bgColor: "bg-orange-100",
+    icon: <XCircleIcon className="h-4 w-4" />
+  }
+};
 
 // ================= COMPONENT =================
 
 const DeliveryStatusPage: React.FC = () => {
-  const [statuses, setStatuses] = useState<DeliveryStatusResponse[]>([]);
+  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [successFilter, setSuccessFilter] = useState<string>("ALL");
-
-  const [form, setForm] = useState<DeliveryStatusForm>({
-    id: null,
-    deliveryOrderId: 0,
-    currentStatus: "PENDING",
-    remarks: "",
-    updatedBy: "",
-    deliveredSuccessfully: false,
-    failureReason: "",
-    statusUpdatedAt: new Date().toISOString(),
-  });
-
-  const [showFormModal, setShowFormModal] = useState(false);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<DeliveryStatusResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<DeliveryStatus | "ALL">("ALL");
+  const [dateFilter, setDateFilter] = useState("");
+  const [statusHistory, setStatusHistory] = useState<DeliveryStatusHistory[]>([]);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
+  const [newStatus, setNewStatus] = useState<DeliveryStatus>("PENDING");
+  const [statusNote, setStatusNote] = useState("");
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // ================= FETCH =================
 
   useEffect(() => {
-    fetchStatuses();
+    fetchDeliveries();
   }, []);
 
-  const fetchStatuses = async () => {
+  const fetchDeliveries = async () => {
     setLoading(true);
+    setError(null);
     try {
-      // ✅ Using your GET endpoint
-      const res = await axios.get("/v1/api/delivery/status");
-      setStatuses(res.data);
+      const data = await DeliveryStatusService.getAllDeliveries();
+      setDeliveries(data);
     } catch (err) {
-      console.error("Error fetching delivery statuses:", err);
+      console.error("Error fetching deliveries:", err);
+      setError("Failed to load deliveries. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -122,36 +214,35 @@ const DeliveryStatusPage: React.FC = () => {
 
   // ================= FILTER =================
 
-  const filteredStatuses = useMemo(() => {
-    return statuses.filter((s) => {
+  const filteredDeliveries = useMemo(() => {
+    return deliveries.filter((d) => {
       const matchesSearch =
-        String(s.deliveryOrderId).includes(search) ||
-        s.currentStatus?.toLowerCase().includes(search.toLowerCase()) ||
-        s.updatedBy?.toLowerCase().includes(search.toLowerCase()) ||
-        String(s.id).includes(search);
+        d.deliveryNo?.toLowerCase().includes(search.toLowerCase()) ||
+        String(d.customerId).includes(search) ||
+        String(d.salesOrderId).includes(search) ||
+        String(d.id).includes(search);
 
       const matchesStatus =
-        statusFilter === "ALL" || s.currentStatus === statusFilter;
+        statusFilter === "ALL" || d.status === statusFilter;
 
-      const matchesSuccess =
-        successFilter === "ALL" || 
-        (successFilter === "SUCCESS" && s.deliveredSuccessfully) ||
-        (successFilter === "FAILED" && !s.deliveredSuccessfully);
+      const matchesDate =
+        !dateFilter || d.deliveryDate?.startsWith(dateFilter);
 
-      return matchesSearch && matchesStatus && matchesSuccess;
+      return matchesSearch && matchesStatus && matchesDate;
     });
-  }, [statuses, search, statusFilter, successFilter]);
+  }, [deliveries, search, statusFilter, dateFilter]);
 
   // ================= STATS =================
 
   const getStats = () => {
     const stats = {
-      total: statuses.length,
-      delivered: statuses.filter(s => s.deliveredSuccessfully).length,
-      failed: statuses.filter(s => !s.deliveredSuccessfully).length,
-      pending: statuses.filter(s => s.currentStatus === "PENDING").length,
-      inProgress: statuses.filter(s => s.currentStatus === "IN_PROGRESS").length,
-      completed: statuses.filter(s => s.currentStatus === "COMPLETED").length,
+      total: deliveries.length,
+      pending: deliveries.filter(d => d.status === "PENDING").length,
+      inProgress: deliveries.filter(d => d.status === "IN_PROGRESS").length,
+      shipped: deliveries.filter(d => d.status === "SHIPPED").length,
+      delivered: deliveries.filter(d => d.status === "DELIVERED").length,
+      cancelled: deliveries.filter(d => d.status === "CANCELLED").length,
+      failed: deliveries.filter(d => d.status === "FAILED").length,
     };
     return stats;
   };
@@ -160,103 +251,90 @@ const DeliveryStatusPage: React.FC = () => {
 
   // ================= TABLE =================
 
-  const tableColumns: ColumnDef<DeliveryStatusResponse>[] = [
+  const tableColumns: ColumnDef<Delivery>[] = [
     {
-      key: "id",
-      label: "ID",
-      render: (row) => (
-        <span className="font-mono text-sm text-gray-600">#{row.id}</span>
-      )
-    },
-    {
-      key: "deliveryOrderId",
-      label: "Delivery Order",
+      key: "deliveryNo",
+      label: "Delivery No",
       render: (row) => (
         <span className="font-medium text-cyan-600">
-          DO-{row.deliveryOrderId}
+          {row.deliveryNo || `DEL-${row.id}`}
         </span>
       )
     },
     {
-      key: "currentStatus",
+      key: "customerId",
+      label: "Customer",
+      render: (row) => (
+        <div className="flex items-center gap-1">
+          <UserIcon className="h-3 w-3 text-gray-400" />
+          <span className="font-medium">#{row.customerId}</span>
+        </div>
+      )
+    },
+    {
+      key: "salesOrderId",
+      label: "Sales Order",
+      render: (row) => (
+        <span className="text-sm text-gray-600">SO-{row.salesOrderId}</span>
+      )
+    },
+    {
+      key: "status",
       label: "Status",
       render: (row) => {
-        const statusConfig: Record<string, { color: string; icon: React.JSX.Element }> = {
-          PENDING: { 
-            color: "bg-yellow-100 text-yellow-700 border-yellow-200",
-            icon: <ClockIcon className="h-3 w-3" />
-          },
-          IN_PROGRESS: { 
-            color: "bg-blue-100 text-blue-700 border-blue-200",
-            icon: <RefreshCwIcon className="h-3 w-3" />
-          },
-          SHIPPED: { 
-            color: "bg-purple-100 text-purple-700 border-purple-200",
-            icon: <TruckIcon className="h-3 w-3" />
-          },
-          DELIVERED: { 
-            color: "bg-green-100 text-green-700 border-green-200",
-            icon: <CheckCircleIcon className="h-3 w-3" />
-          },
-          COMPLETED: { 
-            color: "bg-emerald-100 text-emerald-700 border-emerald-200",
-            icon: <CheckCircleIcon className="h-3 w-3" />
-          },
-          CANCELLED: { 
-            color: "bg-red-100 text-red-700 border-red-200",
-            icon: <XCircleIcon className="h-3 w-3" />
-          },
-          FAILED: { 
-            color: "bg-orange-100 text-orange-700 border-orange-200",
-            icon: <AlertCircleIcon className="h-3 w-3" />
-          },
-          RETURNED: { 
-            color: "bg-gray-100 text-gray-700 border-gray-200",
-            icon: <RefreshCwIcon className="h-3 w-3" />
-          }
-        };
-
-        const config = statusConfig[row.currentStatus] || statusConfig.PENDING;
+        const config = STATUS_CONFIG[row.status] || STATUS_CONFIG.PENDING;
         return (
-          <span className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-1 ${config.color}`}>
+          <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 w-fit ${config.bgColor} ${config.color}`}>
             {config.icon}
-            {row.currentStatus.replace('_', ' ')}
+            {row.status.replace('_', ' ')}
           </span>
         );
       }
     },
     {
-      key: "deliveredSuccessfully",
-      label: "Result",
+      key: "deliveryDate",
+      label: "Delivery Date",
       render: (row) => (
-        <span className={`text-sm font-medium ${row.deliveredSuccessfully ? 'text-green-600' : 'text-red-600'}`}>
-          {row.deliveredSuccessfully ? (
-            <span className="flex items-center gap-1">
-              <CheckCircleIcon className="h-4 w-4" />
-              Success
-            </span>
-          ) : (
-            <span className="flex items-center gap-1">
-              <XCircleIcon className="h-4 w-4" />
-              Failed
-            </span>
-          )}
+        <div className="text-sm flex items-center gap-1">
+          <CalendarIcon className="h-3 w-3 text-gray-400" />
+          {row.deliveryDate ? new Date(row.deliveryDate).toLocaleDateString() : "-"}
+        </div>
+      )
+    },
+    {
+      key: "items",
+      label: "Items",
+      render: (row) => (
+        <span className="text-sm text-gray-600">
+          {row.items?.length || 0} items
         </span>
       )
     },
     {
-      key: "updatedBy",
-      label: "Updated By",
+      key: "actions",
+      label: "Actions",
       render: (row) => (
-        <span className="text-sm text-gray-600">{row.updatedBy || "System"}</span>
-      )
-    },
-    {
-      key: "statusUpdatedAt",
-      label: "Updated At",
-      render: (row) => (
-        <div className="text-sm text-gray-500">
-          {new Date(row.statusUpdatedAt).toLocaleString()}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleViewHistory(row);
+            }}
+            className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+            title="View Status History"
+          >
+            <EyeIcon className="h-4 w-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenStatusModal(row);
+            }}
+            className="p-1 text-purple-600 hover:bg-purple-50 rounded transition-colors"
+            title="Update Status"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </button>
         </div>
       )
     }
@@ -264,91 +342,74 @@ const DeliveryStatusPage: React.FC = () => {
 
   // ================= HANDLERS =================
 
-  const handleAddStatus = () => {
-    setForm({
-      id: null,
-      deliveryOrderId: 0,
-      currentStatus: "PENDING",
-      remarks: "",
-      updatedBy: "",
-      deliveredSuccessfully: false,
-      failureReason: "",
-      statusUpdatedAt: new Date().toISOString(),
-    });
-    setShowFormModal(true);
-  };
-
-  const handleViewStatus = (status: DeliveryStatusResponse) => {
-    setSelectedStatus(status);
-    setShowDetailModal(true);
-  };
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value, type } = e.target;
-    
-    if (type === "checkbox") {
-      const checked = (e.target as HTMLInputElement).checked;
-      setForm((prev) => ({
-        ...prev,
-        [name]: checked,
-      }));
-    } else {
-      setForm((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
+  const handleViewHistory = async (delivery: Delivery) => {
+    setSelectedDelivery(delivery);
+    setLoadingHistory(true);
+    try {
+      const history = await DeliveryStatusService.getStatusHistory(delivery.id);
+      setStatusHistory(history);
+      setShowHistoryModal(true);
+    } catch (err) {
+      console.error("Error fetching status history:", err);
+      alert("Failed to load status history.");
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
-  const handleSaveStatus = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleOpenStatusModal = (delivery: Delivery) => {
+    setSelectedDelivery(delivery);
+    setNewStatus(delivery.status);
+    setStatusNote("");
+    setShowStatusModal(true);
+  };
 
-    // Validate
-    if (!form.deliveryOrderId || !form.currentStatus) {
-      alert("Please fill in all required fields");
+  const handleUpdateStatus = async () => {
+    if (!selectedDelivery) return;
+
+    if (newStatus === selectedDelivery.status) {
+      alert("New status is the same as current status.");
       return;
     }
 
-    const payload: DeliveryStatusRequest = {
-      deliveryOrderId: Number(form.deliveryOrderId),
-      currentStatus: form.currentStatus,
-      remarks: form.remarks || "",
-      updatedBy: form.updatedBy || "System",
-      deliveredSuccessfully: form.deliveredSuccessfully,
-      failureReason: form.deliveredSuccessfully ? undefined : form.failureReason || "Unknown error",
+    const statusData: DeliveryStatusUpdate = {
+      deliveryOrderId: selectedDelivery.id,
+      status: newStatus,
+      note: statusNote || `Status changed from ${selectedDelivery.status} to ${newStatus}`,
+      updatedBy: localStorage.getItem("username") || "system",
     };
 
-    console.log("📦 STATUS PAYLOAD:", payload);
-
+    setLoading(true);
     try {
-      if (form.id) {
-        // ✅ PUT - Update existing status
-        await axios.put(`/v1/api/delivery/status/${form.id}`, payload);
-      } else {
-        // ✅ POST - Create new status
-        await axios.post("/v1/api/delivery/status", payload);
-      }
-      
-      await fetchStatuses();
-      setShowFormModal(false);
-      
+      await DeliveryStatusService.updateStatus(statusData);
+      await fetchDeliveries();
+      setShowStatusModal(false);
+      setError(null);
+      alert(`Status updated to ${newStatus.replace('_', ' ')} successfully!`);
     } catch (err) {
-      console.error("Error saving delivery status:", err);
-      alert("Failed to save delivery status. Please try again.");
+      console.error("Error updating status:", err);
+      setError("Failed to update status.");
+      alert("Failed to update status. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleDeleteStatus = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this delivery status?")) return;
+  const handleDeleteDelivery = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this delivery?")) return;
 
+    setLoading(true);
     try {
-      await axios.delete(`/v1/api/delivery/status/${id}`);
-      await fetchStatuses();
+      await DeliveryStatusService.deleteDelivery(id);
+      await fetchDeliveries();
+      setShowHistoryModal(false);
+      setError(null);
     } catch (err) {
-      console.error("Error deleting delivery status:", err);
-      alert("Failed to delete delivery status.");
+      console.error("Error deleting delivery:", err);
+      setError("Failed to delete delivery.");
+      alert("Failed to delete delivery.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -361,10 +422,19 @@ const DeliveryStatusPage: React.FC = () => {
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
 
-        {/* HEADER */}
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={handleAddStatus} label="Add Status" />
-        </div>
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <span className="font-medium">Error: </span>
+            {error}
+            <button 
+              onClick={() => setError(null)}
+              className="float-right text-red-700 hover:text-red-900"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* STATS */}
         <div className="grid grid-cols-3 lg:grid-cols-6 gap-4">
@@ -374,20 +444,6 @@ const DeliveryStatusPage: React.FC = () => {
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
             labelColor="text-cyan-600"
-          />
-          <StatsCard 
-            label="Delivered" 
-            value={stats.delivered}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-          />
-          <StatsCard 
-            label="Failed" 
-            value={stats.failed}
-            gradient="from-red-50 to-rose-50"
-            borderColor="border-red-100"
-            labelColor="text-red-600"
           />
           <StatsCard 
             label="Pending" 
@@ -404,11 +460,25 @@ const DeliveryStatusPage: React.FC = () => {
             labelColor="text-blue-600"
           />
           <StatsCard 
-            label="Completed" 
-            value={stats.completed}
+            label="Shipped" 
+            value={stats.shipped}
             gradient="from-purple-50 to-violet-50"
             borderColor="border-purple-100"
             labelColor="text-purple-600"
+          />
+          <StatsCard 
+            label="Delivered" 
+            value={stats.delivered}
+            gradient="from-green-50 to-emerald-50"
+            borderColor="border-green-100"
+            labelColor="text-green-600"
+          />
+          <StatsCard 
+            label="Cancelled/Failed" 
+            value={stats.cancelled + stats.failed}
+            gradient="from-red-50 to-rose-50"
+            borderColor="border-red-100"
+            labelColor="text-red-600"
           />
         </div>
 
@@ -418,7 +488,7 @@ const DeliveryStatusPage: React.FC = () => {
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
-                placeholder="Search by Delivery Order ID, Status, or Updated By..."
+                placeholder="Search by delivery no, customer ID, or sales order..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
@@ -444,7 +514,7 @@ const DeliveryStatusPage: React.FC = () => {
               </label>
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => setStatusFilter(e.target.value as DeliveryStatus | "ALL")}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
               >
                 <option value="ALL">All Statuses</option>
@@ -458,25 +528,22 @@ const DeliveryStatusPage: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Delivery Result
+                Delivery Date
               </label>
-              <select
-                value={successFilter}
-                onChange={(e) => setSuccessFilter(e.target.value)}
+              <input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-              >
-                <option value="ALL">All</option>
-                <option value="SUCCESS">Successful</option>
-                <option value="FAILED">Failed</option>
-              </select>
+              />
             </div>
 
             <div className="flex items-end">
-              {(statusFilter !== "ALL" || successFilter !== "ALL") && (
+              {(statusFilter !== "ALL" || dateFilter) && (
                 <button
                   onClick={() => {
                     setStatusFilter("ALL");
-                    setSuccessFilter("ALL");
+                    setDateFilter("");
                   }}
                   className="text-sm text-red-600 hover:text-red-800 font-medium"
                 >
@@ -488,165 +555,48 @@ const DeliveryStatusPage: React.FC = () => {
         )}
 
         {/* TABLE */}
-        <ReusableTable<DeliveryStatusResponse>
-          data={filteredStatuses}
+        <ReusableTable<Delivery>
+          data={filteredDeliveries}
           columns={tableColumns}
           pageSize={PAGE_SIZE}
-          defaultSortKey="statusUpdatedAt"
+          defaultSortKey="createdDate"
           defaultSortOrder="desc"
-          onRowClick={handleViewStatus}
           loading={loading}
           emptyState={
             <div className="flex flex-col items-center -mt-10">
               <ClipboardListIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No Delivery Statuses Found</p>
-              {search || statusFilter !== "ALL" || successFilter !== "ALL" ? (
+              <p className="text-gray-500 text-sm mb-2">No Deliveries Found</p>
+              {search || statusFilter !== "ALL" || dateFilter ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
               ) : (
-                <button
-                  type="button"
-                  onClick={handleAddStatus}
-                  className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
-                >
-                  Add your first delivery status
-                </button>
+                <p className="text-gray-400 text-xs">Create a delivery to get started</p>
               )}
             </div>
           }
         />
 
-        {/* ================= CREATE/EDIT MODAL ================= */}
-        {showFormModal && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <form
-              onSubmit={handleSaveStatus}
-              className="bg-white p-6 rounded-xl w-[700px] max-h-[90vh] overflow-y-auto"
-            >
-              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <ClipboardListIcon className="h-6 w-6 text-cyan-600" />
-                {form.id ? "Edit Delivery Status" : "Add Delivery Status"}
-              </h2>
-
-              <div className="grid grid-cols-2 gap-4">
-                {/* Delivery Order ID */}
-                <FloatingInput
-                  label="Delivery Order ID *"
-                  name="deliveryOrderId"
-                  type="number"
-                  value={form.deliveryOrderId}
-                  onChange={handleChange}
-                  required
-                />
-
-                {/* Status */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Status *
-                  </label>
-                  <select
-                    name="currentStatus"
-                    value={form.currentStatus}
-                    onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                    required
-                  >
-                    {STATUS_OPTIONS.map(status => (
-                      <option key={status} value={status}>
-                        {status.replace('_', ' ')}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Updated By */}
-                <FloatingInput
-                  label="Updated By"
-                  name="updatedBy"
-                  value={form.updatedBy}
-                  onChange={handleChange}
-                  // placeholder="System"
-                />
-
-                {/* Delivered Successfully - Checkbox */}
-                <div className="flex items-center gap-3 mt-4">
-                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                    <input
-                      type="checkbox"
-                      name="deliveredSuccessfully"
-                      checked={form.deliveredSuccessfully}
-                      onChange={handleChange}
-                      className="h-4 w-4 text-cyan-600 rounded border-gray-300 focus:ring-cyan-500"
-                    />
-                    Delivered Successfully
-                  </label>
-                </div>
-              </div>
-
-              {/* Remarks */}
-              <div className="mt-4">
-                <FloatingTextarea
-                  label="Remarks"
-                  name="remarks"
-                  value={form.remarks}
-                  onChange={handleChange}
-                  rows={2}
-                  placeholder="Additional notes about this delivery status"
-                />
-              </div>
-
-              {/* Failure Reason (conditional) */}
-              {!form.deliveredSuccessfully && (
-                <div className="mt-4">
-                  <FloatingTextarea
-                    label="Failure Reason *"
-                    name="failureReason"
-                    value={form.failureReason}
-                    onChange={handleChange}
-                    rows={2}
-                    placeholder="Why did the delivery fail?"
-                    required={!form.deliveredSuccessfully}
-                  />
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-                <button
-                  type="button"
-                  onClick={() => setShowFormModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm font-medium"
-                >
-                  {form.id ? "Update" : "Create"} Status
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* ================= DETAIL VIEW MODAL ================= */}
-        {showDetailModal && selectedStatus && (
+        {/* ================= STATUS HISTORY MODAL ================= */}
+        {showHistoryModal && selectedDelivery && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-xl w-[600px] max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-start mb-4">
                 <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                   <ClipboardListIcon className="h-6 w-6 text-cyan-600" />
-                  Status #{selectedStatus.id}
+                  Status History
                 </h2>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => handleDeleteStatus(selectedStatus.id)}
+                    onClick={() => {
+                      if (confirm("Are you sure you want to delete this delivery?")) {
+                        handleDeleteDelivery(selectedDelivery.id);
+                      }
+                    }}
                     className="px-3 py-1 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm"
                   >
                     Delete
                   </button>
                   <button
-                    onClick={() => setShowDetailModal(false)}
+                    onClick={() => setShowHistoryModal(false)}
                     className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-sm"
                   >
                     Close
@@ -654,67 +604,137 @@ const DeliveryStatusPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-gray-500">Delivery Order</label>
-                    <p className="font-medium">DO-{selectedStatus.deliveryOrderId}</p>
+                    <label className="text-xs text-gray-500">Delivery No</label>
+                    <p className="font-medium">{selectedDelivery.deliveryNo}</p>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500">Status</label>
+                    <label className="text-xs text-gray-500">Current Status</label>
                     <p className="font-medium">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        selectedStatus.currentStatus === "COMPLETED" || selectedStatus.currentStatus === "DELIVERED" 
-                          ? "bg-green-100 text-green-700" 
-                          : selectedStatus.currentStatus === "IN_PROGRESS" || selectedStatus.currentStatus === "SHIPPED"
-                          ? "bg-blue-100 text-blue-700"
-                          : selectedStatus.currentStatus === "CANCELLED"
-                          ? "bg-red-100 text-red-700"
-                          : selectedStatus.currentStatus === "FAILED"
-                          ? "bg-orange-100 text-orange-700"
-                          : "bg-yellow-100 text-yellow-700"
-                      }`}>
-                        {selectedStatus.currentStatus}
+                      <span className={`px-2 py-1 rounded-full text-xs ${STATUS_CONFIG[selectedDelivery.status]?.bgColor} ${STATUS_CONFIG[selectedDelivery.status]?.color}`}>
+                        {selectedDelivery.status}
                       </span>
                     </p>
                   </div>
                 </div>
+              </div>
 
-                <div>
-                  <label className="text-xs text-gray-500">Result</label>
-                  <p className={`font-medium ${selectedStatus.deliveredSuccessfully ? 'text-green-600' : 'text-red-600'}`}>
-                    {selectedStatus.deliveredSuccessfully ? '✅ Delivered Successfully' : '❌ Delivery Failed'}
-                  </p>
+              {loadingHistory ? (
+                <div className="text-center py-8">
+                  <RefreshCwIcon className="h-8 w-8 animate-spin text-gray-400 mx-auto" />
+                  <p className="text-gray-500 mt-2">Loading history...</p>
                 </div>
+              ) : statusHistory.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">No status history available</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-60 overflow-y-auto">
+                  {statusHistory.map((history, index) => (
+                    <div key={history.id || index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                      <div className="flex-shrink-0 mt-1">
+                        <span className={`px-2 py-1 rounded-full text-xs ${STATUS_CONFIG[history.status]?.bgColor} ${STATUS_CONFIG[history.status]?.color}`}>
+                          {history.status}
+                        </span>
+                      </div>
+                      <div className="flex-1">
+                        {history.note && (
+                          <p className="text-sm text-gray-700">{history.note}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-gray-500">
+                            Updated by: {history.updatedBy || 'System'}
+                          </span>
+                          <span className="text-xs text-gray-400">•</span>
+                          <span className="text-xs text-gray-500">
+                            {new Date(history.createdDate).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
-                {selectedStatus.failureReason && (
+        {/* ================= UPDATE STATUS MODAL ================= */}
+        {showStatusModal && selectedDelivery && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-xl w-[450px]">
+              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <RefreshCwIcon className="h-6 w-6 text-purple-600" />
+                Update Status
+              </h2>
+
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-xs text-gray-500">Failure Reason</label>
-                    <p className="text-sm text-red-600 bg-red-50 p-2 rounded-lg">
-                      {selectedStatus.failureReason}
+                    <label className="text-xs text-gray-500">Delivery No</label>
+                    <p className="font-medium text-sm">{selectedDelivery.deliveryNo}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">Current Status</label>
+                    <p className="font-medium">
+                      <span className={`px-2 py-1 rounded-full text-xs ${STATUS_CONFIG[selectedDelivery.status]?.bgColor} ${STATUS_CONFIG[selectedDelivery.status]?.color}`}>
+                        {selectedDelivery.status}
+                      </span>
                     </p>
                   </div>
-                )}
-
-                <div>
-                  <label className="text-xs text-gray-500">Remarks</label>
-                  <p className="text-sm text-gray-700 bg-gray-50 p-2 rounded-lg">
-                    {selectedStatus.remarks || "No remarks"}
-                  </p>
                 </div>
+              </div>
 
-                <div className="grid grid-cols-2 gap-4 border-t pt-4">
-                  <div>
-                    <label className="text-xs text-gray-500">Updated By</label>
-                    <p className="text-sm font-medium">{selectedStatus.updatedBy || "System"}</p>
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500">Updated At</label>
-                    <p className="text-sm text-gray-600">
-                      {new Date(selectedStatus.statusUpdatedAt).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  New Status *
+                </label>
+                <select
+                  value={newStatus}
+                  onChange={(e) => setNewStatus(e.target.value as DeliveryStatus)}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                >
+                  {STATUS_OPTIONS.map(status => (
+                    <option key={status} value={status}>
+                      {status.replace('_', ' ')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Status Note (Optional)
+                </label>
+                <textarea
+                  value={statusNote}
+                  onChange={(e) => setStatusNote(e.target.value)}
+                  placeholder="Add a note about this status change..."
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowStatusModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleUpdateStatus}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium disabled:opacity-50"
+                  disabled={loading}
+                >
+                  {loading ? "Updating..." : "Update Status"}
+                </button>
               </div>
             </div>
           </div>

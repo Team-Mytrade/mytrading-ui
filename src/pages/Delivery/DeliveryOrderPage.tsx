@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 
@@ -14,9 +13,8 @@ import {
   MagnifyingGlassIcon, 
   BuildingOfficeIcon,
   UserIcon,
-  MapPinIcon,
-  TruckIcon,
-  CalendarIcon
+  CalendarIcon,
+  ShoppingBagIcon,
 } from "@heroicons/react/24/solid";
 import { 
   FunnelIcon, 
@@ -24,98 +22,14 @@ import {
   ClipboardListIcon,
   CheckCircleIcon,
   XCircleIcon,
-  ClockIcon
+  ClockIcon,
+  TruckIcon,
+  RefreshCwIcon
 } from "lucide-react";
 
 // ================= TYPES =================
 
-type DeliveryStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "FAILED";
-
-interface Address {
-  id: number;
-  createdDate: string;
-  updatedDate: string;
-  createdBy: string;
-  tenantId: string;
-  customerId: number;
-  customerNumber: string;
-  customerName: string;
-  addressLine1: string;
-  addressLine2?: string;
-  city: string;
-  state: string;
-  country: string;
-  postalCode: string;
-  landmark?: string;
-  active: boolean;
-  createdAt: string;
-  updatedAt: string;
-  defaultDelivery: boolean;
-  defaultBilling: boolean;
-}
-
-interface Transporter {
-  id: number;
-  createdDate: string;
-  updatedDate: string;
-  createdBy: string;
-  tenantId: string;
-  name: string;
-  contactPerson: string;
-  contactNumber: string;
-  email: string;
-  address: string;
-  gstNumber: string;
-  active: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface Vehicle {
-  id: number;
-  createdDate: string;
-  updatedDate: string;
-  createdBy: string;
-  tenantId: string;
-  licensePlate: string;
-  model: string;
-  type: string;
-  capacityKg: number;
-  owner: string;
-  status: string;
-  active: boolean;
-  createdAt: string;
-  updatedAt: string;
-  transporter: Transporter;
-}
-
-interface Route {
-  id: number;
-  createdDate: string;
-  updatedDate: string;
-  createdBy: string;
-  tenantId: string;
-  name: string;
-  startLocation: string;
-  endLocation: string;
-  distanceKm: number;
-  active: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface RouteSchedule {
-  id: number;
-  createdDate: string;
-  updatedDate: string;
-  createdBy: string;
-  tenantId: string;
-  route: Route;
-  vehicle: Vehicle;
-  scheduledDate: string;
-  startTime: { hour: number; minute: number; second: number; nano: number };
-  endTime: { hour: number; minute: number; second: number; nano: number };
-}
+type DeliveryStatus = "PENDING" | "IN_PROGRESS" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "FAILED";
 
 interface DeliveryItem {
   id?: number;
@@ -123,124 +37,136 @@ interface DeliveryItem {
   updatedDate?: string;
   createdBy?: string;
   tenantId?: string;
-  deliveryOrder?: string;
-  categoryId: number;
-  categoryName: string;
   productId: number;
-  productName: string;
-  quantity: number;
+  orderedQty: number;
+  deliveredQty: number;
+  deliveryNote?: string;
 }
 
-// ✅ Nested Delivery Order inside status
-interface DeliveryOrderNested {
+interface Delivery {
   id: number;
   createdDate: string;
   updatedDate: string;
   createdBy: string;
   tenantId: string;
-  deliveryOrderNumber: string;
+  deliveryNo: string;
   deliveryDate: string;
-  customerId: number;
-  customerName: string;
-  customerNumber: string;
-  items: DeliveryItem[];
-  vehicle: Vehicle;
-  transporter: Transporter;
-  remarks?: string;
-  createdAt: string;
-  updatedAt: string;
-  deliveryAddress: Address;
-  routeSchedule: RouteSchedule;
-  deliveryStatus: string;
-  deliStatus: DeliveryStatus;
   salesOrderId: number;
-  reservationId: number;
-  warehouseId: number;
+  customerId: number;
+  status: DeliveryStatus;
+  items: DeliveryItem[];
 }
 
-// ✅ Status History
-interface DeliveryStatusHistory {
-  id: number;
-  createdDate: string;
-  updatedDate: string;
-  createdBy: string;
-  tenantId: string;
-  deliveryOrder: DeliveryOrderNested;
-  currentStatus: string;
-  remarks: string;
-  statusUpdatedAt: string;
-  updatedBy: string;
-  deliveredSuccessfully: boolean;
-  failureReason?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+// ================= API CONFIGURATION =================
 
-// ✅ MAIN RESPONSE - includes root level fields
-interface DeliveryOrderResponse {
-  id: number;
-  createdDate: string;          // ✅ Root level
-  updatedDate: string;          // ✅ Root level
-  createdBy: string;            // ✅ Root level
-  tenantId: string;             // ✅ Root level
-  deliveryOrderNumber: string;
-  deliveryDate: string;
-  status: DeliveryStatusHistory;
-  customerId: number;
-  salesOrderId: number;
-  reservationId: number;
-  warehouseId: number;
-  customerName: string;
-  customerNumber: string;
-  deliveryAddress: Address;
-  items: DeliveryItem[];
+// SIMPLE FIX: Hardcode your API URL here
+const API_BASE_URL = "http://localhost:8080"; // Change this to your actual API URL
+
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Add auth token interceptor (optional)
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem("authToken");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// ================= API SERVICE =================
+
+class DeliveryService {
+  // GET /v1/api/delivery/delivery-orders
+  static async getAll(): Promise<Delivery[]> {
+    try {
+      const response = await apiClient.get("/v1/api/delivery/delivery-orders");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching deliveries:", error);
+      throw error;
+    }
+  }
+
+  // GET /v1/api/delivery/delivery-orders/{id}
+  static async getById(id: number): Promise<Delivery> {
+    try {
+      const response = await apiClient.get(`/v1/api/delivery/delivery-orders/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching delivery ${id}:`, error);
+      throw error;
+    }
+  }
+
+  // POST /v1/api/delivery/delivery-orders
+  static async create(data: Partial<Delivery>): Promise<Delivery> {
+    try {
+      const response = await apiClient.post("/v1/api/delivery/delivery-orders", data);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating delivery:", error);
+      throw error;
+    }
+  }
+
+  // PUT /v1/api/delivery/delivery-orders/{id}/status
+  static async updateStatus(id: number, status: DeliveryStatus): Promise<Delivery> {
+    try {
+      const response = await apiClient.put(`/v1/api/delivery/delivery-orders/${id}/status`, { status });
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating delivery status ${id}:`, error);
+      throw error;
+    }
+  }
+
+  // DELETE /v1/api/delivery/delivery-orders/{id}
+  static async delete(id: number): Promise<void> {
+    try {
+      await apiClient.delete(`/v1/api/delivery/delivery-orders/${id}`);
+    } catch (error) {
+      console.error(`Error deleting delivery ${id}:`, error);
+      throw error;
+    }
+  }
 }
 
 // ================= CONSTANTS =================
 
 const PAGE_SIZE = 10;
-const STATUS_OPTIONS = ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED", "FAILED"];
+const STATUS_OPTIONS: DeliveryStatus[] = ["PENDING", "IN_PROGRESS", "SHIPPED", "DELIVERED", "CANCELLED", "FAILED"];
 
 // ================= COMPONENT =================
 
-const DeliveryOrder: React.FC = () => {
-  const [deliveries, setDeliveries] = useState<DeliveryOrderResponse[]>([]);
+const DeliveryNote: React.FC = () => {
+  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<DeliveryStatus | "ALL">("ALL");
   const [dateFilter, setDateFilter] = useState("");
 
   const [form, setForm] = useState({
     id: null as number | null,
-    deliveryOrderNumber: "",
+    deliveryNo: "",
     deliveryDate: "",
-    customerId: 0,
-    customerName: "",
-    customerNumber: "",
     salesOrderId: 0,
-    reservationId: 0,
-    warehouseId: 0,
-    remarks: "",
-    deliveryStatus: "PENDING" as DeliveryStatus,
+    customerId: 0,
+    status: "PENDING" as DeliveryStatus,
     items: [] as DeliveryItem[],
-    deliveryAddress: {
-      addressLine1: "",
-      addressLine2: "",
-      city: "",
-      state: "",
-      country: "",
-      postalCode: "",
-      landmark: "",
-    },
-    vehicleId: "",
-    transporterId: "",
-    routeScheduleId: "",
   });
 
   const [showFormModal, setShowFormModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedDelivery, setSelectedDelivery] = useState<DeliveryOrderResponse | null>(null);
+  const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [newStatus, setNewStatus] = useState<DeliveryStatus>("PENDING");
 
   // ================= FETCH =================
 
@@ -250,11 +176,13 @@ const DeliveryOrder: React.FC = () => {
 
   const fetchDeliveries = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await axios.get("/v1/api/delivery");
-      setDeliveries(res.data);
+      const data = await DeliveryService.getAll();
+      setDeliveries(data);
     } catch (err) {
       console.error("Error fetching deliveries:", err);
+      setError("Failed to load deliveries. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -265,17 +193,13 @@ const DeliveryOrder: React.FC = () => {
   const filteredDeliveries = useMemo(() => {
     return deliveries.filter((d) => {
       const matchesSearch =
-        d.deliveryOrderNumber?.toLowerCase().includes(search.toLowerCase()) ||
-        d.customerName?.toLowerCase().includes(search.toLowerCase()) ||
-        d.customerNumber?.includes(search) ||
+        d.deliveryNo?.toLowerCase().includes(search.toLowerCase()) ||
+        String(d.customerId).includes(search) ||
+        String(d.salesOrderId).includes(search) ||
         String(d.id).includes(search);
 
-      // ✅ Get status from nested path
-      const deliveryStatus = d.status?.deliveryOrder?.deliStatus || 
-                            d.status?.currentStatus || 
-                            "PENDING";
       const matchesStatus =
-        statusFilter === "ALL" || deliveryStatus === statusFilter;
+        statusFilter === "ALL" || d.status === statusFilter;
 
       const matchesDate =
         !dateFilter || d.deliveryDate?.startsWith(dateFilter);
@@ -286,61 +210,53 @@ const DeliveryOrder: React.FC = () => {
 
   // ================= STATS =================
 
-  const getStatusStats = () => {
+  const getStats = () => {
     const stats = {
       total: deliveries.length,
-      pending: 0,
-      inProgress: 0,
-      completed: 0,
-      cancelled: 0,
-      failed: 0,
+      pending: deliveries.filter(d => d.status === "PENDING").length,
+      inProgress: deliveries.filter(d => d.status === "IN_PROGRESS").length,
+      shipped: deliveries.filter(d => d.status === "SHIPPED").length,
+      delivered: deliveries.filter(d => d.status === "DELIVERED").length,
+      cancelled: deliveries.filter(d => d.status === "CANCELLED").length,
+      failed: deliveries.filter(d => d.status === "FAILED").length,
     };
-
-    deliveries.forEach(d => {
-      const status = d.status?.deliveryOrder?.deliStatus || d.status?.currentStatus || "PENDING";
-      switch(status) {
-        case "PENDING": stats.pending++; break;
-        case "IN_PROGRESS": stats.inProgress++; break;
-        case "COMPLETED": stats.completed++; break;
-        case "CANCELLED": stats.cancelled++; break;
-        case "FAILED": stats.failed++; break;
-      }
-    });
-
     return stats;
   };
 
+  const stats = getStats();
+
   // ================= TABLE =================
 
-  const tableColumns: ColumnDef<DeliveryOrderResponse>[] = [
-    { 
-      key: "deliveryOrderNumber", 
-      label: "Delivery Order #",
+  const tableColumns: ColumnDef<Delivery>[] = [
+    {
+      key: "deliveryNo",
+      label: "Delivery No",
       render: (row) => (
         <span className="font-medium text-cyan-600">
-          {row.deliveryOrderNumber || `DO-${row.id}`}
+          {row.deliveryNo || `DEL-${row.id}`}
         </span>
       )
     },
-    { 
-      key: "customerName", 
+    {
+      key: "customerId",
       label: "Customer",
       render: (row) => (
         <div>
-          <div className="font-medium">{row.customerName}</div>
-          <div className="text-xs text-gray-500">{row.customerNumber}</div>
+          <span className="font-medium">#{row.customerId}</span>
         </div>
+      )
+    },
+    {
+      key: "salesOrderId",
+      label: "Sales Order",
+      render: (row) => (
+        <span className="text-sm text-gray-600">SO-{row.salesOrderId}</span>
       )
     },
     {
       key: "status",
       label: "Status",
       render: (row) => {
-        // ✅ Get status from nested path
-        const status = row.status?.deliveryOrder?.deliStatus || 
-                       row.status?.currentStatus || 
-                       "PENDING";
-        
         const statusConfig: Record<string, { color: string; icon: React.JSX.Element }> = {
           PENDING: { 
             color: "bg-yellow-100 text-yellow-700 border-yellow-200",
@@ -348,9 +264,13 @@ const DeliveryOrder: React.FC = () => {
           },
           IN_PROGRESS: { 
             color: "bg-blue-100 text-blue-700 border-blue-200",
+            icon: <RefreshCwIcon className="h-3 w-3" />
+          },
+          SHIPPED: { 
+            color: "bg-purple-100 text-purple-700 border-purple-200",
             icon: <TruckIcon className="h-3 w-3" />
           },
-          COMPLETED: { 
+          DELIVERED: { 
             color: "bg-green-100 text-green-700 border-green-200",
             icon: <CheckCircleIcon className="h-3 w-3" />
           },
@@ -364,11 +284,11 @@ const DeliveryOrder: React.FC = () => {
           }
         };
 
-        const config = statusConfig[status] || statusConfig.PENDING;
+        const config = statusConfig[row.status] || statusConfig.PENDING;
         return (
           <span className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-1 ${config.color}`}>
             {config.icon}
-            {status.replace('_', ' ')}
+            {row.status.replace('_', ' ')}
           </span>
         );
       }
@@ -387,17 +307,8 @@ const DeliveryOrder: React.FC = () => {
       label: "Items",
       render: (row) => (
         <span className="text-sm text-gray-600">
-          {row.items?.length || 0} products
+          {row.items?.length || 0} items
         </span>
-      )
-    },
-    {
-      key: "deliveryAddress",
-      label: "Address",
-      render: (row) => (
-        <div className="text-xs text-gray-500 truncate max-w-[150px]">
-          {row.deliveryAddress?.addressLine1}, {row.deliveryAddress?.city}
-        </div>
       )
     },
     {
@@ -416,34 +327,17 @@ const DeliveryOrder: React.FC = () => {
   const handleAddDelivery = () => {
     setForm({
       id: null,
-      deliveryOrderNumber: `DO-${Date.now()}`,
+      deliveryNo: `DEL-${Date.now()}`,
       deliveryDate: new Date().toISOString().split('T')[0],
-      customerId: 0,
-      customerName: "",
-      customerNumber: "",
       salesOrderId: 0,
-      reservationId: 0,
-      warehouseId: 0,
-      remarks: "",
-      deliveryStatus: "PENDING",
+      customerId: 0,
+      status: "PENDING",
       items: [],
-      deliveryAddress: {
-        addressLine1: "",
-        addressLine2: "",
-        city: "",
-        state: "",
-        country: "",
-        postalCode: "",
-        landmark: "",
-      },
-      vehicleId: "",
-      transporterId: "",
-      routeScheduleId: "",
     });
     setShowFormModal(true);
   };
 
-  const handleViewDelivery = (delivery: DeliveryOrderResponse) => {
+  const handleViewDelivery = (delivery: Delivery) => {
     setSelectedDelivery(delivery);
     setShowDetailModal(true);
   };
@@ -451,16 +345,12 @@ const DeliveryOrder: React.FC = () => {
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
-    const { name, value } = e.target;
-
-    if (name.startsWith("address.")) {
-      const field = name.split(".")[1];
+    const { name, value, type } = e.target;
+    
+    if (type === "number") {
       setForm((prev) => ({
         ...prev,
-        deliveryAddress: {
-          ...prev.deliveryAddress,
-          [field]: value,
-        },
+        [name]: value === "" ? 0 : Number(value),
       }));
     } else {
       setForm((prev) => ({
@@ -472,11 +362,10 @@ const DeliveryOrder: React.FC = () => {
 
   const handleAddItem = () => {
     const newItem: DeliveryItem = {
-      categoryId: 0,
-      categoryName: "",
       productId: 0,
-      productName: "",
-      quantity: 1,
+      orderedQty: 0,
+      deliveredQty: 0,
+      deliveryNote: "",
     };
 
     setForm(prev => ({
@@ -502,94 +391,127 @@ const DeliveryOrder: React.FC = () => {
     e.preventDefault();
 
     // Validate required fields
-    if (!form.customerName || !form.deliveryAddress.addressLine1 || form.items.length === 0) {
-      alert("Please fill in all required fields (Customer, Address, and at least one item)");
+    if (!form.customerId || !form.salesOrderId || form.items.length === 0) {
+      alert("Please fill in all required fields (Customer, Sales Order, and at least one item)");
       return;
     }
 
+    // Validate items
+    for (const item of form.items) {
+      if (!item.productId || item.orderedQty <= 0 || item.deliveredQty < 0) {
+        alert("Please ensure all items have valid Product ID, Ordered Qty (>0), and Delivered Qty (>=0)");
+        return;
+      }
+    }
+
     const payload = {
-      deliveryOrderNumber: form.deliveryOrderNumber,
-      deliveryDate: form.deliveryDate || new Date().toISOString(),
-      customerId: Number(form.customerId) || 0,
-      customerName: form.customerName,
-      customerNumber: form.customerNumber || `CUST-${Date.now()}`,
-      salesOrderId: Number(form.salesOrderId) || 0,
-      reservationId: Number(form.reservationId) || 0,
-      warehouseId: Number(form.warehouseId) || 0,
-      remarks: form.remarks || "",
-      deliStatus: form.deliveryStatus,
+      deliveryNo: form.deliveryNo,
+      deliveryDate: form.deliveryDate || new Date().toISOString().split('T')[0],
+      salesOrderId: Number(form.salesOrderId),
+      customerId: Number(form.customerId),
+      status: form.status,
       items: form.items.map(item => ({
-        categoryId: Number(item.categoryId) || 0,
-        categoryName: item.categoryName || "General",
         productId: Number(item.productId) || 0,
-        productName: item.productName || `Product ${item.productId}`,
-        quantity: Number(item.quantity) || 1,
+        orderedQty: Number(item.orderedQty) || 0,
+        deliveredQty: Number(item.deliveredQty) || 0,
+        deliveryNote: item.deliveryNote || "",
       })),
-      deliveryAddress: {
-        addressLine1: form.deliveryAddress.addressLine1,
-        addressLine2: form.deliveryAddress.addressLine2 || "",
-        city: form.deliveryAddress.city,
-        state: form.deliveryAddress.state,
-        country: form.deliveryAddress.country || "India",
-        postalCode: form.deliveryAddress.postalCode,
-        landmark: form.deliveryAddress.landmark || "",
-        customerId: Number(form.customerId) || 0,
-        customerName: form.customerName,
-        customerNumber: form.customerNumber || `CUST-${Date.now()}`,
-        defaultDelivery: true,
-        defaultBilling: false,
-        active: true,
-      },
-      vehicleId: form.vehicleId ? Number(form.vehicleId) : undefined,
-      transporterId: form.transporterId ? Number(form.transporterId) : undefined,
-      routeScheduleId: form.routeScheduleId ? Number(form.routeScheduleId) : undefined,
     };
 
     console.log("📦 DELIVERY PAYLOAD:", payload);
 
+    setLoading(true);
     try {
+      let result: Delivery;
       if (form.id) {
-        await axios.put(`/v1/api/delivery/${form.id}`, payload);
+        // PUT /v1/api/delivery/delivery-orders/{id}/status
+        result = await DeliveryService.updateStatus(form.id, form.status);
+        console.log("✅ Delivery status updated:", result);
       } else {
-        await axios.post("/v1/api/delivery", payload);
+        // POST /v1/api/delivery/delivery-orders
+        result = await DeliveryService.create(payload);
+        console.log("✅ Delivery created:", result);
       }
       
       await fetchDeliveries();
       setShowFormModal(false);
-      
+      setError(null);
     } catch (err) {
       console.error("Error saving delivery:", err);
-      alert("Failed to save delivery order. Please try again.");
+      setError("Failed to save delivery. Please try again.");
+      alert("Failed to save delivery. Please check the console for details.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDeleteDelivery = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this delivery order?")) return;
+    if (!confirm("Are you sure you want to delete this delivery?")) return;
 
+    setLoading(true);
     try {
-      await axios.delete(`/v1/api/delivery/deli/${id}`);
+      // DELETE /v1/api/delivery/delivery-orders/{id}
+      await DeliveryService.delete(id);
       await fetchDeliveries();
+      setShowDetailModal(false);
+      setError(null);
     } catch (err) {
       console.error("Error deleting delivery:", err);
-      alert("Failed to delete delivery order.");
+      setError("Failed to delete delivery.");
+      alert("Failed to delete delivery.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateStatus = async () => {
+    if (!selectedDelivery) return;
+
+    setLoading(true);
+    try {
+      // PUT /v1/api/delivery/delivery-orders/{id}/status
+      await DeliveryService.updateStatus(selectedDelivery.id, newStatus);
+      await fetchDeliveries();
+      setShowStatusModal(false);
+      setShowDetailModal(false);
+      setError(null);
+      alert(`Status updated to ${newStatus.replace('_', ' ')} successfully!`);
+    } catch (err) {
+      console.error("Error updating status:", err);
+      setError("Failed to update status.");
+      alert("Failed to update status.");
+    } finally {
+      setLoading(false);
     }
   };
 
   // ================= UI =================
 
-  const stats = getStatusStats();
-
   return (
     <>
-      <PageMeta title="Delivery Orders" description="Manage delivery orders" />
-      <PageBreadcrumb pageTitle="Delivery Orders" />
+      <PageMeta title="Deliveries" description="Manage deliveries" />
+      <PageBreadcrumb pageTitle="Deliveries" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
 
         {/* HEADER */}
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={handleAddDelivery} label="Add Delivery Order" />
+          <AddButton onClick={handleAddDelivery} label="Add Delivery" />
         </div>
+
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <span className="font-medium">Error: </span>
+            {error}
+            <button 
+              onClick={() => setError(null)}
+              className="float-right text-red-700 hover:text-red-900"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* STATS */}
         <div className="grid grid-cols-3 lg:grid-cols-6 gap-4">
@@ -615,25 +537,25 @@ const DeliveryOrder: React.FC = () => {
             labelColor="text-blue-600"
           />
           <StatsCard 
-            label="Completed" 
-            value={stats.completed}
+            label="Shipped" 
+            value={stats.shipped}
+            gradient="from-purple-50 to-violet-50"
+            borderColor="border-purple-100"
+            labelColor="text-purple-600"
+          />
+          <StatsCard 
+            label="Delivered" 
+            value={stats.delivered}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
           />
           <StatsCard 
             label="Cancelled" 
-            value={stats.cancelled}
+            value={stats.cancelled + stats.failed}
             gradient="from-red-50 to-rose-50"
             borderColor="border-red-100"
             labelColor="text-red-600"
-          />
-          <StatsCard 
-            label="Failed" 
-            value={stats.failed}
-            gradient="from-orange-50 to-red-50"
-            borderColor="border-orange-100"
-            labelColor="text-orange-600"
           />
         </div>
 
@@ -643,7 +565,7 @@ const DeliveryOrder: React.FC = () => {
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
-                placeholder="Search by order #, customer, or ID..."
+                placeholder="Search by delivery no, customer ID, or sales order..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
@@ -710,7 +632,7 @@ const DeliveryOrder: React.FC = () => {
         )}
 
         {/* TABLE */}
-        <ReusableTable<DeliveryOrderResponse>
+        <ReusableTable<Delivery>
           data={filteredDeliveries}
           columns={tableColumns}
           pageSize={PAGE_SIZE}
@@ -721,7 +643,7 @@ const DeliveryOrder: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center -mt-10">
               <ClipboardListIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No Delivery Orders Found</p>
+              <p className="text-gray-500 text-sm mb-2">No Deliveries Found</p>
               {search || statusFilter !== "ALL" || dateFilter ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
               ) : (
@@ -730,7 +652,7 @@ const DeliveryOrder: React.FC = () => {
                   onClick={handleAddDelivery}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >
-                  Create your first delivery order
+                  Create your first delivery
                 </button>
               )}
             </div>
@@ -742,19 +664,18 @@ const DeliveryOrder: React.FC = () => {
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
             <form
               onSubmit={handleSaveDelivery}
-              className="bg-white p-6 rounded-xl w-[900px] max-h-[90vh] overflow-y-auto"
+              className="bg-white p-6 rounded-xl w-[800px] max-h-[90vh] overflow-y-auto"
             >
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <ClipboardListIcon className="h-6 w-6 text-cyan-600" />
-                {form.id ? "Edit Delivery Order" : "Create Delivery Order"}
+                {form.id ? "Edit Delivery" : "Create Delivery"}
               </h2>
 
               <div className="grid grid-cols-2 gap-4">
-                {/* Basic Info */}
                 <FloatingInput
-                  label="Delivery Order #"
-                  name="deliveryOrderNumber"
-                  value={form.deliveryOrderNumber}
+                  label="Delivery No"
+                  name="deliveryNo"
+                  value={form.deliveryNo}
                   onChange={handleChange}
                   disabled
                 />
@@ -773,42 +694,21 @@ const DeliveryOrder: React.FC = () => {
                 />
 
                 <FloatingInput
-                  label="Customer Name *"
-                  name="customerName"
-                  value={form.customerName}
+                  label="Sales Order ID *"
+                  name="salesOrderId"
+                  type="number"
+                  value={form.salesOrderId}
                   onChange={handleChange}
                   required
                 />
 
                 <FloatingInput
-                  label="Customer Number"
-                  name="customerNumber"
-                  value={form.customerNumber}
-                  onChange={handleChange}
-                />
-
-                <FloatingInput
-                  label="Sales Order ID"
-                  name="salesOrderId"
+                  label="Customer ID *"
+                  name="customerId"
                   type="number"
-                  value={form.salesOrderId}
+                  value={form.customerId}
                   onChange={handleChange}
-                />
-
-                <FloatingInput
-                  label="Reservation ID"
-                  name="reservationId"
-                  type="number"
-                  value={form.reservationId}
-                  onChange={handleChange}
-                />
-
-                <FloatingInput
-                  label="Warehouse ID"
-                  name="warehouseId"
-                  type="number"
-                  value={form.warehouseId}
-                  onChange={handleChange}
+                  required
                 />
 
                 <div>
@@ -816,8 +716,8 @@ const DeliveryOrder: React.FC = () => {
                     Status *
                   </label>
                   <select
-                    name="deliveryStatus"
-                    value={form.deliveryStatus}
+                    name="status"
+                    value={form.status}
                     onChange={handleChange}
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                     required
@@ -828,62 +728,6 @@ const DeliveryOrder: React.FC = () => {
                       </option>
                     ))}
                   </select>
-                </div>
-              </div>
-
-              {/* Address Section */}
-              <div className="mt-4 border-t pt-4">
-                <h3 className="text-md font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <MapPinIcon className="h-5 w-5 text-cyan-600" />
-                  Delivery Address *
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <FloatingInput
-                    label="Address Line 1 *"
-                    name="address.addressLine1"
-                    value={form.deliveryAddress.addressLine1}
-                    onChange={handleChange}
-                    required
-                  />
-                  <FloatingInput
-                    label="Address Line 2"
-                    name="address.addressLine2"
-                    value={form.deliveryAddress.addressLine2 || ""}
-                    onChange={handleChange}
-                  />
-                  <FloatingInput
-                    label="City *"
-                    name="address.city"
-                    value={form.deliveryAddress.city}
-                    onChange={handleChange}
-                    required
-                  />
-                  <FloatingInput
-                    label="State *"
-                    name="address.state"
-                    value={form.deliveryAddress.state}
-                    onChange={handleChange}
-                    required
-                  />
-                  <FloatingInput
-                    label="Country"
-                    name="address.country"
-                    value={form.deliveryAddress.country}
-                    onChange={handleChange}
-                  />
-                  <FloatingInput
-                    label="Postal Code *"
-                    name="address.postalCode"
-                    value={form.deliveryAddress.postalCode}
-                    onChange={handleChange}
-                    required
-                  />
-                  <FloatingInput
-                    label="Landmark"
-                    name="address.landmark"
-                    value={form.deliveryAddress.landmark || ""}
-                    onChange={handleChange}
-                  />
                 </div>
               </div>
 
@@ -909,38 +753,36 @@ const DeliveryOrder: React.FC = () => {
                       <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
                         <input
                           type="number"
-                          placeholder="Category ID"
-                          value={item.categoryId || ''}
-                          onChange={(e) => handleItemChange(index, 'categoryId', Number(e.target.value))}
-                          className="w-20 p-1 border rounded text-sm"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Category"
-                          value={item.categoryName || ''}
-                          onChange={(e) => handleItemChange(index, 'categoryName', e.target.value)}
-                          className="w-28 p-1 border rounded text-sm"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Product ID"
+                          placeholder="Product ID *"
                           value={item.productId || ''}
                           onChange={(e) => handleItemChange(index, 'productId', Number(e.target.value))}
-                          className="w-20 p-1 border rounded text-sm"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Product Name"
-                          value={item.productName || ''}
-                          onChange={(e) => handleItemChange(index, 'productName', e.target.value)}
-                          className="w-32 p-1 border rounded text-sm"
+                          className="w-24 p-1 border rounded text-sm"
+                          required
                         />
                         <input
                           type="number"
-                          placeholder="Qty"
-                          value={item.quantity || ''}
-                          onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))}
-                          className="w-16 p-1 border rounded text-sm"
+                          placeholder="Ordered Qty *"
+                          value={item.orderedQty || ''}
+                          onChange={(e) => handleItemChange(index, 'orderedQty', Number(e.target.value))}
+                          className="w-24 p-1 border rounded text-sm"
+                          required
+                          min="1"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Delivered Qty *"
+                          value={item.deliveredQty || ''}
+                          onChange={(e) => handleItemChange(index, 'deliveredQty', Number(e.target.value))}
+                          className="w-24 p-1 border rounded text-sm"
+                          required
+                          min="0"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Note"
+                          value={item.deliveryNote || ''}
+                          onChange={(e) => handleItemChange(index, 'deliveryNote', e.target.value)}
+                          className="w-32 p-1 border rounded text-sm"
                         />
                         <button
                           type="button"
@@ -955,31 +797,22 @@ const DeliveryOrder: React.FC = () => {
                 )}
               </div>
 
-              {/* Remarks */}
-              <div className="mt-4">
-                <FloatingTextarea
-                  label="Remarks"
-                  name="remarks"
-                  value={form.remarks || ""}
-                  onChange={handleChange}
-                  rows={2}
-                />
-              </div>
-
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
                 <button
                   type="button"
                   onClick={() => setShowFormModal(false)}
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                  disabled={loading}
                 >
                   Cancel
                 </button>
 
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm font-medium"
+                  className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm font-medium disabled:opacity-50"
+                  disabled={loading}
                 >
-                  {form.id ? "Update" : "Create"} Delivery Order
+                  {loading ? "Saving..." : (form.id ? "Update" : "Create") + " Delivery"}
                 </button>
               </div>
             </form>
@@ -989,18 +822,46 @@ const DeliveryOrder: React.FC = () => {
         {/* ================= DETAIL VIEW MODAL ================= */}
         {showDetailModal && selectedDelivery && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-xl w-[800px] max-h-[90vh] overflow-y-auto">
+            <div className="bg-white p-6 rounded-xl w-[700px] max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-start mb-4">
                 <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                   <ClipboardListIcon className="h-6 w-6 text-cyan-600" />
-                  {selectedDelivery.deliveryOrderNumber || `DO-${selectedDelivery.id}`}
+                  {selectedDelivery.deliveryNo || `DEL-${selectedDelivery.id}`}
                 </h2>
                 <div className="flex gap-2">
                   <button
+                    onClick={() => {
+                      setNewStatus(selectedDelivery.status);
+                      setShowStatusModal(true);
+                    }}
+                    className="px-3 py-1 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 text-sm"
+                  >
+                    Update Status
+                  </button>
+                  <button
+                    onClick={() => {
+                      setForm({
+                        id: selectedDelivery.id,
+                        deliveryNo: selectedDelivery.deliveryNo,
+                        deliveryDate: selectedDelivery.deliveryDate,
+                        salesOrderId: selectedDelivery.salesOrderId,
+                        customerId: selectedDelivery.customerId,
+                        status: selectedDelivery.status,
+                        items: selectedDelivery.items.map(item => ({...item})),
+                      });
+                      setShowDetailModal(false);
+                      setShowFormModal(true);
+                    }}
+                    className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 text-sm"
+                  >
+                    Edit
+                  </button>
+                  <button
                     onClick={() => handleDeleteDelivery(selectedDelivery.id)}
                     className="px-3 py-1 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm"
+                    disabled={loading}
                   >
-                    Delete
+                    {loading ? "Deleting..." : "Delete"}
                   </button>
                   <button
                     onClick={() => setShowDetailModal(false)}
@@ -1014,22 +875,23 @@ const DeliveryOrder: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-gray-500">Customer</label>
-                  <p className="font-medium">{selectedDelivery.customerName}</p>
-                  <p className="text-sm text-gray-600">{selectedDelivery.customerNumber}</p>
+                  <p className="font-medium">#{selectedDelivery.customerId}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Sales Order</label>
+                  <p className="font-medium">SO-{selectedDelivery.salesOrderId}</p>
                 </div>
                 <div>
                   <label className="text-xs text-gray-500">Status</label>
                   <p className="font-medium">
                     <span className={`px-2 py-1 rounded-full text-xs ${
-                      selectedDelivery.status?.deliveryOrder?.deliStatus === "COMPLETED" ? "bg-green-100 text-green-700" :
-                      selectedDelivery.status?.deliveryOrder?.deliStatus === "IN_PROGRESS" ? "bg-blue-100 text-blue-700" :
-                      selectedDelivery.status?.deliveryOrder?.deliStatus === "CANCELLED" ? "bg-red-100 text-red-700" :
-                      selectedDelivery.status?.deliveryOrder?.deliStatus === "FAILED" ? "bg-orange-100 text-orange-700" :
+                      selectedDelivery.status === "DELIVERED" ? "bg-green-100 text-green-700" :
+                      selectedDelivery.status === "SHIPPED" ? "bg-purple-100 text-purple-700" :
+                      selectedDelivery.status === "IN_PROGRESS" ? "bg-blue-100 text-blue-700" :
+                      selectedDelivery.status === "CANCELLED" || selectedDelivery.status === "FAILED" ? "bg-red-100 text-red-700" :
                       "bg-yellow-100 text-yellow-700"
                     }`}>
-                      {selectedDelivery.status?.deliveryOrder?.deliStatus || 
-                       selectedDelivery.status?.currentStatus || 
-                       "PENDING"}
+                      {selectedDelivery.status}
                     </span>
                   </p>
                 </div>
@@ -1038,36 +900,6 @@ const DeliveryOrder: React.FC = () => {
                   <p className="font-medium">
                     {selectedDelivery.deliveryDate ? new Date(selectedDelivery.deliveryDate).toLocaleDateString() : "-"}
                   </p>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500">Warehouse</label>
-                  <p className="font-medium">WH-{selectedDelivery.warehouseId || "N/A"}</p>
-                </div>
-              </div>
-
-              {/* ✅ Get remarks from nested path */}
-              {selectedDelivery.status?.deliveryOrder?.remarks && (
-                <div className="mt-4 border-t pt-4">
-                  <h3 className="text-md font-semibold text-gray-700 mb-1">Remarks</h3>
-                  <p className="text-sm text-gray-600">{selectedDelivery.status.deliveryOrder.remarks}</p>
-                </div>
-              )}
-
-              <div className="mt-4 border-t pt-4">
-                <h3 className="text-md font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                  <MapPinIcon className="h-5 w-5 text-cyan-600" />
-                  Delivery Address
-                </h3>
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <p>{selectedDelivery.deliveryAddress?.addressLine1}</p>
-                  {selectedDelivery.deliveryAddress?.addressLine2 && <p>{selectedDelivery.deliveryAddress.addressLine2}</p>}
-                  <p>
-                    {selectedDelivery.deliveryAddress?.city}, {selectedDelivery.deliveryAddress?.state}
-                  </p>
-                  <p>{selectedDelivery.deliveryAddress?.country} - {selectedDelivery.deliveryAddress?.postalCode}</p>
-                  {selectedDelivery.deliveryAddress?.landmark && (
-                    <p className="text-sm text-gray-500">Landmark: {selectedDelivery.deliveryAddress.landmark}</p>
-                  )}
                 </div>
               </div>
 
@@ -1080,22 +912,79 @@ const DeliveryOrder: React.FC = () => {
                   {selectedDelivery.items?.map((item, index) => (
                     <div key={index} className="flex justify-between items-center bg-gray-50 p-2 rounded">
                       <div>
-                        <span className="font-medium">{item.productName}</span>
-                        <span className="text-xs text-gray-500 ml-2">(#{item.productId})</span>
+                        <span className="font-medium">Product #{item.productId}</span>
                       </div>
-                      <div className="text-sm">
-                        <span className="text-gray-500">{item.categoryName}</span>
-                        <span className="ml-3 font-medium">Qty: {item.quantity}</span>
+                      <div className="text-sm space-x-3">
+                        <span className="text-gray-500">Ordered: {item.orderedQty}</span>
+                        <span className="text-green-600">Delivered: {item.deliveredQty}</span>
+                        {item.deliveryNote && (
+                          <span className="text-gray-400 text-xs">Note: {item.deliveryNote}</span>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* ✅ Use root level createdDate/updatedDate */}
               <div className="mt-4 border-t pt-4 text-xs text-gray-400">
                 <p>Created: {new Date(selectedDelivery.createdDate).toLocaleString()} by {selectedDelivery.createdBy}</p>
                 <p>Updated: {new Date(selectedDelivery.updatedDate).toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================= UPDATE STATUS MODAL ================= */}
+        {showStatusModal && selectedDelivery && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-xl w-[400px]">
+              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <RefreshCwIcon className="h-6 w-6 text-purple-600" />
+                Update Status
+              </h2>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Current Status
+                </label>
+                <p className="text-gray-600 font-medium">{selectedDelivery.status}</p>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  New Status *
+                </label>
+                <select
+                  value={newStatus}
+                  onChange={(e) => setNewStatus(e.target.value as DeliveryStatus)}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                >
+                  {STATUS_OPTIONS.map(status => (
+                    <option key={status} value={status}>
+                      {status.replace('_', ' ')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowStatusModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleUpdateStatus}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium disabled:opacity-50"
+                  disabled={loading}
+                >
+                  {loading ? "Updating..." : "Update Status"}
+                </button>
               </div>
             </div>
           </div>
@@ -1105,4 +994,4 @@ const DeliveryOrder: React.FC = () => {
   );
 };
 
-export default DeliveryOrder;
+export default DeliveryNote;

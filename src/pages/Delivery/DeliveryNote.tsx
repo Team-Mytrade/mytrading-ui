@@ -57,6 +57,85 @@ interface Delivery {
   items: DeliveryItem[];
 }
 
+// ================= API CONFIGURATION =================
+
+// SIMPLE FIX: Hardcode your API URL here
+const API_BASE_URL = "http://localhost:8080"; // Change this to your actual API URL
+
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Add auth token interceptor (optional)
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem("authToken");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// ================= API SERVICE =================
+
+class DeliveryService {
+  // GET /v1/api/delivery/delivery-notes
+  static async getAll(): Promise<Delivery[]> {
+    try {
+      const response = await apiClient.get("/v1/api/delivery/delivery-notes");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching deliveries:", error);
+      throw error;
+    }
+  }
+
+  // GET /v1/api/delivery/delivery-notes/{id}
+  static async getById(id: number): Promise<Delivery> {
+    try {
+      const response = await apiClient.get(`/v1/api/delivery/delivery-notes/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching delivery ${id}:`, error);
+      throw error;
+    }
+  }
+
+  // POST /v1/api/delivery/delivery-notes
+  static async create(data: Partial<Delivery>): Promise<Delivery> {
+    try {
+      const response = await apiClient.post("/v1/api/delivery/delivery-notes", data);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating delivery:", error);
+      throw error;
+    }
+  }
+
+  // PUT /v1/api/delivery/delivery-notes/{id}
+  static async update(id: number, data: Partial<Delivery>): Promise<Delivery> {
+    try {
+      const response = await apiClient.put(`/v1/api/delivery/delivery-notes/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating delivery ${id}:`, error);
+      throw error;
+    }
+  }
+
+  // DELETE /v1/api/delivery/delivery-notes/{id}
+  static async delete(id: number): Promise<void> {
+    try {
+      await apiClient.delete(`/v1/api/delivery/delivery-notes/${id}`);
+    } catch (error) {
+      console.error(`Error deleting delivery ${id}:`, error);
+      throw error;
+    }
+  }
+}
+
 // ================= CONSTANTS =================
 
 const PAGE_SIZE = 10;
@@ -69,6 +148,7 @@ const DeliveryNote: React.FC = () => {
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<DeliveryStatus | "ALL">("ALL");
   const [dateFilter, setDateFilter] = useState("");
 
@@ -94,11 +174,13 @@ const DeliveryNote: React.FC = () => {
 
   const fetchDeliveries = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await axios.get("/v1/api/delivery");
-      setDeliveries(res.data);
+      const data = await DeliveryService.getAll();
+      setDeliveries(data);
     } catch (err) {
       console.error("Error fetching deliveries:", err);
+      setError("Failed to load deliveries. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -312,6 +394,14 @@ const DeliveryNote: React.FC = () => {
       return;
     }
 
+    // Validate items
+    for (const item of form.items) {
+      if (!item.productId || item.orderedQty <= 0 || item.deliveredQty < 0) {
+        alert("Please ensure all items have valid Product ID, Ordered Qty (>0), and Delivered Qty (>=0)");
+        return;
+      }
+    }
+
     const payload = {
       deliveryNo: form.deliveryNo,
       deliveryDate: form.deliveryDate || new Date().toISOString().split('T')[0],
@@ -328,31 +418,44 @@ const DeliveryNote: React.FC = () => {
 
     console.log("📦 DELIVERY PAYLOAD:", payload);
 
+    setLoading(true);
     try {
+      let result: Delivery;
       if (form.id) {
-        await axios.put(`/v1/api/delivery/${form.id}`, payload);
+        result = await DeliveryService.update(form.id, payload);
+        console.log("✅ Delivery updated:", result);
       } else {
-        await axios.post("/v1/api/delivery", payload);
+        result = await DeliveryService.create(payload);
+        console.log("✅ Delivery created:", result);
       }
       
       await fetchDeliveries();
       setShowFormModal(false);
-      
+      setError(null);
     } catch (err) {
       console.error("Error saving delivery:", err);
-      alert("Failed to save delivery. Please try again.");
+      setError("Failed to save delivery. Please try again.");
+      alert("Failed to save delivery. Please check the console for details.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDeleteDelivery = async (id: number) => {
     if (!confirm("Are you sure you want to delete this delivery?")) return;
 
+    setLoading(true);
     try {
-      await axios.delete(`/v1/api/delivery/${id}`);
+      await DeliveryService.delete(id);
       await fetchDeliveries();
+      setShowDetailModal(false);
+      setError(null);
     } catch (err) {
       console.error("Error deleting delivery:", err);
+      setError("Failed to delete delivery.");
       alert("Failed to delete delivery.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -369,6 +472,20 @@ const DeliveryNote: React.FC = () => {
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={handleAddDelivery} label="Add Delivery" />
         </div>
+
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <span className="font-medium">Error: </span>
+            {error}
+            <button 
+              onClick={() => setError(null)}
+              className="float-right text-red-700 hover:text-red-900"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* STATS */}
         <div className="grid grid-cols-3 lg:grid-cols-6 gap-4">
@@ -610,24 +727,29 @@ const DeliveryNote: React.FC = () => {
                       <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
                         <input
                           type="number"
-                          placeholder="Product ID"
+                          placeholder="Product ID *"
                           value={item.productId || ''}
                           onChange={(e) => handleItemChange(index, 'productId', Number(e.target.value))}
                           className="w-24 p-1 border rounded text-sm"
+                          required
                         />
                         <input
                           type="number"
-                          placeholder="Ordered Qty"
+                          placeholder="Ordered Qty *"
                           value={item.orderedQty || ''}
                           onChange={(e) => handleItemChange(index, 'orderedQty', Number(e.target.value))}
                           className="w-24 p-1 border rounded text-sm"
+                          required
+                          min="1"
                         />
                         <input
                           type="number"
-                          placeholder="Delivered Qty"
+                          placeholder="Delivered Qty *"
                           value={item.deliveredQty || ''}
                           onChange={(e) => handleItemChange(index, 'deliveredQty', Number(e.target.value))}
                           className="w-24 p-1 border rounded text-sm"
+                          required
+                          min="0"
                         />
                         <input
                           type="text"
@@ -654,15 +776,17 @@ const DeliveryNote: React.FC = () => {
                   type="button"
                   onClick={() => setShowFormModal(false)}
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                  disabled={loading}
                 >
                   Cancel
                 </button>
 
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm font-medium"
+                  className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm font-medium disabled:opacity-50"
+                  disabled={loading}
                 >
-                  {form.id ? "Update" : "Create"} Delivery
+                  {loading ? "Saving..." : (form.id ? "Update" : "Create") + " Delivery"}
                 </button>
               </div>
             </form>
@@ -682,8 +806,27 @@ const DeliveryNote: React.FC = () => {
                   <button
                     onClick={() => handleDeleteDelivery(selectedDelivery.id)}
                     className="px-3 py-1 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm"
+                    disabled={loading}
                   >
-                    Delete
+                    {loading ? "Deleting..." : "Delete"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setForm({
+                        id: selectedDelivery.id,
+                        deliveryNo: selectedDelivery.deliveryNo,
+                        deliveryDate: selectedDelivery.deliveryDate,
+                        salesOrderId: selectedDelivery.salesOrderId,
+                        customerId: selectedDelivery.customerId,
+                        status: selectedDelivery.status,
+                        items: selectedDelivery.items.map(item => ({...item})),
+                      });
+                      setShowDetailModal(false);
+                      setShowFormModal(true);
+                    }}
+                    className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 text-sm"
+                  >
+                    Edit
                   </button>
                   <button
                     onClick={() => setShowDetailModal(false)}
