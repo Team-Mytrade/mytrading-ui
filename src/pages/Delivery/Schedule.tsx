@@ -55,27 +55,25 @@ interface VehicleOption { id: number; licensePlate: string; }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const API_URL       = "/v1/api/delivery/schedules";
-const ROUTES_URL    = "/v1/api/delivery/routes";
-const VEHICLES_URL  = "/v1/api/dispatch/vehicles";
+const API_URL = "/v1/api/delivery/schedules";
+const ROUTES_URL = "/v1/api/delivery/routes";
+const VEHICLES_URL = "/v1/api/delivery/vehicles";
 
 const emptyForm: ScheduleForm = {
-  routeId:       "",
-  vehicleId:     "",
+  routeId: "",
+  vehicleId: "",
   scheduledDate: "",
-  startTime:     "",
-  endTime:       "",
+  startTime: "",
+  endTime: "",
 };
 
-const toTimeObject = (t: string): TimeObject => {
-  const [hour, minute] = t.split(":").map(Number);
-  return { hour: hour || 0, minute: minute || 0, second: 0, nano: 0 };
-};
-
-const toTimeString = (t?: TimeObject): string => {
+const timeObjectToInputString = (t?: TimeObject): string => {
   if (!t) return "";
-  return `${String(t.hour).padStart(2, "0")}:${String(t.minute).padStart(2, "0")}`;
+  const hh = String(t.hour).padStart(2, "0");
+  const mm = String(t.minute).padStart(2, "0");
+  return `${hh}:${mm}`;
 };
+const inputStringToApiTime = (t: string): string => `${t}:00`;
 
 const getTenantIdFromToken = (token: string) => {
   try {
@@ -106,20 +104,20 @@ const getTenantId = () => {
 
 const SchedulePage: React.FC = () => {
   const [schedules, setSchedules] = useState<ScheduleApi[]>([]);
-  const [routeOptions, setRouteOptions]     = useState<RouteOption[]>([]);
+  const [routeOptions, setRouteOptions] = useState<RouteOption[]>([]);
   const [vehicleOptions, setVehicleOptions] = useState<VehicleOption[]>([]);
 
-  const [loading, setLoading]   = useState(false);
+  const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm]         = useState<ScheduleForm>(emptyForm);
-  const [saving, setSaving]     = useState(false);
+  const [form, setForm] = useState<ScheduleForm>(emptyForm);
+  const [saving, setSaving] = useState(false);
 
-  const [search, setSearch]           = useState("");
+  const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL"); // ALL | TODAY | UPCOMING | PAST
   const [showFilters, setShowFilters] = useState(false);
 
   const [showDeletePopup, setShowDeletePopup] = useState(false);
-  const [deletingItem, setDeletingItem]       = useState<ScheduleApi | null>(null);
+  const [deletingItem, setDeletingItem] = useState<ScheduleApi | null>(null);
 
   const token = localStorage.getItem("accessToken");
   const tenantId = getTenantId();
@@ -180,7 +178,7 @@ const SchedulePage: React.FC = () => {
 
   // ── Lookups for table rendering ─────────────────────────────────────────────
 
-  const routeName    = (id: number) => routeOptions.find(r => r.id === id)?.name ?? `#${id}`;
+  const routeName = (id: number) => routeOptions.find(r => r.id === id)?.name ?? `#${id}`;
   const vehiclePlate = (id: number) => vehicleOptions.find(v => v.id === id)?.licensePlate ?? `#${id}`;
 
   // ── Form helpers ─────────────────────────────────────────────────────────────
@@ -194,12 +192,12 @@ const SchedulePage: React.FC = () => {
 
   const handleEdit = (s: ScheduleApi) => {
     setForm({
-      id:            s.id,
-      routeId:       String(s.routeId),
-      vehicleId:     String(s.vehicleId),
+      id: s.id,
+      routeId: String(s.routeId),
+      vehicleId: String(s.vehicleId),
       scheduledDate: s.scheduledDate,
-      startTime:     toTimeString(s.startTime),
-      endTime:       toTimeString(s.endTime),
+      startTime: timeObjectToInputString(s.startTime), // TimeObject in, string out
+      endTime: timeObjectToInputString(s.endTime),
     });
     setShowForm(true);
   };
@@ -216,11 +214,11 @@ const SchedulePage: React.FC = () => {
 
     setSaving(true);
     const payload = {
-      routeId:       Number(form.routeId),
-      vehicleId:     Number(form.vehicleId),
+      routeId: Number(form.routeId),
+      vehicleId: Number(form.vehicleId),
       scheduledDate: form.scheduledDate,
-      startTime:     toTimeObject(form.startTime),
-      endTime:       toTimeObject(form.endTime),
+      startTime: inputStringToApiTime(form.startTime), // "05:00" in, "05:00:00" out
+      endTime: inputStringToApiTime(form.endTime),
     };
 
     try {
@@ -284,10 +282,10 @@ const SchedulePage: React.FC = () => {
   }, [schedules, search, activeFilter, routeOptions, vehicleOptions]);
 
   const stats = useMemo(() => ({
-    total:    schedules.length,
-    today:    schedules.filter(s => s.scheduledDate === todayStr).length,
+    total: schedules.length,
+    today: schedules.filter(s => s.scheduledDate === todayStr).length,
     upcoming: schedules.filter(s => s.scheduledDate > todayStr).length,
-    past:     schedules.filter(s => s.scheduledDate < todayStr).length,
+    past: schedules.filter(s => s.scheduledDate < todayStr).length,
   }), [schedules, todayStr]);
 
   // ── Columns ─────────────────────────────────────────────────────────────────
@@ -344,7 +342,7 @@ const SchedulePage: React.FC = () => {
       render: (s) => (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/40">
           <ClockIcon className="h-3.5 w-3.5 text-cyan-600 opacity-80" />
-          {toTimeString(s.startTime)} – {toTimeString(s.endTime)}
+          {timeObjectToInputString(s.startTime)} – {timeObjectToInputString(s.endTime)}
         </span>
       ),
     },
@@ -448,9 +446,8 @@ const SchedulePage: React.FC = () => {
           <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`rounded-lg border p-2 flex items-center justify-center transition-colors h-[40px] w-[40px] ${
-                showFilters ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"
-              }`}
+              className={`rounded-lg border p-2 flex items-center justify-center transition-colors h-[40px] w-[40px] ${showFilters ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"
+                }`}
             >
               <FunnelIcon className={`h-5 w-5 ${showFilters ? "text-cyan-600" : "text-gray-600"}`} />
             </button>
@@ -570,29 +567,29 @@ const SchedulePage: React.FC = () => {
                     />
 
                     <div className="grid grid-cols-2 gap-4">
-  <div className="flex flex-col">
-    <label className="mb-1 text-xs font-medium text-gray-600">Start Time</label>
-    <input
-      type="time"
-      name="startTime"
-      value={form.startTime}
-      onChange={(e) => handleChange("startTime", e.target.value)}
-      required
-      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 outline-none"
-    />
-  </div>
-  <div className="flex flex-col">
-    <label className="mb-1 text-xs font-medium text-gray-600">End Time</label>
-    <input
-      type="time"
-      name="endTime"
-      value={form.endTime}
-      onChange={(e) => handleChange("endTime", e.target.value)}
-      required
-      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 outline-none"
-    />
-  </div>
-</div>
+                      <div className="flex flex-col">
+                        <label className="mb-1 text-xs font-medium text-gray-600">Start Time</label>
+                        <input
+                          type="time"
+                          name="startTime"
+                          value={form.startTime}
+                          onChange={(e) => handleChange("startTime", e.target.value)}
+                          required
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 outline-none"
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <label className="mb-1 text-xs font-medium text-gray-600">End Time</label>
+                        <input
+                          type="time"
+                          name="endTime"
+                          value={form.endTime}
+                          onChange={(e) => handleChange("endTime", e.target.value)}
+                          required
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 outline-none"
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">

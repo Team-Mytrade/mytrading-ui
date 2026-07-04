@@ -68,7 +68,7 @@ const ProductPage: React.FC = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get("/v1/api/invetory/products", {
+      const response = await axios.get("/v1/api/inventory/products", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setProducts(response.data);
