@@ -53,6 +53,13 @@ type ReturnRequest = {
   refund?: Refund;
 };
 
+type SalesOrderOption = {
+  id: number;
+  orderNumber?: string;
+  customerId?: number;
+  items?: Array<{ id?: number }>;
+};
+
 type ReturnReason =
   | "DAMAGED_PRODUCT"
   | "WRONG_ITEM"
@@ -135,6 +142,11 @@ function money(value: number | string | undefined) {
   return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
+function salesOrderOptionLabel(order: SalesOrderOption) {
+  const orderNumber = order.orderNumber || `Order #${order.id}`;
+  return `${order.id} - ${orderNumber}`;
+}
+
 const ReturnRequests: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
@@ -149,9 +161,11 @@ const ReturnRequests: React.FC = () => {
   const [search, setSearch] = useState("");
   const [lookupId, setLookupId] = useState("");
   const [deleteReturn, setDeleteReturn] = useState<ReturnRequest | null>(null);
+  const [salesOrders, setSalesOrders] = useState<SalesOrderOption[]>([]);
 
   useEffect(() => {
     fetchReturns();
+    fetchSalesOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -178,6 +192,16 @@ const ReturnRequests: React.FC = () => {
     }
   };
 
+  const fetchSalesOrders = async () => {
+    try {
+      const res = await axios.get<SalesOrderOption[]>("/v1/api/sales/sales-orders", { headers });
+      setSalesOrders(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      ToasterService.error("Failed to load sales orders", getErrorMessage(error, "Please try again."));
+      setSalesOrders([]);
+    }
+  };
+
   const fetchById = async () => {
     if (!lookupId) {
       ToasterService.error("Return request ID is required");
@@ -197,7 +221,18 @@ const ReturnRequests: React.FC = () => {
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setForm((current) => ({ ...current, [name]: value }));
+    setForm((current) => {
+      const next = { ...current, [name]: value };
+
+      if (name === "salesOrderId") {
+        const selectedOrder = salesOrders.find((order) => String(order.id) === value);
+        if (selectedOrder?.items?.[0]?.id) {
+          next.itemSalesOrderItemId = String(selectedOrder.items[0].id);
+        }
+      }
+
+      return next;
+    });
   };
 
   const handleRefundChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -494,7 +529,17 @@ const ReturnRequests: React.FC = () => {
                   <FloatingDatePicker label="Request Date" name="requestDate" value={form.requestDate} onChange={handleChange} required />
                   <FloatingSelect label="Status" name="status" value={form.status} onChange={handleChange} includeEmptyOption={false} options={statusOptions.map((item) => ({ id: item, name: item }))} />
                   <FloatingSelect label="Reason" name="reason" value={form.reason} onChange={handleChange} includeEmptyOption={false} options={reasonOptions.map((item) => ({ id: item, name: item }))} />
-                  <FloatingInput label="Sales Order ID" name="salesOrderId" type="number" value={form.salesOrderId} onChange={handleChange} required />
+                  <FloatingSelect
+                    label="Sales Order ID"
+                    name="salesOrderId"
+                    value={form.salesOrderId}
+                    onChange={handleChange}
+                    emptyOptionLabel="Select sales order"
+                    options={salesOrders.map((order) => ({
+                      id: String(order.id),
+                      name: salesOrderOptionLabel(order),
+                    }))}
+                  />
                   <FloatingInput label="Sales Order Item ID" name="itemSalesOrderItemId" type="number" value={form.itemSalesOrderItemId} onChange={handleChange} required />
                   <FloatingInput label="Return Quantity" name="itemReturnQuantity" type="number" value={form.itemReturnQuantity} onChange={handleChange} required />
                   <FloatingInput label="Refund Amount" name="itemRefundAmount" type="number" value={form.itemRefundAmount} onChange={handleChange} />

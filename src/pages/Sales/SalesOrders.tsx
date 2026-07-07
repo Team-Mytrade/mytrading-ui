@@ -125,6 +125,14 @@ type SalesChannelOption = {
   channelType?: string;
 };
 
+type CustomerOption = {
+  id: number;
+  customerName?: string;
+  tradeName?: string;
+  email?: string;
+  currencyCode?: string;
+};
+
 type QuotationItemOption = {
   id?: number;
   quotationItemId?: number;
@@ -354,6 +362,11 @@ function getQuotationItemId(item: QuotationItemOption) {
   return firstPositiveNumber(item.id, item.quotationItemId);
 }
 
+function customerOptionLabel(customer: CustomerOption) {
+  const name = customer.customerName || customer.tradeName || `Customer #${customer.id}`;
+  return `${customer.id} - ${name}`;
+}
+
 function buildAddress(form: OrderForm, type: "BILLING" | "SHIPPING"): Address {
   const prefix = type === "BILLING" ? "billing" : "shipping";
   return {
@@ -430,6 +443,7 @@ const SalesOrders: React.FC = () => {
   const [salesPersons, setSalesPersons] = useState<SalesPersonOption[]>([]);
   const [salesChannels, setSalesChannels] = useState<SalesChannelOption[]>([]);
   const [quotations, setQuotations] = useState<QuotationOption[]>([]);
+  const [customers, setCustomers] = useState<CustomerOption[]>([]);
 
   useEffect(() => {
     fetchOrders();
@@ -462,10 +476,11 @@ const SalesOrders: React.FC = () => {
 
   const fetchDropdowns = async () => {
     try {
-      const [personsRes, channelsRes, quotationsRes] = await Promise.allSettled([
+      const [personsRes, channelsRes, quotationsRes, customersRes] = await Promise.allSettled([
         axios.get<SalesPersonOption[]>("/v1/api/sales/sales-persons", { headers }),
         axios.get<SalesChannelOption[]>("/v1/api/sales/channels", { headers }),
         axios.get<QuotationOption[]>("/v1/api/sales/quotations", { headers }),
+        axios.get<CustomerOption[]>("/v1/api/crm/customers", { headers }),
       ]);
 
       if (personsRes.status === "fulfilled") {
@@ -476,6 +491,9 @@ const SalesOrders: React.FC = () => {
       }
       if (quotationsRes.status === "fulfilled") {
         setQuotations(Array.isArray(quotationsRes.value.data) ? quotationsRes.value.data : []);
+      }
+      if (customersRes.status === "fulfilled") {
+        setCustomers(Array.isArray(customersRes.value.data) ? customersRes.value.data : []);
       }
     } catch (error) {
       ToasterService.error("Failed to load dropdown data", getErrorMessage(error, "Please try again."));
@@ -556,6 +574,14 @@ const SalesOrders: React.FC = () => {
             next.itemTaxCode = firstItem.taxCode || next.itemTaxCode;
             next.itemRemarks = firstItem.remarks || next.itemRemarks;
           }
+        }
+      }
+
+      if (name === "customerId") {
+        const customer = customers.find((item) => String(item.id) === value);
+        if (customer) {
+          next.email = customer.email || next.email;
+          next.currencyCode = customer.currencyCode || next.currencyCode || "INR";
         }
       }
 
@@ -1013,7 +1039,18 @@ const SalesOrders: React.FC = () => {
                     includeEmptyOption={false}
                     options={statusOptions.map((item) => ({ id: item, name: item }))}
                   />
-                  <FloatingInput label="Customer ID" name="customerId" type="number" value={form.customerId} onChange={handleChange} required />
+                  <FloatingSelect
+                    label="Customer ID"
+                    name="customerId"
+                    value={form.customerId}
+                    onChange={handleChange}
+                    emptyOptionLabel="Select customer"
+                    options={customers.map((customer) => ({
+                      id: String(customer.id),
+                      name: customerOptionLabel(customer),
+                    }))}
+                    required
+                  />
                   <FloatingSelect
                     label="Sales Channel"
                     name="salesChannelId"

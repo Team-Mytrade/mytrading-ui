@@ -46,6 +46,18 @@ export type FieldConfig = {
   optionLabel?: string | ((row: PurchaseRecord) => string);
   optionValue?: string | ((row: PurchaseRecord) => string | number);
   gridClassName?: string;
+  placeholderOption?: string;
+  getOptions?: (context: {
+    form: PurchaseRecord;
+    options: Record<string, SelectOption[]>;
+  }) => SelectOption[];
+  onValueChange?: (
+    value: any,
+    context: {
+      form: PurchaseRecord;
+      options: Record<string, SelectOption[]>;
+    }
+  ) => PurchaseRecord | void;
 };
 
 export type ResourceColumn = {
@@ -70,6 +82,7 @@ export type PurchaseResourceConfig = {
   fields: FieldConfig[];
   searchFields?: string[];
   pageSize?: number;
+  renderHeaderActions?: () => React.ReactNode;
   getListParams?: () => Record<string, string | number | boolean>;
   buildPayload?: (
     form: PurchaseRecord,
@@ -96,6 +109,22 @@ const formatDateTimeForInput = (value: any) => {
   return text.length >= 16 ? text.slice(0, 16) : text;
 };
 
+const getStoredTenantId = () => {
+  if (typeof window === "undefined") return "";
+  try {
+    const raw = window.localStorage.getItem("user");
+    const user = raw ? JSON.parse(raw) : null;
+    return user?.tenantId || "";
+  } catch {
+    return "";
+  }
+};
+
+const withTenantParams = (params?: Record<string, string | number | boolean>) => {
+  const tenantId = getStoredTenantId();
+  return tenantId ? { ...(params || {}), tenantId } : params;
+};
+
 const inputBase =
   "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:bg-gray-100";
 
@@ -104,6 +133,18 @@ function defaultForField(field: FieldConfig) {
   if (field.type === "checkbox") return true;
   if (field.type === "number") return "";
   return "";
+}
+
+function mergeFormUpdate(
+  name: string,
+  value: any,
+  current: PurchaseRecord,
+  field: FieldConfig,
+  options: Record<string, SelectOption[]>
+) {
+  const next = { ...current, [name]: value };
+  const extra = field.onValueChange?.(value, { form: next, options });
+  return extra ? { ...next, ...extra } : next;
 }
 
 function optionText(row: PurchaseRecord, label?: FieldConfig["optionLabel"]) {
@@ -178,7 +219,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     setLoading(true);
     setApiFailed(false);
     try {
-      const res = await axios.get(config.endpoint, { params: config.getListParams?.() });
+      const res = await axios.get(config.endpoint, { params: withTenantParams(config.getListParams?.()) });
       setRows(asArray(res.data));
     } catch (error: any) {
       console.error(`Failed to load ${config.title}`, error);
@@ -199,7 +240,9 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     await Promise.all(
         optionFields.map(async (field) => {
           try {
-            const res = await axios.get(field.optionsEndpoint || "");
+            const res = await axios.get(field.optionsEndpoint || "", {
+              params: withTenantParams(),
+            });
             next[field.name] = asArray(res.data)
               .map((row) => ({
                 value: optionValue(row, field.optionValue),
@@ -233,7 +276,9 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     let selectedRow = row;
     if (config.getByIdEndpoint) {
       try {
-        const res = await axios.get(config.getByIdEndpoint(row));
+        const res = await axios.get(config.getByIdEndpoint(row), {
+          params: withTenantParams(),
+        });
         selectedRow = res.data || row;
       } catch (error) {
         console.error(`Failed to load ${config.title} details`, error);
@@ -243,8 +288,18 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     }
 
     const base = config.normalizeForm ? config.normalizeForm(selectedRow) : selectedRow;
+    const nextForm = { ...emptyForm, ...base };
+    if ("parentCategoryId" in nextForm && !nextForm.parentCategoryId && nextForm.categoryId) {
+      const selectedCategory = (options.categoryId || []).find(
+        (option) => String(option.value) === String(nextForm.categoryId)
+      );
+      if (selectedCategory?.raw?.parentId) {
+        nextForm.parentCategoryId = selectedCategory.raw.parentId;
+      }
+    }
+
     setEditingRow(selectedRow);
-    setForm({ ...emptyForm, ...base });
+    setForm(nextForm);
     setShowForm(true);
   };
 
@@ -254,8 +309,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     setForm({ ...emptyForm });
   };
 
-  const setField = (name: string, value: any) => {
-    setForm((current) => ({ ...current, [name]: value }));
+  const setField = (field: FieldConfig, value: any) => {
+    setForm((current) => mergeFormUpdate(field.name, value, current, field, options));
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -267,10 +322,12 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         const url = config.updateEndpoint
           ? config.updateEndpoint(editingRow, form)
           : `${config.endpoint}/${editingRow.id}`;
-        await axios.put(url, payload);
+        await axios.put(url, payload, { params: withTenantParams() });
         ToasterService.success(`${config.title} updated`);
       } else {
-        await axios.post(config.createEndpoint || config.endpoint, payload);
+        await axios.post(config.createEndpoint || config.endpoint, payload, {
+          params: withTenantParams(),
+        });
         ToasterService.success(`${config.title} created`);
       }
       closeForm();
@@ -285,7 +342,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     if (!deleteRow) return;
     try {
       const url = config.deleteEndpoint ? config.deleteEndpoint(deleteRow) : `${config.endpoint}/${deleteRow.id}`;
-      await axios.delete(url);
+      await axios.delete(url, { params: withTenantParams() });
       ToasterService.success(`${config.title} deleted`);
       setDeleteRow(null);
       loadRows();
@@ -360,7 +417,10 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
 
       <div className="w-full px-0 py-6 space-y-6">
         <div className="flex justify-start sm:justify-end lg:-mt-[134px]">
-          {config.allowCreate !== false && <AddButton label={`Add ${config.title}`} onClick={openCreate} />}
+          <div className="flex flex-wrap items-center gap-3">
+            {config.renderHeaderActions?.()}
+            {config.allowCreate !== false && <AddButton label={`Add ${config.title}`} onClick={openCreate} />}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -413,7 +473,9 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
               <form onSubmit={handleSubmit} className="px-5 py-5">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {config.fields.map((field) => {
-                    const fieldOptions = field.options || options[field.name] || [];
+                    const fieldOptions = field.getOptions
+                      ? field.getOptions({ form, options })
+                      : field.options || options[field.name] || [];
                     const value = form[field.name] ?? defaultForField(field);
                     const fieldId = `${config.title}-${field.name}`;
 
@@ -428,7 +490,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
                           <textarea
                             id={fieldId}
                             value={value}
-                            onChange={(event) => setField(field.name, event.target.value)}
+                            onChange={(event) => setField(field, event.target.value)}
                             required={field.required}
                             placeholder={field.placeholder}
                             rows={4}
@@ -438,11 +500,11 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
                           <select
                             id={fieldId}
                             value={value}
-                            onChange={(event) => setField(field.name, event.target.value)}
+                            onChange={(event) => setField(field, event.target.value)}
                             required={field.required}
                             className={inputBase}
                           >
-                            <option value="">Select {field.label}</option>
+                            <option value="">{field.placeholderOption || `Select ${field.label}`}</option>
                             {fieldOptions.map((option) => (
                               <option key={String(option.value)} value={option.value}>
                                 {option.label}
@@ -455,7 +517,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
                               id={fieldId}
                               type="checkbox"
                               checked={Boolean(value)}
-                              onChange={(event) => setField(field.name, event.target.checked)}
+                              onChange={(event) => setField(field, event.target.checked)}
                               className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
                             />
                             <span className="text-sm text-gray-600">Enabled</span>
@@ -465,7 +527,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
                             id={fieldId}
                             type={field.type || "text"}
                             value={field.type === "datetime-local" ? formatDateTimeForInput(value) : value}
-                            onChange={(event) => setField(field.name, event.target.value)}
+                            onChange={(event) => setField(field, event.target.value)}
                             required={field.required}
                             placeholder={field.placeholder}
                             className={inputBase}

@@ -1,6 +1,7 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import {
   BanknotesIcon,
   CalendarDaysIcon,
@@ -26,7 +27,7 @@ import { ToasterService } from "../../Services/ToasterService";
 
 type Address = {
   id: number;
-  customerId: number;
+  customerId?: number;
   customerName: string;
   customerCode: string;
   type: "BILLING" | string;
@@ -108,6 +109,35 @@ type Customer = {
   active: boolean;
   addresses: Address[];
   contacts: CustomerContact[];
+};
+
+type ProductCategory = {
+  id: number;
+  categoryCode: string;
+  categoryName: string;
+  shortCode: string;
+  description: string;
+  parentId: number | null;
+  parentName: string | null;
+  active: boolean;
+};
+
+type ProductOption = {
+  id: number;
+  productCode?: string;
+  productName: string;
+  shortName?: string;
+  description?: string;
+  uom?: string;
+  sellingPrice?: number;
+  standardCost?: number;
+  categoryId?: number;
+  categoryName?: string;
+  category?: {
+    id?: number;
+    categoryName?: string;
+    parentId?: number | null;
+  };
 };
 
 type Quotation = {
@@ -193,6 +223,8 @@ type QuotationForm = {
 };
 
 const API_URL = "/v1/api/sales/quotations";
+const PURCHASE_PRODUCTS_API = "/v1/api/purchase/products";
+const PURCHASE_CATEGORIES_API = "/v1/api/purchase/product-categories";
 const PAGE_SIZE = 10;
 const statusOptions = ["DRAFT", "SENT", "ACCEPTED", "REJECTED"];
 const quotationTypeOptions = ["PRODUCT", "SERVICE"];
@@ -282,6 +314,11 @@ function money(value: number | string | undefined) {
   return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
+function customerOptionLabel(customer: Customer) {
+  const name = customer.customerName || customer.tradeName || `Customer #${customer.id}`;
+  return `${customer.id} - ${name}`;
+}
+
 function isPositiveNumber(value: string) {
   return Number.isFinite(Number(value)) && Number(value) > 0;
 }
@@ -299,8 +336,7 @@ function isPercent(value: string) {
 function buildAddress(form: QuotationForm, type: "BILLING" | "SHIPPING"): Address {
   const prefix = type === "BILLING" ? "billing" : "shipping";
   return {
-    id: 0,
-    customerId: toNumber(form.customerId),
+    id: toNumber(form.customerId),
     customerName: form.customerName,
     customerCode: form.customerCode,
     type,
@@ -329,12 +365,15 @@ function calculateItem(form: QuotationForm) {
 }
 
 const Quotations: React.FC = () => {
+  const navigate = useNavigate();
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [salesPersons, setSalesPersons] = useState<SalesPerson[]>([]);
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
+  const [products, setProducts] = useState<ProductOption[]>([]);
   const [form, setForm] = useState<QuotationForm>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
@@ -348,11 +387,27 @@ const Quotations: React.FC = () => {
     fetchQuotations();
     fetchCustomers();
     fetchSalesPersons();
+    fetchProductCategories();
+    fetchProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectedCustomer = customers.find((customer) => String(customer.id) === form.customerId);
   const selectedSalesPerson = salesPersons.find((person) => String(person.id) === form.salesPersonId);
+  const activeCategories = productCategories.filter((category) => category.active !== false);
+  const leafCategories = activeCategories.filter((category) => category.parentId != null);
+  const selectedCategory = productCategories.find((category) => String(category.id) === form.itemCategoryId);
+  const filteredProducts = products.filter((product) => {
+    if (form.itemType !== "PRODUCT") return false;
+    if (!form.itemCategoryId) return true;
+    const productCategoryId = product.category?.id ?? product.categoryId ?? 0;
+    const productCategoryName = String(product.category?.categoryName || product.categoryName || "").trim().toLowerCase();
+    const selectedCategoryName = String(selectedCategory?.categoryName || "").trim().toLowerCase();
+
+    return String(productCategoryId) === String(form.itemCategoryId) || (
+      Boolean(selectedCategoryName) && productCategoryName === selectedCategoryName
+    );
+  });
 
   const fetchQuotations = async () => {
     try {
@@ -384,6 +439,29 @@ const Quotations: React.FC = () => {
       setCustomers(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       ToasterService.error("Failed to load customers", getErrorMessage(error, "Please try again."));
+    }
+  };
+
+  const fetchProductCategories = async () => {
+    try {
+      const res = await axios.get<ProductCategory[]>(PURCHASE_CATEGORIES_API, {
+        headers,
+        params: { tenantId: getStoredTenantId() },
+      });
+      setProductCategories(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      ToasterService.error("Failed to load product categories", getErrorMessage(error, "Please try again."));
+      setProductCategories([]);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const res = await axios.get<ProductOption[]>(PURCHASE_PRODUCTS_API, { headers });
+      setProducts(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      ToasterService.error("Failed to load products", getErrorMessage(error, "Please try again."));
+      setProducts([]);
     }
   };
 
@@ -435,6 +513,50 @@ const Quotations: React.FC = () => {
         const person = salesPersons.find((item) => String(item.id) === value);
         next.email = person?.email || "";
       }
+      if (name === "itemType") {
+        next.itemCategoryId = "";
+        next.itemCategoryName = "";
+        next.itemProductId = "";
+        next.itemProductName = "";
+        next.itemProductCode = "";
+        next.itemDescription = "";
+        next.itemUom = "";
+        next.itemUnitPrice = "0";
+      }
+      if (name === "itemCategoryId") {
+        const category = productCategories.find((item) => String(item.id) === value);
+        next.itemCategoryName = category?.categoryName || "";
+        next.itemProductId = "";
+        next.itemProductName = "";
+        next.itemProductCode = "";
+        next.itemDescription = "";
+        next.itemUom = "";
+        next.itemUnitPrice = "0";
+      }
+      if (name === "itemProductId") {
+        const product = products.find((item) => String(item.id) === value);
+        const categoryName = String(product?.category?.categoryName || product?.categoryName || "").trim().toLowerCase();
+        const matchedCategoryByName = productCategories.find(
+          (item) => String(item.categoryName || "").trim().toLowerCase() === categoryName
+        );
+        const resolvedCategoryId = String(
+          product?.category?.id ??
+          product?.categoryId ??
+          matchedCategoryByName?.id ??
+          next.itemCategoryId ??
+          ""
+        );
+        const resolvedCategory =
+          productCategories.find((item) => String(item.id) === resolvedCategoryId) || matchedCategoryByName;
+
+        next.itemCategoryId = resolvedCategoryId;
+        next.itemCategoryName = resolvedCategory?.categoryName || "";
+        next.itemProductName = product?.productName || "";
+        next.itemProductCode = product?.productCode || "";
+        next.itemDescription = product?.description || "";
+        next.itemUom = product?.uom || "";
+        next.itemUnitPrice = String(product?.sellingPrice ?? product?.standardCost ?? 0);
+      }
       return next;
     });
   };
@@ -475,9 +597,6 @@ const Quotations: React.FC = () => {
 
   const buildSalesPerson = (): Partial<SalesPerson> => ({
     id: toNumber(form.salesPersonId),
-    createdDate: selectedSalesPerson?.createdDate,
-    updatedDate: selectedSalesPerson?.updatedDate,
-    createdBy: selectedSalesPerson?.createdBy,
     tenantId: form.tenantId.trim(),
     name: selectedSalesPerson?.name || "",
     code: selectedSalesPerson?.code || "",
@@ -493,8 +612,8 @@ const Quotations: React.FC = () => {
 
     return {
       id: editingId || 0,
-      tenantId: form.tenantId.trim(),
       customerId: toNumber(form.customerId),
+      salesPersonId: toNumber(form.salesPersonId),
       quotationType: form.quotationType,
       validUntil: form.validUntil,
       currencyCode: form.currencyCode,
@@ -552,6 +671,15 @@ const Quotations: React.FC = () => {
     try {
       setSubmitting(true);
       const payload = buildPayload();
+      console.log("Quotation submit references", {
+        tenantIdParam: form.tenantId.trim(),
+        customerId: payload.customerId,
+        salesPersonId: payload.salesPersonId,
+        categoryId: payload.items?.[0]?.categoryId,
+        productId: payload.items?.[0]?.productId,
+        itemType: payload.items?.[0]?.itemType,
+        payload,
+      });
       const requestConfig = {
         headers,
         params: { tenantId: form.tenantId.trim() },
@@ -858,12 +986,12 @@ const Quotations: React.FC = () => {
                         {form.customerId &&
                           !customers.some((customer) => String(customer.id) === form.customerId) && (
                             <option value={form.customerId}>
-                              {form.customerName || `Customer #${form.customerId}`}
+                              {form.customerName ? `${form.customerId} - ${form.customerName}` : `Customer #${form.customerId}`}
                             </option>
                           )}
                         {customers.map((customer) => (
                           <option key={customer.id} value={customer.id}>
-                            {customer.customerName || customer.tradeName || `Customer #${customer.id}`}
+                            {customerOptionLabel(customer)}
                           </option>
                         ))}
                       </select>
@@ -976,9 +1104,18 @@ const Quotations: React.FC = () => {
               <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
                 <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50/80 p-3">
                   <h4 className="text-[13px] font-bold uppercase tracking-wider text-gray-800">Item Table</h4>
-                  <button type="button" onClick={applyCalculatedTotals} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700">
-                    Calculate Totals
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => navigate("/purchase-products")}
+                      className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-700 shadow-sm transition hover:bg-cyan-100"
+                    >
+                      Create Product Now
+                    </button>
+                    <button type="button" onClick={applyCalculatedTotals} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700">
+                      Calculate Totals
+                    </button>
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-left text-sm">
@@ -996,17 +1133,51 @@ const Quotations: React.FC = () => {
                       <tr className="bg-white transition hover:bg-gray-50/60">
                         <td className="border-r border-gray-100 px-3 py-2 align-top">
                           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                            {editingId && (
-                              <input
-                                name="itemProductId"
-                                type="number"
-                                value={form.itemProductId}
-                                onChange={handleChange}
-                                className="rounded-lg border border-transparent bg-transparent p-1 text-[13px] font-medium text-gray-900 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white"
-                                placeholder="Product ID"
-                              />
+                            {form.itemType === "PRODUCT" ? (
+                              <>
+                                <select
+                                  name="itemCategoryId"
+                                  value={form.itemCategoryId}
+                                  onChange={handleChange}
+                                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                                >
+                                  <option value="">Select category</option>
+                                  {leafCategories.map((category) => (
+                                    <option key={category.id} value={category.id}>
+                                      {category.parentName ? `${category.parentName} / ${category.categoryName}` : category.categoryName}
+                                    </option>
+                                  ))}
+                                </select>
+                                <select
+                                  name="itemProductId"
+                                  value={form.itemProductId}
+                                  onChange={handleChange}
+                                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                                >
+                                  <option value="">Select product</option>
+                                  {filteredProducts.map((product) => (
+                                    <option key={product.id} value={product.id}>
+                                      {product.productName || product.shortName || `Product #${product.id}`}
+                                    </option>
+                                  ))}
+                                </select>
+                              </>
+                            ) : (
+                              <>
+                                {editingId && (
+                                  <input
+                                    name="itemServiceItemId"
+                                    type="number"
+                                    value={form.itemServiceItemId}
+                                    onChange={handleChange}
+                                    className="rounded-lg border border-transparent bg-transparent p-1 text-[13px] font-medium text-gray-900 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white"
+                                    placeholder="Service item ID"
+                                  />
+                                )}
+                                <input name="itemProductName" value={form.itemProductName} onChange={handleChange} className="rounded-lg border border-transparent bg-transparent p-1 text-[13px] font-medium text-gray-900 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Product name" />
+                              </>
                             )}
-                            <input name="itemProductName" value={form.itemProductName} onChange={handleChange} className="rounded-lg border border-transparent bg-transparent p-1 text-[13px] font-medium text-gray-900 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Product name" />
+                            <input name="itemCategoryName" value={form.itemCategoryName} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Category name" />
                             <input name="itemDescription" value={form.itemDescription} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white sm:col-span-2" placeholder="Add a description to your item" />
                             <input name="itemProductCode" value={form.itemProductCode} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Product code" />
                             <input name="itemUom" value={form.itemUom} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="UOM" />
@@ -1197,7 +1368,7 @@ const Quotations: React.FC = () => {
                     emptyOptionLabel="Select customer"
                     options={customers.map((customer) => ({
                       id: String(customer.id),
-                      name: customer.customerName || customer.tradeName || `Customer #${customer.id}`,
+                      name: customerOptionLabel(customer),
                     }))}
                     required
                   />
@@ -1259,19 +1430,24 @@ const Quotations: React.FC = () => {
                 <div className="mt-4 border-t border-gray-100 pt-4">
                   <div className="mb-4 flex items-center justify-between">
                     <h4 className="text-sm font-semibold text-gray-900">Quotation Item</h4>
-                    <button
-                      type="button"
-                      onClick={applyCalculatedTotals}
-                      className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-200"
-                    >
-                      Calculate Totals
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => navigate("/purchase-products")}
+                        className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-medium text-cyan-700 hover:bg-cyan-100"
+                      >
+                        Create Product Now
+                      </button>
+                      <button
+                        type="button"
+                        onClick={applyCalculatedTotals}
+                        className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                      >
+                        Calculate Totals
+                      </button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    {editingId && (
-                      <FloatingInput label="Category ID Optional" name="itemCategoryId" type="number" value={form.itemCategoryId} onChange={handleChange} />
-                    )}
-                    <FloatingInput label="Category Name" name="itemCategoryName" value={form.itemCategoryName} onChange={handleChange} />
                     <FloatingSelect
                       label="Item Type"
                       name="itemType"
@@ -1283,12 +1459,47 @@ const Quotations: React.FC = () => {
                         { id: "SERVICE", name: "SERVICE" },
                       ]}
                     />
-                    {editingId && (
-                      <FloatingInput label="Product ID" name="itemProductId" type="number" value={form.itemProductId} onChange={handleChange} />
+                    {form.itemType === "PRODUCT" ? (
+                      <>
+                        <FloatingSelect
+                          label="Category"
+                          name="itemCategoryId"
+                          value={form.itemCategoryId}
+                          onChange={handleChange}
+                          emptyOptionLabel="Select category"
+                          options={leafCategories.map((category) => ({
+                            id: String(category.id),
+                            name: category.parentName
+                              ? `${category.parentName} / ${category.categoryName}`
+                              : category.categoryName,
+                          }))}
+                        />
+                        <FloatingSelect
+                          label="Product"
+                          name="itemProductId"
+                          value={form.itemProductId}
+                          onChange={handleChange}
+                          emptyOptionLabel="Select product"
+                          options={filteredProducts.map((product) => ({
+                            id: String(product.id),
+                            name: product.productName || product.shortName || `Product #${product.id}`,
+                          }))}
+                        />
+                        {editingId && (
+                          <FloatingInput label="Product ID" name="itemProductId" type="number" value={form.itemProductId} onChange={handleChange} />
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {editingId && (
+                          <FloatingInput label="Service Item ID" name="itemServiceItemId" type="number" value={form.itemServiceItemId} onChange={handleChange} />
+                        )}
+                        <FloatingInput label="Category Name" name="itemCategoryName" value={form.itemCategoryName} onChange={handleChange} />
+                        <FloatingInput label="Product Name" name="itemProductName" value={form.itemProductName} onChange={handleChange} />
+                      </>
                     )}
-                    <FloatingInput label="Product Name" name="itemProductName" value={form.itemProductName} onChange={handleChange} />
-                    {editingId && (
-                      <FloatingInput label="Service Item ID" name="itemServiceItemId" type="number" value={form.itemServiceItemId} onChange={handleChange} />
+                    {form.itemType === "PRODUCT" && (
+                      <FloatingInput label="Category Name" name="itemCategoryName" value={form.itemCategoryName} onChange={handleChange} />
                     )}
                     <FloatingInput label="Product Code" name="itemProductCode" value={form.itemProductCode} onChange={handleChange} />
                     <FloatingInput label="Description" name="itemDescription" value={form.itemDescription} onChange={handleChange} />

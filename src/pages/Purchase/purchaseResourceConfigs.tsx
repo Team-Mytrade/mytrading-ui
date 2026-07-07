@@ -8,7 +8,7 @@ import {
 } from "./PurchaseResourcePage";
 
 const PURCHASE = "/v1/api/purchase";
-const CATEGORIES = "/v1/api/product-categories";
+const CATEGORIES = "/v1/api/purchase/product-categories";
 const USER_DEPARTMENTS = "/v1/api/user/departments";
 const USERS = "/v1/api/user/getAll";
 
@@ -143,21 +143,22 @@ export const productCategoryConfig: PurchaseResourceConfig = {
     { name: "active", label: "Active", type: "checkbox", defaultValue: true },
   ],
   searchFields: ["categoryCode", "categoryName", "shortCode", "parentName"],
-  buildPayload: (form, editingRow, context) => {
-    const parentOption = context.options.parentId?.find(
-      (option) => String(option.value) === String(form.parentId)
-    );
-
-    return {
+  buildPayload: (form, editingRow) => {
+    const payload: Record<string, unknown> = {
       ...(editingRow?.id ? { id: editingRow.id } : {}),
       categoryCode: form.categoryCode,
       categoryName: form.categoryName,
       shortCode: form.shortCode,
       description: form.description,
-      parentId: toNumberOrZero(form.parentId),
-      parentName: parentOption?.label || "",
       active: Boolean(form.active),
     };
+
+    const parentId = toNumberOrZero(form.parentId);
+    if (parentId > 0) {
+      payload.parentId = parentId;
+    }
+
+    return payload;
   },
 };
 

@@ -1,4 +1,4 @@
-import React, { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
   BanknotesIcon,
@@ -6,13 +6,15 @@ import {
   CreditCardIcon,
   MagnifyingGlassIcon,
   TrashIcon,
+  XMarkIcon,
   XCircleIcon,
 } from "@heroicons/react/24/outline";
+import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
-import { FloatingInput } from "../../components/inputfeild/FloatingInput";
+import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
 type CreditCheckResponse = {
@@ -34,6 +36,12 @@ type CreditForm = {
   customerId: string;
   orderAmount: string;
   outstandingAmount: string;
+};
+
+type CustomerOption = {
+  id: number;
+  customerName?: string;
+  tradeName?: string;
 };
 
 const API_URL = "/v1/api/sales/credit";
@@ -74,6 +82,11 @@ function isPositiveNumber(value: string) {
   return Number.isFinite(Number(value)) && Number(value) > 0;
 }
 
+function customerOptionLabel(customer: CustomerOption) {
+  const name = customer.customerName || customer.tradeName || `Customer #${customer.id}`;
+  return `${customer.id} - ${name}`;
+}
+
 function authHeaders(token: string | null) {
   if (!token) return undefined;
   const value = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
@@ -90,8 +103,23 @@ const CreditLimit: React.FC = () => {
   const [search, setSearch] = useState("");
   const [lastAvailableCredit, setLastAvailableCredit] = useState<number | null>(null);
   const [lastCheck, setLastCheck] = useState<CreditCheckResponse | null>(null);
+  const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [showFormModal, setShowFormModal] = useState(false);
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const res = await axios.get<CustomerOption[]>("/v1/api/crm/customers", { headers });
+        setCustomers(Array.isArray(res.data) ? res.data : []);
+      } catch (error) {
+        ToasterService.error("Failed to load customers", getErrorMessage(error, "Please try again."));
+      }
+    };
+
+    fetchCustomers();
+  }, []);
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm((current) => ({ ...current, [name]: value }));
   };
@@ -140,6 +168,7 @@ const CreditLimit: React.FC = () => {
         sufficient: res.data.sufficient,
         availableCredit: Number(res.data.availableCredit || 0),
       });
+      setShowFormModal(false);
       ToasterService.success(res.data.sufficient ? "Credit is sufficient" : "Credit is not sufficient");
     } catch (error) {
       ToasterService.error("Failed to check credit", getErrorMessage(error, "Please try again."));
@@ -294,6 +323,10 @@ const CreditLimit: React.FC = () => {
       <PageBreadcrumb pageTitle="Credit Limit" />
 
       <div className="w-full max-w-none px-0 py-8 space-y-6">
+        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+          <AddButton onClick={() => setShowFormModal(true)} label="Add Credit Check" />
+        </div>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Actions" value={stats.actions} icon={<CreditCardIcon />} />
           <StatsCard
@@ -324,7 +357,18 @@ const CreditLimit: React.FC = () => {
 
         <form onSubmit={checkCredit} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <FloatingInput label="Customer ID" name="customerId" type="number" value={form.customerId} onChange={handleChange} required />
+            <FloatingSelect
+              label="Customer ID"
+              name="customerId"
+              value={form.customerId}
+              onChange={handleChange}
+              emptyOptionLabel="Select customer"
+              options={customers.map((customer) => ({
+                id: String(customer.id),
+                name: customerOptionLabel(customer),
+              }))}
+              required
+            />
             <FloatingInput label="Order Amount" name="orderAmount" type="number" value={form.orderAmount} onChange={handleChange} />
             <FloatingInput label="Outstanding Amount" name="outstandingAmount" type="number" value={form.outstandingAmount} onChange={handleChange} />
           </div>
@@ -390,6 +434,64 @@ const CreditLimit: React.FC = () => {
             </div>
           }
         />
+
+        {showFormModal && (
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-4 backdrop-blur-sm sm:items-center">
+            <div className="mx-auto w-full max-w-xl rounded-xl bg-white shadow-xl">
+              <div className="flex items-center justify-between border-b border-gray-100 p-5">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Create Credit Check</h3>
+                  <p className="mt-0.5 text-xs text-gray-500">Submit credit check payload from the API schema</p>
+                </div>
+                <button type="button" onClick={() => setShowFormModal(false)} className="text-gray-400 hover:text-gray-600">
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form onSubmit={checkCredit} className="p-5">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <FloatingSelect
+                    label="Customer ID"
+                    name="customerId"
+                    value={form.customerId}
+                    onChange={handleChange}
+                    emptyOptionLabel="Select customer"
+                    options={customers.map((customer) => ({
+                      id: String(customer.id),
+                      name: customerOptionLabel(customer),
+                    }))}
+                    required
+                  />
+                  <FloatingInput
+                    label="Order Amount"
+                    name="orderAmount"
+                    type="number"
+                    value={form.orderAmount}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+
+                <div className="mt-5 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => setShowFormModal(false)}
+                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:opacity-70"
+                  >
+                    Check Credit
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
