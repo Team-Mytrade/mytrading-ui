@@ -294,7 +294,7 @@ export default function AppRouter() {
           <Route path="/delivery-note" element={<DeliveryNote />} />
           <Route path="/customerAddress" element={<CustomerAddressPage />} />
         
-          {/* <Route path="/vehicle" element={<VehiclePage />} /> */}
+         <Route path="/vehicle" element={<VehiclePage />} />
           <Route path="/route" element={<RouteSchedulePage />} />
           <Route path="/productDelivery" element={<ProductPage />} />
           <Route path="/deliveryAddress" element={<DeliveryAddressPage />} />

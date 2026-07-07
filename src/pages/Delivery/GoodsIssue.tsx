@@ -77,8 +77,8 @@ const emptyForm = (): GoodsIssueForm => ({
 });
 
 const API_URL            = "/v1/api/delivery/goods-issues";
-const DELIVERY_NOTES_URL = "/v1/api/delivery/delivery-notes"; // TODO: confirm actual endpoint
-const PRODUCTS_URL       = "/v1/api/inventory/products";       // TODO: confirm actual endpoint
+const DELIVERY_NOTES_URL = "/v1/api/delivery/delivery-notes"; 
+const PRODUCTS_URL       = "/v1/api/inventory/products";      
 
 const getTenantIdFromToken = (token: string) => {
   try {
