@@ -22,6 +22,7 @@ import DynamicPopup from "../../components/common/Popup";
 import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
 import { FloatingInput, FloatingTextarea, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import { COUNTRIES, CountryOption} from "../../data/countries";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,36 +44,36 @@ const API_URL = "/v1/api/delivery/transporters";
 const STATUS_OPTIONS: Transporter["status"][] = ["Active", "Inactive"];
 
 const STATUS_STYLES: Record<Transporter["status"], string> = {
-  Active:   "bg-green-100 text-green-800 border-green-200/60",
+  Active: "bg-green-100 text-green-800 border-green-200/60",
   Inactive: "bg-gray-100  text-gray-500 border-gray-200/60",
 };
 
 const emptyForm: Transporter = {
-  name:          "",
+  name: "",
   contactPerson: "",
   contactNumber: "",
-  email:         "",
-  address:       "",
-  gstNumber:     "",
-  status:        "Active",
+  email: "",
+  address: "",
+  gstNumber: "",
+  status: "Active",
 };
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const TransporterPage: React.FC = () => {
   const [transporters, setTransporters] = useState<Transporter[]>([]);
-  const [loading, setLoading]           = useState(false);
-  const [showForm, setShowForm]         = useState(false);
-  const [form, setForm]                 = useState<Transporter>(emptyForm);
-  const [saving, setSaving]             = useState(false);
-
-  const [search, setSearch]             = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<Transporter>(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL"); // ALL | Active | Inactive
-  const [showFilters, setShowFilters]   = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   // Delete popup
   const [showDeletePopup, setShowDeletePopup] = useState(false);
-  const [deletingItem, setDeletingItem]       = useState<Transporter | null>(null);
+  const [deletingItem, setDeletingItem] = useState<Transporter | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<CountryOption>(COUNTRIES[0])
 
   useEffect(() => { loadData(); }, []);
 
@@ -120,13 +121,13 @@ const TransporterPage: React.FC = () => {
     setSaving(true);
 
     const payload = {
-      name:          form.name,
+      name: form.name,
       contactPerson: form.contactPerson,
       contactNumber: form.contactNumber,
-      email:         form.email,
-      address:       form.address,
-      gstNumber:     form.gstNumber,
-      status:        form.status,
+      email: form.email,
+      address: form.address,
+      gstNumber: form.gstNumber,
+      status: form.status,
     };
 
     try {
@@ -188,8 +189,8 @@ const TransporterPage: React.FC = () => {
   // ── Stats ───────────────────────────────────────────────────────────────────
 
   const stats = useMemo(() => ({
-    total:    transporters.length,
-    active:   transporters.filter(t => t.status === "Active").length,
+    total: transporters.length,
+    active: transporters.filter(t => t.status === "Active").length,
     inactive: transporters.filter(t => t.status === "Inactive").length,
   }), [transporters]);
 
@@ -382,9 +383,8 @@ const TransporterPage: React.FC = () => {
           <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`rounded-lg border p-2 flex items-center justify-center transition-colors h-[40px] w-[40px] ${
-                showFilters ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"
-              }`}
+              className={`rounded-lg border p-2 flex items-center justify-center transition-colors h-[40px] w-[40px] ${showFilters ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"
+                }`}
             >
               <FunnelIcon className={`h-5 w-5 ${showFilters ? "text-cyan-600" : "text-gray-600"}`} />
             </button>
@@ -472,69 +472,91 @@ const TransporterPage: React.FC = () => {
 
                 <form onSubmit={handleSubmit} className="p-5 max-h-[75vh] overflow-y-auto">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FloatingInput
-                      label="Transporter Name"
-                      name="name"
-                      value={form.name}
-                      onChange={(e) => handleChange("name", e.target.value)}
-                      required
-                    />
+  <FloatingInput
+    label="Transporter Name"
+    name="name"
+    value={form.name}
+    onChange={(e) => handleChange("name", e.target.value)}
+    required
+  />
 
-                    <FloatingInput
-                      label="Contact Person"
-                      name="contactPerson"
-                      value={form.contactPerson}
-                      onChange={(e) => handleChange("contactPerson", e.target.value)}
-                      required
-                    />
+  <FloatingInput
+    label="Contact Person"
+    name="contactPerson"
+    value={form.contactPerson}
+    onChange={(e) => handleChange("contactPerson", e.target.value)}
+    required
+  />
 
-                    <FloatingInput
-                      label="Contact Number"
-                      name="contactNumber"
-                      type="tel"
-                      value={form.contactNumber}
-                      onChange={(e) => handleChange("contactNumber", e.target.value)}
-                      required
-                    />
+  {/* Contact Number — full width row so select + input don't collide with Email */}
+  <div className="md:col-span-2 flex gap-2 items-start">
+    <select
+      value={selectedCountry.code}
+      onChange={(e) => {
+        const c = COUNTRIES.find(c => c.code === e.target.value)!;
+        setSelectedCountry(c);
+      }}
+      className="border border-gray-300 rounded-lg px-2 py-2 text-sm h-[42px] w-[110px] flex-shrink-0"
+    >
+      {COUNTRIES.map(c => (
+        <option key={c.code} value={c.code}>
+          {c.dialCode} ({c.code})
+        </option>
+      ))}
+    </select>
 
-                    <FloatingInput
-                      label="Email"
-                      name="email"
-                      type="email"
-                      value={form.email}
-                      onChange={(e) => handleChange("email", e.target.value)}
-                      required
-                    />
+    <div className="flex-1">
+      <FloatingInput
+        label="Contact Number"
+        name="contactNumber"
+        type="tel"
+        value={form.contactNumber}
+        onChange={(e) =>
+          handleChange("contactNumber", `${selectedCountry.dialCode} ${e.target.value}`)
+        }
+        required
+      />
+    </div>
+  </div>
 
-                    <FloatingInput
-                      label="GST Number"
-                      name="gstNumber"
-                      value={form.gstNumber}
-                      onChange={(e) => handleChange("gstNumber", e.target.value)}
-                      required
-                    />
+  <FloatingInput
+    label="Email"
+    name="email"
+    type="email"
+    value={form.email}
+    onChange={(e) => handleChange("email", e.target.value)}
+    required
+  />
 
-                    <FloatingSelect
-                      label="Status"
-                      name="status"
-                      value={form.status}
-                      onChange={(e) => handleChange("status", e.target.value)}
-                      includeEmptyOption={false}
-                      required
-                      options={STATUS_OPTIONS.map(s => ({ id: s, name: s }))}
-                    />
+  <FloatingInput
+    label={selectedCountry.taxLabel}
+    name="gstNumber"
+    value={form.gstNumber}
+    onChange={(e) => handleChange("gstNumber", e.target.value)}
+    required
+  />
 
-                    <div className="md:col-span-2">
-                      <FloatingTextarea
-                        label="Address"
-                        name="address"
-                        value={form.address}
-                        onChange={(e) => handleChange("address", e.target.value)}
-                        rows={3}
-                        required
-                      />
-                    </div>
-                  </div>
+  <FloatingSelect
+    label="Status"
+    name="status"
+    value={form.status}
+    onChange={(e) => handleChange("status", e.target.value)}
+    includeEmptyOption={false}
+    required
+    options={STATUS_OPTIONS.map(s => ({ id: s, name: s }))}
+  />
+
+  <div className="md:col-span-2">
+    <FloatingTextarea
+      label="Address"
+      name="address"
+      value={form.address}
+      onChange={(e) => handleChange("address", e.target.value)}
+      rows={3}
+      required
+    />
+  </div>
+</div>  
 
                   <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
                     <button
