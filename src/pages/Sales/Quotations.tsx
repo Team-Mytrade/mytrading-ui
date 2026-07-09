@@ -17,6 +17,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
+import FilterPopover from "../../components/common/filter";
 import {
   FloatingDatePicker,
   FloatingInput,
@@ -314,6 +315,11 @@ function money(value: number | string | undefined) {
   return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
+function searchableText(value: unknown) {
+  if (value === null || value === undefined) return "";
+  return String(value).toLowerCase().trim();
+}
+
 function customerOptionLabel(customer: Customer) {
   const name = customer.customerName || customer.tradeName || `Customer #${customer.id}`;
   return `${customer.id} - ${name}`;
@@ -380,6 +386,7 @@ const Quotations: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [lookupId, setLookupId] = useState("");
   const [deleteQuotation, setDeleteQuotation] = useState<Quotation | null>(null);
 
@@ -823,23 +830,43 @@ const Quotations: React.FC = () => {
   };
 
   const filteredQuotations = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (!term) return quotations;
-    return quotations.filter((quotation) =>
-      [
+    const term = searchableText(search);
+    return quotations.filter((quotation) => {
+      if (statusFilter && quotation.status !== statusFilter) {
+        return false;
+      }
+
+      if (!term) {
+        return true;
+      }
+
+      const customer = customers.find((item) => Number(item.id) === Number(quotation.customerId));
+      const haystack = [
         quotation.id,
         quotation.quoteNumber,
         quotation.customerId,
-        customers.find((customer) => Number(customer.id) === Number(quotation.customerId))?.customerName,
+        customer?.customerName,
+        customer?.customerCode,
+        quotation.billingAddress?.customerName,
+        quotation.billingAddress?.customerCode,
         quotation.subject,
         quotation.email,
         quotation.status,
         quotation.salesPerson?.name,
+        quotation.salesPerson?.code,
+        quotation.quoteDate,
+        quotation.validUntil,
+        quotation.currencyCode,
+        quotation.grandTotal,
+        quotation.remarks,
       ]
+        .map(searchableText)
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(term))
-    );
-  }, [quotations, search]);
+        .join(" ");
+
+      return haystack.includes(term);
+    });
+  }, [customers, quotations, search, statusFilter]);
 
   const stats = useMemo(() => ({
     total: quotations.length,
@@ -1278,49 +1305,54 @@ const Quotations: React.FC = () => {
           />
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <FloatingInput
-              label="Quotation ID"
-              type="number"
-              value={lookupId}
-              onChange={(e) => setLookupId(e.target.value)}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="relative w-full sm:max-w-md">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search quotations..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
             />
-            <button
-              type="button"
-              onClick={fetchById}
-              className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700"
-            >
-              Get By ID
-            </button>
-            <button
-              type="button"
-              onClick={fetchQuotations}
-              className="h-[52px] rounded-lg bg-gray-100 px-4 text-sm font-medium text-gray-700 hover:bg-gray-200"
-            >
-              Load All
-            </button>
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            )}
           </div>
-        </div>
 
-        <div className="relative w-full sm:max-w-md">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search quotations..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              <XMarkIcon className="h-4 w-4" />
-            </button>
-          )}
+          <FilterPopover
+            title="Filter Quotations"
+            widthClassName="w-[320px]"
+            onReset={() => setStatusFilter("")}
+          >
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">Status</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+                >
+                  <option value="">All statuses</option>
+                  {statusOptions.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="rounded-lg border border-dashed border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-700">
+                Filters apply live
+              </div>
+            </div>
+          </FilterPopover>
         </div>
 
         <ReusableTable

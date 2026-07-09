@@ -15,6 +15,7 @@ import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import FilterPopover from "../../components/common/filter";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import {
@@ -105,6 +106,11 @@ function money(value: number | string | undefined) {
   return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
+function searchableText(value: unknown) {
+  if (value === null || value === undefined) return "";
+  return String(value).toLowerCase().trim();
+}
+
 const Refunds: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
@@ -117,7 +123,6 @@ const Refunds: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
-  const [lookupId, setLookupId] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [returnRequestLookupId, setReturnRequestLookupId] = useState("");
   const [deleteRefund, setDeleteRefund] = useState<Refund | null>(null);
@@ -157,24 +162,6 @@ const Refunds: React.FC = () => {
       setReturnRequests(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       ToasterService.error("Failed to load return requests", getErrorMessage(error, "Please try again."));
-    }
-  };
-
-  const fetchById = async () => {
-    if (!lookupId) {
-      ToasterService.error("Refund ID is required");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const res = await axios.get<Refund>(`${API_URL}/${lookupId}`, { headers });
-      setRefunds([res.data]);
-      ToasterService.success("Refund loaded");
-    } catch (error) {
-      ToasterService.error("Failed to load refund", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -298,14 +285,31 @@ const Refunds: React.FC = () => {
   };
 
   const filteredRefunds = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = searchableText(search);
     if (!term) return refunds;
-    return refunds.filter((refund) =>
-      [refund.id, refund.returnRequestId, refund.amount, refund.status, refund.paymentMethod]
+
+    return refunds.filter((refund) => {
+      const returnRequest = returnRequests.find((item) => Number(item.id) === Number(refund.returnRequestId));
+      const haystack = [
+        refund.id,
+        refund.returnRequestId,
+        refund.amount,
+        refund.status,
+        refund.paymentMethod,
+        refund.refundDate,
+        returnRequest?.salesOrderId,
+        returnRequest?.status,
+        returnRequest?.reason,
+        `refund ${refund.id}`,
+        `return ${refund.returnRequestId}`,
+      ]
+        .map(searchableText)
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(term))
-    );
-  }, [refunds, search]);
+        .join(" ");
+
+      return haystack.includes(term);
+    });
+  }, [refunds, returnRequests, search]);
 
   const stats = useMemo(() => ({
     total: refunds.length,
@@ -400,55 +404,68 @@ const Refunds: React.FC = () => {
           <StatsCard label="Failed" value={stats.failed} icon={<XCircleIcon />} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-            <FloatingInput label="Refund ID" type="number" value={lookupId} onChange={(e) => setLookupId(e.target.value)} />
-            <button type="button" onClick={fetchById} className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700">
-              Get By ID
-            </button>
-            <FloatingSelect
-              label="Status"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              emptyOptionLabel="Select status"
-              options={statusOptions.map((status) => ({ id: status, name: status }))}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="relative w-full sm:max-w-md">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search refunds..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
             />
-            <button type="button" onClick={fetchByStatus} className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700">
-              Get Status
-            </button>
-            <button type="button" onClick={fetchRefunds} className="h-[52px] rounded-lg bg-gray-100 px-4 text-sm font-medium text-gray-700 hover:bg-gray-200">
-              Load All
-            </button>
+            {search && (
+              <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
-            <FloatingSelect
-              label="Return Request"
-              value={returnRequestLookupId}
-              onChange={(e) => setReturnRequestLookupId(e.target.value)}
-              emptyOptionLabel="Select return request"
-              options={returnRequestOptions}
-            />
-            <button type="button" onClick={fetchByReturnRequest} className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700">
-              Get Return Request
-            </button>
-          </div>
-        </div>
-
-        <div className="relative w-full sm:max-w-md">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search refunds..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-          />
-          {search && (
-            <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-              <XMarkIcon className="h-4 w-4" />
-            </button>
-          )}
+          <FilterPopover title="Filter Refunds" buttonLabel="Filters" widthClassName="w-[20rem] sm:w-[22rem]" showFooter={false}>
+            <div className="space-y-3">
+              <FloatingSelect
+                label="Status"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                emptyOptionLabel=""
+                options={statusOptions.map((status) => ({ id: status, name: status }))}
+              />
+              <FloatingSelect
+                label="Return Request"
+                value={returnRequestLookupId}
+                onChange={(e) => setReturnRequestLookupId(e.target.value)}
+                emptyOptionLabel=""
+                options={returnRequestOptions}
+              />
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter("");
+                    setReturnRequestLookupId("");
+                    void fetchRefunds();
+                  }}
+                  className="h-10 rounded-lg bg-gray-100 px-3 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                >
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={fetchByStatus}
+                  className="h-10 rounded-lg bg-cyan-600 px-3 text-sm font-medium text-white hover:bg-cyan-700"
+                >
+                  Status
+                </button>
+                <button
+                  type="button"
+                  onClick={fetchByReturnRequest}
+                  className="h-10 rounded-lg bg-cyan-600 px-3 text-sm font-medium text-white hover:bg-cyan-700"
+                >
+                  Return
+                </button>
+              </div>
+            </div>
+          </FilterPopover>
         </div>
 
         <ReusableTable

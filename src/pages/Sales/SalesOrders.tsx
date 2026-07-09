@@ -329,6 +329,11 @@ function money(value: number | string | undefined) {
   return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
+function searchableText(value: unknown) {
+  if (value === null || value === undefined) return "";
+  return String(value).toLowerCase().trim();
+}
+
 function isPositiveNumber(value: string) {
   return Number.isFinite(Number(value)) && Number(value) > 0;
 }
@@ -437,8 +442,6 @@ const SalesOrders: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
-  const [lookupId, setLookupId] = useState("");
-  const [customerLookupId, setCustomerLookupId] = useState("");
   const [deleteOrder, setDeleteOrder] = useState<SalesOrder | null>(null);
   const [salesPersons, setSalesPersons] = useState<SalesPersonOption[]>([]);
   const [salesChannels, setSalesChannels] = useState<SalesChannelOption[]>([]);
@@ -497,43 +500,6 @@ const SalesOrders: React.FC = () => {
       }
     } catch (error) {
       ToasterService.error("Failed to load dropdown data", getErrorMessage(error, "Please try again."));
-    }
-  };
-
-  const fetchById = async () => {
-    if (!lookupId) {
-      ToasterService.error("Order ID is required");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const res = await axios.get<SalesOrder>(`${API_URL}/${lookupId}`, { headers });
-      setOrders([res.data]);
-      ToasterService.success("Sales order loaded");
-    } catch (error) {
-      ToasterService.error("Failed to load sales order", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchByCustomer = async () => {
-    if (!customerLookupId) {
-      ToasterService.error("Customer ID is required");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const res = await axios.get<SalesOrder[]>(`${API_URL}/customer/${customerLookupId}`, { headers });
-      const data = Array.isArray(res.data) ? res.data : [];
-      setOrders(data);
-      data.length ? ToasterService.success("Customer orders loaded") : ToasterService.noData("No orders found");
-    } catch (error) {
-      ToasterService.error("Failed to load customer orders", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -788,24 +754,58 @@ const SalesOrders: React.FC = () => {
   };
 
   const filteredOrders = useMemo(() => {
-    const term = search.toLowerCase();
-    return orders.filter((order) =>
-      [
+    const term = searchableText(search);
+    if (!term) return orders;
+
+    return orders.filter((order) => {
+      const customer = customers.find((item) => Number(item.id) === Number(order.customerId));
+      const salesPerson = salesPersons.find(
+        (item) => Number(getSalesPersonId(item)) === Number(order.salesPersonId)
+      );
+      const salesChannel = salesChannels.find(
+        (item) => Number(getSalesChannelId(item)) === Number(order.salesChannelId)
+      );
+
+      const haystack = [
         order.orderNumber,
         order.status,
         order.quotationNumber,
         order.subject,
         order.email,
         order.currencyCode,
-        String(order.id),
-        String(order.customerId),
-        String(order.salesChannelId),
+        order.orderDate,
+        order.quotationDate,
+        order.quotationValidUntil,
+        order.dueDate,
+        order.customerId,
+        customer?.customerName,
+        customer?.tradeName,
+        customer?.email,
+        order.salesChannelId,
+        salesChannel?.name,
+        salesChannel?.channelType,
+        order.salesPersonId,
+        salesPerson?.name,
+        salesPerson?.code,
+        order.grandTotal,
+        order.subTotal,
+        order.taxAmount,
+        order.paidAmount,
+        order.balanceAmount,
+        order.remarks,
+        order.internalNotes,
+        order.customerNotes,
+        order.termsAndConditions,
+        order.id,
+        order.paid ? "paid yes true" : "paid no false",
       ]
-        .join(" ")
-        .toLowerCase()
-        .includes(term)
-    );
-  }, [orders, search]);
+        .map(searchableText)
+        .filter(Boolean)
+        .join(" ");
+
+      return haystack.includes(term);
+    });
+  }, [customers, orders, salesChannels, salesPersons, search]);
 
   const stats = useMemo(
     () => ({
@@ -926,44 +926,6 @@ const SalesOrders: React.FC = () => {
           />
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-            <FloatingInput
-              label="Order ID"
-              type="number"
-              value={lookupId}
-              onChange={(e) => setLookupId(e.target.value)}
-            />
-            <button
-              type="button"
-              onClick={fetchById}
-              className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700"
-            >
-              Get By ID
-            </button>
-            <FloatingInput
-              label="Customer ID"
-              type="number"
-              value={customerLookupId}
-              onChange={(e) => setCustomerLookupId(e.target.value)}
-            />
-            <button
-              type="button"
-              onClick={fetchByCustomer}
-              className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700"
-            >
-              Get Customer
-            </button>
-            <button
-              type="button"
-              onClick={fetchOrders}
-              className="h-[52px] rounded-lg bg-gray-100 px-4 text-sm font-medium text-gray-700 hover:bg-gray-200"
-            >
-              Load All
-            </button>
-          </div>
-        </div>
-
         <div className="relative w-full sm:max-w-md">
           <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
           <input
@@ -1044,7 +1006,7 @@ const SalesOrders: React.FC = () => {
                     name="customerId"
                     value={form.customerId}
                     onChange={handleChange}
-                    emptyOptionLabel="Select customer"
+                    emptyOptionLabel=""
                     options={customers.map((customer) => ({
                       id: String(customer.id),
                       name: customerOptionLabel(customer),
@@ -1056,7 +1018,7 @@ const SalesOrders: React.FC = () => {
                     name="salesChannelId"
                     value={form.salesChannelId}
                     onChange={handleChange}
-                    emptyOptionLabel="Select channel"
+                    emptyOptionLabel=""
                     options={salesChannels
                       .map((channel) => {
                         const id = getSalesChannelId(channel);
@@ -1072,7 +1034,7 @@ const SalesOrders: React.FC = () => {
                     name="salesPersonId"
                     value={form.salesPersonId}
                     onChange={handleChange}
-                    emptyOptionLabel="Select sales person"
+                    emptyOptionLabel=""
                     options={salesPersons
                       .map((person) => {
                         const id = getSalesPersonId(person);
@@ -1091,7 +1053,7 @@ const SalesOrders: React.FC = () => {
                     name="quotationId"
                     value={form.quotationId}
                     onChange={handleChange}
-                    emptyOptionLabel="Select quotation"
+                    emptyOptionLabel=""
                     options={quotations
                       .map((quotation) => {
                         const id = getQuotationId(quotation);

@@ -6,6 +6,17 @@ import PurchaseResourcePage, {
 
 const CATEGORIES = "/v1/api/purchase/product-categories";
 
+const getStoredTenantId = () => {
+  if (typeof window === "undefined") return "";
+  try {
+    const raw = window.localStorage.getItem("user");
+    const user = raw ? JSON.parse(raw) : null;
+    return user?.tenantId || "";
+  } catch {
+    return "";
+  }
+};
+
 const getParentCategoryOptions = (categoryOptions: SelectOption[]) =>
   categoryOptions.filter((option) => !option.raw?.parentId);
 
@@ -17,6 +28,10 @@ const productCategoryConfig: PurchaseResourceConfig = {
   description: "Manage product categories used by purchase products and requisition line items.",
   endpoint: CATEGORIES,
   getByIdEndpoint: (row) => `${CATEGORIES}/${row.id}`,
+  getRequestParams: () => {
+    const tenantId = getStoredTenantId();
+    return tenantId ? { tenantId } : {};
+  },
   columns: [
     { key: "categoryCode", label: "Code" },
     { key: "categoryName", label: "Category Name" },
