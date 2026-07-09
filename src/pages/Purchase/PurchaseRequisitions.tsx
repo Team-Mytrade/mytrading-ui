@@ -54,6 +54,20 @@ const emptyUserDetails = {
   imageType: "",
 };
 
+const createFallbackRequester = (session: { userId: string; tenantId: string }, now: string) => ({
+  userId: session.userId,
+  email: "",
+  role: "USER",
+  active: "ACTIVE",
+  fullName: session.userId,
+  userDetails: { ...emptyUserDetails },
+  requisitions: [],
+  createdDate: now,
+  updatedDate: now,
+  createdBy: session.userId,
+  tenantId: session.tenantId,
+});
+
 const statusBadge = (value: string) => {
   const status = String(value || "--");
   const tone =
@@ -121,6 +135,29 @@ const purchaseRequisitionConfig: PurchaseResourceConfig = {
       (option) => String(option.value) === String(form.requesterId)
     );
     const requester = requesterOption?.raw;
+    const requesterPayload = requester
+      ? {
+          userId: requester.userId || "",
+          email: requester.email || "",
+          role: toRequesterRole(requester.role),
+          active: toUserActiveStatus(requester.active),
+          fullName:
+            requester.fullName ||
+            requester.username ||
+            [requester.firstName, requester.lastName].filter(Boolean).join(" ").trim() ||
+            requester.userId ||
+            "",
+          userDetails: {
+            ...emptyUserDetails,
+            ...(requester.userDetails || {}),
+          },
+          requisitions: Array.isArray(requester.requisitions) ? requester.requisitions : [],
+          createdDate: requester.createdDate || now,
+          updatedDate: requester.updatedDate || now,
+          createdBy: requester.createdBy || requester.userId || session.userId,
+          tenantId: requester.tenantId || session.tenantId,
+        }
+      : createFallbackRequester(session, now);
 
     return {
       id: Number(editingRow?.id ?? 0),
@@ -128,31 +165,12 @@ const purchaseRequisitionConfig: PurchaseResourceConfig = {
       updatedDate: now,
       createdBy: editingRow?.createdBy || session.userId,
       tenantId: editingRow?.tenantId || session.tenantId,
-      notes: form.notes,
+      notes: String(form.notes || "").trim(),
       requiredByDate: form.requiredByDate,
       status: form.status || "DRAFT",
       departmentId: toNumberOrZero(form.departmentId),
-      requester: requester
-        ? {
-            userId: requester.userId || "",
-            email: requester.email || "",
-            role: toRequesterRole(requester.role),
-            active: toUserActiveStatus(requester.active),
-            fullName:
-              requester.fullName ||
-              requester.username ||
-              [requester.firstName, requester.lastName].filter(Boolean).join(" ").trim(),
-            userDetails: {
-              ...emptyUserDetails,
-              ...(requester.userDetails || {}),
-            },
-            requisitions: requester.requisitions || [],
-            createdDate: requester.createdDate || now,
-            updatedDate: requester.updatedDate || now,
-            createdBy: requester.createdBy || requester.userId || "system",
-            tenantId: requester.tenantId || session.tenantId,
-          }
-        : null,
+      requester: requesterPayload,
+      items: Array.isArray(editingRow?.items) ? editingRow.items : [],
     };
   },
 };

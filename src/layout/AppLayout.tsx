@@ -33,9 +33,12 @@ const LayoutContent: React.FC = () => {
         style={{
           marginLeft: isLargeScreen
             ? (isExpanded || isHovered ? `${sidebarWidth}px` : "60px")
-            : "0px"
+            : "0px",
+          width: isLargeScreen
+            ? `calc(100% - ${(isExpanded || isHovered ? `${sidebarWidth}px` : "60px")})`
+            : "100%",
         }}
-        className={`flex-1 ${isResizing ? "transition-none" : "transition-all duration-300 ease-in-out"}`}
+        className={`min-w-0 ${isResizing ? "transition-none" : "transition-all duration-300 ease-in-out"}`}
       >
         <AppHeader />
         <div className="w-full px-2 py-4 md:px-3 md:py-6">

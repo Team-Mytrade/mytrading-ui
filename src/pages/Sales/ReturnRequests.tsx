@@ -15,6 +15,7 @@ import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import FilterPopover from "../../components/common/filter";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import {
@@ -39,7 +40,7 @@ type Refund = {
   refundDate: string;
   status: string;
   paymentMethod: string;
-  returnRequestId: number;
+  returnRequestId?: number;
 };
 
 type ReturnRequest = {
@@ -142,6 +143,11 @@ function money(value: number | string | undefined) {
   return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
+function searchableText(value: unknown) {
+  if (value === null || value === undefined) return "";
+  return String(value).toLowerCase().trim();
+}
+
 function salesOrderOptionLabel(order: SalesOrderOption) {
   const orderNumber = order.orderNumber || `Order #${order.id}`;
   return `${order.id} - ${orderNumber}`;
@@ -159,7 +165,9 @@ const ReturnRequests: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
-  const [lookupId, setLookupId] = useState("");
+  const [requestIdFilter, setRequestIdFilter] = useState("");
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState("");
+  const [refundDateFilter, setRefundDateFilter] = useState("");
   const [deleteReturn, setDeleteReturn] = useState<ReturnRequest | null>(null);
   const [salesOrders, setSalesOrders] = useState<SalesOrderOption[]>([]);
 
@@ -202,23 +210,6 @@ const ReturnRequests: React.FC = () => {
     }
   };
 
-  const fetchById = async () => {
-    if (!lookupId) {
-      ToasterService.error("Return request ID is required");
-      return;
-    }
-    try {
-      setLoading(true);
-      const res = await axios.get<ReturnRequest>(`${API_URL}/${lookupId}`, { headers });
-      setReturns([res.data]);
-      ToasterService.success("Return request loaded");
-    } catch (error) {
-      ToasterService.error("Failed to load return request", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm((current) => {
@@ -256,14 +247,6 @@ const ReturnRequests: React.FC = () => {
         remarks: form.itemRemarks,
       },
     ],
-    refund: {
-      id: 0,
-      amount: toNumber(form.itemRefundAmount),
-      refundDate: new Date().toISOString(),
-      status: "PENDING",
-      paymentMethod: "BANK_TRANSFER",
-      returnRequestId: editingId || 0,
-    },
   });
 
   const handleSubmit = async (e: FormEvent) => {
@@ -342,32 +325,102 @@ const ReturnRequests: React.FC = () => {
       return;
     }
     try {
+      const returnRequestId = toNumber(refundForm.returnRequestId);
+      const existingReturn = returns.find((item) => Number(item.id) === returnRequestId);
+
+      if (!existingReturn) {
+        ToasterService.error(
+          "Return request not found",
+          `Return request #${returnRequestId} is not available in the loaded return requests list.`
+        );
+        return;
+      }
+
+      if (existingReturn?.refund?.id || existingReturn?.refund) {
+        ToasterService.error(
+          "Refund already exists",
+          `Return request #${returnRequestId} already has a refund. Update it from the refunds page instead of creating a new one.`
+        );
+        return;
+      }
+
       const payload = {
         id: 0,
         amount: toNumber(refundForm.amount),
         refundDate: toIsoDateTime(refundForm.refundDate),
         status: "PENDING",
         paymentMethod: "BANK_TRANSFER",
-        returnRequestId: toNumber(refundForm.returnRequestId),
+        returnRequestId,
       };
-      await axios.post(`${API_URL}/${refundForm.returnRequestId}/refund`, payload, { headers });
+
+      const res = await axios.post<Refund>(`${API_URL}/${returnRequestId}/refund`, payload, { headers });
+      const refund = {
+        ...res.data,
+        returnRequestId: res.data.returnRequestId ?? returnRequestId,
+      };
+
+      setReturns((current) =>
+        current.map((item) =>
+          Number(item.id) === returnRequestId
+            ? {
+                ...item,
+                refund,
+              }
+            : item
+        )
+      );
+
       ToasterService.success("Refund created");
       setRefundForm(emptyRefundForm);
-      await fetchReturns();
     } catch (error) {
       ToasterService.error("Failed to create refund", getErrorMessage(error, "Please try again."));
     }
   };
 
   const filtered = useMemo(() => {
-    const term = search.toLowerCase();
-    return returns.filter((item) =>
-      [item.id, item.status, item.reason, item.salesOrderId, item.remarks]
-        .join(" ")
-        .toLowerCase()
-        .includes(term)
-    );
-  }, [returns, search]);
+    const term = searchableText(search);
+
+    return returns.filter((item) => {
+      const salesOrder = salesOrders.find((order) => Number(order.id) === Number(item.salesOrderId));
+      const refundAmount = item.refund?.amount || item.items?.reduce((sum, row) => sum + Number(row.refundAmount || 0), 0) || 0;
+      const refundDateOnly = item.refund?.refundDate ? String(item.refund.refundDate).slice(0, 10) : "";
+      const filterDateOnly = refundDateFilter ? refundDateFilter.slice(0, 10) : "";
+
+      const haystack = [
+        item.id,
+        item.status,
+        item.reason,
+        item.salesOrderId,
+        item.requestDate,
+        item.remarks,
+        salesOrder?.orderNumber,
+        salesOrder?.customerId,
+        item.refund?.status,
+        item.refund?.paymentMethod,
+        item.refund?.refundDate,
+        refundAmount,
+        item.items?.length,
+        ...((item.items || []).flatMap((row) => [
+          row.id,
+          row.salesOrderItemId,
+          row.returnQuantity,
+          row.refundAmount,
+          row.remarks,
+        ])),
+      ]
+        .map(searchableText)
+        .filter(Boolean)
+        .join(" ");
+
+      const matchesSearch = !term || haystack.includes(term);
+      const matchesRequestId = !requestIdFilter || String(item.id).includes(requestIdFilter);
+      const matchesPaymentMethod =
+        !paymentMethodFilter || String(item.refund?.paymentMethod || "").toLowerCase() === paymentMethodFilter.toLowerCase();
+      const matchesRefundDate = !filterDateOnly || refundDateOnly === filterDateOnly;
+
+      return matchesSearch && matchesRequestId && matchesPaymentMethod && matchesRefundDate;
+    });
+  }, [paymentMethodFilter, refundDateFilter, requestIdFilter, returns, salesOrders, search]);
 
   const stats = useMemo(
     () => ({
@@ -468,36 +521,98 @@ const ReturnRequests: React.FC = () => {
           <StatsCard label="Refunded" value={stats.refunded} icon={<ReceiptRefundIcon />} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-            <FloatingInput label="Return Request ID" type="number" value={lookupId} onChange={(e) => setLookupId(e.target.value)} />
-            <button type="button" onClick={fetchById} className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700">Get By ID</button>
-            <button type="button" onClick={fetchReturns} className="h-[52px] rounded-lg bg-gray-100 px-4 text-sm font-medium text-gray-700 hover:bg-gray-200">Load All</button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="relative w-full sm:max-w-md">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search return requests..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
+            />
+            {search && (
+              <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-5">
-            <FloatingInput label="Refund Return Request ID" name="returnRequestId" type="number" value={refundForm.returnRequestId} onChange={handleRefundChange} />
-            <FloatingInput label="Refund Amount" name="amount" type="number" value={refundForm.amount} onChange={handleRefundChange} />
-            <FloatingInput label="Refund Date" name="refundDate" type="datetime-local" value={refundForm.refundDate} onChange={handleRefundChange} />
-            <FloatingSelect label="Payment Method" name="paymentMethod" value={refundForm.paymentMethod} onChange={handleRefundChange} includeEmptyOption={false} options={paymentMethodOptions.map((item) => ({ id: item, name: item }))} />
-            <button type="button" onClick={createRefund} className="h-[52px] rounded-lg bg-green-600 px-4 text-sm font-medium text-white hover:bg-green-700">Create Refund</button>
-          </div>
-        </div>
-
-        <div className="relative w-full sm:max-w-md">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search return requests..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-          />
-          {search && (
-            <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-              <XMarkIcon className="h-4 w-4" />
-            </button>
-          )}
+          <FilterPopover title="Refund Tools" buttonLabel="Filters" widthClassName="w-[20rem] sm:w-[22rem]" showFooter={false}>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">Return Request ID</label>
+                <input
+                  type="number"
+                  value={requestIdFilter}
+                  onChange={(e) => setRequestIdFilter(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">Payment Method</label>
+                  <select
+                    value={paymentMethodFilter}
+                    onChange={(e) => setPaymentMethodFilter(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                  >
+                    <option value="">Any method</option>
+                    {paymentMethodOptions.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">Refund Amount</label>
+                  <input
+                    type="number"
+                    name="amount"
+                    value={refundForm.amount}
+                    onChange={handleRefundChange}
+                    className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">Refund Date</label>
+                <input
+                  type="date"
+                  value={refundDateFilter}
+                  onChange={(e) => setRefundDateFilter(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRequestIdFilter("");
+                    setPaymentMethodFilter("");
+                    setRefundDateFilter("");
+                    setRefundForm(emptyRefundForm);
+                  }}
+                  className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                >
+                  Reset
+                </button>
+                <div className="flex items-center gap-2">
+                  <div className="rounded-lg border border-dashed border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-medium text-cyan-700">
+                    Filters apply live
+                  </div>
+                  <button
+                    type="button"
+                    onClick={createRefund}
+                    className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                  >
+                    Create Refund
+                  </button>
+                </div>
+              </div>
+            </div>
+          </FilterPopover>
         </div>
 
         <ReusableTable

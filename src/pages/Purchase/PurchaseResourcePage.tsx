@@ -84,6 +84,7 @@ export type PurchaseResourceConfig = {
   pageSize?: number;
   renderHeaderActions?: () => React.ReactNode;
   getListParams?: () => Record<string, string | number | boolean>;
+  getRequestParams?: () => Record<string, string | number | boolean>;
   buildPayload?: (
     form: PurchaseRecord,
     editingRow: PurchaseRecord | null,
@@ -107,22 +108,6 @@ const formatDateTimeForInput = (value: any) => {
   if (!value) return "";
   const text = String(value);
   return text.length >= 16 ? text.slice(0, 16) : text;
-};
-
-const getStoredTenantId = () => {
-  if (typeof window === "undefined") return "";
-  try {
-    const raw = window.localStorage.getItem("user");
-    const user = raw ? JSON.parse(raw) : null;
-    return user?.tenantId || "";
-  } catch {
-    return "";
-  }
-};
-
-const withTenantParams = (params?: Record<string, string | number | boolean>) => {
-  const tenantId = getStoredTenantId();
-  return tenantId ? { ...(params || {}), tenantId } : params;
 };
 
 const inputBase =
@@ -219,7 +204,12 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     setLoading(true);
     setApiFailed(false);
     try {
-      const res = await axios.get(config.endpoint, { params: withTenantParams(config.getListParams?.()) });
+      const res = await axios.get(config.endpoint, {
+        params: {
+          ...(config.getRequestParams?.() || {}),
+          ...(config.getListParams?.() || {}),
+        },
+      });
       setRows(asArray(res.data));
     } catch (error: any) {
       console.error(`Failed to load ${config.title}`, error);
@@ -241,7 +231,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         optionFields.map(async (field) => {
           try {
             const res = await axios.get(field.optionsEndpoint || "", {
-              params: withTenantParams(),
+              params: config.getRequestParams?.(),
             });
             next[field.name] = asArray(res.data)
               .map((row) => ({
@@ -277,7 +267,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     if (config.getByIdEndpoint) {
       try {
         const res = await axios.get(config.getByIdEndpoint(row), {
-          params: withTenantParams(),
+          params: config.getRequestParams?.(),
         });
         selectedRow = res.data || row;
       } catch (error) {
@@ -322,11 +312,11 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         const url = config.updateEndpoint
           ? config.updateEndpoint(editingRow, form)
           : `${config.endpoint}/${editingRow.id}`;
-        await axios.put(url, payload, { params: withTenantParams() });
+        await axios.put(url, payload, { params: config.getRequestParams?.() });
         ToasterService.success(`${config.title} updated`);
       } else {
         await axios.post(config.createEndpoint || config.endpoint, payload, {
-          params: withTenantParams(),
+          params: config.getRequestParams?.(),
         });
         ToasterService.success(`${config.title} created`);
       }
@@ -342,7 +332,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     if (!deleteRow) return;
     try {
       const url = config.deleteEndpoint ? config.deleteEndpoint(deleteRow) : `${config.endpoint}/${deleteRow.id}`;
-      await axios.delete(url, { params: withTenantParams() });
+      await axios.delete(url, { params: config.getRequestParams?.() });
       ToasterService.success(`${config.title} deleted`);
       setDeleteRow(null);
       loadRows();

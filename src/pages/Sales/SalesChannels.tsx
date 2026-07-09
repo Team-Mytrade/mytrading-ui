@@ -14,6 +14,7 @@ import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import FilterPopover from "../../components/common/filter";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import {
@@ -89,6 +90,20 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+function searchableText(value: unknown) {
+  if (value === null || value === undefined) return "";
+  return String(value).toLowerCase().trim();
+}
+
+function friendlyChannelType(type: string) {
+  return String(type || "")
+    .toLowerCase()
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 const badgeClass = (type: string) => {
   if (type === "DIRECT") return "bg-blue-50 text-blue-700 border-blue-200";
   if (type === "DISTRIBUTOR") return "bg-purple-50 text-purple-700 border-purple-200";
@@ -108,6 +123,7 @@ const SalesChannels: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [lookupId, setLookupId] = useState("");
   const [deleteChannel, setDeleteChannel] = useState<SalesChannel | null>(null);
 
@@ -236,14 +252,27 @@ const SalesChannels: React.FC = () => {
   };
 
   const filteredChannels = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (!term) return channels;
-    return channels.filter((channel) =>
-      [channel.id, channel.name, channel.channelType, channel.contactInfo, channel.tenantId]
+    const term = searchableText(search);
+
+    return channels.filter((channel) => {
+      const haystack = [
+        channel.id,
+        channel.name,
+        channel.channelType,
+        friendlyChannelType(channel.channelType),
+        channel.contactInfo,
+        channel.tenantId,
+      ]
+        .map(searchableText)
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(term))
-    );
-  }, [channels, search]);
+        .join(" ");
+
+      const matchesSearch = !term || haystack.includes(term);
+      const matchesType = !typeFilter || String(channel.channelType) === typeFilter;
+
+      return matchesSearch && matchesType;
+    });
+  }, [channels, search, typeFilter]);
 
   const stats = useMemo(() => ({
     total: channels.length,
@@ -348,49 +377,64 @@ const SalesChannels: React.FC = () => {
           />
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-            <FloatingInput
-              label="Channel ID"
-              type="number"
-              value={lookupId}
-              onChange={(e) => setLookupId(e.target.value)}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="relative w-full sm:max-w-md">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search sales channels..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
             />
-            <button
-              type="button"
-              onClick={fetchById}
-              className="h-[52px] rounded-lg bg-cyan-600 px-5 text-sm font-medium text-white transition hover:bg-cyan-700"
-            >
-              Get By ID
-            </button>
-            <button
-              type="button"
-              onClick={fetchChannels}
-              className="h-[52px] rounded-lg bg-gray-100 px-5 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
-            >
-              Load All
-            </button>
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            )}
           </div>
-        </div>
 
-        <div className="relative w-full sm:max-w-md">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search sales channels..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              <XMarkIcon className="h-4 w-4" />
-            </button>
-          )}
+          <FilterPopover
+            title="Filter Sales Channels"
+            buttonLabel="Filters"
+            widthClassName="w-[18rem] sm:w-[20rem]"
+            showFooter={false}
+          >
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">Type</label>
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                >
+                  <option value="">All types</option>
+                  {channelTypeOptions.map((item) => (
+                    <option key={item} value={item}>
+                      {friendlyChannelType(item)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setTypeFilter("")}
+                  className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                >
+                  Reset
+                </button>
+                <div className="rounded-lg border border-dashed border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-medium text-cyan-700">
+                  Filters apply live
+                </div>
+              </div>
+            </div>
+          </FilterPopover>
         </div>
 
         <ReusableTable

@@ -6,14 +6,10 @@ import {
   CreditCardIcon,
   MagnifyingGlassIcon,
   TrashIcon,
-  XMarkIcon,
   XCircleIcon,
 } from "@heroicons/react/24/outline";
-import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import StatsCard from "../../components/common/Statscard";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
@@ -83,8 +79,11 @@ function isPositiveNumber(value: string) {
 }
 
 function customerOptionLabel(customer: CustomerOption) {
-  const name = customer.customerName || customer.tradeName || `Customer #${customer.id}`;
-  return `${customer.id} - ${name}`;
+  return customer.customerName || customer.tradeName || "Unknown customer";
+}
+
+function customerDisplayName(customer?: CustomerOption) {
+  return customer?.customerName || customer?.tradeName || "--";
 }
 
 function authHeaders(token: string | null) {
@@ -104,7 +103,6 @@ const CreditLimit: React.FC = () => {
   const [lastAvailableCredit, setLastAvailableCredit] = useState<number | null>(null);
   const [lastCheck, setLastCheck] = useState<CreditCheckResponse | null>(null);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
-  const [showFormModal, setShowFormModal] = useState(false);
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -168,7 +166,6 @@ const CreditLimit: React.FC = () => {
         sufficient: res.data.sufficient,
         availableCredit: Number(res.data.availableCredit || 0),
       });
-      setShowFormModal(false);
       ToasterService.success(res.data.sufficient ? "Credit is sufficient" : "Credit is not sufficient");
     } catch (error) {
       ToasterService.error("Failed to check credit", getErrorMessage(error, "Please try again."));
@@ -270,12 +267,13 @@ const CreditLimit: React.FC = () => {
   const filteredLogs = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return logs;
-    return logs.filter((log) =>
-      [log.action, log.customerId, log.amount, log.availableCredit, log.sufficient]
+    return logs.filter((log) => {
+      const customer = customers.find((item) => Number(item.id) === Number(log.customerId));
+      return [log.action, log.customerId, customerDisplayName(customer), log.amount, log.availableCredit, log.sufficient]
         .filter((value) => value !== undefined && value !== null)
         .some((value) => String(value).toLowerCase().includes(term))
-    );
-  }, [logs, search]);
+    });
+  }, [customers, logs, search]);
 
   const stats = useMemo(() => ({
     actions: logs.length,
@@ -284,81 +282,49 @@ const CreditLimit: React.FC = () => {
     insufficient: lastCheck && !lastCheck.sufficient ? 1 : 0,
   }), [lastAvailableCredit, lastCheck, logs.length]);
 
-  const columns: ColumnDef<CreditLog>[] = [
-    {
-      key: "action",
-      label: "Action",
-      sortable: true,
-      render: (log) => (
-        <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">
-          {log.action}
-        </span>
-      ),
-    },
-    { key: "customerId", label: "Customer", sortable: true },
-    {
-      key: "amount",
-      label: "Amount",
-      sortable: true,
-      render: (log) => (log.amount === undefined ? "--" : money(log.amount)),
-    },
-    {
-      key: "availableCredit",
-      label: "Available Credit",
-      sortable: true,
-      render: (log) => (log.availableCredit === undefined ? "--" : money(log.availableCredit)),
-    },
-    {
-      key: "sufficient",
-      label: "Sufficient",
-      sortable: true,
-      render: (log) => (log.sufficient === undefined ? "--" : log.sufficient ? "Yes" : "No"),
-    },
-    { key: "createdAt", label: "Time", sortable: true },
-  ];
+  const selectedCustomer = useMemo(
+    () => customers.find((customer) => String(customer.id) === form.customerId),
+    [customers, form.customerId]
+  );
 
   return (
     <>
       <PageMeta title="Credit Limit" description="Manage sales credit limit checks" />
       <PageBreadcrumb pageTitle="Credit Limit" />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={() => setShowFormModal(true)} label="Add Credit Check" />
-        </div>
+      <div className="-mt-3 w-full max-w-none px-0 pt-0 pb-8 space-y-5">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold text-slate-900">Credit Checker</h2>
+            <p className="mt-1 text-sm text-slate-500">Check available credit and manage outstanding amounts for a customer.</p>
+          </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="Actions" value={stats.actions} icon={<CreditCardIcon />} />
-          <StatsCard
-            label="Available Credit"
-            value={money(stats.availableCredit)}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-            icon={<BanknotesIcon />}
-          />
-          <StatsCard
-            label="Sufficient"
-            value={stats.sufficient}
-            gradient="from-blue-50 to-cyan-50"
-            borderColor="border-blue-100"
-            labelColor="text-blue-600"
-            icon={<CheckCircleIcon />}
-          />
-          <StatsCard
-            label="Insufficient"
-            value={stats.insufficient}
-            gradient="from-red-50 to-rose-50"
-            borderColor="border-red-100"
-            labelColor="text-red-600"
-            icon={<XCircleIcon />}
-          />
-        </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Available Credit</div>
+              <div className="mt-2 text-2xl font-semibold text-slate-900">{money(stats.availableCredit)}</div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Checks Passed</div>
+              <div className="mt-2 text-2xl font-semibold text-emerald-700">{stats.sufficient}</div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Checks Failed</div>
+              <div className="mt-2 text-2xl font-semibold text-rose-700">{stats.insufficient}</div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Selected Customer</div>
+              <div className="mt-2 text-sm font-semibold text-slate-900">
+                {selectedCustomer ? customerOptionLabel(selectedCustomer) : "--"}
+              </div>
+            </div>
+          </div>
+        </section>
 
-        <form onSubmit={checkCredit} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <form onSubmit={checkCredit} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="grid gap-4 md:grid-cols-3">
             <FloatingSelect
-              label="Customer ID"
+              label="Customer"
               name="customerId"
               value={form.customerId}
               onChange={handleChange}
@@ -369,15 +335,27 @@ const CreditLimit: React.FC = () => {
               }))}
               required
             />
-            <FloatingInput label="Order Amount" name="orderAmount" type="number" value={form.orderAmount} onChange={handleChange} />
-            <FloatingInput label="Outstanding Amount" name="outstandingAmount" type="number" value={form.outstandingAmount} onChange={handleChange} />
+            <FloatingInput
+              label="Order Amount"
+              name="orderAmount"
+              type="number"
+              value={form.orderAmount}
+              onChange={handleChange}
+            />
+            <FloatingInput
+              label="Outstanding Amount"
+              name="outstandingAmount"
+              type="number"
+              value={form.outstandingAmount}
+              onChange={handleChange}
+            />
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <button
               type="submit"
               disabled={loading}
-              className="h-[42px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-70"
+              className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-70"
             >
               Check Credit
             </button>
@@ -385,7 +363,7 @@ const CreditLimit: React.FC = () => {
               type="button"
               disabled={loading}
               onClick={() => getAvailableCredit()}
-              className="h-[42px] rounded-lg bg-gray-100 px-4 text-sm font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-70"
+              className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-70"
             >
               Get Available
             </button>
@@ -393,7 +371,7 @@ const CreditLimit: React.FC = () => {
               type="button"
               disabled={loading}
               onClick={addOutstanding}
-              className="h-[42px] rounded-lg bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-70"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-70"
             >
               Add Outstanding
             </button>
@@ -401,7 +379,7 @@ const CreditLimit: React.FC = () => {
               type="button"
               disabled={loading}
               onClick={clearOutstanding}
-              className="inline-flex h-[42px] items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-70"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-70"
             >
               <TrashIcon className="h-4 w-4" />
               Clear Outstanding
@@ -420,78 +398,70 @@ const CreditLimit: React.FC = () => {
           />
         </div>
 
-        <ReusableTable
-          data={filteredLogs}
-          columns={columns}
-          loading={loading}
-          pageSize={PAGE_SIZE}
-          defaultSortKey="createdAt"
-          defaultSortOrder="desc"
-          emptyState={
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Recent credit actions</h3>
+            </div>
+            <div className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-600">
+              {filteredLogs.length} items
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="py-10 text-center text-sm text-slate-500">Loading credit activity...</div>
+          ) : filteredLogs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
               <CreditCardIcon className="mb-3 h-12 w-12 text-gray-400" />
               <p className="mb-2 text-sm text-gray-500">No credit actions yet</p>
             </div>
-          }
-        />
+          ) : (
+            <div className="space-y-3">
+              {filteredLogs.slice(0, PAGE_SIZE).map((log) => (
+                <div
+                  key={log.id}
+                  className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  {(() => {
+                    const customer = customers.find((item) => Number(item.id) === Number(log.customerId));
+                    return (
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-semibold text-cyan-700">
+                        {log.action}
+                      </span>
+                      <span className="text-sm font-medium text-slate-900">{customerDisplayName(customer)}</span>
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">{log.createdAt}</div>
+                  </div>
+                    );
+                  })()}
 
-        {showFormModal && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-4 backdrop-blur-sm sm:items-center">
-            <div className="mx-auto w-full max-w-xl rounded-xl bg-white shadow-xl">
-              <div className="flex items-center justify-between border-b border-gray-100 p-5">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Create Credit Check</h3>
-                  <p className="mt-0.5 text-xs text-gray-500">Submit credit check payload from the API schema</p>
+                  <div className="grid grid-cols-2 gap-3 sm:flex sm:items-center sm:gap-6">
+                    <div>
+                      <div className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Amount</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                        {log.amount === undefined ? "--" : money(log.amount)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Available</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                        {log.availableCredit === undefined ? "--" : money(log.availableCredit)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Result</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                        {log.sufficient === undefined ? "--" : log.sufficient ? "Sufficient" : "Insufficient"}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <button type="button" onClick={() => setShowFormModal(false)} className="text-gray-400 hover:text-gray-600">
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
-
-              <form onSubmit={checkCredit} className="p-5">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <FloatingSelect
-                    label="Customer ID"
-                    name="customerId"
-                    value={form.customerId}
-                    onChange={handleChange}
-                    emptyOptionLabel="Select customer"
-                    options={customers.map((customer) => ({
-                      id: String(customer.id),
-                      name: customerOptionLabel(customer),
-                    }))}
-                    required
-                  />
-                  <FloatingInput
-                    label="Order Amount"
-                    name="orderAmount"
-                    type="number"
-                    value={form.orderAmount}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div className="mt-5 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={() => setShowFormModal(false)}
-                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:opacity-70"
-                  >
-                    Check Credit
-                  </button>
-                </div>
-              </form>
+              ))}
             </div>
-          </div>
-        )}
+          )}
+        </section>
       </div>
     </>
   );
