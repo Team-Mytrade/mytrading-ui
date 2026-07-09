@@ -15,6 +15,7 @@ import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import FilterPopover from "../../components/common/filter";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import {
@@ -104,6 +105,11 @@ function isPositiveNumber(value: string) {
   return Number.isFinite(Number(value)) && Number(value) > 0;
 }
 
+function searchableText(value: unknown) {
+  if (value === null || value === undefined) return "";
+  return String(value).toLowerCase().trim();
+}
+
 const ServiceSchedules: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
@@ -115,7 +121,6 @@ const ServiceSchedules: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
-  const [lookupId, setLookupId] = useState("");
   const [employeeLookupId, setEmployeeLookupId] = useState("");
   const [statusScheduleId, setStatusScheduleId] = useState("");
   const [nextStatus, setNextStatus] = useState("PENDING");
@@ -156,24 +161,6 @@ const ServiceSchedules: React.FC = () => {
       setSalesPersons(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       ToasterService.error("Failed to load employees", getErrorMessage(error, "Please try again."));
-    }
-  };
-
-  const fetchById = async () => {
-    if (!lookupId) {
-      ToasterService.error("Schedule ID is required");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const res = await axios.get<ServiceSchedule>(`${API_URL}/${lookupId}`, { headers });
-      setSchedules([res.data]);
-      ToasterService.success("Service schedule loaded");
-    } catch (error) {
-      ToasterService.error("Failed to load schedule", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -297,22 +284,35 @@ const ServiceSchedules: React.FC = () => {
   };
 
   const filteredSchedules = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = searchableText(search);
     if (!term) return schedules;
-    return schedules.filter((schedule) =>
-      [
+
+    return schedules.filter((schedule) => {
+      const employeeName = getEmployeeDisplayName(schedule.assignedEmployeeId);
+      const haystack = [
         schedule.id,
         schedule.scheduleNo,
         schedule.serviceOrderId,
         schedule.customerId,
         schedule.assignedEmployeeId,
+        employeeName,
         schedule.status,
         schedule.remarks,
+        schedule.scheduledDate,
+        formatTime(schedule.startTime),
+        formatTime(schedule.endTime),
+        `schedule ${schedule.id}`,
+        `customer ${schedule.customerId}`,
+        `employee ${schedule.assignedEmployeeId}`,
+        `service order ${schedule.serviceOrderId}`,
       ]
+        .map(searchableText)
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(term))
-    );
-  }, [schedules, search]);
+        .join(" ");
+
+      return haystack.includes(term);
+    });
+  }, [schedules, search, salesPersons]);
 
   const stats = useMemo(() => ({
     total: schedules.length,
@@ -431,56 +431,77 @@ const ServiceSchedules: React.FC = () => {
           <StatsCard label="Completed" value={stats.completed} icon={<CheckCircleIcon />} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-            <FloatingInput label="Schedule ID" type="number" value={lookupId} onChange={(e) => setLookupId(e.target.value)} />
-            <button type="button" onClick={fetchById} className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700">
-              Get By ID
-            </button>
-            <FloatingSelect
-              label="Employee"
-              value={employeeLookupId}
-              onChange={(e) => setEmployeeLookupId(e.target.value)}
-              emptyOptionLabel="Select employee"
-              options={employeeOptions}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="relative w-full sm:max-w-md">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search service schedules..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
             />
-            <button type="button" onClick={fetchByEmployee} className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700">
-              Get Employee
-            </button>
-            <button type="button" onClick={fetchSchedules} className="h-[52px] rounded-lg bg-gray-100 px-4 text-sm font-medium text-gray-700 hover:bg-gray-200">
-              Load All
-            </button>
+            {search && (
+              <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-            <FloatingInput label="Status Schedule ID" type="number" value={statusScheduleId} onChange={(e) => setStatusScheduleId(e.target.value)} />
-            <FloatingSelect
-              label="Status"
-              value={nextStatus}
-              onChange={(e) => setNextStatus(e.target.value)}
-              includeEmptyOption={false}
-              options={statusOptions.map((status) => ({ id: status, name: status }))}
-            />
-            <button type="button" onClick={updateStatus} className="h-[52px] rounded-lg bg-green-600 px-4 text-sm font-medium text-white hover:bg-green-700">
-              Update Status
-            </button>
-          </div>
-        </div>
-
-        <div className="relative w-full sm:max-w-md">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search service schedules..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-          />
-          {search && (
-            <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-              <XMarkIcon className="h-4 w-4" />
-            </button>
-          )}
+          <FilterPopover title="Filter Schedules" buttonLabel="Filters" widthClassName="w-[20rem] sm:w-[22rem]" showFooter={false}>
+            <div className="space-y-3">
+              <FloatingSelect
+                label="Employee"
+                value={employeeLookupId}
+                onChange={(e) => setEmployeeLookupId(e.target.value)}
+                emptyOptionLabel=""
+                options={employeeOptions}
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <FloatingInput
+                  label="Status Schedule ID"
+                  type="number"
+                  value={statusScheduleId}
+                  onChange={(e) => setStatusScheduleId(e.target.value)}
+                />
+                <FloatingSelect
+                  label="Status"
+                  value={nextStatus}
+                  onChange={(e) => setNextStatus(e.target.value)}
+                  includeEmptyOption={false}
+                  options={statusOptions.map((status) => ({ id: status, name: status }))}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmployeeLookupId("");
+                    setStatusScheduleId("");
+                    setNextStatus("PENDING");
+                    void fetchSchedules();
+                  }}
+                  className="h-10 rounded-lg bg-gray-100 px-3 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                >
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={fetchByEmployee}
+                  className="h-10 rounded-lg bg-cyan-600 px-3 text-sm font-medium text-white hover:bg-cyan-700"
+                >
+                  Employee
+                </button>
+                <button
+                  type="button"
+                  onClick={updateStatus}
+                  className="h-10 rounded-lg bg-green-600 px-3 text-sm font-medium text-white hover:bg-green-700"
+                >
+                  Update
+                </button>
+              </div>
+            </div>
+          </FilterPopover>
         </div>
 
         <ReusableTable

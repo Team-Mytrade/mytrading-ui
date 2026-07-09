@@ -380,7 +380,7 @@ const CustomerManager: React.FC = () => {
       <PageMeta title="Customers" description="Manage your Customers" />
       <PageBreadcrumb pageTitle="Customers" />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
+      <div className="min-w-0 w-full max-w-full px-0 py-8 space-y-6">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={handleAddCustomer} label="Add Customer" />
         </div>
@@ -430,44 +430,64 @@ const CustomerManager: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex w-full items-center justify-end gap-3 sm:w-auto">
+          <div className="relative flex w-full items-center justify-end gap-3 sm:w-auto">
             <button
+              type="button"
               onClick={() => setShowFilters(!showFilters)}
-              className={`p-2 rounded-lg border flex items-center justify-center transition-colors h-[40px] w-[40px] ${showFilters ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"}`}
+              className={`rounded-lg border px-3 py-2 flex items-center gap-2 transition-colors h-[40px] ${showFilters ? "bg-cyan-50 border-cyan-300 text-cyan-700" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}
             >
               <FunnelIcon className={`h-5 w-5 ${showFilters ? "text-cyan-600" : "text-gray-600"}`} />
+              <span className="text-sm font-medium">Filters</span>
             </button>
-          </div>
-        </div>
 
-        {/* Filters Panel */}
-        {showFilters && (
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="flex flex-wrap gap-4">
-              <div className="w-full min-w-0 sm:flex-1 sm:min-w-[200px]">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Status</label>
+            {showFilters && (
+              <div className="absolute right-0 top-[48px] z-30 w-72 rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
+                <div className="mb-3 flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-gray-900">Filter Customers</h4>
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(false)}
+                    className="text-xs font-medium text-gray-500 hover:text-gray-700"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <label className="mb-2 block text-sm font-medium text-gray-700">Status</label>
                 <select
                   value={activeFilter}
                   onChange={(e) => setActiveFilter(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                  className="w-full rounded-lg border border-gray-300 p-2 focus:ring-2 focus:ring-cyan-500"
                 >
                   <option value="ALL">All Customers</option>
                   <option value="ACTIVE">Active</option>
                   <option value="LEAD">Leads</option>
                   <option value="INACTIVE">Inactive</option>
                 </select>
+
+                <div className="mt-4 flex justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveFilter("ALL");
+                      setShowFilters(false);
+                    }}
+                    className="rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(false)}
+                    className="rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white hover:bg-cyan-700"
+                  >
+                    Apply
+                  </button>
+                </div>
               </div>
-              {activeFilter !== "ALL" && (
-                <button
-                  onClick={() => setActiveFilter("ALL")}
-                  className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
-                >
-                  Clear Filter
-                </button>
-              )}
-            </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Table */}
         <ReusableTable
@@ -478,6 +498,7 @@ const CustomerManager: React.FC = () => {
           defaultSortOrder="asc"
           onRowClick={handleViewCustomer}
           loading={loading}
+          className="max-w-full"
           emptyState={
             <div className="flex flex-col items-center">
               <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />

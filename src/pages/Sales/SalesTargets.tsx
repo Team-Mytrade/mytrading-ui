@@ -17,6 +17,7 @@ import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import FilterPopover from "../../components/common/filter";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import {
@@ -180,6 +181,27 @@ function toCurrency(value: number | string | undefined) {
   });
 }
 
+function toFriendlyStatus(status: string) {
+  return String(status || "")
+    .toLowerCase()
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function searchableText(value: unknown) {
+  if (value === null || value === undefined) return "";
+  return String(value).toLowerCase().trim();
+}
+
+function openNativeDatePicker(event: React.FocusEvent<HTMLInputElement> | React.MouseEvent<HTMLInputElement>) {
+  const input = event.currentTarget;
+  if (typeof input.showPicker === "function") {
+    input.showPicker();
+  }
+}
+
 const SalesTargets: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
@@ -194,15 +216,15 @@ const SalesTargets: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<TargetStatus | "">("");
   const [salesPersonFilter, setSalesPersonFilter] = useState("");
   const [lookupId, setLookupId] = useState("");
-  const [rangeStart, setRangeStart] = useState(getMonthRange().start);
-  const [rangeEnd, setRangeEnd] = useState(getMonthRange().end);
+  const [rangeStart, setRangeStart] = useState("");
+  const [rangeEnd, setRangeEnd] = useState("");
   const [achievedTargetId, setAchievedTargetId] = useState("");
   const [achievedAmount, setAchievedAmount] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<SalesTarget | null>(null);
   const [salesPersons, setSalesPersons] = useState<SalesPersonOption[]>([]);
 
   useEffect(() => {
-    fetchByRange(getMonthRange().start, getMonthRange().end, true);
+    fetchAllTargets(true);
     fetchSalesPersons();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -213,6 +235,23 @@ const SalesTargets: React.FC = () => {
       if (exists) return current.map((item) => (item.id === target.id ? target : item));
       return [target, ...current];
     });
+  };
+
+  const fetchAllTargets = async (silent = false) => {
+    try {
+      setLoading(true);
+      const res = await axios.get<SalesTarget[]>(`${API_URL}/getAll`, { headers });
+      const data = Array.isArray(res.data) ? res.data : [];
+      setTargets(data);
+      if (!silent) {
+        data.length ? ToasterService.success("Sales targets loaded") : ToasterService.noData("No sales targets found");
+      }
+    } catch (error) {
+      ToasterService.error("Failed to load sales targets", getErrorMessage(error, "Please try again."));
+      setTargets([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchByRange = async (start = rangeStart, end = rangeEnd, silent = false) => {
@@ -454,22 +493,48 @@ const SalesTargets: React.FC = () => {
   };
 
   const filteredTargets = useMemo(() => {
-    const term = search.toLowerCase();
-    return targets.filter((target) =>
-      [
+    return targets.filter((target) => {
+      const person = salesPersons.find((item) => Number(item.id) === Number(target.salesPersonId));
+      const periodYear = target.targetYear || getPeriodYear(target.period) || "";
+      const periodMonth = target.targetMonth || getPeriodMonth(target.period) || "";
+      const periodLabel =
+        periodMonth && periodYear
+          ? `${monthNames[Number(periodMonth) - 1] || ""} ${periodYear}`.trim()
+          : "";
+      const targetStart = target.startDate || "";
+      const targetEnd = target.endDate || "";
+      const matchesStatus = !statusFilter || String(target.status) === statusFilter;
+      const matchesStart = !rangeStart || (targetStart && targetStart >= rangeStart);
+      const matchesEnd = !rangeEnd || (targetEnd && targetEnd <= rangeEnd);
+      const term = searchableText(search);
+
+      const haystack = [
         target.salesPersonName,
         target.salesPersonCode,
+        person?.name,
+        person?.code,
         target.targetType,
         target.status,
+        toFriendlyStatus(String(target.status)),
         target.remarks,
-        String(target.id),
-        String(target.salesPersonId),
+        target.id,
+        target.salesPersonId,
+        target.targetAmount,
+        target.achievedAmount,
+        target.targetYear,
+        target.targetMonth,
+        target.startDate,
+        target.endDate,
+        periodLabel,
       ]
-        .join(" ")
-        .toLowerCase()
-        .includes(term)
-    );
-  }, [targets, search]);
+        .map(searchableText)
+        .filter(Boolean)
+        .join(" ");
+
+      const matchesSearch = !term || haystack.includes(term);
+      return matchesStatus && matchesStart && matchesEnd && matchesSearch;
+    });
+  }, [rangeEnd, rangeStart, salesPersons, search, statusFilter, targets]);
 
   const stats = useMemo(
     () => ({
@@ -542,7 +607,7 @@ const SalesTargets: React.FC = () => {
       sortable: true,
       render: (target) => (
         <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
-          {target.status}
+          {toFriendlyStatus(String(target.status))}
         </span>
       ),
     },
@@ -624,115 +689,101 @@ const SalesTargets: React.FC = () => {
           />
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-            <FloatingInput
-              label="Target ID"
-              type="number"
-              value={lookupId}
-              onChange={(e) => setLookupId(e.target.value)}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="relative w-full sm:max-w-md">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search targets..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
             />
-            <button
-              type="button"
-              onClick={fetchById}
-              className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700"
-            >
-              Get By ID
-            </button>
-            <FloatingSelect
-              label="Sales Person"
-              value={salesPersonFilter}
-              onChange={(e) => setSalesPersonFilter(e.target.value)}
-              emptyOptionLabel="Select sales person"
-              options={salesPersons.map((person) => ({
-                id: String(person.id),
-                name: person.name || `Person #${person.id}`,
-              }))}
-            />
-            <button
-              type="button"
-              onClick={fetchBySalesPerson}
-              className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700"
-            >
-              Get By Salesperson
-            </button>
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-5">
-            <FloatingSelect
-              label="Status"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as TargetStatus | "")}
-              options={statusOptions.map((status) => ({ id: status, name: status }))}
-              emptyOptionLabel="All"
-            />
-            <button
-              type="button"
-              onClick={fetchByStatus}
-              className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700"
-            >
-              Get By Status
-            </button>
-            <FloatingDatePicker
-              label="Range Start"
-              value={rangeStart}
-              onChange={(e) => setRangeStart(e.target.value)}
-            />
-            <FloatingDatePicker
-              label="Range End"
-              value={rangeEnd}
-              onChange={(e) => setRangeEnd(e.target.value)}
-            />
-            <button
-              type="button"
-              onClick={() => fetchByRange()}
-              className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700"
-            >
-              Get Range
-            </button>
-          </div>
+          <FilterPopover
+            title="Filter Sales Targets"
+            buttonLabel="Filters"
+            widthClassName="w-[21rem] sm:w-[23rem]"
+            showFooter={false}
+          >
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">Status</label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as TargetStatus | "")}
+                    className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                  >
+                    <option value="">Any status</option>
+                    {statusOptions.map((status) => (
+                      <option key={status} value={status}>
+                        {toFriendlyStatus(status)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div />
+              </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-            <FloatingInput
-              label="Achieved Target ID"
-              type="number"
-              value={achievedTargetId}
-              onChange={(e) => setAchievedTargetId(e.target.value)}
-            />
-            <FloatingInput
-              label="Achieved Amount"
-              type="number"
-              value={achievedAmount}
-              onChange={(e) => setAchievedAmount(e.target.value)}
-            />
-            <button
-              type="button"
-              onClick={updateAchieved}
-              className="h-[52px] rounded-lg bg-green-600 px-4 text-sm font-medium text-white hover:bg-green-700"
-            >
-              Update Achieved
-            </button>
-          </div>
-        </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">From</label>
+                  <input
+                    type="date"
+                    value={rangeStart}
+                    onChange={(e) => setRangeStart(e.target.value)}
+                    onFocus={openNativeDatePicker}
+                    onClick={openNativeDatePicker}
+                    className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">To</label>
+                  <input
+                    type="date"
+                    value={rangeEnd}
+                    onChange={(e) => setRangeEnd(e.target.value)}
+                    onFocus={openNativeDatePicker}
+                    onClick={openNativeDatePicker}
+                    className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                  />
+                </div>
+              </div>
 
-        <div className="relative w-full sm:max-w-md">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search targets..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              <XMarkIcon className="h-4 w-4" />
-            </button>
-          )}
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLookupId("");
+                    setSalesPersonFilter("");
+                    setStatusFilter("");
+                    setRangeStart("");
+                    setRangeEnd("");
+                    setAchievedTargetId("");
+                    setAchievedAmount("");
+                    void fetchAllTargets(true);
+                  }}
+                  className="h-9 rounded-lg bg-gray-100 px-3 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                >
+                  Reset
+                </button>
+                <div className="col-span-2 flex items-center justify-center rounded-lg border border-dashed border-cyan-200 bg-cyan-50 px-3 text-xs font-medium text-cyan-700">
+                  Filters apply live
+                </div>
+              </div>
+            </div>
+          </FilterPopover>
         </div>
 
         <ReusableTable
@@ -748,11 +799,11 @@ const SalesTargets: React.FC = () => {
               <p className="mb-2 text-sm text-gray-500">No sales targets found</p>
               <button
                 type="button"
-                onClick={() => fetchByRange()}
+                onClick={() => fetchAllTargets()}
                 className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700"
               >
                 <ArrowPathIcon className="h-3.5 w-3.5" />
-                Reload current range
+                Reload all targets
               </button>
             </div>
           }

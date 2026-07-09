@@ -81,6 +81,11 @@ function toNullableNumber(value: string) {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
+function searchableText(value: unknown) {
+  if (value === null || value === undefined) return "";
+  return String(value).toLowerCase().trim();
+}
+
 const SalesPersons: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
@@ -258,21 +263,26 @@ const SalesPersons: React.FC = () => {
   };
 
   const filteredSalesPersons = useMemo(() => {
-    const term = search.toLowerCase();
-    return salesPersons.filter((person) =>
-      [
+    const term = searchableText(search);
+    if (!term) return salesPersons;
+
+    return salesPersons.filter((person) => {
+      const haystack = [
         person.name,
         person.code,
         person.email,
         person.region,
         person.userId,
-        String(person.employeeId),
-        String(person.id),
+        person.employeeId,
+        person.id,
+        person.active ? "active" : "inactive",
       ]
-        .join(" ")
-        .toLowerCase()
-        .includes(term)
-    );
+        .map(searchableText)
+        .filter(Boolean)
+        .join(" ");
+
+      return haystack.includes(term);
+    });
   }, [salesPersons, search]);
 
   const stats = useMemo(
@@ -379,31 +389,6 @@ const SalesPersons: React.FC = () => {
           />
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-            <FloatingInput
-              label="Sales Person ID"
-              type="number"
-              value={lookupId}
-              onChange={(e) => setLookupId(e.target.value)}
-            />
-            <button
-              type="button"
-              onClick={fetchById}
-              className="h-[52px] rounded-lg bg-cyan-600 px-5 text-sm font-medium text-white transition hover:bg-cyan-700"
-            >
-              Get By ID
-            </button>
-            <button
-              type="button"
-              onClick={fetchSalesPersons}
-              className="h-[52px] rounded-lg bg-gray-100 px-5 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
-            >
-              Load All
-            </button>
-          </div>
-        </div>
-
         <div className="relative w-full sm:max-w-md">
           <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
           <input
@@ -465,6 +450,16 @@ const SalesPersons: React.FC = () => {
 
               <form onSubmit={handleSubmit} className="p-5">
                 <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
+                  <FloatingSelect
+                    label="User"
+                    name="userId"
+                    value={form.userId}
+                    onChange={handleChange}
+                    options={users.map((user) => ({
+                      id: user.userId,
+                      name: [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.username || user.userId,
+                    }))}
+                  />
                   <FloatingInput
                     label="Name"
                     name="name"
@@ -491,17 +486,6 @@ const SalesPersons: React.FC = () => {
                     name="region"
                     value={form.region}
                     onChange={handleChange}
-                  />
-                  <FloatingSelect
-                    label="User"
-                    name="userId"
-                    value={form.userId}
-                    onChange={handleChange}
-                    emptyOptionLabel="Select user"
-                    options={users.map((user) => ({
-                      id: user.userId,
-                      name: [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.username || user.userId,
-                    }))}
                   />
                   <FloatingInput
                     label="Employee ID"

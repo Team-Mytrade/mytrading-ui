@@ -30,6 +30,8 @@ interface Product {
     id: number;
     name: string;
     sku?: string;
+    productName?: string;
+    productCode?: string;
 }
 
 interface Warehouse {
@@ -37,6 +39,21 @@ interface Warehouse {
     name: string;
     code?: string;
     location?: string;
+}
+
+interface QualityInspection {
+    id: number;
+    createdDate?: string;
+    updatedDate?: string;
+    createdBy?: string;
+    tenantId?: string;
+    inspectionDate: string;
+    inspector: string;
+    result: "PASS" | "FAIL" | string;
+    remarks?: string;
+    productId: number;
+    batch?: string | null;
+    serialNumber?: string | null;
 }
 
 interface Batch {
@@ -60,12 +77,34 @@ interface BatchRow extends Batch {
 }
 
 const API_URL = "/v1/api/inventory";
+const PRODUCTS_API_URL = "/v1/api/purchase/products";
+const QUALITY_INSPECTIONS_API_URL = "/v1/api/inventory/quality-inspections";
 const PAGE_SIZE = 10;
+
+const getStoredUser = () => {
+    if (typeof window === "undefined") return null;
+    try {
+        const raw = window.localStorage.getItem("user");
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+};
+
+const isValidIsoDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+const openNativeDatePicker = (event: React.MouseEvent<HTMLInputElement> | React.FocusEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    if (typeof input.showPicker === "function") {
+        input.showPicker();
+    }
+};
 
 const BatchManager: React.FC = () => {
     const [batches, setBatches] = useState<Batch[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+    const [qualityInspections, setQualityInspections] = useState<QualityInspection[]>([]);
     const [showForm, setShowForm] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
@@ -84,12 +123,14 @@ const BatchManager: React.FC = () => {
         productId: "",
         warehouseId: "",
         quantity: 0,
+        inspectionId: "",
     });
 
     useEffect(() => {
         fetchBatches();
         fetchProducts();
         fetchWarehouses();
+        fetchQualityInspections();
     }, []);
 
     const fetchBatches = async () => {
@@ -105,8 +146,17 @@ const BatchManager: React.FC = () => {
 
     const fetchProducts = async () => {
         try {
-            const response = await axios.get(`${API_URL}/products`);
-            setProducts(response.data);
+            const response = await axios.get(PRODUCTS_API_URL);
+            const rows = Array.isArray(response.data) ? response.data : [];
+            setProducts(
+                rows.map((item: any) => ({
+                    id: Number(item.id || 0),
+                    name: item.productName || item.name || "",
+                    sku: item.productCode || item.sku || "",
+                    productName: item.productName || item.name || "",
+                    productCode: item.productCode || item.sku || "",
+                }))
+            );
         } catch (err) {
             console.error("Failed to load products", err);
             ToasterService.error("Failed to load products");
@@ -125,6 +175,17 @@ const BatchManager: React.FC = () => {
         }
     };
 
+    const fetchQualityInspections = async () => {
+        try {
+            const response = await axios.get(QUALITY_INSPECTIONS_API_URL);
+            setQualityInspections(Array.isArray(response.data) ? response.data : []);
+        } catch (err) {
+            console.error("Failed to load quality inspections", err);
+            ToasterService.error("Failed to load quality inspections");
+            setQualityInspections([]);
+        }
+    };
+
     const clearForm = () => {
         setForm({
             batchNumber: "",
@@ -133,6 +194,7 @@ const BatchManager: React.FC = () => {
             productId: "",
             warehouseId: "",
             quantity: 0,
+            inspectionId: "",
         });
         setEditingId(null);
         setShowForm(false);
@@ -142,31 +204,67 @@ const BatchManager: React.FC = () => {
         setForm((prev) => ({ ...prev, [key]: value }));
     };
 
-    const buildPayload = () => ({
-        id: editingId || 0,
-        batchNumber: form.batchNumber,
-        manufacturingDate: form.manufacturingDate,
-        expiryDate: form.expiryDate,
-        productId: Number(form.productId) || 0,
-        warehouse: form.warehouseId
-            ? {
-                id: Number(form.warehouseId),
-                name: warehouses.find((item) => item.id === Number(form.warehouseId))?.name || "",
-                code: warehouses.find((item) => item.id === Number(form.warehouseId))?.code || "",
-            }
-            : null,
-        inspections: [],
-    });
+    const buildPayload = (mode: "create" | "update") => {
+        const now = new Date().toISOString();
+        const storedUser = getStoredUser();
+        const selectedWarehouse = warehouses.find((item) => item.id === Number(form.warehouseId));
+        const selectedInspection = qualityInspections.find((item) => item.id === Number(form.inspectionId));
+        const selectedProductId = Number(form.productId) || 0;
+        const createdBy = storedUser?.userId || storedUser?.id || "system";
+        const tenantId = storedUser?.tenantId || "TENANT_1";
+        const inspectionPayload = selectedInspection
+            ? [
+                {
+                    id: mode === "update" ? selectedInspection.id || 0 : 0,
+                    createdDate: selectedInspection.createdDate || now,
+                    updatedDate: now,
+                    createdBy: selectedInspection.createdBy || createdBy,
+                    tenantId: selectedInspection.tenantId || tenantId,
+                    inspectionDate: selectedInspection.inspectionDate,
+                    inspector: selectedInspection.inspector || "",
+                    result: selectedInspection.result || "PASS",
+                    remarks: selectedInspection.remarks || "",
+                    productId: selectedProductId,
+                    batch: selectedInspection.batch || form.batchNumber || "",
+                    serialNumber: selectedInspection.serialNumber || "",
+                },
+            ]
+            : [];
+
+        return {
+            id: mode === "update" ? editingId || 0 : 0,
+            createdDate: now,
+            updatedDate: now,
+            createdBy,
+            tenantId,
+            batchNumber: form.batchNumber,
+            manufacturingDate: form.manufacturingDate,
+            expiryDate: form.expiryDate,
+            productId: selectedProductId,
+            warehouse: selectedWarehouse?.name || selectedWarehouse?.code || "",
+            inspections: inspectionPayload,
+        };
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        if (!isValidIsoDate(form.manufacturingDate) || !isValidIsoDate(form.expiryDate)) {
+            ToasterService.error("Please enter valid dates in YYYY-MM-DD format");
+            return;
+        }
+
+        if (new Date(form.expiryDate) < new Date(form.manufacturingDate)) {
+            ToasterService.error("Expiry date cannot be earlier than manufacturing date");
+            return;
+        }
+
         try {
             if (editingId) {
-                await axios.put(`${API_URL}/batches/${editingId}`, buildPayload());
+                await axios.put(`${API_URL}/batches/${editingId}`, buildPayload("update"));
                 ToasterService.success("Batch updated successfully");
             } else {
-                await axios.post(`${API_URL}/batches`, buildPayload());
+                await axios.post(`${API_URL}/batches`, buildPayload("create"));
                 ToasterService.success("Batch created successfully");
             }
             await fetchBatches();
@@ -185,6 +283,7 @@ const BatchManager: React.FC = () => {
             productId: batch.product?.id?.toString() || "",
             warehouseId: batch.warehouse?.id?.toString() || "",
             quantity: batch.quantity || 0,
+            inspectionId: "",
         });
         setShowForm(true);
     };
@@ -224,7 +323,7 @@ const BatchManager: React.FC = () => {
             head: [["Batch Number", "Product", "Warehouse", "Mfg Date", "Expiry Date", "Status", "Quantity"]],
             body: filtered.map(b => [
                 b.batchNumber,
-                b.product?.name || "-",
+                b.product?.name || b.product?.productName || "-",
                 b.warehouse?.name || "-",
                 new Date(b.manufacturingDate).toLocaleDateString(),
                 new Date(b.expiryDate).toLocaleDateString(),
@@ -242,7 +341,7 @@ const BatchManager: React.FC = () => {
     const exportExcel = () => {
         const ws = XLSX.utils.json_to_sheet(filtered.map(b => ({
             'Batch Number': b.batchNumber,
-            'Product': b.product?.name || "-",
+            'Product': b.product?.name || b.product?.productName || "-",
             'Warehouse': b.warehouse?.name || "-",
             'Manufacturing Date': new Date(b.manufacturingDate).toLocaleDateString(),
             'Expiry Date': new Date(b.expiryDate).toLocaleDateString(),
@@ -257,7 +356,8 @@ const BatchManager: React.FC = () => {
     };
 
     const filtered = batches.filter((b) => {
-        const matchesProduct = productFilter ? b.product?.name === productFilter : true;
+        const productLabel = b.product?.name || b.product?.productName || "";
+        const matchesProduct = productFilter ? productLabel === productFilter : true;
         const matchesWarehouse = warehouseFilter ? b.warehouse?.name === warehouseFilter : true;
         return matchesProduct && matchesWarehouse;
     });
@@ -274,7 +374,7 @@ const BatchManager: React.FC = () => {
     const totalQuantity = batches.reduce((sum, b) => sum + (b.quantity || 0), 0);
 
     // Get unique values for filters
-    const uniqueProducts = [...new Set(batches.map(b => b.product?.name).filter(Boolean))];
+    const uniqueProducts = [...new Set(batches.map(b => b.product?.name || b.product?.productName).filter(Boolean))];
     const uniqueWarehouses = [...new Set(batches.map(b => b.warehouse?.name).filter(Boolean))];
 
     // Status badge component
@@ -318,7 +418,7 @@ const BatchManager: React.FC = () => {
 
     const tableData: BatchRow[] = filtered.map((batch) => ({
         ...batch,
-        productName: String(batch.product?.name ?? ""),
+        productName: String(batch.product?.name || batch.product?.productName || ""),
         warehouseName: String(batch.warehouse?.name ?? ""),
         statusLabel: getBatchStatus(batch.expiryDate),
         manufacturingDateLabel: batch.manufacturingDate ? new Date(batch.manufacturingDate).toLocaleDateString() : "-",
@@ -345,7 +445,7 @@ const BatchManager: React.FC = () => {
             sortable: true,
             render: (batch) => (
                 <div>
-                    <div className="text-xs font-medium text-gray-900">{batch.product?.name || "-"}</div>
+                    <div className="text-xs font-medium text-gray-900">{batch.product?.name || batch.product?.productName || "-"}</div>
                     {batch.product?.sku && <div className="text-xs text-gray-500">{batch.product.sku}</div>}
                 </div>
             ),
@@ -531,7 +631,9 @@ const BatchManager: React.FC = () => {
                                                     >
                                                         <option value="">Select Product</option>
                                                         {products.map(p => (
-                                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                                            <option key={p.id} value={p.id}>
+                                                                {p.name}{p.sku ? ` (${p.sku})` : ""}
+                                                            </option>
                                                         ))}
                                                     </select>
                                                 </div>
@@ -549,6 +651,21 @@ const BatchManager: React.FC = () => {
                                                         ))}
                                                     </select>
                                                 </div>
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-700">Quality Inspection</label>
+                                                    <select
+                                                        value={form.inspectionId}
+                                                        onChange={e => handleChange("inspectionId", e.target.value)}
+                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-2.5 py-1.5 text-sm focus:ring-cyan-500 focus:border-cyan-500"
+                                                    >
+                                                        <option value="">Select Inspection</option>
+                                                        {qualityInspections.map((inspection) => (
+                                                            <option key={inspection.id} value={inspection.id}>
+                                                                {inspection.inspector} - {inspection.result} - {inspection.inspectionDate}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div>
                                                         <label className="block text-xs font-medium text-gray-700">Manufacturing Date</label>
@@ -556,6 +673,8 @@ const BatchManager: React.FC = () => {
                                                             type="date"
                                                             value={form.manufacturingDate}
                                                             onChange={e => handleChange("manufacturingDate", e.target.value)}
+                                                            onClick={openNativeDatePicker}
+                                                            onFocus={openNativeDatePicker}
                                                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-2.5 py-1.5 text-sm focus:ring-cyan-500 focus:border-cyan-500"
                                                             required
                                                         />
@@ -566,6 +685,8 @@ const BatchManager: React.FC = () => {
                                                             type="date"
                                                             value={form.expiryDate}
                                                             onChange={e => handleChange("expiryDate", e.target.value)}
+                                                            onClick={openNativeDatePicker}
+                                                            onFocus={openNativeDatePicker}
                                                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-2.5 py-1.5 text-sm focus:ring-cyan-500 focus:border-cyan-500"
                                                             required
                                                         />

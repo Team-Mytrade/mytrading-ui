@@ -2,7 +2,6 @@ import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "rea
 import { createPortal } from "react-dom";
 import axios from "axios";
 import {
-  BellIcon,
   CalendarDaysIcon,
   CheckCircleIcon,
   ClockIcon,
@@ -15,6 +14,7 @@ import {
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import { AddButton } from "../../components/common/AddButton";
+import FilterPopover from "../../components/common/filter";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
@@ -45,16 +45,6 @@ type ServiceSchedule = {
   remarks: string;
 };
 
-type Notification = {
-  id: number;
-  serviceScheduleId: number;
-  recipientUserId: number;
-  title: string;
-  message: string;
-  isRead: boolean;
-  sentAt: string;
-};
-
 type ScheduleForm = {
   serviceOrderId: string;
   customerId: string;
@@ -72,6 +62,11 @@ type UserOption = {
   firstName?: string;
   lastName?: string;
   employeeId?: number | null;
+  employeeCode?: string | null;
+  role?: string | null;
+  userType?: string | null;
+  tenantId?: string | null;
+  active?: boolean;
 };
 
 const API_URL = "/v1/api/sales/service-schedule-notify";
@@ -110,26 +105,25 @@ function getEmployeeName(user: UserOption) {
   return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.username || user.userId;
 }
 
-function getStoredNotificationUserId() {
-  try {
-    const storedUser = JSON.parse(localStorage.getItem("user") || "null");
-    const candidate = storedUser?.id ?? storedUser?.userId;
-    return candidate != null && /^\d+$/.test(String(candidate)) ? String(candidate) : "";
-  } catch {
-    return "";
+function searchableText(value: unknown) {
+  if (value === null || value === undefined) return "";
+  return String(value).toLowerCase().trim();
+}
+
+function openNativeTimePicker(event: React.FocusEvent<HTMLInputElement> | React.MouseEvent<HTMLInputElement>) {
+  const input = event.currentTarget;
+  if (typeof input.showPicker === "function") {
+    input.showPicker();
   }
 }
 
 const ServiceScheduleNotify: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const [schedules, setSchedules] = useState<ServiceSchedule[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [form, setForm] = useState<ScheduleForm>(emptyForm);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
-  const [userId, setUserId] = useState("");
   const [scheduleId, setScheduleId] = useState("");
   const [employeeId, setEmployeeId] = useState("");
   const [search, setSearch] = useState("");
@@ -138,11 +132,6 @@ const ServiceScheduleNotify: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
-    const storedUserId = getStoredNotificationUserId();
-    if (!storedUserId) return;
-
-    setUserId(storedUserId);
-    fetchNotifications(storedUserId, { silent: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -255,179 +244,92 @@ const ServiceScheduleNotify: React.FC = () => {
       name: getEmployeeName(user),
     }));
 
-  const fetchNotifications = async (
-    targetUserId = userId,
-    options: { silent?: boolean } = {}
-  ) => {
-    if (!targetUserId) {
-      ToasterService.error("User ID is required");
-      return;
-    }
+  const filteredUsers = useMemo(() => {
+    const term = searchableText(search);
+    if (!term) return users;
 
-    try {
-      setIsLoadingNotifications(true);
-      const res = await axios.get<Notification[]>(`${API_URL}/notifications/${targetUserId}`, { headers });
-      const data = Array.isArray(res.data) ? res.data : [];
-      setNotifications(data);
-      if (options.silent) return;
-      if (data.length === 0) {
-        ToasterService.noData("No notifications found");
-      } else {
-        ToasterService.success("Notifications loaded successfully");
-      }
-    } catch (error) {
-      ToasterService.error("Failed to load notifications", getErrorMessage(error, "Please try again."));
-    } finally {
-      setIsLoadingNotifications(false);
-    }
-  };
-
-  const filteredSchedules = useMemo(() => {
-    const term = search.toLowerCase();
-    return schedules.filter((schedule) =>
-      [
-        schedule.scheduleNo,
-        schedule.status,
-        schedule.remarks,
-        String(schedule.id),
-        String(schedule.serviceOrderId),
-        String(schedule.customerId),
-        String(schedule.assignedEmployeeId),
+    return users.filter((user) => {
+      const haystack = [
+        user.userId,
+        user.username,
+        user.email,
+        user.firstName,
+        user.lastName,
+        getEmployeeName(user),
+        user.employeeId,
+        user.employeeCode,
+        user.role,
+        user.userType,
+        user.tenantId,
+        user.active ? "active true" : "inactive false",
       ]
-        .join(" ")
-        .toLowerCase()
-        .includes(term)
-    );
-  }, [schedules, search]);
+        .map(searchableText)
+        .filter(Boolean)
+        .join(" ");
+
+      return haystack.includes(term);
+    });
+  }, [users, search]);
 
   const stats = useMemo(
     () => ({
-      schedules: schedules.length,
-      active: schedules.filter((item) => item.status?.toUpperCase().includes("PROGRESS")).length,
-      completed: schedules.filter((item) => item.status?.toUpperCase().includes("COMPLETED")).length,
-      notifications: notifications.length,
+      users: users.length,
+      employees: users.filter((item) => item.employeeId !== undefined && item.employeeId !== null).length,
+      active: users.filter((item) => item.active).length,
     }),
-    [schedules, notifications]
+    [users]
   );
 
-  const scheduleColumns: ColumnDef<ServiceSchedule>[] = [
+  const userColumns: ColumnDef<UserOption>[] = [
     {
-      key: "scheduleNo",
-      label: "Schedule",
+      key: "username",
+      label: "User",
       sortable: true,
-      render: (schedule) => (
+      render: (user) => (
         <div>
-          <div className="text-sm font-semibold text-slate-900">{schedule.scheduleNo || `#${schedule.id}`}</div>
-          <div className="text-xs text-slate-500">ID: {schedule.id}</div>
+          <div className="text-sm font-semibold text-slate-900">{getEmployeeName(user)}</div>
+          <div className="text-xs text-slate-500">{user.userId || "--"}</div>
         </div>
       ),
     },
-    { key: "serviceOrderId", label: "Service Order", sortable: true },
-    { key: "customerId", label: "Customer", sortable: true },
-    { key: "assignedEmployeeId", label: "Employee", sortable: true },
     {
-      key: "scheduledDate",
-      label: "Date",
+      key: "email",
+      label: "Email",
       sortable: true,
-      render: (schedule) => (
-        <span className="text-sm font-medium text-slate-700">{schedule.scheduledDate || "--"}</span>
+      render: (user) => <span className="text-sm text-slate-700">{user.email || "--"}</span>,
+    },
+    {
+      key: "employeeId",
+      label: "Employee",
+      sortable: true,
+      render: (user) => (
+        <div>
+          <div className="text-sm font-medium text-slate-700">{user.employeeId ?? "--"}</div>
+          <div className="text-xs text-slate-500">{user.employeeCode || "--"}</div>
+        </div>
       ),
     },
     {
-      key: "startTime",
-      label: "Time",
-      sortable: false,
-      render: (schedule) => (
-        <span className="text-sm text-slate-700">
-          {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
-        </span>
-      ),
+      key: "role",
+      label: "Role",
+      sortable: true,
+      render: (user) => <span className="text-sm text-slate-700">{user.role || user.userType || "--"}</span>,
     },
     {
-      key: "status",
+      key: "tenantId",
+      label: "Tenant",
+      sortable: true,
+      render: (user) => <span className="text-sm text-slate-700">{user.tenantId || "--"}</span>,
+    },
+    {
+      key: "active",
       label: "Status",
       sortable: true,
-      render: (schedule) => (
+      render: (user) => (
         <span className="inline-flex rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">
-          {schedule.status || "N/A"}
+          {user.active ? "Active" : "Inactive"}
         </span>
       ),
-    },
-    {
-      key: "actions",
-      label: "Actions",
-      sortable: false,
-      headerClassName: "text-right",
-      className: "text-right",
-      render: (schedule) => (
-        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={() => runScheduleAction("start", schedule.id)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600"
-            title="Start"
-          >
-            <PlayIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => runScheduleAction("complete", schedule.id)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
-            title="Complete"
-          >
-            <CheckCircleIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setScheduleId(String(schedule.id));
-              if (schedule.assignedEmployeeId) {
-                setEmployeeId(String(schedule.assignedEmployeeId));
-              }
-            }}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-purple-50 hover:text-purple-600"
-            title="Use in action panel"
-          >
-            <UserPlusIcon className="h-4 w-4" />
-          </button>
-        </div>
-      ),
-    },
-  ];
-
-  const notificationColumns: ColumnDef<Notification>[] = [
-    {
-      key: "title",
-      label: "Title",
-      sortable: true,
-      render: (notification) => (
-        <div>
-          <div className="text-sm font-semibold text-slate-900">{notification.title || "Notification"}</div>
-          <div className="text-xs text-slate-500">Schedule ID: {notification.serviceScheduleId}</div>
-        </div>
-      ),
-    },
-    {
-      key: "message",
-      label: "Message",
-      sortable: true,
-      render: (notification) => (
-        <span className="line-clamp-2 text-sm text-slate-600">{notification.message || "--"}</span>
-      ),
-    },
-    { key: "recipientUserId", label: "Recipient", sortable: true },
-    {
-      key: "isRead",
-      label: "Read",
-      sortable: true,
-      render: (notification) => (notification.isRead ? "Yes" : "No"),
-    },
-    {
-      key: "sentAt",
-      label: "Sent At",
-      sortable: true,
-      render: (notification) =>
-        notification.sentAt ? new Date(notification.sentAt).toLocaleString() : "--",
     },
   ];
 
@@ -442,73 +344,23 @@ const ServiceScheduleNotify: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="Schedules" value={stats.schedules} icon={<CalendarDaysIcon />} />
+          <StatsCard label="Users" value={stats.users} icon={<CalendarDaysIcon />} />
           <StatsCard
-            label="In Progress"
-            value={stats.active}
+            label="Employees"
+            value={stats.employees}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
             icon={<ClockIcon />}
           />
           <StatsCard
-            label="Completed"
-            value={stats.completed}
+            label="Active"
+            value={stats.active}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
             labelColor="text-purple-600"
             icon={<CheckCircleIcon />}
           />
-          <StatsCard
-            label="Notifications"
-            value={stats.notifications}
-            gradient="from-orange-50 to-yellow-50"
-            borderColor="border-orange-100"
-            labelColor="text-orange-600"
-            icon={<BellIcon />}
-          />
-        </div>
-
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-semibold text-gray-900">Schedule Actions</h3>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-            <FloatingInput
-              label="Schedule ID"
-              name="scheduleId"
-              type="number"
-              value={scheduleId}
-              onChange={(e) => setScheduleId(e.target.value)}
-            />
-            <FloatingSelect
-              label="Employee"
-              name="employeeId"
-              value={employeeId}
-              onChange={(e) => setEmployeeId(e.target.value)}
-              emptyOptionLabel="Select employee"
-              options={employeeOptions}
-            />
-            <button
-              type="button"
-              onClick={() => runScheduleAction("start")}
-              className="h-[52px] rounded-lg bg-green-600 px-4 text-sm font-medium text-white transition hover:bg-green-700"
-            >
-              Start
-            </button>
-            <button
-              type="button"
-              onClick={() => runScheduleAction("complete")}
-              className="h-[52px] rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700"
-            >
-              Complete
-            </button>
-            <button
-              type="button"
-              onClick={() => assignEmployee()}
-              className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white transition hover:bg-cyan-700"
-            >
-              Assign
-            </button>
-          </div>
         </div>
 
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -516,7 +368,7 @@ const ServiceScheduleNotify: React.FC = () => {
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Search schedules..."
+              placeholder="Search users..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
@@ -531,57 +383,86 @@ const ServiceScheduleNotify: React.FC = () => {
               </button>
             )}
           </div>
+
+          <FilterPopover
+            title="Schedule Actions"
+            buttonLabel="Filters"
+            widthClassName="w-[20rem] sm:w-[22rem]"
+            showFooter={false}
+          >
+            <div className="space-y-3">
+              <FloatingInput
+                label="Schedule ID"
+                name="scheduleId"
+                type="number"
+                value={scheduleId}
+                onChange={(e) => setScheduleId(e.target.value)}
+              />
+              <FloatingSelect
+                label="Employee"
+                name="employeeId"
+                value={employeeId}
+                onChange={(e) => setEmployeeId(e.target.value)}
+                emptyOptionLabel=""
+                options={employeeOptions}
+              />
+              <div className="grid grid-cols-4 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScheduleId("");
+                    setEmployeeId("");
+                  }}
+                  className="h-10 rounded-lg bg-gray-100 px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
+                >
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={() => runScheduleAction("start")}
+                  className="h-10 rounded-lg bg-green-600 px-3 text-sm font-medium text-white transition hover:bg-green-700"
+                >
+                  Start
+                </button>
+                <button
+                  type="button"
+                  onClick={() => runScheduleAction("complete")}
+                  className="h-10 rounded-lg bg-blue-600 px-3 text-sm font-medium text-white transition hover:bg-blue-700"
+                >
+                  Done
+                </button>
+                <button
+                  type="button"
+                  onClick={() => assignEmployee()}
+                  className="h-10 rounded-lg bg-cyan-600 px-3 text-sm font-medium text-white transition hover:bg-cyan-700"
+                >
+                  Assign
+                </button>
+              </div>
+            </div>
+          </FilterPopover>
         </div>
 
         <ReusableTable
-          data={filteredSchedules}
-          columns={scheduleColumns}
+          data={filteredUsers}
+          columns={userColumns}
           pageSize={PAGE_SIZE}
-          defaultSortKey="scheduledDate"
-          defaultSortOrder="desc"
+          defaultSortKey="username"
+          defaultSortOrder="asc"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <CalendarDaysIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">No schedules loaded yet</p>
+              <p className="mb-2 text-sm text-gray-500">No users found</p>
               <button
                 type="button"
-                onClick={() => setShowCreateModal(true)}
+                onClick={() => fetchUsers()}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
               >
-                Create your first schedule notification
+                Reload users
               </button>
             </div>
           }
         />
-
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-semibold text-gray-900">Notifications</h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
-            <FloatingInput
-              label="User ID"
-              name="userId"
-              type="number"
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-            />
-            <button
-              type="button"
-              onClick={() => fetchNotifications()}
-              className="h-[52px] rounded-lg bg-cyan-600 px-5 text-sm font-medium text-white transition hover:bg-cyan-700"
-            >
-              Load Notifications
-            </button>
-          </div>
-
-          <ReusableTable
-            data={notifications}
-            columns={notificationColumns}
-            pageSize={PAGE_SIZE}
-            defaultSortKey="sentAt"
-            defaultSortOrder="desc"
-            loading={isLoadingNotifications}
-          />
-        </div>
       </div>
 
       {showCreateModal &&
@@ -625,7 +506,7 @@ const ServiceScheduleNotify: React.FC = () => {
                     name="assignedEmployeeId"
                     value={form.assignedEmployeeId}
                     onChange={handleChange}
-                    emptyOptionLabel="Select employee"
+                    emptyOptionLabel=""
                     options={employeeOptions}
                   />
                   <FloatingDatePicker
@@ -635,20 +516,30 @@ const ServiceScheduleNotify: React.FC = () => {
                     onChange={handleChange}
                     required
                   />
-                  <FloatingInput
-                    label="Start Time"
-                    name="startTime"
-                    type="time"
-                    value={form.startTime}
-                    onChange={handleChange}
-                  />
-                  <FloatingInput
-                    label="End Time"
-                    name="endTime"
-                    type="time"
-                    value={form.endTime}
-                    onChange={handleChange}
-                  />
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">Start Time</label>
+                    <input
+                      type="time"
+                      name="startTime"
+                      value={form.startTime}
+                      onChange={handleChange}
+                      onFocus={openNativeTimePicker}
+                      onClick={openNativeTimePicker}
+                      className="h-[52px] w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">End Time</label>
+                    <input
+                      type="time"
+                      name="endTime"
+                      value={form.endTime}
+                      onChange={handleChange}
+                      onFocus={openNativeTimePicker}
+                      onClick={openNativeTimePicker}
+                      className="h-[52px] w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                    />
+                  </div>
                 </div>
 
                 <FloatingTextarea
