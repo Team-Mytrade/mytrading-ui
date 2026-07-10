@@ -36,6 +36,8 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import FilterPopover from "../../components/common/filter";
+import PaginatedPopup from "../../components/common/unpopup";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
@@ -99,7 +101,6 @@ const PayrollPage: React.FC = () => {
     const [zipEmployee, setZipEmployee] = useState<{ id: number, name: string } | null>(null);
     const [fromMonth, setFromMonth] = useState("");
     const [toMonth, setToMonth] = useState("");
-    const [showFilters, setShowFilters] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [selectedStatus, setSelectedStatus] = useState<string>("");
     const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
@@ -569,13 +570,20 @@ const PayrollPage: React.FC = () => {
                         </button>
 
                         {/* Filter Button */}
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className={`h-10 w-10 flex items-center justify-center border rounded-lg transition-colors !my-0 ${showFilters ? 'bg-cyan-50 border-cyan-300' : 'border-gray-300 hover:bg-gray-50'
-                                }`}
-                        >
-                            <FunnelIcon className="h-5 w-5 text-gray-600" />
-                        </button>
+                        <FilterPopover
+                            title="Filter Payslips"
+                            buttonLabel="Filter"
+                            label="Status"
+                            value={selectedStatus}
+                            onChange={(val) => setSelectedStatus(val)}
+                            options={[
+                                { label: "All Status", value: "" },
+                                { label: "Processed", value: "processed" },
+                                { label: "Draft", value: "draft" }
+                            ]}
+                            onReset={() => setSelectedStatus("")}
+                            showFooter={true}
+                        />
 
                         {/* Refresh Button */}
                         <button
@@ -587,34 +595,6 @@ const PayrollPage: React.FC = () => {
 
                     </div>
                 </div>
-
-                {/* Filters Panel */}
-                {showFilters && (
-                    <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex flex-wrap gap-4">
-                            <div className="flex-1 min-w-[200px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                                <select
-                                    value={selectedStatus}
-                                    onChange={e => { setSelectedStatus(e.target.value); }}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                                >
-                                    <option value="">All Status</option>
-                                    <option value="processed">Processed</option>
-                                    <option value="draft">Draft</option>
-                                </select>
-                            </div>
-                            {selectedStatus && (
-                                <button
-                                    onClick={() => setSelectedStatus("")}
-                                    className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
-                                >
-                                    Clear Filter
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                )}
 
                 {/* Table */}
                 <div ref={printRef}>
@@ -637,186 +617,118 @@ const PayrollPage: React.FC = () => {
                 </div>
 
                 {/* Process Payroll Modal */}
-                {isProcessModalOpen && (
-                    <div className="fixed inset-0 z-50 overflow-y-auto">
-                        <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setIsProcessModalOpen(false)}></div>
-                            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                                    <div className="sm:flex sm:items-start">
-                                        <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                                            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                                                Process Payroll
-                                            </h3>
-                                            <div className="space-y-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                        Select Month
-                                                    </label>
-                                                    <input
-                                                        type="month"
-                                                        value={processMonth}
-                                                        onChange={(e) => setProcessMonth(e.target.value)}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        required
-                                                    />
-                                                </div>
-                                                <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                                                    <p className="text-sm text-yellow-800">
-                                                        <strong>Warning:</strong> This action will mark all salary records for the selected month as processed.
-                                                        This cannot be undone for individual records without a rollback operation.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                                    <button
-                                        type="button"
-                                        onClick={processAll}
-                                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        Process Payroll
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsProcessModalOpen(false)}
-                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
+                <PaginatedPopup
+                    isOpen={isProcessModalOpen}
+                    title="Process Payroll"
+                    onClose={() => setIsProcessModalOpen(false)}
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        processAll();
+                    }}
+                    submitLabel="Process Payroll"
+                    cancelLabel="Cancel"
+                    maxWidthClassName="max-w-lg"
+                    fields={[
+                        <div key="select-process-month" className="col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Select Month
+                            </label>
+                            <input
+                                type="month"
+                                value={processMonth}
+                                onChange={(e) => setProcessMonth(e.target.value)}
+                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
+                                required
+                            />
+                        </div>,
+                        <div key="warning-box" className="col-span-2 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                            <p className="text-sm text-yellow-800">
+                                <strong>Warning:</strong> This action will mark all salary records for the selected month as processed.
+                                This cannot be undone for individual records without a rollback operation.
+                            </p>
                         </div>
-                    </div>
-                )}
+                    ]}
+                />
 
                 {/* Generate Payslips Modal */}
-                {isGenerateModalOpen && (
-                    <div className="fixed inset-0 z-50 overflow-y-auto">
-                        <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setIsGenerateModalOpen(false)}></div>
-                            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                                    <div className="sm:flex sm:items-start">
-                                        <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                                            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                                                Generate Payslips
-                                            </h3>
-                                            <div className="space-y-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                        Select Month
-                                                    </label>
-                                                    <input
-                                                        type="month"
-                                                        value={generateMonth}
-                                                        onChange={(e) => setGenerateMonth(e.target.value)}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        required
-                                                    />
-                                                </div>
-                                                <div className="p-4 bg-cyan-50 rounded-lg border border-cyan-200">
-                                                    <p className="text-sm text-cyan-800">
-                                                        <strong>Info:</strong> This action will generate payslips for all processed salary records in the selected month.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                                    <button
-                                        type="button"
-                                        onClick={generatePayslips}
-                                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        Generate
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsGenerateModalOpen(false)}
-                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
+                <PaginatedPopup
+                    isOpen={isGenerateModalOpen}
+                    title="Generate Payslips"
+                    onClose={() => setIsGenerateModalOpen(false)}
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        generatePayslips();
+                    }}
+                    submitLabel="Generate"
+                    cancelLabel="Cancel"
+                    maxWidthClassName="max-w-lg"
+                    fields={[
+                        <div key="select-month" className="col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Select Month
+                            </label>
+                            <input
+                                type="month"
+                                value={generateMonth}
+                                onChange={(e) => setGenerateMonth(e.target.value)}
+                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
+                                required
+                            />
+                        </div>,
+                        <div key="info-box" className="col-span-2 p-4 bg-cyan-50 rounded-lg border border-cyan-200">
+                            <p className="text-sm text-cyan-800">
+                                <strong>Info:</strong> This action will generate payslips for all processed salary records in the selected month.
+                            </p>
                         </div>
-                    </div>
-                )}
+                    ]}
+                />
 
                 {/* Download ZIP Modal */}
-                {isZipModalOpen && zipEmployee && (
-                    <div className="fixed inset-0 z-50 overflow-y-auto">
-                        <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setIsZipModalOpen(false)}></div>
-                            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                                    <div className="sm:flex sm:items-start">
-                                        <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                                            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                                                Download Payslips (ZIP)
-                                            </h3>
-                                            <p className="text-sm text-gray-500 mb-4">
-                                                Employee: <span className="font-semibold text-gray-900">{zipEmployee.name}</span>
-                                            </p>
-                                            <div className="space-y-4">
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                            From Month
-                                                        </label>
-                                                        <input
-                                                            type="month"
-                                                            value={fromMonth}
-                                                            onChange={(e) => setFromMonth(e.target.value)}
-                                                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                            required
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                            To Month
-                                                        </label>
-                                                        <input
-                                                            type="month"
-                                                            value={toMonth}
-                                                            onChange={(e) => setToMonth(e.target.value)}
-                                                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                            required
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="p-4 bg-cyan-50 rounded-lg border border-cyan-200">
-                                                    <p className="text-sm text-cyan-800">
-                                                        <strong>Info:</strong> This will download a single ZIP file containing the payslips for the selected range.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                                    <button
-                                        type="button"
-                                        onClick={downloadZipRange}
-                                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        Download ZIP
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsZipModalOpen(false)}
-                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
+                {zipEmployee && (
+                    <PaginatedPopup
+                        isOpen={isZipModalOpen}
+                        title="Download Payslips (ZIP)"
+                        subtitle={`Employee: ${zipEmployee.name}`}
+                        onClose={() => setIsZipModalOpen(false)}
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            downloadZipRange();
+                        }}
+                        submitLabel="Download ZIP"
+                        cancelLabel="Cancel"
+                        maxWidthClassName="max-w-lg"
+                        fields={[
+                            <div key="from-month">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    From Month
+                                </label>
+                                <input
+                                    type="month"
+                                    value={fromMonth}
+                                    onChange={(e) => setFromMonth(e.target.value)}
+                                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
+                                    required
+                                />
+                            </div>,
+                            <div key="to-month">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    To Month
+                                </label>
+                                <input
+                                    type="month"
+                                    value={toMonth}
+                                    onChange={(e) => setToMonth(e.target.value)}
+                                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
+                                    required
+                                />
+                            </div>,
+                            <div key="info-box-zip" className="col-span-2 p-4 bg-cyan-50 rounded-lg border border-cyan-200">
+                                <p className="text-sm text-cyan-800">
+                                    <strong>Info:</strong> This will download a single ZIP file containing the payslips for the selected range.
+                                </p>
                             </div>
-                        </div>
-                    </div>
+                        ]}
+                    />
                 )}
 
                 {/* View Details Modal */}

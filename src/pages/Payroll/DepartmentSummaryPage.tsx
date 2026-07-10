@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import Table, { ColumnDef } from "../../components/common/Table";
+import StatsCard from "../../components/common/Statscard";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
 
@@ -94,37 +95,30 @@ const DepartmentSummaryPage: React.FC = () => {
                     <div className="space-y-6">
                         {/* Summary Stats Cards */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex items-center">
-                                <div className="p-3 rounded-full bg-blue-50 text-blue-600 mr-4">
-                                    <BuildingOfficeIcon className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500">Total Departments</p>
-                                    <p className="text-2xl font-bold text-gray-900">{departmentSummary.length}</p>
-                                </div>
-                            </div>
-                            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex items-center">
-                                <div className="p-3 rounded-full bg-emerald-50 text-emerald-600 mr-4">
-                                    <UserGroupIcon className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500">Total Employees</p>
-                                    <p className="text-2xl font-bold text-gray-900">
-                                        {formatNumber(departmentSummary.reduce((sum, d) => sum + (d.employeeCount || d.totalEmployees || 0), 0))}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex items-center">
-                                <div className="p-3 rounded-full bg-purple-50 text-purple-600 mr-4">
-                                    <CurrencyRupeeIcon className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500">Total Payroll Cost (Gross)</p>
-                                    <p className="text-2xl font-bold text-gray-900">
-                                        {formatCurrency(departmentSummary.reduce((sum, d) => sum + (d.totalGrossSalary || d.grossSalary || 0), 0))}
-                                    </p>
-                                </div>
-                            </div>
+                            <StatsCard
+                                label="Total Departments"
+                                value={departmentSummary.length}
+                                gradient="from-cyan-50 to-blue-50"
+                                borderColor="border-cyan-100"
+                                labelColor="text-cyan-600"
+                                icon={<BuildingOfficeIcon className="h-6 w-6" />}
+                            />
+                            <StatsCard
+                                label="Total Employees"
+                                value={formatNumber(departmentSummary.reduce((sum, d) => sum + (d.employeeCount || d.totalEmployees || 0), 0))}
+                                gradient="from-green-50 to-emerald-50"
+                                borderColor="border-green-100"
+                                labelColor="text-green-600"
+                                icon={<UserGroupIcon className="h-6 w-6" />}
+                            />
+                            <StatsCard
+                                label="Total Payroll Cost (Gross)"
+                                value={formatCurrency(departmentSummary.reduce((sum, d) => sum + (d.totalGrossSalary || d.grossSalary || 0), 0))}
+                                gradient="from-purple-50 to-pink-50"
+                                borderColor="border-purple-100"
+                                labelColor="text-purple-600"
+                                icon={<CurrencyRupeeIcon className="h-6 w-6" />}
+                            />
                         </div>
 
                         {/* Charts Section */}

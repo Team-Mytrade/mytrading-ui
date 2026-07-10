@@ -31,6 +31,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import FilterPopover from "../../components/common/filter";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
@@ -49,7 +50,6 @@ const EmployeeRecordsPage: React.FC = () => {
     const [departments, setDepartments] = useState<Department[]>([]);
     const [search, setSearch] = useState("");
     const [selectedDept, setSelectedDept] = useState<string>("");
-    const [showFilters, setShowFilters] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [loading, setLoading] = useState(false);
     const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
@@ -413,43 +413,22 @@ const EmployeeRecordsPage: React.FC = () => {
                         </div>
 
                         {/* Filter Button */}
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className={`h-10 w-10 flex items-center justify-center border rounded-lg transition-colors ${showFilters ? 'bg-cyan-50 border-cyan-300' : 'border-gray-300 hover:bg-gray-50'
-                                }`}
-                        >
-                            <FunnelIcon className={`h-5 w-5 ${showFilters ? 'text-cyan-600' : 'text-gray-600'}`} />
-                        </button>
+                        <FilterPopover
+                            title="Filter Employees"
+                            buttonLabel="Filter"
+                            label="Department"
+                            value={selectedDept}
+                            onChange={(val) => setSelectedDept(val)}
+                            options={[
+                                { label: "All Departments", value: "" },
+                                ...departments.map(d => ({ label: d.name, value: d.name }))
+                            ]}
+                            onReset={() => setSelectedDept("")}
+                            showFooter={true}
+                        />
 
                     </div>
                 </div>
-
-                {/* Filters Panel */}
-                {showFilters && (
-                    <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex flex-wrap gap-4">
-                            <div className="flex-1 min-w-[200px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                                <select
-                                    value={selectedDept}
-                                    onChange={e => { setSelectedDept(e.target.value); }}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                                >
-                                    <option value="">All Departments</option>
-                                    {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
-                                </select>
-                            </div>
-                            {selectedDept && (
-                                <button
-                                    onClick={() => setSelectedDept("")}
-                                    className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
-                                >
-                                    Clear Filter
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                )}
 
                 {/* Table */}
                 <ReusableTable

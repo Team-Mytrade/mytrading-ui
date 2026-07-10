@@ -6,6 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { ToasterService } from "../../Services/ToasterService";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import StatsCard from "../../components/common/Statscard";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -140,35 +141,30 @@ const PayrollSummaryPage: React.FC = () => {
                     <div className="space-y-6">
                         {/* Top 3 Metric Cards */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex items-center">
-                                <div className="p-3 rounded-full bg-blue-50 text-blue-600 mr-4">
-                                    <CurrencyRupeeIcon className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">Total Gross</p>
-                                    <p className="text-3xl font-semibold text-gray-900">{formatCurrency(overallSalarySummary.totalGrossSalary)}</p>
-                                </div>
-                            </div>
-
-                            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex items-center">
-                                <div className="p-3 rounded-full bg-emerald-50 text-emerald-600 mr-4">
-                                    <BanknotesIcon className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">Total Net</p>
-                                    <p className="text-3xl font-semibold text-gray-900">{formatCurrency(overallSalarySummary.totalNetSalary)}</p>
-                                </div>
-                            </div>
-
-                            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex items-center">
-                                <div className="p-3 rounded-full bg-purple-50 text-purple-600 mr-4">
-                                    <UsersIcon className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">Employees</p>
-                                    <p className="text-3xl font-semibold text-gray-900">{formatNumber(overallSalarySummary.totalEmployees)}</p>
-                                </div>
-                            </div>
+                            <StatsCard
+                                label="Total Gross"
+                                value={formatCurrency(overallSalarySummary.totalGrossSalary)}
+                                gradient="from-cyan-50 to-blue-50"
+                                borderColor="border-cyan-100"
+                                labelColor="text-cyan-600"
+                                icon={<CurrencyRupeeIcon className="h-6 w-6" />}
+                            />
+                            <StatsCard
+                                label="Total Net"
+                                value={formatCurrency(overallSalarySummary.totalNetSalary)}
+                                gradient="from-green-50 to-emerald-50"
+                                borderColor="border-green-100"
+                                labelColor="text-green-600"
+                                icon={<BanknotesIcon className="h-6 w-6" />}
+                            />
+                            <StatsCard
+                                label="Employees"
+                                value={formatNumber(overallSalarySummary.totalEmployees)}
+                                gradient="from-purple-50 to-pink-50"
+                                borderColor="border-purple-100"
+                                labelColor="text-purple-600"
+                                icon={<UsersIcon className="h-6 w-6" />}
+                            />
                         </div>
 
                         {/* Charts Section */}

@@ -18,6 +18,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import FilterPopover from "../../components/common/filter";
 import { ToasterService } from "../../Services/ToasterService";
 
 const SALARY_API = "/v1/api/payroll/employee-salaries";
@@ -85,7 +86,6 @@ const EmployeeSalaryPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState<string>('');
     const [searchEmployee, setSearchEmployee] = useState<string>('');
-    const [showFilters, setShowFilters] = useState(false);
     const [selectedRegime, setSelectedRegime] = useState<string>("");
     const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState<string>("");
 
@@ -356,65 +356,48 @@ const EmployeeSalaryPage: React.FC = () => {
 
                     <div className="flex items-center gap-3">
                         <AddButton label="Refresh Salaries" className="h-10 !my-0" onClick={fetchAllSalaries} />
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className={`h-10 px-4 rounded-lg border transition-colors flex items-center gap-2 shadow-sm !my-0 ${showFilters
-                                ? 'bg-cyan-50 border-cyan-300 text-cyan-600'
-                                : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
-                                }`}
+                        <FilterPopover
+                            title="Filter Salaries"
+                            buttonLabel="Filter"
+                            onReset={() => {
+                                setSelectedEmployeeFilter("");
+                                setSelectedRegime("");
+                            }}
+                            showFooter={true}
                         >
-                            <FunnelIcon className="h-4 w-4" />
-                            <span>Filter</span>
-                        </button>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="mb-1 block text-sm font-medium text-gray-700">Employee</label>
+                                    <select
+                                        value={selectedEmployeeFilter}
+                                        onChange={e => setSelectedEmployeeFilter(e.target.value)}
+                                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                                    >
+                                        <option value="">All Employees</option>
+                                        {uniqueEmployees.map(emp => (
+                                            <option key={emp.id} value={emp.id}>
+                                                {emp.name} - {emp.code}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="mb-1 block text-sm font-medium text-gray-700">Tax Regime</label>
+                                    <select
+                                        value={selectedRegime}
+                                        onChange={e => setSelectedRegime(e.target.value)}
+                                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                                    >
+                                        <option value="">All Regimes</option>
+                                        {uniqueRegimes.map(regime => (
+                                            <option key={regime} value={regime}>{regime} Regime</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        </FilterPopover>
                     </div>
                 </div>
-
-                {/* Filters Panel */}
-                {showFilters && (
-                    <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex flex-wrap gap-4">
-                            <div className="flex-1 min-w-[200px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
-                                <select
-                                    value={selectedEmployeeFilter}
-                                    onChange={e => setSelectedEmployeeFilter(e.target.value)}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                                >
-                                    <option value="">All Employees</option>
-                                    {uniqueEmployees.map(emp => (
-                                        <option key={emp.id} value={emp.id}>
-                                            {emp.name} - {emp.code}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="flex-1 min-w-[200px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Tax Regime</label>
-                                <select
-                                    value={selectedRegime}
-                                    onChange={e => setSelectedRegime(e.target.value)}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                                >
-                                    <option value="">All Regimes</option>
-                                    {uniqueRegimes.map(regime => (
-                                        <option key={regime} value={regime}>{regime} Regime</option>
-                                    ))}
-                                </select>
-                            </div>
-                            {(selectedEmployeeFilter || selectedRegime) && (
-                                <button
-                                    onClick={() => {
-                                        setSelectedEmployeeFilter("");
-                                        setSelectedRegime("");
-                                    }}
-                                    className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
-                                >
-                                    Clear Filters
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                )}
 
                 {/* Table */}
                 <ReusableTable

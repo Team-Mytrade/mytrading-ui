@@ -114,10 +114,37 @@ function renderDetailValue(value: unknown): React.ReactNode {
     );
   }
   if (typeof value === "object") {
+    if (value === null) return <span className="text-gray-400">--</span>;
+
+    const rec = value as Record<string, unknown>;
+    const firstName = String(rec.firstName || "");
+    const lastName = String(rec.lastName || "");
+    const fullName = String(rec.name || rec.employeeName || `${firstName} ${lastName}`.trim() || "");
+    const code = String(rec.employeeCode || rec.code || "");
+    const email = String(rec.officialEmail || rec.email || rec.personalEmail || "");
+
+    if (fullName || code || email) {
+      return (
+        <div className="flex flex-col space-y-1">
+          {fullName && <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{fullName}</span>}
+          {code && <span className="text-xs text-gray-500 dark:text-gray-400">ID: {code}</span>}
+          {email && <span className="text-xs text-cyan-600 dark:text-cyan-400">{email}</span>}
+        </div>
+      );
+    }
+
     return (
-      <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-2 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">
-        {JSON.stringify(value, null, 2)}
-      </pre>
+      <div className="max-h-40 overflow-auto space-y-1 bg-gray-50 p-2.5 rounded-lg border border-gray-100 dark:bg-gray-800 dark:border-gray-700">
+        {Object.entries(rec).map(([k, v]) => {
+          if (v === null || typeof v === "function") return null;
+          return (
+            <div key={k} className="text-xs text-gray-700 dark:text-gray-300">
+              <span className="font-semibold text-gray-500 mr-1">{formatDetailLabel(k)}:</span>
+              <span>{typeof v === "object" ? JSON.stringify(v) : String(v)}</span>
+            </div>
+          );
+        })}
+      </div>
     );
   }
   return String(value);
