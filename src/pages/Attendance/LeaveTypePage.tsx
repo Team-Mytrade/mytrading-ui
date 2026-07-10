@@ -308,9 +308,9 @@ const LeaveTypePage: React.FC = () => {
       <PageMeta title="Leave Types" description="Manage leave types and policies" />
       <PageBreadcrumb pageTitle="Leave Types" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
         {!showForm && (
-          <div className="mb-8 -mt-[125px] flex justify-end">
+          <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
             <AddButton label="Add Leave Type" onClick={openCreateForm} />
           </div>
         )}

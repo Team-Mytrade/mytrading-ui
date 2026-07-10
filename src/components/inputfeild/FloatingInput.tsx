@@ -1,4 +1,7 @@
-import { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, useRef, useState } from 'react';
+import { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import DatePicker from 'react-datepicker';
+import { format } from 'date-fns';
+import 'react-datepicker/dist/react-datepicker.css';
 
 interface BaseFloatingProps {
   label: string;
@@ -7,7 +10,7 @@ interface BaseFloatingProps {
 }
 
 interface FloatingInputProps extends BaseFloatingProps, Omit<InputHTMLAttributes<HTMLInputElement>, 'placeholder'> {
-  type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'datetime-local' | 'url' | 'tel';
+  type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'time' | 'datetime-local' | 'url' | 'tel';
 }
 
 interface FloatingSelectProps extends BaseFloatingProps, Omit<SelectHTMLAttributes<HTMLSelectElement>, 'placeholder'> {
@@ -22,6 +25,27 @@ interface FloatingDatePickerProps extends BaseFloatingProps, Omit<InputHTMLAttri
   minDate?: string;
   maxDate?: string;
   dateFormat?: string;
+}
+
+interface FloatingDateRangePickerProps extends BaseFloatingProps {
+  startDate: Date | null;
+  endDate: Date | null;
+  onChange: (dates: [Date | null, Date | null]) => void;
+  minDate?: Date;
+  maxDate?: Date;
+  filterDate?: (date: Date) => boolean;
+  disabled?: boolean;
+  helperText?: string;
+  dateFormat?: string;
+  monthsShown?: number;
+  placeholder?: string;
+  className?: string;
+  closeOnScroll?: boolean;
+  singleSelection?: boolean;
+  showTimeSelect?: boolean;
+  timeFormat?: string;
+  timeIntervals?: number;
+  closeOnSelect?: boolean;
 }
 
 const floatingStyles = `
@@ -42,7 +66,7 @@ const floatingStyles = `
   }
   
   .floating-input::placeholder {
-    color: transparent;
+    color: transparent !important;
   }
   
   .floating-input.error {
@@ -87,7 +111,219 @@ const floatingStyles = `
     padding-top: 24px !important;
     padding-bottom: 8px !important;
   }
+
+  .floating-select:focus {
+    border-color: #2563eb !important;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+
+  .dark .floating-input,
+  .dark .floating-select {
+    background-color: #111827 !important;
+    border-color: #374151 !important;
+    color: #f9fafb !important;
+  }
+
+  .dark .floating-input::placeholder {
+    color: transparent !important;
+  }
+
+  .dark .floating-input:disabled,
+  .dark .floating-select:disabled {
+    background-color: #1f2937 !important;
+    color: #94a3b8 !important;
+  }
+
+  .dark .floating-label {
+    background-color: #111827 !important;
+    color: #94a3b8 !important;
+  }
+
+  .dark .floating-input:focus + .floating-label,
+  .dark .floating-input:not(:placeholder-shown) + .floating-label,
+  .dark .floating-label-active {
+    background-color: #111827 !important;
+    color: #22d3ee !important;
+  }
+
+  .dark .floating-select option {
+    background-color: #111827;
+    color: #f9fafb;
+  }
+
+  .floating-range-trigger {
+    width: 100%;
+    font-size: 16px;
+    color: #1f2937;
+    padding: 14px 40px 4px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background-color: white;
+    transition: all 0.2s ease-in-out;
+    height: 46px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .floating-range-trigger:focus {
+    border-color: #2563eb;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+
+  .floating-range-trigger.error {
+    border-color: #dc2626;
+  }
+
+  .floating-range-trigger:disabled {
+    background-color: #f3f4f6;
+    color: #94a3b8;
+    cursor: not-allowed;
+  }
+
+  .floating-range-value {
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .floating-range-popover {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 8px);
+    z-index: 50;
+    width: auto;
+    max-width: min(100vw - 32px, 320px);
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.16);
+    overflow: hidden;
+  }
+
+  .floating-range-popover.upward {
+    top: auto;
+    bottom: calc(100% + 8px);
+  }
+
+  .floating-range-picker.react-datepicker {
+    border: 0;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #111827;
+    font-family: inherit;
+  }
+
+  .floating-range-picker .react-datepicker__month-container {
+    float: none;
+  }
+
+  .floating-range-picker .react-datepicker__header {
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    padding-top: 12px;
+  }
+
+  .floating-range-picker .react-datepicker__current-month {
+    color: #111827;
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+
+  .floating-range-picker .react-datepicker__day-name,
+  .floating-range-picker .react-datepicker__day,
+  .floating-range-picker .react-datepicker__time-name {
+    color: #111827;
+    width: 2rem;
+    line-height: 2rem;
+    margin: 0.15rem;
+    font-size: 13px;
+  }
+
+  .floating-range-picker .react-datepicker__day-name {
+    font-weight: 700;
+    color: #6b7280;
+  }
+
+  .floating-range-picker .react-datepicker__day {
+    border-radius: 9999px;
+  }
+
+  .floating-range-picker .react-datepicker__day:hover,
+  .floating-range-picker .react-datepicker__day--keyboard-selected {
+    background: #eff6ff;
+    color: #111827;
+  }
+
+  .floating-range-picker .react-datepicker__day--in-range,
+  .floating-range-picker .react-datepicker__day--in-selecting-range {
+    background: #dbeafe;
+    color: #1e3a8a;
+    border-radius: 9999px;
+  }
+
+  .floating-range-picker .react-datepicker__day--range-start,
+  .floating-range-picker .react-datepicker__day--range-end,
+  .floating-range-picker .react-datepicker__day--selecting-range-start,
+  .floating-range-picker .react-datepicker__day--selecting-range-end {
+    background: #2563eb;
+    color: #ffffff;
+    font-weight: 700;
+  }
+
+  .floating-range-picker .react-datepicker__day--outside-month {
+    color: #6b7280;
+  }
+
+  .floating-range-picker .react-datepicker__day--disabled {
+    color: #4b5563;
+    cursor: not-allowed;
+  }
+
+  .floating-range-picker .react-datepicker__navigation {
+    top: 14px;
+  }
+
+  .floating-range-picker .react-datepicker__navigation-icon::before {
+    border-color: #d1d5db;
+  }
+
+  .floating-range-picker .react-datepicker__month {
+    margin: 0.75rem;
+  }
+
+  .floating-range-helper {
+    padding: 8px 12px 10px;
+    border-top: 1px solid #e5e7eb;
+    color: #6b7280;
+    font-size: 12px;
+    line-height: 1.4;
+    background: #ffffff;
+  }
 `;
+
+function getFloatingLabel(label: string, required: boolean) {
+  return `${label}${required && !label.includes("*") ? " *" : ""}`;
+}
+
+function createNumberInputEvent(
+  event: React.ChangeEvent<HTMLInputElement>,
+  nextValue: string
+): React.ChangeEvent<HTMLInputElement> {
+  const nextTarget = {
+    ...event.target,
+    value: nextValue,
+  };
+
+  return {
+    ...event,
+    target: nextTarget,
+    currentTarget: nextTarget,
+  } as React.ChangeEvent<HTMLInputElement>;
+}
 
 export const FloatingInput: React.FC<FloatingInputProps> = ({
   label,
@@ -134,17 +370,32 @@ export const FloatingInput: React.FC<FloatingInputProps> = ({
     }
   };
 
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (
+      type === "number" &&
+      String(value ?? "") === "0" &&
+      event.target.value.length > 1 &&
+      event.target.value.startsWith("0") &&
+      !event.target.value.startsWith("0.")
+    ) {
+      onChange?.(createNumberInputEvent(event, event.target.value.slice(1)));
+      return;
+    }
+
+    onChange?.(event);
+  };
+
   return (
     <div style={styles.formGroup}>
       <style>{floatingStyles}</style>
       <input
         type={type}
         value={value}
-        onChange={onChange}
+        onChange={handleInputChange}
         style={styles.formInput}
         className={`floating-input ${type === 'date' ? 'floating-datepicker' : ''} ${error ? 'error' : ''} ${className}`}
         required={required}
-        placeholder={label}
+        placeholder=" "
         name={name}
         {...props}
       />
@@ -153,7 +404,7 @@ export const FloatingInput: React.FC<FloatingInputProps> = ({
         className="floating-label"
         htmlFor={name}
       >
-        {label}{required && ' *'}
+        {getFloatingLabel(label, required)}
       </label>
       {error && <span className="error-text">{error}</span>}
     </div>
@@ -215,7 +466,7 @@ export const FloatingTextarea: React.FC<FloatingTextareaProps> = ({
         style={styles.textareaInput}
         className={`floating-input ${error ? 'error' : ''} ${className}`}
         required={required}
-        placeholder={label}
+        placeholder=" "
         name={name}
         rows={rows}
         {...props}
@@ -225,7 +476,7 @@ export const FloatingTextarea: React.FC<FloatingTextareaProps> = ({
         className="floating-label"
         htmlFor={name}
       >
-        {label}{required && ' *'}
+        {getFloatingLabel(label, required)}
       </label>
       {error && <span className="error-text">{error}</span>}
     </div>
@@ -303,7 +554,7 @@ export const FloatingDatePicker: React.FC<FloatingDatePickerProps> = ({
         style={styles.dateInput}
         className={`floating-input floating-datepicker ${error ? 'error' : ''} ${className}`}
         required={required}
-        placeholder={label}
+        placeholder=" "
         name={name}
         min={minDate}
         max={maxDate}
@@ -314,7 +565,7 @@ export const FloatingDatePicker: React.FC<FloatingDatePickerProps> = ({
         className="floating-label"
         htmlFor={name}
       >
-        {label}{required && ' *'}
+        {getFloatingLabel(label, required)}
       </label>
       {/* Calendar icon */}
       <svg 
@@ -331,6 +582,218 @@ export const FloatingDatePicker: React.FC<FloatingDatePickerProps> = ({
         <line x1="8" y1="2" x2="8" y2="6"></line>
         <line x1="3" y1="10" x2="21" y2="10"></line>
       </svg>
+      {error && <span className="error-text">{error}</span>}
+    </div>
+  );
+};
+
+export const FloatingDateRangePicker: React.FC<FloatingDateRangePickerProps> = ({
+  label,
+  required = false,
+  error,
+  startDate,
+  endDate,
+  onChange,
+  minDate,
+  maxDate,
+  filterDate,
+  disabled = false,
+  helperText,
+  dateFormat = "MM/dd/yyyy",
+  monthsShown = 1,
+  placeholder = "Select date range",
+  className = "",
+  closeOnScroll = true,
+  singleSelection = false,
+  showTimeSelect = false,
+  timeFormat = "hh:mm aa",
+  timeIntervals = 15,
+  closeOnSelect = !showTimeSelect,
+}) => {
+  const [open, setOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const hasValue = Boolean(startDate || endDate);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!wrapperRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open || !wrapperRef.current) return;
+
+    const rect = wrapperRef.current.getBoundingClientRect();
+    const estimatedPopoverHeight = helperText ? 340 : 300;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    setOpenUpward(spaceBelow < estimatedPopoverHeight && spaceAbove > spaceBelow);
+  }, [open, helperText]);
+
+  const displayValue =
+    singleSelection
+      ? startDate
+        ? format(startDate, dateFormat)
+        : placeholder
+      : startDate && endDate
+      ? `${format(startDate, dateFormat)} - ${format(endDate, dateFormat)}`
+      : startDate
+        ? `${format(startDate, dateFormat)} -`
+        : placeholder;
+
+  const labelActive = open || hasValue;
+
+  const normalizeDate = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  const resolveRangeChange = (dates: [Date | null, Date | null]): [Date | null, Date | null] => {
+    const [nextStart, nextEnd] = dates;
+
+    if (!(startDate && endDate) || nextEnd) {
+      return dates;
+    }
+
+    if (!nextStart) {
+      return dates;
+    }
+
+    const currentStart = normalizeDate(startDate);
+    const currentEnd = normalizeDate(endDate);
+    const clickedDate = normalizeDate(nextStart);
+
+    if (clickedDate.getTime() <= currentStart.getTime()) {
+      return [clickedDate, currentEnd];
+    }
+
+    if (clickedDate.getTime() >= currentEnd.getTime()) {
+      return [currentStart, clickedDate];
+    }
+
+    const distanceToStart = clickedDate.getTime() - currentStart.getTime();
+    const distanceToEnd = currentEnd.getTime() - clickedDate.getTime();
+
+    return distanceToStart <= distanceToEnd
+      ? [clickedDate, currentEnd]
+      : [currentStart, clickedDate];
+  };
+
+  return (
+    <div
+      ref={wrapperRef}
+      style={{ position: "relative", marginBottom: "20px", width: "100%" }}
+      className={className}
+    >
+      <style>{floatingStyles}</style>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((current) => !current)}
+        className={`floating-range-trigger ${error ? "error" : ""}`}
+      >
+        <span className="floating-range-value">{displayValue}</span>
+      </button>
+      <label
+        className={labelActive ? "floating-label floating-label-active" : "floating-label"}
+        style={{
+          position: "absolute",
+          top: labelActive ? "0" : "50%",
+          left: "12px",
+          fontSize: labelActive ? "12px" : "16px",
+          margin: 0,
+          padding: "0 4px",
+          backgroundColor: labelActive ? "white" : "transparent",
+          transition: "all 0.2s ease-in-out",
+          color: error ? "#dc2626" : (labelActive ? "#2563eb" : "#6b7280"),
+          pointerEvents: "none",
+          zIndex: 2,
+          lineHeight: "1",
+          transform: "translateY(-50%)",
+          fontWeight: labelActive ? 500 : 400,
+        }}
+      >
+        {getFloatingLabel(label, required)}
+      </label>
+      <svg
+        style={{
+          position: "absolute",
+          right: "12px",
+          top: "50%",
+          transform: "translateY(-50%)",
+          color: "#6b7280",
+          pointerEvents: "none",
+          zIndex: 2,
+        }}
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+        <line x1="16" y1="2" x2="16" y2="6"></line>
+        <line x1="8" y1="2" x2="8" y2="6"></line>
+        <line x1="3" y1="10" x2="21" y2="10"></line>
+      </svg>
+
+      {open && !disabled && (
+        <div className={`floating-range-popover ${openUpward ? "upward" : ""}`}>
+          {singleSelection ? (
+            <DatePicker
+              inline
+              selected={startDate || endDate}
+              onChange={(selectedDate: Date | null) => {
+                onChange([selectedDate, selectedDate]);
+                if (selectedDate && closeOnSelect) {
+                  setOpen(false);
+                }
+              }}
+              minDate={minDate}
+              maxDate={maxDate}
+              filterDate={filterDate}
+              monthsShown={monthsShown}
+              showTimeSelect={showTimeSelect}
+              timeFormat={timeFormat}
+              timeIntervals={timeIntervals}
+              calendarClassName="floating-range-picker"
+              closeOnScroll={closeOnScroll}
+            />
+          ) : (
+            <DatePicker
+              inline
+              selected={startDate}
+              startDate={startDate}
+              endDate={endDate}
+              onChange={(value: [Date | null, Date | null]) => {
+                const resolvedDates = resolveRangeChange(value);
+                onChange(resolvedDates);
+                if (resolvedDates[0] && resolvedDates[1] && closeOnSelect) {
+                  setOpen(false);
+                }
+              }}
+              selectsRange
+              minDate={minDate}
+              maxDate={maxDate}
+              filterDate={filterDate}
+              monthsShown={monthsShown}
+              showTimeSelect={showTimeSelect}
+              timeFormat={timeFormat}
+              timeIntervals={timeIntervals}
+              calendarClassName="floating-range-picker"
+              closeOnScroll={closeOnScroll}
+            />
+          )}
+          {helperText && <div className="floating-range-helper">{helperText}</div>}
+        </div>
+      )}
       {error && <span className="error-text">{error}</span>}
     </div>
   );
@@ -411,9 +874,10 @@ export const FloatingSelect: React.FC<FloatingSelectProps> = ({
       </select>
       <label
         style={styles.formLabel}
+        className={isActive ? "floating-label floating-label-active" : "floating-label"}
         htmlFor={name}
       >
-        {label}{required && ' *'}
+        {getFloatingLabel(label, required)}
       </label>
       {error && <span className="error-text">{error}</span>}
     </div>
@@ -484,7 +948,7 @@ export const FloatingSelect1: React.FC<FloatingSelectProps1> = ({
           backgroundSize: "16px",
         }}
       >
-        {includeEmptyOption && <option value="">{emptyOptionLabel ?? `Select ${label}`}</option>}
+        {includeEmptyOption && <option value="">{emptyOptionLabel ?? ""}</option>}
         {options.map((opt) => (
           <option key={opt.id} value={opt.id}>
             {opt.name}
@@ -493,6 +957,7 @@ export const FloatingSelect1: React.FC<FloatingSelectProps1> = ({
       </select>
       <label
         htmlFor={name}
+        className={isActive ? "floating-label floating-label-active" : "floating-label"}
         style={{
           position: "absolute",
           top: isActive ? "0" : "50%",
@@ -510,7 +975,7 @@ export const FloatingSelect1: React.FC<FloatingSelectProps1> = ({
           fontWeight: isActive ? 500 : 400,
         }}
       >
-        {label}{required && ' *'}
+        {getFloatingLabel(label, required)}
       </label>
     </div>
   );

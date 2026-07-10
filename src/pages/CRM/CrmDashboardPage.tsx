@@ -117,7 +117,7 @@ const CrmDashboardPage: React.FC = () => {
       <PageMeta title="CRM Dashboard" description="Customer Relationship Management Dashboard" />
       <PageBreadcrumb pageTitle="CRM Dashboard" />
 
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* Navigation Modules Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-8">
           {crmModules.map((module) => {

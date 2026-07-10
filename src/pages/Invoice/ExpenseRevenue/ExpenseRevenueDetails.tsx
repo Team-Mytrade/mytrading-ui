@@ -16,6 +16,7 @@ import {
 } from "@heroicons/react/24/outline";
 import PageMeta from "../../../components/common/PageMeta";
 import PageBreadcrumb from "../../../components/common/PageBreadCrumb";
+import PageLoader from "../../../components/common/PageLoader";
 import { ToasterService } from "../../../Services/ToasterService";
 
 const API_URL = "/v1/api/invoice/expenses-revenue";
@@ -114,7 +115,7 @@ const ExpenseRevenueDetails: React.FC = () => {
         }
     };
 
-    if (loading) return <div className="p-6 text-center">Loading...</div>;
+    if (loading) return <PageLoader message="Loading transaction details..." />;
     if (!item) return <div className="p-6 text-center text-red-500">Item not found</div>;
 
     return (

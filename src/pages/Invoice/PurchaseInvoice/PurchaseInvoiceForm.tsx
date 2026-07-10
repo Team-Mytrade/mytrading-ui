@@ -9,6 +9,7 @@ import {
 } from "@heroicons/react/24/outline";
 import PageMeta from "../../../components/common/PageMeta";
 import PageBreadcrumb from "../../../components/common/PageBreadCrumb";
+import PageLoader from "../../../components/common/PageLoader";
 import { ToasterService } from "../../../Services/ToasterService";
 
 const BASE_URL = "/v1/api/invoice/purchase-invoices";
@@ -102,7 +103,7 @@ const PurchaseInvoiceForm: React.FC = () => {
         }
     };
 
-    if (loading) return <div className="p-6 text-center">Loading form...</div>;
+    if (loading) return <PageLoader message="Loading invoice form..." />;
 
     return (
         <>

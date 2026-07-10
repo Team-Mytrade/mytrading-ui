@@ -179,7 +179,7 @@ const TaxRecordList: React.FC = () => {
       />
       <PageBreadcrumb pageTitle="Tax Summary" />
 
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="w-full max-w-none px-0 py-6">
         {/* Header */}
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-4">
@@ -191,7 +191,7 @@ const TaxRecordList: React.FC = () => {
             </div> */}
           </div>
 
-          <div className="mb-8 -mt-[125px] flex justify-end">
+          <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
             {/* Export */}
             <div className="relative">
               <button

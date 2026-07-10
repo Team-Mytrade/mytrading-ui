@@ -18,6 +18,14 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 const API_BASE = "/v1/api/user/domains";
 const PAGE_SIZE = 10;
 
+const buildDomainCode = (domainName: string) =>
+  domainName
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 40);
+
 interface DomainTabProps {
   selectedTenantFilter?: string | null;
   onClearTenantFilter?: () => void;
@@ -80,11 +88,15 @@ const DomainTab: React.FC<DomainTabProps> = ({ selectedTenantFilter, onClearTena
     }
 
     try {
+      const domainName = form.domainName.trim();
       const payload = {
-        domainName: form.domainName.trim(),
+        domainCode: editingId
+          ? domains.find((domain) => domain.id === editingId)?.domainCode || buildDomainCode(domainName)
+          : buildDomainCode(domainName),
+        domainName,
         description: form.description?.trim() || "",
         active: form.active ?? true,
-        tenantId: tenantId,
+        tenantId: selectedTenantFilter || tenantId || "",
       };
 
       let response;
@@ -130,17 +142,29 @@ const DomainTab: React.FC<DomainTabProps> = ({ selectedTenantFilter, onClearTena
     try {
       const response = await fetch(`${API_BASE}/${id}`, {
         method: "DELETE",
-        headers: getHeaders(),
+        headers: {
+          ...getHeaders(),
+          ...(selectedTenantFilter || tenantId ? { "X-Tenant-ID": selectedTenantFilter || tenantId || "" } : {}),
+        },
       });
 
-      if (!response.ok) throw new Error("Delete failed");
+      if (!response.ok) {
+        let message = "Delete failed";
+        try {
+          const data = await response.json();
+          message = data?.message || data?.error || message;
+        } catch {
+          message = (await response.text()) || message;
+        }
+        throw new Error(message);
+      }
 
       ToasterService.success("Domain deleted successfully!");
       fetchData();
       setShowDeleteConfirm(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting domain:", error);
-      ToasterService.error("Failed to delete");
+      ToasterService.error(error.message || "Failed to delete");
     }
   };
 

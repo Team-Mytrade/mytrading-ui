@@ -17,6 +17,11 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      "/v1/api/product-categories": {
+        target: "http://192.168.1.113:52930",
+        changeOrigin: true,
+        secure: false,
+      },
       // Proxy /v1/api requests to the backend
       "/v1/api": {
         target: "http://193.181.209.14:9595",

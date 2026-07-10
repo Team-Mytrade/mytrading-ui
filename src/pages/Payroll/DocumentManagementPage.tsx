@@ -194,8 +194,11 @@ const DocumentManagementPage: React.FC = () => {
                 }
             );
 
+            const responseContentType = response.headers['content-type'];
             const contentType =
-                response.headers['content-type'] || doc.fileType || 'application/octet-stream';
+                typeof responseContentType === 'string'
+                    ? responseContentType
+                    : doc.fileType || 'application/octet-stream';
 
             const blob = new Blob([response.data], { type: contentType });
             const url = window.URL.createObjectURL(blob);

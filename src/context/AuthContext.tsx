@@ -1,5 +1,15 @@
 import { createContext, useState, useEffect, ReactNode, useRef, useCallback } from 'react';
 import axios from 'axios';
+import {
+  clearSessionExpiredRedirect,
+  clearSessionExpiredFlag,
+  clearSessionExpiredDraft,
+  getCurrentAppLocation,
+  hasSessionExpiredFlag,
+  isSessionExpiredResponse,
+  saveSessionExpiredRedirect,
+  saveSessionExpiredDraft,
+} from '../utils/sessionRecovery';
 
 const getTenantIdFromToken = (token: string): string | null => {
   try {
@@ -47,14 +57,9 @@ axios.interceptors.request.use(
       const tenantId = getTenantId();
       
       if (tenantId) {
-        // Add as header (required by your API)
+        // Tenant-aware APIs expect this as a header. Adding it globally as
+        // a query parameter breaks endpoints such as /v1/api/product-categories.
         config.headers['X-Tenant-ID'] = tenantId;
-        
-        // Optionally keep as query param if some endpoints still need it
-        config.params = {
-          ...config.params,
-          tenantId: tenantId
-        };
       }
     }
     
@@ -94,7 +99,7 @@ interface AuthContextType {
   profileImage: string;
   login: (username: string, password: string) => Promise<LoginResponse>;
   signup: (fullName: string, role: string, email: string, password: string) => Promise<any>;
-  logout: () => void;
+  logout: (options?: { preserveSessionRecovery?: boolean }) => void;
   updateUser: (userData: User) => void;
   updateProfileImage: (imageUrl: string) => void;
   refreshUserData: () => Promise<void>;
@@ -121,7 +126,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileImage, setProfileImage] = useState("src/images/img-placeholder.png");
+  const [sessionExpired, setSessionExpired] = useState(false);
   const inactivityTimerRef = useRef<number | null>(null);
+  const sessionExpiredRef = useRef(false);
+
+  const completeAuthBootstrap = useCallback(() => {
+    setLoading(false);
+    window.dispatchEvent(new Event("app-auth-bootstrap-complete"));
+  }, []);
 
   const normalizeUser = useCallback((raw: any): User => {
     const roles = Array.isArray(raw?.roles) ? raw.roles : [];
@@ -149,17 +161,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback((options?: { preserveSessionRecovery?: boolean }) => {
+    if (options?.preserveSessionRecovery) {
+      clearSessionExpiredFlag();
+    } else {
+      clearSessionExpiredRedirect();
+      clearSessionExpiredDraft();
+    }
+
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
     delete axios.defaults.headers.common['Authorization'];
     setUser(null);
     setProfileImage("src/images/img-placeholder.png");
+    setSessionExpired(false);
+    sessionExpiredRef.current = false;
     
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
      // inactivityTimerRef.current = null;
     }
+  }, []);
+
+  const handleSessionExpired = useCallback(() => {
+    if (sessionExpiredRef.current) {
+      return;
+    }
+
+    sessionExpiredRef.current = true;
+    saveSessionExpiredRedirect(getCurrentAppLocation());
+    saveSessionExpiredDraft(getCurrentAppLocation());
+    setSessionExpired(true);
   }, []);
 
   const updateUser = useCallback((userData: User) => {
@@ -316,7 +348,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
         }
         
-        setLoading(false);
+        completeAuthBootstrap();
       } else if (storedToken) {
         try {
           const res = await axios.get('/api/me');
@@ -329,15 +361,76 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           localStorage.removeItem('user');
           setUser(null);
         } finally {
-          setLoading(false);
+          completeAuthBootstrap();
         }
       } else {
-        setLoading(false);
+        completeAuthBootstrap();
       }
     };
 
     initializeAuth();
-  }, []); // Empty dependency array - runs only once on mount
+  }, [completeAuthBootstrap, normalizeUser]); // Empty dependency array - runs only once on mount
+
+  useEffect(() => {
+    if (hasSessionExpiredFlag()) {
+      setSessionExpired(true);
+      sessionExpiredRef.current = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    const responseInterceptor = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if ((error?.config as any)?.skipSessionExpiredHandling) {
+          return Promise.reject(error);
+        }
+
+        const status = error?.response?.status;
+        const message =
+          error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          error?.message;
+
+        if (isSessionExpiredResponse(status, message)) {
+          handleSessionExpired();
+        }
+
+        return Promise.reject(error);
+      }
+    );
+
+    const originalFetch = window.fetch.bind(window);
+
+    window.fetch = async (...args) => {
+      const response = await originalFetch(...args);
+
+      if (!response.ok) {
+        let message = "";
+
+        try {
+          const clonedResponse = response.clone();
+          const data = await clonedResponse.json();
+          message = data?.message || data?.error || "";
+        } catch (error) {
+          try {
+            message = await response.clone().text();
+          } catch (innerError) {}
+        }
+
+        if (isSessionExpiredResponse(response.status, message)) {
+          handleSessionExpired();
+        }
+      }
+
+      return response;
+    };
+
+    return () => {
+      axios.interceptors.response.eject(responseInterceptor);
+      window.fetch = originalFetch;
+    };
+  }, [handleSessionExpired]);
 
   const login = async (username: string, password: string): Promise<LoginResponse> => {
     try {
@@ -357,6 +450,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.setItem('user', JSON.stringify(normalizedUser));
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         setUser(normalizedUser);
+        clearSessionExpiredRedirect();
+        setSessionExpired(false);
+        sessionExpiredRef.current = false;
+        window.dispatchEvent(new Event("app-login-success"));
         
         // Fetch profile image after login
         setTimeout(() => {
@@ -438,6 +535,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       refreshProfileImage
     }}>
       {children}
+      {sessionExpired && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="text-xl font-semibold text-gray-900">Session Expired</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Your session is out. Please login again. We saved your current page and unsaved draft data locally.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                logout({ preserveSessionRecovery: true });
+                window.location.href = "/signin";
+              }}
+              className="mt-6 w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-700"
+            >
+              Log Out
+            </button>
+          </div>
+        </div>
+      )}
     </AuthContext.Provider>
   );
 };

@@ -185,12 +185,21 @@ const DepartmentTab: React.FC<DepartmentTabProps> = ({ selectedDomainFilter, onC
     try {
       const response = await fetch(`${API_BASE}/${id}`, {
         method: "DELETE",
-        headers: getHeaders(),
+        headers: {
+          ...getHeaders(),
+          ...(user?.tenantId ? { "X-Tenant-ID": user.tenantId } : {}),
+        },
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        ToasterService.error(errorData?.message || "Failed to delete");
+        let message = "Failed to delete";
+        try {
+          const errorData = await response.json();
+          message = errorData?.message || errorData?.error || message;
+        } catch {
+          message = (await response.text()) || message;
+        }
+        ToasterService.error(message);
         return;
       }
 

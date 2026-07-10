@@ -50,14 +50,14 @@ const pendingApprovals = [
 
 // Navigation Modules
 const procurementModules = [
-  { name: "Purchase Requisition", count: 45, icon: FileText, route: "/purchaseRequisition", color: "blue" },
-  { name: "Purchase Order", count: 32, icon: ShoppingCart, route: "/purchaseOrder", color: "emerald" },
-  { name: "Supplier / Vendor", count: 12, icon: Truck, route: "/supplier", color: "orange" },
-  { name: "Product / SKU", count: 320, icon: Package, route: "/product", color: "purple" },
-  { name: "Goods Receipt Note", count: 30, icon: Receipt, route: "/goodseceiptNote", color: "pink" },
-  { name: "Terms & Conditions", count: 18, icon: FileText, route: "/term-condition", color: "indigo" },
-  { name: "Delivery Schedule", count: 27, icon: Calendar, route: "/deliveryDate", color: "red" },
-  { name: "Approval Status", count: 9, icon: CheckCircle, route: "/approvalStatus", color: "teal" },
+  { name: "Purchase Requisitions", count: 45, icon: FileText, route: "/purchase-requisitions", color: "blue" },
+  { name: "Purchase Orders", count: 32, icon: ShoppingCart, route: "/purchase-orders", color: "emerald" },
+  { name: "Vendors", count: 12, icon: Truck, route: "/vendors", color: "orange" },
+  { name: "Products", count: 320, icon: Package, route: "/purchase-products", color: "purple" },
+  { name: "Goods Receipt Notes", count: 30, icon: Receipt, route: "/goods-receipt-notes", color: "pink" },
+  { name: "Terms and Conditions", count: 18, icon: FileText, route: "/terms-and-conditions", color: "indigo" },
+  { name: "Deliveries", count: 27, icon: Calendar, route: "/deliveries", color: "red" },
+  { name: "Approval Status", count: 9, icon: CheckCircle, route: "/approval-status", color: "teal" },
 ];
 
 const kpiItems = [

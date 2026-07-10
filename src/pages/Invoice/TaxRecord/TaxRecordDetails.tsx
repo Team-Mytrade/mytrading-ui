@@ -14,6 +14,7 @@ import {
 } from "@heroicons/react/24/outline";
 import PageMeta from "../../../components/common/PageMeta";
 import PageBreadcrumb from "../../../components/common/PageBreadCrumb";
+import PageLoader from "../../../components/common/PageLoader";
 import { ToasterService } from "../../../Services/ToasterService";
 
 const API_TAX_RECORDS = "/v1/api/invoice/tax-record";
@@ -51,7 +52,7 @@ const TaxRecordDetails: React.FC = () => {
         fetch();
     }, [id]);
 
-    if (loading) return <div className="p-6 text-center text-gray-500 font-black uppercase text-xs tracking-widest">Retrieving File...</div>;
+    if (loading) return <PageLoader message="Loading tax record..." />;
     if (!record) return <div className="p-6 text-center text-red-500 font-black">Record not found in system</div>;
 
     return (

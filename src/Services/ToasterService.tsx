@@ -198,6 +198,15 @@ export const ToasterService = {
   info(message: string, description?: string, duration?: number) {
     this.notify({ message, description, type: "info", duration });
   },
+
+  noData(message = "No data found", description?: string, duration?: number) {
+    this.notify({
+      message,
+      description: description || "The request was successful, but there is nothing to show right now.",
+      type: "info",
+      duration,
+    });
+  },
 };
 
 

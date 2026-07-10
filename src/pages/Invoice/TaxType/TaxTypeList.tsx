@@ -354,8 +354,8 @@ const TaxTypeList: React.FC = () => {
             <PageMeta title="Tax Types" description="Manage tax definitions and rates" />
             <PageBreadcrumb pageTitle="Tax Types" />
 
-            <div className="mx-auto max-w-7xl p-6">
-                <div className="mb-8 -mt-[125px] flex justify-end">
+            <div className="w-full max-w-none px-0 py-6">
+                <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
                     <div className="flex items-center gap-4">
 
                         {/* <div>
