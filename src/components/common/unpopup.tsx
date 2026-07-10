@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 
@@ -41,6 +41,8 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
   tabs,
 }) => {
   const [page, setPage] = useState(0);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const allowSubmitRef = useRef(false);
 
   useEffect(() => {
     if (!isOpen) {
@@ -80,6 +82,23 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
   const currentPage = pages[page] || { label: `Step ${page + 1}`, fields: [] };
   const currentPageFields = currentPage.fields;
 
+  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    if (!allowSubmitRef.current) {
+      event.preventDefault();
+      return;
+    }
+
+    allowSubmitRef.current = false;
+    onSubmit?.(event);
+  };
+
+  const handleFinalSubmitClick = () => {
+    if (submitting) return;
+
+    allowSubmitRef.current = true;
+    formRef.current?.requestSubmit();
+  };
+
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-4 backdrop-blur-sm sm:items-center">
       <div className={`mx-auto w-full ${maxWidthClassName} rounded-xl bg-white shadow-xl`}>
@@ -114,7 +133,7 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
           </div>
         )}
 
-        <form onSubmit={onSubmit} noValidate className="p-5">
+        <form ref={formRef} onSubmit={handleFormSubmit} noValidate className="p-5">
           <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
             {currentPageFields.map((field, index) => (
               <React.Fragment key={index}>{field}</React.Fragment>
@@ -137,7 +156,8 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
               </button>
               {isLastPage ? (
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleFinalSubmitClick}
                   disabled={submitting}
                   className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >

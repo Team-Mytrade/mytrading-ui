@@ -121,17 +121,15 @@ const StatsCard: React.FC<StatsCardProps> = ({
   const FallbackIcon = tone.Icon;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:shadow-md dark:border-gray-800 dark:bg-white/[0.03]">
+    <div className="my-[3px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:shadow-md dark:border-gray-800 dark:bg-white/[0.03]">
       <div
         className={`transition-all duration-300 ease-in-out ${
           collapsed ? "max-h-0 opacity-0 py-0" : "max-h-48 opacity-100"
         }`}
       >
-        {/* Extra compact, single line horizontal layout */}
-        <div className="flex items-center justify-between gap-3 p-2.5 px-3">
+        <div className="flex min-h-14 items-center justify-between gap-3 px-3 py-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            {/* Icon container - reduced padding and size */}
-            <div className={`flex shrink-0 rounded-lg p-2 ${tone.badge}`}>
+            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tone.badge}`}>
               {icon ? (
                 <div className={`h-5 w-5 flex items-center justify-center [&>svg]:h-5 [&>svg]:w-5 ${tone.iconColor}`}>{icon}</div>
               ) : (
@@ -139,13 +137,11 @@ const StatsCard: React.FC<StatsCardProps> = ({
               )}
             </div>
 
-            {/* Label - compact text size */}
             <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">
               {label}
             </p>
           </div>
 
-          {/* Value - compact text size */}
           <p className={`text-xl font-bold leading-none shrink-0 ${labelColor}`}>
             {value}
           </p>

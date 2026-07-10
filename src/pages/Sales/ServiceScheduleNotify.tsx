@@ -15,6 +15,7 @@ import {
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import { AddButton } from "../../components/common/AddButton";
+import { ListingPdfExportButton } from "../../components/common/export";
 import FilterPopover from "../../components/common/filter";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
@@ -57,6 +58,7 @@ type ScheduleForm = {
 };
 
 type UserOption = {
+  id?: string | number;
   userId: string;
   username?: string;
   email?: string;
@@ -401,12 +403,25 @@ const ServiceScheduleNotify: React.FC = () => {
             )}
           </div>
 
-          <FilterPopover
-            title="Schedule Actions"
-            buttonLabel="Filters"
-            widthClassName="w-[20rem] sm:w-[22rem]"
-            showFooter={false}
-          >
+          <div className="flex items-center gap-2">
+            <ListingPdfExportButton
+              title="Service Schedule Notify"
+              subtitle="Filtered user notification listing"
+              reportLabel="Sales Report"
+              data={filteredUsers}
+              fileName="Service_Schedule_Notify"
+              metadata={(rows, rangeLabel) => [
+                { label: "Total", value: rows.length },
+                { label: "Range", value: rangeLabel },
+                { label: "Search", value: search || "None" },
+              ]}
+            />
+            <FilterPopover
+              title="Schedule Actions"
+              buttonLabel="Filters"
+              widthClassName="w-[20rem] sm:w-[22rem]"
+              showFooter={false}
+            >
             <div className="space-y-3">
               <FloatingInput
                 label="Schedule ID"
@@ -465,7 +480,8 @@ const ServiceScheduleNotify: React.FC = () => {
                 </button>
               </div>
             </div>
-          </FilterPopover>
+            </FilterPopover>
+          </div>
         </div>
 
         <ReusableTable

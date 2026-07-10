@@ -14,6 +14,7 @@ import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import { ListingPdfExportButton } from "../../components/common/export";
 import FilterPopover from "../../components/common/filter";
 import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
@@ -572,20 +573,45 @@ const SalesPersons: React.FC = () => {
             )}
           </div>
 
-          <FilterPopover
-            title="Filter Sales Persons"
-            buttonLabel="Filters"
-            label="Status"
-            value={statusFilter}
-            options={[
-              { label: "All Statuses", value: "" },
-              { label: "Active", value: "active" },
-              { label: "Inactive", value: "inactive" },
-            ]}
-            onChange={setStatusFilter}
-            onReset={() => setStatusFilter("")}
-            onApply={() => undefined}
-          />
+          <div className="flex items-center gap-2">
+            <ListingPdfExportButton<SalesPerson>
+              title="Sales Persons"
+              subtitle="Filtered sales person listing"
+              reportLabel="Sales Report"
+              data={filteredSalesPersons}
+              fileName="Sales_Persons"
+              disabled={loading}
+              metadata={(rows, rangeLabel) => [
+                { label: "Total", value: rows.length },
+                { label: "Range", value: rangeLabel },
+                { label: "Status", value: statusFilter || "All" },
+                { label: "Search", value: search || "None" },
+              ]}
+              columns={[
+                { header: "Sales Person", accessor: (person) => person.name || "Unnamed" },
+                { header: "Code", accessor: (person) => person.code || `ID: ${person.id}` },
+                { header: "Email", key: "email" },
+                { header: "Region", key: "region" },
+                { header: "User ID", accessor: (person) => getResolvedUserId(person) || "-" },
+                { header: "Employee ID", accessor: (person) => getResolvedEmployeeId(person) || "-" },
+                { header: "Status", accessor: (person) => (person.active ? "Active" : "Inactive") },
+              ]}
+            />
+            <FilterPopover
+              title="Filter Sales Persons"
+              buttonLabel="Filters"
+              label="Status"
+              value={statusFilter}
+              options={[
+                { label: "All Statuses", value: "" },
+                { label: "Active", value: "active" },
+                { label: "Inactive", value: "inactive" },
+              ]}
+              onChange={setStatusFilter}
+              onReset={() => setStatusFilter("")}
+              onApply={() => undefined}
+            />
+          </div>
         </div>
 
         <ReusableTable

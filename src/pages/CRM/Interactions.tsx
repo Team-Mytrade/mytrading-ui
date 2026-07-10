@@ -9,7 +9,6 @@ import {
   CalendarIcon,
   MagnifyingGlassIcon,
   XMarkIcon,
-  FunnelIcon,
   ChatBubbleLeftIcon,
   ClockIcon,
   UserIcon,
@@ -23,6 +22,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
+import FilterPopover from "../../components/common/filter";
 import { FloatingInput, FloatingSelect1 as FloatingSelect, FloatingDatePicker, FloatingTextarea } from "../../components/inputfeild/FloatingInput";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 
@@ -72,7 +72,7 @@ const PAGE_SIZE = 10;
 
 const getCustomerLabel = (customer?: Customer) => customer?.customerName || customer?.name || "";
 
-const CommunicationHistory: React.FC = () => {
+const Interactions: React.FC = () => {
   const navigate = useNavigate();
   const [contacts, setContacts] = useState<ContactPerson[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -86,7 +86,6 @@ const CommunicationHistory: React.FC = () => {
   const [showFormModal, setShowFormModal] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedType, setSelectedType] = useState<string>("");
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<CommunicationEntry | null>(null);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -398,42 +397,24 @@ const CommunicationHistory: React.FC = () => {
           </div>
 
           <div className="flex w-full items-center justify-end gap-3 sm:w-auto">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`p-2 rounded-lg border flex items-center justify-center transition-colors h-[40px] w-[40px] ${showFilters ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"}`}
-            >
-              <FunnelIcon className={`h-5 w-5 ${showFilters ? "text-cyan-600" : "text-gray-600"}`} />
-            </button>
+            <FilterPopover
+              title="Filter Communications"
+              buttonLabel="Filters"
+              label="Communication Type"
+              value={selectedType}
+              options={[
+                { label: "All Types", value: "" },
+                { label: "Email", value: "EMAIL" },
+                { label: "Call", value: "CALL" },
+                { label: "Meeting", value: "MEETING" },
+                { label: "Other", value: "OTHER" },
+              ]}
+              onChange={setSelectedType}
+              onReset={() => setSelectedType("")}
+              onApply={() => undefined}
+            />
           </div>
         </div>
-
-        {/* Filters Panel */}
-        {showFilters && (
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="flex flex-wrap gap-4">
-              <div className="w-full min-w-0 sm:flex-1 sm:min-w-[200px]">
-                <FloatingSelect
-                  label="Communication Type"
-                  name="type"
-                  value={selectedType}
-                  onChange={(e) => setSelectedType(e.target.value)}
-                  options={[
-                    { id: "", name: "All Types" },
-                    { id: "EMAIL", name: "Email" },
-                    { id: "CALL", name: "Call" },
-                    { id: "MEETING", name: "Meeting" },
-                    { id: "OTHER", name: "Other" }
-                  ]}
-                />
-              </div>
-              {selectedType && (
-                <button onClick={() => setSelectedType("")} className="self-end mb-1 text-sm text-red-600 hover:text-red-800">
-                  Clear Filter
-                </button>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Table */}
         <ReusableTable<CommunicationEntry>
@@ -616,4 +597,4 @@ const CommunicationHistory: React.FC = () => {
   );
 };
 
-export default CommunicationHistory;
+export default Interactions;

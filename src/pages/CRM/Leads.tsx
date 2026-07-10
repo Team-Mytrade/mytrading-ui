@@ -13,7 +13,6 @@ import {
   PhoneIcon,
   EnvelopeIcon,
   UserIcon,
-  FunnelIcon,
 } from "@heroicons/react/24/outline";
 import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -21,6 +20,7 @@ import DynamicPopup from "../../components/common/Popup";
 import { ToasterService } from "../../Services/ToasterService";
 import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
+import FilterPopover from "../../components/common/filter";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 
@@ -44,7 +44,7 @@ interface Customer {
 
 const PAGE_SIZE = 10;
 
-const LeadsPage: React.FC = () => {
+const Leads: React.FC = () => {
   const navigate = useNavigate();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
@@ -54,7 +54,7 @@ const LeadsPage: React.FC = () => {
 
   const [search, setSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("");
-  const [showFilters, setShowFilters] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
 
   const [showModal, setShowModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -223,6 +223,41 @@ const LeadsPage: React.FC = () => {
     }
   };
 
+  const handleInlineStatusChange = async (lead: Lead, status: LeadStatus) => {
+    if (lead.status === status) return;
+
+    const previousLeads = leads;
+    setLeads((current) =>
+      current.map((item) => (item.id === lead.id ? { ...item, status } : item))
+    );
+
+    try {
+      setStatusUpdatingId(lead.id);
+      await axios.put(
+        `${API_URL}/${lead.id}`,
+        {
+          name: lead.name,
+          email: lead.email,
+          phone: lead.phone,
+          status,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getToken()}`,
+          },
+        }
+      );
+      ToasterService.success("Lead status updated successfully!");
+    } catch (error) {
+      console.error("Error updating lead status:", error);
+      setLeads(previousLeads);
+      ToasterService.error("Failed to update lead status");
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
   const openAssignModal = (leadId: number) => {
     setSelectedLead(leadId);
     setShowAssignModal(true);
@@ -287,11 +322,21 @@ const LeadsPage: React.FC = () => {
       label: "Status",
       sortable: true,
       render: (lead) => (
-        <span
-          className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getStatusBadgeColor(lead.status)}`}
-        >
-          {lead.status}
-        </span>
+        <div onClick={(event) => event.stopPropagation()}>
+          <select
+            value={lead.status}
+            onChange={(event) => handleInlineStatusChange(lead, event.target.value as LeadStatus)}
+            disabled={statusUpdatingId === lead.id}
+            className={`w-[112px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${getStatusBadgeColor(
+              lead.status
+            )} ${statusUpdatingId === lead.id ? "cursor-not-allowed opacity-70" : ""}`}
+          >
+            <option value="NEW">New</option>
+            <option value="CONTACTED">Contacted</option>
+            <option value="QUALIFIED">Qualified</option>
+            <option value="LOST">Lost</option>
+          </select>
+        </div>
       ),
     },
     {
@@ -419,49 +464,24 @@ const LeadsPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Filter Button */}
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`p-2 rounded-lg border flex items-center justify-center transition-colors h-[40px] w-[40px] ${
-                showFilters ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              <FunnelIcon className={`h-5 w-5 ${showFilters ? "text-cyan-600" : "text-gray-600"}`} />
-            </button>
-
+            <FilterPopover
+              title="Filter Leads"
+              buttonLabel="Filters"
+              label="Lead Status"
+              value={selectedStatus}
+              options={[
+                { label: "All Statuses", value: "" },
+                { label: "New", value: "NEW" },
+                { label: "Contacted", value: "CONTACTED" },
+                { label: "Qualified", value: "QUALIFIED" },
+                { label: "Lost", value: "LOST" },
+              ]}
+              onChange={setSelectedStatus}
+              onReset={() => setSelectedStatus("")}
+              onApply={() => undefined}
+            />
           </div>
         </div>
-
-        {/* Filters Panel */}
-        {showFilters && (
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="flex flex-wrap gap-4">
-              <div className="flex-1 min-w-[200px]">
-                <FloatingSelect
-                  label="Lead Status"
-                  name="status"
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                  options={[
-                    { id: "", name: "All Statuses" },
-                    { id: "NEW", name: "New" },
-                    { id: "CONTACTED", name: "Contacted" },
-                    { id: "QUALIFIED", name: "Qualified" },
-                    { id: "LOST", name: "Lost" }
-                  ]}
-                />
-              </div>
-              {selectedStatus && (
-                <button
-                  onClick={() => setSelectedStatus("")}
-                  className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
-                >
-                  Clear Filter
-                </button>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Table */}
         <ReusableTable<Lead>
@@ -678,4 +698,4 @@ const LeadsPage: React.FC = () => {
   );
 };
 
-export default LeadsPage;
+export default Leads;

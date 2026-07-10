@@ -746,38 +746,51 @@ export const FloatingDateRangePicker: React.FC<FloatingDateRangePickerProps> = (
 
       {open && !disabled && (
         <div className={`floating-range-popover ${openUpward ? "upward" : ""}`}>
-          <DatePicker
-            inline
-            selected={singleSelection ? startDate || endDate : startDate}
-            startDate={startDate}
-            endDate={endDate}
-            onChange={(value) => {
-              if (singleSelection) {
-                const selectedDate = value as Date | null;
+          {singleSelection ? (
+            <DatePicker
+              inline
+              selected={startDate || endDate}
+              onChange={(selectedDate: Date | null) => {
                 onChange([selectedDate, selectedDate]);
                 if (selectedDate && closeOnSelect) {
                   setOpen(false);
                 }
-                return;
-              }
-
-              const resolvedDates = resolveRangeChange(value as [Date | null, Date | null]);
-              onChange(resolvedDates);
-              if (resolvedDates[0] && resolvedDates[1] && closeOnSelect) {
-                setOpen(false);
-              }
-            }}
-            selectsRange={!singleSelection}
-            minDate={minDate}
-            maxDate={maxDate}
-            filterDate={filterDate}
-            monthsShown={monthsShown}
-            showTimeSelect={showTimeSelect}
-            timeFormat={timeFormat}
-            timeIntervals={timeIntervals}
-            calendarClassName="floating-range-picker"
-            closeOnScroll={closeOnScroll}
-          />
+              }}
+              minDate={minDate}
+              maxDate={maxDate}
+              filterDate={filterDate}
+              monthsShown={monthsShown}
+              showTimeSelect={showTimeSelect}
+              timeFormat={timeFormat}
+              timeIntervals={timeIntervals}
+              calendarClassName="floating-range-picker"
+              closeOnScroll={closeOnScroll}
+            />
+          ) : (
+            <DatePicker
+              inline
+              selected={startDate}
+              startDate={startDate}
+              endDate={endDate}
+              onChange={(value: [Date | null, Date | null]) => {
+                const resolvedDates = resolveRangeChange(value);
+                onChange(resolvedDates);
+                if (resolvedDates[0] && resolvedDates[1] && closeOnSelect) {
+                  setOpen(false);
+                }
+              }}
+              selectsRange
+              minDate={minDate}
+              maxDate={maxDate}
+              filterDate={filterDate}
+              monthsShown={monthsShown}
+              showTimeSelect={showTimeSelect}
+              timeFormat={timeFormat}
+              timeIntervals={timeIntervals}
+              calendarClassName="floating-range-picker"
+              closeOnScroll={closeOnScroll}
+            />
+          )}
           {helperText && <div className="floating-range-helper">{helperText}</div>}
         </div>
       )}

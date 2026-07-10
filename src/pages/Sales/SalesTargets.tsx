@@ -16,6 +16,7 @@ import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import { ListingPdfExportButton } from "../../components/common/export";
 import FilterPopover from "../../components/common/filter";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
@@ -810,12 +811,27 @@ const SalesTargets: React.FC = () => {
             )}
           </div>
 
-          <FilterPopover
-            title="Filter Sales Targets"
-            buttonLabel="Filters"
-            widthClassName="w-[21rem] sm:w-[23rem]"
-            showFooter={false}
-          >
+          <div className="flex items-center gap-2">
+            <ListingPdfExportButton
+              title="Sales Targets"
+              subtitle="Filtered sales target listing"
+              reportLabel="Sales Report"
+              data={filteredTargets}
+              fileName="Sales_Targets"
+              disabled={loading}
+              metadata={(rows, rangeLabel) => [
+                { label: "Total", value: rows.length },
+                { label: "Range", value: rangeLabel },
+                { label: "Status", value: statusFilter || "All" },
+                { label: "Search", value: search || "None" },
+              ]}
+            />
+            <FilterPopover
+              title="Filter Sales Targets"
+              buttonLabel="Filters"
+              widthClassName="w-[21rem] sm:w-[23rem]"
+              showFooter={false}
+            >
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -867,7 +883,8 @@ const SalesTargets: React.FC = () => {
                 </div>
               </div>
             </div>
-          </FilterPopover>
+            </FilterPopover>
+          </div>
         </div>
 
         <ReusableTable

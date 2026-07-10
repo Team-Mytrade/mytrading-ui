@@ -10,6 +10,7 @@ import {
 } from "@heroicons/react/24/outline";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import { ListingPdfExportButton } from "../../components/common/export";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
@@ -403,8 +404,31 @@ const CreditLimit: React.FC = () => {
             <div>
               <h3 className="text-lg font-semibold text-slate-900">Recent credit actions</h3>
             </div>
-            <div className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-600">
-              {filteredLogs.length} items
+            <div className="flex items-center gap-2">
+              <ListingPdfExportButton<CreditLog>
+                title="Credit Actions"
+                subtitle="Filtered credit action listing"
+                reportLabel="Sales Report"
+                data={filteredLogs}
+                fileName="Credit_Actions"
+                disabled={loading}
+                metadata={(rows, rangeLabel) => [
+                  { label: "Total", value: rows.length },
+                  { label: "Range", value: rangeLabel },
+                  { label: "Search", value: search || "None" },
+                ]}
+                columns={[
+                  { header: "Action", key: "action" },
+                  { header: "Customer ID", key: "customerId" },
+                  { header: "Amount", key: "amount" },
+                  { header: "Available Credit", key: "availableCredit" },
+                  { header: "Sufficient", key: "sufficient" },
+                  { header: "Created At", key: "createdAt" },
+                ]}
+              />
+              <div className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-600">
+                {filteredLogs.length} items
+              </div>
             </div>
           </div>
 
