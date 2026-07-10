@@ -8,6 +8,7 @@ import {
   MagnifyingGlassIcon,
   PaperAirplaneIcon,
   PlayIcon,
+  TrashIcon,
   UserPlusIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
@@ -237,6 +238,22 @@ const ServiceScheduleNotify: React.FC = () => {
     }
   };
 
+  const deleteSchedule = async (id = Number(scheduleId)) => {
+    if (!id) {
+      ToasterService.error("Schedule ID is required");
+      return;
+    }
+
+    try {
+      await axios.delete(`${API_URL}/${id}`, { headers });
+      setSchedules((current) => current.filter((item) => item.id !== id));
+      setScheduleId("");
+      ToasterService.success("Schedule deleted successfully");
+    } catch (error) {
+      ToasterService.error("Failed to delete schedule", getErrorMessage(error, "Please try again."));
+    }
+  };
+
   const employeeOptions = users
     .filter((user) => user.employeeId !== undefined && user.employeeId !== null)
     .map((user) => ({
@@ -406,7 +423,7 @@ const ServiceScheduleNotify: React.FC = () => {
                 emptyOptionLabel=""
                 options={employeeOptions}
               />
-              <div className="grid grid-cols-4 gap-2 pt-1">
+              <div className="grid grid-cols-5 gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => {
@@ -437,6 +454,14 @@ const ServiceScheduleNotify: React.FC = () => {
                   className="h-10 rounded-lg bg-cyan-600 px-3 text-sm font-medium text-white transition hover:bg-cyan-700"
                 >
                   Assign
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteSchedule()}
+                  className="flex h-10 items-center justify-center rounded-lg bg-red-600 px-3 text-sm font-medium text-white transition hover:bg-red-700"
+                  title="Delete schedule"
+                >
+                  <TrashIcon className="h-4 w-4" />
                 </button>
               </div>
             </div>

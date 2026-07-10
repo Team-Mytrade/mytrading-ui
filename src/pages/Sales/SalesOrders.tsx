@@ -1,5 +1,4 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import axios from "axios";
 import {
   BanknotesIcon,
@@ -16,10 +15,11 @@ import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import {
-  FloatingDatePicker,
+  FloatingDateRangePicker,
   FloatingInput,
   FloatingSelect1 as FloatingSelect,
   FloatingTextarea,
@@ -131,6 +131,22 @@ type CustomerOption = {
   tradeName?: string;
   email?: string;
   currencyCode?: string;
+};
+
+type ProductOption = {
+  id: number;
+  productCode?: string;
+  productName?: string;
+  categoryName?: string;
+  brand?: string;
+  uom?: string;
+  standardCost?: number;
+  sellingPrice?: number;
+  stockItem?: boolean;
+  serviceItem?: boolean;
+  active?: boolean;
+  imageName?: string | null;
+  imageType?: string | null;
 };
 
 type QuotationItemOption = {
@@ -329,6 +345,20 @@ function money(value: number | string | undefined) {
   return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
+function toDateValue(value?: string) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function toInputDateValue(date: Date | null) {
+  if (!date) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function searchableText(value: unknown) {
   if (value === null || value === undefined) return "";
   return String(value).toLowerCase().trim();
@@ -368,8 +398,7 @@ function getQuotationItemId(item: QuotationItemOption) {
 }
 
 function customerOptionLabel(customer: CustomerOption) {
-  const name = customer.customerName || customer.tradeName || `Customer #${customer.id}`;
-  return `${customer.id} - ${name}`;
+  return customer.customerName || customer.tradeName || `Customer #${customer.id}`;
 }
 
 function buildAddress(form: OrderForm, type: "BILLING" | "SHIPPING"): Address {
@@ -447,6 +476,7 @@ const SalesOrders: React.FC = () => {
   const [salesChannels, setSalesChannels] = useState<SalesChannelOption[]>([]);
   const [quotations, setQuotations] = useState<QuotationOption[]>([]);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [products, setProducts] = useState<ProductOption[]>([]);
 
   useEffect(() => {
     fetchOrders();
@@ -479,11 +509,12 @@ const SalesOrders: React.FC = () => {
 
   const fetchDropdowns = async () => {
     try {
-      const [personsRes, channelsRes, quotationsRes, customersRes] = await Promise.allSettled([
+      const [personsRes, channelsRes, quotationsRes, customersRes, productsRes] = await Promise.allSettled([
         axios.get<SalesPersonOption[]>("/v1/api/sales/sales-persons", { headers }),
         axios.get<SalesChannelOption[]>("/v1/api/sales/channels", { headers }),
         axios.get<QuotationOption[]>("/v1/api/sales/quotations", { headers }),
         axios.get<CustomerOption[]>("/v1/api/crm/customers", { headers }),
+        axios.get<ProductOption[]>("/v1/api/purchase/products", { headers }),
       ]);
 
       if (personsRes.status === "fulfilled") {
@@ -497,6 +528,9 @@ const SalesOrders: React.FC = () => {
       }
       if (customersRes.status === "fulfilled") {
         setCustomers(Array.isArray(customersRes.value.data) ? customersRes.value.data : []);
+      }
+      if (productsRes.status === "fulfilled") {
+        setProducts(Array.isArray(productsRes.value.data) ? productsRes.value.data : []);
       }
     } catch (error) {
       ToasterService.error("Failed to load dropdown data", getErrorMessage(error, "Please try again."));
@@ -548,6 +582,19 @@ const SalesOrders: React.FC = () => {
         if (customer) {
           next.email = customer.email || next.email;
           next.currencyCode = customer.currencyCode || next.currencyCode || "INR";
+        }
+      }
+
+      if (name === "itemProductId") {
+        const product = products.find((item) => String(item.id) === value);
+        if (product) {
+          next.itemProductCode = product.productCode || "";
+          next.itemProductName = product.productName || "";
+          next.itemUom = product.uom || next.itemUom;
+          next.itemUnitPrice = String(product.sellingPrice ?? next.itemUnitPrice);
+        } else if (!value) {
+          next.itemProductCode = "";
+          next.itemProductName = "";
         }
       }
 
@@ -965,202 +1012,272 @@ const SalesOrders: React.FC = () => {
         />
       </div>
 
-      {showFormModal &&
-        createPortal(
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-4 backdrop-blur-sm sm:items-center">
-            <div className="mx-auto max-h-[calc(100vh-2rem)] w-full max-w-5xl overflow-y-auto rounded-xl bg-white shadow-xl">
-              <div className="flex items-center justify-between border-b border-gray-100 p-5">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {editingId ? "Edit Sales Order" : "Create Sales Order"}
-                  </h3>
-                  <p className="mt-0.5 text-xs text-gray-500">Enter sales order details from the API schema</p>
-                </div>
-                <button type="button" onClick={closeForm} className="text-gray-400 hover:text-gray-600">
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="p-5">
-                <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-3">
-                  <FloatingInput label="Order Number" name="orderNumber" value={form.orderNumber} onChange={handleChange} />
-                  <FloatingSelect
-                    label="Quotation Type"
-                    name="quotationType"
-                    value={form.quotationType}
-                    onChange={handleChange}
-                    includeEmptyOption={false}
-                    options={quotationTypeOptions.map((item) => ({ id: item, name: item }))}
-                  />
-                  <FloatingDatePicker label="Order Date" name="orderDate" value={form.orderDate} onChange={handleChange} required />
-                  <FloatingSelect
-                    label="Status"
-                    name="status"
-                    value={form.status}
-                    onChange={handleChange}
-                    includeEmptyOption={false}
-                    options={statusOptions.map((item) => ({ id: item, name: item }))}
-                  />
-                  <FloatingSelect
-                    label="Customer ID"
-                    name="customerId"
-                    value={form.customerId}
-                    onChange={handleChange}
-                    emptyOptionLabel=""
-                    options={customers.map((customer) => ({
-                      id: String(customer.id),
-                      name: customerOptionLabel(customer),
-                    }))}
-                    required
-                  />
-                  <FloatingSelect
-                    label="Sales Channel"
-                    name="salesChannelId"
-                    value={form.salesChannelId}
-                    onChange={handleChange}
-                    emptyOptionLabel=""
-                    options={salesChannels
-                      .map((channel) => {
-                        const id = getSalesChannelId(channel);
-                        return {
-                          id: String(id),
-                          name: `${channel.name || `Channel #${id}`}${channel.channelType ? ` (${channel.channelType})` : ""}`,
-                        };
-                      })
-                      .filter((channel) => Number(channel.id) > 0)}
-                  />
-                  <FloatingSelect
-                    label="Sales Person"
-                    name="salesPersonId"
-                    value={form.salesPersonId}
-                    onChange={handleChange}
-                    emptyOptionLabel=""
-                    options={salesPersons
-                      .map((person) => {
-                        const id = getSalesPersonId(person);
-                        return {
-                          id: String(id),
-                          name: `${person.name || `Person #${id}`}${person.code ? ` (${person.code})` : ""}`,
-                        };
-                      })
-                      .filter((person) => Number(person.id) > 0)}
-                  />
-                  <FloatingInput label="Subject" name="subject" value={form.subject} onChange={handleChange} />
-                  <FloatingInput label="Email" name="email" type="email" value={form.email} onChange={handleChange} />
-                  <FloatingInput label="Currency Code" name="currencyCode" value={form.currencyCode} onChange={handleChange} />
-                  <FloatingSelect
-                    label="Quotation"
-                    name="quotationId"
-                    value={form.quotationId}
-                    onChange={handleChange}
-                    emptyOptionLabel=""
-                    options={quotations
-                      .map((quotation) => {
-                        const id = getQuotationId(quotation);
-                        return {
-                          id: String(id),
-                          name: `${quotation.quoteNumber || quotation.quotationNumber || `Quotation #${id}`}`,
-                        };
-                      })
-                      .filter((quotation) => Number(quotation.id) > 0)}
-                  />
-                  <FloatingInput label="Quotation Number" name="quotationNumber" value={form.quotationNumber} onChange={handleChange} />
-                  <FloatingInput label="Quotation Version" name="quotationVersionNo" type="number" value={form.quotationVersionNo} onChange={handleChange} />
-                  <FloatingDatePicker label="Quotation Date" name="quotationDate" value={form.quotationDate} onChange={handleChange} />
-                  <FloatingDatePicker label="Quotation Valid Until" name="quotationValidUntil" value={form.quotationValidUntil} onChange={handleChange} />
-                  <FloatingDatePicker label="Due Date" name="dueDate" value={form.dueDate} onChange={handleChange} />
-                  <FloatingInput label="Payment Terms" name="paymentTerms" value={form.paymentTerms} onChange={handleChange} />
-                  <FloatingInput label="Credit Days" name="creditDays" type="number" value={form.creditDays} onChange={handleChange} />
-                  <FloatingSelect
-                    label="Paid"
-                    name="paid"
-                    value={form.paid}
-                    onChange={handleChange}
-                    includeEmptyOption={false}
-                    options={[
-                      { id: "true", name: "Yes" },
-                      { id: "false", name: "No" },
-                    ]}
-                  />
-                  <FloatingInput label="Sub Total" name="subTotal" type="number" value={form.subTotal} onChange={handleChange} />
-                  <FloatingInput label="Discount Amount" name="discountAmount" type="number" value={form.discountAmount} onChange={handleChange} />
-                  <FloatingInput label="Additional Discount" name="additionalDiscount" type="number" value={form.additionalDiscount} onChange={handleChange} />
-                  <FloatingInput label="Discount %" name="discountPercentage" type="number" value={form.discountPercentage} onChange={handleChange} />
-                  <FloatingInput label="Tax Amount" name="taxAmount" type="number" value={form.taxAmount} onChange={handleChange} />
-                  <FloatingInput label="Grand Total" name="grandTotal" type="number" value={form.grandTotal} onChange={handleChange} />
-                  <FloatingInput label="Paid Amount" name="paidAmount" type="number" value={form.paidAmount} onChange={handleChange} />
-                  <FloatingInput label="Balance Amount" name="balanceAmount" type="number" value={form.balanceAmount} onChange={handleChange} />
-                </div>
-
-                <div className="mt-2 grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <FloatingInput label="Billing Address" name="billingAddressLine1" value={form.billingAddressLine1} onChange={handleChange} />
-                  <FloatingInput label="Shipping Address" name="shippingAddressLine1" value={form.shippingAddressLine1} onChange={handleChange} />
-                  <FloatingInput label="Billing City" name="billingCity" value={form.billingCity} onChange={handleChange} />
-                  <FloatingInput label="Shipping City" name="shippingCity" value={form.shippingCity} onChange={handleChange} />
-                  <FloatingInput label="Billing State" name="billingState" value={form.billingState} onChange={handleChange} />
-                  <FloatingInput label="Shipping State" name="shippingState" value={form.shippingState} onChange={handleChange} />
-                  <FloatingInput label="Billing Country" name="billingCountry" value={form.billingCountry} onChange={handleChange} />
-                  <FloatingInput label="Shipping Country" name="shippingCountry" value={form.shippingCountry} onChange={handleChange} />
-                  <FloatingInput label="Billing Postal Code" name="billingPostalCode" value={form.billingPostalCode} onChange={handleChange} />
-                  <FloatingInput label="Shipping Postal Code" name="shippingPostalCode" value={form.shippingPostalCode} onChange={handleChange} />
-                </div>
-
-                <div className="mt-4 border-t border-gray-100 pt-4">
-                  <h4 className="mb-4 text-sm font-semibold text-gray-900">Order Item</h4>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <FloatingInput label="Quotation Item ID" name="itemQuotationItemId" type="number" value={form.itemQuotationItemId} onChange={handleChange} />
-                    <FloatingSelect
-                      label="Item Type"
-                      name="itemType"
-                      value={form.itemType}
-                      onChange={handleChange}
-                      includeEmptyOption={false}
-                      options={[
-                        { id: "PRODUCT", name: "PRODUCT" },
-                        { id: "SERVICE", name: "SERVICE" },
-                      ]}
-                    />
-                    <FloatingInput label="Service Item ID" name="itemServiceItemId" type="number" value={form.itemServiceItemId} onChange={handleChange} />
-                    <FloatingInput label="Product ID" name="itemProductId" type="number" value={form.itemProductId} onChange={handleChange} required />
-                    <FloatingInput label="Product Code" name="itemProductCode" value={form.itemProductCode} onChange={handleChange} />
-                    <FloatingInput label="Product Name" name="itemProductName" value={form.itemProductName} onChange={handleChange} />
-                    <FloatingInput label="Description" name="itemDescription" value={form.itemDescription} onChange={handleChange} />
-                    <FloatingInput label="UOM" name="itemUom" value={form.itemUom} onChange={handleChange} />
-                    <FloatingInput label="Quantity" name="itemQuantity" type="number" value={form.itemQuantity} onChange={handleChange} required />
-                    <FloatingInput label="Unit Price" name="itemUnitPrice" type="number" value={form.itemUnitPrice} onChange={handleChange} required />
-                    <FloatingInput label="Item Discount %" name="itemDiscountPercentage" type="number" value={form.itemDiscountPercentage} onChange={handleChange} />
-                    <FloatingInput label="Item Discount Amount" name="itemDiscountAmount" type="number" value={form.itemDiscountAmount} onChange={handleChange} />
-                    <FloatingInput label="Item Additional Discount" name="itemAdditionalDiscount" type="number" value={form.itemAdditionalDiscount} onChange={handleChange} />
-                    <FloatingInput label="Tax Rate" name="itemTaxRate" type="number" value={form.itemTaxRate} onChange={handleChange} />
-                    <FloatingInput label="Tax Code" name="itemTaxCode" value={form.itemTaxCode} onChange={handleChange} />
-                    <FloatingInput label="Item Remarks" name="itemRemarks" value={form.itemRemarks} onChange={handleChange} />
-                  </div>
-                </div>
-
-                <div className="mt-2 grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <FloatingTextarea label="Remarks" name="remarks" value={form.remarks} onChange={handleChange} rows={3} />
-                  <FloatingTextarea label="Terms and Conditions" name="termsAndConditions" value={form.termsAndConditions} onChange={handleChange} rows={3} />
-                  <FloatingTextarea label="Internal Notes" name="internalNotes" value={form.internalNotes} onChange={handleChange} rows={3} />
-                  <FloatingTextarea label="Customer Notes" name="customerNotes" value={form.customerNotes} onChange={handleChange} rows={3} />
-                </div>
-
-                <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                  <button type="button" onClick={closeForm} className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200">
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    {submitting ? "Saving..." : editingId ? "Update Sales Order" : "Create Sales Order"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>,
-          document.body
-        )}
+      <PaginatedPopup
+        isOpen={showFormModal}
+        title={editingId ? "Edit Sales Order" : "Create Sales Order"}
+        subtitle="Enter sales order details from the API schema"
+        onClose={closeForm}
+        onSubmit={handleSubmit}
+        submitting={submitting}
+        submitLabel={editingId ? "Update Sales Order" : "Create Sales Order"}
+        maxWidthClassName="max-w-5xl"
+        tabs={[
+          {
+            label: "Order Info",
+            fields: [
+              <FloatingInput label="Order Number" name="orderNumber" value={form.orderNumber} onChange={handleChange} />,
+              <FloatingSelect
+                label="Quotation Type"
+                name="quotationType"
+                value={form.quotationType}
+                onChange={handleChange}
+                includeEmptyOption={false}
+                options={quotationTypeOptions.map((item) => ({ id: item, name: item }))}
+              />,
+              <FloatingDateRangePicker
+                label="Order Date"
+                startDate={toDateValue(form.orderDate)}
+                endDate={toDateValue(form.orderDate)}
+                onChange={([start, end]) =>
+                  setForm((current) => ({
+                    ...current,
+                    orderDate: toInputDateValue(end || start),
+                  }))
+                }
+                placeholder=""
+                required
+                singleSelection
+              />,
+              <FloatingSelect
+                label="Status"
+                name="status"
+                value={form.status}
+                onChange={handleChange}
+                includeEmptyOption={false}
+                options={statusOptions.map((item) => ({ id: item, name: item }))}
+              />,
+              <FloatingSelect
+                label="Customer"
+                name="customerId"
+                value={form.customerId}
+                onChange={handleChange}
+                emptyOptionLabel=""
+                options={customers.map((customer) => ({
+                  id: String(customer.id),
+                  name: customerOptionLabel(customer),
+                }))}
+                required
+              />,
+              <FloatingSelect
+                label="Sales Channel"
+                name="salesChannelId"
+                value={form.salesChannelId}
+                onChange={handleChange}
+                emptyOptionLabel=""
+                options={salesChannels
+                  .map((channel) => {
+                    const id = getSalesChannelId(channel);
+                    return {
+                      id: String(id),
+                      name: `${channel.name || `Channel #${id}`}${channel.channelType ? ` (${channel.channelType})` : ""}`,
+                    };
+                  })
+                  .filter((channel) => Number(channel.id) > 0)}
+              />,
+            ],
+          },
+          {
+            label: "Order Details",
+            fields: [
+              <FloatingSelect
+                label="Sales Person"
+                name="salesPersonId"
+                value={form.salesPersonId}
+                onChange={handleChange}
+                emptyOptionLabel=""
+                options={salesPersons
+                  .map((person) => {
+                    const id = getSalesPersonId(person);
+                    return {
+                      id: String(id),
+                      name: `${person.name || `Person #${id}`}${person.code ? ` (${person.code})` : ""}`,
+                    };
+                  })
+                  .filter((person) => Number(person.id) > 0)}
+              />,
+              <FloatingInput label="Subject" name="subject" value={form.subject} onChange={handleChange} />,
+              <FloatingInput label="Email" name="email" type="email" value={form.email} onChange={handleChange} />,
+              <FloatingInput label="Currency Code" name="currencyCode" value={form.currencyCode} onChange={handleChange} />,
+            ],
+          },
+          {
+            label: "Quotation",
+            fields: [
+              <FloatingSelect
+                label="Quotation"
+                name="quotationId"
+                value={form.quotationId}
+                onChange={handleChange}
+                emptyOptionLabel=""
+                options={quotations
+                  .map((quotation) => {
+                    const id = getQuotationId(quotation);
+                    return {
+                      id: String(id),
+                      name: `${quotation.quoteNumber || quotation.quotationNumber || `Quotation #${id}`}`,
+                    };
+                  })
+                  .filter((quotation) => Number(quotation.id) > 0)}
+              />,
+              <FloatingInput label="Quotation Number" name="quotationNumber" value={form.quotationNumber} onChange={handleChange} />,
+              <FloatingInput label="Quotation Version" name="quotationVersionNo" type="number" value={form.quotationVersionNo} onChange={handleChange} />,
+              <FloatingDateRangePicker
+                label="Quotation Date Range"
+                startDate={toDateValue(form.quotationDate)}
+                endDate={toDateValue(form.quotationValidUntil)}
+                onChange={([start, end]) =>
+                  setForm((current) => ({
+                    ...current,
+                    quotationDate: toInputDateValue(start),
+                    quotationValidUntil: toInputDateValue(end),
+                  }))
+                }
+                placeholder=""
+              />,
+              <FloatingDateRangePicker
+                label="Due Date"
+                startDate={toDateValue(form.dueDate)}
+                endDate={toDateValue(form.dueDate)}
+                onChange={([start, end]) =>
+                  setForm((current) => ({
+                    ...current,
+                    dueDate: toInputDateValue(end || start),
+                  }))
+                }
+                placeholder=""
+                singleSelection
+              />,
+            ],
+          },
+          {
+            label: "Payment",
+            fields: [
+              <FloatingInput label="Payment Terms" name="paymentTerms" value={form.paymentTerms} onChange={handleChange} />,
+              <FloatingInput label="Credit Days" name="creditDays" type="number" value={form.creditDays} onChange={handleChange} />,
+              <FloatingSelect
+                label="Paid"
+                name="paid"
+                value={form.paid}
+                onChange={handleChange}
+                includeEmptyOption={false}
+                options={[
+                  { id: "true", name: "Yes" },
+                  { id: "false", name: "No" },
+                ]}
+              />,
+            ],
+          },
+          {
+            label: "Totals",
+            fields: [
+              <FloatingInput label="Sub Total" name="subTotal" type="number" value={form.subTotal} onChange={handleChange} />,
+              <FloatingInput label="Discount Amount" name="discountAmount" type="number" value={form.discountAmount} onChange={handleChange} />,
+              <FloatingInput label="Additional Discount" name="additionalDiscount" type="number" value={form.additionalDiscount} onChange={handleChange} />,
+              <FloatingInput label="Discount %" name="discountPercentage" type="number" value={form.discountPercentage} onChange={handleChange} />,
+              <FloatingInput label="Tax Amount" name="taxAmount" type="number" value={form.taxAmount} onChange={handleChange} />,
+              <FloatingInput label="Grand Total" name="grandTotal" type="number" value={form.grandTotal} onChange={handleChange} />,
+            ],
+          },
+          {
+            label: "Settlement",
+            fields: [
+              <FloatingInput label="Paid Amount" name="paidAmount" type="number" value={form.paidAmount} onChange={handleChange} />,
+              <FloatingInput label="Balance Amount" name="balanceAmount" type="number" value={form.balanceAmount} onChange={handleChange} />,
+            ],
+          },
+          {
+            label: "Addresses",
+            fields: [
+              <FloatingInput label="Billing Address" name="billingAddressLine1" value={form.billingAddressLine1} onChange={handleChange} />,
+              <FloatingInput label="Shipping Address" name="shippingAddressLine1" value={form.shippingAddressLine1} onChange={handleChange} />,
+              <FloatingInput label="Billing City" name="billingCity" value={form.billingCity} onChange={handleChange} />,
+              <FloatingInput label="Shipping City" name="shippingCity" value={form.shippingCity} onChange={handleChange} />,
+              <FloatingInput label="Billing State" name="billingState" value={form.billingState} onChange={handleChange} />,
+              <FloatingInput label="Shipping State" name="shippingState" value={form.shippingState} onChange={handleChange} />,
+            ],
+          },
+          {
+            label: "Address More",
+            fields: [
+              <FloatingInput label="Billing Country" name="billingCountry" value={form.billingCountry} onChange={handleChange} />,
+              <FloatingInput label="Shipping Country" name="shippingCountry" value={form.shippingCountry} onChange={handleChange} />,
+              <FloatingInput label="Billing Postal Code" name="billingPostalCode" value={form.billingPostalCode} onChange={handleChange} />,
+              <FloatingInput label="Shipping Postal Code" name="shippingPostalCode" value={form.shippingPostalCode} onChange={handleChange} />,
+            ],
+          },
+          {
+            label: "Order Item",
+            fields: [
+              <FloatingInput label="Quotation Item ID" name="itemQuotationItemId" type="number" value={form.itemQuotationItemId} onChange={handleChange} />,
+              <FloatingSelect
+                label="Item Type"
+                name="itemType"
+                value={form.itemType}
+                onChange={handleChange}
+                includeEmptyOption={false}
+                options={[
+                  { id: "PRODUCT", name: "PRODUCT" },
+                  { id: "SERVICE", name: "SERVICE" },
+                ]}
+              />,
+              <FloatingInput label="Service Item ID" name="itemServiceItemId" type="number" value={form.itemServiceItemId} onChange={handleChange} />,
+              <FloatingSelect
+                label="Product Name"
+                name="itemProductId"
+                value={form.itemProductId}
+                onChange={handleChange}
+                emptyOptionLabel=""
+                options={products
+                  .filter((product) => Number(product.id) > 0)
+                  .map((product) => ({
+                    id: String(product.id),
+                    name: product.productName || product.productCode || `Product #${product.id}`,
+                  }))}
+                required
+              />,
+            ],
+          },
+          {
+            label: "Item Details",
+            fields: [
+              <FloatingInput label="Description" name="itemDescription" value={form.itemDescription} onChange={handleChange} />,
+              <FloatingInput label="UOM" name="itemUom" value={form.itemUom} onChange={handleChange} />,
+              <FloatingInput label="Quantity" name="itemQuantity" type="number" value={form.itemQuantity} onChange={handleChange} required />,
+              <FloatingInput label="Unit Price" name="itemUnitPrice" type="number" value={form.itemUnitPrice} onChange={handleChange} required />,
+              <FloatingInput label="Item Discount %" name="itemDiscountPercentage" type="number" value={form.itemDiscountPercentage} onChange={handleChange} />,
+              <FloatingInput label="Item Discount Amount" name="itemDiscountAmount" type="number" value={form.itemDiscountAmount} onChange={handleChange} />,
+            ],
+          },
+          {
+            label: "Item Pricing",
+            fields: [
+              <FloatingInput label="Item Additional Discount" name="itemAdditionalDiscount" type="number" value={form.itemAdditionalDiscount} onChange={handleChange} />,
+              <FloatingInput label="Tax Rate" name="itemTaxRate" type="number" value={form.itemTaxRate} onChange={handleChange} />,
+              <FloatingInput label="Tax Code" name="itemTaxCode" value={form.itemTaxCode} onChange={handleChange} />,
+              <FloatingInput label="Item Remarks" name="itemRemarks" value={form.itemRemarks} onChange={handleChange} />,
+            ],
+          },
+          {
+            label: "Notes",
+            fields: [
+              <FloatingTextarea label="Remarks" name="remarks" value={form.remarks} onChange={handleChange} rows={3} />,
+              <FloatingTextarea label="Terms and Conditions" name="termsAndConditions" value={form.termsAndConditions} onChange={handleChange} rows={3} />,
+              <FloatingTextarea label="Internal Notes" name="internalNotes" value={form.internalNotes} onChange={handleChange} rows={3} />,
+              <FloatingTextarea label="Customer Notes" name="customerNotes" value={form.customerNotes} onChange={handleChange} rows={3} />,
+            ],
+          },
+        ]}
+      />
 
       <DynamicPopup
         isPopupOpen={!!deleteOrder}
