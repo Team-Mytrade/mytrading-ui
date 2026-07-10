@@ -79,10 +79,38 @@ function renderDetailValue(value: unknown): React.ReactNode {
   if (typeof value === "string" || typeof value === "number") return String(value);
   if (Array.isArray(value)) {
     if (value.length === 0) return <span className="text-gray-400">--</span>;
+    // Array of primitives
+    if (value.every((v) => typeof v === "string" || typeof v === "number")) {
+      return value.join(", ");
+    }
+    // Array of objects — show as compact list
     return (
-      <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-2 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">
-        {JSON.stringify(value, null, 2)}
-      </pre>
+      <div className="space-y-1">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-50 text-cyan-700 border border-cyan-100 mb-1">
+          {value.length} {value.length === 1 ? "item" : "items"}
+        </span>
+        <div className="max-h-40 overflow-auto space-y-1">
+          {value.map((item, idx) => {
+            const nameField = typeof item === "object" && item !== null
+              ? (item as Record<string, unknown>).name ??
+                (item as Record<string, unknown>).employeeName ??
+                (item as Record<string, unknown>).firstName ??
+                (item as Record<string, unknown>).label ??
+                (item as Record<string, unknown>).title ??
+                null
+              : null;
+            return (
+              <div key={idx} className="rounded-md border border-gray-100 bg-white px-2.5 py-1.5 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                {nameField != null ? (
+                  <span className="font-medium">{String(nameField)}</span>
+                ) : (
+                  <pre className="whitespace-pre-wrap text-xs">{JSON.stringify(item, null, 2)}</pre>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     );
   }
   if (typeof value === "object") {
