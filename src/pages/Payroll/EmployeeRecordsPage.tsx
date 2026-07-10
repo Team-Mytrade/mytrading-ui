@@ -258,14 +258,14 @@ const EmployeeRecordsPage: React.FC = () => {
             key: "contact",
             label: "Contact",
             render: (row) => (
-                <div className="space-y-1">
-                    <div className="flex items-center text-[10px] text-gray-600">
+                <div className="space-y-1 max-w-[120px]">
+                    <div className="flex items-center text-[10px] text-gray-600" title={row.officialEmail || ""}>
                         <EnvelopeIcon className="h-3 w-3 mr-1 text-gray-400 shrink-0" />
-                        {row.officialEmail || "—"}
+                        <span className="truncate">{row.officialEmail || "—"}</span>
                     </div>
-                    <div className="flex items-center text-[10px] text-gray-600">
+                    <div className="flex items-center text-[10px] text-gray-600" title={row.phone || ""}>
                         <PhoneIcon className="h-3 w-3 mr-1 text-gray-400 shrink-0" />
-                        {row.phone || "—"}
+                        <span className="truncate">{row.phone || "—"}</span>
                     </div>
                 </div>
             )

@@ -265,37 +265,37 @@ const EmployeeSalaryPage: React.FC = () => {
             key: "basic",
             label: "Basic",
             sortable: true,
-            render: (row) => <span className="text-xs text-gray-900">₹{row.basic.toLocaleString()}</span>
+            render: (row) => <span className="text-xs text-gray-900 whitespace-nowrap">₹{row.basic.toLocaleString()}</span>
         },
         {
             key: "hra",
             label: "HRA",
             sortable: true,
-            render: (row) => <span className="text-xs text-gray-900">₹{row.hra.toLocaleString()}</span>
+            render: (row) => <span className="text-xs text-gray-900 whitespace-nowrap">₹{row.hra.toLocaleString()}</span>
         },
         {
             key: "bonus",
             label: "Bonus",
             sortable: true,
-            render: (row) => <span className="text-xs text-green-600">₹{row.bonus.toLocaleString()}</span>
+            render: (row) => <span className="text-xs text-green-600 whitespace-nowrap">₹{row.bonus.toLocaleString()}</span>
         },
         {
             key: "grossSalary",
             label: "Gross",
             sortable: true,
-            render: (row) => <span className="text-xs font-medium text-gray-900">₹{row.grossSalary.toLocaleString()}</span>
+            render: (row) => <span className="text-xs font-medium text-gray-900 whitespace-nowrap">₹{row.grossSalary.toLocaleString()}</span>
         },
         {
             key: "totalDeductions",
             label: "Deductions",
             sortable: true,
-            render: (row) => <span className="text-xs text-red-600">₹{row.totalDeductions.toLocaleString()}</span>
+            render: (row) => <span className="text-xs text-red-600 whitespace-nowrap">₹{row.totalDeductions.toLocaleString()}</span>
         },
         {
             key: "netSalary",
             label: "Net Salary",
             sortable: true,
-            render: (row) => <span className="text-xs font-bold text-cyan-600">₹{row.netSalary.toLocaleString()}</span>
+            render: (row) => <span className="text-xs font-bold text-cyan-600 whitespace-nowrap">₹{row.netSalary.toLocaleString()}</span>
         },
         {
             key: "regime",
