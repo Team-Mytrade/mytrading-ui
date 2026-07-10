@@ -8,7 +8,7 @@ export const AddButton: React.FC<{
   return (
     <button
       onClick={onClick}
-      className={`${className} flex items-center gap-2 px-4 py-2 bg-cyan-600 !text-white rounded-lg hover:bg-cyan-700 transition-colors font-medium`}
+      className={`${className} flex mt-2 items-center gap-2 px-4 py-2 bg-cyan-600 !text-white rounded-lg hover:bg-cyan-700 transition-colors font-medium`}
     >
       <PlusIcon className="w-5 h-5 text-white" />
       <span className="text-white">{label}</span>
