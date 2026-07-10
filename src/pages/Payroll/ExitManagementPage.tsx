@@ -141,9 +141,11 @@ const ExitManagementPage: React.FC = () => {
     };
 
     return (
-        <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+        <>
             <PageMeta title="Exit Management" description="Manage your resignation and offboarding" />
             <PageBreadcrumb pageTitle="Exit Management" />
+
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-0 pb-8 space-y-6">
 
             {!resignation && !isResigning ? (
                 <div className="bg-white p-8 rounded-lg border border-gray-200 shadow-sm text-center">
@@ -284,7 +286,8 @@ const ExitManagementPage: React.FC = () => {
                     </div>
                 </div>
             )}
-        </div>
+            </div>
+        </>
     );
 };
 
