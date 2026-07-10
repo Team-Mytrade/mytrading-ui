@@ -52,25 +52,17 @@ export const navItems: NavItem[] = [
     icon: <ShoppingCart className="w-5 h-5" />,
     name: "Sales",
     subItems: [
-
-      { name: "Category", path: "/sales-categories" },
-      { name: "Products", path: "/products" },
-      { name: "Quotations", path: "/quotationsPage" },
-      { name: "Order Items", path: "/sales-order-items" },
-      { name: "Orders", path: "/ordersPage" },
-      { name: "Channels", path: "/sales-channels" },
-      // { name: "Price List / Discounts", path: "/priceList" },
-      { name: "Customer", path: "/sales-customer" },
-      { name: "Contact Persons", path: "/sales-contact-persons" },
-      // { name: "Invoices", path: "/invoicesPage"},
-
-      // { name: "Salesperson", path: "/sales-person"},
-      // { name: "Sales Team", path: "/sales-team"},
-      // { name: "Payment Terms", path: "/payment-term"},
-      // { name: "Delivery Schedule", path: "/delivery-schedule"},
-
-      // { name: "Sales Targets", path: "/salesTargetPage"},
-      // { name: "Sales Reports", path: "/salesReportPage"},
+      { name: "Sales Persons", path: "/sales-persons" },
+      { name: "Sales Targets", path: "/sales-targets" },
+      { name: "Sales Channels", path: "/sales-channels" },
+      { name: "Credit Limit", path: "/credit-limit" },
+      { name: "Quotations", path: "/quotations" },
+      { name: "Sales Orders", path: "/sales-orders" },
+      { name: "Return Requests", path: "/return-requests" },
+      { name: "Refunds", path: "/refunds" },
+      { name: "Service Schedules", path: "/service-schedules" },
+      { name: "Service Schedule Notify", path: "/service-schedule-notify" },
+      { name: "Sales Dashboard", path: "/sales-dashboard" },
     ],
   },
 
@@ -78,31 +70,34 @@ export const navItems: NavItem[] = [
     icon: <Package className="w-5 h-5" />,
     name: "Inventory",
     subItems: [
-      { name: "Product / SKU ", path: "/product-sku" }, //SKU (Stock Keeping Unit)
-      { name: "Warehouse / Location", path: "/warehouse" },
-      { name: "Stock Level", path: "/stock-level" },
-      { name: "Batch / Serial Number", path: "/batchSerial" },
-      { name: "Quality Inspection Record", path: "/qualityInspection" },
-      { name: "Stock Movement / Transactions", path: "/transactions" },
-      { name: "Salesperson / Sales Team", path: "/salesTargetPage" },
-      { name: "Reorder Level", path: "/reorderLevel" },
-      { name: "Stock Adjustment", path: "/stockAdjustment" },
+      { name: "warehouse", path: "/warehouse" },
+      { name: "inventory", path: "/inventory" },
+      { name: "batch", path: "/batch" },
+      { name: "stock-movement", path: "/stock-movement" },
+      { name: "stock-level", path: "/stock-level" },
+      { name: "stock-adjustment", path: "/stock-adjustment" },
+      { name: "serial-number", path: "/serial-number" },
+      { name: "quality-inspection", path: "/quality-inspection" },
+      { name: "inventory-reservation", path: "/inventory-reservation" },
+      { name: "inventory-report", path: "/inventory-report" },
     ],
   },
   {
     icon: <FileText className="w-5 h-5" />,
     name: "Purchase",
     subItems: [
-
-      { name: "Purchase Requisition", path: "/purchaseRequisition" }, //SKU (Stock Keeping Unit)
-      { name: "Purchase Order", path: "/purchaseOrder" },
-      { name: "Supplier / Vendor", path: "/supplier" },
-      { name: "Product / SKU", path: "/product" },
-      { name: "Deparment", path: "/department" },
-      { name: "Terms and Conditions", path: "/term-condition" },
-      { name: "Delivery Date", path: "/deliveryDate" },
-      { name: "Approval Status", path: "/approvalStatus" },
-      { name: "Goods Receipt Note (GRN)", path: "/goodseceiptNote" },
+      { name: "Vendors", path: "/vendors" },
+      { name: "Terms and Conditions", path: "/terms-and-conditions" },
+      { name: "Product Categories", path: "/product-categories" },
+      { name: "Products", path: "/purchase-products" },
+      { name: "Purchase Requisitions", path: "/purchase-requisitions" },
+      { name: "Requisition Line Items", path: "/requisition-line-items" },
+      { name: "Purchase Orders", path: "/purchase-orders" },
+      { name: "Goods Receipt Notes", path: "/goods-receipt-notes" },
+      { name: "Deliveries", path: "/deliveries" },
+      { name: "Approval Status", path: "/approval-status" },
+      { name: "Inventory", path: "/purchase-inventory" },
+      { name: "Purchase Reports", path: "/purchase-reports" },
     ],
   },
 
@@ -128,13 +123,20 @@ export const navItems: NavItem[] = [
     icon: <Truck className="w-5 h-5" />,
     name: "Delivery",
     subItems: [
-      { name: "Delivery Orders", path: "/delivery-order" },
       { name: "Transporters", path: "/transporter" },
-      { name: "Vehicles", path: "/vechile" },
       { name: "Routes", path: "/route" },
+      { name: "Vehicles", path: "/vehicle" },
+      { name: "Customer Address", path: "/customerAddress" },
+        { name: "Schedule", path: "/schedule" },
+      { name: "Delivery Note", path: "/delivery-note"},
+      { name: "Shipment", path: "/shipment"},
+      { name: "Goods Issue", path: "/goodsIssue" },
+      { name: "Delivery Order", path: "/deliveryOrder"},
       { name: "Delivery Status", path: "/deliveryStatus" },
     ],
   },
+
+  
   {
     icon: <Users className="w-5 h-5" />,
     name: "HRMS",
@@ -568,7 +570,7 @@ const AppSidebar: React.FC = () => {
         }}
         className={`
           fixed top-0 left-0 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800
-          shadow-lg z-50 flex flex-col
+          shadow-lg z-30 flex flex-col
           ${isResizing ? "transition-none select-none" : "transition-all duration-300 ease-in-out"}
           ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
           lg:translate-x-0
@@ -675,7 +677,7 @@ const AppSidebar: React.FC = () => {
         {(isExpanded || isMobileOpen) && (
           <div
             onMouseDown={handleMouseDown}
-            className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-cyan-500/30 active:bg-cyan-500 transition-colors z-50 group flex items-center justify-center"
+            className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-cyan-500/30 active:bg-cyan-500 transition-colors z-30 group flex items-center justify-center"
           >
             <div className="w-0.5 h-8 bg-gray-200 dark:bg-gray-700 group-hover:bg-cyan-500 rounded transition-colors" />
           </div>

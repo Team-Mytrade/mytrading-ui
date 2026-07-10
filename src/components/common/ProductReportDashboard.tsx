@@ -49,13 +49,13 @@ const dashboardModules = [
 ];
 
 const colorClasses = {
-  blue: "bg-blue-50 text-blue-600 group-hover:bg-blue-100",
-  emerald: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100",
-  orange: "bg-orange-50 text-orange-600 group-hover:bg-orange-100",
-  purple: "bg-purple-50 text-purple-600 group-hover:bg-purple-100",
-  red: "bg-red-50 text-red-600 group-hover:bg-red-100",
-  teal: "bg-teal-50 text-teal-600 group-hover:bg-teal-100",
-  indigo: "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100",
+  blue: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:group-hover:bg-cyan-500/20",
+  emerald: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:group-hover:bg-cyan-500/20",
+  orange: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:group-hover:bg-cyan-500/20",
+  purple: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:group-hover:bg-cyan-500/20",
+  red: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:group-hover:bg-cyan-500/20",
+  teal: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:group-hover:bg-cyan-500/20",
+  indigo: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:group-hover:bg-cyan-500/20",
 };
 
 const ProductReportDashboard: React.FC = () => {

@@ -2,6 +2,7 @@ import React, { useContext, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
+import { clearSessionExpiredRedirect, getSessionExpiredRedirect } from "../../utils/sessionRecovery";
 import './Login.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 
@@ -39,8 +40,11 @@ const SignInForm: React.FC = () => {
       }
 
       // Small delay to ensure state updates
+      const redirectPath = getSessionExpiredRedirect() || "/";
+      clearSessionExpiredRedirect();
+
       setTimeout(() => {
-        navigate("/");
+        navigate(redirectPath);
       }, 100);
 
     } catch (err: any) {

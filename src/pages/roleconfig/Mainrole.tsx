@@ -1,5 +1,4 @@
 import React, { useState, useContext } from "react";
-import { BackButton } from "../../components/common/BackButton";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { PageType, PAGE_ICONS, PAGE_LABELS } from "./RoleConfigTabConfig";
@@ -18,6 +17,7 @@ const RoleConfig: React.FC = () => {
   const isAdmin = (user?.role === "SUPER_ADMIN" || user?.role === "ADMIN" || user?.roles?.includes("SUPER_ADMIN") || user?.roles?.includes("ADMIN")) && user?.userType !== "USER" && user?.userType !== "EMPLOYEE";
 
   const [activePage, setActivePage] = useState<PageType>("Tenant");
+  const [setupOpen, setSetupOpen] = useState(false);
   const [selectedTenantFilter, setSelectedTenantFilter] = useState<string | null>(null);
   const [selectedDomainFilter, setSelectedDomainFilter] = useState<number | null>(null);
   const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState<number | null>(null);
@@ -99,47 +99,82 @@ const RoleConfig: React.FC = () => {
   return (
     <>
       <PageMeta title="Role Configuration" description="Manage roles and permissions" />
-      <PageBreadcrumb pageTitle="Role Config" />
+      <div className="role-config-breadcrumb">
+        <PageBreadcrumb pageTitle="Role Config" />
+      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-5 py-6">
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4">
-            <BackButton />
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Role Configuration</h1>
-              <p className="text-sm text-gray-500 mt-1">Manage tenants, domains, roles, permissions and users</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation Tabs - Minimal Design */}
-        <div className="mb-8 border-b border-gray-200">
-          <nav className="flex flex-wrap gap-1">
-            {pages.map((page) => {
-              const isActive = activePage === page;
-              const IconComponent = PAGE_ICONS[page];
-
-              return (
-                <button
-                  key={page}
-                  onClick={() => setActivePage(page)}
-                  className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all duration-200 flex items-center gap-2 ${isActive
-                    ? "text-cyan-600 border-b-2 border-cyan-600 bg-white"
-                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                    }`}
+      <div className="-mt-2 w-full max-w-none px-0 pb-0">
+        <div className="grid gap-3 xl:grid-cols-[205px_minmax(0,1fr)] lg:grid-cols-[190px_minmax(0,1fr)]">
+          <aside className="self-start overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm lg:sticky lg:top-2">
+            <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-2.5 py-1.5">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Setup Areas</p>
+                <p className="text-xs font-medium text-gray-900">Structure and access</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSetupOpen((current) => !current)}
+                className="inline-flex h-8 min-w-[132px] shrink-0 items-center justify-between gap-2 rounded-md border border-cyan-200 bg-cyan-50 px-2 text-cyan-700 transition-colors hover:border-cyan-300 hover:bg-cyan-100 lg:hidden"
+                aria-expanded={setupOpen}
+                aria-controls="role-config-setup-nav"
+                title={setupOpen ? "Collapse setup areas" : "Expand setup areas"}
+              >
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-cyan-600 text-white">
+                    {PAGE_ICONS[activePage]}
+                  </span>
+                  <span className="truncate text-xs font-semibold">{PAGE_LABELS[activePage]}</span>
+                </span>
+                <svg
+                  className={`h-4 w-4 shrink-0 transition-transform ${setupOpen ? "rotate-180" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  {IconComponent && <span className="h-4 w-4">{IconComponent}</span>}
-                  {PAGE_LABELS[page]}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+            <nav
+              id="role-config-setup-nav"
+              className={`${setupOpen ? "grid" : "hidden"} grid-cols-2 gap-0.5 p-1.5 sm:grid-cols-3 md:grid-cols-4 lg:grid lg:grid-cols-1`}
+              aria-label="Role configuration sections"
+            >
+              {pages.map((page) => {
+                const isActive = activePage === page;
+                const IconComponent = PAGE_ICONS[page];
 
-        {/* Tab Content */}
-        <div className="animate-fadeIn">
-          {renderContent()}
+                return (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => {
+                      setActivePage(page);
+                      setSetupOpen(false);
+                    }}
+                    className={`group flex h-8 w-full items-center gap-2 rounded-md px-2 text-left transition-all duration-200 sm:h-9 lg:h-8 ${isActive
+                      ? "bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      }`}
+                  >
+                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md sm:h-7 sm:w-7 ${isActive
+                      ? "bg-cyan-600 text-white"
+                      : "bg-gray-100 text-gray-500 group-hover:bg-white group-hover:text-cyan-600"
+                      }`}>
+                      {IconComponent}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-xs font-semibold sm:text-sm">{PAGE_LABELS[page]}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </aside>
+
+          <main className="min-w-0 overflow-x-auto">
+            <div className="min-w-0 animate-fadeIn">
+              {renderContent()}
+            </div>
+          </main>
         </div>
       </div>
 
@@ -155,6 +190,9 @@ const RoleConfig: React.FC = () => {
         }
         .animate-fadeIn {
           animation: fadeIn 0.2s ease-out;
+        }
+        .role-config-breadcrumb > div {
+          margin-bottom: 0;
         }
       `}</style>
     </>

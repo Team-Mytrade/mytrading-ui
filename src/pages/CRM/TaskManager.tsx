@@ -15,6 +15,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
+import FilterPopover from "../../components/common/filter";
 
 interface Task {
   id: number;
@@ -42,6 +43,8 @@ const TaskManager: React.FC = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<keyof Task>("title");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
@@ -103,6 +106,27 @@ const TaskManager: React.FC = () => {
     }
   };
 
+  const handleInlineStatusChange = async (task: Task, status: Task["status"]) => {
+    if (task.status === status) return;
+
+    const previousTasks = tasks;
+    setTasks((current) =>
+      current.map((item) => (item.id === task.id ? { ...item, status } : item))
+    );
+
+    try {
+      setStatusUpdatingId(task.id);
+      await axios.put(`${API_URL}/${task.id}`, { ...task, status });
+      ToasterService.success("Task status updated successfully!");
+    } catch (err) {
+      console.error("Error updating task status", err);
+      setTasks(previousTasks);
+      ToasterService.error("Failed to update task status");
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
   const handleSort = (key: keyof Task) => {
     if (sortKey === key) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
@@ -112,11 +136,13 @@ const TaskManager: React.FC = () => {
     }
   };
 
-  const filtered = tasks.filter((task) =>
-    [task.title, task.description, task.assignedTo, task.status].some((field) =>
+  const filtered = tasks.filter((task) => {
+    const matchesSearch = [task.title, task.description, task.assignedTo, task.status].some((field) =>
       field.toLowerCase().includes(search.toLowerCase())
-    )
-  );
+    );
+    const matchesStatus = statusFilter ? task.status === statusFilter : true;
+    return matchesSearch && matchesStatus;
+  });
 
   const sorted = [...filtered].sort((a, b) => {
     const valA = a[sortKey] ?? "";
@@ -143,8 +169,8 @@ const TaskManager: React.FC = () => {
       <PageMeta title="Task Management" description="Manage CRM tasks" />
       <PageBreadcrumb pageTitle="Task Management" />
 
-      <div className="max-w-7xl mx-auto px-6 pb-6 pt-0 space-y-6">
-        <div className="mb-8 -mt-[100px] flex justify-end">
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
+        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton
             onClick={() => {
               setShowFormModal(true);
@@ -186,7 +212,7 @@ const TaskManager: React.FC = () => {
           />
         </div>
 
-        <div className="flex justify-between items-center mb-4">
+        <div className="mb-4 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
           <div className="relative w-full max-w-md">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
@@ -197,10 +223,28 @@ const TaskManager: React.FC = () => {
               className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4"
             />
           </div>
+          <div className="flex items-center justify-end">
+            <FilterPopover
+              title="Filter Tasks"
+              buttonLabel="Filters"
+              label="Task Status"
+              value={statusFilter}
+              options={[
+                { label: "All Statuses", value: "" },
+                { label: "Pending", value: "Pending" },
+                { label: "In Progress", value: "InProgress" },
+                { label: "Completed", value: "Completed" },
+              ]}
+              onChange={setStatusFilter}
+              onReset={() => setStatusFilter("")}
+              onApply={() => undefined}
+            />
+          </div>
         </div>
 
-        <div className="shadow overflow-visible border border-gray-200 sm:rounded-lg">
-          <table className="min-w-full divide-y divide-gray-200">
+        <div className="overflow-hidden border border-gray-200 shadow sm:rounded-lg">
+          <div className="overflow-x-auto">
+          <table className="min-w-[760px] divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 {["title", "assignedTo", "status", "dueDate"].map((key) => (
@@ -229,11 +273,19 @@ const TaskManager: React.FC = () => {
                   <td className="px-6 py-4">{task.title}</td>
                   <td className="px-6 py-4">{task.assignedTo}</td>
                   <td className="px-6 py-4">
-                    <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[task.status]}`}
+                    <select
+                      value={task.status}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => handleInlineStatusChange(task, event.target.value as Task["status"])}
+                      disabled={statusUpdatingId === task.id}
+                      className={`w-[112px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
+                        statusColors[task.status]
+                      } ${statusUpdatingId === task.id ? "cursor-not-allowed opacity-70" : ""}`}
                     >
-                      {task.status}
-                    </span>
+                      <option value="Pending">Pending</option>
+                      <option value="InProgress">In Progress</option>
+                      <option value="Completed">Completed</option>
+                    </select>
                   </td>
                   <td className="px-6 py-4">{new Date(task.dueDate).toLocaleDateString()}</td>
                   <td className="px-6 py-4 text-right space-x-2 relative z-10">
@@ -267,6 +319,7 @@ const TaskManager: React.FC = () => {
               )}
             </tbody>
           </table>
+          </div>
         </div>
 
         {totalPages > 1 && (
@@ -287,8 +340,8 @@ const TaskManager: React.FC = () => {
         )}
 
         {showFormModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className="bg-white rounded-lg shadow w-full max-w-2xl mx-4 max-h-screen overflow-y-auto">
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-40 p-4 sm:items-center">
+            <div className="bg-white rounded-lg shadow w-full max-w-2xl max-h-[calc(100vh-2rem)] overflow-y-auto">
               <div className="flex items-start justify-between p-5 border-b rounded-t">
                 <h3 className="text-xl font-semibold">
                   {editingId !== null ? "Edit Task" : "Add Task"}
@@ -300,7 +353,7 @@ const TaskManager: React.FC = () => {
                   x
                 </button>
               </div>
-              <form onSubmit={handleSubmit} className="p-6 grid grid-cols-6 gap-6 pt-6">
+              <form onSubmit={handleSubmit} className="grid grid-cols-6 gap-4 p-4 pt-5 sm:gap-6 sm:p-6 sm:pt-6">
                 <div className="col-span-6 sm:col-span-3">
                   <FloatingInput
                     label="Title"
@@ -349,7 +402,7 @@ const TaskManager: React.FC = () => {
                     rows={3}
                   />
                 </div>
-                <div className="col-span-6 flex justify-end gap-2 mt-4">
+                <div className="col-span-6 mt-4 flex flex-col justify-end gap-2 sm:flex-row">
                   <button
                     type="button"
                     onClick={() => setShowFormModal(false)}

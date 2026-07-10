@@ -490,7 +490,10 @@ const PayrollPage: React.FC = () => {
             <PageMeta title="Payroll Management" description="Process and monitor employee salaries" />
             <PageBreadcrumb pageTitle="Salary Records" />
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-0 pb-8 space-y-6">
+            <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
+                <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+                    <AddButton label="Run Payroll" onClick={() => setIsProcessModalOpen(true)} />
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                     <StatsCard label="Total Records" value={salaries.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-6 w-6" />} />

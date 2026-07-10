@@ -41,9 +41,46 @@ interface Shift {
   weekOffDays: string[];
 }
 
+interface ApiTime {
+  hour?: number;
+  minute?: number;
+  second?: number;
+  nano?: number;
+}
+
+interface ApiDuration {
+  seconds?: number;
+  nano?: number;
+}
+
+interface ShiftApiResponse {
+  id?: number | string;
+  shiftId?: number;
+  shiftName?: string;
+  shiftCode?: string;
+  startTime?: string | ApiTime | null;
+  endTime?: string | ApiTime | null;
+  isNightShift?: boolean;
+  breakDuration?: number | ApiDuration | null;
+  gracePeriodMinutes?: number;
+  overtimeAllowed?: boolean;
+  weekOffDays?: string[];
+  createdBy?: string;
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const API_URL = "/v1/api/attendance/shifts";
+
+const shiftApi = axios.create();
+
+shiftApi.interceptors.request.use((config) => {
+  const token = localStorage.getItem("accessToken");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 const PAGE_SIZE = 10;
 
@@ -71,6 +108,34 @@ const formatTime = (timeStr: string): string => {
   return timeStr.substring(0, 5);
 };
 
+const padTimePart = (value?: number): string => String(value ?? 0).padStart(2, "0");
+
+const normalizeApiTime = (time?: string | ApiTime | null): string => {
+  if (!time) return "";
+  if (typeof time === "string") return time.substring(0, 5);
+  return `${padTimePart(time.hour)}:${padTimePart(time.minute)}`;
+};
+
+const normalizeBreakDuration = (duration?: number | ApiDuration | null): number => {
+  if (duration == null) return 0;
+  if (typeof duration === "number") return duration;
+  return Math.round((duration.seconds ?? 0) / 60);
+};
+
+const normalizeShift = (shift: ShiftApiResponse): Shift => ({
+  id: shift.id ?? shift.shiftId,
+  shiftId: shift.shiftId,
+  shiftName: shift.shiftName ?? "",
+  shiftCode: shift.shiftCode ?? "",
+  startTime: normalizeApiTime(shift.startTime),
+  endTime: normalizeApiTime(shift.endTime),
+  isNightShift: Boolean(shift.isNightShift),
+  breakDuration: normalizeBreakDuration(shift.breakDuration),
+  gracePeriodMinutes: shift.gracePeriodMinutes ?? 0,
+  overtimeAllowed: Boolean(shift.overtimeAllowed),
+  weekOffDays: shift.weekOffDays ?? [],
+});
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const ShiftPage: React.FC = () => {
@@ -91,8 +156,8 @@ const ShiftPage: React.FC = () => {
   const loadShifts = async () => {
     setLoading(true);
     try {
-      const res = await axios.get<Shift[]>(API_URL);
-      setShifts(res.data);
+      const res = await shiftApi.get<ShiftApiResponse[]>(API_URL);
+      setShifts(res.data.map(normalizeShift));
     } catch (err) {
       console.error("Failed to load shifts", err);
       ToasterService.error("Failed to load shifts");
@@ -149,10 +214,31 @@ const ShiftPage: React.FC = () => {
     setShowForm(true);
   };
 
-  const openEditForm = (shift: Shift) => {
-    setForm({ ...shift });
-    setEditingShift(shift);
-    setShowForm(true);
+  const openEditForm = async (shift: Shift) => {
+    const shiftId = shift.shiftId ?? shift.id;
+
+    if (!shiftId) {
+      setForm({ ...shift });
+      setEditingShift(shift);
+      setShowForm(true);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await shiftApi.get<ShiftApiResponse>(`${API_URL}/${shiftId}`);
+      const latestShift = normalizeShift(res.data);
+      setForm({ ...latestShift });
+      setEditingShift(latestShift);
+    } catch (err) {
+      console.error("Failed to load shift details", err);
+      ToasterService.error("Failed to load shift details");
+      setForm({ ...shift });
+      setEditingShift(shift);
+    } finally {
+      setLoading(false);
+      setShowForm(true);
+    }
   };
 
   const submitForm = async (e: React.FormEvent) => {
@@ -189,10 +275,10 @@ const ShiftPage: React.FC = () => {
 
     try {
       if (editingShift?.shiftId) {
-        await axios.put(`${API_URL}/${editingShift.shiftId}`, payload);
+        await shiftApi.put(`${API_URL}/${editingShift.shiftId}`, payload);
         ToasterService.success("Shift updated successfully");
       } else {
-        await axios.post(API_URL, payload);
+        await shiftApi.post(API_URL, payload);
         ToasterService.success("Shift created successfully");
       }
       await loadShifts();
@@ -215,7 +301,7 @@ const ShiftPage: React.FC = () => {
     if (!ok) return;
 
     try {
-      await axios.delete(`${API_URL}/${id}`);
+      await shiftApi.delete(`${API_URL}/${id}`);
       ToasterService.success("Shift deleted successfully");
       await loadShifts();
     } catch (err: any) {

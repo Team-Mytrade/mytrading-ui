@@ -280,7 +280,7 @@ export default function CrmViewPage() {
         <PageMeta title={`${requestFrom} View`} description={`${requestFrom} View`} />
         <PageBreadcrumb pageTitle={requestFrom ?? "CRM"} />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
             <div className="animate-pulse">
               <div className="flex items-center gap-4 mb-8">
@@ -305,7 +305,7 @@ export default function CrmViewPage() {
         <PageMeta title={`${requestFrom} View`} description={`${requestFrom} View`} />
         <PageBreadcrumb pageTitle={requestFrom ?? "CRM"} />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
             <div className="text-red-500 text-6xl mb-4">⚠️</div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Data</h3>
@@ -329,7 +329,7 @@ export default function CrmViewPage() {
         <PageMeta title={`${requestFrom} View`} description={`${requestFrom} View`} />
         <PageBreadcrumb pageTitle={requestFrom ?? "CRM"} />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
             <DocumentTextIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Available</h3>
@@ -373,23 +373,23 @@ export default function CrmViewPage() {
       <PageBreadcrumb pageTitle={requestFrom ?? "CRM"} />
 
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
           {/* Header with Gradient */}
-          <div className="bg-gradient-to-r from-cyan-600 to-blue-600 rounded-2xl shadow-lg mb-6 p-6 text-white">
+          <div className="mb-6 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 p-4 text-white shadow-lg sm:p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-4">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                 <button
                   onClick={() => navigate(-1)}
                   className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors backdrop-blur-sm"
                 >
                   <ArrowLeftIcon className="h-5 w-5" />
                 </button>
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
                     <EntityIcon className="h-6 w-6" />
                   </div>
                   <div>
-                    <h1 className="text-2xl font-bold flex items-center !text-white gap-2">
+                    <h1 className="flex flex-wrap items-center gap-2 text-xl font-bold !text-white sm:text-2xl">
                       {typeof nameField === 'string' ? nameField : requestFrom}
                       {statusField && (
                         <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full border border-white/30 ${STATUS_COLORS[statusField.toUpperCase()]?.replace('text-', 'text-').replace('bg-', 'bg-') || 'bg-white/20 text-white'
@@ -405,7 +405,7 @@ export default function CrmViewPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex w-full items-center gap-3 sm:w-auto">
                 <button
                   onClick={() => {
                     const sourcePath = requestFrom === 'leads' ? '/leads' :
@@ -415,7 +415,7 @@ export default function CrmViewPage() {
                             requestFrom === 'segments' ? '/customer-segment' : '/';
                     navigate(`${sourcePath}?editId=${id}`);
                   }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-white text-cyan-700 font-semibold rounded-xl hover:bg-cyan-50 transition-all shadow-md active:scale-95"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 font-semibold text-cyan-700 shadow-md transition-all hover:bg-cyan-50 active:scale-95 sm:w-auto"
                 >
                   <PencilSquareIcon className="h-4 w-4" />
                   Edit {requestFrom?.replace('s', '')}
@@ -426,10 +426,10 @@ export default function CrmViewPage() {
 
           {/* Tabs */}
           <div className="bg-white rounded-t-xl border-b border-gray-200 px-4">
-            <div className="flex gap-4">
+            <div className="flex gap-4 overflow-x-auto">
               <button
                 onClick={() => setActiveTab("details")}
-                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "details"
+                className={`whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "details"
                   ? "border-cyan-600 text-cyan-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
                   }`}
@@ -438,7 +438,7 @@ export default function CrmViewPage() {
               </button>
               <button
                 onClick={() => setActiveTab("related")}
-                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "related"
+                className={`whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "related"
                   ? "border-cyan-600 text-cyan-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
                   }`}
@@ -449,7 +449,7 @@ export default function CrmViewPage() {
           </div>
 
           {/* Content */}
-          <div className="bg-white rounded-b-xl shadow-sm border border-t-0 border-gray-200 p-6">
+          <div className="rounded-b-xl border border-t-0 border-gray-200 bg-white p-4 shadow-sm sm:p-6">
             {activeTab === "details" ? (
               <div className="space-y-6">
                 {/* Key Metrics Cards - Show important fields first */}
@@ -484,11 +484,11 @@ export default function CrmViewPage() {
                         {mainFields.slice(4).map(([key, value]) => {
                           const Icon = getFieldIcon(key);
                           return (
-                            <div key={key} className="flex items-start gap-3 p-2 hover:bg-white rounded-lg transition-colors">
+                            <div key={key} className="flex min-w-0 items-start gap-3 rounded-lg p-2 transition-colors hover:bg-white">
                               <div className="p-1.5 bg-white rounded-lg shadow-sm">
                                 <Icon className="h-4 w-4 text-gray-500" />
                               </div>
-                              <div className="flex-1">
+                              <div className="min-w-0 flex-1">
                                 <p className="text-xs text-gray-500 capitalize mb-0.5">{key}</p>
                                 <div className="text-sm font-medium text-gray-900">
                                   {renderValue(key, value)}
@@ -512,11 +512,11 @@ export default function CrmViewPage() {
                       Address Information
                     </h3>
 
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+                    <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-6">
                       {typeof addressField === 'string' ? (
                         <p className="text-gray-900">{addressField}</p>
                       ) : (
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                           {Object.entries(addressField)
                             .filter(([key]) => !HIDDEN_KEYS.includes(key))
                             .map(([key, value]) => (

@@ -33,12 +33,15 @@ const LayoutContent: React.FC = () => {
         style={{
           marginLeft: isLargeScreen
             ? (isExpanded || isHovered ? `${sidebarWidth}px` : "60px")
-            : "0px"
+            : "0px",
+          width: isLargeScreen
+            ? `calc(100% - ${(isExpanded || isHovered ? `${sidebarWidth}px` : "60px")})`
+            : "100%",
         }}
-        className={`flex-1 ${isResizing ? "transition-none" : "transition-all duration-300 ease-in-out"}`}
+        className={`min-w-0 ${isResizing ? "transition-none" : "transition-all duration-300 ease-in-out"}`}
       >
         <AppHeader />
-        <div className="pt-3 px-4 pb-4 mx-auto max-w-screen-2xl md:pt-4.5 md:px-6 md:pb-6">
+        <div className="app-content-tight w-full px-2 py-[3px] md:px-3 md:py-[3px]">
           <Outlet />
         </div>
       </div>
@@ -47,7 +50,20 @@ const LayoutContent: React.FC = () => {
 };
 
 const AppLayout: React.FC = () => {
-  const { isLoggedIn } = useContext(AuthContext);
+  const { isLoggedIn, loading } = useContext(AuthContext);
+  const hasStoredSession = !!localStorage.getItem("accessToken");
+
+  if (loading && hasStoredSession) {
+    return (
+      <SidebarProvider>
+        <LayoutContent />
+      </SidebarProvider>
+    );
+  }
+
+  if (loading) {
+    return null;
+  }
 
   if (!isLoggedIn) {
     return <SignIn />;

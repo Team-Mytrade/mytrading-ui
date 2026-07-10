@@ -26,7 +26,7 @@ const TenantTab: React.FC<TenantTabProps> = ({ onViewDomains }) => {
   const [search, setSearch] = useState("");
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingTenantId, setEditingTenantId] = useState<string | null>(null);
-  const [form, setForm] = useState({ tenantName: "", active: true });
+  const [form, setForm] = useState({ tenantId: "", tenantName: "", active: true });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(false);
@@ -75,6 +75,7 @@ const TenantTab: React.FC<TenantTabProps> = ({ onViewDomains }) => {
 
     try {
       const payload = {
+        tenantId: editingTenantId || form.tenantId,
         tenantName: form.tenantName.trim(),
         active: form.active ?? true,
       };
@@ -100,7 +101,7 @@ const TenantTab: React.FC<TenantTabProps> = ({ onViewDomains }) => {
 
       fetchData();
       setShowFormModal(false);
-      setForm({ tenantName: "", active: true });
+      setForm({ tenantId: "", tenantName: "", active: true });
       setEditingTenantId(null);
     } catch (error) {
       console.error("Error:", error);
@@ -109,7 +110,7 @@ const TenantTab: React.FC<TenantTabProps> = ({ onViewDomains }) => {
   };
 
   const handleEdit = (item: Tenant) => {
-    setForm({ tenantName: item.tenantName, active: item.active });
+    setForm({ tenantId: item.tenantId, tenantName: item.tenantName, active: item.active });
     setEditingTenantId(item.tenantId);
     setShowFormModal(true);
   };
@@ -225,7 +226,7 @@ const TenantTab: React.FC<TenantTabProps> = ({ onViewDomains }) => {
 
         <button
           onClick={() => {
-            setForm({ tenantName: "", active: true });
+            setForm({ tenantId: "", tenantName: "", active: true });
             setEditingTenantId(null);
             setShowFormModal(true);
           }}
@@ -254,7 +255,7 @@ const TenantTab: React.FC<TenantTabProps> = ({ onViewDomains }) => {
             {!search && (
               <button
                 onClick={() => {
-                  setForm({ tenantName: "", active: true });
+                  setForm({ tenantId: "", tenantName: "", active: true });
                   setEditingTenantId(null);
                   setShowFormModal(true);
                 }}

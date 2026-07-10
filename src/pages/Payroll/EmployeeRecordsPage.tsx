@@ -58,8 +58,8 @@ const EmployeeRecordsPage: React.FC = () => {
         setLoading(true);
         try {
             const res = await axios.get(`${EMPLOYEE_API_URL}/all`);
-            const data = res.data;
-            setEmployees(Array.isArray(data) ? data : (data?.data || []));
+            const payload = res.data;
+            setEmployees(Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : []);
         } catch (err) {
             console.error("Error loading employees:", err);
             ToasterService.error("Failed to load employees");
@@ -72,8 +72,8 @@ const EmployeeRecordsPage: React.FC = () => {
     const fetchDepartments = async () => {
         try {
             const res = await axios.get(`${DEPARTMENT_API_URL}/listAll`);
-            const data = res.data;
-            setDepartments(Array.isArray(data) ? data : (data?.data || []));
+            const payload = res.data;
+            setDepartments(Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : []);
         } catch (err) {
             console.error("Error loading departments:", err);
         }
@@ -87,8 +87,9 @@ const EmployeeRecordsPage: React.FC = () => {
         });
         
         // Create a blob from the response data
+        const contentType = response.headers['content-type'];
         const blob = new Blob([response.data], { 
-            type: (response.headers['content-type'] as string) || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            type: typeof contentType === "string" ? contentType : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         });
         
         // Create download link
@@ -100,7 +101,7 @@ const EmployeeRecordsPage: React.FC = () => {
         const contentDisposition = response.headers['content-disposition'];
         let filename = `Employee_Records_${new Date().toISOString().split('T')[0]}.xlsx`;
         
-        if (contentDisposition) {
+        if (typeof contentDisposition === "string") {
             const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
             if (filenameMatch && filenameMatch[1]) {
                 filename = filenameMatch[1].replace(/['"]/g, '');
@@ -202,17 +203,13 @@ const EmployeeRecordsPage: React.FC = () => {
     const safeEmployees = Array.isArray(employees) ? employees : [];
     
     const filtered = safeEmployees.filter(e => {
-        const firstName = e.firstName || "";
-        const lastName = e.lastName || "";
-        const fullName = `${firstName} ${lastName}`.toLowerCase();
-        
-        const employeeCode = e.employeeCode || "";
-        const email = e.officialEmail || "";
-
-        const matchSearch = fullName.includes(search.toLowerCase()) ||
-            employeeCode.toLowerCase().includes(search.toLowerCase()) ||
-            email.toLowerCase().includes(search.toLowerCase());
-            
+        const fullName = `${e.firstName ?? ""} ${e.lastName ?? ""}`.toLowerCase();
+        const employeeCode = String(e.employeeCode ?? "").toLowerCase();
+        const officialEmail = String(e.officialEmail ?? "").toLowerCase();
+        const searchTerm = search.toLowerCase();
+        const matchSearch = fullName.includes(searchTerm) ||
+            employeeCode.includes(searchTerm) ||
+            officialEmail.includes(searchTerm);
         const matchDept = selectedDept ? e.department?.name === selectedDept : true;
         return matchSearch && matchDept;
     });
@@ -339,7 +336,10 @@ const EmployeeRecordsPage: React.FC = () => {
             <PageMeta title="Employee Records" description="Manage employee records and workforce" />
             <PageBreadcrumb pageTitle="Employee Master" />
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-0 pb-8 space-y-6">
+            <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
+                <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+                    <AddButton label="Add Employee" onClick={() => navigate("/addEmployee")} />
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                     <StatsCard label="Total Employees" value={employees.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<UserGroupIcon className="h-6 w-6" />} />

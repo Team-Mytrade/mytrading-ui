@@ -9,7 +9,7 @@ export default function UserDropdown() {
   const [statusOpen, setStatusOpen] = useState(false);
   const [profileImage, setProfileImage] = useState("src/images/img-placeholder.png");
   const [status, setStatus] = useState("online"); // Default status
-  const { user } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
   const statusRef = useRef<HTMLDivElement>(null);
 
   const getAuthToken = (): string | null => {
@@ -130,9 +130,7 @@ export default function UserDropdown() {
   };
 
   const handleSignOut = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
-    
+    logout();
     closeDropdown();
   };
 

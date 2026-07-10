@@ -1,15 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import axios from "axios";
 import {
   PencilSquareIcon,
   TrashIcon,
   XMarkIcon,
   MapPinIcon,
-  TruckIcon,
-  CalendarIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ClockIcon,
+  PlusIcon,
+  MagnifyingGlassIcon,
+  ArrowsRightLeftIcon,
 } from "@heroicons/react/24/outline";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
@@ -17,39 +16,40 @@ import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import DynamicPopup from "../../components/common/Popup";
 import StatsCard from "../../components/common/Statscard";
+import { ToasterService } from "../../Services/ToasterService";
+import { FloatingInput } from "../../components/inputfeild/FloatingInput";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface RouteSchedule {
-  id: number; routeCode: string; routeName: string; startPoint: string;
-  endPoint: string; scheduledDate: string; vehicleNumber: string; status: string;
+  id?: number;
+  name: string;
+  startLocation: string;
+  endLocation: string;
+  distanceKm: number;
 }
 
-const API_URL = "http://localhost:5000/routes";
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-// ── Status config — OUTSIDE component ─────────────────────────────────────────
-const getStatusStyle = (status: string) => {
-  switch (status) {
-    case "Completed":  return { cls: "bg-green-100 text-green-800",  Icon: CheckCircleIcon };
-    case "Cancelled":  return { cls: "bg-red-100 text-red-800",    Icon: XCircleIcon };
-    default:           return { cls: "bg-blue-100 text-blue-800",   Icon: ClockIcon };
-  }
+const API_URL = "/v1/api/delivery/routes";
+
+const emptyForm: RouteSchedule = {
+  name:          "",
+  startLocation: "",
+  endLocation:   "",
+  distanceKm:    0,
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 const RouteSchedulePage: React.FC = () => {
   const [routes, setRoutes]     = useState<RouteSchedule[]>([]);
   const [loading, setLoading]   = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm]         = useState<RouteSchedule>(emptyForm);
+  const [saving, setSaving]     = useState(false);
 
-  // Form fields
-  const [routeCode, setRouteCode]       = useState("");
-  const [routeName, setRouteName]       = useState("");
-  const [startPoint, setStartPoint]     = useState("");
-  const [endPoint, setEndPoint]         = useState("");
-  const [scheduledDate, setScheduledDate] = useState("");
-  const [vehicleNumber, setVehicleNumber] = useState("");
-  const [status, setStatus]             = useState("Scheduled");
+  const [search, setSearch] = useState("");
 
   // Delete popup
   const [showDeletePopup, setShowDeletePopup] = useState(false);
@@ -57,112 +57,186 @@ const RouteSchedulePage: React.FC = () => {
 
   useEffect(() => { fetchRoutes(); }, []);
 
+  // Lock body scroll while the modal is open
+  useEffect(() => {
+    document.body.style.overflow = showForm ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [showForm]);
+
   const fetchRoutes = async () => {
     setLoading(true);
-    try { const res = await axios.get<RouteSchedule[]>(API_URL); setRoutes(res.data); }
-    catch { console.error("Error loading routes."); }
-    finally { setLoading(false); }
+    try {
+      const res = await axios.get<RouteSchedule[]>(API_URL);
+      setRoutes(res.data);
+    } catch {
+      console.error("Error loading routes.");
+      ToasterService.error("Failed to load routes");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // ── CRUD ──────────────────────────────────────────────────────────────────
-  const clearForm = () => { setRouteCode(""); setRouteName(""); setStartPoint(""); setEndPoint(""); setScheduledDate(""); setVehicleNumber(""); setStatus("Scheduled"); setEditingId(null); setShowForm(false); };
+  // ── CRUD ────────────────────────────────────────────────────────────────────
+
+  const handleChange = (key: keyof RouteSchedule, value: string | number) =>
+    setForm(prev => ({ ...prev, [key]: value }));
+
+  const resetForm = () => { setForm(emptyForm); setShowForm(false); };
+
+  const handleAddNew = () => { setForm(emptyForm); setShowForm(true); };
+
+  const handleEdit = (r: RouteSchedule) => {
+    setForm({ ...r });
+    setShowForm(true);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = { routeCode, routeName, startPoint, endPoint, scheduledDate, vehicleNumber, status };
+
+    if (!form.name.trim() || !form.startLocation.trim() || !form.endLocation.trim()) {
+      ToasterService.error("Please fill in all required fields");
+      return;
+    }
+
+    setSaving(true);
+
+    const payload = {
+      name:          form.name,
+      startLocation: form.startLocation,
+      endLocation:   form.endLocation,
+      distanceKm:    Number(form.distanceKm) || 0,
+    };
+
     try {
-      if (editingId) await axios.put(`${API_URL}/${editingId}`, payload);
-      else           await axios.post(API_URL, payload);
-      fetchRoutes(); clearForm();
-    } catch { console.error("Save failed"); }
+      if (form.id) {
+        await axios.put(`${API_URL}/${form.id}`, payload);
+        ToasterService.success("Route updated successfully!");
+      } else {
+        await axios.post(API_URL, payload);
+        ToasterService.success("Route added successfully!");
+      }
+      await fetchRoutes();
+      resetForm();
+    } catch {
+      console.error("Save failed");
+      ToasterService.error("Failed to save route");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleEdit = (r: RouteSchedule) => {
-    setEditingId(r.id); setRouteCode(r.routeCode); setRouteName(r.routeName);
-    setStartPoint(r.startPoint); setEndPoint(r.endPoint); setScheduledDate(r.scheduledDate);
-    setVehicleNumber(r.vehicleNumber); setStatus(r.status); setShowForm(true);
+  const promptDelete = (r: RouteSchedule) => {
+    setDeletingRoute(r);
+    setShowDeletePopup(true);
   };
-
-  const promptDelete = (r: RouteSchedule) => { setDeletingRoute(r); setShowDeletePopup(true); };
 
   const confirmDelete = async () => {
-    if (!deletingRoute) return;
-    try { await axios.delete(`${API_URL}/${deletingRoute.id}`); fetchRoutes(); }
-    catch { console.error("Delete failed"); }
-    setDeletingRoute(null);
+    if (!deletingRoute?.id) return;
+    try {
+      await axios.delete(`${API_URL}/${deletingRoute.id}`);
+      ToasterService.success("Route deleted successfully!");
+      setRoutes(prev => prev.filter(r => r.id !== deletingRoute.id));
+    } catch {
+      console.error("Delete failed");
+      ToasterService.error("Failed to delete route");
+    } finally {
+      setShowDeletePopup(false);
+      setDeletingRoute(null);
+    }
   };
 
-  // ── Stats ──────────────────────────────────────────────────────────────────
-  const stats = {
-    total:     routes.length,
-    scheduled: routes.filter(r => r.status === "Scheduled").length,
-    completed: routes.filter(r => r.status === "Completed").length,
-    cancelled: routes.filter(r => r.status === "Cancelled").length,
-  };
+  // ── Derived: search + stats ─────────────────────────────────────────────────
 
-  // ── Columns ────────────────────────────────────────────────────────────────
+  const filteredRoutes = useMemo(() => {
+    const term = search.toLowerCase();
+    return routes.filter(r =>
+      r.name.toLowerCase().includes(term) ||
+      r.startLocation.toLowerCase().includes(term) ||
+      r.endLocation.toLowerCase().includes(term)
+    );
+  }, [routes, search]);
+
+  const stats = useMemo(() => {
+    const totalDistance = routes.reduce((sum, r) => sum + (r.distanceKm || 0), 0);
+    const avgDistance = routes.length ? Math.round(totalDistance / routes.length) : 0;
+    const longest = routes.reduce((max, r) => Math.max(max, r.distanceKm || 0), 0);
+    return {
+      total: routes.length,
+      totalDistance,
+      avgDistance,
+      longest,
+    };
+  }, [routes]);
+
+  // ── Columns ─────────────────────────────────────────────────────────────────
+
   const columns: ColumnDef<RouteSchedule>[] = [
     {
-      key: "routeName", label: "Route Name", sortable: true,
+      key: "name",
+      label: "Route Name",
+      sortable: true,
+      headerClassName: "w-[28%] text-left",
+      className: "w-[28%]",
       render: (_, v) => (
-        <div className="flex items-center gap-2">
-          <MapPinIcon className="h-4 w-4 text-gray-400" />
-          <span className="text-sm font-medium text-gray-900">{String(v)}</span>
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
+            <span className="text-sm font-semibold text-cyan-700">
+              {String(v).charAt(0).toUpperCase() || "R"}
+            </span>
+          </div>
+          <span className="text-sm font-semibold text-slate-900 truncate">{String(v)}</span>
         </div>
       ),
     },
     {
-      key: "routeCode", label: "Code", sortable: true,
-      render: (_, v) => <span className="text-sm text-gray-700">{String(v)}</span>,
-    },
-    {
-      key: "startPoint", label: "Start", sortable: true,
-      render: (_, v) => <span className="text-sm text-gray-700">{String(v)}</span>,
-    },
-    {
-      key: "endPoint", label: "End", sortable: true,
-      render: (_, v) => <span className="text-sm text-gray-700">{String(v)}</span>,
-    },
-    {
-      key: "scheduledDate", label: "Date", sortable: true,
-      render: (_, v) => (
-        <div className="flex items-center gap-2">
-          <CalendarIcon className="h-4 w-4 text-gray-400" />
-          <span className="text-sm text-gray-700">{String(v)}</span>
-        </div>
-      ),
-    },
-    {
-      key: "vehicleNumber", label: "Vehicle", sortable: true,
-      render: (_, v) => (
-        <div className="flex items-center gap-2">
-          <TruckIcon className="h-4 w-4 text-gray-400" />
-          <span className="text-sm text-gray-700">{String(v)}</span>
-        </div>
-      ),
-    },
-    {
-      key: "status", label: "Status", sortable: true,
-      render: (_, v) => {
-        const { cls, Icon } = getStatusStyle(String(v));
-        return (
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}`}>
-            <Icon className="h-3 w-3 mr-1" />{String(v)}
-          </span>
-        );
-      },
-    },
-    {
-      key: "actions", label: "Actions",
-      headerClassName: "!text-right pr-8", className: "text-right",
+      key: "startLocation",
+      label: "Route",
+      headerClassName: "w-[34%] text-left",
+      className: "w-[34%]",
       render: (row) => (
-        <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-          <button onClick={() => handleEdit(row)} title="Edit"
-            className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors">
+        <div className="flex items-center gap-2 text-sm text-slate-600">
+          <MapPinIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
+          <span className="truncate font-medium">{row.startLocation}</span>
+          <ArrowsRightLeftIcon className="h-3.5 w-3.5 flex-shrink-0 text-slate-300" />
+          <span className="truncate font-medium">{row.endLocation}</span>
+        </div>
+      ),
+    },
+    {
+      key: "distanceKm",
+      label: "Distance",
+      sortable: true,
+      headerClassName: "w-[18%] text-left",
+      className: "w-[18%]",
+      render: (_, v) => (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/40">
+          {String(v)} km
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      headerClassName: "w-[20%] text-right pr-4",
+      className: "w-[20%] text-right",
+      render: (row) => (
+        <div
+          className="flex items-center justify-end gap-0.5"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => handleEdit(row)}
+            title="Edit"
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+          >
             <PencilSquareIcon className="h-4 w-4" />
           </button>
-          <button onClick={() => promptDelete(row)} title="Delete"
-            className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
+
+          <button
+            onClick={() => promptDelete(row)}
+            title="Delete"
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+          >
             <TrashIcon className="h-4 w-4" />
           </button>
         </div>
@@ -170,108 +244,183 @@ const RouteSchedulePage: React.FC = () => {
     },
   ];
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ──────────────────────────────────────────────────────────────────
+
   return (
     <>
-      <PageMeta title="Route / Schedule Management" description="Manage routes and schedules" />
-      <PageBreadcrumb pageTitle="Route / Schedule Management" />
+      <PageMeta title="Route Management" description="Manage delivery routes" />
+      <PageBreadcrumb pageTitle="Route Management" />
 
-      <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
 
         {/* Header */}
-        <div className="mb-8 -mt-[125px] flex justify-end">
-          {/* <div>
-            <h1 className="text-2xl font-bold text-gray-900">Route / Schedule Management</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Manage delivery routes and schedules</p>
-          </div> */}
-          <AddButton label="Add Route" onClick={() => { clearForm(); setShowForm(true); }} />
+        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+          <AddButton label="Add Route" onClick={handleAddNew} />
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <StatsCard label="Total Routes" value={stats.total}     gradient="from-cyan-50 to-blue-50"     borderColor="border-cyan-100"   labelColor="text-cyan-600" />
-          <StatsCard label="Scheduled"    value={stats.scheduled} gradient="from-blue-50 to-indigo-50"   borderColor="border-blue-100"   labelColor="text-blue-600" />
-          <StatsCard label="Completed"    value={stats.completed} gradient="from-green-50 to-emerald-50" borderColor="border-green-100"  labelColor="text-green-600" />
-          <StatsCard label="Cancelled"    value={stats.cancelled} gradient="from-red-50 to-pink-50"      borderColor="border-red-100"    labelColor="text-red-600" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <StatsCard
+            label="Total Routes"
+            value={stats.total}
+            gradient="from-cyan-50 to-blue-50"
+            borderColor="border-cyan-100"
+            labelColor="text-cyan-600"
+          />
+          <StatsCard
+            label="Total Distance"
+            value={`${stats.totalDistance} km`}
+            gradient="from-green-50 to-emerald-50"
+            borderColor="border-green-100"
+            labelColor="text-green-600"
+          />
+          <StatsCard
+            label="Average Distance"
+            value={`${stats.avgDistance} km`}
+            gradient="from-purple-50 to-pink-50"
+            borderColor="border-purple-100"
+            labelColor="text-purple-600"
+          />
+          <StatsCard
+            label="Longest Route"
+            value={`${stats.longest} km`}
+            gradient="from-orange-50 to-yellow-50"
+            borderColor="border-orange-100"
+            labelColor="text-orange-600"
+          />
         </div>
 
-        {/* Inline form */}
-        {showForm && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                {editingId ? "Edit Route" : "Add New Route"}
-              </h3>
-              <button onClick={clearForm} className="text-gray-400 hover:text-gray-600 transition-colors">
-                <XMarkIcon className="h-6 w-6" />
-              </button>
+        {/* Toolbar */}
+        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="w-full sm:flex-1 sm:max-w-md">
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by route name or location..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <XMarkIcon className="h-4 w-4" />
+                </button>
+              )}
             </div>
-            <form onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                {[
-                  { label: "Route Code",    val: routeCode,      set: setRouteCode,      ph: "e.g. RT001",       req: false },
-                  { label: "Route Name",    val: routeName,      set: setRouteName,      ph: "Enter route name", req: true },
-                  { label: "Start Point",   val: startPoint,     set: setStartPoint,     ph: "Origin",           req: true },
-                  { label: "End Point",     val: endPoint,       set: setEndPoint,       ph: "Destination",      req: true },
-                  { label: "Vehicle No.",   val: vehicleNumber,  set: setVehicleNumber,  ph: "e.g. MH-01-AB-1234", req: true },
-                ].map(f => (
-                  <div key={f.label}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{f.label} {f.req && <span className="text-red-500">*</span>}</label>
-                    <input type="text" value={f.val} onChange={e => f.set(e.target.value)} placeholder={f.ph} required={f.req}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent" />
-                  </div>
-                ))}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Date <span className="text-red-500">*</span></label>
-                  <input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select value={status} onChange={e => setStatus(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
-                    <option>Scheduled</option>
-                    <option>Completed</option>
-                    <option>Cancelled</option>
-                  </select>
-                </div>
-              </div>
-              <div className="flex gap-3 pt-4 border-t border-gray-200">
-                <button type="submit"
-                  className="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-medium transition-colors">
-                  {editingId ? "Update Route" : "Add Route"}
-                </button>
-                <button type="button" onClick={clearForm}
-                  className="px-5 py-2.5 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                  Cancel
-                </button>
-              </div>
-            </form>
           </div>
-        )}
+        </div>
 
         {/* Table */}
         <ReusableTable<RouteSchedule>
-          data={routes}
+          data={filteredRoutes}
           columns={columns}
           loading={loading}
-          searchable
-          searchPlaceholder="Search by route name or destination..."
-          searchFields={["routeName", "endPoint", "startPoint", "routeCode", "vehicleNumber"]}
-          pageSize={5}
-          defaultSortKey="routeName"
+          pageSize={10}
+          defaultSortKey="name"
+          defaultSortOrder="asc"
           emptyState={
-            <div className="flex flex-col items-center py-4">
-              <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <MapPinIcon className="h-8 w-8 text-gray-400" />
-              </div>
-              <p className="text-gray-500 text-sm font-medium mb-2">No routes found</p>
-              <button onClick={() => { clearForm(); setShowForm(true); }} className="text-cyan-600 hover:text-cyan-700 text-sm font-medium">
-                Add your first route →
-              </button>
+            <div className="flex flex-col items-center justify-center py-12">
+              <MapPinIcon className="h-12 w-12 text-gray-400 mb-3" />
+              <p className="text-gray-500 text-sm mb-2">No routes found</p>
+              {search ? (
+                <p className="text-gray-400 text-xs">Try adjusting your search</p>
+              ) : (
+                <button
+                  onClick={handleAddNew}
+                  className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
+                >
+                  Add your first route →
+                </button>
+              )}
             </div>
           }
         />
+
+        {/* Add / Edit Modal — portal, matches CRM segment modal style */}
+        {showForm &&
+          createPortal(
+            <div
+              key="route-modal"
+              className="fixed inset-0 z-50 flex items-start justify-center bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto p-4 sm:items-center"
+            >
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto animate-slide-up">
+
+                <div className="flex items-center justify-between p-5 border-b border-gray-100">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {form.id ? "Edit Route" : "Create New Route"}
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {form.id ? "Update this route's details" : "Add a new delivery route"}
+                    </p>
+                  </div>
+                  <button onClick={resetForm} className="text-gray-400 hover:text-gray-600 transition-colors">
+                    <XMarkIcon className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="p-5 max-h-[70vh] overflow-y-auto">
+                  <div className="space-y-4 pt-2">
+                    <FloatingInput
+                      label="Route Name"
+                      name="name"
+                      value={form.name}
+                      onChange={(e) => handleChange("name", e.target.value)}
+                      required
+                    />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FloatingInput
+                        label="Start Location"
+                        name="startLocation"
+                        value={form.startLocation}
+                        onChange={(e) => handleChange("startLocation", e.target.value)}
+                        required
+                      />
+                      <FloatingInput
+                        label="End Location"
+                        name="endLocation"
+                        value={form.endLocation}
+                        onChange={(e) => handleChange("endLocation", e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <FloatingInput
+                      label="Distance (Km)"
+                      name="distanceKm"
+                      type="number"
+                      value={form.distanceKm}
+                      onChange={(e) => handleChange("distanceKm", Number(e.target.value))}
+                      required
+                    />
+                  </div>
+
+                  <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={resetForm}
+                      className="px-4 py-2 !mb-0 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 transition-all duration-200 shadow-sm disabled:opacity-60"
+                    >
+                      {saving ? "Saving..." : form.id ? "Update Route" : "Create Route"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>,
+            document.body
+          )}
       </div>
 
       {/* Delete popup */}
@@ -281,10 +430,11 @@ const RouteSchedulePage: React.FC = () => {
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
         innerText="Delete Route"
-        subText={`Are you sure you want to delete "${deletingRoute?.routeName}"? This action cannot be undone.`}
+        subText={`Are you sure you want to delete "${deletingRoute?.name}"? This action cannot be undone.`}
         confirmLabel="Delete"
         cancelLabel="Cancel"
         onConfirm={confirmDelete}
+        onCancel={() => setDeletingRoute(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
       />
     </>
