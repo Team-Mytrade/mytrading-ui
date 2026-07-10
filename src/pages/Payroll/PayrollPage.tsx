@@ -14,6 +14,7 @@ import {
     CheckCircleIcon,
     XCircleIcon,
     DocumentArrowDownIcon,
+    FolderArrowDownIcon,
     TableCellsIcon,
     EyeIcon,
     CurrencyDollarIcon,
@@ -34,9 +35,11 @@ import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
+import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import PayslipPreviewModal from "../../components/Payroll/PayslipPreviewModal";
 
 const BASE_URL = "/v1/api/payroll";
 const PAGE_SIZE = 10;
@@ -83,9 +86,6 @@ const PayrollPage: React.FC = () => {
         const empName = searchParams.get("employeeName");
         return empCode || empName || "";
     });
-    const [sortKey, setSortKey] = useState<keyof EmployeeSalary>("month");
-    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-    const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(false);
     const [filterMonth, setFilterMonth] = useState("2026-06");
     const [processMonth, setProcessMonth] = useState("");
@@ -367,60 +367,130 @@ const PayrollPage: React.FC = () => {
         return matchSearch && matchStatus;
     });
 
-    const sorted = [...filtered].sort((a, b) => {
-        let valA = a[sortKey];
-        let valB = b[sortKey];
-
-        if (sortKey === "employee") {
-            valA = a.employee ? `${a.employee.firstName} ${a.employee.lastName}` : "";
-            valB = b.employee ? `${b.employee.firstName} ${b.employee.lastName}` : "";
-        }
-
-        if (valA == null && valB == null) return 0;
-        if (valA == null) return 1;
-        if (valB == null) return -1;
-
-        if (typeof valA === "string" && typeof valB === "string") {
-            return sortOrder === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        }
-
-        if (typeof valA === "number" && typeof valB === "number") {
-            return sortOrder === "asc" ? valA - valB : valB - valA;
-        }
-
-        if (typeof valA === "boolean" && typeof valB === "boolean") {
-            return sortOrder === "asc" ? (valA === valB ? 0 : valA ? 1 : -1) : (valA === valB ? 0 : valA ? -1 : 1);
-        }
-
-        return 0;
-    });
-
-    const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-    const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-
-    const handleSort = (field: keyof EmployeeSalary | "employee") => {
-        if (sortKey === field) setSortOrder(o => o === "asc" ? "desc" : "asc");
-        else { setSortKey(field as keyof EmployeeSalary); setSortOrder("asc"); }
-    };
-
-    const SortIcon = ({ col }: { col: keyof EmployeeSalary | "employee" }) =>
-        sortKey !== col ? null : sortOrder === "asc" ? <ArrowUpIcon className="h-3 w-3 inline ml-1" /> : <ArrowDownIcon className="h-3 w-3 inline ml-1" />;
-
     // Calculate stats from real data
     const totalProcessed = salaries.filter(s => s.isProcessed).length;
     const totalDraft = salaries.filter(s => !s.isProcessed).length;
     const totalDisbursement = salaries.reduce((sum, s) => sum + (s.isProcessed ? s.netSalary : 0), 0);
     const averageNet = salaries.length > 0 ? salaries.reduce((sum, s) => sum + s.netSalary, 0) / salaries.length : 0;
 
+    const columns: ColumnDef<EmployeeSalary>[] = [
+        {
+            key: "employee",
+            label: "Employee",
+            sortable: true,
+            sortValueGetter: (row) => row.employee ? `${row.employee.firstName} ${row.employee.lastName}`.trim() : "",
+            render: (row) => {
+                const fullName = row.employee ? `${row.employee.firstName} ${row.employee.lastName}`.trim() : "—";
+                const initials = row.employee ? `${row.employee.firstName?.charAt(0) || ''}${row.employee?.lastName?.charAt(0) || ''}`.toUpperCase() : 'E';
+                return (
+                    <div className="flex items-center">
+                        <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3 shrink-0">
+                            <span className="text-xs font-medium text-cyan-700">
+                                {initials}
+                            </span>
+                        </div>
+                        <div>
+                            <div className="text-xs font-medium text-gray-900">
+                                {fullName}
+                            </div>
+                            <div className="text-[10px] text-gray-500 mt-0.5">
+                                {row.employee?.employeeCode || "—"}
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+        },
+        {
+            key: "month",
+            label: "Month",
+            sortable: true,
+            render: (row) => (
+                <div className="flex items-center">
+                    <CalendarIcon className="h-4 w-4 text-gray-400 mr-2 shrink-0" />
+                    <span className="text-xs font-medium text-gray-900">{row.month}</span>
+                </div>
+            )
+        },
+        {
+            key: "grossSalary",
+            label: "Gross Salary",
+            sortable: true,
+            render: (row) => <span className="text-xs text-gray-900">₹{row.grossSalary.toLocaleString()}</span>
+        },
+        {
+            key: "netSalary",
+            label: "Net Payable",
+            sortable: true,
+            render: (row) => <span className="text-xs font-bold text-cyan-600">₹{row.netSalary.toLocaleString()}</span>
+        },
+        {
+            key: "isProcessed",
+            label: "Status",
+            sortable: true,
+            render: (row) => row.isProcessed ? (
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                    <CheckCircleIcon className="h-3 w-3 mr-1 shrink-0" />
+                    Processed
+                </span>
+            ) : (
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                    <ClockIcon className="h-3 w-3 mr-1 shrink-0" />
+                    Draft
+                </span>
+            )
+        },
+        {
+            key: "actions",
+            label: "Actions",
+            headerClassName: "text-right w-44",
+            className: "text-right w-44",
+            render: (row) => (
+                <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    <button
+                        onClick={() => handleViewDetails(row)}
+                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-1 rounded-md transition-colors"
+                        title="View Details"
+                    >
+                        <EyeIcon className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                        onClick={() => downloadPayslip(row.employee?.id as number, row.month, `${row.employee?.firstName} ${row.employee?.lastName}`)}
+                        className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 p-1 rounded-md transition-colors"
+                        title="Download Payslip"
+                    >
+                        <DocumentArrowDownIcon className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                        onClick={() => {
+                            setZipEmployee({ id: row.employee?.id as number, name: `${row.employee?.firstName} ${row.employee?.lastName}` });
+                            setIsZipModalOpen(true);
+                        }}
+                        className="text-purple-600 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 p-1 rounded-md transition-colors"
+                        title="Download Range (ZIP)"
+                    >
+                        <FolderArrowDownIcon className="h-3.5 w-3.5" />
+                    </button>
+                    {row.isProcessed && (
+                        <button
+                            onClick={() => rollback(row.id, `${row.employee?.firstName} ${row.employee?.lastName}`)}
+                            className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 p-1 rounded-md transition-colors"
+                            title="Rollback"
+                        >
+                            <ArrowPathIcon className="h-3.5 w-3.5" />
+                        </button>
+                    )}
+                </div>
+            )
+        }
+    ];
+
     return (
         <>
             <PageMeta title="Payroll Management" description="Process and monitor employee salaries" />
             <PageBreadcrumb pageTitle="Salary Records" />
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-                <div className="mb-8 -mt-[125px] flex justify-end gap-3">
-                    <AddButton label="Generate Payslips" onClick={() => setIsGenerateModalOpen(true)} />
-                </div>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-0 pb-8 space-y-6">
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                     <StatsCard label="Total Records" value={salaries.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-6 w-6" />} />
@@ -438,8 +508,8 @@ const PayrollPage: React.FC = () => {
                                 type="text"
                                 placeholder="Search by employee name, code..."
                                 value={search}
-                                onChange={e => { setSearch(e.target.value); setPage(1); }}
-                                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                                onChange={e => { setSearch(e.target.value); }}
+                                className="h-10 pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                             />
                         </div>
                         <div className="relative w-48">
@@ -447,18 +517,20 @@ const PayrollPage: React.FC = () => {
                             <input
                                 type="month"
                                 value={filterMonth}
-                                onChange={e => { setFilterMonth(e.target.value); setPage(1); }}
-                                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                                onChange={e => { setFilterMonth(e.target.value); }}
+                                className="h-10 pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                             />
                         </div>
                     </div>
 
                     <div className="flex items-center gap-3">
+                        <AddButton label="Generate Payslips" className="h-10 !my-0" onClick={() => setIsGenerateModalOpen(true)} />
+
                         {/* Export Menu */}
-                        <div className="relative">
+                        <div className="relative flex h-10 items-center">
                             <button
                                 onClick={() => setShowExportMenu(!showExportMenu)}
-                                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                                className="h-10 w-10 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
                                 disabled={salaries.length === 0}
                             >
                                 <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
@@ -487,7 +559,7 @@ const PayrollPage: React.FC = () => {
                         {/* Print Button */}
                         <button
                             onClick={handlePrint}
-                            className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                            className="h-10 w-10 flex items-center justify-center border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors !my-0"
                             disabled={salaries.length === 0}
                         >
                             <PrinterIcon className="h-5 w-5 text-gray-600" />
@@ -496,16 +568,16 @@ const PayrollPage: React.FC = () => {
                         {/* Filter Button */}
                         <button
                             onClick={() => setShowFilters(!showFilters)}
-                            className={`p-2 rounded-lg border ${showFilters ? 'bg-cyan-50 border-cyan-300' : 'border-gray-300 hover:bg-gray-50'
+                            className={`h-10 w-10 flex items-center justify-center border rounded-lg transition-colors !my-0 ${showFilters ? 'bg-cyan-50 border-cyan-300' : 'border-gray-300 hover:bg-gray-50'
                                 }`}
                         >
-                            <FunnelIcon className={`h-5 w-5 ${showFilters ? 'text-cyan-600' : 'text-gray-600'}`} />
+                            <FunnelIcon className="h-5 w-5 text-gray-600" />
                         </button>
 
                         {/* Refresh Button */}
                         <button
                             onClick={fetchAll}
-                            className={`p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors ${loading ? 'animate-spin' : ''}`}
+                            className={`h-10 w-10 flex items-center justify-center border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors !my-0 ${loading ? 'animate-spin' : ''}`}
                         >
                             <ArrowPathIcon className="h-5 w-5 text-gray-600" />
                         </button>
@@ -521,7 +593,7 @@ const PayrollPage: React.FC = () => {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                                 <select
                                     value={selectedStatus}
-                                    onChange={e => { setSelectedStatus(e.target.value); setPage(1); }}
+                                    onChange={e => { setSelectedStatus(e.target.value); }}
                                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                                 >
                                     <option value="">All Status</option>
@@ -542,266 +614,23 @@ const PayrollPage: React.FC = () => {
                 )}
 
                 {/* Table */}
-                <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-visible">
-                    <div className="overflow-x-auto overflow-y-visible" ref={printRef}>
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    {[
-                                        { key: "employee", label: "Employee" },
-                                        { key: "month", label: "Month" },
-                                        { key: "grossSalary", label: "Gross Salary" },
-                                        { key: "netSalary", label: "Net Payable" },
-                                        { key: "isProcessed", label: "Status" },
-                                        { key: null, label: "Actions" },
-                                    ].map((col, i) => (
-                                        <th
-                                            key={i}
-                                            onClick={() => col.key && handleSort(col.key as keyof EmployeeSalary | "employee")}
-                                            className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${col.key ? "cursor-pointer hover:bg-gray-100" : ""
-                                                }`}
-                                        >
-                                            <span className="flex items-center">
-                                                {col.label}
-                                                {col.key && <SortIcon col={col.key as keyof EmployeeSalary | "employee"} />}
-                                            </span>
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {loading ? (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mb-3"></div>
-                                                <p className="text-gray-500 text-sm">Loading payroll records...</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : paginated.length > 0 ? paginated.map(salary => (
-                                    <tr
-                                        key={salary.id}
-                                        className="hover:bg-gray-50 transition-colors"
-                                    >
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center">
-                                                <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3">
-                                                    <span className="text-xs font-medium text-cyan-700">
-                                                        {salary.employee?.firstName?.charAt(0)}{salary.employee?.lastName?.charAt(0)}
-                                                    </span>
-                                                </div>
-                                                <div>
-                                                    <div className="text-sm font-medium text-gray-900">
-                                                        {salary.employee?.firstName} {salary.employee?.lastName}
-                                                    </div>
-                                                    <div className="text-xs text-gray-500 mt-0.5">
-                                                        {salary.employee?.employeeCode}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <CalendarIcon className="h-4 w-4 text-gray-400 mr-2" />
-                                                <span className="text-sm font-medium text-gray-900">{salary.month}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="text-sm text-gray-900">₹{salary.grossSalary.toLocaleString()}</span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="text-sm font-bold text-cyan-600">₹{salary.netSalary.toLocaleString()}</span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            {salary.isProcessed ? (
-                                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                                                    <CheckCircleIcon className="h-3 w-3 mr-1" />
-                                                    Processed
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                                                    <ClockIcon className="h-3 w-3 mr-1" />
-                                                    Draft
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                                            <Menu as="div" className="relative inline-block text-left">
-                                                <Menu.Button className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
-                                                    <EllipsisVerticalIcon className="h-5 w-5" />
-                                                </Menu.Button>
-                                                <Transition
-                                                    as={Fragment}
-                                                    enter="transition ease-out duration-100"
-                                                    enterFrom="transform opacity-0 scale-95"
-                                                    enterTo="transform opacity-100 scale-100"
-                                                    leave="transition ease-in duration-75"
-                                                    leaveFrom="transform opacity-100 scale-100"
-                                                    leaveTo="transform opacity-0 scale-95"
-                                                >
-                                                    <Menu.Items className="absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-xl bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none divide-y divide-gray-100">
-                                                        <div className="py-1">
-                                                            <Menu.Item>
-                                                                {({ active }) => (
-                                                                    <button
-                                                                        onClick={() => handleViewDetails(salary)}
-                                                                        className={`${active ? 'bg-blue-50 text-blue-700' : 'text-gray-700'} group flex w-full items-center px-4 py-2 text-sm transition-colors`}
-                                                                    >
-                                                                        <EyeIcon className={`${active ? 'text-blue-600' : 'text-gray-400'} h-4 w-4 mr-3 group-hover:text-blue-600 transition-colors`} />
-                                                                        View Details
-                                                                    </button>
-                                                                )}
-                                                            </Menu.Item>
-                                                            <Menu.Item>
-                                                                {({ active }) => (
-                                                                    <button
-                                                                        onClick={() => downloadPayslip(salary.employee.id, salary.month, `${salary.employee?.firstName} ${salary.employee?.lastName}`)}
-                                                                        className={`${active ? 'bg-green-50 text-green-700' : 'text-gray-700'} group flex w-full items-center px-4 py-2 text-sm transition-colors`}
-                                                                    >
-                                                                        <DocumentArrowDownIcon className={`${active ? 'text-green-600' : 'text-gray-400'} h-4 w-4 mr-3 group-hover:text-green-600 transition-colors`} />
-                                                                        Download Payslip
-                                                                    </button>
-                                                                )}
-                                                            </Menu.Item>
-                                                            <Menu.Item>
-                                                                {({ active }) => (
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setZipEmployee({ id: salary.employee.id, name: `${salary.employee.firstName} ${salary.employee.lastName}` });
-                                                                            setIsZipModalOpen(true);
-                                                                        }}
-                                                                        className={`${active ? 'bg-purple-50 text-purple-700' : 'text-gray-700'} group flex w-full items-center px-4 py-2 text-sm transition-colors`}
-                                                                    >
-                                                                        <DocumentArrowDownIcon className={`${active ? 'text-purple-600' : 'text-gray-400'} h-4 w-4 mr-3 group-hover:text-purple-600 transition-colors`} />
-                                                                        Download Range (ZIP)
-                                                                    </button>
-                                                                )}
-                                                            </Menu.Item>
-                                                        </div>
-                                                        {salary.isProcessed && (
-                                                            <div className="py-1">
-                                                                <Menu.Item>
-                                                                    {({ active }) => (
-                                                                        <button
-                                                                            onClick={() => rollback(salary.id, `${salary.employee?.firstName} ${salary.employee?.lastName}`)}
-                                                                            className={`${active ? 'bg-red-50 text-red-700' : 'text-gray-700'} group flex w-full items-center px-4 py-2 text-sm transition-colors`}
-                                                                        >
-                                                                            <ArrowPathIcon className={`${active ? 'text-red-600' : 'text-gray-400'} h-4 w-4 mr-3 group-hover:text-red-600 transition-colors`} />
-                                                                            Rollback
-                                                                        </button>
-                                                                    )}
-                                                                </Menu.Item>
-                                                            </div>
-                                                        )}
-                                                    </Menu.Items>
-                                                </Transition>
-                                            </Menu>
-                                        </td>
-                                    </tr>
-                                )) : (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />
-                                                <p className="text-gray-500 text-sm mb-2">No payroll records found</p>
-                                                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Pagination */}
-                    {totalPages > 0 && (
-                        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                            <div className="flex-1 flex justify-between sm:hidden">
-                                <button
-                                    onClick={() => setPage(Math.max(1, page - 1))}
-                                    disabled={page === 1}
-                                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Previous
-                                </button>
-                                <button
-                                    onClick={() => setPage(Math.min(totalPages, page + 1))}
-                                    disabled={page === totalPages}
-                                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Next
-                                </button>
+                <div ref={printRef}>
+                    <ReusableTable
+                        className="[&_th]:!px-2 [&_td]:!px-2"
+                        data={filtered}
+                        columns={columns}
+                        loading={loading}
+                        searchable={false}
+                        pageSize={PAGE_SIZE}
+                        defaultSortKey="month"
+                        defaultSortOrder="desc"
+                        emptyState={
+                            <div className="flex flex-col items-center">
+                                <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />
+                                <p className="text-gray-500 text-sm mb-2">No payroll records found</p>
                             </div>
-                            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                                <div>
-                                    <p className="text-sm text-gray-700">
-                                        Showing <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> to{' '}
-                                        <span className="font-medium">
-                                            {Math.min(page * PAGE_SIZE, filtered.length)}
-                                        </span>{' '}
-                                        of <span className="font-medium">{filtered.length}</span> results
-                                    </p>
-                                </div>
-                                <div>
-                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                                        <button
-                                            onClick={() => setPage(1)}
-                                            disabled={page === 1}
-                                            className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            First
-                                        </button>
-                                        <button
-                                            onClick={() => setPage(Math.max(1, page - 1))}
-                                            disabled={page === 1}
-                                            className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Previous
-                                        </button>
-                                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                            let pageNum: number;
-                                            if (totalPages <= 5) {
-                                                pageNum = i + 1;
-                                            } else if (page <= 3) {
-                                                pageNum = i + 1;
-                                            } else if (page >= totalPages - 2) {
-                                                pageNum = totalPages - 4 + i;
-                                            } else {
-                                                pageNum = page - 2 + i;
-                                            }
-                                            return (
-                                                <button
-                                                    key={pageNum}
-                                                    onClick={() => setPage(pageNum)}
-                                                    className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page === pageNum
-                                                        ? "z-10 bg-cyan-50 border-cyan-500 text-cyan-600"
-                                                        : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                                                        }`}
-                                                >
-                                                    {pageNum}
-                                                </button>
-                                            );
-                                        })}
-                                        <button
-                                            onClick={() => setPage(Math.min(totalPages, page + 1))}
-                                            disabled={page === totalPages}
-                                            className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Next
-                                        </button>
-                                        <button
-                                            onClick={() => setPage(totalPages)}
-                                            disabled={page === totalPages}
-                                            className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Last
-                                        </button>
-                                    </nav>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                        }
+                    />
                 </div>
 
                 {/* Process Payroll Modal */}
@@ -988,126 +817,22 @@ const PayrollPage: React.FC = () => {
                 )}
 
                 {/* View Details Modal */}
-                {viewItem && (
-                    <div className="fixed inset-0 z-50 overflow-y-auto">
-                        <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setViewItem(null)}></div>
-                            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                                    <div className="sm:flex sm:items-start">
-                                        <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                                            <div className="flex justify-between items-center mb-4">
-                                                <h3 className="text-lg leading-6 font-medium text-gray-900">
-                                                    Salary Details - {viewItem.month}
-                                                </h3>
-                                                <button
-                                                    onClick={() => setViewItem(null)}
-                                                    className="text-gray-400 hover:text-gray-500"
-                                                >
-                                                    <XCircleIcon className="h-6 w-6" />
-                                                </button>
-                                            </div>
-
-                                            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Employee Information</h4>
-                                                <div className="grid grid-cols-2 gap-2 text-sm">
-                                                    <span className="text-gray-500">Name:</span>
-                                                    <span className="font-medium">{viewItem.employee?.firstName} {viewItem.employee?.lastName}</span>
-                                                    <span className="text-gray-500">Employee Code:</span>
-                                                    <span className="font-medium">{viewItem.employee?.employeeCode}</span>
-                                                    <span className="text-gray-500">Month:</span>
-                                                    <span className="font-medium">{viewItem.month}</span>
-                                                    <span className="text-gray-500">Status:</span>
-                                                    <span className={`font-medium ${viewItem.isProcessed ? 'text-green-600' : 'text-yellow-600'}`}>
-                                                        {viewItem.isProcessed ? 'Processed' : 'Draft'}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {detailsLoading ? (
-                                                <div className="flex justify-center p-8">
-                                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div>
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <div className="mb-6">
-                                                        <h4 className="text-sm font-medium text-gray-700 mb-2">Earnings</h4>
-                                                        <div className="space-y-2">
-                                                            <div className="flex justify-between text-sm">
-                                                                <span className="text-gray-500">Basic Salary:</span>
-                                                                <span className="font-medium">₹{viewDetails?.basic?.toLocaleString() || 0}</span>
-                                                            </div>
-                                                            <div className="flex justify-between text-sm">
-                                                                <span className="text-gray-500">HRA:</span>
-                                                                <span className="font-medium">₹{viewDetails?.hra?.toLocaleString() || 0}</span>
-                                                            </div>
-                                                            {viewDetails?.earnings?.map((e: any, i: number) => (
-                                                                <div key={i} className="flex justify-between text-sm">
-                                                                    <span className="text-gray-500">{e.componentName || e.name || e.earningName}:</span>
-                                                                    <span className="font-medium">₹{e.amount?.toLocaleString() || 0}</span>
-                                                                </div>
-                                                            ))}
-                                                            <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-                                                                <span className="font-medium text-gray-700">Gross Salary:</span>
-                                                                <span className="font-bold text-cyan-600">₹{viewDetails?.grossSalary?.toLocaleString() || viewItem.grossSalary?.toLocaleString() || 0}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="mb-6">
-                                                        <h4 className="text-sm font-medium text-gray-700 mb-2">Deductions</h4>
-                                                        <div className="space-y-2">
-                                                            {viewDetails?.deductions?.length > 0 ? viewDetails.deductions.map((d: any, i: number) => (
-                                                                <div key={i} className="flex justify-between text-sm">
-                                                                    <span className="text-gray-500">{d.componentName || d.name || d.deductionName}:</span>
-                                                                    <span className="font-medium">₹{d.amount?.toLocaleString() || 0}</span>
-                                                                </div>
-                                                            )) : (
-                                                                <div className="text-sm text-gray-500 italic">No deductions</div>
-                                                            )}
-                                                            <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-                                                                <span className="font-medium text-gray-700">Total Deductions:</span>
-                                                                <span className="font-bold text-red-600">₹{viewDetails?.totalDeductions?.toLocaleString() || 0}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </>
-                                            )}
-
-                                            <div className="p-4 bg-cyan-50 rounded-lg">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-sm font-medium text-gray-700">Net Payable:</span>
-                                                    <span className="text-2xl font-bold text-cyan-600">₹{viewItem.netSalary?.toLocaleString() || 0}</span>
-                                                </div>
-                                                <div className="mt-2 text-xs text-gray-500">
-                                                    Payment Mode: {viewItem.paymentMode || "N/A"}
-                                                    {viewItem.processedDate && ` • Processed: ${new Date(viewItem.processedDate).toLocaleDateString()}`}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                                    <button
-                                        type="button"
-                                        onClick={() => downloadPayslip(viewItem.employee.id, viewItem.month, `${viewItem.employee?.firstName} ${viewItem.employee?.lastName}`)}
-                                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
-                                        Download Payslip
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setViewItem(null)}
-                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        Close
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                <PayslipPreviewModal
+                    isOpen={!!viewItem}
+                    onClose={() => setViewItem(null)}
+                    payslipData={viewDetails}
+                    month={viewItem?.month || ""}
+                    loading={detailsLoading}
+                    onDownload={() => {
+                        if (viewItem?.employee?.id && viewItem?.month) {
+                            downloadPayslip(
+                                viewItem.employee.id, 
+                                viewItem.month, 
+                                `${viewItem.employee.firstName} ${viewItem.employee.lastName}`
+                            );
+                        }
+                    }}
+                />
 
                 <ConfirmDialog
                     isOpen={confirmState.isOpen}

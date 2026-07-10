@@ -166,7 +166,7 @@ export function ReusableTable<T extends { id?: number | string }>({
     <div className={className}>
 
       {(searchable || toolbar) && (
-        <div className="mb-3 flex flex-col sm:flex-row gap-2.5 items-start sm:items-center justify-between">
+        <div className="mb-6 flex flex-col sm:flex-row gap-2.5 items-start sm:items-center justify-between">
 
           {searchable && (
             <div className="relative flex-1 max-w-md w-full">
@@ -197,7 +197,7 @@ export function ReusableTable<T extends { id?: number | string }>({
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-visible shadow-sm">
         <div className="overflow-x-auto overflow-y-visible relative">
-          <table className="min-w-full table-fixed divide-y divide-gray-200">
+          <table className="min-w-full table-auto divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 {columns.map((col) => (
@@ -205,7 +205,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                     key={col.key}
                     onClick={() => col.sortable && handleSort(col.key)}
                     className={[
-                      "px-4 py-3 text-xs font-semibold text-black dark:text-white uppercase tracking-wider select-none",
+                      "px-4 py-3 text-xs font-semibold text-black dark:text-white uppercase tracking-wider select-none whitespace-nowrap",
                       col.sortable
                         ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                         : "",
@@ -261,7 +261,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                       <td
                         key={col.key}
                         className={[
-                          "px-1.5 py-1.5 text-sm text-gray-700",
+                          "px-4 py-3 text-xs text-gray-700 whitespace-nowrap",
                           col.className ?? "",
                         ]
                           .filter(Boolean)

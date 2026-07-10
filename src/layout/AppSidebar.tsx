@@ -161,6 +161,8 @@ export const navItems: NavItem[] = [
       // { name: "Payroll Runs / Payslips", path: "/payrollRuns" },
       // { name: "Benefits / Allowances", path: "/benefits"},
       { name: "Documents", path: "/employeeDocuments" },
+      { name: "Exit Approvals", path: "/exitApprovals" },
+      { name: "Exit Management", path: "/exit-management" },
     ],
   },
   {
@@ -358,36 +360,35 @@ const AppSidebar: React.FC = () => {
     let submenuMatched = false;
     navItems.forEach((nav, index) => {
       if (nav.subItems) {
-        nav.subItems.forEach((subItem) => {
-          if (isActive(subItem.path)) {
+        nav.subItems.forEach((subItem, subIndex) => {
+          // Check level 2 items
+          if (subItem.path && isActive(subItem.path)) {
             setOpenSubmenu(index);
+            // Close sub-submenus if we match a level 2 item
+            setOpenSubSubmenu(null);
             submenuMatched = true;
+          }
+          // Check level 3 items (nested sub-menus)
+          if (subItem.subItems) {
+            subItem.subItems.forEach((ssItem) => {
+              if (ssItem.path && isActive(ssItem.path)) {
+                setOpenSubmenu(index);
+                setOpenSubSubmenu(`${index}-${subIndex}`);
+                submenuMatched = true;
+              }
+            });
           }
         });
       }
     });
-    if (!submenuMatched) setOpenSubmenu(null);
-  }, [location, isActive]);
-
-  useEffect(() => {
-    if (openSubmenu !== null && subMenuRefs.current[openSubmenu]) {
-      // Recalculate height, taking into account any open sub-sub-menus
-      const baseHeight = subMenuRefs.current[openSubmenu]?.scrollHeight || 0;
-      setSubMenuHeight(prev => ({
-        ...prev,
-        [openSubmenu]: baseHeight,
-      }));
+    if (!submenuMatched) {
+      setOpenSubmenu(null);
+      setOpenSubSubmenu(null);
     }
-  }, [openSubmenu, openSubSubmenu]);
+  }, [location.pathname, isActive]);
 
-  useEffect(() => {
-    if (openSubSubmenu !== null && subSubMenuRefs.current[openSubSubmenu]) {
-      setSubSubMenuHeight(prev => ({
-        ...prev,
-        [openSubSubmenu]: subSubMenuRefs.current[openSubSubmenu]?.scrollHeight || 0,
-      }));
-    }
-  }, [openSubSubmenu]);
+  // We are migrating to CSS max-height for animations, so we no longer need the complex JS height calculation logic!
+  // Removing the buggy height calculation useEffects...
 
   const handleSubmenuToggle = (index: number) => {
     setOpenSubmenu(prev => prev === index ? null : index);
@@ -451,10 +452,10 @@ const AppSidebar: React.FC = () => {
           {(isExpanded || isMobileOpen) && (
             <div
               ref={(el) => { subMenuRefs.current[index] = el; }}
-              className="overflow-hidden transition-all duration-300"
-              style={{ height: openSubmenu === index ? `${subMenuHeight[index]}px` : "0px" }}
+              className={`grid transition-all duration-300 ease-in-out ${openSubmenu === index ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
             >
-              <div className="ml-9 pl-2 mt-1 space-y-0.5 border-l border-gray-200 dark:border-gray-700">
+              <div className="overflow-hidden">
+                <div className="ml-9 pl-2 mt-1 space-y-0.5 border-l border-gray-200 dark:border-gray-700">
                 {nav.subItems.map((subItem, subIndex) => {
                   const subKey = `${index}-${subIndex}`;
                   const hasSubSubItems = subItem.subItems && subItem.subItems.length > 0;
@@ -478,10 +479,10 @@ const AppSidebar: React.FC = () => {
                         
                         <div
                           ref={(el) => { subSubMenuRefs.current[subKey] = el; }}
-                          className="overflow-hidden transition-all duration-300"
-                          style={{ height: openSubSubmenu === subKey ? `${subSubMenuHeight[subKey]}px` : "0px" }}
+                          className={`grid transition-all duration-300 ease-in-out ${openSubSubmenu === subKey ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
                         >
-                          <div className="ml-4 pl-2 mt-0.5 space-y-0.5 border-l border-gray-200 dark:border-gray-700">
+                          <div className="overflow-hidden">
+                            <div className="ml-4 pl-2 mt-1 space-y-0.5 border-l border-gray-200 dark:border-gray-700">
                             {subItem.subItems!.map((ssItem) => (
                               <Link
                                 key={ssItem.name}
@@ -499,6 +500,7 @@ const AppSidebar: React.FC = () => {
                             ))}
                           </div>
                         </div>
+                      </div>
                       </div>
                     );
                   }
@@ -520,6 +522,7 @@ const AppSidebar: React.FC = () => {
                   );
                 })}
               </div>
+            </div>
             </div>
           )}
         </div>
@@ -606,7 +609,28 @@ const AppSidebar: React.FC = () => {
         {/* Navigation */}
         <div className="flex-1 overflow-y-auto py-4 px-2 no-scrollbar">
           <div className="space-y-1">
-            {navItems.map((nav, index) => renderMenuItem(nav, index))}
+            {navItems.map((nav, index) => {
+              const isAdmin = (userRole === "SUPER_ADMIN" || userRole === "ADMIN" || user?.roles?.includes("SUPER_ADMIN") || user?.roles?.includes("ADMIN")) && user?.userType !== "USER" && user?.userType !== "EMPLOYEE";
+              if (nav.name === "HRMS" && nav.subItems) {
+                const mappedSubItems = nav.subItems.filter(sub => {
+                  if (sub.name === "Exit Approvals" && !isAdmin) {
+                    return false;
+                  }
+                  return true;
+                });
+                return renderMenuItem({ ...nav, subItems: mappedSubItems }, index);
+              }
+              if (nav.name === "Profile" && nav.subItems) {
+                const mappedSubItems = nav.subItems.filter(sub => {
+                  if (sub.name === "Configurations" && !isAdmin) {
+                    return false;
+                  }
+                  return true;
+                });
+                return renderMenuItem({ ...nav, subItems: mappedSubItems }, index);
+              }
+              return renderMenuItem(nav, index);
+            })}
           </div>
         </div>
 
@@ -675,20 +699,47 @@ const AppSidebar: React.FC = () => {
           {navItems[tooltipVisible]?.subItems ? (
             <div className="flex flex-col gap-0.5">
               {navItems[tooltipVisible].subItems.map((subItem) => (
-                <Link
-                  key={subItem.name}
-                  to={subItem.path}
-                  className={`
-                    px-3 py-2 text-sm rounded-lg transition-all duration-200 block whitespace-nowrap text-left
-                    ${isActive(subItem.path)
-                      ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400 font-semibold"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-                    }
-                  `}
-                  onClick={() => setTooltipVisible(null)}
-                >
-                  {subItem.name}
-                </Link>
+                <div key={subItem.name}>
+                  {subItem.path ? (
+                    <Link
+                      to={subItem.path}
+                      className={`
+                        px-3 py-2 text-sm rounded-lg transition-all duration-200 block whitespace-nowrap text-left
+                        ${isActive(subItem.path)
+                          ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400 font-semibold"
+                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                        }
+                      `}
+                      onClick={() => setTooltipVisible(null)}
+                    >
+                      {subItem.name}
+                    </Link>
+                  ) : (
+                    <div className="px-3 py-2 text-sm rounded-lg block whitespace-nowrap text-left text-gray-800 dark:text-gray-200 font-semibold bg-gray-100 dark:bg-gray-800">
+                      {subItem.name}
+                    </div>
+                  )}
+                  {subItem.subItems && (
+                    <div className="ml-3 mt-1 flex flex-col gap-0.5 border-l border-gray-200 dark:border-gray-700 pl-2">
+                      {subItem.subItems.map((ssItem) => (
+                        <Link
+                          key={ssItem.name}
+                          to={ssItem.path}
+                          className={`
+                            px-3 py-1.5 text-xs rounded-lg transition-all duration-200 block whitespace-nowrap text-left
+                            ${isActive(ssItem.path)
+                              ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400 font-semibold"
+                              : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                            }
+                          `}
+                          onClick={() => setTooltipVisible(null)}
+                        >
+                          {ssItem.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           ) : (

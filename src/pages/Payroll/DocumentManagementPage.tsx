@@ -197,7 +197,7 @@ const DocumentManagementPage: React.FC = () => {
             const contentType =
                 response.headers['content-type'] || doc.fileType || 'application/octet-stream';
 
-            const blob = new Blob([response.data], { type: contentType });
+            const blob = new Blob([response.data], { type: contentType as string });
             const url = window.URL.createObjectURL(blob);
 
             const link = document.createElement('a');

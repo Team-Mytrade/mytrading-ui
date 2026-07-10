@@ -149,7 +149,7 @@ const EmployeeDepartmentsPage: React.FC = () => {
       key: "id",
       label: "ID",
       sortable: true,
-      render: (row) => <span className="pl-2 text-sm font-mono font-medium text-gray-900">{row.id}</span>
+      render: (row) => <span className="pl-2 text-xs font-mono font-medium text-gray-900">{row.id}</span>
     },
     {
       key: "name",
@@ -157,13 +157,13 @@ const EmployeeDepartmentsPage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <div className="flex items-center">
-          <div className="h-8 w-8 rounded-md bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center mr-3">
-            <span className="text-sm font-medium text-white">
+          <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3 shrink-0">
+            <span className="text-xs font-medium text-cyan-700">
               {row.name.charAt(0).toUpperCase()}
             </span>
           </div>
           <div>
-            <div className="text-sm font-medium text-gray-900">
+            <div className="text-xs font-semibold text-gray-900">
               {row.name}
             </div>
           </div>
@@ -176,8 +176,8 @@ const EmployeeDepartmentsPage: React.FC = () => {
       sortable: true,
       sortValueGetter: (row) => row.employees?.length || 0,
       render: (row) => (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-cyan-100 text-cyan-800">
-          <UserGroupIcon className="h-3 w-3 mr-1" />
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-cyan-50 text-cyan-700 border border-cyan-100">
+          <UserGroupIcon className="h-3 w-3 mr-1 shrink-0" />
           {row.employees?.length || 0} employees
         </span>
       )
@@ -187,7 +187,7 @@ const EmployeeDepartmentsPage: React.FC = () => {
       label: "Created Date",
       sortable: true,
       render: (row) => (
-        <span className="text-sm text-gray-600">
+        <span className="text-xs text-gray-500">
           {row.createdDate ? new Date(row.createdDate).toLocaleDateString() : "-"}
         </span>
       )
@@ -196,25 +196,23 @@ const EmployeeDepartmentsPage: React.FC = () => {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "text-center",
-      className: "text-center",
+      headerClassName: "text-right w-32",
+      className: "text-right w-32",
       render: (row) => (
-        <div className="flex items-center justify-center gap-2">
+        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => openEditModal(row)}
-            className="p-1.5 rounded-md text-gray-500 hover:text-cyan-600 hover:bg-cyan-50 transition-all duration-200"
-            data-tooltip-id="tooltip"
-            data-tooltip-content="Edit Department"
+            className="text-cyan-600 hover:text-cyan-900 bg-cyan-50 hover:bg-cyan-100 p-1.5 rounded-md transition-colors"
+            title="Edit Department"
           >
-            <PencilSquareIcon className="h-4 w-4" />
+            <PencilSquareIcon className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={() => handleDelete(row.id, row.name)}
-            className="p-1.5 rounded-md text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
-            data-tooltip-id="tooltip"
-            data-tooltip-content="Delete Department"
+            className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 p-1.5 rounded-md transition-colors"
+            title="Delete Department"
           >
-            <TrashIcon className="h-4 w-4" />
+            <TrashIcon className="h-3.5 w-3.5" />
           </button>
         </div>
       )
@@ -231,7 +229,8 @@ const EmployeeDepartmentsPage: React.FC = () => {
       <PageMeta title="Departments" description="Manage employee departments" />
       <PageBreadcrumb pageTitle="Departments" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-0 pb-8 space-y-3">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-0 pb-8 space-y-6">
+
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard label="Total Departments" value={departments.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<BuildingOfficeIcon className="h-6 w-6" />} />
           <StatsCard label="Total Employees" value={totalEmployees} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<UserGroupIcon className="h-6 w-6" />} />

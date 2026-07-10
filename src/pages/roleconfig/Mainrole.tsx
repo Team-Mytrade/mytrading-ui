@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { BackButton } from "../../components/common/BackButton";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { PageType, PAGE_ICONS, PAGE_LABELS } from "./RoleConfigTabConfig";
+import { AuthContext } from "../../context/AuthContext";
 
 import TenantTab from "./TenantTab";
 import DomainTab from "./DomainTab";
@@ -13,12 +14,26 @@ import RolePermissionTab from "./RolePermissionTab";
 import UserEmployeeTab from "./UserEmployeeTab";
 
 const RoleConfig: React.FC = () => {
+  const { user } = useContext(AuthContext);
+  const isAdmin = (user?.role === "SUPER_ADMIN" || user?.role === "ADMIN" || user?.roles?.includes("SUPER_ADMIN") || user?.roles?.includes("ADMIN")) && user?.userType !== "USER" && user?.userType !== "EMPLOYEE";
+
   const [activePage, setActivePage] = useState<PageType>("Tenant");
   const [selectedTenantFilter, setSelectedTenantFilter] = useState<string | null>(null);
   const [selectedDomainFilter, setSelectedDomainFilter] = useState<number | null>(null);
   const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState<number | null>(null);
   const [selectedPermissionFilter, setSelectedPermissionFilter] = useState<number | null>(null);
   const pages = Object.keys(PAGE_LABELS) as PageType[];
+
+  if (!isAdmin) {
+    return (
+      <div className="p-12 text-center max-w-md mx-auto">
+        <div className="bg-red-50 text-red-600 p-6 rounded-xl border border-red-100 shadow-sm">
+          <h2 className="text-xl font-bold">Access Denied</h2>
+          <p className="text-xs text-gray-500 mt-2">You do not have the required administrator privileges to access configurations.</p>
+        </div>
+      </div>
+    );
+  }
 
   const renderContent = () => {
     switch (activePage) {

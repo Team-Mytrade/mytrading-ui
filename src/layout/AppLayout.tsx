@@ -38,7 +38,7 @@ const LayoutContent: React.FC = () => {
         className={`flex-1 ${isResizing ? "transition-none" : "transition-all duration-300 ease-in-out"}`}
       >
         <AppHeader />
-        <div className="p-4 mx-auto max-w-screen-2xl md:p-6">
+        <div className="pt-3 px-4 pb-4 mx-auto max-w-screen-2xl md:pt-4.5 md:px-6 md:pb-6">
           <Outlet />
         </div>
       </div>

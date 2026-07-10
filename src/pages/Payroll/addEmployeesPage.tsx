@@ -97,6 +97,28 @@ type Tenant = {
   active: boolean;
 };
 
+const customClassNames = {
+  control: (state: any) =>
+    `!min-h-[42px] !rounded-lg !border !bg-white !transition-all ${
+      state.isFocused
+        ? '!border-cyan-500 !shadow-[0_0_0_2px_rgba(6,182,212,0.2)]'
+        : '!border-gray-300 hover:!border-cyan-500'
+    } ${state.isDisabled ? '!bg-gray-100' : ''}`,
+  valueContainer: () => '!px-3',
+  input: () => '!m-0 !p-0',
+  placeholder: () => '!m-0 !text-gray-500',
+  option: (state: any) =>
+    `!cursor-pointer !px-4 !py-2 ${
+      state.isSelected
+        ? '!bg-cyan-500 !text-white'
+        : state.isFocused
+        ? '!bg-cyan-100 !text-gray-900'
+        : '!bg-white !text-gray-700'
+    } hover:!bg-cyan-500 hover:!text-white !transition-colors active:!bg-cyan-500 active:!text-white`,
+  menu: () => '!mt-1 !overflow-hidden !rounded-lg !border !border-gray-200 !bg-white !shadow-lg !z-50',
+  menuList: () => '!p-0',
+};
+
 const AddEmployeePage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -133,7 +155,7 @@ const AddEmployeePage: React.FC = () => {
     userType: UserType.EMPLOYEE,
     tenantId: "",
     maritalStatus: "SINGLE" as MaritalStatus,
-    fatheName: "",
+    fatherName: "",
     phone: "",
     countryCode: "IN",
     gender: "MALE" as Gender,
@@ -149,6 +171,13 @@ const AddEmployeePage: React.FC = () => {
     ifscCode: "",
     branch: "Main",
     isActive: true,
+    taxRegime: "New Regime",
+    esiApplicable: false,
+    metroCity: false,
+    panNumber: "",
+    aadhaarNumber: "",
+    pfNumber: "",
+    uan: "",
     department: { id: 0, name: "" },
     domain: null as Domain | null,
     roleNames: [] as Role[],
@@ -176,24 +205,13 @@ const AddEmployeePage: React.FC = () => {
       country: defaultCountry,
       postalCode: "",
     },
-    countrySpecificData: {
-      pan: "",
-      aadhaar: "",
-    },
     salary: {
       currency: "INR",
       ctc: 0,
       role: "",
       country: "INDIA",
-      regime: Regime.NEW,
       earnings: [] as Earning[],
       additionalBenefits: [] as AdditionalBenefit[],
-      countrySpecificData: {
-        pf_number: "",
-        uan: "",
-        esi_applicable: false,
-        isMetrocity: false,
-      },
     },
   });
 
@@ -348,6 +366,122 @@ const AddEmployeePage: React.FC = () => {
       // Convert department if it's just an ID
       if (employeeData.department && typeof employeeData.department === 'number') {
         employeeData.department = { id: employeeData.department, name: "" };
+      } else if (!employeeData.department) {
+        employeeData.department = { id: 0, name: "" };
+      }
+
+      if (!employeeData.roleNames) {
+        employeeData.roleNames = [];
+      }
+
+      if (!employeeData.permanentAddress) {
+        employeeData.permanentAddress = { line1: "", line2: "", city: "", state: "", country: defaultCountry, postalCode: "" };
+      } else {
+        const countryVal = typeof employeeData.permanentAddress.country === 'string'
+          ? employeeData.permanentAddress.country
+          : employeeData.permanentAddress.country?.value || employeeData.permanentAddress.country?.label;
+        if (countryVal) {
+          const matchedCountry = COUNTRY_OPTIONS.find(c =>
+            c.value.toLowerCase() === countryVal.toLowerCase() ||
+            c.label.toLowerCase() === countryVal.toLowerCase()
+          );
+          if (matchedCountry) {
+            employeeData.permanentAddress.country = matchedCountry;
+          } else {
+            employeeData.permanentAddress.country = defaultCountry;
+          }
+        } else {
+          employeeData.permanentAddress.country = defaultCountry;
+        }
+      }
+
+      if (!employeeData.currentAddress) {
+        employeeData.currentAddress = { line1: "", line2: "", city: "", state: "", country: defaultCountry, postalCode: "" };
+      } else {
+        const countryVal = typeof employeeData.currentAddress.country === 'string'
+          ? employeeData.currentAddress.country
+          : employeeData.currentAddress.country?.value || employeeData.currentAddress.country?.label;
+        if (countryVal) {
+          const matchedCountry = COUNTRY_OPTIONS.find(c =>
+            c.value.toLowerCase() === countryVal.toLowerCase() ||
+            c.label.toLowerCase() === countryVal.toLowerCase()
+          );
+          if (matchedCountry) {
+            employeeData.currentAddress.country = matchedCountry;
+          } else {
+            employeeData.currentAddress.country = defaultCountry;
+          }
+        } else {
+          employeeData.currentAddress.country = defaultCountry;
+        }
+      }
+
+      if (!employeeData.userDetails) {
+        employeeData.userDetails = { phoneNumber: "", country: "", city: "", address: "", postalCode: "", aboutMe: "" };
+      }
+
+      if (!employeeData.salary) {
+        employeeData.salary = {
+          currency: "INR",
+          ctc: 0,
+          role: "",
+          country: "INDIA",
+          earnings: [],
+          additionalBenefits: [],
+        };
+      } else {
+        const earnings: any[] = [];
+        if (employeeData.salary.basic) {
+          earnings.push({ name: "Basic", amount: employeeData.salary.basic });
+        }
+        if (employeeData.salary.hra) {
+          earnings.push({ name: "HRA", amount: employeeData.salary.hra });
+        }
+        if (employeeData.salary.allowances) {
+          earnings.push({ name: "Allowances", amount: employeeData.salary.allowances });
+        }
+        if (employeeData.salary.specialAllowance) {
+          earnings.push({ name: "Special Allowance", amount: employeeData.salary.specialAllowance });
+        }
+
+        if (earnings.length > 0) {
+          employeeData.salary.earnings = earnings;
+        } else if (!employeeData.salary.earnings) {
+          employeeData.salary.earnings = [];
+        }
+
+        if (!employeeData.salary.additionalBenefits) {
+          employeeData.salary.additionalBenefits = [];
+        }
+      }
+
+      // Map nested countrySpecificData (PAN, Aadhaar) to root level
+      if (employeeData.countrySpecificData) {
+        employeeData.panNumber = employeeData.countrySpecificData.pan || "";
+        employeeData.aadhaarNumber = employeeData.countrySpecificData.aadhaar || "";
+      } else {
+        employeeData.panNumber = "";
+        employeeData.aadhaarNumber = "";
+      }
+
+      // Map nested salary.countrySpecificData (PF, UAN, ESI, Metrocity, taxRegime) to root level
+      if (employeeData.salary && employeeData.salary.countrySpecificData) {
+        employeeData.pfNumber = employeeData.salary.countrySpecificData.pf_number || "";
+        employeeData.uan = employeeData.salary.countrySpecificData.uan || "";
+        employeeData.esiApplicable = !!employeeData.salary.countrySpecificData.esi_applicable;
+        employeeData.metroCity = !!employeeData.salary.countrySpecificData.isMetrocity;
+        employeeData.taxRegime = employeeData.salary.countrySpecificData.taxRegime === "NEW" ? "New Regime" : "Old Regime";
+      } else {
+        employeeData.pfNumber = "";
+        employeeData.uan = "";
+        employeeData.esiApplicable = false;
+        employeeData.metroCity = false;
+        employeeData.taxRegime = "New Regime";
+      }
+
+      // Extract tenantId if tenant is returned as an object
+      if (employeeData.tenant && typeof employeeData.tenant === 'object') {
+        employeeData.tenantId = employeeData.tenant.tenantId || employeeData.tenant.id;
       }
 
       setForm(employeeData);
@@ -480,17 +614,17 @@ const AddEmployeePage: React.FC = () => {
 
     switch (step) {
       case 1:
-        if (!form.firstName.trim()) newErrors.firstName = "First name is required";
-        if (!form.lastName.trim()) newErrors.lastName = "Last name is required";
-        if (!form.fatheName.trim()) newErrors.fatheName = "Father's name is required";
-        if (!form.personalEmail.trim()) {
+        if (!(form.firstName || "").trim()) newErrors.firstName = "First name is required";
+        if (!(form.lastName || "").trim()) newErrors.lastName = "Last name is required";
+        if (!(form.fatherName || "").trim()) newErrors.fatherName = "Father's name is required";
+        if (!(form.personalEmail || "").trim()) {
           newErrors.personalEmail = "Personal email is required";
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.personalEmail)) {
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.personalEmail || "")) {
           newErrors.personalEmail = "Invalid email format";
         }
-        if (!form.officialEmail.trim()) {
+        if (!(form.officialEmail || "").trim()) {
           newErrors.officialEmail = "Official email is required";
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.officialEmail)) {
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.officialEmail || "")) {
           newErrors.officialEmail = "Invalid email format";
         }
         if (!form.phone) newErrors.phone = "Phone number is required";
@@ -500,31 +634,31 @@ const AddEmployeePage: React.FC = () => {
         break;
 
       case 2:
-        if (!form.designation.trim()) newErrors.designation = "Designation is required";
+        if (!(form.designation || "").trim()) newErrors.designation = "Designation is required";
         if (!form.department.id || form.department.id === 0) newErrors.department = "Department is required";
-        if (!form.location.trim()) newErrors.location = "Location is required";
+        if (!(form.location || "").trim()) newErrors.location = "Location is required";
         if (!form.joiningDate) newErrors.joiningDate = "Joining date is required";
         if (!form.employmentType) newErrors.employmentType = "Employment type is required";
         break;
 
       case 3:
-        if (!form.permanentAddress.line1.trim()) newErrors["permanentAddress.line1"] = "Address line 1 is required";
-        if (!form.permanentAddress.city.trim()) newErrors["permanentAddress.city"] = "City is required";
+        if (!(form.permanentAddress.line1 || "").trim()) newErrors["permanentAddress.line1"] = "Address line 1 is required";
+        if (!(form.permanentAddress.city || "").trim()) newErrors["permanentAddress.city"] = "City is required";
         if (!form.permanentAddress.state) newErrors["permanentAddress.state"] = "State is required";
-        if (!form.permanentAddress.postalCode.trim()) newErrors["permanentAddress.postalCode"] = "Postal code is required";
+        if (!(form.permanentAddress.postalCode || "").trim()) newErrors["permanentAddress.postalCode"] = "Postal code is required";
         if (!sameAsPermanent) {
-          if (!form.currentAddress.line1.trim()) newErrors["currentAddress.line1"] = "Address line 1 is required";
-          if (!form.currentAddress.city.trim()) newErrors["currentAddress.city"] = "City is required";
+          if (!(form.currentAddress.line1 || "").trim()) newErrors["currentAddress.line1"] = "Address line 1 is required";
+          if (!(form.currentAddress.city || "").trim()) newErrors["currentAddress.city"] = "City is required";
           if (!form.currentAddress.state) newErrors["currentAddress.state"] = "State is required";
-          if (!form.currentAddress.postalCode.trim()) newErrors["currentAddress.postalCode"] = "Postal code is required";
+          if (!(form.currentAddress.postalCode || "").trim()) newErrors["currentAddress.postalCode"] = "Postal code is required";
         }
         break;
 
       case 4:
-        if (!form.bankName.trim()) newErrors.bankName = "Bank name is required";
-        if (!form.bankAccountNumber.trim()) newErrors.bankAccountNumber = "Account number is required";
+        if (!(form.bankName || "").trim()) newErrors.bankName = "Bank name is required";
+        if (!(form.bankAccountNumber || "").trim()) newErrors.bankAccountNumber = "Account number is required";
         if (form.permanentAddress.country?.value === "India") {
-          if (!form.ifscCode.trim()) newErrors.ifscCode = "IFSC code is required";
+          if (!(form.ifscCode || "").trim()) newErrors.ifscCode = "IFSC code is required";
         }
         break;
     }
@@ -552,20 +686,21 @@ const AddEmployeePage: React.FC = () => {
           additionalBenefitsObject[benefit.name] = benefit.amount;
         }
       });
-
       const submitData = {
+        employeeCode: `EMP${Math.floor(1000 + Math.random() * 9000)}`,
+        password: "DefaultPassword@123",
         firstName: form.firstName,
         lastName: form.lastName,
         personalEmail: form.personalEmail,
         officialEmail: form.officialEmail,
         maritalStatus: form.maritalStatus,
-        fatherName: form.fatheName,
+        fatherName: form.fatherName,
         phone: form.phone,
         gender: form.gender,
         dateOfBirth: form.dateOfBirth?.toISOString().split("T")[0],
         employmentType: form.employmentType,
         location: form.location,
-        managerId: form.managerId,
+        managerId: form.managerId || null,
         joiningDate: form.joiningDate?.toISOString().split("T")[0],
         designation: form.designation,
         exitDate: form.exitDate?.toISOString().split("T")[0] || null,
@@ -574,14 +709,12 @@ const AddEmployeePage: React.FC = () => {
         ifscCode: form.ifscCode,
         branch: form.branch,
         countryCode: form.countryCode,
-        tenantId: form.tenantId,
+        tenant: { tenantId: form.tenantId },
         userType: form.userType,
-        department: isOtherDepartment && customDepartment
-          ? { id: -1, name: customDepartment }
-          : { id: form.department.id },
-        domain: form.domain ? { id: form.domain.id } : null,
-        role: form.roleNames.length > 0 ? form.roleNames[0].roleName : "EMPLOYEE",
-
+        department: { id: form.department.id },
+        domain: form.domain ? { id: form.domain.id, name: form.domain.domainName, domainCode: form.domain.domainCode } : null,
+        role: form.roleNames.length > 0 ? form.roleNames.map(r => r.roleCode).join(",") : "SUPER_ADMIN",
+        
         userDetails: {
           phoneNumber: form.userDetails.phoneNumber || form.phone,
           country: form.userDetails.country || form.permanentAddress.country?.label || "",
@@ -608,20 +741,20 @@ const AddEmployeePage: React.FC = () => {
           postalCode: form.currentAddress.postalCode,
         },
         countrySpecificData: {
-          pan: form.countrySpecificData.pan,
-          aadhaar: form.countrySpecificData.aadhaar,
+          pan: form.panNumber,
+          aadhaar: form.aadhaarNumber,
         },
         salary: {
           currency: form.salary.currency,
           ctc: form.salary.ctc,
           role: form.designation,
           country: form.salary.country,
-          regime: form.salary.regime,
           countrySpecificData: {
-            pf_number: form.salary.countrySpecificData.pf_number,
-            uan: form.salary.countrySpecificData.uan,
-            esi_applicable: form.salary.countrySpecificData.esi_applicable,
-            isMetrocity: form.salary.countrySpecificData.isMetrocity,
+            pf_number: form.pfNumber,
+            uan: form.uan,
+            esi_applicable: form.esiApplicable,
+            isMetrocity: form.metroCity,
+            taxRegime: form.taxRegime === "New Regime" ? "NEW" : "OLD"
           },
           earnings: earningsObject,
           additionalBenefits: additionalBenefitsObject,
@@ -645,10 +778,16 @@ const AddEmployeePage: React.FC = () => {
   };
 
   const nextStep = () => {
-    if (validateStep(currentStep)) setCurrentStep((s) => Math.min(s + 1, 5));
+    if (validateStep(currentStep)) {
+      setCurrentStep((s) => Math.min(s + 1, 5));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
-  const prevStep = () => setCurrentStep((s) => Math.max(s - 1, 1));
+  const prevStep = () => {
+    setCurrentStep((s) => Math.max(s - 1, 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const maskString = (str: string, visibleChars: number = 4) => {
     if (!str || str.length <= visibleChars) return str;
@@ -839,11 +978,11 @@ const AddEmployeePage: React.FC = () => {
                       </label>
                       <input
                         type="text"
-                        value={form.fatheName}
-                        onChange={(e) => handleChange("fatheName", e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.fatheName ? "border-red-500" : "border-gray-300"}`}
+                        value={form.fatherName}
+                        onChange={(e) => handleChange("fatherName", e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.fatherName ? "border-red-500" : "border-gray-300"}`}
                       />
-                      <ErrorMessage message={errors.fatheName} />
+                      <ErrorMessage message={errors.fatherName} />
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -921,6 +1060,11 @@ const AddEmployeePage: React.FC = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
                         Phone Number <span className="text-red-500">*</span>
                       </label>
+                      <style>{`
+                        .react-tel-input .form-control {
+                          padding-left: 48px !important;
+                        }
+                      `}</style>
                       <PhoneInput
                         country={form.countryCode.toLowerCase()}
                         value={form.phone}
@@ -930,7 +1074,7 @@ const AddEmployeePage: React.FC = () => {
                             handleChange("countryCode", countryData.countryCode.toUpperCase());
                           }
                         }}
-                        inputClass={`w-full !pl-12 !py-2 !border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent ${errors.phone ? "!border-red-500" : "!border-gray-300"}`}
+                        inputClass={`w-full !py-2 !border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent ${errors.phone ? "!border-red-500" : "!border-gray-300"}`}
                         containerClass="!w-full"
                         buttonClass="!border !border-gray-300 !rounded-l-lg"
                         dropdownClass="!z-50"
@@ -1145,7 +1289,7 @@ const AddEmployeePage: React.FC = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
                         Roles
                       </label>
-                      <Select
+                      <Select classNames={customClassNames}
                         isMulti
                         options={allRoles.map(role => ({ value: role.id, label: role.roleName }))}
                         value={form.roleNames.map(role => ({ value: role.id, label: role.roleName }))}
@@ -1181,7 +1325,7 @@ const AddEmployeePage: React.FC = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
                         Country <span className="text-red-500">*</span>
                       </label>
-                      <Select
+                      <Select classNames={customClassNames}
                         options={COUNTRY_OPTIONS}
                         value={form.permanentAddress.country}
                         onChange={(option) => handleCountryChange("permanentAddress", option)}
@@ -1220,19 +1364,17 @@ const AddEmployeePage: React.FC = () => {
                           State <span className="text-red-500">*</span>
                         </label>
                         {State.getStatesOfCountry(form.permanentAddress.country?.code || '').length > 0 ? (
-                          <select
-                            value={form.permanentAddress.state}
-                            onChange={(e) => {
-                                handleChange("permanentAddress.state", e.target.value);
+                          <Select classNames={customClassNames}
+                            options={State.getStatesOfCountry(form.permanentAddress.country?.code || '').map(state => ({ value: state.name, label: state.name }))}
+                            value={form.permanentAddress.state ? { value: form.permanentAddress.state, label: form.permanentAddress.state } : null}
+                            onChange={(option: any) => {
+                                handleChange("permanentAddress.state", option ? option.value : "");
                                 handleChange("permanentAddress.city", ""); // Reset city when state changes
                             }}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors["permanentAddress.state"] ? "border-red-500" : "border-gray-300"}`}
-                          >
-                            <option value="">Select State</option>
-                            {State.getStatesOfCountry(form.permanentAddress.country?.code || '').map((state) => (
-                              <option key={state.isoCode} value={state.name}>{state.name}</option>
-                            ))}
-                          </select>
+                            className={`react-select-container ${errors["permanentAddress.state"] ? "border-red-500 rounded border" : ""}`}
+                            classNamePrefix="react-select"
+                            placeholder="Select State"
+                          />
                         ) : (
                           <input
                             type="text"
@@ -1253,16 +1395,14 @@ const AddEmployeePage: React.FC = () => {
                             const stateObj = State.getStatesOfCountry(cCode).find(s => s.name === form.permanentAddress.state);
                             const cities = stateObj ? City.getCitiesOfState(cCode, stateObj.isoCode) : [];
                             return cities.length > 0 ? (
-                              <select
-                                value={form.permanentAddress.city}
-                                onChange={(e) => handleChange("permanentAddress.city", e.target.value)}
-                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors["permanentAddress.city"] ? "border-red-500" : "border-gray-300"}`}
-                              >
-                                <option value="">Select City</option>
-                                {cities.map((city) => (
-                                  <option key={city.name} value={city.name}>{city.name}</option>
-                                ))}
-                              </select>
+                              <Select classNames={customClassNames}
+                                options={cities.map(city => ({ value: city.name, label: city.name }))}
+                                value={form.permanentAddress.city ? { value: form.permanentAddress.city, label: form.permanentAddress.city } : null}
+                                onChange={(option: any) => handleChange("permanentAddress.city", option ? option.value : "")}
+                                className={`react-select-container ${errors["permanentAddress.city"] ? "border-red-500 rounded border" : ""}`}
+                                classNamePrefix="react-select"
+                                placeholder="Select City"
+                              />
                             ) : (
                               <input
                                 type="text"
@@ -1312,7 +1452,7 @@ const AddEmployeePage: React.FC = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
                         Country <span className="text-red-500">*</span>
                       </label>
-                      <Select
+                      <Select classNames={customClassNames}
                         options={COUNTRY_OPTIONS}
                         value={form.currentAddress.country}
                         onChange={(option) => handleCountryChange("currentAddress", option)}
@@ -1354,20 +1494,18 @@ const AddEmployeePage: React.FC = () => {
                           State <span className="text-red-500">*</span>
                         </label>
                         {State.getStatesOfCountry(form.currentAddress.country?.code || '').length > 0 ? (
-                          <select
-                            value={form.currentAddress.state}
-                            onChange={(e) => {
-                                handleChange("currentAddress.state", e.target.value);
+                          <Select classNames={customClassNames}
+                            options={State.getStatesOfCountry(form.currentAddress.country?.code || '').map(state => ({ value: state.name, label: state.name }))}
+                            value={form.currentAddress.state ? { value: form.currentAddress.state, label: form.currentAddress.state } : null}
+                            onChange={(option: any) => {
+                                handleChange("currentAddress.state", option ? option.value : "");
                                 handleChange("currentAddress.city", ""); // Reset city
                             }}
-                            disabled={sameAsPermanent}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white disabled:bg-gray-100 disabled:cursor-not-allowed ${errors["currentAddress.state"] ? "border-red-500" : "border-gray-300"}`}
-                          >
-                            <option value="">Select State</option>
-                            {State.getStatesOfCountry(form.currentAddress.country?.code || '').map((state) => (
-                              <option key={state.isoCode} value={state.name}>{state.name}</option>
-                            ))}
-                          </select>
+                            isDisabled={sameAsPermanent}
+                            className={`react-select-container ${errors["currentAddress.state"] ? "border-red-500 rounded border" : ""}`}
+                            classNamePrefix="react-select"
+                            placeholder="Select State"
+                          />
                         ) : (
                           <input
                             type="text"
@@ -1389,17 +1527,15 @@ const AddEmployeePage: React.FC = () => {
                             const stateObj = State.getStatesOfCountry(cCode).find(s => s.name === form.currentAddress.state);
                             const cities = stateObj ? City.getCitiesOfState(cCode, stateObj.isoCode) : [];
                             return cities.length > 0 ? (
-                              <select
-                                value={form.currentAddress.city}
-                                onChange={(e) => handleChange("currentAddress.city", e.target.value)}
-                                disabled={sameAsPermanent}
-                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white disabled:bg-gray-100 disabled:cursor-not-allowed ${errors["currentAddress.city"] ? "border-red-500" : "border-gray-300"}`}
-                              >
-                                <option value="">Select City</option>
-                                {cities.map((city) => (
-                                  <option key={city.name} value={city.name}>{city.name}</option>
-                                ))}
-                              </select>
+                              <Select classNames={customClassNames}
+                                options={cities.map(city => ({ value: city.name, label: city.name }))}
+                                value={form.currentAddress.city ? { value: form.currentAddress.city, label: form.currentAddress.city } : null}
+                                onChange={(option: any) => handleChange("currentAddress.city", option ? option.value : "")}
+                                isDisabled={sameAsPermanent}
+                                className={`react-select-container ${errors["currentAddress.city"] ? "border-red-500 rounded border" : ""}`}
+                                classNamePrefix="react-select"
+                                placeholder="Select City"
+                              />
                             ) : (
                               <input
                                 type="text"
@@ -1502,6 +1638,102 @@ const AddEmployeePage: React.FC = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Statutory & Compliance Details */}
+                  {isIndia && (
+                    <div className="space-y-4 pt-6 border-t border-gray-100">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Shield className="w-4 h-4 text-cyan-600" />
+                        <h3 className="text-sm font-semibold text-gray-900">Statutory Details</h3>
+                      </div>
+                      
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Tax Regime</label>
+                        <select
+                          value={form.taxRegime}
+                          onChange={(e) => handleChange("taxRegime", e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                        >
+                          <option value="New Regime">New Regime</option>
+                          <option value="Old Regime">Old Regime</option>
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition">
+                          <input
+                            type="checkbox"
+                            checked={form.esiApplicable}
+                            onChange={(e) => handleChange("esiApplicable", e.target.checked)}
+                            className="mt-1 w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
+                          />
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">ESI Applicable</div>
+                            <div className="text-xs text-gray-500">Employee State Insurance Corporation</div>
+                          </div>
+                        </label>
+                        <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition">
+                          <input
+                            type="checkbox"
+                            checked={form.metroCity}
+                            onChange={(e) => handleChange("metroCity", e.target.checked)}
+                            className="mt-1 w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
+                          />
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">Metro City</div>
+                            <div className="text-xs text-gray-500">Applicable for HRA calculations</div>
+                          </div>
+                        </label>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">PAN Number <span className="text-red-500">*</span></label>
+                          <input
+                            type="text"
+                            value={form.panNumber}
+                            onChange={(e) => handleChange("panNumber", e.target.value.toUpperCase())}
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${(errors as any).panNumber ? "border-red-500" : "border-gray-300"}`}
+                            placeholder="ABCDE1234F"
+                          />
+                          <ErrorMessage message={(errors as any).panNumber} />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">Aadhaar Number <span className="text-red-500">*</span></label>
+                          <input
+                            type="text"
+                            value={form.aadhaarNumber}
+                            onChange={(e) => handleChange("aadhaarNumber", e.target.value.replace(/\D/g, ''))}
+                            maxLength={12}
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${(errors as any).aadhaarNumber ? "border-red-500" : "border-gray-300"}`}
+                            placeholder="123456789012"
+                          />
+                          <ErrorMessage message={(errors as any).aadhaarNumber} />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">PF Number</label>
+                          <input
+                            type="text"
+                            value={form.pfNumber}
+                            onChange={(e) => handleChange("pfNumber", e.target.value.toUpperCase())}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                            placeholder="KN1234567890"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">UAN</label>
+                          <input
+                            type="text"
+                            value={form.uan}
+                            onChange={(e) => handleChange("uan", e.target.value.replace(/\D/g, ''))}
+                            maxLength={12}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                            placeholder="100200300400"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* User Details Section */}
                   <div className="space-y-4 pt-6 border-t border-gray-100">
@@ -1732,7 +1964,7 @@ const AddEmployeePage: React.FC = () => {
                         {form.roleNames.length > 0 && (
                           <div className="text-sm">
                             <div className="text-gray-500">Roles</div>
-                            <div className="text-gray-900">{form.roleNames.join(", ")}</div>
+                            <div className="text-gray-900">{form.roleNames.map(r => r.roleName).join(", ")}</div>
                           </div>
                         )}
                       </div>
@@ -1753,18 +1985,6 @@ const AddEmployeePage: React.FC = () => {
                           <div className="text-sm">
                             <div className="text-gray-500">IFSC</div>
                             <div className="text-gray-900">{form.ifscCode}</div>
-                          </div>
-                        )}
-                        {isIndia && form.countrySpecificData.pan && (
-                          <div className="text-sm">
-                            <div className="text-gray-500">PAN</div>
-                            <div className="text-gray-900">{editId ? maskString(form.countrySpecificData.pan, 4) : form.countrySpecificData.pan}</div>
-                          </div>
-                        )}
-                        {isIndia && form.countrySpecificData.aadhaar && (
-                          <div className="text-sm">
-                            <div className="text-gray-500">Aadhaar</div>
-                            <div className="text-gray-900">{editId ? maskString(form.countrySpecificData.aadhaar, 4) : form.countrySpecificData.aadhaar}</div>
                           </div>
                         )}
                       </div>
@@ -1804,6 +2024,52 @@ const AddEmployeePage: React.FC = () => {
 
                       </div>
                     </div>
+
+                    {isIndia && (
+                      <div className="space-y-4">
+                        <h4 className="text-sm font-semibold text-gray-900">Statutory Details</h4>
+                        <div className="space-y-3">
+                          <div className="text-sm">
+                            <div className="text-gray-500">Tax Regime</div>
+                            <div className="text-gray-900">{form.taxRegime}</div>
+                          </div>
+                          <div className="flex gap-4">
+                            <div className="text-sm">
+                              <div className="text-gray-500">ESI Applicable</div>
+                              <div className="text-gray-900">{form.esiApplicable ? "Yes" : "No"}</div>
+                            </div>
+                            <div className="text-sm">
+                              <div className="text-gray-500">Metro City</div>
+                              <div className="text-gray-900">{form.metroCity ? "Yes" : "No"}</div>
+                            </div>
+                          </div>
+                          {form.panNumber && (
+                            <div className="text-sm break-all">
+                              <div className="text-gray-500">PAN Number</div>
+                              <div className="text-gray-900">{form.panNumber}</div>
+                            </div>
+                          )}
+                          {form.aadhaarNumber && (
+                            <div className="text-sm break-all">
+                              <div className="text-gray-500">Aadhaar Number</div>
+                              <div className="text-gray-900">{form.aadhaarNumber}</div>
+                            </div>
+                          )}
+                          {form.pfNumber && (
+                            <div className="text-sm break-all">
+                              <div className="text-gray-500">PF Number</div>
+                              <div className="text-gray-900">{form.pfNumber}</div>
+                            </div>
+                          )}
+                          {form.uan && (
+                            <div className="text-sm break-all">
+                              <div className="text-gray-500">UAN</div>
+                              <div className="text-gray-900">{form.uan}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-6 p-4 bg-cyan-50 border border-cyan-100 rounded-lg">

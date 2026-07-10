@@ -28,7 +28,18 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
   const findBreadcrumb = () => {
     for (const item of navItems) {
       if (item.subItems) {
-        const found = item.subItems.find((sub: { path: string }) => sub.path === pathname);
+        let found = item.subItems.find((sub: any) => sub.path === pathname);
+        if (!found) {
+          for (const sub of item.subItems) {
+            if (sub.subItems) {
+              const ss = sub.subItems.find((s: any) => s.path === pathname);
+              if (ss) {
+                found = ss;
+                break;
+              }
+            }
+          }
+        }
         if (found) {
           return { parent: item.name, child: found.name };
         }
@@ -54,8 +65,8 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
   };
 
   return (
-    <div className="mb-6 flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-3">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-4.5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           {showBackButton && (
             <button
@@ -83,42 +94,44 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
           </h2>
         </div>
 
-        {showAddButton && (
-          <div className="ml-auto shrink-0">
-            <AddButton
-              onClick={onAddClick}
-              label={addButtonLabel}
-              className={addButtonClassName}
-            />
-          </div>
-        )}
-      </div>
+        <div className="flex items-center gap-4">
+          <nav className="max-w-full overflow-x-auto">
+            <ol className="flex items-center gap-2 whitespace-nowrap text-sm font-medium text-gray-500 dark:text-gray-400">
+              <li>
+                <Link
+                  className="inline-flex items-center gap-1.5 transition-colors hover:text-cyan-600 dark:hover:text-cyan-400"
+                  to="/"
+                >
+                  Home
+                </Link>
+              </li>
 
-      <nav className="max-w-full overflow-x-auto pl-11">
-        <ol className="flex items-center gap-2 whitespace-nowrap text-sm font-medium text-gray-500 dark:text-gray-400">
-          <li>
-            <Link
-              className="inline-flex items-center gap-1.5 transition-colors hover:text-cyan-600 dark:hover:text-cyan-400"
-              to="/"
-            >
-              Home
-            </Link>
-          </li>
-
-          <li className="text-gray-500 dark:text-gray-400">{">"}</li>
-
-          {parent && (
-            <>
-              <li>{parent}</li>
               <li className="text-gray-500 dark:text-gray-400">{">"}</li>
-            </>
-          )}
 
-          <li className="text-cyan-600 dark:text-white/90">
-            {child || pageTitle}
-          </li>
-        </ol>
-      </nav>
+              {parent && (
+                <>
+                  <li>{parent}</li>
+                  <li className="text-gray-500 dark:text-gray-400">{">"}</li>
+                </>
+              )}
+
+              <li className="text-cyan-600 dark:text-white/90">
+                {child || pageTitle}
+              </li>
+            </ol>
+          </nav>
+
+          {showAddButton && (
+            <div className="shrink-0">
+              <AddButton
+                onClick={onAddClick}
+                label={addButtonLabel}
+                className={addButtonClassName}
+              />
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

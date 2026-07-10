@@ -4,6 +4,7 @@ import { CalendarIcon, BuildingOfficeIcon, UserGroupIcon, CurrencyRupeeIcon } fr
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import Table, { ColumnDef } from "../../components/common/Table";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
 
@@ -131,9 +132,10 @@ const DepartmentSummaryPage: React.FC = () => {
                             {/* Bar Chart */}
                             <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
                                 <h3 className="text-lg font-medium text-gray-900 mb-6">Salary Breakdown by Department</h3>
-                                <div className="h-80 w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart
+                                <div className="h-80 w-full overflow-x-auto overflow-y-hidden custom-scrollbar">
+                                    <div style={{ minWidth: `${Math.max(100, departmentSummary.length * 15)}%`, height: '100%' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart
                                             data={departmentSummary.map(d => ({
                                                 name: d.departmentName || d.department || 'Unknown',
                                                 Gross: d.totalGrossSalary || d.grossSalary || 0,
@@ -145,7 +147,7 @@ const DepartmentSummaryPage: React.FC = () => {
                                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
                                             <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={(val) => `₹${val/1000}k`} />
                                             <Tooltip 
-                                                formatter={(value: number) => formatCurrency(value)}
+                                                formatter={(value: any) => formatCurrency(value)}
                                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                             />
                                             <Legend wrapperStyle={{ paddingTop: '20px' }} />
@@ -153,13 +155,14 @@ const DepartmentSummaryPage: React.FC = () => {
                                             <Bar dataKey="Net" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={50} />
                                         </BarChart>
                                     </ResponsiveContainer>
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Pie Chart */}
                             <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
                                 <h3 className="text-lg font-medium text-gray-900 mb-6">Employee Distribution</h3>
-                                <div className="h-80 w-full flex items-center justify-center">
+                                <div className="h-96 w-full flex items-center justify-center">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie
@@ -168,9 +171,9 @@ const DepartmentSummaryPage: React.FC = () => {
                                                     value: d.employeeCount || d.totalEmployees || 0
                                                 })).filter(d => d.value > 0)}
                                                 cx="50%"
-                                                cy="50%"
-                                                innerRadius={60}
-                                                outerRadius={100}
+                                                cy="45%"
+                                                innerRadius={70}
+                                                outerRadius={110}
                                                 paddingAngle={5}
                                                 dataKey="value"
                                             >
@@ -179,51 +182,55 @@ const DepartmentSummaryPage: React.FC = () => {
                                                 ))}
                                             </Pie>
                                             <Tooltip 
-                                                formatter={(value: number) => [value, 'Employees']}
+                                                formatter={(value: any) => [value, 'Employees']}
                                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                             />
-                                            <Legend />
+                                            <Legend 
+                                                content={(props: any) => {
+                                                    const { payload } = props;
+                                                    return (
+                                                        <ul className="max-h-24 overflow-y-auto custom-scrollbar flex flex-wrap gap-2 justify-center p-2 mt-4 text-xs text-gray-600">
+                                                            {payload.map((entry: any, index: number) => (
+                                                                <li key={`item-${index}`} className="flex items-center whitespace-nowrap">
+                                                                    <span className="w-3 h-3 rounded-full mr-1.5" style={{ backgroundColor: entry.color }}></span>
+                                                                    {entry.value}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    );
+                                                }} 
+                                            />
                                         </PieChart>
                                     </ResponsiveContainer>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Data Table */}
-                        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                        <div className="bg-white px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                            <h3 className="text-base font-medium text-gray-900">Department Breakdown</h3>
-                            <span className="text-sm text-gray-500">
-                                {departmentSummary.length} Departments
-                            </span>
+                        {/* Data Table Section */}
+                        <div className="mt-8">
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 className="text-lg font-medium text-gray-900">Department Breakdown</h3>
+                                    <p className="text-sm text-gray-500 mt-1">Detailed list of all departments and their payroll metrics.</p>
+                                </div>
+                                <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-cyan-50 text-cyan-700 text-sm font-medium">
+                                    {departmentSummary.length} Departments
+                                </span>
+                            </div>
+                            <Table 
+                                data={departmentSummary.map((d, i) => ({ ...d, id: d.id || i }))}
+                                columns={[
+                                    { key: "departmentName", label: "Department", render: (row: any) => <span className="font-medium text-gray-900">{row.departmentName || row.department || 'Unknown'}</span> },
+                                    { key: "employeeCount", label: "Employees", render: (row: any) => formatNumber(row.employeeCount || row.totalEmployees), className: "text-right text-gray-600", headerClassName: "text-right" },
+                                    { key: "totalGrossSalary", label: "Total Gross", render: (row: any) => formatCurrency(row.totalGrossSalary || row.grossSalary), className: "text-right text-gray-900", headerClassName: "text-right" },
+                                    { key: "totalDeductions", label: "Total Deductions", render: (row: any) => formatCurrency(row.totalDeductions || row.deductions), className: "text-right text-gray-900", headerClassName: "text-right" },
+                                    { key: "totalNetSalary", label: "Net Salary", render: (row: any) => formatCurrency(row.totalNetSalary || row.netSalary), className: "text-right font-bold text-gray-900", headerClassName: "text-right" },
+                                ]}
+                                searchable={true}
+                                searchPlaceholder="Search departments..."
+                                searchFields={["departmentName", "department"]}
+                            />
                         </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm whitespace-nowrap">
-                                <thead className="bg-gray-50 text-gray-600 border-b border-gray-200">
-                                    <tr>
-                                        <th className="px-6 py-4 font-semibold">Department</th>
-                                        <th className="px-6 py-4 font-semibold text-right">Employees</th>
-                                        <th className="px-6 py-4 font-semibold text-right">Total Gross</th>
-                                        <th className="px-6 py-4 font-semibold text-right">Total Deductions</th>
-                                        <th className="px-6 py-4 font-semibold text-right">Net Salary</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100 bg-white">
-                                    {departmentSummary.map((dept, idx) => (
-                                        <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-6 py-4 text-gray-900">
-                                                {dept.departmentName || dept.department || 'Unknown'}
-                                            </td>
-                                            <td className="px-6 py-4 text-right text-gray-600">{formatNumber(dept.employeeCount || dept.totalEmployees)}</td>
-                                            <td className="px-6 py-4 text-right text-gray-900">{formatCurrency(dept.totalGrossSalary || dept.grossSalary)}</td>
-                                            <td className="px-6 py-4 text-right text-gray-900">{formatCurrency(dept.totalDeductions || dept.deductions)}</td>
-                                            <td className="px-6 py-4 text-right font-medium text-gray-900">{formatCurrency(dept.totalNetSalary || dept.netSalary)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
                     </div>
                 )}
             </div>

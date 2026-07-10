@@ -190,7 +190,7 @@ const PayrollSummaryPage: React.FC = () => {
                                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
                                             <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={(val) => `₹${val/1000}k`} />
                                             <Tooltip 
-                                                formatter={(value: number) => formatCurrency(value)}
+                                                formatter={(value: any) => formatCurrency(value)}
                                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                             />
                                             <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={60}>
@@ -229,7 +229,7 @@ const PayrollSummaryPage: React.FC = () => {
                                                 <Cell fill={COLORS[2]} />
                                             </Pie>
                                             <Tooltip 
-                                                formatter={(value: number) => formatCurrency(value)}
+                                                formatter={(value: any) => formatCurrency(value)}
                                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                             />
                                             <Legend verticalAlign="bottom" height={36}/>

@@ -17,6 +17,7 @@ import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
+import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ToasterService } from "../../Services/ToasterService";
 
 const SALARY_API = "/v1/api/payroll/employee-salaries";
@@ -84,9 +85,6 @@ const EmployeeSalaryPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState<string>('');
     const [searchEmployee, setSearchEmployee] = useState<string>('');
-    const [sortKey, setSortKey] = useState<keyof SalaryDTO>("month");
-    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-    const [page, setPage] = useState(1);
     const [showFilters, setShowFilters] = useState(false);
     const [selectedRegime, setSelectedRegime] = useState<string>("");
     const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState<string>("");
@@ -99,7 +97,7 @@ const EmployeeSalaryPage: React.FC = () => {
     // Apply filters whenever dependencies change
     useEffect(() => {
         applyFilters();
-    }, [salaries, search, searchEmployee, selectedRegime, selectedEmployeeFilter, sortKey, sortOrder]);
+    }, [salaries, search, searchEmployee, selectedRegime, selectedEmployeeFilter]);
 
     const fetchAllSalaries = async () => {
         setLoading(true);
@@ -210,40 +208,8 @@ const EmployeeSalaryPage: React.FC = () => {
             filtered = filtered.filter(s => s.regime === selectedRegime);
         }
 
-        // Sort
-        const sorted = [...filtered].sort((a, b) => {
-            let valA = a[sortKey as keyof SalaryDTO];
-            let valB = b[sortKey as keyof SalaryDTO];
-
-            if (valA == null && valB == null) return 0;
-            if (valA == null) return 1;
-            if (valB == null) return -1;
-
-            if (typeof valA === "string" && typeof valB === "string") {
-                return sortOrder === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
-            }
-
-            if (typeof valA === "number" && typeof valB === "number") {
-                return sortOrder === "asc" ? valA - valB : valB - valA;
-            }
-
-            return 0;
-        });
-
-        setFilteredSalaries(sorted);
-        setPage(1);
+        setFilteredSalaries(filtered);
     };
-
-    const paginated = filteredSalaries.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-    const totalPages = Math.ceil(filteredSalaries.length / PAGE_SIZE);
-
-    const handleSort = (field: keyof SalaryDTO) => {
-        if (sortKey === field) setSortOrder(o => o === "asc" ? "desc" : "asc");
-        else { setSortKey(field); setSortOrder("asc"); }
-    };
-
-    const SortIcon = ({ col }: { col: keyof SalaryDTO }) =>
-        sortKey !== col ? null : sortOrder === "asc" ? <ArrowUpIcon className="h-3 w-3 inline ml-1" /> : <ArrowDownIcon className="h-3 w-3 inline ml-1" />;
 
     // Calculate stats from real data
     const totalRecords = filteredSalaries.length;
@@ -257,15 +223,111 @@ const EmployeeSalaryPage: React.FC = () => {
     // Get unique regimes for filter
     const uniqueRegimes = [...new Set(salaries.map(s => s?.regime).filter(Boolean))];
 
+    const columns: ColumnDef<SalaryDTO>[] = [
+        {
+            key: "employeeName",
+            label: "Employee",
+            sortable: true,
+            render: (row) => (
+                <div className="flex items-center">
+                    <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3">
+                        <span className="text-xs font-medium text-cyan-700">
+                            {row.employeeName?.charAt(0) || row.employeeCode?.charAt(0) || 'E'}
+                        </span>
+                    </div>
+                    <div>
+                        <div className="text-xs font-medium text-gray-900" title={row.employeeName}>
+                            {(row.employeeName || '').trim().length > 4
+                                ? `${(row.employeeName || '').trim().substring(0, 4)}...`
+                                : row.employeeName}
+                        </div>
+                        <div className="text-[10px] text-gray-500" title={row.employeeCode}>
+                            {(row.employeeCode || '').trim().length > 4
+                                ? `${(row.employeeCode || '').trim().substring(0, 4)}...`
+                                : row.employeeCode}
+                        </div>
+                    </div>
+                </div>
+            )
+        },
+        {
+            key: "month",
+            label: "Month",
+            sortable: true,
+            render: (row) => (
+                <div className="flex items-center">
+                    <CalendarIcon className="h-4 w-4 text-gray-400 mr-2" />
+                    <span className="text-xs font-medium text-gray-900">{row.month}</span>
+                </div>
+            )
+        },
+        {
+            key: "basic",
+            label: "Basic",
+            sortable: true,
+            render: (row) => <span className="text-xs text-gray-900">₹{row.basic.toLocaleString()}</span>
+        },
+        {
+            key: "hra",
+            label: "HRA",
+            sortable: true,
+            render: (row) => <span className="text-xs text-gray-900">₹{row.hra.toLocaleString()}</span>
+        },
+        {
+            key: "bonus",
+            label: "Bonus",
+            sortable: true,
+            render: (row) => <span className="text-xs text-green-600">₹{row.bonus.toLocaleString()}</span>
+        },
+        {
+            key: "grossSalary",
+            label: "Gross",
+            sortable: true,
+            render: (row) => <span className="text-xs font-medium text-gray-900">₹{row.grossSalary.toLocaleString()}</span>
+        },
+        {
+            key: "totalDeductions",
+            label: "Deductions",
+            sortable: true,
+            render: (row) => <span className="text-xs text-red-600">₹{row.totalDeductions.toLocaleString()}</span>
+        },
+        {
+            key: "netSalary",
+            label: "Net Salary",
+            sortable: true,
+            render: (row) => <span className="text-xs font-bold text-cyan-600">₹{row.netSalary.toLocaleString()}</span>
+        },
+        {
+            key: "regime",
+            label: "Regime",
+            sortable: true,
+            render: (row) => <span className="text-xs text-gray-600">{row.regime}</span>
+        },
+        {
+            key: "isProcessed",
+            label: "Status",
+            sortable: true,
+            headerClassName: "w-full",
+            className: "w-full",
+            render: (row) => row.isProcessed ? (
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                    <CheckCircleIcon className="h-3 w-3 mr-1" />
+                    Processed
+                </span>
+            ) : (
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                    Pending
+                </span>
+            )
+        }
+    ];
+
     return (
         <>
             <PageMeta title="Employee Salaries" description="View employee salary records" />
             <PageBreadcrumb pageTitle="Employee Salaries" />
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-2">
-                <div className="-mt-[125px] flex justify-end">
-                    <AddButton label="Refresh Salaries" onClick={fetchAllSalaries} />
-                </div>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-0 pb-8 space-y-6">
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                     <StatsCard label="Total Records" value={totalRecords} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-6 w-6" />} />
@@ -275,7 +337,7 @@ const EmployeeSalaryPage: React.FC = () => {
                 </div>
 
                 {/* Toolbar - All buttons in single line */}
-                <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex-1 max-w-md">
                         <div className="relative">
                             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -284,15 +346,16 @@ const EmployeeSalaryPage: React.FC = () => {
                                 placeholder="Search by employee name or code..."
                                 value={searchEmployee}
                                 onChange={(e) => setSearchEmployee(e.target.value)}
-                                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                                className="h-10 pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                             />
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
+                        <AddButton label="Refresh Salaries" className="h-10 !my-0" onClick={fetchAllSalaries} />
                         <button
                             onClick={() => setShowFilters(!showFilters)}
-                            className={`px-4 py-2 rounded-lg border transition-colors flex items-center gap-2 shadow-sm ${showFilters
+                            className={`h-10 px-4 rounded-lg border transition-colors flex items-center gap-2 shadow-sm !my-0 ${showFilters
                                 ? 'bg-cyan-50 border-cyan-300 text-cyan-600'
                                 : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
                                 }`}
@@ -300,8 +363,6 @@ const EmployeeSalaryPage: React.FC = () => {
                             <FunnelIcon className="h-4 w-4" />
                             <span>Filter</span>
                         </button>
-
-
                     </div>
                 </div>
 
@@ -353,209 +414,22 @@ const EmployeeSalaryPage: React.FC = () => {
                 )}
 
                 {/* Table */}
-                <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-visible">
-                    <div className="overflow-x-auto overflow-y-visible">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("employeeName")}>
-                                        <span className="flex items-center">Employee <SortIcon col="employeeName" /></span>
-                                    </th>
-                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("month")}>
-                                        <span className="flex items-center">Month <SortIcon col="month" /></span>
-                                    </th>
-                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("basic")}>
-                                        <span className="flex items-center">Basic <SortIcon col="basic" /></span>
-                                    </th>
-                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("hra")}>
-                                        <span className="flex items-center">HRA <SortIcon col="hra" /></span>
-                                    </th>
-                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("bonus")}>
-                                        <span className="flex items-center">Bonus <SortIcon col="bonus" /></span>
-                                    </th>
-                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("grossSalary")}>
-                                        <span className="flex items-center">Gross <SortIcon col="grossSalary" /></span>
-                                    </th>
-                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("totalDeductions")}>
-                                        <span className="flex items-center">Deductions <SortIcon col="totalDeductions" /></span>
-                                    </th>
-                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("netSalary")}>
-                                        <span className="flex items-center">Net Salary <SortIcon col="netSalary" /></span>
-                                    </th>
-                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("regime")}>
-                                        <span className="flex items-center">Regime <SortIcon col="regime" /></span>
-                                    </th>
-                                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {loading ? (
-                                    <tr>
-                                        <td colSpan={10} className="px-6 py-12 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mb-3"></div>
-                                                <p className="text-gray-500 text-sm">Loading salary records...</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : paginated.length > 0 ? paginated.map(salary => (
-                                    <tr key={salary.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-2 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3">
-                                                    <span className="text-xs font-medium text-cyan-700">
-                                                        {salary.employeeName?.charAt(0) || salary.employeeCode?.charAt(0) || 'E'}
-                                                    </span>
-                                                </div>
-                                                <div>
-                                                    <div className="text-sm font-medium text-gray-900">{salary.employeeName}</div>
-                                                    <div className="text-xs text-gray-500">{salary.employeeCode}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-2 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <CalendarIcon className="h-4 w-4 text-gray-400 mr-2" />
-                                                <span className="text-sm font-medium text-gray-900">{salary.month}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-2 py-4 whitespace-nowrap">
-                                            <span className="text-sm text-gray-900">₹{salary.basic.toLocaleString()}</span>
-                                        </td>
-                                        <td className="px-2 py-4 whitespace-nowrap">
-                                            <span className="text-sm text-gray-900">₹{salary.hra.toLocaleString()}</span>
-                                        </td>
-                                        <td className="px-2 py-4 whitespace-nowrap">
-                                            <span className="text-sm text-green-600">₹{salary.bonus.toLocaleString()}</span>
-                                        </td>
-                                        <td className="px-2 py-4 whitespace-nowrap">
-                                            <span className="text-sm font-medium text-gray-900">₹{salary.grossSalary.toLocaleString()}</span>
-                                        </td>
-                                        <td className="px-2 py-4 whitespace-nowrap">
-                                            <span className="text-sm text-red-600">₹{salary.totalDeductions.toLocaleString()}</span>
-                                        </td>
-                                        <td className="px-2 py-4 whitespace-nowrap">
-                                            <span className="text-sm font-bold text-cyan-600">₹{salary.netSalary.toLocaleString()}</span>
-                                        </td>
-                                        <td className="px-2 py-4 whitespace-nowrap">
-                                            <span className="text-sm text-gray-600">{salary.regime}</span>
-                                        </td>
-                                        <td className="px-2 py-4 whitespace-nowrap">
-                                            {salary.isProcessed ? (
-                                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                                                    <CheckCircleIcon className="h-3 w-3 mr-1" />
-                                                    Processed
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                                                    Pending
-                                                </span>
-                                            )}
-                                        </td>
-                                    </tr>
-                                )) : (
-                                    <tr>
-                                        <td colSpan={10} className="px-6 py-12 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />
-                                                <p className="text-gray-500 text-sm mb-2">No salary records found</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Pagination */}
-                    {totalPages > 0 && (
-                        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                            <div className="flex-1 flex justify-between sm:hidden">
-                                <button
-                                    onClick={() => setPage(Math.max(1, page - 1))}
-                                    disabled={page === 1}
-                                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Previous
-                                </button>
-                                <button
-                                    onClick={() => setPage(Math.min(totalPages, page + 1))}
-                                    disabled={page === totalPages}
-                                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Next
-                                </button>
-                            </div>
-                            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                                <div>
-                                    <p className="text-sm text-gray-700">
-                                        Showing <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> to{' '}
-                                        <span className="font-medium">
-                                            {Math.min(page * PAGE_SIZE, filteredSalaries.length)}
-                                        </span>{' '}
-                                        of <span className="font-medium">{filteredSalaries.length}</span> results
-                                    </p>
-                                </div>
-                                <div>
-                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                                        <button
-                                            onClick={() => setPage(1)}
-                                            disabled={page === 1}
-                                            className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            First
-                                        </button>
-                                        <button
-                                            onClick={() => setPage(Math.max(1, page - 1))}
-                                            disabled={page === 1}
-                                            className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Previous
-                                        </button>
-                                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                            let pageNum: number;
-                                            if (totalPages <= 5) {
-                                                pageNum = i + 1;
-                                            } else if (page <= 3) {
-                                                pageNum = i + 1;
-                                            } else if (page >= totalPages - 2) {
-                                                pageNum = totalPages - 4 + i;
-                                            } else {
-                                                pageNum = page - 2 + i;
-                                            }
-                                            return (
-                                                <button
-                                                    key={pageNum}
-                                                    onClick={() => setPage(pageNum)}
-                                                    className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page === pageNum
-                                                        ? "z-10 bg-cyan-50 border-cyan-500 text-cyan-600"
-                                                        : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                                                        }`}
-                                                >
-                                                    {pageNum}
-                                                </button>
-                                            );
-                                        })}
-                                        <button
-                                            onClick={() => setPage(Math.min(totalPages, page + 1))}
-                                            disabled={page === totalPages}
-                                            className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Next
-                                        </button>
-                                        <button
-                                            onClick={() => setPage(totalPages)}
-                                            disabled={page === totalPages}
-                                            className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Last
-                                        </button>
-                                    </nav>
-                                </div>
-                            </div>
+                <ReusableTable
+                    className="[&_th]:!px-2 [&_td]:!px-2"
+                    data={filteredSalaries}
+                    columns={columns}
+                    loading={loading}
+                    searchable={false}
+                    pageSize={PAGE_SIZE}
+                    defaultSortKey="month"
+                    defaultSortOrder="desc"
+                    emptyState={
+                        <div className="flex flex-col items-center">
+                            <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />
+                            <p className="text-gray-500 text-sm mb-2">No salary records found</p>
                         </div>
-                    )}
-                </div>
+                    }
+                />
             </div>
         </>
     );

@@ -308,18 +308,7 @@ const EmployeeCompensationPage: React.FC = () => {
             <PageMeta title="Employee Compensations" description="Configure compensation components by role" />
             <PageBreadcrumb pageTitle="Compensation Configuration" />
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-                {!showForm && (
-                    <div className="mb-8 -mt-[125px] flex justify-end">
-                        <AddButton
-                            label="Add Role Compensation"
-                            onClick={() => {
-                                resetForm();
-                                setShowForm(true);
-                            }}
-                        />
-                    </div>
-                )}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-0 pb-8 space-y-6">
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                     <StatsCard label="Roles Configured" value={totalRoles} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<BriefcaseIcon className="h-6 w-6" />} />
@@ -336,35 +325,44 @@ const EmployeeCompensationPage: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-3 w-full sm:w-auto">
                         {!showForm && (
-                            <div className="relative">
-                                <button
-                                    onClick={() => setShowExportMenu(!showExportMenu)}
-                                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                                    disabled={compensations.length === 0}
-                                >
-                                    <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
-                                </button>
-                                {showExportMenu && (
-                                    <div className="absolute right-0 mt-1 w-40 bg-white shadow-lg rounded-md border border-gray-200 z-50">
-                                        <button
-                                            onClick={exportPDF}
-                                            className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
-                                        >
-                                            <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
-                                            PDF
-                                        </button>
-                                        <button
-                                            onClick={exportExcel}
-                                            className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
-                                        >
-                                            <TableCellsIcon className="h-4 w-4 text-green-600" />
-                                            Excel
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
+                            <>
+                                <AddButton
+                                    label="Add Role Compensation"
+                                    className="h-10 !my-0"
+                                    onClick={() => {
+                                        resetForm();
+                                        setShowForm(true);
+                                    }}
+                                />
+                                <div className="relative flex h-10 items-center">
+                                    <button
+                                        onClick={() => setShowExportMenu(!showExportMenu)}
+                                        className="h-10 w-10 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
+                                        disabled={compensations.length === 0}
+                                    >
+                                        <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
+                                    </button>
+                                    {showExportMenu && (
+                                        <div className="absolute right-0 mt-1 w-40 bg-white shadow-lg rounded-md border border-gray-200 z-50">
+                                            <button
+                                                onClick={exportPDF}
+                                                className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
+                                            >
+                                                <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
+                                                PDF
+                                            </button>
+                                            <button
+                                                onClick={exportExcel}
+                                                className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
+                                            >
+                                                <TableCellsIcon className="h-4 w-4 text-green-600" />
+                                                Excel
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
                         )}
-
                     </div>
                 </div>
 

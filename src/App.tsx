@@ -122,6 +122,7 @@ import DocumentManagementPage from "./pages/Payroll/DocumentManagementPage";
 import EmployeeSelfDashboard from "./pages/Payroll/EmployeeSelfDashboard";
 import EmployeeViewPage from "./pages/Payroll/EmployeeViewPage";
 import ExitManagementPage from "./pages/Payroll/ExitManagementPage";
+import ExitApprovalsPage from "./pages/Payroll/ExitApprovalsPage";
 import ItDeclarationPage from "./pages/Payroll/ItDeclarationPage";
 import LeaveManagementPage from "./pages/Payroll/LeaveManagementPage";
 import PerformanceManagementPage from "./pages/Payroll/PerformanceManagementPage";
@@ -421,6 +422,7 @@ export default function App() {
             <Route path="/employee-documents" element={<EmployeeDocumentsPage />} />
             <Route path="/performance-management" element={<PerformanceManagementPage />} />
             <Route path="/exit-management" element={<ExitManagementPage />} />
+            <Route path="/exitApprovals" element={<ExitApprovalsPage />} />
             <Route path="/statutoryCompliances" element={<StatutoryCompliancesPage />} />
             <Route path="/employees/:employeeId/documents" element={<EmployeeDocumentsPage />} />
             <Route path="/payroll_dashboard" element={<PayrollDashboard />} />
