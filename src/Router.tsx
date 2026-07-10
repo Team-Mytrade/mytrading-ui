@@ -116,6 +116,9 @@ import ItDeclarationPage from "./pages/Payroll/ItDeclarationPage";
 import LeaveManagementPage from "./pages/Payroll/LeaveManagementPage";
 import PerformanceManagementPage from "./pages/Payroll/PerformanceManagementPage";
 import StatutoryCompliancesPage from "./pages/Payroll/StatutoryCompliancesPage";
+import PayrollProcessingEnginePage from "./pages/Payroll/PayrollProcessingEnginePage";
+import PayrollSummaryPage from "./pages/Payroll/PayrollSummaryPage";
+import DepartmentSummaryPage from "./pages/Payroll/DepartmentSummaryPage";
 import SalesSummary from "./pages/Dashboard/SalesSummary";
 import Tasks from "./pages/CRM/Tasks";
 import DashboardOverview from "./pages/Dashboard/DashboardOverview";
@@ -374,6 +377,9 @@ export default function AppRouter() {
           <Route path="/statutoryCompliances" element={<StatutoryCompliancesPage />} />
           <Route path="/employees/:employeeId/documents" element={<EmployeeDocumentsPage />} />
           <Route path="/payroll_dashboard" element={<PayrollDashboard />} />
+          <Route path="/payrollEngine" element={<PayrollProcessingEnginePage />} />
+          <Route path="/payrollSummary" element={<PayrollSummaryPage />} />
+          <Route path="/departmentSummary" element={<DepartmentSummaryPage />} />
 
           <Route path="/att_attendanceApproval" element={<AttendanceApprovalPage />} />
           <Route path="/att_attendanceRecord" element={<AttendanceRecordPage />} />
