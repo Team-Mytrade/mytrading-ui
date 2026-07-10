@@ -95,6 +95,11 @@ function normalizeText(value: unknown) {
   return searchableText(value).replace(/\s+/g, " ");
 }
 
+function getUserSalesCode(user?: UserOption) {
+  if (!user) return "";
+  return user.employeeCode || (user.employeeId ? String(user.employeeId) : "") || user.userId || "";
+}
+
 const SalesPersons: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
@@ -170,7 +175,7 @@ const SalesPersons: React.FC = () => {
         const user = users.find((item) => item.userId === value);
         const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
         next.name = fullName || user?.username || next.name;
-        next.code = user?.employeeCode || next.code;
+        next.code = getUserSalesCode(user) || next.code;
         next.email = user?.email || next.email;
         next.employeeId = user?.employeeId ? String(user.employeeId) : "";
         next.active = String(user?.active ?? true);
@@ -181,7 +186,7 @@ const SalesPersons: React.FC = () => {
         const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
         next.userId = user?.userId || next.userId;
         next.name = fullName || user?.username || next.name;
-        next.code = user?.employeeCode || next.code;
+        next.code = getUserSalesCode(user) || next.code;
         next.email = user?.email || next.email;
         next.active = String(user?.active ?? true);
         next.region = user?.department || next.region;
@@ -193,11 +198,17 @@ const SalesPersons: React.FC = () => {
   const buildPayload = () => {
     const userId = form.userId.trim();
     const employeeId = toNullableNumber(form.employeeId);
+    const selectedUser = users.find(
+      (user) =>
+        (userId && user.userId === userId) ||
+        (employeeId !== null && user.employeeId === employeeId)
+    );
+    const code = form.code.trim() || getUserSalesCode(selectedUser) || userId;
 
     return {
       id: editingId || 0,
       name: form.name.trim(),
-      code: form.code.trim(),
+      code,
       email: form.email.trim(),
       region: form.region.trim(),
       active: form.active === "true",
@@ -221,10 +232,6 @@ const SalesPersons: React.FC = () => {
 
     if (!form.name.trim()) {
       ToasterService.error("Required fields missing", "Name is required.");
-      return;
-    }
-    if (!form.code.trim()) {
-      ToasterService.error("Missing sales code", "Select a user with an employee code.");
       return;
     }
     if (form.employeeId.trim() && toNullableNumber(form.employeeId) === null) {
