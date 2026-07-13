@@ -8,6 +8,15 @@ import PurchaseResourcePage, {
 const CATEGORIES = "/v1/api/purchase/product-categories";
 const PRODUCTS = "/v1/api/purchase/products";
 
+const getStoredTenantId = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+    return user?.tenantId || "";
+  } catch {
+    return "";
+  }
+};
+
 const getParentCategoryOptions = (categoryOptions: SelectOption[]) =>
   categoryOptions.filter((option) => !option.raw?.parentId);
 
@@ -28,6 +37,8 @@ const productConfig: PurchaseResourceConfig = {
     { key: "sellingPrice", label: "Selling Price" },
     { key: "stockItem", label: "Stock Item" },
     { key: "serviceItem", label: "Service Item" },
+    { key: "imageName", label: "Image Name" },
+    { key: "imageType", label: "Image Type" },
     { key: "active", label: "Status" },
   ],
   fields: [
@@ -39,6 +50,7 @@ const productConfig: PurchaseResourceConfig = {
       label: "Parent Category",
       type: "select",
       optionsEndpoint: CATEGORIES,
+      getOptionsParams: () => ({ tenantId: getStoredTenantId() }),
       optionLabel: "categoryName",
       placeholderOption: "Select Parent Category",
       getOptions: ({ options }) => getParentCategoryOptions(options.parentCategoryId || []),
@@ -50,6 +62,7 @@ const productConfig: PurchaseResourceConfig = {
       type: "select",
       required: true,
       optionsEndpoint: CATEGORIES,
+      getOptionsParams: () => ({ tenantId: getStoredTenantId() }),
       optionLabel: "categoryName",
       placeholderOption: "Select Category",
       getOptions: ({ form, options }) =>

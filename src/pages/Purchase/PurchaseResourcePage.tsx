@@ -43,6 +43,7 @@ export type FieldConfig = {
   defaultValue?: any;
   options?: SelectOption[];
   optionsEndpoint?: string;
+  getOptionsParams?: () => Record<string, string | number | boolean>;
   optionLabel?: string | ((row: PurchaseRecord) => string);
   optionValue?: string | ((row: PurchaseRecord) => string | number);
   gridClassName?: string;
@@ -231,7 +232,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         optionFields.map(async (field) => {
           try {
             const res = await axios.get(field.optionsEndpoint || "", {
-              params: config.getRequestParams?.(),
+              params: field.getOptionsParams?.() || config.getRequestParams?.(),
             });
             next[field.name] = asArray(res.data)
               .map((row) => ({
