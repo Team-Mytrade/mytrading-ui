@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -58,6 +58,7 @@ interface StockLevelRow extends StockLevel {
 }
 
 const API_URL = "/v1/api/inventory";
+const PRODUCT_URL = "/v1/api/purchase/products"
 const PAGE_SIZE = 10;
 
 const StockLevelsManager: React.FC = () => {
@@ -76,10 +77,16 @@ const StockLevelsManager: React.FC = () => {
     const [showDeletePopup, setShowDeletePopup] = useState(false);
     const [deletingStock, setDeletingStock] = useState<StockLevel | null>(null);
 
+    // The quantity this stock level had at the moment editing started. The
+    // PUT endpoint expects `delta` to be the *change* in quantity, not the
+    // new absolute quantity — this lets handleSubmit compute that correctly.
+    const [originalQuantity, setOriginalQuantity] = useState(0);
+
+    // `available` is no longer part of the editable form state — it is always
+    // derived from quantity - reserved (see `computedAvailable` below).
     const [form, setForm] = useState({
         quantity: "",
         reserved: "",
-        available: "",
         productId: "",
         warehouseId: "",
     });
@@ -103,7 +110,7 @@ const StockLevelsManager: React.FC = () => {
 
     const fetchProducts = async () => {
         try {
-            const response = await axios.get(`${API_URL}/products`);
+            const response = await axios.get(`${PRODUCT_URL}`);
             setProducts(response.data);
         } catch (err) {
             console.error("Failed to load products", err);
@@ -127,11 +134,11 @@ const StockLevelsManager: React.FC = () => {
         setForm({
             quantity: "",
             reserved: "",
-            available: "",
             productId: "",
             warehouseId: "",
         });
         setEditingId(null);
+        setOriginalQuantity(0);
         setShowForm(false);
     };
 
@@ -139,36 +146,63 @@ const StockLevelsManager: React.FC = () => {
         setForm((prev) => ({ ...prev, [key]: value }));
     };
 
-    const buildPayload = () => ({
-        id: editingId || 0,
-        quantity: Number(form.quantity),
-        reserved: Number(form.reserved),
-        available: Number(form.available),
-        productId: Number(form.productId) || 0,
-        warehouse: warehouses.find((item) => item.id === Number(form.warehouseId))?.code ||
-            warehouses.find((item) => item.id === Number(form.warehouseId))?.name ||
-            form.warehouseId,
-    });
+    // Single source of truth for Available Quantity. Recomputes on every
+    // render from the current quantity/reserved values, so it can never go
+    // stale no matter what order the two fields are edited in.
+    // Clamped at 0 so a reserved value greater than quantity never shows a
+    // negative "available" figure.
+    const computedAvailable = useMemo(() => {
+        const quantity = Number(form.quantity) || 0;
+        const reserved = Number(form.reserved) || 0;
+        return Math.max(quantity - reserved, 0);
+    }, [form.quantity, form.reserved]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Auto-calculate available if not manually set
-        let available = Number(form.available);
-        if (!form.available) {
-            available = Number(form.quantity) - Number(form.reserved);
-        }
-
-        const payload = {
-            ...buildPayload(),
-            available,
-        };
+        const desiredQuantity = Number(form.quantity) || 0;
+        const desiredReserved = Number(form.reserved) || 0;
+        const desiredAvailable = computedAvailable;
+        const productId = Number(form.productId) || 0;
 
         try {
             if (editingId) {
-                await axios.put(`${API_URL}/stock-levels/${editingId}`, payload);
+                // CONFIRMED FROM BACKEND BEHAVIOR: the PUT endpoint treats the
+                // `quantity` field in the body as an INCREMENT to add to the
+                // stock level's current quantity, not the new absolute total.
+                // Sending the absolute value the user typed (e.g. 220) caused
+                // the backend to compute existing(200) + 220 = 420 instead of
+                // setting the total to 220. So we must send the delta here.
+                //
+                // NOTE: `reserved` appears to be applied as an absolute value
+                // (it matched exactly in testing), so it is NOT converted to
+                // a delta below. If reserved edits ever show the same
+                // doubling behavior, apply the same delta treatment to it.
+                const quantityDelta = desiredQuantity - originalQuantity;
+
+                const payload = {
+                    id: editingId,
+                    quantity: quantityDelta,
+                    reserved: desiredReserved,
+                    available: desiredAvailable,
+                    productId,
+                    warehouse: { id: Number(form.warehouseId) },
+                };
+
+                await axios.put(`${API_URL}/stock-levels/${editingId}?delta=${quantityDelta}`, payload);
                 ToasterService.success("Stock level updated successfully");
             } else {
+                // On create there is no existing record, so the absolute
+                // quantity typed by the user is sent as-is.
+                const payload = {
+                    id: 0,
+                    quantity: desiredQuantity,
+                    reserved: desiredReserved,
+                    available: desiredAvailable,
+                    productId,
+                    warehouse: { id: Number(form.warehouseId) },
+                };
+
                 await axios.post(`${API_URL}/stock-levels`, payload);
                 ToasterService.success("Stock level created successfully");
             }
@@ -181,10 +215,10 @@ const StockLevelsManager: React.FC = () => {
 
     const handleEdit = (stock: StockLevel) => {
         setEditingId(stock.id);
+        setOriginalQuantity(stock.quantity || 0);
         setForm({
             quantity: stock.quantity?.toString() || "",
             reserved: stock.reserved?.toString() || "",
-            available: stock.available?.toString() || "",
             productId: stock.product?.id?.toString() || "",
             warehouseId: stock.warehouse?.id?.toString() || "",
         });
@@ -293,13 +327,13 @@ const StockLevelsManager: React.FC = () => {
     const filtered = stockLevels.filter((s) => {
         const matchesProduct = productFilter ? s.product?.name === productFilter : true;
         const matchesWarehouse = warehouseFilter ? s.warehouse?.name === warehouseFilter : true;
-        
+
         let matchesStatus = true;
         if (statusFilter !== "All") {
             const status = getStockStatus(s.available, s.quantity);
             matchesStatus = status.label === statusFilter;
         }
-        
+
         return matchesProduct && matchesWarehouse && matchesStatus;
     });
 
@@ -563,14 +597,7 @@ const StockLevelsManager: React.FC = () => {
                                                         <input
                                                             type="number"
                                                             value={form.quantity}
-                                                            onChange={e => {
-                                                                handleChange("quantity", e.target.value);
-                                                                // Auto-calculate available if not manually set
-                                                                if (!form.available && form.reserved) {
-                                                                    const available = Number(e.target.value) - Number(form.reserved);
-                                                                    handleChange("available", available.toString());
-                                                                }
-                                                            }}
+                                                            onChange={e => handleChange("quantity", e.target.value)}
                                                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
                                                             min="0"
                                                             required
@@ -581,14 +608,7 @@ const StockLevelsManager: React.FC = () => {
                                                         <input
                                                             type="number"
                                                             value={form.reserved}
-                                                            onChange={e => {
-                                                                handleChange("reserved", e.target.value);
-                                                                // Auto-calculate available if not manually set
-                                                                if (!form.available && form.quantity) {
-                                                                    const available = Number(form.quantity) - Number(e.target.value);
-                                                                    handleChange("available", available.toString());
-                                                                }
-                                                            }}
+                                                            onChange={e => handleChange("reserved", e.target.value)}
                                                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
                                                             min="0"
                                                             required
@@ -599,13 +619,14 @@ const StockLevelsManager: React.FC = () => {
                                                     <label className="block text-sm font-medium text-gray-700">Available Quantity</label>
                                                     <input
                                                         type="number"
-                                                        value={form.available}
-                                                        onChange={e => handleChange("available", e.target.value)}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        min="0"
-                                                        placeholder="Auto-calculated if left empty"
+                                                        value={computedAvailable}
+                                                        readOnly
+                                                        disabled
+                                                        className="mt-1 block w-full border border-gray-200 bg-gray-100 rounded-md shadow-sm p-2 text-gray-600 cursor-not-allowed"
                                                     />
-                                                    <p className="text-xs text-gray-500 mt-1">Leave empty to auto-calculate from Total - Reserved</p>
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        Automatically calculated as Total Quantity − Reserved Quantity.
+                                                    </p>
                                                 </div>
                                             </form>
                                         </div>
@@ -743,7 +764,7 @@ const StockLevelsManager: React.FC = () => {
                                                     <div>
                                                         <p className="text-xs text-gray-500">Utilization Rate</p>
                                                         <p className="text-sm text-gray-700">
-                                                            {selectedStock.quantity > 0 
+                                                            {selectedStock.quantity > 0
                                                                 ? `${Math.round((selectedStock.reserved / selectedStock.quantity) * 100)}%`
                                                                 : "0%"}
                                                         </p>
@@ -820,4 +841,3 @@ const StockLevelsManager: React.FC = () => {
 };
 
 export default StockLevelsManager;
-

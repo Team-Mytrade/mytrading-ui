@@ -20,7 +20,6 @@ import {
     PrinterIcon,
     DocumentTextIcon,
     ChartBarIcon,
-    ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -43,7 +42,6 @@ interface QualityInspection {
     inspectorId?: string;
     result: "Pass" | "Fail" | "PASS" | "FAIL";
     remarks?: string;
-    status: "Pending" | "Completed" | "InProgress";
     batch?: string | { id?: number; batchNumber?: string };
     serialNumber?: string | { id?: number; serial?: string };
     createdAt?: string;
@@ -53,6 +51,7 @@ interface QualityInspection {
 }
 
 const API_URL = "/v1/api/inventory/quality-inspections";
+const PRODUCTS_API_URL = "/v1/api/purchase/products";
 const qualityInspectionApi = axios.create();
 
 qualityInspectionApi.interceptors.request.use((config) => {
@@ -76,10 +75,11 @@ const QualityInspectionManager: React.FC = () => {
     const [formMode, setFormMode] = useState<"add" | "edit">("add");
     const [editingId, setEditingId] = useState<number | null>(null);
     const [resultFilter, setResultFilter] = useState<"All" | "Pass" | "Fail">("All");
-    const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "Completed" | "InProgress">("All");
     const [viewModalOpen, setViewModalOpen] = useState(false);
     const [selectedRecord, setSelectedRecord] = useState<QualityInspection | null>(null);
     const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
+
+    const [products, setProducts] = useState<{ id: number; name: string; sku?: string; code?: string }[]>([]);
 
     const [formData, setFormData] = useState<Omit<QualityInspection, "id">>({
         productSKU: "",
@@ -89,13 +89,13 @@ const QualityInspectionManager: React.FC = () => {
         inspector: "",
         result: "Pass",
         remarks: "",
-        status: "Pending",
         batch: "",
         serialNumber: "",
     });
 
     useEffect(() => {
         fetchRecords();
+        fetchProducts();
     }, []);
 
     const getBatchValue = (batch: QualityInspection["batch"]) => {
@@ -110,7 +110,6 @@ const QualityInspectionManager: React.FC = () => {
 
     const normalizeInspection = (record: any): QualityInspection => {
         const result = record?.result === "PASS" ? "Pass" : record?.result === "FAIL" ? "Fail" : record?.result || "Pass";
-        const status = record?.status || "Pending";
         const productSKU =
             record?.productSKU ||
             record?.productNumber ||
@@ -128,7 +127,6 @@ const QualityInspectionManager: React.FC = () => {
             inspector: record?.inspector || record?.inspectorName || "",
             result,
             remarks: record?.remarks || "",
-            status,
             batch: record?.batch,
             serialNumber: record?.serialNumber,
             createdAt: record?.createdAt || record?.createdDate,
@@ -153,43 +151,40 @@ const QualityInspectionManager: React.FC = () => {
         }
     };
 
+    const fetchProducts = async () => {
+        try {
+            const res = await qualityInspectionApi.get(PRODUCTS_API_URL);
+            const rows = Array.isArray(res.data) ? res.data : res.data?.content || res.data?.data || [];
+            setProducts(rows);
+        } catch (err) {
+            console.error("Failed to load products", err);
+            ToasterService.error("Failed to load products");
+            setProducts([]);
+        }
+    };
+
+    // NOTE: audit fields (id/createdDate/updatedDate/createdBy/tenantId) are owned by the
+    // backend on create. Sending them in the create request body was causing Jackson to
+    // fail deserializing the request DTO ("Failed to read request" / 400 Bad Request),
+    // since the create DTO doesn't expect them. The entity/DTO has no `status` field at
+    // all (see schema), so it is not part of the payload.
     const buildPayload = () => {
-        const now = new Date().toISOString();
         const productId = Number(formData.productSKU) || Number(formData.productId) || 0;
         const batchNumber = getBatchValue(formData.batch);
         const serial = getSerialNumberValue(formData.serialNumber);
 
         const payload: Record<string, any> = {
-            id: editingId || 0,
-            createdDate: now,
-            updatedDate: now,
-            createdBy: user?.userId || user?.username || "",
-            tenantId: user?.tenantId || "",
             inspectionDate: formData.inspectionDate,
             inspector: formData.inspectorName || formData.inspector || "",
             result: String(formData.result).toUpperCase(),
             remarks: formData.remarks || "",
             productId,
+            batch: batchNumber || null,
+            serialNumber: serial || null,
         };
 
-        payload.batch = batchNumber;
-
-        if (serial) {
-            payload.serialNumber = {
-                id: 0,
-                createdDate: now,
-                updatedDate: now,
-                createdBy: user?.userId || user?.username || "",
-                tenantId: user?.tenantId || "",
-                serial,
-                warrantyStart: formData.inspectionDate,
-                warrantyEnd: formData.inspectionDate,
-                productId,
-                productNumber: formData.productSKU,
-                warehouse: null,
-                batch: null,
-                inspections: [],
-            };
+        if (editingId) {
+            payload.id = editingId;
         }
 
         return payload;
@@ -215,7 +210,7 @@ const QualityInspectionManager: React.FC = () => {
             }
             closeForm();
         } catch (err: any) {
-            ToasterService.error(err.response?.data?.message || err.response?.data?.error || "Save failed");
+            ToasterService.error(err.response?.data?.message || err.response?.data?.error || err.response?.data?.detail || "Save failed");
         }
     };
 
@@ -229,7 +224,6 @@ const QualityInspectionManager: React.FC = () => {
             inspector: record.inspector || record.inspectorName,
             result: record.result,
             remarks: record.remarks || "",
-            status: record.status,
             batch: getBatchValue(record.batch),
             serialNumber: getSerialNumberValue(record.serialNumber),
         });
@@ -286,7 +280,6 @@ const QualityInspectionManager: React.FC = () => {
             inspector: "",
             result: "Pass",
             remarks: "",
-            status: "Pending",
             batch: "",
             serialNumber: "",
         });
@@ -301,13 +294,12 @@ const QualityInspectionManager: React.FC = () => {
         doc.text(`Total Records: ${filtered.length}`, 14, 28);
 
         autoTable(doc, {
-            head: [["SKU", "Inspector", "Date", "Result", "Status", "Remarks"]],
+            head: [["SKU", "Inspector", "Date", "Result", "Remarks"]],
             body: filtered.map(r => [
                 r.productSKU,
                 r.inspectorName,
                 new Date(r.inspectionDate).toLocaleDateString(),
                 r.result,
-                r.status,
                 r.remarks || "-"
             ]),
             startY: 35,
@@ -325,7 +317,6 @@ const QualityInspectionManager: React.FC = () => {
             'Inspector Name': r.inspectorName,
             'Inspection Date': new Date(r.inspectionDate).toLocaleDateString(),
             'Result': r.result,
-            'Status': r.status,
             'Remarks': r.remarks || "",
             'Created At': r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "",
         })));
@@ -341,45 +332,15 @@ const QualityInspectionManager: React.FC = () => {
                 (r.inspectorName || "").toLowerCase().includes(search.toLowerCase()) ||
                 (r.productName?.toLowerCase().includes(search.toLowerCase()) || false);
             const matchesResult = resultFilter === "All" || r.result === resultFilter;
-            const matchesStatus = statusFilter === "All" || r.status === statusFilter;
-            return matchesSearch && matchesResult && matchesStatus;
+            return matchesSearch && matchesResult;
         });
-    }, [records, search, resultFilter, statusFilter]);
+    }, [records, search, resultFilter]);
 
     // Calculate stats from real data
     const totalRecords = records.length;
     const passedCount = records.filter(r => r.result === "Pass").length;
     const failedCount = records.filter(r => r.result === "Fail").length;
-    const pendingCount = records.filter(r => r.status === "Pending").length;
-    const completedCount = records.filter(r => r.status === "Completed").length;
     const passRate = totalRecords > 0 ? ((passedCount / totalRecords) * 100).toFixed(1) : "0";
-
-    // Status badge configuration
-    const getStatusBadge = (status: string) => {
-        switch (status) {
-            case "Completed":
-                return "bg-green-100 text-green-800 border-green-200";
-            case "Pending":
-                return "bg-yellow-100 text-yellow-800 border-yellow-200";
-            case "InProgress":
-                return "bg-blue-100 text-blue-800 border-blue-200";
-            default:
-                return "bg-gray-100 text-gray-800 border-gray-200";
-        }
-    };
-
-    const getStatusIcon = (status: string) => {
-        switch (status) {
-            case "Completed":
-                return <CheckCircleIcon className="h-3 w-3 mr-1" />;
-            case "Pending":
-                return <ClockIcon className="h-3 w-3 mr-1" />;
-            case "InProgress":
-                return <ChartBarIcon className="h-3 w-3 mr-1" />;
-            default:
-                return null;
-        }
-    };
 
     const getResultBadge = (result: string) => {
         if (result === "Pass") {
@@ -395,20 +356,13 @@ const QualityInspectionManager: React.FC = () => {
         return <XCircleIcon className="h-3 w-3 mr-1" />;
     };
 
-    // Clock Icon component
-    const ClockIcon: React.FC<{ className?: string }> = ({ className = "h-5 w-5" }) => (
-        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-    );
-
     const tableColumns: ColumnDef<QualityInspection>[] = [
         {
             key: "productSKU",
             label: "Product ID",
             sortable: true,
-            headerClassName: "w-[24%] text-left",
-            className: "w-[24%]",
+            headerClassName: "w-[28%] text-left",
+            className: "w-[28%]",
             render: (record) => (
                 <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
@@ -427,8 +381,8 @@ const QualityInspectionManager: React.FC = () => {
             key: "inspectorName",
             label: "Inspector",
             sortable: true,
-            headerClassName: "w-[18%] text-left",
-            className: "w-[18%]",
+            headerClassName: "w-[20%] text-left",
+            className: "w-[20%]",
             render: (record) => (
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                     <UserIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
@@ -440,8 +394,8 @@ const QualityInspectionManager: React.FC = () => {
             key: "inspectionDate",
             label: "Inspection Date",
             sortable: true,
-            headerClassName: "w-[16%] text-left",
-            className: "w-[16%]",
+            headerClassName: "w-[18%] text-left",
+            className: "w-[18%]",
             sortValueGetter: (record) => new Date(record.inspectionDate).getTime(),
             render: (record) => (
                 <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -454,8 +408,8 @@ const QualityInspectionManager: React.FC = () => {
             key: "result",
             label: "Result",
             sortable: true,
-            headerClassName: "w-[12%] text-left",
-            className: "w-[12%]",
+            headerClassName: "w-[14%] text-left",
+            className: "w-[14%]",
             render: (record) => (
                 <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full border ${getResultBadge(record.result)}`}>
                     {getResultIcon(record.result)}
@@ -464,24 +418,11 @@ const QualityInspectionManager: React.FC = () => {
             ),
         },
         {
-            key: "status",
-            label: "Status",
-            sortable: true,
-            headerClassName: "w-[14%] text-left",
-            className: "w-[14%]",
-            render: (record) => (
-                <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full border ${getStatusBadge(record.status)}`}>
-                    {getStatusIcon(record.status)}
-                    {record.status}
-                </span>
-            ),
-        },
-        {
             key: "remarks",
             label: "Remarks",
             sortable: true,
-            headerClassName: "w-[10%] text-left",
-            className: "w-[10%]",
+            headerClassName: "w-[14%] text-left",
+            className: "w-[14%]",
             render: (record) => (
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                     <DocumentTextIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
@@ -548,7 +489,6 @@ const QualityInspectionManager: React.FC = () => {
                                 inspector: "",
                                 result: "Pass",
                                 remarks: "",
-                                status: "Pending",
                                 batch: "",
                                 serialNumber: "",
                             });
@@ -558,7 +498,7 @@ const QualityInspectionManager: React.FC = () => {
                 </div>
 
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                     <StatsCard
                         label="Total Inspections"
                         value={totalRecords}
@@ -582,14 +522,6 @@ const QualityInspectionManager: React.FC = () => {
                         borderColor="border-purple-100"
                         labelColor="text-purple-600"
                         icon={<ChartBarIcon />}
-                    />
-                    <StatsCard
-                        label="Pending / Completed"
-                        value={`${pendingCount} / ${completedCount}`}
-                        gradient="from-orange-50 to-yellow-50"
-                        borderColor="border-orange-100"
-                        labelColor="text-orange-600"
-                        icon={<ClockIcon />}
                     />
                 </div>
 
@@ -685,25 +617,9 @@ const QualityInspectionManager: React.FC = () => {
                                     <option value="Fail">Fail</option>
                                 </select>
                             </div>
-                            <div className="flex-1 min-w-[200px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                                <select
-                                    value={statusFilter}
-                                    onChange={e => setStatusFilter(e.target.value as any)}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                                >
-                                    <option value="All">All Status</option>
-                                    <option value="Pending">Pending</option>
-                                    <option value="InProgress">In Progress</option>
-                                    <option value="Completed">Completed</option>
-                                </select>
-                            </div>
-                            {(resultFilter !== "All" || statusFilter !== "All") && (
+                            {resultFilter !== "All" && (
                                 <button
-                                    onClick={() => {
-                                        setResultFilter("All");
-                                        setStatusFilter("All");
-                                    }}
+                                    onClick={() => setResultFilter("All")}
                                     className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
                                 >
                                     Clear Filters
@@ -779,13 +695,6 @@ const QualityInspectionManager: React.FC = () => {
                                                             {selectedRecord.result}
                                                         </span>
                                                     </div>
-                                                    <div>
-                                                        <p className="text-xs text-gray-500">Status</p>
-                                                        <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full mt-1 ${getStatusBadge(selectedRecord.status)}`}>
-                                                            {getStatusIcon(selectedRecord.status)}
-                                                            {selectedRecord.status}
-                                                        </span>
-                                                    </div>
                                                     {selectedRecord.remarks && (
                                                         <div className="col-span-2">
                                                             <p className="text-xs text-gray-500">Remarks</p>
@@ -851,20 +760,28 @@ const QualityInspectionManager: React.FC = () => {
                                             </h3>
                                             <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Product ID</label>
-                                                    <input
-                                                        type="number"
-                                                        min={0}
-                                                        value={formData.productSKU}
-                                                        onChange={e => setFormData({
-                                                            ...formData,
-                                                            productSKU: e.target.value,
-                                                            productId: Number(e.target.value) || 0,
-                                                        })}
+                                                    <label className="block text-sm font-medium text-gray-700">Product</label>
+                                                    <select
+                                                        value={formData.productId || ""}
+                                                        onChange={e => {
+                                                            const id = Number(e.target.value) || 0;
+                                                            const product = products.find(p => p.id === id);
+                                                            setFormData({
+                                                                ...formData,
+                                                                productId: id,
+                                                                productSKU: product?.sku || product?.code || product?.name || String(id),
+                                                            });
+                                                        }}
                                                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        placeholder="e.g., 12345"
                                                         required
-                                                    />
+                                                    >
+                                                        <option value="">Select a product</option>
+                                                        {products.map(product => (
+                                                            <option key={product.id} value={product.id}>
+                                                                {product.name}{product.sku ? ` (${product.sku})` : ""}
+                                                            </option>
+                                                        ))}
+                                                    </select>
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700">Inspector Name</label>
@@ -898,18 +815,6 @@ const QualityInspectionManager: React.FC = () => {
                                                             <option value="Fail">Fail</option>
                                                         </select>
                                                     </div>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Status</label>
-                                                    <select
-                                                        value={formData.status}
-                                                        onChange={e => setFormData({ ...formData, status: e.target.value as any })}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                    >
-                                                        <option value="Pending">Pending</option>
-                                                        <option value="InProgress">In Progress</option>
-                                                        <option value="Completed">Completed</option>
-                                                    </select>
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700">Remarks (Optional)</label>

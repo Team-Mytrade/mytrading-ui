@@ -266,7 +266,17 @@ const StockMovementsManager: React.FC = () => {
       toLocation: form.toLocation,
       reference: form.reference,
       productId: toNumber(form.productId),
-      warehouse: selectedWarehouse ? selectedWarehouse.code || selectedWarehouse.name || String(selectedWarehouse.id) : "",
+      // The schema defines `warehouse` as a full warehouse reference object
+      // (id/code/name/...), not a bare string. Sending a string here was a
+      // mismatch against the API contract — matching the object shape used
+      // for `batch` and `serialNumber` below, just as the backend expects.
+      warehouse: selectedWarehouse
+        ? {
+            id: selectedWarehouse.id,
+            code: selectedWarehouse.code || null,
+            name: selectedWarehouse.name || null,
+          }
+        : null,
       batch: selectedBatch
         ? {
             id: selectedBatch.id,

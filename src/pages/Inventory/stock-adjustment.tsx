@@ -83,6 +83,7 @@ interface StockAdjustment {
 }
 
 const API_URL = "/v1/api/inventory";
+const PRODUCT_URL = "/v1/api/purchase"
 const PAGE_SIZE = 10;
 
 const StockAdjustmentManager: React.FC = () => {
@@ -151,7 +152,7 @@ const StockAdjustmentManager: React.FC = () => {
 
     const fetchProducts = async () => {
         try {
-            const response = await axios.get(`${API_URL}/products`);
+            const response = await axios.get(`${PRODUCT_URL}/products`);
             setProducts(response.data);
         } catch (err) {
             console.error("Failed to load products", err);
@@ -192,7 +193,7 @@ const StockAdjustmentManager: React.FC = () => {
     // Fetch batches by product ID
     const fetchBatchesByProduct = async (productId: number) => {
         try {
-            const response = await axios.get(`${API_URL}/batches/product/${productId}`);
+            const response = await axios.get(`${PRODUCT_URL}/product/${productId}`);
             setFilteredBatches(response.data);
             return response.data;
         } catch (err) {
@@ -282,24 +283,36 @@ const StockAdjustmentManager: React.FC = () => {
         }
     };
 
+    // Payload shape verified against the stock-adjustments swagger schema:
+    // `warehouse`, `batch`, and `serialNumber` are all reference objects
+    // ({ id }), not plain strings. `reference` is intentionally NOT included
+    // here — it does not exist as a field in the schema, so it was dropped
+    // to avoid sending an unrecognized property. Note: the form below still
+    // collects a "Reference" value that is currently not persisted anywhere
+    // — see the note further down if you want that restored or removed.
     const buildPayload = () => ({
         id: editingId || 0,
         adjustmentDate: form.adjustmentDate,
         reason: form.reason,
         quantity: Number(form.quantity),
         adjustmentType: form.adjustmentType,
-        productId: Number(form.productId) || 0,
-        warehouse: warehouses.find((item) => item.id === Number(form.warehouseId))?.code ||
-            warehouses.find((item) => item.id === Number(form.warehouseId))?.name ||
-            form.warehouseId,
-        batch: filteredBatches.find((item) => item.id === Number(form.batchId))?.batchNumber || form.batchId,
+        productId: Number(form.productId),
+
+        warehouse: {
+            id: Number(form.warehouseId),
+        },
+
+        batch: form.batchId
+            ? {
+                id: Number(form.batchId),
+            }
+            : undefined,
+
         serialNumber: form.serialNumberId
             ? {
                 id: Number(form.serialNumberId),
-                serial: filteredSerialNumbers.find((item) => item.id === Number(form.serialNumberId))?.serial || "",
             }
-            : null,
-        reference: form.reference || undefined,
+            : undefined,
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -371,7 +384,7 @@ const StockAdjustmentManager: React.FC = () => {
             serialNumberId: adj.serialNumber?.id?.toString() || "",
             reference: adj.reference || "",
         });
-        
+
         // Load related data for the selected product and batch
         if (adj.product?.id) {
             fetchBatchesByProduct(adj.product.id);
@@ -379,7 +392,7 @@ const StockAdjustmentManager: React.FC = () => {
         if (adj.batch?.id) {
             fetchSerialNumbersByBatch(adj.batch.id);
         }
-        
+
         setShowForm(true);
     };
 
@@ -452,7 +465,7 @@ const StockAdjustmentManager: React.FC = () => {
     const filteredAdjustments = useMemo(() => {
         return adjustments.filter(a => {
             const matchesType = typeFilter === "All" || a.adjustmentType === typeFilter;
-            
+
             let matchesDateRange = true;
             if (dateFromFilter) {
                 matchesDateRange = matchesDateRange && new Date(a.adjustmentDate) >= new Date(dateFromFilter);
@@ -677,12 +690,6 @@ const StockAdjustmentManager: React.FC = () => {
             <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
                 <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
                     <div className="flex items-center gap-4">
-                        {/* <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Stock Adjustment</h1>
-                            <p className="text-sm text-gray-500 mt-0.5">
-                                Track stock in and stock out adjustments
-                            </p>
-                        </div> */}
                     </div>
 
                     <AddButton
@@ -909,6 +916,9 @@ const StockAdjustmentManager: React.FC = () => {
                                                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
                                                         placeholder="PO #, Invoice #, or other reference"
                                                     />
+                                                    <p className="text-xs text-amber-600 mt-1">
+                                                        Note: this value is not currently sent to the server — the stock-adjustments API schema has no "reference" field.
+                                                    </p>
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700">Reason</label>
@@ -923,7 +933,7 @@ const StockAdjustmentManager: React.FC = () => {
                                                 </div>
                                                 <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                                                     <p className="text-sm text-blue-800">
-                                                        <strong>Note:</strong> Stock adjustments affect inventory levels. 
+                                                        <strong>Note:</strong> Stock adjustments affect inventory levels.
                                                         Positive adjustments increase stock, negative adjustments decrease stock.
                                                         {form.adjustmentType === "NEGATIVE" && " Ensure sufficient stock is available before making negative adjustments."}
                                                     </p>
@@ -1164,4 +1174,3 @@ const StockAdjustmentManager: React.FC = () => {
 };
 
 export default StockAdjustmentManager;
-
