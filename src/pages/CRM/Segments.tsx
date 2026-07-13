@@ -16,7 +16,6 @@ import {
   BriefcaseIcon,
   EnvelopeIcon,
   PhoneIcon,
-  FunnelIcon,
   EyeIcon,
 } from "@heroicons/react/24/outline";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
@@ -27,7 +26,8 @@ import DynamicPopup from "../../components/common/Popup";
 import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import { FloatingInput, FloatingTextarea, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import FilterPopover from "../../components/common/filter";
+import { FloatingInput, FloatingTextarea } from "../../components/inputfeild/FloatingInput";
 
 interface Customer {
   id: number;
@@ -84,7 +84,7 @@ const getTenantId = () => {
   }
 };
 
-const CustomerSegmentDetails: React.FC = () => {
+const Segments: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [segments, setSegments] = useState<CustomerSegment[]>([]);
   const [form, setForm] = useState<Partial<CustomerSegment>>({});
@@ -97,7 +97,6 @@ const CustomerSegmentDetails: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
-  const [showFilters, setShowFilters] = useState(false);
   const token = localStorage.getItem("accessToken");
   const tenantId = getTenantId();
 
@@ -520,47 +519,22 @@ const CustomerSegmentDetails: React.FC = () => {
           </div>
 
           <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
-            {/* Filter Toggle */}
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`rounded-lg border p-2 flex items-center justify-center transition-colors h-[40px] w-[40px] ${showFilters ? 'bg-cyan-50 border-cyan-300' : 'border-gray-300 hover:bg-gray-50'
-                }`}
-            >
-              <FunnelIcon className={`h-5 w-5 ${showFilters ? 'text-cyan-600' : 'text-gray-600'}`} />
-            </button>
+            <FilterPopover
+              title="Filter Segments"
+              buttonLabel="Filters"
+              label="Filter by Status"
+              value={activeFilter}
+              options={[
+                { label: "All Segments", value: "ALL" },
+                { label: "Active (Has Customers)", value: "ACTIVE" },
+                { label: "Inactive (No Customers)", value: "INACTIVE" },
+              ]}
+              onChange={setActiveFilter}
+              onReset={() => setActiveFilter("ALL")}
+              onApply={() => undefined}
+            />
           </div>
         </div>
-
-        {/* Filters Panel */}
-        {showFilters && (
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 animate-slide-down">
-            <div className="flex flex-wrap gap-4">
-              <div className="w-full min-w-0 sm:flex-1 sm:min-w-[200px]">
-                <FloatingSelect
-                  label="Filter by Status"
-                  name="filter"
-                  value={activeFilter}
-                  onChange={(e) => { setActiveFilter(e.target.value); }}
-                  includeEmptyOption={false}
-                  className="!mb-0"
-                  options={[
-                    { id: "ALL", name: "All Segments" },
-                    { id: "ACTIVE", name: "Active (Has Customers)" },
-                    { id: "INACTIVE", name: "Inactive (No Customers)" }
-                  ]}
-                />
-              </div>
-              {activeFilter !== "ALL" && (
-                <button
-                  onClick={() => { setActiveFilter("ALL"); }}
-                  className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
-                >
-                  Clear Filter
-                </button>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Table */}
         <ReusableTable
@@ -883,5 +857,5 @@ const CustomerSegmentDetails: React.FC = () => {
   );
 };
 
-export default CustomerSegmentDetails;
+export default Segments;
 

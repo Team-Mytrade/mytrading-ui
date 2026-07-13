@@ -8,12 +8,14 @@ import {
   MagnifyingGlassIcon,
   PaperAirplaneIcon,
   PlayIcon,
+  TrashIcon,
   UserPlusIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import { AddButton } from "../../components/common/AddButton";
+import { ListingPdfExportButton } from "../../components/common/export";
 import FilterPopover from "../../components/common/filter";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
@@ -56,6 +58,7 @@ type ScheduleForm = {
 };
 
 type UserOption = {
+  id?: string | number;
   userId: string;
   username?: string;
   email?: string;
@@ -237,6 +240,22 @@ const ServiceScheduleNotify: React.FC = () => {
     }
   };
 
+  const deleteSchedule = async (id = Number(scheduleId)) => {
+    if (!id) {
+      ToasterService.error("Schedule ID is required");
+      return;
+    }
+
+    try {
+      await axios.delete(`${API_URL}/${id}`, { headers });
+      setSchedules((current) => current.filter((item) => item.id !== id));
+      setScheduleId("");
+      ToasterService.success("Schedule deleted successfully");
+    } catch (error) {
+      ToasterService.error("Failed to delete schedule", getErrorMessage(error, "Please try again."));
+    }
+  };
+
   const employeeOptions = users
     .filter((user) => user.employeeId !== undefined && user.employeeId !== null)
     .map((user) => ({
@@ -384,12 +403,25 @@ const ServiceScheduleNotify: React.FC = () => {
             )}
           </div>
 
-          <FilterPopover
-            title="Schedule Actions"
-            buttonLabel="Filters"
-            widthClassName="w-[20rem] sm:w-[22rem]"
-            showFooter={false}
-          >
+          <div className="flex items-center gap-2">
+            <ListingPdfExportButton
+              title="Service Schedule Notify"
+              subtitle="Filtered user notification listing"
+              reportLabel="Sales Report"
+              data={filteredUsers}
+              fileName="Service_Schedule_Notify"
+              metadata={(rows, rangeLabel) => [
+                { label: "Total", value: rows.length },
+                { label: "Range", value: rangeLabel },
+                { label: "Search", value: search || "None" },
+              ]}
+            />
+            <FilterPopover
+              title="Schedule Actions"
+              buttonLabel="Filters"
+              widthClassName="w-[20rem] sm:w-[22rem]"
+              showFooter={false}
+            >
             <div className="space-y-3">
               <FloatingInput
                 label="Schedule ID"
@@ -406,7 +438,7 @@ const ServiceScheduleNotify: React.FC = () => {
                 emptyOptionLabel=""
                 options={employeeOptions}
               />
-              <div className="grid grid-cols-4 gap-2 pt-1">
+              <div className="grid grid-cols-5 gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => {
@@ -438,9 +470,18 @@ const ServiceScheduleNotify: React.FC = () => {
                 >
                   Assign
                 </button>
+                <button
+                  type="button"
+                  onClick={() => deleteSchedule()}
+                  className="flex h-10 items-center justify-center rounded-lg bg-red-600 px-3 text-sm font-medium text-white transition hover:bg-red-700"
+                  title="Delete schedule"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
               </div>
             </div>
-          </FilterPopover>
+            </FilterPopover>
+          </div>
         </div>
 
         <ReusableTable

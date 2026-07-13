@@ -41,7 +41,7 @@ const LayoutContent: React.FC = () => {
         className={`min-w-0 ${isResizing ? "transition-none" : "transition-all duration-300 ease-in-out"}`}
       >
         <AppHeader />
-        <div className="w-full px-2 py-4 md:px-3 md:py-6">
+        <div className="app-content-tight w-full px-2 py-[3px] md:px-3 md:py-[3px]">
           <Outlet />
         </div>
       </div>

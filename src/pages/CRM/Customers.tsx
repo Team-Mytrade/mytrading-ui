@@ -58,6 +58,7 @@ interface Customer {
   website?: string;
   creditLimit?: number;
   currentCredit?: number;
+  outstandingBalance?: number;
   paymentTerms?: string;
   currencyCode?: string;
   active: boolean;
@@ -73,7 +74,7 @@ interface Segment {
 const API_URL = "/v1/api/crm/customers";
 const PAGE_SIZE = 10;
 
-const CustomerManager: React.FC = () => {
+const Customers: React.FC = () => {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
@@ -86,6 +87,7 @@ const CustomerManager: React.FC = () => {
   const [showCommModal, setShowCommModal] = useState(false);
   const [segments, setSegments] = useState<Segment[]>([]);
   const [loading, setLoading] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
 
   const [commForm, setCommForm] = useState({
     type: "EMAIL",
@@ -227,6 +229,57 @@ const CustomerManager: React.FC = () => {
     return customer.addresses?.length || 0;
   };
 
+  const toNumberOrZero = (value: unknown) => {
+    const numberValue = Number(value);
+    return Number.isFinite(numberValue) ? numberValue : 0;
+  };
+
+  const buildCustomerPayload = (customer: Customer, status = customer.status) => ({
+    customerName: customer.customerName,
+    tradeName: customer.tradeName,
+    taxNumber: customer.taxNumber,
+    registrationNumber: customer.registrationNumber,
+    customerType: customer.customerType,
+    status,
+    phone: customer.phone,
+    email: customer.email,
+    website: customer.website,
+    creditLimit: toNumberOrZero(customer.creditLimit),
+    currentCredit: toNumberOrZero(customer.currentCredit),
+    outstandingBalance: toNumberOrZero(customer.outstandingBalance),
+    paymentTerms: customer.paymentTerms,
+    currencyCode: customer.currencyCode,
+    active: status === CustomerStatus.ACTIVE,
+    addresses: customer.addresses || [],
+  });
+
+  const handleStatusChange = async (customer: Customer, status: CustomerStatus) => {
+    if (customer.status === status) return;
+
+    const previousCustomers = customers;
+    const nextCustomers = customers.map((item) =>
+      item.id === customer.id ? { ...item, status, active: status === CustomerStatus.ACTIVE } : item
+    );
+    setCustomers(nextCustomers);
+    setFilteredCustomers((current) =>
+      current.map((item) =>
+        item.id === customer.id ? { ...item, status, active: status === CustomerStatus.ACTIVE } : item
+      )
+    );
+
+    try {
+      setStatusUpdatingId(customer.id);
+      await axios.put(`${API_URL}/${customer.id}`, buildCustomerPayload(customer, status));
+      ToasterService.success("Customer status updated successfully!");
+    } catch (err: any) {
+      console.error("Error updating customer status:", err);
+      setCustomers(previousCustomers);
+      ToasterService.error(err.response?.data?.message || "Failed to update customer status!");
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
   const tableColumns: ColumnDef<Customer>[] = [
     {
       key: "customerName",
@@ -288,16 +341,29 @@ const CustomerManager: React.FC = () => {
       className: "w-[15%]",
       render: (customer) => {
         const statusColors = {
-          [CustomerStatus.ACTIVE]: "bg-emerald-50 text-emerald-700 border-emerald-200",
-          [CustomerStatus.LEAD]: "bg-blue-50 text-blue-700 border-blue-200",
-          [CustomerStatus.CREDIT_HOLD]: "bg-yellow-50 text-yellow-700 border-yellow-200",
-          [CustomerStatus.BLOCKED]: "bg-red-50 text-red-700 border-red-200",
-          [CustomerStatus.INACTIVE]: "bg-slate-50 text-slate-600 border-slate-200",
+          [CustomerStatus.ACTIVE]: "border-green-200 bg-green-50 text-green-700",
+          [CustomerStatus.LEAD]: "border-blue-200 bg-blue-50 text-blue-700",
+          [CustomerStatus.CREDIT_HOLD]: "border-yellow-200 bg-yellow-50 text-yellow-700",
+          [CustomerStatus.BLOCKED]: "border-red-200 bg-red-50 text-red-700",
+          [CustomerStatus.INACTIVE]: "border-red-200 bg-red-50 text-red-700",
         };
         return (
-          <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full border ${statusColors[customer.status]}`}>
-            {customer.status}
-          </span>
+          <div onClick={(event) => event.stopPropagation()}>
+            <select
+              value={customer.status}
+              onChange={(event) => handleStatusChange(customer, event.target.value as CustomerStatus)}
+              disabled={statusUpdatingId === customer.id}
+              className={`w-[116px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
+                statusColors[customer.status]
+              } ${statusUpdatingId === customer.id ? "cursor-not-allowed opacity-70" : ""}`}
+            >
+              <option value={CustomerStatus.LEAD}>Lead</option>
+              <option value={CustomerStatus.ACTIVE}>Active</option>
+              <option value={CustomerStatus.CREDIT_HOLD}>Credit Hold</option>
+              <option value={CustomerStatus.BLOCKED}>Blocked</option>
+              <option value={CustomerStatus.INACTIVE}>Inactive</option>
+            </select>
+          </div>
         );
       },
     },
@@ -672,4 +738,4 @@ const EyeIcon: React.FC<{ className?: string }> = ({ className = "h-5 w-5" }) =>
   </svg>
 );
 
-export default CustomerManager;
+export default Customers;

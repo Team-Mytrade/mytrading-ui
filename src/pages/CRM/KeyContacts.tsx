@@ -10,7 +10,6 @@ import {
   PhoneIcon,
   BuildingOfficeIcon,
   UserPlusIcon,
-  FunnelIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { useNavigate, useLocation, Link } from "react-router-dom";
@@ -21,6 +20,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import DynamicPopup from "../../components/common/Popup";
 import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
+import FilterPopover from "../../components/common/filter";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 
 const ADD_DRAFT_STORAGE_KEY = "contactPerson:addDraft";
@@ -101,7 +101,7 @@ const mapContactsFromCustomers = (customerList: Customer[]): Contact[] =>
     }))
   );
 
-const ContactPersonDetails: React.FC = () => {
+const KeyContacts: React.FC = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem("accessToken");
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -109,7 +109,6 @@ const ContactPersonDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
-  const [showFilters, setShowFilters] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
 
@@ -634,46 +633,23 @@ const ContactPersonDetails: React.FC = () => {
           </div>
 
           <div className="flex w-full items-center justify-end gap-3 sm:w-auto">
-            {/* Filter Button */}
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`p-2 rounded-lg border flex items-center justify-center transition-colors h-[40px] w-[40px] ${showFilters ? 'bg-cyan-50 border-cyan-300' : 'border-gray-300 hover:bg-gray-50'
-                }`}
-            >
-              <FunnelIcon className={`h-5 w-5 ${showFilters ? 'text-cyan-600' : 'text-gray-600'}`} />
-            </button>
+            <FilterPopover
+              title="Filter Contacts"
+              buttonLabel="Filters"
+              label="Filter by Role"
+              value={activeFilter}
+              options={[
+                { label: "All Contacts", value: "ALL" },
+                { label: "Linked to Customer", value: "WITH_CUSTOMER" },
+                { label: "Decision Makers", value: "DECISION_MAKER" },
+                { label: "Influencers", value: "INFLUENCER" },
+              ]}
+              onChange={setActiveFilter}
+              onReset={() => setActiveFilter("ALL")}
+              onApply={() => undefined}
+            />
           </div>
         </div>
-
-        {/* Filters Panel */}
-        {showFilters && (
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="flex flex-wrap gap-4">
-              <div className="w-full min-w-0 sm:flex-1 sm:min-w-[200px]">
-                <FloatingSelect
-                  label="Filter by Role"
-                  name="filter"
-                  value={activeFilter}
-                  onChange={(e) => setActiveFilter(e.target.value)}
-                  options={[
-                    { id: "ALL", name: "All Contacts" },
-                    { id: "WITH_CUSTOMER", name: "Linked to Customer" },
-                    { id: "DECISION_MAKER", name: "Decision Makers" },
-                    { id: "INFLUENCER", name: "Influencers" }
-                  ]}
-                />
-              </div>
-              {activeFilter !== "ALL" && (
-                <button
-                  onClick={() => setActiveFilter("ALL")}
-                  className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
-                >
-                  Clear Filter
-                </button>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Table */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-visible shadow-sm">
@@ -988,4 +964,4 @@ const ContactPersonDetails: React.FC = () => {
   );
 };
 
-export default ContactPersonDetails;
+export default KeyContacts;

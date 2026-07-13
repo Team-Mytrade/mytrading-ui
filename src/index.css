@@ -887,3 +887,28 @@ span.flatpickr-weekday,
 .dashboard-icon-uniform svg [stroke="black"] {
   stroke: currentColor;
 }
+
+@media (min-width: 1024px) {
+  .app-content-tight .lg\:-mt-\[134px\] {
+    margin-top: -50px !important;
+  }
+}
+
+.app-content-tight .py-8 {
+  padding-top: 3px !important;
+  padding-bottom: 3px !important;
+}
+
+.app-content-tight .mb-6 {
+  margin-bottom: 3px !important;
+}
+
+.app-content-tight .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-y-reverse: 0 !important;
+  margin-top: calc(3px * calc(1 - var(--tw-space-y-reverse))) !important;
+  margin-bottom: calc(3px * var(--tw-space-y-reverse)) !important;
+}
+
+.app-content-tight .gap-4 {
+  row-gap: 3px !important;
+}

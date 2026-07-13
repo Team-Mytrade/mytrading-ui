@@ -1,5 +1,4 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import axios from "axios";
 import {
   ArrowPathIcon,
@@ -17,11 +16,13 @@ import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import { ListingPdfExportButton } from "../../components/common/export";
 import FilterPopover from "../../components/common/filter";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
+import PaginatedPopup from "../../components/common/unpopup";
 import {
-  FloatingDatePicker,
+  FloatingDateRangePicker,
   FloatingInput,
   FloatingSelect1 as FloatingSelect,
   FloatingTextarea,
@@ -195,11 +196,19 @@ function searchableText(value: unknown) {
   return String(value).toLowerCase().trim();
 }
 
-function openNativeDatePicker(event: React.FocusEvent<HTMLInputElement> | React.MouseEvent<HTMLInputElement>) {
-  const input = event.currentTarget;
-  if (typeof input.showPicker === "function") {
-    input.showPicker();
-  }
+function toDateValue(value?: string) {
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function toInputDateValue(date: Date | null) {
+  if (!date) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 const SalesTargets: React.FC = () => {
@@ -212,14 +221,14 @@ const SalesTargets: React.FC = () => {
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
+  const [achievedUpdatingId, setAchievedUpdatingId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<TargetStatus | "">("");
   const [salesPersonFilter, setSalesPersonFilter] = useState("");
   const [lookupId, setLookupId] = useState("");
   const [rangeStart, setRangeStart] = useState("");
   const [rangeEnd, setRangeEnd] = useState("");
-  const [achievedTargetId, setAchievedTargetId] = useState("");
-  const [achievedAmount, setAchievedAmount] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<SalesTarget | null>(null);
   const [salesPersons, setSalesPersons] = useState<SalesPersonOption[]>([]);
 
@@ -414,6 +423,50 @@ const SalesTargets: React.FC = () => {
     }
   };
 
+  const buildPayloadFromTarget = (
+    target: SalesTarget,
+    status: TargetStatus | string = target.status
+  ) => {
+    const targetYear = Number(target.targetYear || getPeriodYear(target.period) || new Date().getFullYear());
+    const targetMonth = Number(target.targetMonth || getPeriodMonth(target.period) || new Date().getMonth() + 1);
+    const person = salesPersons.find((item) => Number(item.id) === Number(target.salesPersonId));
+
+    return {
+      id: target.id,
+      salesPersonId: Number(target.salesPersonId),
+      salesPersonName: target.salesPersonName || person?.name || "",
+      salesPersonCode: target.salesPersonCode || person?.code || "",
+      targetType: targetTypeOptions.includes(target.targetType as TargetType)
+        ? (target.targetType as TargetType)
+        : "REVENUE",
+      targetAmount: Number(target.targetAmount || 0),
+      period: formatPeriod(targetYear, targetMonth),
+      achievedAmount: Number(target.achievedAmount || 0),
+      targetYear,
+      targetMonth,
+      startDate: target.startDate || "",
+      endDate: target.endDate || "",
+      remarks: target.remarks || "",
+      status,
+    };
+  };
+
+  const handleInlineStatusChange = async (target: SalesTarget, nextStatus: string) => {
+    if (String(target.status) === nextStatus) return;
+
+    try {
+      setStatusUpdatingId(target.id);
+      const payload = buildPayloadFromTarget(target, nextStatus);
+      const res = await axios.put<SalesTarget>(`${API_URL}/${target.id}`, payload, { headers });
+      upsertTarget(res.data);
+      ToasterService.success("Sales target status updated");
+    } catch (error) {
+      ToasterService.error("Failed to update target status", getErrorMessage(error, "Please try again."));
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
   const openCreate = () => {
     setEditingId(null);
     setForm(emptyForm);
@@ -471,25 +524,49 @@ const SalesTargets: React.FC = () => {
     }
   };
 
-  const updateAchieved = async () => {
-    if (!achievedTargetId || !achievedAmount) {
-      ToasterService.error("Target ID and achieved amount are required");
-      return;
-    }
-
+  const markTargetAsAchieved = async (target: SalesTarget) => {
     try {
-      const res = await axios.patch<SalesTarget>(`${API_URL}/${achievedTargetId}/achieved`, null, {
+      setAchievedUpdatingId(target.id);
+
+      const patchResponse = await axios.patch<SalesTarget>(`${API_URL}/${target.id}/achieved`, null, {
         headers,
-        params: { amount: Number(achievedAmount) },
+        params: { amount: Number(target.targetAmount || 0) },
         skipSessionExpiredHandling: true,
       } as any);
-      upsertTarget(res.data);
-      setAchievedTargetId("");
-      setAchievedAmount("");
-      ToasterService.success("Achieved amount updated");
+
+      const achievedTarget: SalesTarget = {
+        ...patchResponse.data,
+        achievedAmount: Number(patchResponse.data.achievedAmount || target.targetAmount || 0),
+        status: "COMPLETED",
+      };
+
+      const payload = buildPayloadFromTarget(achievedTarget, "COMPLETED");
+      const updateResponse = await axios.put<SalesTarget>(`${API_URL}/${target.id}`, payload, { headers });
+
+      upsertTarget({
+        ...updateResponse.data,
+        achievedAmount: Number(updateResponse.data.achievedAmount || achievedTarget.achievedAmount),
+        status: "COMPLETED",
+      });
+      ToasterService.success("Target marked as achieved");
     } catch (error) {
-      ToasterService.error("Failed to update achieved amount", getErrorMessage(error, "Please try again."));
+      ToasterService.error("Failed to mark target as achieved", getErrorMessage(error, "Please try again."));
+    } finally {
+      setAchievedUpdatingId(null);
     }
+  };
+
+  const getStatusSelectClasses = (status: string) => {
+    if (status === "COMPLETED" || status === "EXCEEDED") {
+      return "border-green-200 bg-green-50 text-green-700";
+    }
+    if (status === "MISSED") {
+      return "border-red-200 bg-red-50 text-red-700";
+    }
+    if (status === "ON_TRACK" || status === "ONGOING") {
+      return "border-cyan-200 bg-cyan-50 text-cyan-700";
+    }
+    return "border-blue-200 bg-blue-50 text-blue-700";
   };
 
   const filteredTargets = useMemo(() => {
@@ -606,9 +683,22 @@ const SalesTargets: React.FC = () => {
       label: "Status",
       sortable: true,
       render: (target) => (
-        <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
-          {toFriendlyStatus(String(target.status))}
-        </span>
+        <div onClick={(e) => e.stopPropagation()}>
+          <select
+            value={String(target.status)}
+            onChange={(e) => handleInlineStatusChange(target, e.target.value)}
+            disabled={statusUpdatingId === target.id}
+            className={`w-[96px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${getStatusSelectClasses(String(target.status))} ${
+              statusUpdatingId === target.id ? "cursor-not-allowed opacity-70" : ""
+            }`}
+          >
+            {statusOptions.map((status) => (
+              <option key={status} value={status}>
+                {toFriendlyStatus(status)}
+              </option>
+            ))}
+          </select>
+        </div>
       ),
     },
     {
@@ -629,12 +719,10 @@ const SalesTargets: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => {
-              setAchievedTargetId(String(target.id));
-              setAchievedAmount(String(target.achievedAmount || ""));
-            }}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600"
-            title="Set achieved amount"
+            onClick={() => void markTargetAsAchieved(target)}
+            disabled={achievedUpdatingId === target.id}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-70"
+            title="Mark achieved"
           >
             <PresentationChartLineIcon className="h-4 w-4" />
           </button>
@@ -650,6 +738,19 @@ const SalesTargets: React.FC = () => {
       ),
     },
   ];
+
+  const selectedYear = Number(form.targetYear);
+  const selectedMonth = Number(form.targetMonth);
+  const rangeMinDate =
+    selectedYear && selectedMonth >= 1 && selectedMonth <= 12
+      ? new Date(selectedYear, selectedMonth - 1, 1)
+      : undefined;
+  const rangeMaxDate =
+    selectedYear && selectedMonth >= 1 && selectedMonth <= 12
+      ? new Date(selectedYear, selectedMonth, 0)
+      : undefined;
+  const selectedStartDate = toDateValue(form.startDate);
+  const selectedEndDate = toDateValue(form.endDate);
 
   return (
     <>
@@ -710,12 +811,27 @@ const SalesTargets: React.FC = () => {
             )}
           </div>
 
-          <FilterPopover
-            title="Filter Sales Targets"
-            buttonLabel="Filters"
-            widthClassName="w-[21rem] sm:w-[23rem]"
-            showFooter={false}
-          >
+          <div className="flex items-center gap-2">
+            <ListingPdfExportButton
+              title="Sales Targets"
+              subtitle="Filtered sales target listing"
+              reportLabel="Sales Report"
+              data={filteredTargets}
+              fileName="Sales_Targets"
+              disabled={loading}
+              metadata={(rows, rangeLabel) => [
+                { label: "Total", value: rows.length },
+                { label: "Range", value: rangeLabel },
+                { label: "Status", value: statusFilter || "All" },
+                { label: "Search", value: search || "None" },
+              ]}
+            />
+            <FilterPopover
+              title="Filter Sales Targets"
+              buttonLabel="Filters"
+              widthClassName="w-[21rem] sm:w-[23rem]"
+              showFooter={false}
+            >
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -736,30 +852,16 @@ const SalesTargets: React.FC = () => {
                 <div />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">From</label>
-                  <input
-                    type="date"
-                    value={rangeStart}
-                    onChange={(e) => setRangeStart(e.target.value)}
-                    onFocus={openNativeDatePicker}
-                    onClick={openNativeDatePicker}
-                    className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">To</label>
-                  <input
-                    type="date"
-                    value={rangeEnd}
-                    onChange={(e) => setRangeEnd(e.target.value)}
-                    onFocus={openNativeDatePicker}
-                    onClick={openNativeDatePicker}
-                    className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                  />
-                </div>
-              </div>
+              <FloatingDateRangePicker
+                label="Date Range"
+                startDate={toDateValue(rangeStart)}
+                endDate={toDateValue(rangeEnd)}
+                onChange={([start, end]) => {
+                  setRangeStart(toInputDateValue(start));
+                  setRangeEnd(toInputDateValue(end));
+                }}
+                placeholder=""
+              />
 
               <div className="grid grid-cols-3 gap-2 pt-1">
                 <button
@@ -770,8 +872,6 @@ const SalesTargets: React.FC = () => {
                     setStatusFilter("");
                     setRangeStart("");
                     setRangeEnd("");
-                    setAchievedTargetId("");
-                    setAchievedAmount("");
                     void fetchAllTargets(true);
                   }}
                   className="h-9 rounded-lg bg-gray-100 px-3 text-sm font-medium text-gray-700 hover:bg-gray-200"
@@ -783,7 +883,8 @@ const SalesTargets: React.FC = () => {
                 </div>
               </div>
             </div>
-          </FilterPopover>
+            </FilterPopover>
+          </div>
         </div>
 
         <ReusableTable
@@ -810,115 +911,113 @@ const SalesTargets: React.FC = () => {
         />
       </div>
 
-      {showFormModal &&
-        createPortal(
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-4 backdrop-blur-sm sm:items-center">
-            <div className="mx-auto max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto rounded-xl bg-white shadow-xl">
-              <div className="flex items-center justify-between border-b border-gray-100 p-5">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {editingId ? "Edit Sales Target" : "Create Sales Target"}
-                  </h3>
-                  <p className="mt-0.5 text-xs text-gray-500">Enter target details from the sales target API schema</p>
-                </div>
-                <button type="button" onClick={closeForm} className="text-gray-400 hover:text-gray-600">
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="p-5">
-                <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
-                  <FloatingSelect
-                    label="Sales Person"
-                    name="salesPersonId"
-                    value={form.salesPersonId}
-                    onChange={handleChange}
-                    emptyOptionLabel="Select sales person"
-                    options={salesPersons.map((person) => ({
-                      id: String(person.id),
-                      name: person.name || `Person #${person.id}`,
-                    }))}
-                    required
-                  />
-                  <FloatingInput
-                    label="Sales Person Name"
-                    name="salesPersonName"
-                    value={form.salesPersonName}
-                    onChange={handleChange}
-                    readOnly
-                  />
-                  <FloatingInput
-                    label="Sales Person Code"
-                    name="salesPersonCode"
-                    value={form.salesPersonCode}
-                    onChange={handleChange}
-                    readOnly
-                  />
-                  <FloatingSelect
-                    label="Target Type"
-                    name="targetType"
-                    value={form.targetType}
-                    onChange={handleChange}
-                    options={targetTypeOptions.map((type) => ({ id: type, name: type }))}
-                    includeEmptyOption={false}
-                    required
-                  />
-                  <FloatingInput
-                    label="Target Amount"
-                    name="targetAmount"
-                    type="number"
-                    value={form.targetAmount}
-                    onChange={handleChange}
-                    required
-                  />
-                  <FloatingInput
-                    label="Achieved Amount"
-                    name="achievedAmount"
-                    type="number"
-                    value={form.achievedAmount}
-                    onChange={handleChange}
-                  />
-                  <FloatingInput
-                    label="Target Year"
-                    name="targetYear"
-                    type="number"
-                    value={form.targetYear}
-                    onChange={handleChange}
-                    required
-                  />
-                  <FloatingInput
-                    label="Target Month"
-                    name="targetMonth"
-                    type="number"
-                    min={1}
-                    max={12}
-                    value={form.targetMonth}
-                    onChange={handleChange}
-                    required
-                  />
-                  <FloatingDatePicker
-                    label="Start Date"
-                    name="startDate"
-                    value={form.startDate}
-                    onChange={handleChange}
-                  />
-                  <FloatingDatePicker
-                    label="End Date"
-                    name="endDate"
-                    value={form.endDate}
-                    onChange={handleChange}
-                  />
-                  <FloatingSelect
-                    label="Status"
-                    name="status"
-                    value={form.status}
-                    onChange={handleChange}
-                    options={statusOptions.map((status) => ({ id: status, name: status }))}
-                    includeEmptyOption={false}
-                    required
-                  />
-                </div>
-
+      <PaginatedPopup
+        isOpen={showFormModal}
+        title={editingId ? "Edit Sales Target" : "Create Sales Target"}
+        subtitle="Enter target details from the sales target API schema"
+        onClose={closeForm}
+        onSubmit={handleSubmit}
+        submitting={submitting}
+        submitLabel={editingId ? "Update Target" : "Create Target"}
+        maxWidthClassName="max-w-3xl"
+        tabs={[
+          {
+            label: "Target Info",
+            fields: [
+              <FloatingSelect
+                label="Sales Person"
+                name="salesPersonId"
+                value={form.salesPersonId}
+                onChange={handleChange}
+                options={salesPersons.map((person) => ({
+                  id: String(person.id),
+                  name: person.name || `Person #${person.id}`,
+                }))}
+                required
+              />,
+              <FloatingInput
+                label="Sales Person Name"
+                name="salesPersonName"
+                value={form.salesPersonName}
+                onChange={handleChange}
+                readOnly
+              />,
+              <FloatingSelect
+                label="Target Type"
+                name="targetType"
+                value={form.targetType}
+                onChange={handleChange}
+                options={targetTypeOptions.map((type) => ({ id: type, name: type }))}
+                includeEmptyOption={false}
+                required
+              />,
+              <FloatingInput
+                label="Target Amount"
+                name="targetAmount"
+                type="number"
+                value={form.targetAmount}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingInput
+                label="Achieved Amount"
+                name="achievedAmount"
+                type="number"
+                value={form.achievedAmount}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                label="Target Year"
+                name="targetYear"
+                type="number"
+                value={form.targetYear}
+                onChange={handleChange}
+                required
+              />,
+            ],
+          },
+          {
+            label: "Schedule & Status",
+            fields: [
+              <FloatingInput
+                label="Target Month"
+                name="targetMonth"
+                type="number"
+                min={1}
+                max={12}
+                value={form.targetMonth}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingDateRangePicker
+                label="Target Date Range"
+                startDate={selectedStartDate}
+                endDate={selectedEndDate}
+                onChange={([start, end]) => {
+                  setForm((current) => ({
+                    ...current,
+                    startDate: toInputDateValue(start),
+                    endDate: toInputDateValue(end),
+                  }));
+                }}
+                minDate={rangeMinDate}
+                maxDate={rangeMaxDate}
+              />,
+              <FloatingSelect
+                label="Status"
+                name="status"
+                value={form.status}
+                onChange={handleChange}
+                options={statusOptions.map((status) => ({ id: status, name: toFriendlyStatus(status) }))}
+                includeEmptyOption={false}
+                required
+              />,
+            ],
+          },
+          {
+            label: "Remarks",
+            fields: [
+              <div className="md:col-span-2">
                 <FloatingTextarea
                   label="Remarks"
                   name="remarks"
@@ -926,28 +1025,11 @@ const SalesTargets: React.FC = () => {
                   onChange={handleChange}
                   rows={3}
                 />
-
-                <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={closeForm}
-                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    {submitting ? "Saving..." : editingId ? "Update Target" : "Create Target"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>,
-          document.body
-        )}
+              </div>,
+            ],
+          },
+        ]}
+      />
 
       <DynamicPopup
         isPopupOpen={!!deleteTarget}

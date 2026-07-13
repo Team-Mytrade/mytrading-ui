@@ -18,7 +18,6 @@ import {
   ExclamationCircleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  FunnelIcon,
 } from "@heroicons/react/24/outline";
 import "react-datepicker/dist/react-datepicker.css";
 import { FloatingInput, FloatingSelect1 as FloatingSelect, FloatingTextarea } from "../../components/inputfeild/FloatingInput";
@@ -29,6 +28,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import FilterPopover from "../../components/common/filter";
 
 const API_BASE = "/v1/api/crm/activities";
 const LEADS_API = "/v1/api/crm/leads";
@@ -76,7 +76,7 @@ type Step = 'basic' | 'details' | 'linking';
 
 const getCustomerLabel = (customer?: Customer | null) => customer?.customerName || customer?.name || "";
 
-const Activities: React.FC = () => {
+const Tasks: React.FC = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [filteredActivities, setFilteredActivities] = useState<Activity[]>([]);
   const [form, setForm] = useState<Partial<Activity>>({});
@@ -91,7 +91,7 @@ const Activities: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedType, setSelectedType] = useState<string>("");
   const [selectedStatus, setSelectedStatus] = useState<string>("");
-  const [showFilters, setShowFilters] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
 
   // Stepper state
   const [currentStep, setCurrentStep] = useState<Step>('basic');
@@ -178,29 +178,34 @@ const Activities: React.FC = () => {
     }));
   };
 
+  const getActivityPayload = (activity: Partial<Activity>) => ({
+    title: activity.title,
+    description: activity.description,
+    activityType: activity.activityType?.toUpperCase(),
+    priority: activity.priority?.toUpperCase(),
+    status: activity.status?.toUpperCase(),
+    scheduledTime: activity.scheduledTime ? new Date(activity.scheduledTime).toISOString() : undefined,
+    completedTime: activity.completedTime ? new Date(activity.completedTime).toISOString() : undefined,
+    assignedTo: activity.assignedTo,
+  });
+
+  const getActivityLinkQuery = (activity: Partial<Activity>) => {
+    const leadId = activity.lead ? (activity.lead as Lead).id : undefined;
+    const customerId = activity.customer ? (activity.customer as Customer).id : undefined;
+    const contactId = activity.contact ? (activity.contact as Contact).id : undefined;
+    const params = new URLSearchParams();
+
+    if (leadId) params.set("leadId", String(leadId));
+    if (customerId) params.set("customerId", String(customerId));
+    if (contactId) params.set("contactId", String(contactId));
+
+    return params.toString() ? `?${params.toString()}` : "";
+  };
+
   const handleSave = async () => {
     try {
-      const payload = {
-        title: form.title,
-        description: form.description,
-        activityType: form.activityType?.toUpperCase(),
-        priority: form.priority?.toUpperCase(),
-        status: form.status?.toUpperCase(),
-        scheduledTime: form.scheduledTime ? new Date(form.scheduledTime).toISOString() : undefined,
-        completedTime: form.completedTime ? new Date(form.completedTime).toISOString() : undefined,
-        assignedTo: form.assignedTo,
-      };
-
-      const leadId = form.lead ? (form.lead as Lead).id : undefined;
-      const customerId = form.customer ? (form.customer as Customer).id : undefined;
-      const contactId = form.contact ? (form.contact as Contact).id : undefined;
-      const params = new URLSearchParams();
-
-      if (leadId) params.set("leadId", String(leadId));
-      if (customerId) params.set("customerId", String(customerId));
-      if (contactId) params.set("contactId", String(contactId));
-
-      const query = params.toString() ? `?${params.toString()}` : "";
+      const payload = getActivityPayload(form);
+      const query = getActivityLinkQuery(form);
 
       if (form.id) {
         await axios.put(`${API_BASE}/${form.id}${query}`, payload);
@@ -258,6 +263,32 @@ const Activities: React.FC = () => {
     } catch (err) {
       console.error("Delete error:", err);
       ToasterService.error("Failed to delete activity");
+    }
+  };
+
+  const handleInlineStatusChange = async (activity: Activity, status: string) => {
+    if (activity.status === status) return;
+
+    const previousActivities = activities;
+    const nextActivity = { ...activity, status };
+
+    setActivities((current) =>
+      current.map((item) => (item.id === activity.id ? nextActivity : item))
+    );
+
+    try {
+      setStatusUpdatingId(activity.id);
+      await axios.put(
+        `${API_BASE}/${activity.id}${getActivityLinkQuery(nextActivity)}`,
+        getActivityPayload(nextActivity)
+      );
+      ToasterService.success("Activity status updated successfully!");
+    } catch (err) {
+      console.error("Error updating activity status:", err);
+      setActivities(previousActivities);
+      ToasterService.error("Failed to update activity status");
+    } finally {
+      setStatusUpdatingId(null);
     }
   };
 
@@ -374,9 +405,19 @@ const Activities: React.FC = () => {
       label: "Status",
       sortable: true,
       render: (activity) => (
-        <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getStatusBadgeColor(activity.status)}`}>
-          {activity.status}
-        </span>
+        <div onClick={(event) => event.stopPropagation()}>
+          <select
+            value={activity.status || "PENDING"}
+            onChange={(event) => handleInlineStatusChange(activity, event.target.value)}
+            disabled={statusUpdatingId === activity.id}
+            className={`w-[112px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${getStatusBadgeColor(activity.status)} ${
+              statusUpdatingId === activity.id ? "cursor-not-allowed opacity-70" : "cursor-pointer"
+            }`}
+          >
+            <option value="PENDING">Pending</option>
+            <option value="COMPLETED">Completed</option>
+          </select>
+        </div>
       ),
     },
     {
@@ -521,59 +562,56 @@ const Activities: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`p-2 rounded-lg border flex items-center justify-center transition-colors h-[40px] w-[40px] ${showFilters || selectedType || selectedStatus ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"}`}
+            <FilterPopover
+              title="Filter Activities"
+              buttonLabel="Filters"
+              widthClassName="w-[20rem] sm:w-[22rem]"
+              showFooter={false}
             >
-              <FunnelIcon className={`h-5 w-5 ${showFilters || selectedType || selectedStatus ? "text-cyan-600" : "text-gray-600"}`} />
-            </button>
+              <div className="space-y-3">
+                <FloatingSelect
+                  label="Activity Type"
+                  name="activityType"
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  options={[
+                    { id: "", name: "All Types" },
+                    { id: "CALL", name: "Call" },
+                    { id: "MEETING", name: "Meeting" },
+                    { id: "EMAIL", name: "Email" },
+                    { id: "OTHER", name: "Other" },
+                  ]}
+                />
+                <FloatingSelect
+                  label="Status"
+                  name="status"
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  options={[
+                    { id: "", name: "All Statuses" },
+                    { id: "PENDING", name: "Pending" },
+                    { id: "COMPLETED", name: "Completed" },
+                  ]}
+                />
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedType("");
+                      setSelectedStatus("");
+                    }}
+                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                  >
+                    Reset
+                  </button>
+                  <div className="rounded-lg border border-dashed border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-medium text-cyan-700">
+                    Filters apply live
+                  </div>
+                </div>
+              </div>
+            </FilterPopover>
           </div>
         </div>
-
-        {/* Filters Panel */}
-        {showFilters && (
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FloatingSelect
-                label="Activity Type"
-                name="activityType"
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                options={[
-                  { id: "", name: "All Types" },
-                  { id: "CALL", name: "Call" },
-                  { id: "MEETING", name: "Meeting" },
-                  { id: "EMAIL", name: "Email" },
-                  { id: "OTHER", name: "Other" }
-                ]}
-              />
-              <FloatingSelect
-                label="Status"
-                name="status"
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                options={[
-                  { id: "", name: "All Statuses" },
-                  { id: "PENDING", name: "Pending" },
-                  { id: "COMPLETED", name: "Completed" }
-                ]}
-              />
-            </div>
-            {(selectedType || selectedStatus) && (
-              <div className="flex justify-end mt-3">
-                <button
-                  onClick={() => {
-                    setSelectedType("");
-                    setSelectedStatus("");
-                  }}
-                  className="text-sm text-red-600 hover:text-red-800 font-medium"
-                >
-                  Clear Filters
-                </button>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Table */}
         <ReusableTable
@@ -898,4 +936,4 @@ const Activities: React.FC = () => {
   );
 };
 
-export default Activities;
+export default Tasks;

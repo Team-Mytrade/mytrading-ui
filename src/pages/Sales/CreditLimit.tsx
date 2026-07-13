@@ -10,6 +10,7 @@ import {
 } from "@heroicons/react/24/outline";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import { ListingPdfExportButton } from "../../components/common/export";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
@@ -34,6 +35,8 @@ type CreditForm = {
   outstandingAmount: string;
 };
 
+type CreditMethod = "check" | "available" | "addOutstanding" | "clearOutstanding";
+
 type CustomerOption = {
   id: number;
   customerName?: string;
@@ -57,6 +60,13 @@ const emptyForm: CreditForm = {
   orderAmount: "",
   outstandingAmount: "",
 };
+
+const methodOptions: { id: CreditMethod; name: string }[] = [
+  { id: "check", name: "Check Credit" },
+  { id: "available", name: "Get Available" },
+  { id: "addOutstanding", name: "Add Outstanding" },
+  { id: "clearOutstanding", name: "Clear Outstanding" },
+];
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {
@@ -103,6 +113,7 @@ const CreditLimit: React.FC = () => {
   const [lastAvailableCredit, setLastAvailableCredit] = useState<number | null>(null);
   const [lastCheck, setLastCheck] = useState<CreditCheckResponse | null>(null);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [selectedMethod, setSelectedMethod] = useState<CreditMethod>("check");
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -120,6 +131,27 @@ const CreditLimit: React.FC = () => {
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const handleMethodSubmit = (e: FormEvent) => {
+    e.preventDefault();
+
+    if (selectedMethod === "check") {
+      void checkCredit();
+      return;
+    }
+
+    if (selectedMethod === "available") {
+      void getAvailableCredit();
+      return;
+    }
+
+    if (selectedMethod === "addOutstanding") {
+      void addOutstanding();
+      return;
+    }
+
+    void clearOutstanding();
   };
 
   const pushLog = (log: Omit<CreditLog, "id" | "createdAt">) => {
@@ -321,69 +353,80 @@ const CreditLimit: React.FC = () => {
           </div>
         </section>
 
-        <form onSubmit={checkCredit} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="grid gap-4 md:grid-cols-3">
-            <FloatingSelect
-              label="Customer"
-              name="customerId"
-              value={form.customerId}
-              onChange={handleChange}
-              emptyOptionLabel="Select customer"
-              options={customers.map((customer) => ({
-                id: String(customer.id),
-                name: customerOptionLabel(customer),
-              }))}
-              required
-            />
-            <FloatingInput
-              label="Order Amount"
-              name="orderAmount"
-              type="number"
-              value={form.orderAmount}
-              onChange={handleChange}
-            />
-            <FloatingInput
-              label="Outstanding Amount"
-              name="outstandingAmount"
-              type="number"
-              value={form.outstandingAmount}
-              onChange={handleChange}
-            />
-          </div>
+        <form onSubmit={handleMethodSubmit} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1">
+              <FloatingSelect
+                label="Customer"
+                name="customerId"
+                value={form.customerId}
+                onChange={handleChange}
+                emptyOptionLabel="Select customer"
+                options={customers.map((customer) => ({
+                  id: String(customer.id),
+                  name: customerOptionLabel(customer),
+                }))}
+                required
+              />
+              <FloatingSelect
+                label="Method"
+                name="selectedMethod"
+                value={selectedMethod}
+                onChange={(event) => setSelectedMethod(event.target.value as CreditMethod)}
+                includeEmptyOption={false}
+                options={methodOptions}
+              />
+            </div>
 
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <button
-              type="submit"
-              disabled={loading}
-              className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-70"
-            >
-              Check Credit
-            </button>
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => getAvailableCredit()}
-              className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-70"
-            >
-              Get Available
-            </button>
-            <button
-              type="button"
-              disabled={loading}
-              onClick={addOutstanding}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-70"
-            >
-              Add Outstanding
-            </button>
-            <button
-              type="button"
-              disabled={loading}
-              onClick={clearOutstanding}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-70"
-            >
-              <TrashIcon className="h-4 w-4" />
-              Clear Outstanding
-            </button>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-start">
+                <div>
+                  {selectedMethod === "check" && (
+                    <FloatingInput
+                      label="Order Amount"
+                      name="orderAmount"
+                      type="number"
+                      value={form.orderAmount}
+                      onChange={handleChange}
+                    />
+                  )}
+                  {selectedMethod === "addOutstanding" && (
+                    <FloatingInput
+                      label="Outstanding Amount"
+                      name="outstandingAmount"
+                      type="number"
+                      value={form.outstandingAmount}
+                      onChange={handleChange}
+                    />
+                  )}
+                  {selectedMethod === "available" && (
+                    <div className="rounded-lg border border-cyan-100 bg-white px-4 py-3 text-sm text-slate-600">
+                      Load the current available credit for the selected customer.
+                    </div>
+                  )}
+                  {selectedMethod === "clearOutstanding" && (
+                    <div className="rounded-lg border border-red-100 bg-white px-4 py-3 text-sm text-slate-600">
+                      Clear the outstanding amount for the selected customer.
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`inline-flex min-w-[150px] items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-70 ${
+                    selectedMethod === "clearOutstanding"
+                      ? "bg-red-600 hover:bg-red-700"
+                      : selectedMethod === "addOutstanding"
+                        ? "bg-blue-600 hover:bg-blue-700"
+                        : "bg-cyan-600 hover:bg-cyan-700"
+                  }`}
+                >
+                  {selectedMethod === "clearOutstanding" && <TrashIcon className="h-4 w-4" />}
+                  {methodOptions.find((option) => option.id === selectedMethod)?.name}
+                </button>
+              </div>
+            </div>
           </div>
         </form>
 
@@ -403,8 +446,31 @@ const CreditLimit: React.FC = () => {
             <div>
               <h3 className="text-lg font-semibold text-slate-900">Recent credit actions</h3>
             </div>
-            <div className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-600">
-              {filteredLogs.length} items
+            <div className="flex items-center gap-2">
+              <ListingPdfExportButton<CreditLog>
+                title="Credit Actions"
+                subtitle="Filtered credit action listing"
+                reportLabel="Sales Report"
+                data={filteredLogs}
+                fileName="Credit_Actions"
+                disabled={loading}
+                metadata={(rows, rangeLabel) => [
+                  { label: "Total", value: rows.length },
+                  { label: "Range", value: rangeLabel },
+                  { label: "Search", value: search || "None" },
+                ]}
+                columns={[
+                  { header: "Action", key: "action" },
+                  { header: "Customer ID", key: "customerId" },
+                  { header: "Amount", key: "amount" },
+                  { header: "Available Credit", key: "availableCredit" },
+                  { header: "Sufficient", key: "sufficient" },
+                  { header: "Created At", key: "createdAt" },
+                ]}
+              />
+              <div className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-600">
+                {filteredLogs.length} items
+              </div>
             </div>
           </div>
 

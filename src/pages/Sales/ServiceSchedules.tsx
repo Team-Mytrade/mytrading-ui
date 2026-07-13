@@ -15,6 +15,7 @@ import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import { ListingPdfExportButton } from "../../components/common/export";
 import FilterPopover from "../../components/common/filter";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
@@ -448,7 +449,22 @@ const ServiceSchedules: React.FC = () => {
             )}
           </div>
 
-          <FilterPopover title="Filter Schedules" buttonLabel="Filters" widthClassName="w-[20rem] sm:w-[22rem]" showFooter={false}>
+          <div className="flex items-center gap-2">
+            <ListingPdfExportButton
+              title="Service Schedules"
+              subtitle="Filtered service schedule listing"
+              reportLabel="Sales Report"
+              data={filteredSchedules}
+              fileName="Service_Schedules"
+              disabled={loading}
+              metadata={(rows, rangeLabel) => [
+                { label: "Total", value: rows.length },
+                { label: "Range", value: rangeLabel },
+                { label: "Status", value: nextStatus || "All" },
+                { label: "Search", value: search || "None" },
+              ]}
+            />
+            <FilterPopover title="Filter Schedules" buttonLabel="Filters" widthClassName="w-[20rem] sm:w-[22rem]" showFooter={false}>
             <div className="space-y-3">
               <FloatingSelect
                 label="Employee"
@@ -501,7 +517,8 @@ const ServiceSchedules: React.FC = () => {
                 </button>
               </div>
             </div>
-          </FilterPopover>
+            </FilterPopover>
+          </div>
         </div>
 
         <ReusableTable

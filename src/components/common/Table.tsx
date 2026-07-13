@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   ArrowUpIcon,
   ArrowDownIcon,
@@ -206,6 +206,8 @@ export function ReusableTable<T extends { id?: number | string }>({
   const [sortOrder, setSortOrder] = useState<SortOrder>(defaultSortOrder);
   const [page, setPage] = useState(1);
   const [selectedRow, setSelectedRow] = useState<T | null>(null);
+  const tableShellRef = useRef<HTMLDivElement | null>(null);
+  const [viewportPageSize, setViewportPageSize] = useState(pageSize);
 
   const filtered = useMemo(() => {
     return data.filter((row) => rowMatchesSearch(row, search, searchFields));
@@ -216,15 +218,45 @@ export function ReusableTable<T extends { id?: number | string }>({
     return applySorting(filtered, sortKey, sortOrder, columns);
   }, [filtered, sortKey, sortOrder, columns]);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  useEffect(() => {
+    const calculatePageSize = () => {
+      if (!tableShellRef.current || typeof window === "undefined") {
+        setViewportPageSize(pageSize);
+        return;
+      }
+
+      const { top } = tableShellRef.current.getBoundingClientRect();
+      const tableHeaderHeight = 41;
+      const paginationHeight = 57;
+      const bottomPadding = 12;
+      const rowHeight = 57;
+      const availableHeight =
+        window.innerHeight - top - tableHeaderHeight - paginationHeight - bottomPadding;
+      const rowsThatFit = Math.max(1, Math.floor(availableHeight / rowHeight));
+
+      setViewportPageSize(Math.max(1, Math.min(pageSize, rowsThatFit)));
+    };
+
+    calculatePageSize();
+    window.addEventListener("resize", calculatePageSize);
+    window.addEventListener("orientationchange", calculatePageSize);
+
+    return () => {
+      window.removeEventListener("resize", calculatePageSize);
+      window.removeEventListener("orientationchange", calculatePageSize);
+    };
+  }, [pageSize, searchable, toolbar, data.length]);
+
+  const effectivePageSize = Math.max(1, viewportPageSize);
+  const totalPages = Math.max(1, Math.ceil(sorted.length / effectivePageSize));
   const safePage = Math.min(page, totalPages);
   const paginated = sorted.slice(
-    (safePage - 1) * pageSize,
-    safePage * pageSize
+    (safePage - 1) * effectivePageSize,
+    safePage * effectivePageSize
   );
   const skeletonRowCount = Math.max(
     1,
-    Math.min(pageSize, paginated.length || sorted.length || data.length || 1)
+    Math.min(effectivePageSize, paginated.length || sorted.length || data.length || 1)
   );
 
   const pageNumbers = useMemo(() => {
@@ -262,10 +294,10 @@ export function ReusableTable<T extends { id?: number | string }>({
   const showEmptyState = !loading && paginated.length === 0;
 
   return (
-    <div className={className}>
+    <div className={`my-[3px] ${className}`.trim()}>
 
       {(searchable || toolbar) && (
-        <div className="mb-3 flex flex-col sm:flex-row gap-2.5 items-start sm:items-center justify-between">
+        <div className="my-[3px] flex flex-col gap-[3px] sm:flex-row items-start sm:items-center justify-between">
 
           {searchable && (
             <div className="relative flex-1 max-w-md w-full">
@@ -275,7 +307,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                 value={search}
                 onChange={(e) => handleSearch(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="w-full pl-10 pr-9 py-2 border border-gray-200 rounded-xl bg-white text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
+                className="h-10 w-full rounded-lg border border-gray-300 bg-white pl-10 pr-9 text-sm text-gray-900 transition-all placeholder:text-gray-400 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
               />
               {search && (
                 <button
@@ -306,7 +338,7 @@ export function ReusableTable<T extends { id?: number | string }>({
           )}
         </div>
       ) : (
-      <div className="bg-white rounded-xl border border-gray-200 overflow-visible shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div ref={tableShellRef} className="overflow-visible rounded-lg border border-gray-200 bg-white shadow-none dark:border-gray-800 dark:bg-gray-900">
         <div className="overflow-x-auto overflow-y-visible relative">
           <table className="min-w-full table-fixed divide-y divide-gray-200 dark:divide-gray-800">
             <thead className="bg-gray-50 dark:bg-gray-800/70">
@@ -316,7 +348,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                     key={col.key}
                     onClick={() => col.sortable && handleSort(col.key)}
                     className={[
-                      "px-4 py-3 text-xs font-semibold text-black dark:text-gray-100 uppercase tracking-wider select-none",
+                      "px-3 py-3 text-xs font-semibold uppercase tracking-wider text-black select-none dark:text-gray-100",
                       col.sortable
                         ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                         : "",
@@ -369,7 +401,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                           <td
                             key={col.key}
                             className={[
-                              "max-w-0 px-1.5 py-1.5 text-sm text-gray-700 dark:text-gray-300",
+                              "max-w-0 px-3 py-2 text-sm text-gray-700 dark:text-gray-300",
                               col.className ?? "",
                             ]
                               .filter(Boolean)
@@ -397,7 +429,7 @@ export function ReusableTable<T extends { id?: number | string }>({
             <p className="text-xs text-gray-500 shrink-0 dark:text-gray-400">
               Showing{" "}
               <span className="font-medium text-gray-700 dark:text-gray-200">
-                {(safePage - 1) * pageSize + 1}
+                {(safePage - 1) * effectivePageSize + 1}
               </span>{" "}
               of{" "}
               <span className="font-medium text-gray-700 dark:text-gray-200">{sorted.length}</span>{" "}
