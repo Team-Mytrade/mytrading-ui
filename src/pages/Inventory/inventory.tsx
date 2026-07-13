@@ -1,3 +1,5 @@
+// pages/InventoryStockManager.tsx
+
 import React, { ChangeEvent, FormEvent, useContext, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
@@ -34,6 +36,12 @@ type Warehouse = {
   code?: string;
   name?: string;
   locationType?: string;
+  stockLevels?: any[];
+  batches?: any[];
+  serialNumbers?: any[];
+  stockMovements?: any[];
+  stockAdjustments?: any[];
+  stockEntries?: any[];
 };
 
 type ProductOption = {
@@ -78,7 +86,8 @@ const API_URL = "/v1/api/inventory/stock";
 const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
 const PRODUCT_API_URL = "/v1/api/purchase/products";
 const PAGE_SIZE = 10;
-const movementTypeOptions = ["GRN", "TRANSFER", "ADJUSTMENT", "RETURN", "SALE"];
+
+const movementTypeOptions = ["GRN", "TRANSFER", "RETURN"];
 
 const emptyForm: InventoryForm = {
   type: "GRN",
@@ -91,11 +100,11 @@ const emptyForm: InventoryForm = {
   warehouseId: "",
 };
 
-function toNumber(value: string | number | undefined | null) {
+function toNumber(value: string | number | undefined | null): number {
   return Number(value || 0);
 }
 
-function getErrorMessage(error: unknown, fallback: string) {
+function getErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data;
     if (typeof data === "string") return data;
@@ -112,25 +121,25 @@ function getStoredUser() {
   }
 }
 
-function normalizeProductLabel(product: ProductOption) {
+function normalizeProductLabel(product: ProductOption): string {
   const code = product.productCode || product.code || product.sku;
   const name = product.productName || product.name || `Product #${product.id}`;
   return code ? `${name} (${code})` : name;
 }
 
-function getWarehouseId(warehouse: InventoryStock["warehouse"]) {
+function getWarehouseId(warehouse: InventoryStock["warehouse"]): string {
   if (!warehouse) return "";
   if (typeof warehouse !== "string") return String(warehouse.id || "");
   return "";
 }
 
-function getWarehouseName(warehouse: InventoryStock["warehouse"]) {
+function getWarehouseName(warehouse: InventoryStock["warehouse"]): string {
   if (!warehouse) return "--";
   if (typeof warehouse === "string") return warehouse;
   return warehouse.name || warehouse.code || `Warehouse #${warehouse.id}`;
 }
 
-function getWarehouseCode(warehouse: InventoryStock["warehouse"]) {
+function getWarehouseCode(warehouse: InventoryStock["warehouse"]): string {
   if (!warehouse || typeof warehouse === "string") return "";
   return warehouse.code || "";
 }
@@ -161,10 +170,15 @@ function getStockStatus(stock: InventoryStock) {
 const InventoryStockManager: React.FC = () => {
   const { user } = useContext(AuthContext);
   const authUser = getStoredUser();
+
   const headers = useMemo(() => {
     const token = localStorage.getItem("accessToken");
-    return token ? { Authorization: `Bearer ${token}` } : undefined;
-  }, []);
+    const tenantId = user?.tenantId || authUser.tenantId || "";
+    return {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(tenantId ? { "X-Tenant-ID": tenantId } : {}),
+    };
+  }, [user?.tenantId, authUser.tenantId]);
 
   const [stocks, setStocks] = useState<InventoryStock[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
@@ -186,13 +200,12 @@ const InventoryStockManager: React.FC = () => {
     void fetchDropdowns();
   }, []);
 
-  const fetchAllStock = async () => {
+  const fetchAllStock = async (): Promise<void> => {
     try {
       setLoading(true);
       const response = await axios.get<InventoryStock[]>(API_URL, { headers });
       const data = Array.isArray(response.data) ? response.data : [];
       setStocks(data);
-      if (data.length === 0) ToasterService.noData("No inventory stock records found");
     } catch (error) {
       setStocks([]);
       ToasterService.error("Failed to load inventory stock", getErrorMessage(error, "Please try again."));
@@ -201,28 +214,21 @@ const InventoryStockManager: React.FC = () => {
     }
   };
 
-  const fetchDropdowns = async () => {
-    const [warehouseRes, productRes] = await Promise.allSettled([
-      axios.get<Warehouse[]>(WAREHOUSE_API_URL, { headers }),
-      axios.get<ProductOption[]>(PRODUCT_API_URL, { headers }),
-    ]);
+  const fetchDropdowns = async (): Promise<void> => {
+    try {
+      const [warehouseRes, productRes] = await Promise.all([
+        axios.get<Warehouse[]>(WAREHOUSE_API_URL, { headers }),
+        axios.get<ProductOption[]>(PRODUCT_API_URL, { headers }),
+      ]);
 
-    if (warehouseRes.status === "fulfilled") {
-      setWarehouses(Array.isArray(warehouseRes.value.data) ? warehouseRes.value.data : []);
-    } else {
-      setWarehouses([]);
-      ToasterService.error("Failed to load warehouses");
-    }
-
-    if (productRes.status === "fulfilled") {
-      setProducts(Array.isArray(productRes.value.data) ? productRes.value.data : []);
-    } else {
-      setProducts([]);
-      ToasterService.error("Failed to load products");
+      setWarehouses(Array.isArray(warehouseRes.data) ? warehouseRes.data : []);
+      setProducts(Array.isArray(productRes.data) ? productRes.data : []);
+    } catch (error) {
+      ToasterService.error("Failed to load dropdown data", getErrorMessage(error, "Please try again."));
     }
   };
 
-  const fetchById = async () => {
+  const fetchById = async (): Promise<void> => {
     if (!lookupId) {
       ToasterService.error("Stock ID is required");
       return;
@@ -240,13 +246,17 @@ const InventoryStockManager: React.FC = () => {
     }
   };
 
-  const fetchLowStock = async () => {
+  const fetchLowStock = async (): Promise<void> => {
     try {
       setLoading(true);
       const response = await axios.get<InventoryStock[]>(`${API_URL}/low-stock`, { headers });
       const data = Array.isArray(response.data) ? response.data : [];
       setStocks(data);
-      data.length ? ToasterService.success("Low stock items loaded") : ToasterService.noData("No low stock items found");
+      if (data.length === 0) {
+        ToasterService.noData("No low stock items found");
+      } else {
+        ToasterService.success("Low stock items loaded");
+      }
     } catch (error) {
       ToasterService.error("Failed to load low stock items", getErrorMessage(error, "Please try again."));
     } finally {
@@ -254,9 +264,9 @@ const InventoryStockManager: React.FC = () => {
     }
   };
 
-  const checkAvailability = async () => {
+  const checkAvailability = async (): Promise<void> => {
     if (!availabilityProductId || !availabilityWarehouseId) {
-      ToasterService.error("Select both product and warehouse");
+      ToasterService.error("Please select both product and warehouse");
       return;
     }
 
@@ -269,26 +279,26 @@ const InventoryStockManager: React.FC = () => {
         },
       });
       setAvailabilityQty(Number(response.data || 0));
-      ToasterService.success("Availability loaded");
+      ToasterService.success(`Available quantity: ${response.data || 0}`);
     } catch (error) {
       setAvailabilityQty(null);
       ToasterService.error("Failed to check availability", getErrorMessage(error, "Please try again."));
     }
   };
 
-  const openCreate = () => {
+  const openCreate = (): void => {
     setEditingId(null);
     setForm(emptyForm);
     setShowFormModal(true);
   };
 
-  const closeForm = () => {
+  const closeForm = (): void => {
     setEditingId(null);
     setForm(emptyForm);
     setShowFormModal(false);
   };
 
-  const openEdit = (stock: InventoryStock) => {
+  const openEdit = (stock: InventoryStock): void => {
     setEditingId(stock.id);
     setForm({
       type: stock.type || "GRN",
@@ -303,22 +313,21 @@ const InventoryStockManager: React.FC = () => {
     setShowFormModal(true);
   };
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
     const { name, value } = e.target;
     setForm((current) => ({ ...current, [name]: value }));
   };
 
   const buildPayload = () => {
-    const selectedWarehouse = warehouses.find((warehouse) => warehouse.id === toNumber(form.warehouseId));
+    const selectedWarehouse = warehouses.find((w) => w.id === toNumber(form.warehouseId));
+    const existing = stocks.find((s) => s.id === editingId);
 
     return {
       id: editingId || 0,
-      createdDate: editingId
-        ? stocks.find((item) => item.id === editingId)?.createdDate || new Date().toISOString()
-        : new Date().toISOString(),
+      createdDate: existing?.createdDate || new Date().toISOString(),
       updatedDate: new Date().toISOString(),
-      createdBy: user?.userId || user?.id || authUser.userId || authUser.id || "",
-      tenantId: user?.tenantId || authUser.tenantId || "",
+      createdBy: existing?.createdBy || user?.userId || authUser.userId || "",
+      tenantId: existing?.tenantId || user?.tenantId || authUser.tenantId || "",
       type: form.type,
       quantity: toNumber(form.quantity),
       movementDate: form.movementDate,
@@ -326,40 +335,40 @@ const InventoryStockManager: React.FC = () => {
       productId: toNumber(form.productId),
       reservedQty: toNumber(form.reservedQty),
       minStockLevel: toNumber(form.minStockLevel),
-      warehouse: selectedWarehouse
-        ? {
-            id: selectedWarehouse.id,
-            createdDate: selectedWarehouse.createdDate,
-            updatedDate: selectedWarehouse.updatedDate,
-            createdBy: selectedWarehouse.createdBy,
-            tenantId: selectedWarehouse.tenantId,
-            code: selectedWarehouse.code || "",
-            name: selectedWarehouse.name || "",
-            locationType: selectedWarehouse.locationType || "MAIN",
-            stockLevels: [],
-            batches: [],
-            serialNumbers: [],
-            stockMovements: [],
-            stockAdjustments: [],
-            stockEntries: [],
-          }
-        : null,
+      warehouse: selectedWarehouse ? {
+        id: selectedWarehouse.id,
+        createdDate: selectedWarehouse.createdDate || new Date().toISOString(),
+        updatedDate: selectedWarehouse.updatedDate || new Date().toISOString(),
+        createdBy: selectedWarehouse.createdBy || "",
+        tenantId: selectedWarehouse.tenantId || "",
+        code: selectedWarehouse.code || "",
+        name: selectedWarehouse.name || "",
+        locationType: selectedWarehouse.locationType || "MAIN",
+        stockLevels: selectedWarehouse.stockLevels || [],
+        batches: selectedWarehouse.batches || [],
+        serialNumbers: selectedWarehouse.serialNumbers || [],
+        stockMovements: selectedWarehouse.stockMovements || [],
+        stockAdjustments: selectedWarehouse.stockAdjustments || [],
+        stockEntries: selectedWarehouse.stockEntries || [],
+      } : null,
     };
   };
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
 
     try {
       setSubmitting(true);
       const payload = buildPayload();
+
       if (editingId) {
         await axios.put(`${API_URL}/${editingId}`, payload, { headers });
-        ToasterService.success("Inventory stock updated");
+        ToasterService.success("Inventory stock updated successfully");
       } else {
         await axios.post(API_URL, payload, { headers });
-        ToasterService.success("Inventory stock created");
+        ToasterService.success("Inventory stock created successfully");
       }
+
       closeForm();
       await fetchAllStock();
     } catch (error) {
@@ -369,12 +378,12 @@ const InventoryStockManager: React.FC = () => {
     }
   };
 
-  const confirmDelete = async () => {
+  const confirmDelete = async (): Promise<void> => {
     if (!deleteStock?.id) return;
 
     try {
-      await axios.delete(`${API_URL}/${deleteStock.id}`, { headers });
-      ToasterService.success("Inventory stock deleted");
+      await axios.delete(`${API_URL}/${deleteStock.id}?cascade=true`, { headers });
+      ToasterService.success("Inventory stock deleted successfully");
       setDeleteStock(null);
       await fetchAllStock();
     } catch (error) {
@@ -384,21 +393,24 @@ const InventoryStockManager: React.FC = () => {
 
   const filteredStocks = stocks.filter((stock) => {
     const warehouseName = getWarehouseName(stock.warehouse);
-    const productName =
-      products.find((product) => product.id === stock.productId || product.productId === stock.productId)?.productName ||
-      products.find((product) => product.id === stock.productId || product.productId === stock.productId)?.name ||
-      "";
+    const product = products.find(
+      (p) => p.id === stock.productId || p.productId === stock.productId
+    );
+    const productName = product
+      ? normalizeProductLabel(product)
+      : `Product #${stock.productId}`;
 
-    return `${stock.id} ${stock.type} ${stock.referenceNo} ${stock.productId} ${productName} ${warehouseName}`
-      .toLowerCase()
-      .includes(search.toLowerCase());
+    const searchString = `${stock.id} ${stock.type} ${stock.referenceNo} ${stock.productId} ${productName} ${warehouseName}`.toLowerCase();
+    return searchString.includes(search.toLowerCase());
   });
 
   const stats = {
     total: stocks.length,
-    totalQty: stocks.reduce((sum, stock) => sum + Number(stock.quantity || 0), 0),
-    reservedQty: stocks.reduce((sum, stock) => sum + Number(stock.reservedQty || 0), 0),
-    lowStock: stocks.filter((stock) => Math.max(0, stock.quantity - stock.reservedQty) <= stock.minStockLevel).length,
+    totalQty: stocks.reduce((sum, s) => sum + Number(s.quantity || 0), 0),
+    reservedQty: stocks.reduce((sum, s) => sum + Number(s.reservedQty || 0), 0),
+    lowStock: stocks.filter(
+      (s) => Math.max(0, s.quantity - s.reservedQty) <= s.minStockLevel
+    ).length,
   };
 
   const columns: ColumnDef<InventoryStock>[] = [
@@ -412,7 +424,9 @@ const InventoryStockManager: React.FC = () => {
             <ArrowsRightLeftIcon className="h-4 w-4 text-cyan-600" />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-slate-900">{stock.referenceNo || "--"}</p>
+            <p className="truncate text-sm font-semibold text-slate-900">
+              {stock.referenceNo || "--"}
+            </p>
             <p className="text-xs text-slate-400">Stock #{stock.id}</p>
           </div>
         </div>
@@ -433,7 +447,9 @@ const InventoryStockManager: React.FC = () => {
       label: "Product",
       sortable: true,
       render: (stock) => {
-        const product = products.find((item) => item.id === stock.productId || item.productId === stock.productId);
+        const product = products.find(
+          (p) => p.id === stock.productId || p.productId === stock.productId
+        );
         return (
           <div className="flex items-center gap-2 text-sm text-slate-700">
             <CubeIcon className="h-4 w-4 text-slate-400" />
@@ -451,7 +467,9 @@ const InventoryStockManager: React.FC = () => {
           <BuildingOffice2Icon className="h-4 w-4 text-slate-400" />
           <div>
             <p>{getWarehouseName(stock.warehouse)}</p>
-            {getWarehouseCode(stock.warehouse) && <p className="text-xs text-slate-400">{getWarehouseCode(stock.warehouse)}</p>}
+            {getWarehouseCode(stock.warehouse) && (
+              <p className="text-xs text-slate-400">{getWarehouseCode(stock.warehouse)}</p>
+            )}
           </div>
         </div>
       ),
@@ -460,19 +478,27 @@ const InventoryStockManager: React.FC = () => {
       key: "quantity",
       label: "Qty",
       sortable: true,
-      render: (stock) => <span className="text-sm font-semibold text-slate-800">{stock.quantity}</span>,
+      render: (stock) => (
+        <span className="text-sm font-semibold text-slate-800">{stock.quantity}</span>
+      ),
     },
     {
       key: "reservedQty",
       label: "Reserved",
       sortable: true,
-      render: (stock) => <span className="text-sm font-medium text-amber-600">{stock.reservedQty}</span>,
+      render: (stock) => (
+        <span className="text-sm font-medium text-amber-600">{stock.reservedQty}</span>
+      ),
     },
     {
       key: "movementDate",
       label: "Movement Date",
       sortable: true,
-      render: (stock) => <span className="text-sm text-slate-600">{stock.movementDate || "--"}</span>,
+      render: (stock) => (
+        <span className="text-sm text-slate-600">
+          {stock.movementDate ? new Date(stock.movementDate).toLocaleDateString() : "--"}
+        </span>
+      ),
     },
     {
       key: "status",
@@ -481,7 +507,9 @@ const InventoryStockManager: React.FC = () => {
       render: (stock) => {
         const status = getStockStatus(stock);
         return (
-          <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${status.className}`}>
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${status.className}`}
+          >
             {status.icon}
             {status.label}
           </span>
@@ -495,7 +523,7 @@ const InventoryStockManager: React.FC = () => {
       headerClassName: "text-right",
       className: "text-right",
       render: (stock) => (
-        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-end gap-1">
           <button
             type="button"
             onClick={() => openEdit(stock)}
@@ -528,14 +556,21 @@ const InventoryStockManager: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="Stock Records" value={stats.total} icon={<ArrowsRightLeftIcon />} />
           <StatsCard
-            label="Total Quantity"
-            value={stats.totalQty.toLocaleString()}
+            label="Stock Records"
+            value={stats.total}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
             labelColor="text-cyan-600"
-            icon={<CubeIcon />}
+            icon={<ArrowsRightLeftIcon className="h-5 w-5" />}
+          />
+          <StatsCard
+            label="Total Quantity"
+            value={stats.totalQty.toLocaleString()}
+            gradient="from-emerald-50 to-green-50"
+            borderColor="border-emerald-100"
+            labelColor="text-emerald-600"
+            icon={<CubeIcon className="h-5 w-5" />}
           />
           <StatsCard
             label="Reserved Quantity"
@@ -543,15 +578,15 @@ const InventoryStockManager: React.FC = () => {
             gradient="from-yellow-50 to-orange-50"
             borderColor="border-yellow-100"
             labelColor="text-yellow-700"
-            icon={<ExclamationTriangleIcon />}
+            icon={<ExclamationTriangleIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Low Stock"
+            label="Low Stock Items"
             value={stats.lowStock}
             gradient="from-red-50 to-rose-50"
             borderColor="border-red-100"
             labelColor="text-red-600"
-            icon={<ExclamationTriangleIcon />}
+            icon={<ExclamationTriangleIcon className="h-5 w-5" />}
           />
         </div>
 
@@ -585,25 +620,29 @@ const InventoryStockManager: React.FC = () => {
               Load All
             </button>
             <FloatingSelect
-              label="Availability Product"
+              label="Product"
               name="availabilityProductId"
               value={availabilityProductId}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) => setAvailabilityProductId(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                setAvailabilityProductId(e.target.value)
+              }
               emptyOptionLabel="Select product"
-              options={products.map((product) => ({
-                id: String(product.id || product.productId || 0),
-                name: normalizeProductLabel(product),
+              options={products.map((p) => ({
+                id: String(p.id || p.productId || 0),
+                name: normalizeProductLabel(p),
               }))}
             />
             <FloatingSelect
-              label="Availability Warehouse"
+              label="Warehouse"
               name="availabilityWarehouseId"
               value={availabilityWarehouseId}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) => setAvailabilityWarehouseId(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                setAvailabilityWarehouseId(e.target.value)
+              }
               emptyOptionLabel="Select warehouse"
-              options={warehouses.map((warehouse) => ({
-                id: String(warehouse.id),
-                name: warehouse.name || warehouse.code || `Warehouse #${warehouse.id}`,
+              options={warehouses.map((w) => ({
+                id: String(w.id),
+                name: w.name || w.code || `Warehouse #${w.id}`,
               }))}
             />
           </div>
@@ -646,7 +685,11 @@ const InventoryStockManager: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               <CubeIcon className="mb-3 h-12 w-12 text-gray-400" />
               <p className="mb-2 text-sm text-gray-500">No inventory stock found</p>
-              <button type="button" onClick={openCreate} className="text-xs font-medium text-cyan-600 hover:text-cyan-700">
+              <button
+                type="button"
+                onClick={openCreate}
+                className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
+              >
                 Create your first stock entry
               </button>
             </div>
@@ -662,9 +705,15 @@ const InventoryStockManager: React.FC = () => {
                 <h3 className="text-lg font-semibold text-gray-900">
                   {editingId ? "Edit Inventory Stock" : "Create Inventory Stock"}
                 </h3>
-                <p className="mt-0.5 text-xs text-gray-500">Payload aligned to the inventory swagger</p>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  Payload aligned to the inventory swagger
+                </p>
               </div>
-              <button type="button" onClick={closeForm} className="text-gray-400 hover:text-gray-600">
+              <button
+                type="button"
+                onClick={closeForm}
+                className="text-gray-400 hover:text-gray-600"
+              >
                 <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
@@ -677,7 +726,10 @@ const InventoryStockManager: React.FC = () => {
                   value={form.type}
                   onChange={handleChange}
                   includeEmptyOption={false}
-                  options={movementTypeOptions.map((option) => ({ id: option, name: option }))}
+                  options={movementTypeOptions.map((option) => ({
+                    id: option,
+                    name: option,
+                  }))}
                 />
                 <FloatingDatePicker
                   label="Movement Date"
@@ -699,9 +751,9 @@ const InventoryStockManager: React.FC = () => {
                   value={form.productId}
                   onChange={handleChange}
                   emptyOptionLabel="Select product"
-                  options={products.map((product) => ({
-                    id: String(product.id || product.productId || 0),
-                    name: normalizeProductLabel(product),
+                  options={products.map((p) => ({
+                    id: String(p.id || p.productId || 0),
+                    name: normalizeProductLabel(p),
                   }))}
                   required
                 />
@@ -711,9 +763,11 @@ const InventoryStockManager: React.FC = () => {
                   value={form.warehouseId}
                   onChange={handleChange}
                   emptyOptionLabel="Select warehouse"
-                  options={warehouses.map((warehouse) => ({
-                    id: String(warehouse.id),
-                    name: `${warehouse.name || warehouse.code || `Warehouse #${warehouse.id}`}${warehouse.code ? ` (${warehouse.code})` : ""}`,
+                  options={warehouses.map((w) => ({
+                    id: String(w.id),
+                    name: `${w.name || w.code || `Warehouse #${w.id}`}${
+                      w.code ? ` (${w.code})` : ""
+                    }`,
                   }))}
                   required
                 />
@@ -742,7 +796,11 @@ const InventoryStockManager: React.FC = () => {
               </div>
 
               <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                <button type="button" onClick={closeForm} className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200">
+                <button
+                  type="button"
+                  onClick={closeForm}
+                  className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                >
                   Cancel
                 </button>
                 <button
@@ -766,7 +824,11 @@ const InventoryStockManager: React.FC = () => {
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
         innerText="Delete Inventory Stock"
-        subText={deleteStock ? `Are you sure you want to delete stock #${deleteStock.id}?` : "Are you sure?"}
+        subText={
+          deleteStock
+            ? `Are you sure you want to delete stock entry #${deleteStock.id}?`
+            : "Are you sure?"
+        }
         confirmLabel="Delete"
         cancelLabel="Cancel"
         onConfirm={confirmDelete}

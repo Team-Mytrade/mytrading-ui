@@ -1,912 +1,873 @@
-import React, { useEffect, useState } from "react";
+// pages/BatchManagement.tsx
+
+import React, { ChangeEvent, FormEvent, useContext, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
 import {
-    PencilSquareIcon,
-    TrashIcon,
-    FunnelIcon,
-    CheckCircleIcon,
-    XCircleIcon,
-    DocumentArrowDownIcon,
-    TableCellsIcon,
-    EyeIcon,
-    HomeIcon,
-    CalendarIcon,
-    PrinterIcon,
-    BeakerIcon,
-    ExclamationTriangleIcon,
+  CheckCircleIcon,
+  CubeIcon,
+  ExclamationCircleIcon,
+  ExclamationTriangleIcon,
+  MagnifyingGlassIcon,
+  PencilSquareIcon,
+  TrashIcon,
+  XCircleIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
-import PageMeta from "../../components/common/PageMeta";
-import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import { ToasterService } from "../../Services/ToasterService";
 import { AddButton } from "../../components/common/AddButton";
-import StatsCard from "../../components/common/Statscard";
-import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import DynamicPopup from "../../components/common/Popup";
+import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import PageMeta from "../../components/common/PageMeta";
+import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import StatsCard from "../../components/common/Statscard";
+import {
+  FloatingDatePicker,
+  FloatingInput,
+  FloatingSelect1 as FloatingSelect,
+} from "../../components/inputfeild/FloatingInput";
+import { ToasterService } from "../../Services/ToasterService";
+import { AuthContext } from "../../context/AuthContext";
 
-interface Product {
-    id: number;
-    name: string;
-    sku?: string;
-    productName?: string;
-    productCode?: string;
-}
+type Batch = {
+  id: number;
+  createdDate?: string;
+  updatedDate?: string;
+  createdBy?: string;
+  tenantId?: string;
+  batchNumber: string;
+  manufacturingDate: string;
+  expiryDate: string;
+  productId: number;
+  warehouse: any; // Can be string or object
+  inspections: any[];
+};
 
-interface Warehouse {
-    id: number;
-    name: string;
-    code?: string;
-    location?: string;
-}
+type BatchForm = {
+  batchNumber: string;
+  manufacturingDate: string;
+  expiryDate: string;
+  productId: string;
+  warehouse: string;
+};
 
-interface QualityInspection {
-    id: number;
-    createdDate?: string;
-    updatedDate?: string;
-    createdBy?: string;
-    tenantId?: string;
-    inspectionDate: string;
-    inspector: string;
-    result: "PASS" | "FAIL" | string;
-    remarks?: string;
-    productId: number;
-    batch?: string | null;
-    serialNumber?: string | null;
-}
+type ProductOption = {
+  id: number;
+  productId?: number;
+  productCode?: string;
+  code?: string;
+  sku?: string;
+  productName?: string;
+  name?: string;
+  categoryName?: string;
+};
 
-interface Batch {
-    id: number;
-    batchNumber: string;
-    manufacturingDate: string;
-    expiryDate: string;
-    product?: Product;
-    warehouse?: Warehouse;
-    quantity?: number;
-    createdAt?: string;
-    updatedAt?: string;
-}
+type Warehouse = {
+  id: number;
+  createdDate?: string;
+  updatedDate?: string;
+  createdBy?: string;
+  tenantId?: string;
+  code?: string;
+  name?: string;
+  locationType?: string;
+  stockLevels?: any[];
+  batches?: any[];
+  serialNumbers?: any[];
+  stockMovements?: any[];
+  stockAdjustments?: any[];
+  stockEntries?: any[];
+};
 
-interface BatchRow extends Batch {
-    productName: string;
-    warehouseName: string;
-    statusLabel: string;
-    manufacturingDateLabel: string;
-    expiryDateLabel: string;
-}
-
-const API_URL = "/v1/api/inventory";
-const PRODUCTS_API_URL = "/v1/api/purchase/products";
-const QUALITY_INSPECTIONS_API_URL = "/v1/api/inventory/quality-inspections";
+const API_URL = "/v1/api/inventory/batches";
+const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
+const PRODUCT_API_URL = "/v1/api/purchase/products";
 const PAGE_SIZE = 10;
 
-const getStoredUser = () => {
-    if (typeof window === "undefined") return null;
+const emptyForm: BatchForm = {
+  batchNumber: "",
+  manufacturingDate: new Date().toISOString().split("T")[0],
+  expiryDate: "",
+  productId: "",
+  warehouse: "",
+};
+
+function getStoredUser() {
+  try {
+    return JSON.parse(localStorage.getItem("user") || "null") || {};
+  } catch {
+    return {};
+  }
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data;
+    if (typeof data === "string") return data;
+    return data?.message || data?.detail || data?.error || fallback;
+  }
+  return fallback;
+}
+
+function toNumber(value: string | number | undefined | null): number {
+  return Number(value || 0);
+}
+
+function normalizeProductLabel(product: ProductOption): string {
+  const code = product.productCode || product.code || product.sku;
+  const name = product.productName || product.name || `Product #${product.id}`;
+  return code ? `${name} (${code})` : name;
+}
+
+function getBatchStatus(batch: Batch) {
+  const today = new Date();
+  const expiryDate = new Date(batch.expiryDate);
+
+  if (expiryDate < today) {
+    return {
+      label: "Expired",
+      className: "bg-red-50 text-red-700 border-red-200",
+      icon: <XCircleIcon className="h-3.5 w-3.5" />,
+    };
+  }
+
+  const thirtyDaysFromNow = new Date(today);
+  thirtyDaysFromNow.setDate(today.getDate() + 30);
+
+  if (expiryDate <= thirtyDaysFromNow) {
+    return {
+      label: "Expiring Soon",
+      className: "bg-yellow-50 text-yellow-700 border-yellow-200",
+      icon: <ExclamationTriangleIcon className="h-3.5 w-3.5" />,
+    };
+  }
+
+  return {
+    label: "Good",
+    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    icon: <CheckCircleIcon className="h-3.5 w-3.5" />,
+  };
+}
+
+function getDaysUntilExpiry(batch: Batch): number {
+  const today = new Date();
+  const expiryDate = new Date(batch.expiryDate);
+  const diffTime = expiryDate.getTime() - today.getTime();
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+}
+
+const BatchManagement: React.FC = () => {
+  const { user } = useContext(AuthContext);
+  const authUser = getStoredUser();
+
+  const headers = useMemo(() => {
+    const token = localStorage.getItem("accessToken");
+    const tenantId = user?.tenantId || authUser.tenantId || "";
+    return {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(tenantId ? { "X-Tenant-ID": tenantId } : {}),
+    };
+  }, [user?.tenantId, authUser.tenantId]);
+
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [products, setProducts] = useState<ProductOption[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [form, setForm] = useState<BatchForm>(emptyForm);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [search, setSearch] = useState("");
+  const [lookupId, setLookupId] = useState("");
+  const [deleteBatch, setDeleteBatch] = useState<Batch | null>(null);
+  const [viewBatch, setViewBatch] = useState<Batch | null>(null);
+
+  useEffect(() => {
+    void fetchAllBatches();
+    void fetchDropdowns();
+  }, []);
+
+  const fetchAllBatches = async (): Promise<void> => {
     try {
-        const raw = window.localStorage.getItem("user");
-        return raw ? JSON.parse(raw) : null;
-    } catch {
-        return null;
+      setLoading(true);
+      const response = await axios.get<Batch[]>(API_URL, { headers });
+      const data = Array.isArray(response.data) ? response.data : [];
+      setBatches(data);
+    } catch (error) {
+      setBatches([]);
+      ToasterService.error("Failed to load batches", getErrorMessage(error, "Please try again."));
+    } finally {
+      setLoading(false);
     }
-};
+  };
 
-const isValidIsoDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const fetchDropdowns = async (): Promise<void> => {
+    try {
+      const [warehouseRes, productRes] = await Promise.all([
+        axios.get<Warehouse[]>(WAREHOUSE_API_URL, { headers }),
+        axios.get<ProductOption[]>(PRODUCT_API_URL, { headers }),
+      ]);
 
-const openNativeDatePicker = (event: React.MouseEvent<HTMLInputElement> | React.FocusEvent<HTMLInputElement>) => {
-    const input = event.currentTarget;
-    if (typeof input.showPicker === "function") {
-        input.showPicker();
+      setWarehouses(Array.isArray(warehouseRes.data) ? warehouseRes.data : []);
+      setProducts(Array.isArray(productRes.data) ? productRes.data : []);
+    } catch (error) {
+      ToasterService.error("Failed to load dropdown data", getErrorMessage(error, "Please try again."));
     }
-};
+  };
 
-const BatchManager: React.FC = () => {
-    const [batches, setBatches] = useState<Batch[]>([]);
-    const [products, setProducts] = useState<Product[]>([]);
-    const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-    const [qualityInspections, setQualityInspections] = useState<QualityInspection[]>([]);
-    const [showForm, setShowForm] = useState(false);
-    const [showFilters, setShowFilters] = useState(false);
-    const [showExportMenu, setShowExportMenu] = useState(false);
-    const [editingId, setEditingId] = useState<number | null>(null);
-    const [productFilter, setProductFilter] = useState<string>("");
-    const [warehouseFilter, setWarehouseFilter] = useState<string>("");
-    const [viewModalOpen, setViewModalOpen] = useState(false);
-    const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
-    const [showDeletePopup, setShowDeletePopup] = useState(false);
-    const [deletingBatch, setDeletingBatch] = useState<Batch | null>(null);
+  const fetchById = async (): Promise<void> => {
+    if (!lookupId) {
+      ToasterService.error("Batch ID is required");
+      return;
+    }
 
-    const [form, setForm] = useState({
-        batchNumber: "",
-        manufacturingDate: "",
-        expiryDate: "",
-        productId: "",
-        warehouseId: "",
-        quantity: 0,
-        inspectionId: "",
+    try {
+      setLoading(true);
+      const response = await axios.get<Batch>(`${API_URL}/${lookupId}`, { headers });
+      setBatches(response.data ? [response.data] : []);
+      ToasterService.success("Batch loaded");
+    } catch (error) {
+      ToasterService.error("Failed to load batch", getErrorMessage(error, "Please try again."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openCreate = (): void => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setShowFormModal(true);
+  };
+
+  const closeForm = (): void => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setShowFormModal(false);
+  };
+
+  const openEdit = (batch: Batch): void => {
+    setEditingId(batch.id);
+    setForm({
+      batchNumber: batch.batchNumber,
+      manufacturingDate: batch.manufacturingDate,
+      expiryDate: batch.expiryDate,
+      productId: String(batch.productId),
+      warehouse: typeof batch.warehouse === 'object' ? String(batch.warehouse?.id || '') : String(batch.warehouse || ''),
     });
+    setShowFormModal(true);
+  };
 
-    useEffect(() => {
-        fetchBatches();
-        fetchProducts();
-        fetchWarehouses();
-        fetchQualityInspections();
-    }, []);
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
+    const { name, value } = e.target;
+    setForm((current) => ({ ...current, [name]: value }));
+  };
 
-    const fetchBatches = async () => {
-        try {
-            const response = await axios.get(`${API_URL}/batches`);
-            setBatches(response.data);
-        } catch (err) {
-            console.error("Failed to load batches", err);
-            ToasterService.error("Failed to load batches");
-            setBatches([]);
-        }
+  // ✅ FIXED: Build payload with FULL warehouse object
+  const buildPayload = () => {
+    const existing = batches.find((b) => b.id === editingId);
+    const selectedWarehouse = warehouses.find(w => String(w.id) === form.warehouse);
+
+    const warehouseObject = selectedWarehouse ? {
+      id: selectedWarehouse.id,
+      createdDate: selectedWarehouse.createdDate || new Date().toISOString(),
+      updatedDate: selectedWarehouse.updatedDate || new Date().toISOString(),
+      createdBy: selectedWarehouse.createdBy || "",
+      tenantId: selectedWarehouse.tenantId || "",
+      code: selectedWarehouse.code || "",
+      name: selectedWarehouse.name || "",
+      locationType: selectedWarehouse.locationType || "MAIN",
+      stockLevels: selectedWarehouse.stockLevels || [],
+      batches: selectedWarehouse.batches || [],
+      serialNumbers: selectedWarehouse.serialNumbers || [],
+      stockMovements: selectedWarehouse.stockMovements || [],
+      stockAdjustments: selectedWarehouse.stockAdjustments || [],
+      stockEntries: selectedWarehouse.stockEntries || [],
+    } : null;
+
+    if (!editingId) {
+      return {
+        batchNumber: form.batchNumber.trim(),
+        manufacturingDate: form.manufacturingDate,
+        expiryDate: form.expiryDate,
+        productId: toNumber(form.productId),
+        warehouse: warehouseObject,
+        inspections: [],
+      };
+    }
+
+    return {
+      id: editingId,
+      createdDate: existing?.createdDate || new Date().toISOString(),
+      updatedDate: new Date().toISOString(),
+      createdBy: existing?.createdBy || user?.userId || authUser.userId || "",
+      tenantId: existing?.tenantId || user?.tenantId || authUser.tenantId || "",
+      batchNumber: form.batchNumber.trim(),
+      manufacturingDate: form.manufacturingDate,
+      expiryDate: form.expiryDate,
+      productId: toNumber(form.productId),
+      warehouse: warehouseObject,
+      inspections: existing?.inspections || [],
     };
+  };
 
-    const fetchProducts = async () => {
-        try {
-            const response = await axios.get(PRODUCTS_API_URL);
-            const rows = Array.isArray(response.data) ? response.data : [];
-            setProducts(
-                rows.map((item: any) => ({
-                    id: Number(item.id || 0),
-                    name: item.productName || item.name || "",
-                    sku: item.productCode || item.sku || "",
-                    productName: item.productName || item.name || "",
-                    productCode: item.productCode || item.sku || "",
-                }))
-            );
-        } catch (err) {
-            console.error("Failed to load products", err);
-            ToasterService.error("Failed to load products");
-            setProducts([]);
-        }
-    };
+  const handleSubmit = async (e: FormEvent): Promise<void> => {
+    e.preventDefault();
 
-    const fetchWarehouses = async () => {
-        try {
-            const response = await axios.get(`${API_URL}/warehouses`);
-            setWarehouses(response.data);
-        } catch (err) {
-            console.error("Failed to load warehouses", err);
-            ToasterService.error("Failed to load warehouses");
-            setWarehouses([]);
-        }
-    };
+    // Validate required fields
+    if (!form.batchNumber.trim()) {
+      ToasterService.error("Batch Number is required");
+      return;
+    }
+    if (!form.manufacturingDate) {
+      ToasterService.error("Manufacturing Date is required");
+      return;
+    }
+    if (!form.expiryDate) {
+      ToasterService.error("Expiry Date is required");
+      return;
+    }
+    if (!form.productId) {
+      ToasterService.error("Product is required");
+      return;
+    }
+    if (!form.warehouse) {
+      ToasterService.error("Warehouse is required");
+      return;
+    }
 
-    const fetchQualityInspections = async () => {
-        try {
-            const response = await axios.get(QUALITY_INSPECTIONS_API_URL);
-            setQualityInspections(Array.isArray(response.data) ? response.data : []);
-        } catch (err) {
-            console.error("Failed to load quality inspections", err);
-            ToasterService.error("Failed to load quality inspections");
-            setQualityInspections([]);
-        }
-    };
+    // Validate dates
+    if (new Date(form.expiryDate) <= new Date(form.manufacturingDate)) {
+      ToasterService.error("Expiry date must be after manufacturing date");
+      return;
+    }
 
-    const clearForm = () => {
-        setForm({
-            batchNumber: "",
-            manufacturingDate: "",
-            expiryDate: "",
-            productId: "",
-            warehouseId: "",
-            quantity: 0,
-            inspectionId: "",
-        });
-        setEditingId(null);
-        setShowForm(false);
-    };
+    try {
+      setSubmitting(true);
+      const payload = buildPayload();
 
-    const handleChange = (key: string, value: any) => {
-        setForm((prev) => ({ ...prev, [key]: value }));
-    };
+      if (editingId) {
+        await axios.put(`${API_URL}/${editingId}`, payload, { headers });
+        ToasterService.success("Batch updated successfully");
+      } else {
+        await axios.post(API_URL, payload, { headers });
+        ToasterService.success("Batch created successfully");
+      }
 
-    const buildPayload = (mode: "create" | "update") => {
-        const now = new Date().toISOString();
-        const storedUser = getStoredUser();
-        const selectedWarehouse = warehouses.find((item) => item.id === Number(form.warehouseId));
-        const selectedInspection = qualityInspections.find((item) => item.id === Number(form.inspectionId));
-        const selectedProductId = Number(form.productId) || 0;
-        const createdBy = storedUser?.userId || storedUser?.id || "system";
-        const tenantId = storedUser?.tenantId || "TENANT_1";
-        const inspectionPayload = selectedInspection
-            ? [
-                {
-                    id: mode === "update" ? selectedInspection.id || 0 : 0,
-                    createdDate: selectedInspection.createdDate || now,
-                    updatedDate: now,
-                    createdBy: selectedInspection.createdBy || createdBy,
-                    tenantId: selectedInspection.tenantId || tenantId,
-                    inspectionDate: selectedInspection.inspectionDate,
-                    inspector: selectedInspection.inspector || "",
-                    result: selectedInspection.result || "PASS",
-                    remarks: selectedInspection.remarks || "",
-                    productId: selectedProductId,
-                    batch: selectedInspection.batch || form.batchNumber || "",
-                    serialNumber: selectedInspection.serialNumber || "",
-                },
-            ]
-            : [];
+      closeForm();
+      await fetchAllBatches();
+    } catch (error) {
+      ToasterService.error("Failed to save batch", getErrorMessage(error, "Please try again."));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-        return {
-            id: mode === "update" ? editingId || 0 : 0,
-            createdDate: now,
-            updatedDate: now,
-            createdBy,
-            tenantId,
-            batchNumber: form.batchNumber,
-            manufacturingDate: form.manufacturingDate,
-            expiryDate: form.expiryDate,
-            productId: selectedProductId,
-            warehouse: selectedWarehouse?.name || selectedWarehouse?.code || "",
-            inspections: inspectionPayload,
-        };
-    };
+  const confirmDelete = async (): Promise<void> => {
+    if (!deleteBatch?.id) return;
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    try {
+      setSubmitting(true);
+      await axios.delete(`${API_URL}/${deleteBatch.id}?cascade=true`, { headers });
+      ToasterService.success("Batch deleted successfully");
+      setDeleteBatch(null);
+      await fetchAllBatches();
+    } catch (error) {
+      ToasterService.error("Failed to delete batch", getErrorMessage(error, "Please try again."));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-        if (!isValidIsoDate(form.manufacturingDate) || !isValidIsoDate(form.expiryDate)) {
-            ToasterService.error("Please enter valid dates in YYYY-MM-DD format");
-            return;
-        }
+  const filteredBatches = batches.filter((batch) => {
+    const product = products.find((p) => p.id === batch.productId || p.productId === batch.productId);
+    const productName = product ? normalizeProductLabel(product) : `Product #${batch.productId}`;
+    const warehouseName = typeof batch.warehouse === 'object' ? batch.warehouse?.name || '' : batch.warehouse || '';
 
-        if (new Date(form.expiryDate) < new Date(form.manufacturingDate)) {
-            ToasterService.error("Expiry date cannot be earlier than manufacturing date");
-            return;
-        }
+    const searchString = `${batch.id} ${batch.batchNumber} ${productName} ${warehouseName}`.toLowerCase();
+    return searchString.includes(search.toLowerCase());
+  });
 
-        try {
-            if (editingId) {
-                await axios.put(`${API_URL}/batches/${editingId}`, buildPayload("update"));
-                ToasterService.success("Batch updated successfully");
-            } else {
-                await axios.post(`${API_URL}/batches`, buildPayload("create"));
-                ToasterService.success("Batch created successfully");
-            }
-            await fetchBatches();
-            clearForm();
-        } catch (err: any) {
-            ToasterService.error(err.response?.data?.message || "Save failed");
-        }
-    };
+  const today = new Date();
+  const thirtyDaysFromNow = new Date(today);
+  thirtyDaysFromNow.setDate(today.getDate() + 30);
 
-    const handleEdit = (batch: Batch) => {
-        setEditingId(batch.id);
-        setForm({
-            batchNumber: batch.batchNumber,
-            manufacturingDate: batch.manufacturingDate.split('T')[0],
-            expiryDate: batch.expiryDate.split('T')[0],
-            productId: batch.product?.id?.toString() || "",
-            warehouseId: batch.warehouse?.id?.toString() || "",
-            quantity: batch.quantity || 0,
-            inspectionId: "",
-        });
-        setShowForm(true);
-    };
+  const stats = {
+    total: batches.length,
+    expired: batches.filter((b) => new Date(b.expiryDate) < today).length,
+    expiringSoon: batches.filter((b) => {
+      const expiry = new Date(b.expiryDate);
+      return expiry > today && expiry <= thirtyDaysFromNow;
+    }).length,
+    withFailedInspections: batches.filter((b) => b.inspections.some((i) => i.result === "FAIL")).length,
+  };
 
-    const confirmDelete = async () => {
-        if (!deletingBatch) return;
-        try {
-            await axios.delete(`${API_URL}/batches/${deletingBatch.id}`);
-            ToasterService.success("Batch deleted successfully");
-            await fetchBatches();
-            setShowDeletePopup(false);
-            setDeletingBatch(null);
-        } catch (err: any) {
-            ToasterService.error(err.response?.data?.message || "Delete failed");
-        }
-    };
+  const getWarehouseDisplay = (batch: Batch): string => {
+    if (typeof batch.warehouse === 'object' && batch.warehouse !== null) {
+      return batch.warehouse.name || batch.warehouse.code || `ID: ${batch.warehouse.id}`;
+    }
+    return batch.warehouse || '';
+  };
 
-    const promptDelete = (batch: Batch) => {
-        setDeletingBatch(batch);
-        setShowDeletePopup(true);
-    };
-
-    const openCreateBatch = () => {
-        clearForm();
-        setShowForm(true);
-    };
-
-    const exportPDF = () => {
-        const doc = new jsPDF();
-        doc.setFontSize(18);
-        doc.text("Batches Report", 14, 15);
-        doc.setFontSize(10);
-        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
-        doc.text(`Total Batches: ${filtered.length}`, 14, 28);
-
-        autoTable(doc, {
-            head: [["Batch Number", "Product", "Warehouse", "Mfg Date", "Expiry Date", "Status", "Quantity"]],
-            body: filtered.map(b => [
-                b.batchNumber,
-                b.product?.name || b.product?.productName || "-",
-                b.warehouse?.name || "-",
-                new Date(b.manufacturingDate).toLocaleDateString(),
-                new Date(b.expiryDate).toLocaleDateString(),
-                new Date(b.expiryDate) < new Date() ? "Expired" : "Active",
-                b.quantity?.toString() || "-",
-            ]),
-            startY: 35,
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: [6, 182, 212] },
-        });
-        doc.save(`Batches_${new Date().toISOString().split("T")[0]}.pdf`);
-        setShowExportMenu(false);
-    };
-
-    const exportExcel = () => {
-        const ws = XLSX.utils.json_to_sheet(filtered.map(b => ({
-            'Batch Number': b.batchNumber,
-            'Product': b.product?.name || b.product?.productName || "-",
-            'Warehouse': b.warehouse?.name || "-",
-            'Manufacturing Date': new Date(b.manufacturingDate).toLocaleDateString(),
-            'Expiry Date': new Date(b.expiryDate).toLocaleDateString(),
-            'Status': new Date(b.expiryDate) < new Date() ? "Expired" : "Active",
-            'Quantity': b.quantity || "-",
-            'Created At': b.createdAt ? new Date(b.createdAt).toLocaleDateString() : "",
-        })));
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Batches");
-        XLSX.writeFile(wb, `Batches_${new Date().toISOString().split("T")[0]}.xlsx`);
-        setShowExportMenu(false);
-    };
-
-    const filtered = batches.filter((b) => {
-        const productLabel = b.product?.name || b.product?.productName || "";
-        const matchesProduct = productFilter ? productLabel === productFilter : true;
-        const matchesWarehouse = warehouseFilter ? b.warehouse?.name === warehouseFilter : true;
-        return matchesProduct && matchesWarehouse;
-    });
-
-    // Calculate stats from real data
-    const totalBatches = batches.length;
-    const expiredBatches = batches.filter(b => new Date(b.expiryDate) < new Date()).length;
-    const expiringSoon = batches.filter(b => {
-        const expiry = new Date(b.expiryDate);
-        const today = new Date();
-        const daysUntilExpiry = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 3600 * 24));
-        return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
-    }).length;
-    const totalQuantity = batches.reduce((sum, b) => sum + (b.quantity || 0), 0);
-
-    // Get unique values for filters
-    const uniqueProducts = [...new Set(batches.map(b => b.product?.name || b.product?.productName).filter(Boolean))];
-    const uniqueWarehouses = [...new Set(batches.map(b => b.warehouse?.name).filter(Boolean))];
-
-    // Status badge component
-    const getStatusBadge = (expiryDate: string) => {
-        const expiry = new Date(expiryDate);
-        const today = new Date();
-        const daysUntilExpiry = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 3600 * 24));
-
-        if (expiry < today) {
-            return (
-                <span className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium rounded-full bg-red-100 text-red-800">
-                    <XCircleIcon className="h-3 w-3 mr-1" />
-                    Expired
-                </span>
-            );
-        } else if (daysUntilExpiry <= 30) {
-            return (
-                <span className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium rounded-full bg-yellow-100 text-yellow-800">
-                    <ExclamationTriangleIcon className="h-3 w-3 mr-1" />
-                    Expiring Soon
-                </span>
-            );
-        }
+  const columns: ColumnDef<Batch>[] = [
+    {
+      key: "batchNumber",
+      label: "Batch Number",
+      sortable: true,
+      render: (batch) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-purple-100 bg-purple-50">
+            <CubeIcon className="h-4 w-4 text-purple-600" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-900">{batch.batchNumber}</p>
+            <p className="text-xs text-slate-400">ID: #{batch.id}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "productId",
+      label: "Product",
+      sortable: true,
+      render: (batch) => {
+        const product = products.find((p) => p.id === batch.productId || p.productId === batch.productId);
         return (
-            <span className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium rounded-full bg-green-100 text-green-800">
-                <CheckCircleIcon className="h-3 w-3 mr-1" />
-                Active
-            </span>
+          <span className="text-sm text-slate-700">
+            {product ? normalizeProductLabel(product) : `Product #${batch.productId}`}
+          </span>
         );
-    };
+      },
+    },
+    {
+      key: "warehouse",
+      label: "Warehouse",
+      sortable: true,
+      render: (batch) => (
+        <span className="text-sm text-slate-700">
+          {getWarehouseDisplay(batch)}
+        </span>
+      ),
+    },
+    {
+      key: "manufacturingDate",
+      label: "Manufacturing",
+      sortable: true,
+      render: (batch) => (
+        <span className="text-sm text-slate-600">
+          {new Date(batch.manufacturingDate).toLocaleDateString()}
+        </span>
+      ),
+    },
+    {
+      key: "expiryDate",
+      label: "Expiry",
+      sortable: true,
+      render: (batch) => {
+        const daysUntilExpiry = getDaysUntilExpiry(batch);
+        const isExpired = daysUntilExpiry < 0;
+        const isExpiringSoon = daysUntilExpiry >= 0 && daysUntilExpiry <= 30;
 
-    const getBatchStatus = (expiryDate: string) => {
-        const expiry = new Date(expiryDate);
-        const today = new Date();
-        const daysUntilExpiry = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 3600 * 24));
+        return (
+          <div>
+            <span
+              className={`text-sm ${
+                isExpired ? "text-red-600" : isExpiringSoon ? "text-yellow-600" : "text-slate-600"
+              }`}
+            >
+              {new Date(batch.expiryDate).toLocaleDateString()}
+            </span>
+            {!isExpired && <p className="text-xs text-slate-400">{daysUntilExpiry} days left</p>}
+          </div>
+        );
+      },
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: false,
+      render: (batch) => {
+        const status = getBatchStatus(batch);
+        return (
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${status.className}`}
+          >
+            {status.icon}
+            {status.label}
+          </span>
+        );
+      },
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      sortable: false,
+      headerClassName: "text-right",
+      className: "text-right",
+      render: (batch) => (
+        <div className="flex justify-end gap-1">
+          <button
+            type="button"
+            onClick={() => setViewBatch(batch)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
+            title="View"
+          >
+            <MagnifyingGlassIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => openEdit(batch)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            title="Edit"
+          >
+            <PencilSquareIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeleteBatch(batch)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            title="Delete"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
+  ];
 
-        if (expiry < today) return "Expired";
-        if (daysUntilExpiry <= 30) return "Expiring Soon";
-        return "Active";
-    };
+  return (
+    <>
+      <PageMeta title="Batch Management" description="Manage product batches" />
+      <PageBreadcrumb pageTitle="Batch Management" />
 
-    const tableData: BatchRow[] = filtered.map((batch) => ({
-        ...batch,
-        productName: String(batch.product?.name || batch.product?.productName || ""),
-        warehouseName: String(batch.warehouse?.name ?? ""),
-        statusLabel: getBatchStatus(batch.expiryDate),
-        manufacturingDateLabel: batch.manufacturingDate ? new Date(batch.manufacturingDate).toLocaleDateString() : "-",
-        expiryDateLabel: batch.expiryDate ? new Date(batch.expiryDate).toLocaleDateString() : "-",
-    }));
+      <div className="w-full max-w-none space-y-6 px-0 py-8">
+        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+          <AddButton onClick={openCreate} label="Add Batch" />
+        </div>
 
-    const columns: ColumnDef<BatchRow>[] = [
-        {
-            key: "batchNumber",
-            label: "Batch Number",
-            sortable: true,
-            render: (batch) => (
-                <div className="flex items-center gap-2">
-                    <div className="h-6 w-6 rounded-full bg-cyan-100 flex items-center justify-center shrink-0">
-                        <BeakerIcon className="h-3.5 w-3.5 text-cyan-600" />
-                    </div>
-                    <span className="text-xs font-mono text-gray-700">{batch.batchNumber}</span>
-                </div>
-            ),
-        },
-        {
-            key: "productName",
-            label: "Product",
-            sortable: true,
-            render: (batch) => (
-                <div>
-                    <div className="text-xs font-medium text-gray-900">{batch.product?.name || batch.product?.productName || "-"}</div>
-                    {batch.product?.sku && <div className="text-xs text-gray-500">{batch.product.sku}</div>}
-                </div>
-            ),
-        },
-        {
-            key: "warehouseName",
-            label: "Warehouse",
-            sortable: true,
-            render: (batch) => (
-                <div className="flex items-center gap-1.5">
-                    <HomeIcon className="h-4 w-4 text-gray-400 shrink-0" />
-                    <span className="text-xs text-gray-900">{batch.warehouse?.name || "-"}</span>
-                </div>
-            ),
-        },
-        {
-            key: "manufacturingDateLabel",
-            label: "Mfg Date",
-            sortable: true,
-            render: (batch) => (
-                <div className="flex items-center gap-1.5 text-xs text-gray-700">
-                    <CalendarIcon className="h-4 w-4 text-gray-400 shrink-0" />
-                    {new Date(batch.manufacturingDate).toLocaleDateString()}
-                </div>
-            ),
-        },
-        {
-            key: "expiryDateLabel",
-            label: "Expiry Date",
-            sortable: true,
-            render: (batch) => (
-                <span className={`text-xs ${new Date(batch.expiryDate) < new Date() ? "text-red-600 font-medium" : "text-gray-700"}`}>
-                    {new Date(batch.expiryDate).toLocaleDateString()}
-                </span>
-            ),
-        },
-        {
-            key: "statusLabel",
-            label: "Status",
-            sortable: true,
-            render: (batch) => getStatusBadge(batch.expiryDate),
-        },
-        {
-            key: "quantity",
-            label: "Quantity",
-            sortable: true,
-            render: (batch) => (
-                <span className="text-xs font-medium text-gray-900">{batch.quantity ?? "-"}</span>
-            ),
-        },
-        {
-            key: "actions",
-            label: "Actions",
-            headerClassName: "!text-right pr-8",
-            className: "text-right",
-            render: (batch) => (
-                <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setSelectedBatch(batch);
-                            setViewModalOpen(true);
-                        }}
-                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
-                        title="View Details"
-                    >
-                        <EyeIcon className="h-4 w-4" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => handleEdit(batch)}
-                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-                        title="Edit Batch"
-                    >
-                        <PencilSquareIcon className="h-4 w-4" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => promptDelete(batch)}
-                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-                        title="Delete Batch"
-                    >
-                        <TrashIcon className="h-4 w-4" />
-                    </button>
-                </div>
-            ),
-        },
-    ];
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatsCard
+            label="Total Batches"
+            value={stats.total}
+            gradient="from-purple-50 to-pink-50"
+            borderColor="border-purple-100"
+            labelColor="text-purple-600"
+            icon={<CubeIcon className="h-5 w-5" />}
+          />
+          <StatsCard
+            label="Expired"
+            value={stats.expired}
+            gradient="from-red-50 to-rose-50"
+            borderColor="border-red-100"
+            labelColor="text-red-600"
+            icon={<XCircleIcon className="h-5 w-5" />}
+          />
+          <StatsCard
+            label="Expiring Soon"
+            value={stats.expiringSoon}
+            gradient="from-yellow-50 to-orange-50"
+            borderColor="border-yellow-100"
+            labelColor="text-yellow-700"
+            icon={<ExclamationTriangleIcon className="h-5 w-5" />}
+          />
+          <StatsCard
+            label="Failed Inspections"
+            value={stats.withFailedInspections}
+            gradient="from-red-50 to-rose-50"
+            borderColor="border-red-100"
+            labelColor="text-red-600"
+            icon={<ExclamationCircleIcon className="h-5 w-5" />}
+          />
+        </div>
 
-    return (
-        <>
-            <PageMeta title="Batch Manager" description="Manage product batches and expiry tracking" />
-            <PageBreadcrumb pageTitle="Batch Manager" />
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+            <FloatingInput
+              label="Batch ID"
+              type="number"
+              value={lookupId}
+              onChange={(e) => setLookupId(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={fetchById}
+              className="h-[52px] rounded-lg bg-purple-600 px-4 text-sm font-medium text-white hover:bg-purple-700"
+            >
+              Get By ID
+            </button>
+            <button
+              type="button"
+              onClick={fetchAllBatches}
+              className="h-[52px] rounded-lg bg-gray-100 px-4 text-sm font-medium text-gray-700 hover:bg-gray-200"
+            >
+              Load All
+            </button>
+          </div>
+        </div>
 
-            <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-6 space-y-5">
-                <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-                    <AddButton onClick={openCreateBatch} label="Add Batch" />
-                </div>
+        <div className="relative w-full sm:max-w-md">
+          <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search batches..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-transparent focus:ring-2 focus:ring-purple-500"
+          />
+        </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-                    <StatsCard label="Total Batches" value={totalBatches} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-                    <StatsCard label="Total Quantity" value={totalQuantity.toLocaleString()} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-                    <StatsCard label="Expired Batches" value={expiredBatches} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
-                    <StatsCard label="Expiring Soon" value={expiringSoon} gradient="from-yellow-50 to-amber-50" borderColor="border-yellow-100" labelColor="text-yellow-700" />
-                </div>
-
-                {/* Filters Panel */}
-                {showFilters && (
-                    <div className="mb-5 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex flex-wrap gap-3">
-                            <div className="flex-1 min-w-[200px]">
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Product</label>
-                                <select
-                                    value={productFilter}
-                                    onChange={e => setProductFilter(e.target.value)}
-                                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                                >
-                                    <option value="">All Products</option>
-                                    {uniqueProducts.map(product => (
-                                        <option key={product} value={product}>{product}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="flex-1 min-w-[200px]">
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Warehouse</label>
-                                <select
-                                    value={warehouseFilter}
-                                    onChange={e => setWarehouseFilter(e.target.value)}
-                                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                                >
-                                    <option value="">All Warehouses</option>
-                                    {uniqueWarehouses.map(warehouse => (
-                                        <option key={warehouse} value={warehouse}>{warehouse}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            {(productFilter || warehouseFilter) && (
-                                <button
-                                    onClick={() => {
-                                        setProductFilter("");
-                                        setWarehouseFilter("");
-                                    }}
-                                    className="self-end mb-1 text-xs text-red-600 hover:text-red-800"
-                                >
-                                    Clear Filters
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Batch Form Modal */}
-                {showForm && (
-                    <div className="fixed inset-0 z-50 overflow-y-auto">
-                        <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-16 text-center sm:block sm:p-0">
-                            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={clearForm}></div>
-                            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-6 sm:align-middle sm:max-w-md sm:w-full">
-                                <div className="bg-white px-4 pt-4 pb-3 sm:p-5 sm:pb-3">
-                                    <div className="sm:flex sm:items-start">
-                                        <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                                            <h3 className="text-base leading-6 font-medium text-gray-900 mb-3">
-                                                {editingId ? "Edit Batch" : "Add New Batch"}
-                                            </h3>
-                                            <form onSubmit={handleSubmit} className="space-y-3">
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-700">Batch Number</label>
-                                                    <input
-                                                        type="text"
-                                                        value={form.batchNumber}
-                                                        onChange={e => handleChange("batchNumber", e.target.value)}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-2.5 py-1.5 text-sm focus:ring-cyan-500 focus:border-cyan-500"
-                                                        placeholder="e.g., BATCH-001"
-                                                        required
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-700">Product</label>
-                                                    <select
-                                                        value={form.productId}
-                                                        onChange={e => handleChange("productId", e.target.value)}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-2.5 py-1.5 text-sm focus:ring-cyan-500 focus:border-cyan-500"
-                                                        required
-                                                    >
-                                                        <option value="">Select Product</option>
-                                                        {products.map(p => (
-                                                            <option key={p.id} value={p.id}>
-                                                                {p.name}{p.sku ? ` (${p.sku})` : ""}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-700">Warehouse</label>
-                                                    <select
-                                                        value={form.warehouseId}
-                                                        onChange={e => handleChange("warehouseId", e.target.value)}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-2.5 py-1.5 text-sm focus:ring-cyan-500 focus:border-cyan-500"
-                                                        required
-                                                    >
-                                                        <option value="">Select Warehouse</option>
-                                                        {warehouses.map(w => (
-                                                            <option key={w.id} value={w.id}>{w.name}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-700">Quality Inspection</label>
-                                                    <select
-                                                        value={form.inspectionId}
-                                                        onChange={e => handleChange("inspectionId", e.target.value)}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-2.5 py-1.5 text-sm focus:ring-cyan-500 focus:border-cyan-500"
-                                                    >
-                                                        <option value="">Select Inspection</option>
-                                                        {qualityInspections.map((inspection) => (
-                                                            <option key={inspection.id} value={inspection.id}>
-                                                                {inspection.inspector} - {inspection.result} - {inspection.inspectionDate}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <div>
-                                                        <label className="block text-xs font-medium text-gray-700">Manufacturing Date</label>
-                                                        <input
-                                                            type="date"
-                                                            value={form.manufacturingDate}
-                                                            onChange={e => handleChange("manufacturingDate", e.target.value)}
-                                                            onClick={openNativeDatePicker}
-                                                            onFocus={openNativeDatePicker}
-                                                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-2.5 py-1.5 text-sm focus:ring-cyan-500 focus:border-cyan-500"
-                                                            required
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-xs font-medium text-gray-700">Expiry Date</label>
-                                                        <input
-                                                            type="date"
-                                                            value={form.expiryDate}
-                                                            onChange={e => handleChange("expiryDate", e.target.value)}
-                                                            onClick={openNativeDatePicker}
-                                                            onFocus={openNativeDatePicker}
-                                                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-2.5 py-1.5 text-sm focus:ring-cyan-500 focus:border-cyan-500"
-                                                            required
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-700">Quantity</label>
-                                                    <input
-                                                        type="number"
-                                                        value={form.quantity}
-                                                        onChange={e => handleChange("quantity", Number(e.target.value))}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-2.5 py-1.5 text-sm focus:ring-cyan-500 focus:border-cyan-500"
-                                                        min="0"
-                                                    />
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="bg-gray-50 px-4 py-2.5 sm:px-5 sm:flex sm:flex-row-reverse">
-                                    <button
-                                        type="submit"
-                                        onClick={handleSubmit}
-                                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-3.5 py-1.5 bg-cyan-600 text-sm font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto"
-                                    >
-                                        {editingId ? "Update" : "Create"}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={clearForm}
-                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-3.5 py-1.5 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {!showForm && (
-                    <ReusableTable<BatchRow>
-                        data={tableData}
-                        columns={columns}
-                        searchable
-                        searchPlaceholder="Search by batch number, product, or warehouse..."
-                        searchFields={["batchNumber", "productName", "warehouseName", "statusLabel", "manufacturingDateLabel", "expiryDateLabel"]}
-                        pageSize={PAGE_SIZE}
-                        defaultSortKey="batchNumber"
-                        toolbar={
-                            <div className="flex flex-wrap items-center gap-1.5">
-                                <div className="relative">
-                                    <button
-                                        onClick={() => setShowExportMenu(!showExportMenu)}
-                                        className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                                        disabled={batches.length === 0}
-                                    >
-                                        <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
-                                    </button>
-                                    {showExportMenu && (
-                                        <div className="absolute right-0 mt-1 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50">
-                                            <button onClick={exportPDF} className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50">
-                                                <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
-                                                Export PDF
-                                            </button>
-                                            <button onClick={exportExcel} className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50">
-                                                <TableCellsIcon className="h-4 w-4 text-green-600" />
-                                                Export Excel
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                                <button onClick={() => window.print()} className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors" disabled={batches.length === 0}>
-                                    <PrinterIcon className="h-5 w-5 text-gray-600" />
-                                </button>
-                                <button onClick={() => setShowFilters(!showFilters)} className={`p-2 rounded-lg border ${showFilters ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"}`}>
-                                    <FunnelIcon className={`h-5 w-5 ${showFilters ? "text-cyan-600" : "text-gray-600"}`} />
-                                </button>
-                                <button onClick={fetchBatches} className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors">
-                                    <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                    </svg>
-                                </button>
-                            </div>
-                        }
-                        emptyState={
-                            <div className="flex flex-col items-center py-4">
-                                <div className="h-12 w-12 bg-gray-100 rounded-full flex items-center justify-center mb-2.5">
-                                    <BeakerIcon className="h-6 w-6 text-gray-400" />
-                                </div>
-                                <p className="text-gray-500 text-sm font-medium mb-1.5">No batches found</p>
-                                <button onClick={openCreateBatch} className="text-cyan-600 hover:text-cyan-700 text-sm font-medium">
-                                    Add your first batch
-                                </button>
-                            </div>
-                        }
-                    />
-                )}
-
-                {/* View Details Modal */}
-                {viewModalOpen && selectedBatch && (
-                    <div className="fixed inset-0 z-50 overflow-y-auto">
-                        <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-16 text-center sm:block sm:p-0">
-                            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setViewModalOpen(false)}></div>
-                            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-6 sm:align-middle sm:max-w-md sm:w-full">
-                                <div className="bg-white px-4 pt-4 pb-3 sm:p-5 sm:pb-3">
-                                    <div className="sm:flex sm:items-start">
-                                        <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                                            <div className="flex justify-between items-center mb-3">
-                                                <h3 className="text-base leading-6 font-medium text-gray-900">
-                                                    Batch Details
-                                                </h3>
-                                                <button
-                                                    onClick={() => setViewModalOpen(false)}
-                                                    className="text-gray-400 hover:text-gray-500"
-                                                >
-                                                    <XCircleIcon className="h-6 w-6" />
-                                                </button>
-                                            </div>
-
-                                            <div className="mb-5 p-3 bg-gray-50 rounded-lg">
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <div>
-                                                        <p className="text-xs text-gray-500">Batch Number</p>
-                                                        <p className="text-sm font-mono font-medium text-gray-900">{selectedBatch.batchNumber}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs text-gray-500">Product</p>
-                                                        <p className="text-sm text-gray-700">{selectedBatch.product?.name || "-"}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs text-gray-500">Warehouse</p>
-                                                        <p className="text-sm text-gray-700">{selectedBatch.warehouse?.name || "-"}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs text-gray-500">Quantity</p>
-                                                        <p className="text-sm font-medium text-gray-900">{selectedBatch.quantity || "-"}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs text-gray-500">Manufacturing Date</p>
-                                                        <p className="text-sm text-gray-700">{new Date(selectedBatch.manufacturingDate).toLocaleDateString()}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs text-gray-500">Expiry Date</p>
-                                                        <p className={`text-sm ${new Date(selectedBatch.expiryDate) < new Date() ? "text-red-600 font-medium" : "text-gray-700"}`}>
-                                                            {new Date(selectedBatch.expiryDate).toLocaleDateString()}
-                                                        </p>
-                                                    </div>
-                                                    <div className="col-span-2">
-                                                        <p className="text-xs text-gray-500">Status</p>
-                                                        <div className="mt-1">{getStatusBadge(selectedBatch.expiryDate)}</div>
-                                                    </div>
-                                                    {selectedBatch.createdAt && (
-                                                        <div className="col-span-2">
-                                                            <p className="text-xs text-gray-500">Created At</p>
-                                                            <p className="text-sm text-gray-600">{new Date(selectedBatch.createdAt).toLocaleString()}</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {new Date(selectedBatch.expiryDate) < new Date() && (
-                                                <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-                                                    <p className="text-sm text-red-800">
-                                                        <strong>Expired Batch:</strong> This batch has expired and should not be used for inventory.
-                                                    </p>
-                                                </div>
-                                            )}
-                                            {new Date(selectedBatch.expiryDate) > new Date() && new Date(selectedBatch.expiryDate).getTime() - new Date().getTime() <= 30 * 24 * 60 * 60 * 1000 && (
-                                                <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                                                    <p className="text-sm text-yellow-800">
-                                                        <strong>Expiring Soon:</strong> This batch will expire within 30 days. Consider prioritizing its usage.
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="bg-gray-50 px-4 py-2.5 sm:px-5 sm:flex sm:flex-row-reverse">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setViewModalOpen(false);
-                                            handleEdit(selectedBatch);
-                                        }}
-                                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-3.5 py-1.5 bg-cyan-600 text-sm font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto"
-                                    >
-                                        <PencilSquareIcon className="h-4 w-4 mr-2" />
-                                        Edit
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setViewModalOpen(false)}
-                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-3.5 py-1.5 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:w-auto"
-                                    >
-                                        Close
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <DynamicPopup
-                    isPopupOpen={showDeletePopup}
-                    setIsPopupOpen={setShowDeletePopup}
-                    icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-                    iconBg="bg-red-100"
-                    innerText="Delete Batch"
-                    subText={deletingBatch ? `Are you sure you want to delete batch "${deletingBatch.batchNumber}"? This action cannot be undone.` : "Are you sure you want to delete this batch?"}
-                    confirmLabel="Delete"
-                    cancelLabel="Cancel"
-                    onConfirm={confirmDelete}
-                    onCancel={() => setDeletingBatch(null)}
-                    confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
-                />
+        <ReusableTable
+          data={filteredBatches}
+          columns={columns}
+          loading={loading}
+          pageSize={PAGE_SIZE}
+          defaultSortKey="expiryDate"
+          defaultSortOrder="asc"
+          emptyState={
+            <div className="flex flex-col items-center justify-center py-12">
+              <CubeIcon className="mb-3 h-12 w-12 text-gray-400" />
+              <p className="mb-2 text-sm text-gray-500">No batches found</p>
+              <button
+                type="button"
+                onClick={openCreate}
+                className="text-xs font-medium text-purple-600 hover:text-purple-700"
+              >
+                Create your first batch
+              </button>
             </div>
-        </>
-    );
+          }
+        />
+      </div>
+
+      {/* Create/Edit Modal */}
+      {showFormModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-4 backdrop-blur-sm sm:items-center">
+          <div className="mx-auto max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-100 p-5">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {editingId ? "Edit Batch" : "Create Batch"}
+                </h3>
+                <p className="mt-0.5 text-xs text-gray-500">Manage product batches</p>
+              </div>
+              <button type="button" onClick={closeForm} className="text-gray-400 hover:text-gray-600">
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <FloatingInput
+                  label="Batch Number"
+                  name="batchNumber"
+                  value={form.batchNumber}
+                  onChange={handleChange}
+                  required
+                />
+                <FloatingDatePicker
+                  label="Manufacturing Date"
+                  name="manufacturingDate"
+                  value={form.manufacturingDate}
+                  onChange={handleChange}
+                  required
+                />
+                <FloatingDatePicker
+                  label="Expiry Date"
+                  name="expiryDate"
+                  value={form.expiryDate}
+                  onChange={handleChange}
+                  required
+                />
+                <FloatingSelect
+                  label="Product"
+                  name="productId"
+                  value={form.productId}
+                  onChange={handleChange}
+                  emptyOptionLabel="Select product"
+                  options={products.map((p) => ({
+                    id: String(p.id || p.productId || 0),
+                    name: normalizeProductLabel(p),
+                  }))}
+                  required
+                />
+                {/* ✅ Warehouse dropdown - stores warehouse ID in form */}
+                <FloatingSelect
+                  label="Warehouse"
+                  name="warehouse"
+                  value={form.warehouse}
+                  onChange={handleChange}
+                  emptyOptionLabel="Select warehouse"
+                  options={warehouses.map((w) => ({
+                    id: String(w.id),
+                    name: `${w.code || w.id} - ${w.name || ''}`,
+                  }))}
+                  required
+                />
+              </div>
+
+              <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={closeForm}
+                  className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-purple-700 hover:to-pink-700 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {submitting ? "Saving..." : editingId ? "Update Batch" : "Create Batch"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Modal */}
+      {viewBatch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-100 p-5">
+              <h3 className="text-lg font-semibold text-gray-900">Batch Details</h3>
+              <button
+                type="button"
+                onClick={() => setViewBatch(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500">Batch Number</p>
+                  <p className="font-medium text-gray-900">{viewBatch.batchNumber}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Status</p>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${getBatchStatus(viewBatch).className}`}
+                  >
+                    {getBatchStatus(viewBatch).icon}
+                    {getBatchStatus(viewBatch).label}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Manufacturing Date</p>
+                  <p className="font-medium text-gray-900">
+                    {new Date(viewBatch.manufacturingDate).toLocaleDateString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Expiry Date</p>
+                  <p className="font-medium text-gray-900">
+                    {new Date(viewBatch.expiryDate).toLocaleDateString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Product</p>
+                  <p className="font-medium text-gray-900">
+                    {products.find((p) => p.id === viewBatch.productId || p.productId === viewBatch.productId)
+                      ? normalizeProductLabel(
+                          products.find((p) => p.id === viewBatch.productId || p.productId === viewBatch.productId)!
+                        )
+                      : `Product #${viewBatch.productId}`}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Warehouse</p>
+                  <p className="font-medium text-gray-900">
+                    {getWarehouseDisplay(viewBatch)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Inspections</p>
+                  <p className="font-medium text-gray-900">{viewBatch.inspections.length}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Days Until Expiry</p>
+                  <p
+                    className={`font-medium ${
+                      getDaysUntilExpiry(viewBatch) < 0
+                        ? "text-red-600"
+                        : getDaysUntilExpiry(viewBatch) <= 30
+                        ? "text-yellow-600"
+                        : "text-emerald-600"
+                    }`}
+                  >
+                    {getDaysUntilExpiry(viewBatch) < 0
+                      ? "Expired"
+                      : `${getDaysUntilExpiry(viewBatch)} days`}
+                  </p>
+                </div>
+              </div>
+
+              {viewBatch.inspections.length > 0 && (
+                <div className="border-t border-gray-100 pt-4">
+                  <p className="mb-2 text-xs text-gray-500">Inspections</p>
+                  <div className="space-y-2">
+                    {viewBatch.inspections.slice(0, 3).map((inspection, index) => (
+                      <div key={index} className="flex items-center gap-2 text-sm">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                            inspection.result === "PASS"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {inspection.result}
+                        </span>
+                        <span className="text-gray-500">
+                          {new Date(inspection.inspectionDate).toLocaleDateString()}
+                        </span>
+                        <span className="text-gray-500">by {inspection.inspector}</span>
+                      </div>
+                    ))}
+                    {viewBatch.inspections.length > 3 && (
+                      <p className="text-xs text-gray-400">
+                        +{viewBatch.inspections.length - 3} more
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-gray-100 px-5 py-4 text-right">
+              <button
+                type="button"
+                onClick={() => setViewBatch(null)}
+                className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <DynamicPopup
+        isPopupOpen={!!deleteBatch}
+        setIsPopupOpen={(open) => {
+          if (!open) setDeleteBatch(null);
+        }}
+        icon={<TrashIcon className="h-6 w-6 text-red-600" />}
+        iconBg="bg-red-100"
+        innerText="Delete Batch"
+        subText={
+          deleteBatch
+            ? `Are you sure you want to delete batch "${deleteBatch.batchNumber}"?`
+            : "Are you sure?"
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteBatch(null)}
+        confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
+      />
+    </>
+  );
 };
 
-export default BatchManager;
-
+export default BatchManagement;
