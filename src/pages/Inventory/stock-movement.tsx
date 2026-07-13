@@ -246,19 +246,30 @@ const StockMovementsManager: React.FC = () => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  /**
+   * Builds the POST/PUT payload for a Stock Movement.
+   *
+   * IMPORTANT: this only sends fields the frontend actually owns.
+   * - id: 0 for create, or the existing id when editing.
+   * - warehouse / batch / serialNumber: sent as a bare `{ id }` reference.
+   *   The backend looks up the full entity from that id — you never need
+   *   to construct or send the nested stockLevels/batches/serialNumbers/
+   *   inspections graph that shows up in the Swagger GET/response schema.
+   *   That nested data is server-generated output, not client input.
+   * - createdDate / updatedDate / createdBy / tenantId are NOT set here.
+   *   Those are server-managed audit fields — the backend should stamp
+   *   them (from the authenticated session / DB triggers), not the
+   *   frontend. Sending fabricated values for these from the client is
+   *   both unnecessary and risks the backend trusting client-supplied
+   *   audit data it shouldn't.
+   */
   const buildPayload = () => {
     const selectedWarehouse = warehouses.find((item) => item.id === toNumber(form.warehouseId));
     const selectedBatch = batches.find((item) => item.id === toNumber(form.batchId));
     const selectedSerial = serialNumbers.find((item) => item.id === toNumber(form.serialNumberId));
-    const existingMovement = stockMovements.find((item) => item.id === editingId);
-    const now = new Date().toISOString();
 
     return {
       id: editingId || 0,
-      createdDate: existingMovement?.createdDate || now,
-      updatedDate: now,
-      createdBy: existingMovement?.createdBy || user?.userId || user?.username || authUser.userId || authUser.username || "",
-      tenantId: existingMovement?.tenantId || user?.tenantId || authUser.tenantId || "",
       movementDate: form.movementDate,
       movementType: form.movementType,
       quantity: toNumber(form.quantity),
@@ -266,49 +277,9 @@ const StockMovementsManager: React.FC = () => {
       toLocation: form.toLocation,
       reference: form.reference,
       productId: toNumber(form.productId),
-      // The schema defines `warehouse` as a full warehouse reference object
-      // (id/code/name/...), not a bare string. Sending a string here was a
-      // mismatch against the API contract — matching the object shape used
-      // for `batch` and `serialNumber` below, just as the backend expects.
-      warehouse: selectedWarehouse
-        ? {
-            id: selectedWarehouse.id,
-            code: selectedWarehouse.code || null,
-            name: selectedWarehouse.name || null,
-          }
-        : null,
-      batch: selectedBatch
-        ? {
-            id: selectedBatch.id,
-            createdDate: null,
-            updatedDate: null,
-            createdBy: null,
-            tenantId: null,
-            batchNumber: selectedBatch.batchNumber,
-            manufacturingDate: selectedBatch.manufacturingDate || null,
-            expiryDate: selectedBatch.expiryDate || null,
-            productId: selectedBatch.productId || toNumber(form.productId),
-            warehouse: selectedBatch.warehouse || (selectedWarehouse ? selectedWarehouse.code || selectedWarehouse.name || "" : ""),
-            inspections: [],
-          }
-        : null,
-      serialNumber: selectedSerial
-        ? {
-            id: selectedSerial.id,
-            createdDate: null,
-            updatedDate: null,
-            createdBy: null,
-            tenantId: null,
-            serial: selectedSerial.serial || "",
-            warrantyStart: null,
-            warrantyEnd: null,
-            productId: selectedSerial.productId || toNumber(form.productId),
-            productNumber: selectedSerial.productNumber || "",
-            warehouse: selectedSerial.warehouse || (selectedWarehouse ? selectedWarehouse.code || selectedWarehouse.name || "" : ""),
-            batch: null,
-            inspections: [],
-          }
-        : null,
+      warehouse: selectedWarehouse ? { id: selectedWarehouse.id } : null,
+      batch: selectedBatch ? { id: selectedBatch.id } : null,
+      serialNumber: selectedSerial ? { id: selectedSerial.id } : null,
     };
   };
 

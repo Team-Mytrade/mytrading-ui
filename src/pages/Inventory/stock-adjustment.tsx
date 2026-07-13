@@ -192,16 +192,17 @@ const StockAdjustmentManager: React.FC = () => {
 
     // Fetch batches by product ID
     const fetchBatchesByProduct = async (productId: number) => {
-        try {
-            const response = await axios.get(`${PRODUCT_URL}/product/${productId}`);
-            setFilteredBatches(response.data);
-            return response.data;
-        } catch (err) {
-            console.error("Failed to load batches for product", err);
-            setFilteredBatches([]);
-            return [];
-        }
-    };
+    try {
+        const response = await axios.get(`${API_URL}/batches`);
+        const filtered = response.data.filter((b: Batch) => b.productId === productId);
+        setFilteredBatches(filtered);
+        return filtered;
+    } catch (err) {
+        console.error("Failed to load batches for product", err);
+        setFilteredBatches([]);
+        return [];
+    }
+};
 
     // Fetch serial numbers by batch ID
     const fetchSerialNumbersByBatch = async (batchId: number) => {
