@@ -23,9 +23,78 @@ import DynamicPopup from "../../components/common/Popup";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { AuthContext } from "../../context/AuthContext";
 
-type WarehouseLocationType = "MAIN" | "SECONDARY" | "DISTRIBUTION" | "STORAGE";
+type WarehouseLocationType = "MAIN" | "SUB" | "STORE";
 
-type Warehouse = {
+interface StockLevel {
+  id: number;
+  quantity: number;
+  reserved: number;
+  available: number;
+  productId: number;
+  warehouse: string;
+}
+
+interface Batch {
+  id: number;
+  batchNumber: string;
+  manufacturingDate: string;
+  expiryDate: string;
+  productId: number;
+  warehouse: string;
+  inspections: any[];
+}
+
+interface SerialNumber {
+  id: number;
+  serial: string;
+  warrantyStart: string;
+  warrantyEnd: string;
+  productId: number;
+  productNumber: string;
+  warehouse: string;
+  batch: Batch;
+  inspections: any[];
+}
+
+interface StockMovement {
+  id: number;
+  movementDate: string;
+  movementType: "GRN" | "SALES_ORDER" | "TRANSFER_OUT" | "TRANSFER_IN" | "RETURN" | "ADJUSTMENT";
+  quantity: number;
+  fromLocation: string;
+  toLocation: string;
+  reference: string;
+  productId: number;
+  warehouse: string;
+  batch: Batch;
+  serialNumber: SerialNumber;
+}
+
+interface StockAdjustment {
+  id: number;
+  adjustmentDate: string;
+  reason: string;
+  quantity: number;
+  adjustmentType: "POSITIVE" | "NEGATIVE";
+  productId: number;
+  warehouse: string;
+  batch: Batch;
+  serialNumber: SerialNumber;
+}
+
+interface StockEntry {
+  id: number;
+  type: "GRN" | "SALES_ORDER" | "TRANSFER" | "ADJUSTMENT";
+  quantity: number;
+  movementDate: string;
+  referenceNo: string;
+  productId: number;
+  reservedQty: number;
+  minStockLevel: number;
+  warehouse: string;
+}
+
+interface Warehouse {
   id: number;
   createdDate?: string;
   updatedDate?: string;
@@ -34,43 +103,28 @@ type Warehouse = {
   code: string;
   name: string;
   locationType: WarehouseLocationType;
-  address?: string;
-  city?: string;
-  state?: string;
-  pincode?: string;
-  phone?: string;
-  email?: string;
-  isActive?: boolean;
-};
+  stockLevels: StockLevel[];
+  batches: Batch[];
+  serialNumbers: SerialNumber[];
+  stockMovements: StockMovement[];
+  stockAdjustments: StockAdjustment[];
+  stockEntries: StockEntry[];
+}
 
-type WarehouseForm = {
+interface WarehouseForm {
   code: string;
   name: string;
   locationType: WarehouseLocationType;
-  address: string;
-  city: string;
-  state: string;
-  pincode: string;
-  phone: string;
-  email: string;
-  isActive: string;
-};
+}
 
 const API_URL = "/v1/api/inventory/warehouses";
 const PAGE_SIZE = 10;
-const locationTypeOptions: WarehouseLocationType[] = ["MAIN", "SECONDARY", "DISTRIBUTION", "STORAGE"];
+const locationTypeOptions: WarehouseLocationType[] = ["MAIN", "SUB", "STORE"];
 
 const emptyForm: WarehouseForm = {
   code: "",
   name: "",
   locationType: "MAIN",
-  address: "",
-  city: "",
-  state: "",
-  pincode: "",
-  phone: "",
-  email: "",
-  isActive: "true",
 };
 
 function getStoredUser() {
@@ -91,64 +145,14 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
-function toWarehouseRow(item: unknown): Warehouse | null {
-  if (!item || typeof item !== "object") return null;
-  const warehouse = item as Record<string, unknown>;
-
-  if (typeof warehouse.code !== "string" || typeof warehouse.name !== "string") {
-    return null;
-  }
-
-  return {
-    id: Number(warehouse.id || 0),
-    createdDate: typeof warehouse.createdDate === "string" ? warehouse.createdDate : "",
-    updatedDate: typeof warehouse.updatedDate === "string" ? warehouse.updatedDate : "",
-    createdBy: typeof warehouse.createdBy === "string" ? warehouse.createdBy : "",
-    tenantId: typeof warehouse.tenantId === "string" ? warehouse.tenantId : "",
-    code: warehouse.code,
-    name: warehouse.name,
-    locationType: (warehouse.locationType as WarehouseLocationType) || "MAIN",
-    address: typeof warehouse.address === "string" ? warehouse.address : "",
-    city: typeof warehouse.city === "string" ? warehouse.city : "",
-    state: typeof warehouse.state === "string" ? warehouse.state : "",
-    pincode: typeof warehouse.pincode === "string" ? warehouse.pincode : "",
-    phone: typeof warehouse.phone === "string" ? warehouse.phone : "",
-    email: typeof warehouse.email === "string" ? warehouse.email : "",
-    isActive: typeof warehouse.isActive === "boolean" ? warehouse.isActive : true,
-  };
-}
-
-function normalizeWarehouseResponse(payload: unknown): Warehouse[] {
-  if (Array.isArray(payload)) {
-    return payload.map(toWarehouseRow).filter((item): item is Warehouse => item !== null);
-  }
-
-  if (payload && typeof payload === "object") {
-    const record = payload as Record<string, unknown>;
-
-    if (Array.isArray(record.content)) {
-      return record.content.map(toWarehouseRow).filter((item): item is Warehouse => item !== null);
-    }
-
-    if ("code" in record && "name" in record) {
-      const single = toWarehouseRow(record);
-      return single ? [single] : [];
-    }
-  }
-
-  return [];
-}
-
 function getLocationTypeColor(type: WarehouseLocationType) {
   switch (type) {
     case "MAIN":
       return "bg-purple-100 text-purple-800 border-purple-200";
-    case "SECONDARY":
+    case "SUB":
       return "bg-blue-100 text-blue-800 border-blue-200";
-    case "DISTRIBUTION":
+    case "STORE":
       return "bg-green-100 text-green-800 border-green-200";
-    case "STORAGE":
-      return "bg-yellow-100 text-yellow-800 border-yellow-200";
     default:
       return "bg-gray-100 text-gray-800 border-gray-200";
   }
@@ -157,6 +161,7 @@ function getLocationTypeColor(type: WarehouseLocationType) {
 const WarehousePage: React.FC = () => {
   const { user } = useContext(AuthContext);
   const authUser = getStoredUser();
+
   const headers = useMemo(() => {
     const token = localStorage.getItem("accessToken");
     const tenantId = user?.tenantId || authUser.tenantId || "";
@@ -185,11 +190,11 @@ const WarehousePage: React.FC = () => {
     void fetchWarehouses();
   }, []);
 
-  const fetchWarehouses = async () => {
+  const fetchWarehouses = async (): Promise<void> => {
     try {
       setLoading(true);
-      const response = await axios.get(API_URL, { headers });
-      setWarehouses(normalizeWarehouseResponse(response.data));
+      const response = await axios.get<Warehouse[]>(API_URL, { headers });
+      setWarehouses(response.data);
     } catch (error) {
       setWarehouses([]);
       ToasterService.error("Failed to load warehouses", getErrorMessage(error, "Please try again."));
@@ -198,7 +203,7 @@ const WarehousePage: React.FC = () => {
     }
   };
 
-  const fetchWarehouseById = async () => {
+  const fetchWarehouseById = async (): Promise<void> => {
     if (!lookupId.trim()) {
       ToasterService.error("Warehouse ID is required");
       return;
@@ -206,8 +211,8 @@ const WarehousePage: React.FC = () => {
 
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/${lookupId.trim()}`, { headers });
-      setWarehouses(normalizeWarehouseResponse(response.data));
+      const response = await axios.get<Warehouse>(`${API_URL}/${lookupId.trim()}`, { headers });
+      setWarehouses([response.data]);
       ToasterService.success("Warehouse loaded");
     } catch (error) {
       ToasterService.error("Failed to load warehouse", getErrorMessage(error, "Please try again."));
@@ -216,7 +221,7 @@ const WarehousePage: React.FC = () => {
     }
   };
 
-  const fetchWarehouseByCode = async () => {
+  const fetchWarehouseByCode = async (): Promise<void> => {
     if (!lookupCode.trim()) {
       ToasterService.error("Warehouse code is required");
       return;
@@ -224,8 +229,8 @@ const WarehousePage: React.FC = () => {
 
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/code/${encodeURIComponent(lookupCode.trim())}`, { headers });
-      setWarehouses(normalizeWarehouseResponse(response.data));
+      const response = await axios.get<Warehouse>(`${API_URL}/code/${encodeURIComponent(lookupCode.trim())}`, { headers });
+      setWarehouses([response.data]);
       ToasterService.success("Warehouse loaded");
     } catch (error) {
       ToasterService.error("Failed to load warehouse by code", getErrorMessage(error, "Please try again."));
@@ -234,15 +239,15 @@ const WarehousePage: React.FC = () => {
     }
   };
 
-  const applyFilters = async () => {
+  const applyFilters = async (): Promise<void> => {
     try {
       setLoading(true);
-      const params = new URLSearchParams({ page: "0", size: "100" });
-      if (locationTypeFilter) params.set("locationType", locationTypeFilter);
+      const params = new URLSearchParams();
+      if (locationTypeFilter) params.set("location", locationTypeFilter);
       if (search.trim()) params.set("name", search.trim());
 
-      const response = await axios.get(`${API_URL}/filter?${params.toString()}`, { headers });
-      setWarehouses(normalizeWarehouseResponse(response.data));
+      const response = await axios.get<{ content: Warehouse[] }>(`${API_URL}/filter?${params.toString()}`, { headers });
+      setWarehouses(response.data.content || []);
       setShowFilters(false);
     } catch (error) {
       ToasterService.error("Failed to apply filters", getErrorMessage(error, "Please try again."));
@@ -251,49 +256,70 @@ const WarehousePage: React.FC = () => {
     }
   };
 
-  const clearFilters = async () => {
+  const clearFilters = async (): Promise<void> => {
     setLocationTypeFilter("");
     setSearch("");
     await fetchWarehouses();
     setShowFilters(false);
   };
 
-  const clearForm = () => {
+  const clearForm = (): void => {
     setForm(emptyForm);
     setEditingId(null);
     setShowForm(false);
   };
 
-  const openCreateWarehouse = () => {
+  const openCreateWarehouse = (): void => {
     clearForm();
     setShowForm(true);
   };
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
     const { name, value } = e.target;
     setForm((current) => ({ ...current, [name]: value }));
   };
 
-  const handleEdit = (warehouse: Warehouse) => {
-    setEditingId(warehouse.id);
-    setForm({
-      code: warehouse.code,
-      name: warehouse.name,
-      locationType: warehouse.locationType,
-      address: warehouse.address || "",
-      city: warehouse.city || "",
-      state: warehouse.state || "",
-      pincode: warehouse.pincode || "",
-      phone: warehouse.phone || "",
-      email: warehouse.email || "",
-      isActive: String(warehouse.isActive !== false),
-    });
-    setShowForm(true);
+  const handleEdit = async (warehouse: Warehouse): Promise<void> => {
+    try {
+      const response = await axios.get<Warehouse>(`${API_URL}/${warehouse.id}`, { headers });
+      const fullData = response.data;
+
+      setEditingId(warehouse.id);
+      setForm({
+        code: fullData.code,
+        name: fullData.name,
+        locationType: fullData.locationType,
+      });
+      setShowForm(true);
+    } catch (error) {
+      ToasterService.error("Failed to load warehouse details", getErrorMessage(error, "Please try again."));
+    }
   };
 
   const buildWarehousePayload = (mode: "create" | "update") => {
     const existing = warehouses.find((item) => item.id === editingId);
-    const basePayload = {
+
+    if (mode === "update" && existing) {
+      return {
+        id: existing.id,
+        createdDate: existing.createdDate || new Date().toISOString(),
+        updatedDate: new Date().toISOString(),
+        createdBy: existing.createdBy || user?.userId || authUser.userId || "",
+        tenantId: existing.tenantId || user?.tenantId || authUser.tenantId || "",
+        code: form.code.trim(),
+        name: form.name.trim(),
+        locationType: form.locationType,
+        stockLevels: existing.stockLevels || [],
+        batches: existing.batches || [],
+        serialNumbers: existing.serialNumbers || [],
+        stockMovements: existing.stockMovements || [],
+        stockAdjustments: existing.stockAdjustments || [],
+        stockEntries: existing.stockEntries || [],
+      };
+    }
+
+    return {
+      tenantId: user?.tenantId || authUser.tenantId || "",
       code: form.code.trim(),
       name: form.name.trim(),
       locationType: form.locationType,
@@ -304,25 +330,9 @@ const WarehousePage: React.FC = () => {
       stockAdjustments: [],
       stockEntries: [],
     };
-
-    if (mode === "create") {
-      return {
-        tenantId: user?.tenantId || authUser.tenantId || "",
-        ...basePayload,
-      };
-    }
-
-    return {
-      id: editingId || 0,
-      createdDate: existing?.createdDate || "",
-      updatedDate: new Date().toISOString(),
-      createdBy: existing?.createdBy || user?.userId || authUser.userId || "",
-      tenantId: existing?.tenantId || user?.tenantId || authUser.tenantId || "",
-      ...basePayload,
-    };
   };
 
-  const handleSave = async (e: FormEvent) => {
+  const handleSave = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
 
     try {
@@ -355,32 +365,87 @@ const WarehousePage: React.FC = () => {
     }
   };
 
-  const confirmDelete = async () => {
+  const getTotalStock = (warehouse: Warehouse): number => {
+    return warehouse.stockLevels.reduce((sum, level) => sum + level.quantity, 0);
+  };
+
+  const canDeleteWarehouse = (warehouse: Warehouse): boolean => {
+    return getTotalStock(warehouse) === 0 &&
+           warehouse.stockLevels.length === 0 &&
+           warehouse.batches.length === 0 &&
+           warehouse.serialNumbers.length === 0;
+  };
+
+  const handleDeleteClick = (warehouse: Warehouse): void => {
+    if (!canDeleteWarehouse(warehouse)) {
+      ToasterService.warning(
+        "Cannot delete warehouse with existing stock. Please remove all stock first.",
+        "Delete Blocked"
+      );
+      return;
+    }
+    setDeletingWarehouse(warehouse);
+  };
+
+  const confirmDelete = async (): Promise<void> => {
     if (!deletingWarehouse?.id) return;
 
     try {
-      await axios.delete(`${API_URL}/${deletingWarehouse.id}`, { headers });
-      ToasterService.success("Warehouse deleted successfully");
-      setDeletingWarehouse(null);
-      await fetchWarehouses();
+      setSubmitting(true);
+      const warehouseId = deletingWarehouse.id;
+
+      try {
+        await axios.delete(`${API_URL}/${warehouseId}?cascade=true`, { headers });
+        ToasterService.success("Warehouse deleted successfully");
+        setDeletingWarehouse(null);
+        await fetchWarehouses();
+        return;
+      } catch (cascadeError) {
+        const response = await axios.get<Warehouse>(`${API_URL}/${warehouseId}`, { headers });
+        const warehouse = response.data;
+
+        if (warehouse.stockLevels.length > 0 || warehouse.batches.length > 0 || warehouse.serialNumbers.length > 0) {
+          ToasterService.warning(
+            "This warehouse has stock. Please remove all stock before deleting.",
+            "Cannot Delete"
+          );
+          setDeletingWarehouse(null);
+          return;
+        }
+
+        await axios.delete(`${API_URL}/${warehouseId}`, { headers });
+        ToasterService.success("Warehouse deleted successfully");
+        setDeletingWarehouse(null);
+        await fetchWarehouses();
+      }
     } catch (error) {
-      ToasterService.error("Delete failed", getErrorMessage(error, "Please try again."));
+      const errorMessage = getErrorMessage(error, "Please try again.");
+      if (errorMessage.includes("foreign key") || errorMessage.includes("constraint")) {
+        ToasterService.error(
+          "Cannot delete warehouse with existing stock. Please remove all stock first.",
+          "Delete Failed"
+        );
+      } else {
+        ToasterService.error("Delete failed", errorMessage);
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const filtered = warehouses.filter((warehouse) => {
     const matchesType = locationTypeFilter ? warehouse.locationType === locationTypeFilter : true;
-    const searchBlob = `${warehouse.code} ${warehouse.name} ${warehouse.city || ""} ${warehouse.state || ""}`.toLowerCase();
+    const searchBlob = `${warehouse.code} ${warehouse.name}`.toLowerCase();
     const matchesSearch = search.trim() ? searchBlob.includes(search.toLowerCase()) : true;
     return matchesType && matchesSearch;
   });
 
   const totalWarehouses = warehouses.length;
   const mainWarehouses = warehouses.filter((item) => item.locationType === "MAIN").length;
-  const secondaryWarehouses = warehouses.filter((item) => item.locationType === "SECONDARY").length;
-  const distributionAndStorage = warehouses.filter((item) => item.locationType === "DISTRIBUTION" || item.locationType === "STORAGE").length;
+  const subWarehouses = warehouses.filter((item) => item.locationType === "SUB").length;
+  const storeWarehouses = warehouses.filter((item) => item.locationType === "STORE").length;
 
-  const exportPDF = () => {
+  const exportPDF = (): void => {
     const doc = new jsPDF();
     doc.setFontSize(18);
     doc.text("Warehouses Report", 14, 15);
@@ -389,14 +454,8 @@ const WarehousePage: React.FC = () => {
     doc.text(`Total Warehouses: ${filtered.length}`, 14, 28);
 
     autoTable(doc, {
-      head: [["Code", "Name", "Location Type", "City", "Status"]],
-      body: filtered.map((warehouse) => [
-        warehouse.code,
-        warehouse.name,
-        warehouse.locationType,
-        warehouse.city || "-",
-        warehouse.isActive !== false ? "Active" : "Inactive",
-      ]),
+      head: [["Code", "Name", "Location Type"]],
+      body: filtered.map((warehouse) => [warehouse.code, warehouse.name, warehouse.locationType]),
       startY: 35,
       styles: { fontSize: 8 },
       headStyles: { fillColor: [6, 182, 212] },
@@ -406,15 +465,12 @@ const WarehousePage: React.FC = () => {
     setShowExportMenu(false);
   };
 
-  const exportExcel = () => {
+  const exportExcel = (): void => {
     const ws = XLSX.utils.json_to_sheet(
       filtered.map((warehouse) => ({
         Code: warehouse.code,
         Name: warehouse.name,
         "Location Type": warehouse.locationType,
-        City: warehouse.city || "-",
-        State: warehouse.state || "-",
-        Status: warehouse.isActive !== false ? "Active" : "Inactive",
       }))
     );
     const wb = XLSX.utils.book_new();
@@ -436,23 +492,68 @@ const WarehousePage: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <StatsCard label="Total Warehouses" value={totalWarehouses} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-              <StatsCard label="Main Warehouses" value={mainWarehouses} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
-              <StatsCard label="Secondary" value={secondaryWarehouses} gradient="from-blue-50 to-indigo-50" borderColor="border-blue-100" labelColor="text-blue-600" />
-              <StatsCard label="Distribution / Storage" value={distributionAndStorage} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+              <StatsCard
+                label="Total Warehouses"
+                value={totalWarehouses}
+                gradient="from-cyan-50 to-blue-50"
+                borderColor="border-cyan-100"
+                labelColor="text-cyan-600"
+              />
+              <StatsCard
+                label="Main Warehouses"
+                value={mainWarehouses}
+                gradient="from-purple-50 to-pink-50"
+                borderColor="border-purple-100"
+                labelColor="text-purple-600"
+              />
+              <StatsCard
+                label="Sub Warehouses"
+                value={subWarehouses}
+                gradient="from-blue-50 to-indigo-50"
+                borderColor="border-blue-100"
+                labelColor="text-blue-600"
+              />
+              <StatsCard
+                label="Stores"
+                value={storeWarehouses}
+                gradient="from-green-50 to-emerald-50"
+                borderColor="border-green-100"
+                labelColor="text-green-600"
+              />
             </div>
 
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-                <FloatingInput label="Warehouse ID" type="number" value={lookupId} onChange={(e) => setLookupId(e.target.value)} />
-                <button type="button" onClick={fetchWarehouseById} className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700">
+                <FloatingInput
+                  label="Warehouse ID"
+                  type="number"
+                  value={lookupId}
+                  onChange={(e) => setLookupId(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={fetchWarehouseById}
+                  className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700"
+                >
                   Get By ID
                 </button>
-                <FloatingInput label="Warehouse Code" value={lookupCode} onChange={(e) => setLookupCode(e.target.value)} />
-                <button type="button" onClick={fetchWarehouseByCode} className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700">
+                <FloatingInput
+                  label="Warehouse Code"
+                  value={lookupCode}
+                  onChange={(e) => setLookupCode(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={fetchWarehouseByCode}
+                  className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700"
+                >
                   Get By Code
                 </button>
-                <button type="button" onClick={fetchWarehouses} className="h-[52px] rounded-lg bg-gray-100 px-4 text-sm font-medium text-gray-700 hover:bg-gray-200">
+                <button
+                  type="button"
+                  onClick={fetchWarehouses}
+                  className="h-[52px] rounded-lg bg-gray-100 px-4 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                >
                   Load All
                 </button>
               </div>
@@ -463,7 +564,7 @@ const WarehousePage: React.FC = () => {
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search by code, name, or city..."
+                  placeholder="Search by code or name..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
@@ -482,21 +583,40 @@ const WarehousePage: React.FC = () => {
                   </button>
                   {showExportMenu && (
                     <div className="absolute right-0 z-50 mt-1 w-48 rounded-md border border-gray-200 bg-white shadow-lg">
-                      <button type="button" onClick={exportPDF} className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                      <button
+                        type="button"
+                        onClick={exportPDF}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                      >
                         <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
                         Export PDF
                       </button>
-                      <button type="button" onClick={exportExcel} className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                      <button
+                        type="button"
+                        onClick={exportExcel}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                      >
                         <DocumentArrowDownIcon className="h-4 w-4 text-green-600" />
                         Export Excel
                       </button>
                     </div>
                   )}
                 </div>
-                <button type="button" onClick={() => window.print()} className="rounded-lg border border-gray-300 p-2 transition-colors hover:bg-gray-50" disabled={warehouses.length === 0}>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="rounded-lg border border-gray-300 p-2 transition-colors hover:bg-gray-50"
+                  disabled={warehouses.length === 0}
+                >
                   <PrinterIcon className="h-5 w-5 text-gray-600" />
                 </button>
-                <button type="button" onClick={() => setShowFilters((current) => !current)} className={`rounded-lg border p-2 ${showFilters ? "border-cyan-300 bg-cyan-50" : "border-gray-300 hover:bg-gray-50"}`}>
+                <button
+                  type="button"
+                  onClick={() => setShowFilters((current) => !current)}
+                  className={`rounded-lg border p-2 ${
+                    showFilters ? "border-cyan-300 bg-cyan-50" : "border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
                   <FunnelIcon className={`h-5 w-5 ${showFilters ? "text-cyan-600" : "text-gray-600"}`} />
                 </button>
               </div>
@@ -522,10 +642,18 @@ const WarehousePage: React.FC = () => {
                   </div>
                 </div>
                 <div className="mt-4 flex gap-4">
-                  <button type="button" onClick={applyFilters} className="rounded-lg bg-cyan-600 px-4 py-2 text-white transition-colors hover:bg-cyan-700">
+                  <button
+                    type="button"
+                    onClick={applyFilters}
+                    className="rounded-lg bg-cyan-600 px-4 py-2 text-white transition-colors hover:bg-cyan-700"
+                  >
                     Apply Filters
                   </button>
-                  <button type="button" onClick={clearFilters} className="rounded-lg bg-gray-500 px-4 py-2 text-white transition-colors hover:bg-gray-600">
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="rounded-lg bg-gray-500 px-4 py-2 text-white transition-colors hover:bg-gray-600"
+                  >
                     Clear All
                   </button>
                 </div>
@@ -537,14 +665,28 @@ const WarehousePage: React.FC = () => {
         {showForm && (
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="mb-4 border-b border-gray-100 pb-4">
-              <h3 className="text-lg font-semibold text-gray-900">{editingId ? "Edit Warehouse" : "Create Warehouse"}</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {editingId ? "Edit Warehouse" : "Create Warehouse"}
+              </h3>
               <p className="mt-0.5 text-xs text-gray-500">Integrated with the warehouse controller payload</p>
             </div>
 
             <form onSubmit={handleSave} className="space-y-4">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <FloatingInput label="Code" name="code" value={form.code} onChange={handleChange} required />
-                <FloatingInput label="Name" name="name" value={form.name} onChange={handleChange} required />
+                <FloatingInput
+                  label="Code"
+                  name="code"
+                  value={form.code}
+                  onChange={handleChange}
+                  required
+                />
+                <FloatingInput
+                  label="Name"
+                  name="name"
+                  value={form.name}
+                  onChange={handleChange}
+                  required
+                />
                 <FloatingSelect
                   label="Location Type"
                   name="locationType"
@@ -553,27 +695,14 @@ const WarehousePage: React.FC = () => {
                   includeEmptyOption={false}
                   options={locationTypeOptions.map((option) => ({ id: option, name: option }))}
                 />
-                <FloatingInput label="Address" name="address" value={form.address} onChange={handleChange} />
-                <FloatingInput label="City" name="city" value={form.city} onChange={handleChange} />
-                <FloatingInput label="State" name="state" value={form.state} onChange={handleChange} />
-                <FloatingInput label="Pincode" name="pincode" value={form.pincode} onChange={handleChange} />
-                <FloatingInput label="Phone" name="phone" value={form.phone} onChange={handleChange} />
-                <FloatingInput label="Email" name="email" type="email" value={form.email} onChange={handleChange} />
-                <FloatingSelect
-                  label="Status"
-                  name="isActive"
-                  value={form.isActive}
-                  onChange={handleChange}
-                  includeEmptyOption={false}
-                  options={[
-                    { id: "true", name: "Active" },
-                    { id: "false", name: "Inactive" },
-                  ]}
-                />
               </div>
 
               <div className="flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                <button type="button" onClick={clearForm} className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200">
+                <button
+                  type="button"
+                  onClick={clearForm}
+                  className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                >
                   Cancel
                 </button>
                 <button
@@ -602,7 +731,11 @@ const WarehousePage: React.FC = () => {
                   <BuildingOffice2Icon className="h-7 w-7 text-gray-400" />
                 </div>
                 <p className="mb-1.5 text-sm font-medium text-gray-500">No warehouses found</p>
-                <button type="button" onClick={openCreateWarehouse} className="text-sm font-medium text-cyan-600 hover:text-cyan-700">
+                <button
+                  type="button"
+                  onClick={openCreateWarehouse}
+                  className="text-sm font-medium text-cyan-600 hover:text-cyan-700"
+                >
                   Add your first warehouse
                 </button>
               </div>
@@ -611,12 +744,21 @@ const WarehousePage: React.FC = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700">Code</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700">Warehouse Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700">Location Type</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700">City</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700">Status</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-700">Actions</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700">
+                        Code
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700">
+                        Warehouse Name
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700">
+                        Location Type
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700">
+                        Total Stock
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-700">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
@@ -632,33 +774,46 @@ const WarehousePage: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${getLocationTypeColor(warehouse.locationType)}`}>
+                          <span
+                            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${getLocationTypeColor(
+                              warehouse.locationType
+                            )}`}
+                          >
                             {warehouse.locationType}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-600">{warehouse.city || "-"}</td>
-                        <td className="px-4 py-3">
-                          {warehouse.isActive !== false ? (
-                            <span className="inline-flex items-center rounded-full bg-green-100 px-1.5 py-0.5 text-[11px] font-medium text-green-800">
-                              <CheckCircleIcon className="mr-1 h-3 w-3" />
-                              Active
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-600">
-                              <XCircleIcon className="mr-1 h-3 w-3" />
-                              Inactive
-                            </span>
-                          )}
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                          {getTotalStock(warehouse)}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-0.5">
-                            <button type="button" onClick={() => setViewWarehouse(warehouse)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600" title="View Warehouse">
+                            <button
+                              type="button"
+                              onClick={() => setViewWarehouse(warehouse)}
+                              className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
+                              title="View Warehouse"
+                            >
                               <MagnifyingGlassIcon className="h-4 w-4" />
                             </button>
-                            <button type="button" onClick={() => handleEdit(warehouse)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600" title="Edit Warehouse">
+                            <button
+                              type="button"
+                              onClick={() => handleEdit(warehouse)}
+                              className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+                              title="Edit Warehouse"
+                            >
                               <PencilSquareIcon className="h-4 w-4" />
                             </button>
-                            <button type="button" onClick={() => setDeletingWarehouse(warehouse)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600" title="Delete Warehouse">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteClick(warehouse)}
+                              className={`rounded-lg p-1.5 transition-all ${
+                                canDeleteWarehouse(warehouse)
+                                  ? "text-slate-400 hover:bg-red-50 hover:text-red-600"
+                                  : "text-gray-300 cursor-not-allowed"
+                              }`}
+                              title={canDeleteWarehouse(warehouse) ? "Delete Warehouse" : "Cannot delete - has stock"}
+                              disabled={!canDeleteWarehouse(warehouse)}
+                            >
                               <TrashIcon className="h-4 w-4" />
                             </button>
                           </div>
@@ -694,20 +849,28 @@ const WarehousePage: React.FC = () => {
                     <p className="font-medium text-gray-900">{viewWarehouse.locationType}</p>
                   </div>
                   <div>
-                    <p className="text-gray-500">City</p>
-                    <p className="font-medium text-gray-900">{viewWarehouse.city || "-"}</p>
+                    <p className="text-gray-500">Total Stock</p>
+                    <p className="font-medium text-gray-900">{getTotalStock(viewWarehouse)}</p>
                   </div>
                   <div>
-                    <p className="text-gray-500">State</p>
-                    <p className="font-medium text-gray-900">{viewWarehouse.state || "-"}</p>
+                    <p className="text-gray-500">Created</p>
+                    <p className="font-medium text-gray-900">
+                      {viewWarehouse.createdDate ? new Date(viewWarehouse.createdDate).toLocaleDateString() : "-"}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-gray-500">Status</p>
-                    <p className="font-medium text-gray-900">{viewWarehouse.isActive !== false ? "Active" : "Inactive"}</p>
+                    <p className="text-gray-500">Updated</p>
+                    <p className="font-medium text-gray-900">
+                      {viewWarehouse.updatedDate ? new Date(viewWarehouse.updatedDate).toLocaleDateString() : "-"}
+                    </p>
                   </div>
                 </div>
                 <div className="border-t border-gray-100 px-6 py-4 text-right">
-                  <button type="button" onClick={() => setViewWarehouse(null)} className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setViewWarehouse(null)}
+                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                  >
                     Close
                   </button>
                 </div>
@@ -723,7 +886,11 @@ const WarehousePage: React.FC = () => {
           }}
           icon={<TrashIcon className="h-6 w-6 text-red-600" />}
           innerText="Delete Warehouse"
-          subText={`Are you sure you want to delete "${deletingWarehouse?.name || ""}"?`}
+          subText={
+            deletingWarehouse && !canDeleteWarehouse(deletingWarehouse)
+              ? `Cannot delete "${deletingWarehouse.name}" - it has stock or related data. Please remove all stock first.`
+              : `Are you sure you want to delete "${deletingWarehouse?.name || ""}"?`
+          }
           confirmLabel="Delete"
           cancelLabel="Cancel"
           onConfirm={confirmDelete}
