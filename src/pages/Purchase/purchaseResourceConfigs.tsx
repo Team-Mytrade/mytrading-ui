@@ -80,10 +80,22 @@ export const vendorConfig: PurchaseResourceConfig = {
   title: "Vendors",
   description: "Create and manage purchase vendors from the Purchase Service vendor controller.",
   endpoint: `${PURCHASE}/vendors`,
+  allowInlineActiveToggle: true,
   columns: [
     { key: "name", label: "Vendor Name" },
     { key: "contactName", label: "Contact" },
-    { key: "contactEmail", label: "Email" },
+    {
+      key: "contactEmail",
+      label: "Email",
+      render: (row) => {
+        const email = row.contactEmail || "--";
+        return (
+          <span className="block max-w-[180px] truncate text-sm text-gray-700" title={email}>
+            {email}
+          </span>
+        );
+      },
+    },
     { key: "contactPhone", label: "Phone" },
     { key: "city", label: "City" },
     { key: "active", label: "Status" },
@@ -108,6 +120,7 @@ export const termsConfig: PurchaseResourceConfig = {
   title: "Terms and Conditions",
   description: "Maintain purchase terms and conditions exactly as exposed by the terms controller.",
   endpoint: `${PURCHASE}/terms`,
+  allowInlineActiveToggle: true,
   columns: [
     { key: "title", label: "Title" },
     { key: "content", label: "Content" },
@@ -358,6 +371,24 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
   title: "Purchase Orders",
   description: "Create and update purchase orders with vendor, requisition, terms, and totals.",
   endpoint: `${PURCHASE}/purchase-orders`,
+  inlineSelectFields: [
+    {
+      name: "status",
+      options: ["DRAFT", "ISSUED", "CANCELLED", "CLOSED"].map((item) => ({
+        value: item,
+        label: item.charAt(0) + item.slice(1).toLowerCase(),
+      })),
+      widthClassName: "w-[136px]",
+    },
+    {
+      name: "approvalStatus",
+      options: ["PENDING", "APPROVED", "REJECTED"].map((item) => ({
+        value: item,
+        label: item.charAt(0) + item.slice(1).toLowerCase(),
+      })),
+      widthClassName: "w-[136px]",
+    },
+  ],
   columns: [
     { key: "poNumber", label: "PO Number" },
     { key: "vendor.name", label: "Vendor" },
@@ -549,6 +580,16 @@ export const approvalStatusConfig: PurchaseResourceConfig = {
   endpoint: `${PURCHASE}/approval-status`,
   updateEndpoint: (_row, form) => `${PURCHASE}/approval-status/${form.purchaseOrderId}/${form.status}`,
   allowDelete: false,
+  inlineSelectFields: [
+    {
+      name: "status",
+      options: ["PENDING", "APPROVED", "REJECTED"].map((item) => ({
+        value: item,
+        label: item.charAt(0) + item.slice(1).toLowerCase(),
+      })),
+      widthClassName: "w-[136px]",
+    },
+  ],
   columns: [
     { key: "poNumber", label: "PO Number" },
     { key: "purchaseOrderId", label: "Purchase Order ID" },
