@@ -26,11 +26,11 @@ import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
 import "react-toastify/dist/ReactToastify.css";
-import CustomerManagement from "./pages/CRM/CustomerManager";
-import Opportunities from "./pages/CRM/OpportunitiesPage";
-import ContactPersonDetails from "./pages/CRM/ContactPersonDetails";
-import CustomerSegmentDetails from "./pages/CRM/CustomerSegmentDetails";
-import CommunicationHistoryPage from "./pages/CRM/CommunicationHistoryPage";
+import Customers from "./pages/CRM/Customers";
+import Deals from "./pages/CRM/Deals";
+import KeyContacts from "./pages/CRM/KeyContacts";
+import Segments from "./pages/CRM/Segments";
+import Interactions from "./pages/CRM/Interactions";
 import TaskManager from "./pages/CRM/TaskManager";
 import SalesOrders from "./pages/Sales/SalesOrders";
 import Quotations from "./pages/Sales/Quotations";
@@ -116,11 +116,11 @@ import LeaveManagementPage from "./pages/Payroll/LeaveManagementPage";
 import PerformanceManagementPage from "./pages/Payroll/PerformanceManagementPage";
 import StatutoryCompliancesPage from "./pages/Payroll/StatutoryCompliancesPage";
 import SalesSummary from "./pages/Dashboard/SalesSummary";
-import Activities from "./pages/Dashboard/Activities";
+import Tasks from "./pages/CRM/Tasks";
 import DashboardOverview from "./pages/Dashboard/DashboardOverview";
 import KeyMetrics from "./pages/Dashboard/KeyMetrics";
 import RecentInteractions from "./pages/Dashboard/RecentInteractions";
-import LeadsPages from "./pages/Leads/LeadsPage";
+import Leads from "./pages/CRM/Leads";
 import ContactPage from "./pages/Contacts/ContactsPage";
 import AccountsPage from "./pages/Account/AccountsPage";
 import OpportunitiesPage from "./pages/Deal/OpportunitiesPage";
@@ -225,13 +225,13 @@ export default function AppRouter() {
         <Route element={<AppLayout />}>
           <Route index element={<Home />} />
 
-          <Route path="/customer-management" element={<CustomerManagement />} />
-          <Route path="/customer-management/:id" element={<CustomerManagement />} />
-          <Route path="/opportunities" element={<Opportunities />} />
-          <Route path="/contactPerson" element={<ContactPersonDetails />} />
-          <Route path="/customer-segment" element={<CustomerSegmentDetails />} />
-          <Route path="/customer-segment/:id" element={<CustomerSegmentDetails />} />
-          <Route path="/communication-history" element={<CommunicationHistoryPage />} />
+          <Route path="/customer-management" element={<Customers />} />
+          <Route path="/customer-management/:id" element={<Customers />} />
+          <Route path="/opportunities" element={<Deals />} />
+          <Route path="/contactPerson" element={<KeyContacts />} />
+          <Route path="/customer-segment" element={<Segments />} />
+          <Route path="/customer-segment/:id" element={<Segments />} />
+          <Route path="/communication-history" element={<Interactions />} />
           <Route path="/task" element={<TaskManager />} />
           <Route path="/crm-view/:requestFrom/:id" element={<CrmViewPage />} />
           <Route path="/crm_dashboard" element={<CrmDashboardPage />} />
@@ -393,12 +393,12 @@ export default function AppRouter() {
           <Route path="/attendance_dashboard" element={<AttendanceDashboard />} />
 
           <Route path="/sales-summary" element={<SalesSummary />} />
-          <Route path="/activities" element={<Activities />} />
+          <Route path="/activities" element={<Tasks />} />
           <Route path="/dashboard-overview" element={<DashboardOverview />} />
           <Route path="/keyMetrics" element={<KeyMetrics />} />
           <Route path="/recentInteractions" element={<RecentInteractions />} />
 
-          <Route path="/leads" element={<LeadsPages />} />
+          <Route path="/leads" element={<Leads />} />
           <Route path="/contacts" element={<ContactPage />} />
           <Route path="/accounts" element={<AccountsPage />} />
 

@@ -66,7 +66,7 @@ export const FilterPopover: React.FC<FilterPopoverProps> = ({
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className={`flex h-10 items-center gap-2 rounded-lg border px-3 py-2 transition-colors ${
+        className={`my-[3px] flex h-10 min-w-[88px] items-center justify-center gap-2 rounded-lg border px-3 py-2 transition-colors ${
           open
             ? "border-cyan-300 bg-cyan-50 text-cyan-700"
             : "border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100"

@@ -8,6 +8,15 @@ import PurchaseResourcePage, {
 const CATEGORIES = "/v1/api/purchase/product-categories";
 const PRODUCTS = "/v1/api/purchase/products";
 
+const getStoredTenantId = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+    return user?.tenantId || "";
+  } catch {
+    return "";
+  }
+};
+
 const getParentCategoryOptions = (categoryOptions: SelectOption[]) =>
   categoryOptions.filter((option) => !option.raw?.parentId);
 
@@ -18,17 +27,21 @@ const productConfig: PurchaseResourceConfig = {
   title: "Products",
   description: "Maintain purchase products from the purchase product controller.",
   endpoint: PRODUCTS,
+  allowInlineActiveToggle: true,
+  inlineBooleanFields: ["stockItem", "serviceItem"],
   columns: [
     { key: "productCode", label: "Code" },
     { key: "productName", label: "Product Name" },
     { key: "categoryName", label: "Category" },
     { key: "brand", label: "Brand" },
     { key: "uom", label: "UOM" },
-    { key: "standardCost", label: "Standard Cost" },
-    { key: "sellingPrice", label: "Selling Price" },
+    { key: "active", label: "Status" },
     { key: "stockItem", label: "Stock Item" },
     { key: "serviceItem", label: "Service Item" },
-    { key: "active", label: "Status" },
+    { key: "standardCost", label: "Standard Cost" },
+    { key: "sellingPrice", label: "Selling Price" },
+    { key: "imageName", label: "Image Name" },
+    { key: "imageType", label: "Image Type" },
   ],
   fields: [
     { name: "productName", label: "Product Name", required: true },
@@ -39,6 +52,7 @@ const productConfig: PurchaseResourceConfig = {
       label: "Parent Category",
       type: "select",
       optionsEndpoint: CATEGORIES,
+      getOptionsParams: () => ({ tenantId: getStoredTenantId() }),
       optionLabel: "categoryName",
       placeholderOption: "Select Parent Category",
       getOptions: ({ options }) => getParentCategoryOptions(options.parentCategoryId || []),
@@ -50,6 +64,7 @@ const productConfig: PurchaseResourceConfig = {
       type: "select",
       required: true,
       optionsEndpoint: CATEGORIES,
+      getOptionsParams: () => ({ tenantId: getStoredTenantId() }),
       optionLabel: "categoryName",
       placeholderOption: "Select Category",
       getOptions: ({ form, options }) =>

@@ -1,5 +1,4 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import axios from "axios";
 import {
   ArrowUturnLeftIcon,
@@ -15,11 +14,13 @@ import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import { ListingPdfExportButton } from "../../components/common/export";
 import FilterPopover from "../../components/common/filter";
+import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import {
-  FloatingDatePicker,
+  FloatingDateRangePicker,
   FloatingInput,
   FloatingSelect1 as FloatingSelect,
   FloatingTextarea,
@@ -90,7 +91,6 @@ type RefundForm = {
 
 const API_URL = "/v1/api/sales/returns";
 const PAGE_SIZE = 10;
-const statusOptions = ["REQUESTED"];
 const reasonOptions: ReturnReason[] = [
   "DAMAGED_PRODUCT",
   "WRONG_ITEM",
@@ -139,6 +139,20 @@ function toIsoDateTime(value: string) {
   return value.includes("T") ? new Date(value).toISOString() : new Date(`${value}T00:00:00`).toISOString();
 }
 
+function toDateValue(value?: string) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function toInputDateValue(date: Date | null) {
+  if (!date) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function money(value: number | string | undefined) {
   return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
@@ -148,9 +162,12 @@ function searchableText(value: unknown) {
   return String(value).toLowerCase().trim();
 }
 
+function toFriendlyLabel(value: string) {
+  return value.replace(/_/g, " ");
+}
+
 function salesOrderOptionLabel(order: SalesOrderOption) {
-  const orderNumber = order.orderNumber || `Order #${order.id}`;
-  return `${order.id} - ${orderNumber}`;
+  return order.orderNumber || `Order #${order.id}`;
 }
 
 const ReturnRequests: React.FC = () => {
@@ -164,6 +181,7 @@ const ReturnRequests: React.FC = () => {
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [requestIdFilter, setRequestIdFilter] = useState("");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("");
@@ -231,10 +249,20 @@ const ReturnRequests: React.FC = () => {
     setRefundForm((current) => ({ ...current, [name]: value }));
   };
 
+  const availableStatusOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          ["REQUESTED", "PENDING", "APPROVED", "REJECTED", "REFUNDED", ...returns.map((item) => item.status).filter(Boolean)]
+        )
+      ),
+    [returns]
+  );
+
   const buildPayload = () => ({
     id: editingId || 0,
     requestDate: form.requestDate,
-    status: "REQUESTED",
+    status: form.status,
     reason: form.reason,
     salesOrderId: toNumber(form.salesOrderId),
     remarks: form.remarks,
@@ -269,6 +297,37 @@ const ReturnRequests: React.FC = () => {
       ToasterService.error("Failed to save return request", getErrorMessage(error, "Please try again."));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const updateReturnStatus = async (request: ReturnRequest, nextStatus: string) => {
+    if (!request.id || request.status === nextStatus) return;
+
+    try {
+      setStatusUpdatingId(request.id);
+      const payload = {
+        id: request.id,
+        requestDate: request.requestDate,
+        status: nextStatus,
+        reason: request.reason,
+        salesOrderId: request.salesOrderId,
+        remarks: request.remarks || "",
+        items: (request.items || []).map((item) => ({
+          id: item.id || 0,
+          salesOrderItemId: item.salesOrderItemId,
+          refundAmount: Number(item.refundAmount || 0),
+          returnQuantity: Number(item.returnQuantity || 0),
+          remarks: item.remarks || "",
+        })),
+      };
+
+      const res = await axios.put<ReturnRequest>(`${API_URL}/${request.id}`, payload, { headers });
+      upsertReturn(res.data);
+      ToasterService.success("Return request status updated");
+    } catch (error) {
+      ToasterService.error("Failed to update status", getErrorMessage(error, "Please try again."));
+    } finally {
+      setStatusUpdatingId(null);
     }
   };
 
@@ -452,9 +511,31 @@ const ReturnRequests: React.FC = () => {
       key: "reason",
       label: "Reason",
       sortable: true,
-      render: (item) => <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">{item.reason}</span>,
+      render: (item) => <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">{toFriendlyLabel(item.reason)}</span>,
     },
-    { key: "status", label: "Status", sortable: true },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      render: (item) => (
+        <select
+          value={item.status || ""}
+          onChange={(e) => {
+            e.stopPropagation();
+            void updateReturnStatus(item, e.target.value);
+          }}
+          onClick={(e) => e.stopPropagation()}
+          disabled={statusUpdatingId === item.id}
+          className="h-9 w-[112px] rounded-xl border border-cyan-200 bg-cyan-50 px-3 text-sm font-medium text-cyan-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {availableStatusOptions.map((status) => (
+            <option key={status} value={status}>
+              {toFriendlyLabel(status)}
+            </option>
+          ))}
+        </select>
+      ),
+    },
     {
       key: "items",
       label: "Items",
@@ -538,7 +619,22 @@ const ReturnRequests: React.FC = () => {
             )}
           </div>
 
-          <FilterPopover title="Refund Tools" buttonLabel="Filters" widthClassName="w-[20rem] sm:w-[22rem]" showFooter={false}>
+          <div className="flex items-center gap-2">
+            <ListingPdfExportButton
+              title="Return Requests"
+              subtitle="Filtered return request listing"
+              reportLabel="Sales Report"
+              data={filtered}
+              fileName="Return_Requests"
+              disabled={loading}
+              metadata={(rows, rangeLabel) => [
+                { label: "Total", value: rows.length },
+                { label: "Range", value: rangeLabel },
+                { label: "Payment", value: paymentMethodFilter || "All" },
+                { label: "Search", value: search || "None" },
+              ]}
+            />
+            <FilterPopover title="Refund Tools" buttonLabel="Filters" widthClassName="w-[20rem] sm:w-[22rem]" showFooter={false}>
             <div className="space-y-3">
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-700">Return Request ID</label>
@@ -612,7 +708,8 @@ const ReturnRequests: React.FC = () => {
                 </div>
               </div>
             </div>
-          </FilterPopover>
+            </FilterPopover>
+          </div>
         </div>
 
         <ReusableTable
@@ -625,54 +722,73 @@ const ReturnRequests: React.FC = () => {
         />
       </div>
 
-      {showFormModal &&
-        createPortal(
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-4 backdrop-blur-sm sm:items-center">
-            <div className="mx-auto max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto rounded-xl bg-white shadow-xl">
-              <div className="flex items-center justify-between border-b border-gray-100 p-5">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{editingId ? "Edit Return Request" : "Create Return Request"}</h3>
-                  <p className="mt-0.5 text-xs text-gray-500">Enter return request details from the API schema</p>
-                </div>
-                <button type="button" onClick={closeForm} className="text-gray-400 hover:text-gray-600">
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="p-5">
-                <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
-                  <FloatingDatePicker label="Request Date" name="requestDate" value={form.requestDate} onChange={handleChange} required />
-                  <FloatingSelect label="Status" name="status" value={form.status} onChange={handleChange} includeEmptyOption={false} options={statusOptions.map((item) => ({ id: item, name: item }))} />
-                  <FloatingSelect label="Reason" name="reason" value={form.reason} onChange={handleChange} includeEmptyOption={false} options={reasonOptions.map((item) => ({ id: item, name: item }))} />
-                  <FloatingSelect
-                    label="Sales Order ID"
-                    name="salesOrderId"
-                    value={form.salesOrderId}
-                    onChange={handleChange}
-                    emptyOptionLabel="Select sales order"
-                    options={salesOrders.map((order) => ({
-                      id: String(order.id),
-                      name: salesOrderOptionLabel(order),
-                    }))}
-                  />
-                  <FloatingInput label="Sales Order Item ID" name="itemSalesOrderItemId" type="number" value={form.itemSalesOrderItemId} onChange={handleChange} required />
-                  <FloatingInput label="Return Quantity" name="itemReturnQuantity" type="number" value={form.itemReturnQuantity} onChange={handleChange} required />
-                  <FloatingInput label="Refund Amount" name="itemRefundAmount" type="number" value={form.itemRefundAmount} onChange={handleChange} />
-                  <FloatingInput label="Item Remarks" name="itemRemarks" value={form.itemRemarks} onChange={handleChange} />
-                </div>
-                <FloatingTextarea label="Remarks" name="remarks" value={form.remarks} onChange={handleChange} rows={3} />
-
-                <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                  <button type="button" onClick={closeForm} className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200">Cancel</button>
-                  <button type="submit" disabled={submitting} className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-70">
-                    {submitting ? "Saving..." : editingId ? "Update Return Request" : "Create Return Request"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>,
-          document.body
-        )}
+      <PaginatedPopup
+        isOpen={showFormModal}
+        title={editingId ? "Edit Return Request" : "Create Return Request"}
+        subtitle="Enter return request details from the API schema"
+        onClose={closeForm}
+        onSubmit={handleSubmit}
+        submitting={submitting}
+        submitLabel={editingId ? "Update Return Request" : "Create Return Request"}
+        maxWidthClassName="max-w-3xl"
+        tabs={[
+          {
+            label: "Request Info",
+            fields: [
+              <FloatingDateRangePicker
+                label="Request Date"
+                startDate={toDateValue(form.requestDate)}
+                endDate={toDateValue(form.requestDate)}
+                onChange={([start, end]) =>
+                  setForm((current) => ({
+                    ...current,
+                    requestDate: toInputDateValue(end || start),
+                  }))
+                }
+                placeholder=""
+                required
+                singleSelection
+              />,
+              <FloatingSelect
+                label="Status"
+                name="status"
+                value={form.status}
+                onChange={handleChange}
+                includeEmptyOption={false}
+                options={availableStatusOptions.map((item) => ({ id: item, name: toFriendlyLabel(item) }))}
+              />,
+              <FloatingSelect
+                label="Reason"
+                name="reason"
+                value={form.reason}
+                onChange={handleChange}
+                includeEmptyOption={false}
+                options={reasonOptions.map((item) => ({ id: item, name: toFriendlyLabel(item) }))}
+              />,
+              <FloatingSelect
+                label="Sales Order"
+                name="salesOrderId"
+                value={form.salesOrderId}
+                onChange={handleChange}
+                options={salesOrders.map((order) => ({
+                  id: String(order.id),
+                  name: salesOrderOptionLabel(order),
+                }))}
+              />,
+            ],
+          },
+          {
+            label: "Item Details",
+            fields: [
+              <FloatingInput label="Sales Order Item ID" name="itemSalesOrderItemId" type="number" value={form.itemSalesOrderItemId} onChange={handleChange} required />,
+              <FloatingInput label="Return Quantity" name="itemReturnQuantity" type="number" value={form.itemReturnQuantity} onChange={handleChange} required />,
+              <FloatingInput label="Refund Amount" name="itemRefundAmount" type="number" value={form.itemRefundAmount} onChange={handleChange} />,
+              <FloatingInput label="Item Remarks" name="itemRemarks" value={form.itemRemarks} onChange={handleChange} />,
+              <FloatingTextarea label="Remarks" name="remarks" value={form.remarks} onChange={handleChange} rows={3} />,
+            ],
+          },
+        ]}
+      />
 
       <DynamicPopup
         isPopupOpen={!!deleteReturn}

@@ -15,6 +15,7 @@ import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import { ListingPdfExportButton } from "../../components/common/export";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import FilterPopover from "../../components/common/filter";
@@ -1326,11 +1327,26 @@ const Quotations: React.FC = () => {
             )}
           </div>
 
-          <FilterPopover
-            title="Filter Quotations"
-            widthClassName="w-[320px]"
-            onReset={() => setStatusFilter("")}
-          >
+          <div className="flex items-center gap-2">
+            <ListingPdfExportButton
+              title="Quotations"
+              subtitle="Filtered quotation listing"
+              reportLabel="Sales Report"
+              data={filteredQuotations}
+              fileName="Quotations"
+              disabled={loading}
+              metadata={(rows, rangeLabel) => [
+                { label: "Total", value: rows.length },
+                { label: "Range", value: rangeLabel },
+                { label: "Status", value: statusFilter || "All" },
+                { label: "Search", value: search || "None" },
+              ]}
+            />
+            <FilterPopover
+              title="Filter Quotations"
+              widthClassName="w-[320px]"
+              onReset={() => setStatusFilter("")}
+            >
             <div className="space-y-3">
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-700">Status</label>
@@ -1352,7 +1368,8 @@ const Quotations: React.FC = () => {
                 Filters apply live
               </div>
             </div>
-          </FilterPopover>
+            </FilterPopover>
+          </div>
         </div>
 
         <ReusableTable

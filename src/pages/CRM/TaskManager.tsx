@@ -15,6 +15,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
+import FilterPopover from "../../components/common/filter";
 
 interface Task {
   id: number;
@@ -42,6 +43,8 @@ const TaskManager: React.FC = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<keyof Task>("title");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
@@ -103,6 +106,27 @@ const TaskManager: React.FC = () => {
     }
   };
 
+  const handleInlineStatusChange = async (task: Task, status: Task["status"]) => {
+    if (task.status === status) return;
+
+    const previousTasks = tasks;
+    setTasks((current) =>
+      current.map((item) => (item.id === task.id ? { ...item, status } : item))
+    );
+
+    try {
+      setStatusUpdatingId(task.id);
+      await axios.put(`${API_URL}/${task.id}`, { ...task, status });
+      ToasterService.success("Task status updated successfully!");
+    } catch (err) {
+      console.error("Error updating task status", err);
+      setTasks(previousTasks);
+      ToasterService.error("Failed to update task status");
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
   const handleSort = (key: keyof Task) => {
     if (sortKey === key) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
@@ -112,11 +136,13 @@ const TaskManager: React.FC = () => {
     }
   };
 
-  const filtered = tasks.filter((task) =>
-    [task.title, task.description, task.assignedTo, task.status].some((field) =>
+  const filtered = tasks.filter((task) => {
+    const matchesSearch = [task.title, task.description, task.assignedTo, task.status].some((field) =>
       field.toLowerCase().includes(search.toLowerCase())
-    )
-  );
+    );
+    const matchesStatus = statusFilter ? task.status === statusFilter : true;
+    return matchesSearch && matchesStatus;
+  });
 
   const sorted = [...filtered].sort((a, b) => {
     const valA = a[sortKey] ?? "";
@@ -197,6 +223,23 @@ const TaskManager: React.FC = () => {
               className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4"
             />
           </div>
+          <div className="flex items-center justify-end">
+            <FilterPopover
+              title="Filter Tasks"
+              buttonLabel="Filters"
+              label="Task Status"
+              value={statusFilter}
+              options={[
+                { label: "All Statuses", value: "" },
+                { label: "Pending", value: "Pending" },
+                { label: "In Progress", value: "InProgress" },
+                { label: "Completed", value: "Completed" },
+              ]}
+              onChange={setStatusFilter}
+              onReset={() => setStatusFilter("")}
+              onApply={() => undefined}
+            />
+          </div>
         </div>
 
         <div className="overflow-hidden border border-gray-200 shadow sm:rounded-lg">
@@ -230,11 +273,19 @@ const TaskManager: React.FC = () => {
                   <td className="px-6 py-4">{task.title}</td>
                   <td className="px-6 py-4">{task.assignedTo}</td>
                   <td className="px-6 py-4">
-                    <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[task.status]}`}
+                    <select
+                      value={task.status}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => handleInlineStatusChange(task, event.target.value as Task["status"])}
+                      disabled={statusUpdatingId === task.id}
+                      className={`w-[112px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
+                        statusColors[task.status]
+                      } ${statusUpdatingId === task.id ? "cursor-not-allowed opacity-70" : ""}`}
                     >
-                      {task.status}
-                    </span>
+                      <option value="Pending">Pending</option>
+                      <option value="InProgress">In Progress</option>
+                      <option value="Completed">Completed</option>
+                    </select>
                   </td>
                   <td className="px-6 py-4">{new Date(task.dueDate).toLocaleDateString()}</td>
                   <td className="px-6 py-4 text-right space-x-2 relative z-10">

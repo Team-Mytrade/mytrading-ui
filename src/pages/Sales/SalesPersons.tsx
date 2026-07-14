@@ -1,18 +1,22 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import axios from "axios";
 import {
   CheckCircleIcon,
   MagnifyingGlassIcon,
   PencilSquareIcon,
+  TrashIcon,
   UserGroupIcon,
   UserIcon,
   XCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
+import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import { ListingPdfExportButton } from "../../components/common/export";
+import FilterPopover from "../../components/common/filter";
+import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import {
@@ -50,6 +54,7 @@ type UserOption = {
   lastName?: string;
   active?: boolean;
   employeeId?: number | null;
+  employeeCode?: string | null;
   department?: string | null;
 };
 
@@ -86,6 +91,15 @@ function searchableText(value: unknown) {
   return String(value).toLowerCase().trim();
 }
 
+function normalizeText(value: unknown) {
+  return searchableText(value).replace(/\s+/g, " ");
+}
+
+function getUserSalesCode(user?: UserOption) {
+  if (!user) return "";
+  return user.employeeCode || (user.employeeId ? String(user.employeeId) : "") || user.userId || "";
+}
+
 const SalesPersons: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
@@ -97,8 +111,11 @@ const SalesPersons: React.FC = () => {
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [lookupId, setLookupId] = useState("");
+  const [deletePerson, setDeletePerson] = useState<SalesPerson | null>(null);
 
   useEffect(() => {
     fetchSalesPersons();
@@ -158,6 +175,7 @@ const SalesPersons: React.FC = () => {
         const user = users.find((item) => item.userId === value);
         const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
         next.name = fullName || user?.username || next.name;
+        next.code = getUserSalesCode(user) || next.code;
         next.email = user?.email || next.email;
         next.employeeId = user?.employeeId ? String(user.employeeId) : "";
         next.active = String(user?.active ?? true);
@@ -168,6 +186,7 @@ const SalesPersons: React.FC = () => {
         const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
         next.userId = user?.userId || next.userId;
         next.name = fullName || user?.username || next.name;
+        next.code = getUserSalesCode(user) || next.code;
         next.email = user?.email || next.email;
         next.active = String(user?.active ?? true);
         next.region = user?.department || next.region;
@@ -179,11 +198,17 @@ const SalesPersons: React.FC = () => {
   const buildPayload = () => {
     const userId = form.userId.trim();
     const employeeId = toNullableNumber(form.employeeId);
+    const selectedUser = users.find(
+      (user) =>
+        (userId && user.userId === userId) ||
+        (employeeId !== null && user.employeeId === employeeId)
+    );
+    const code = form.code.trim() || getUserSalesCode(selectedUser) || userId;
 
     return {
       id: editingId || 0,
       name: form.name.trim(),
-      code: form.code.trim(),
+      code,
       email: form.email.trim(),
       region: form.region.trim(),
       active: form.active === "true",
@@ -205,8 +230,8 @@ const SalesPersons: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!form.name.trim() || !form.code.trim()) {
-      ToasterService.error("Required fields missing", "Name and code are required.");
+    if (!form.name.trim()) {
+      ToasterService.error("Required fields missing", "Name is required.");
       return;
     }
     if (form.employeeId.trim() && toNullableNumber(form.employeeId) === null) {
@@ -262,18 +287,134 @@ const SalesPersons: React.FC = () => {
     setShowFormModal(false);
   };
 
+  const getMatchedUser = (person: SalesPerson) => {
+    if (person.userId || person.employeeId) {
+      return users.find(
+        (user) =>
+          (person.userId && user.userId === String(person.userId)) ||
+          (person.employeeId !== null && user.employeeId === person.employeeId)
+      );
+    }
+
+    const normalizedName = normalizeText(person.name);
+    const normalizedEmail = searchableText(person.email);
+    const normalizedCode = searchableText(person.code);
+
+    return users.find((user) => {
+      const userName = normalizeText(
+        [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.username || ""
+      );
+      const userEmail = searchableText(user.email);
+      const userCode = searchableText(user.employeeCode);
+
+      return (
+        (normalizedEmail && userEmail === normalizedEmail) ||
+        (normalizedCode && userCode === normalizedCode) ||
+        (normalizedName && userName === normalizedName)
+      );
+    });
+  };
+
+  const getResolvedUserId = (person: SalesPerson) => {
+    if (person.userId !== null && person.userId !== undefined && String(person.userId).trim()) {
+      return String(person.userId);
+    }
+    return getMatchedUser(person)?.userId || "";
+  };
+
+  const getResolvedEmployeeId = (person: SalesPerson) => {
+    if (person.employeeId !== null && person.employeeId !== undefined) {
+      return String(person.employeeId);
+    }
+    const matchedEmployeeId = getMatchedUser(person)?.employeeId;
+    return matchedEmployeeId !== null && matchedEmployeeId !== undefined ? String(matchedEmployeeId) : "";
+  };
+
+  const buildPayloadFromPerson = (person: SalesPerson, active = person.active) => {
+    const userId = getResolvedUserId(person).trim();
+    const employeeId = toNullableNumber(getResolvedEmployeeId(person));
+
+    return {
+      id: person.id,
+      name: person.name.trim(),
+      code: person.code.trim(),
+      email: person.email.trim(),
+      region: person.region.trim(),
+      active,
+      userId,
+      employeeId,
+      userID: userId,
+      employeeID: employeeId,
+      user: userId ? { id: userId } : null,
+      employee: employeeId ? { id: employeeId } : null,
+    };
+  };
+
+  const handleInlineStatusChange = async (person: SalesPerson, nextValue: string) => {
+    const nextActive = nextValue === "true";
+    if (person.active === nextActive) return;
+
+    if (!person.name.trim()) {
+      ToasterService.error("Missing sales person name", "Unable to update this row.");
+      return;
+    }
+
+    if (!person.code.trim()) {
+      ToasterService.error("Missing sales code", "Unable to update status without a valid code.");
+      return;
+    }
+
+    try {
+      setStatusUpdatingId(person.id);
+      const payload = buildPayloadFromPerson(person, nextActive);
+      const res = await axios.put<SalesPerson>(`${API_URL}/${person.id}`, payload, { headers });
+      const savedPerson = mergeSubmittedIds(res.data, payload);
+
+      setSalesPersons((current) =>
+        current.map((item) => (item.id === savedPerson.id ? savedPerson : item))
+      );
+      ToasterService.success("Sales person status updated");
+    } catch (error) {
+      ToasterService.error("Failed to update status", getErrorMessage(error, "Please try again."));
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deletePerson) return;
+
+    try {
+      await axios.delete(`${API_URL}/${deletePerson.id}`, {
+        headers,
+        skipSessionExpiredHandling: true,
+      } as any);
+      setSalesPersons((current) => current.filter((item) => item.id !== deletePerson.id));
+      ToasterService.success("Sales person deleted");
+    } catch (error) {
+      ToasterService.error("Failed to delete sales person", getErrorMessage(error, "Please try again."));
+    } finally {
+      setDeletePerson(null);
+    }
+  };
+
   const filteredSalesPersons = useMemo(() => {
     const term = searchableText(search);
-    if (!term) return salesPersons;
-
+    
     return salesPersons.filter((person) => {
+      const matchesStatus =
+        statusFilter === ""
+          ? true
+          : statusFilter === "active"
+            ? person.active
+            : !person.active;
       const haystack = [
         person.name,
         person.code,
         person.email,
         person.region,
-        person.userId,
-        person.employeeId,
+        getResolvedUserId(person),
+        getResolvedEmployeeId(person),
         person.id,
         person.active ? "active" : "inactive",
       ]
@@ -281,9 +422,10 @@ const SalesPersons: React.FC = () => {
         .filter(Boolean)
         .join(" ");
 
-      return haystack.includes(term);
+      const matchesSearch = !term || haystack.includes(term);
+      return matchesStatus && matchesSearch;
     });
-  }, [salesPersons, search]);
+  }, [salesPersons, search, statusFilter]);
 
   const stats = useMemo(
     () => ({
@@ -314,20 +456,40 @@ const SalesPersons: React.FC = () => {
     },
     { key: "email", label: "Email", sortable: true },
     { key: "region", label: "Region", sortable: true },
-    { key: "userId", label: "User ID", sortable: true },
-    { key: "employeeId", label: "Employee ID", sortable: true },
+    {
+      key: "userId",
+      label: "User ID",
+      sortable: true,
+      sortValueGetter: (person) => getResolvedUserId(person),
+      render: (person) => getResolvedUserId(person) || "--",
+    },
+    {
+      key: "employeeId",
+      label: "Employee ID",
+      sortable: true,
+      sortValueGetter: (person) => getResolvedEmployeeId(person),
+      render: (person) => getResolvedEmployeeId(person) || "--",
+    },
     {
       key: "active",
       label: "Status",
       sortable: true,
       render: (person) => (
-        <span
-          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-            person.active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-          }`}
-        >
-          {person.active ? "Active" : "Inactive"}
-        </span>
+        <div onClick={(e) => e.stopPropagation()}>
+          <select
+            value={String(person.active)}
+            onChange={(e) => handleInlineStatusChange(person, e.target.value)}
+            disabled={statusUpdatingId === person.id}
+            className={`w-[84px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
+              person.active
+                ? "border-green-200 bg-green-50 text-green-700"
+                : "border-red-200 bg-red-50 text-red-700"
+            } ${statusUpdatingId === person.id ? "cursor-not-allowed opacity-70" : ""}`}
+          >
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+        </div>
       ),
     },
     {
@@ -337,7 +499,7 @@ const SalesPersons: React.FC = () => {
       headerClassName: "text-right",
       className: "text-right",
       render: (person) => (
-        <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={() => openEdit(person)}
@@ -345,6 +507,14 @@ const SalesPersons: React.FC = () => {
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeletePerson(person)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            title="Delete"
+          >
+            <TrashIcon className="h-4 w-4" />
           </button>
         </div>
       ),
@@ -389,24 +559,66 @@ const SalesPersons: React.FC = () => {
           />
         </div>
 
-        <div className="relative w-full sm:max-w-md">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search sales persons..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              <XMarkIcon className="h-4 w-4" />
-            </button>
-          )}
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-md">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search sales persons..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <ListingPdfExportButton<SalesPerson>
+              title="Sales Persons"
+              subtitle="Filtered sales person listing"
+              reportLabel="Sales Report"
+              data={filteredSalesPersons}
+              fileName="Sales_Persons"
+              disabled={loading}
+              metadata={(rows, rangeLabel) => [
+                { label: "Total", value: rows.length },
+                { label: "Range", value: rangeLabel },
+                { label: "Status", value: statusFilter || "All" },
+                { label: "Search", value: search || "None" },
+              ]}
+              columns={[
+                { header: "Sales Person", accessor: (person) => person.name || "Unnamed" },
+                { header: "Code", accessor: (person) => person.code || `ID: ${person.id}` },
+                { header: "Email", key: "email" },
+                { header: "Region", key: "region" },
+                { header: "User ID", accessor: (person) => getResolvedUserId(person) || "-" },
+                { header: "Employee ID", accessor: (person) => getResolvedEmployeeId(person) || "-" },
+                { header: "Status", accessor: (person) => (person.active ? "Active" : "Inactive") },
+              ]}
+            />
+            <FilterPopover
+              title="Filter Sales Persons"
+              buttonLabel="Filters"
+              label="Status"
+              value={statusFilter}
+              options={[
+                { label: "All Statuses", value: "" },
+                { label: "Active", value: "active" },
+                { label: "Inactive", value: "inactive" },
+              ]}
+              onChange={setStatusFilter}
+              onReset={() => setStatusFilter("")}
+              onApply={() => undefined}
+            />
+          </div>
         </div>
 
         <ReusableTable
@@ -414,8 +626,8 @@ const SalesPersons: React.FC = () => {
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}
-          defaultSortKey="name"
-          defaultSortOrder="asc"
+          defaultSortKey="id"
+          defaultSortOrder="desc"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <UserGroupIcon className="mb-3 h-12 w-12 text-gray-400" />
@@ -432,68 +644,55 @@ const SalesPersons: React.FC = () => {
         />
       </div>
 
-      {showFormModal &&
-        createPortal(
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-4 backdrop-blur-sm sm:items-center">
-            <div className="mx-auto max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl">
-              <div className="flex items-center justify-between border-b border-gray-100 p-5">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {editingId ? "Edit Sales Person" : "Create Sales Person"}
-                  </h3>
-                  <p className="mt-0.5 text-xs text-gray-500">Enter sales person details from the API schema</p>
-                </div>
-                <button type="button" onClick={closeForm} className="text-gray-400 hover:text-gray-600">
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="p-5">
-                <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
-                  <FloatingSelect
-                    label="User"
-                    name="userId"
-                    value={form.userId}
-                    onChange={handleChange}
-                    options={users.map((user) => ({
-                      id: user.userId,
-                      name: [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.username || user.userId,
-                    }))}
-                  />
-                  <FloatingInput
-                    label="Name"
-                    name="name"
-                    value={form.name}
-                    onChange={handleChange}
-                    required
-                  />
-                  <FloatingInput
-                    label="Code"
-                    name="code"
-                    value={form.code}
-                    onChange={handleChange}
-                    required
-                  />
-                  <FloatingInput
-                    label="Email"
-                    name="email"
-                    type="email"
-                    value={form.email}
-                    onChange={handleChange}
-                  />
-                  <FloatingInput
-                    label="Region"
-                    name="region"
-                    value={form.region}
-                    onChange={handleChange}
-                  />
-                  <FloatingInput
-                    label="Employee ID"
-                    name="employeeId"
-                    value={form.employeeId}
-                    onChange={handleChange}
-                    readOnly
-                  />
+      <PaginatedPopup
+        isOpen={showFormModal}
+        title={editingId ? "Edit Sales Person" : "Create Sales Person"}
+        subtitle="Enter sales person details from the API schema"
+        onClose={closeForm}
+        onSubmit={handleSubmit}
+        submitting={submitting}
+        submitLabel={editingId ? "Update Sales Person" : "Create Sales Person"}
+        maxWidthClassName="max-w-2xl"
+        tabs={[
+          {
+            label: "Basic Info",
+            fields: [
+              <FloatingSelect
+                label="User"
+                name="userId"
+                value={form.userId}
+                onChange={handleChange}
+                options={users.map((user) => ({
+                  id: user.userId,
+                  name: [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.username || user.userId,
+                }))}
+              />,
+              <FloatingInput
+                label="Name"
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingInput
+                label="Email"
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                label="Region"
+                name="region"
+                value={form.region}
+                onChange={handleChange}
+              />,
+            ],
+          },
+          ...(editingId
+            ? [{
+                label: "Status",
+                fields: [
                   <FloatingSelect
                     label="Status"
                     name="active"
@@ -504,30 +703,32 @@ const SalesPersons: React.FC = () => {
                       { id: "true", name: "Active" },
                       { id: "false", name: "Inactive" },
                     ]}
-                  />
-                </div>
+                  />,
+                ],
+              }]
+            : []),
+        ]}
+      />
 
-                <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={closeForm}
-                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    {submitting ? "Saving..." : editingId ? "Update Sales Person" : "Create Sales Person"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>,
-          document.body
-        )}
+      <DynamicPopup
+        isPopupOpen={!!deletePerson}
+        setIsPopupOpen={(open) => {
+          if (!open) setDeletePerson(null);
+        }}
+        icon={<TrashIcon className="h-6 w-6 text-red-600" />}
+        iconBg="bg-red-100"
+        innerText="Delete Sales Person"
+        subText={
+          deletePerson
+            ? `Are you sure you want to delete ${deletePerson.name || `sales person #${deletePerson.id}`}?`
+            : "Are you sure you want to delete this sales person?"
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeletePerson(null)}
+        confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
+      />
     </>
   );
 };

@@ -10,6 +10,11 @@ interface BreadcrumbProps {
   addButtonLabel?: string;
   onAddClick?: () => void;
   addButtonClassName?: string;
+  className?: string;
+  contentClassName?: string;
+  titleClassName?: string;
+  breadcrumbClassName?: string;
+  inlineBreadcrumb?: boolean;
 }
 
 const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
@@ -20,6 +25,11 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
   addButtonLabel = "Add",
   onAddClick,
   addButtonClassName = "",
+  className = "",
+  contentClassName = "",
+  titleClassName = "",
+  breadcrumbClassName = "",
+  inlineBreadcrumb = true,
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -54,8 +64,8 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
   };
 
   return (
-    <div className="mb-6 flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-3">
+    <div className={`my-[3px] px-4 lg:pr-56 ${className}`.trim()}>
+      <div className={`flex min-h-10 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${contentClassName}`.trim()}>
         <div className="flex min-w-0 items-center gap-3">
           {showBackButton && (
             <button
@@ -78,47 +88,79 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
               </svg>
             </button>
           )}
-          <h2 className="truncate text-[18px] font-semibold tracking-tight text-cyan-600 dark:text-white/90 sm:text-[20px]">
+          <h2 className={`truncate text-[18px] font-medium tracking-tight text-cyan-600 dark:text-white/90 sm:text-[20px] ${titleClassName}`.trim()}>
             {pageTitle}
           </h2>
         </div>
 
-        {showAddButton && (
-          <div className="ml-auto shrink-0">
-            <AddButton
-              onClick={onAddClick}
-              label={addButtonLabel}
-              className={addButtonClassName}
-            />
-          </div>
-        )}
-      </div>
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
+          {inlineBreadcrumb && (
+            <nav className={`min-w-0 max-w-full overflow-x-auto ${breadcrumbClassName}`.trim()}>
+              <ol className="flex items-center justify-start gap-2 whitespace-nowrap text-sm font-medium text-gray-500 dark:text-gray-400">
+                <li>
+                  <Link
+                    className="inline-flex items-center gap-1.5 transition-colors hover:text-cyan-600 dark:hover:text-cyan-400"
+                    to="/"
+                  >
+                    Home
+                  </Link>
+                </li>
 
-      <nav className="max-w-full overflow-x-auto pl-11">
-        <ol className="flex items-center gap-2 whitespace-nowrap text-sm font-medium text-gray-500 dark:text-gray-400">
-          <li>
-            <Link
-              className="inline-flex items-center gap-1.5 transition-colors hover:text-cyan-600 dark:hover:text-cyan-400"
-              to="/"
-            >
-              Home
-            </Link>
-          </li>
+                <li className="text-gray-500 dark:text-gray-400">{">"}</li>
 
-          <li className="text-gray-500 dark:text-gray-400">{">"}</li>
+                {parent && (
+                  <>
+                    <li>{parent}</li>
+                    <li className="text-gray-500 dark:text-gray-400">{">"}</li>
+                  </>
+                )}
 
-          {parent && (
-            <>
-              <li>{parent}</li>
-              <li className="text-gray-500 dark:text-gray-400">{">"}</li>
-            </>
+                <li className="text-cyan-600 dark:text-white/90">
+                  {child || pageTitle}
+                </li>
+              </ol>
+            </nav>
           )}
 
-          <li className="text-cyan-600 dark:text-white/90">
-            {child || pageTitle}
-          </li>
-        </ol>
-      </nav>
+          {showAddButton && (
+            <div className="shrink-0">
+              <AddButton
+                onClick={onAddClick}
+                label={addButtonLabel}
+                className={`h-10 ${addButtonClassName}`.trim()}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {!inlineBreadcrumb && (
+        <nav className={`mt-3 max-w-full overflow-x-auto pl-11 ${breadcrumbClassName}`.trim()}>
+          <ol className="flex items-center gap-2 whitespace-nowrap text-sm font-medium text-gray-500 dark:text-gray-400">
+            <li>
+              <Link
+                className="inline-flex items-center gap-1.5 transition-colors hover:text-cyan-600 dark:hover:text-cyan-400"
+                to="/"
+              >
+                Home
+              </Link>
+            </li>
+
+            <li className="text-gray-500 dark:text-gray-400">{">"}</li>
+
+            {parent && (
+              <>
+                <li>{parent}</li>
+                <li className="text-gray-500 dark:text-gray-400">{">"}</li>
+              </>
+            )}
+
+            <li className="text-cyan-600 dark:text-white/90">
+              {child || pageTitle}
+            </li>
+          </ol>
+        </nav>
+      )}
     </div>
   );
 };

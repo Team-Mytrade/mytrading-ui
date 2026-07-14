@@ -11,7 +11,6 @@ import {
   CurrencyDollarIcon,
   TagIcon,
   BuildingOfficeIcon,
-  FunnelIcon,
 } from "@heroicons/react/24/outline";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -22,6 +21,7 @@ import { FloatingInput, FloatingSelect1 as FloatingSelect, FloatingDatePicker } 
 import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import FilterPopover from "../../components/common/filter";
 
 const API_URL = "/v1/api/crm/deals";
 const PAGE_SIZE = 10;
@@ -67,7 +67,7 @@ interface Customer {
   customerName?: string;
 }
 
-export default function OpportunityManager() {
+export default function Deals() {
   const navigate = useNavigate();
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -78,7 +78,7 @@ export default function OpportunityManager() {
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
-  const [showFilters, setShowFilters] = useState(false);
+  const [inlineUpdatingId, setInlineUpdatingId] = useState<number | null>(null);
 
   const location = useLocation();
 
@@ -167,6 +167,51 @@ export default function OpportunityManager() {
     };
   };
 
+  const buildOpportunityPayload = (opportunity: Opportunity) => ({
+    dealName: opportunity.dealName?.trim(),
+    amount: Number(opportunity.amount) || 0,
+    stage: normalizeStage(opportunity.stage),
+    expectedCloseDate: opportunity.expectedCloseDate || null,
+    status: opportunity.status || "ACTIVE",
+    lead: opportunity.lead ? { ...opportunity.lead } : undefined,
+    customer: opportunity.customer ? { id: opportunity.customer.id } : undefined,
+  });
+
+  const handleInlineOpportunityChange = async (
+    opportunity: Opportunity,
+    changes: Partial<Pick<Opportunity, "stage" | "status">>
+  ) => {
+    const nextOpportunity = {
+      ...opportunity,
+      ...changes,
+      stage: changes.stage ? normalizeStage(changes.stage) : opportunity.stage,
+    };
+
+    if (
+      nextOpportunity.stage === opportunity.stage &&
+      nextOpportunity.status === opportunity.status
+    ) {
+      return;
+    }
+
+    const previousOpportunities = opportunities;
+    setOpportunities((current) =>
+      current.map((item) => (item.id === opportunity.id ? nextOpportunity : item))
+    );
+
+    try {
+      setInlineUpdatingId(opportunity.id);
+      await axios.put(`${API_URL}/${opportunity.id}`, buildOpportunityPayload(nextOpportunity));
+      ToasterService.success("Opportunity updated successfully!");
+    } catch (err: any) {
+      console.error("Error updating opportunity", err);
+      setOpportunities(previousOpportunities);
+      ToasterService.error(err.response?.data?.message || "Failed to update opportunity");
+    } finally {
+      setInlineUpdatingId(null);
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
@@ -223,11 +268,11 @@ export default function OpportunityManager() {
 
   const getStageColor = (stage: string) => {
     switch (normalizeStage(stage)) {
-      case "PROSPECTING": return "bg-blue-100 text-blue-800";
-      case "NEGOTIATION": return "bg-yellow-100 text-yellow-800";
-      case "CLOSED_WON": return "bg-green-100 text-green-800";
-      case "CLOSED_LOST": return "bg-red-100 text-red-800";
-      default: return "bg-gray-100 text-gray-800";
+      case "PROSPECTING": return "border-blue-200 bg-blue-50 text-blue-700";
+      case "NEGOTIATION": return "border-yellow-200 bg-yellow-50 text-yellow-700";
+      case "CLOSED_WON": return "border-green-200 bg-green-50 text-green-700";
+      case "CLOSED_LOST": return "border-red-200 bg-red-50 text-red-700";
+      default: return "border-gray-200 bg-gray-50 text-gray-700";
     }
   };
 
@@ -283,9 +328,22 @@ export default function OpportunityManager() {
       label: "Stage",
       sortable: true,
       render: (o) => (
-        <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getStageColor(o.stage)}`}>
-          {getStageLabel(o.stage)}
-        </span>
+        <div onClick={(event) => event.stopPropagation()}>
+          <select
+            value={normalizeStage(o.stage)}
+            onChange={(event) => handleInlineOpportunityChange(o, { stage: event.target.value })}
+            disabled={inlineUpdatingId === o.id}
+            className={`w-[118px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${getStageColor(
+              o.stage
+            )} ${inlineUpdatingId === o.id ? "cursor-not-allowed opacity-70" : ""}`}
+          >
+            {stageOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.name}
+              </option>
+            ))}
+          </select>
+        </div>
       ),
     },
     {
@@ -293,9 +351,23 @@ export default function OpportunityManager() {
       label: "Status",
       sortable: true,
       render: (o) => (
-        <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${o.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-          {o.status}
-        </span>
+        <div onClick={(event) => event.stopPropagation()}>
+          <select
+            value={o.status}
+            onChange={(event) =>
+              handleInlineOpportunityChange(o, { status: event.target.value as Opportunity["status"] })
+            }
+            disabled={inlineUpdatingId === o.id}
+            className={`w-[88px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
+              o.status === "ACTIVE"
+                ? "border-green-200 bg-green-50 text-green-700"
+                : "border-red-200 bg-red-50 text-red-700"
+            } ${inlineUpdatingId === o.id ? "cursor-not-allowed opacity-70" : ""}`}
+          >
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
+          </select>
+        </div>
       ),
     },
     {
@@ -401,39 +473,22 @@ export default function OpportunityManager() {
           </div>
 
           <div className="flex w-full items-center justify-end gap-3 sm:w-auto">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`p-2 rounded-lg border flex items-center justify-center transition-colors h-[40px] w-[40px] ${showFilters ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"}`}
-            >
-              <FunnelIcon className={`h-5 w-5 ${showFilters ? "text-cyan-600" : "text-gray-600"}`} />
-            </button>
+            <FilterPopover
+              title="Filter Opportunities"
+              buttonLabel="Filters"
+              label="Filter by Status"
+              value={activeFilter}
+              options={[
+                { label: "All Opportunities", value: "ALL" },
+                { label: "Active", value: "ACTIVE" },
+                { label: "Inactive", value: "INACTIVE" },
+              ]}
+              onChange={setActiveFilter}
+              onReset={() => setActiveFilter("ALL")}
+              onApply={() => undefined}
+            />
           </div>
         </div>
-
-        {showFilters && (
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="flex flex-wrap gap-4">
-              <div className="w-full min-w-0 sm:flex-1 sm:min-w-[200px]">
-                <FloatingSelect
-                  label="Filter by Status"
-                  name="filter"
-                  value={activeFilter}
-                  onChange={(e) => setActiveFilter(e.target.value)}
-                  options={[
-                    { id: "ALL", name: "All Opportunities" },
-                    { id: "ACTIVE", name: "Active" },
-                    { id: "INACTIVE", name: "Inactive" }
-                  ]}
-                />
-              </div>
-              {activeFilter !== "ALL" && (
-                <button onClick={() => setActiveFilter("ALL")} className="self-end mb-1 text-sm text-red-600 hover:text-red-800">
-                  Clear Filter
-                </button>
-              )}
-            </div>
-          </div>
-        )}
 
         <ReusableTable<Opportunity>
           data={filtered}

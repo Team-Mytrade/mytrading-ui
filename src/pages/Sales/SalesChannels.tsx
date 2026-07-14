@@ -14,6 +14,7 @@ import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import { ListingPdfExportButton } from "../../components/common/export";
 import FilterPopover from "../../components/common/filter";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
@@ -398,12 +399,27 @@ const SalesChannels: React.FC = () => {
             )}
           </div>
 
-          <FilterPopover
-            title="Filter Sales Channels"
-            buttonLabel="Filters"
-            widthClassName="w-[18rem] sm:w-[20rem]"
-            showFooter={false}
-          >
+          <div className="flex items-center gap-2">
+            <ListingPdfExportButton
+              title="Sales Channels"
+              subtitle="Filtered sales channel listing"
+              reportLabel="Sales Report"
+              data={filteredChannels}
+              fileName="Sales_Channels"
+              disabled={loading}
+              metadata={(rows, rangeLabel) => [
+                { label: "Total", value: rows.length },
+                { label: "Range", value: rangeLabel },
+                { label: "Type", value: typeFilter || "All" },
+                { label: "Search", value: search || "None" },
+              ]}
+            />
+            <FilterPopover
+              title="Filter Sales Channels"
+              buttonLabel="Filters"
+              widthClassName="w-[18rem] sm:w-[20rem]"
+              showFooter={false}
+            >
             <div className="space-y-3">
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-700">Type</label>
@@ -434,7 +450,8 @@ const SalesChannels: React.FC = () => {
                 </div>
               </div>
             </div>
-          </FilterPopover>
+            </FilterPopover>
+          </div>
         </div>
 
         <ReusableTable

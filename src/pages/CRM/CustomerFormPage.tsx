@@ -77,6 +77,7 @@ interface Customer {
   website?: string;
   creditLimit?: number;
   currentCredit?: number;
+  outstandingBalance?: number;
   paymentTerms?: string;
   currencyCode?: string;
   active: boolean;
@@ -93,6 +94,11 @@ const addressTypeOptions = [
   { id: AddressType.BRANCH, name: "Branch Address", icon: BriefcaseIcon },
   { id: AddressType.OTHER, name: "Other Address", icon: MapPinIcon },
 ];
+
+const toNumberOrZero = (value: unknown) => {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : 0;
+};
 
 const CustomerFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -114,6 +120,7 @@ const CustomerFormPage: React.FC = () => {
     website: "",
     creditLimit: 0,
     currentCredit: 0,
+    outstandingBalance: 0,
     paymentTerms: "",
     currencyCode: "INR",
     active: true,
@@ -157,8 +164,9 @@ const CustomerFormPage: React.FC = () => {
         phone: customerData.phone,
         email: customerData.email,
         website: customerData.website || "",
-        creditLimit: customerData.creditLimit || 0,
-        currentCredit: customerData.currentCredit || 0,
+        creditLimit: customerData.creditLimit ?? 0,
+        currentCredit: customerData.currentCredit ?? 0,
+        outstandingBalance: customerData.outstandingBalance ?? 0,
         paymentTerms: customerData.paymentTerms || "",
         currencyCode: customerData.currencyCode || "INR",
         active: customerData.active,
@@ -265,8 +273,9 @@ const CustomerFormPage: React.FC = () => {
       phone: customerForm.phone,
       email: customerForm.email,
       website: customerForm.website,
-      creditLimit: Number(customerForm.creditLimit),
-      currentCredit: Number(customerForm.currentCredit),
+      creditLimit: toNumberOrZero(customerForm.creditLimit),
+      currentCredit: toNumberOrZero(customerForm.currentCredit),
+      outstandingBalance: toNumberOrZero(customerForm.outstandingBalance),
       paymentTerms: customerForm.paymentTerms,
       currencyCode: customerForm.currencyCode,
       active: customerForm.active,
@@ -449,6 +458,12 @@ const CustomerFormPage: React.FC = () => {
                 type="number"
                 value={customerForm.currentCredit || 0}
                 onChange={(e) => setCustomerForm({ ...customerForm, currentCredit: Number(e.target.value) })}
+              />
+              <FloatingInput
+                label="Outstanding Balance"
+                type="number"
+                value={customerForm.outstandingBalance || 0}
+                onChange={(e) => setCustomerForm({ ...customerForm, outstandingBalance: Number(e.target.value) })}
               />
               <FloatingInput
                 label="Payment Terms"

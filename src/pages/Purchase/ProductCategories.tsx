@@ -27,6 +27,7 @@ const productCategoryConfig: PurchaseResourceConfig = {
   title: "Product Categories",
   description: "Manage product categories used by purchase products and requisition line items.",
   endpoint: CATEGORIES,
+  allowInlineActiveToggle: true,
   getByIdEndpoint: (row) => `${CATEGORIES}/${row.id}`,
   getRequestParams: () => {
     const tenantId = getStoredTenantId();
