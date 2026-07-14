@@ -79,7 +79,7 @@ const QualityInspectionManager: React.FC = () => {
     const [selectedRecord, setSelectedRecord] = useState<QualityInspection | null>(null);
     const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
 
-    const [products, setProducts] = useState<{ id: number; name: string; sku?: string; code?: string }[]>([]);
+    const [products, setProducts] = useState<{ id: number; productName: string; sku?: string; code?: string }[]>([]);
 
     const [formData, setFormData] = useState<Omit<QualityInspection, "id">>({
         productSKU: "",
@@ -769,7 +769,7 @@ const QualityInspectionManager: React.FC = () => {
                                                             setFormData({
                                                                 ...formData,
                                                                 productId: id,
-                                                                productSKU: product?.sku || product?.code || product?.name || String(id),
+                                                                productSKU: product?.sku || product?.code || product?.productName || String(id),
                                                             });
                                                         }}
                                                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
@@ -778,7 +778,7 @@ const QualityInspectionManager: React.FC = () => {
                                                         <option value="">Select a product</option>
                                                         {products.map(product => (
                                                             <option key={product.id} value={product.id}>
-                                                                {product.name}{product.sku ? ` (${product.sku})` : ""}
+                                                                {product.productName}{product.sku ? ` (${product.sku})` : ""}
                                                             </option>
                                                         ))}
                                                     </select>
