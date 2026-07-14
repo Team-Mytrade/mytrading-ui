@@ -1,10 +1,10 @@
 // pages/BatchManagement.tsx
 
-import React, { ChangeEvent, FormEvent, useContext, useEffect, useMemo, useState } from "react";
+import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
-  CheckCircleIcon,
   CubeIcon,
+  CheckCircleIcon,
   ExclamationCircleIcon,
   ExclamationTriangleIcon,
   MagnifyingGlassIcon,
@@ -17,6 +17,8 @@ import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import FilterPopover from "../../components/common/filter";
+import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import {
@@ -25,7 +27,6 @@ import {
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
-import { AuthContext } from "../../context/AuthContext";
 
 type Batch = {
   id: number;
@@ -37,7 +38,7 @@ type Batch = {
   manufacturingDate: string;
   expiryDate: string;
   productId: number;
-  warehouse: any; // Can be string or object
+  warehouse: any;
   inspections: any[];
 };
 
@@ -90,12 +91,8 @@ const emptyForm: BatchForm = {
   warehouse: "",
 };
 
-function getStoredUser() {
-  try {
-    return JSON.parse(localStorage.getItem("user") || "null") || {};
-  } catch {
-    return {};
-  }
+function toNumber(value: string | number | undefined | null): number {
+  return Number(value || 0);
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -107,8 +104,9 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function toNumber(value: string | number | undefined | null): number {
-  return Number(value || 0);
+function searchableText(value: unknown) {
+  if (value === null || value === undefined) return "";
+  return String(value).toLowerCase().trim();
 }
 
 function normalizeProductLabel(product: ProductOption): string {
@@ -154,18 +152,16 @@ function getDaysUntilExpiry(batch: Batch): number {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
 
-const BatchManagement: React.FC = () => {
-  const { user } = useContext(AuthContext);
-  const authUser = getStoredUser();
+function getWarehouseDisplay(batch: Batch): string {
+  if (typeof batch.warehouse === 'object' && batch.warehouse !== null) {
+    return batch.warehouse.name || batch.warehouse.code || `ID: ${batch.warehouse.id}`;
+  }
+  return batch.warehouse || '';
+}
 
-  const headers = useMemo(() => {
-    const token = localStorage.getItem("accessToken");
-    const tenantId = user?.tenantId || authUser.tenantId || "";
-    return {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(tenantId ? { "X-Tenant-ID": tenantId } : {}),
-    };
-  }, [user?.tenantId, authUser.tenantId]);
+const BatchManagement: React.FC = () => {
+  const token = localStorage.getItem("accessToken");
+  const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
 
   const [batches, setBatches] = useState<Batch[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
@@ -176,13 +172,13 @@ const BatchManagement: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
-  const [lookupId, setLookupId] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [deleteBatch, setDeleteBatch] = useState<Batch | null>(null);
   const [viewBatch, setViewBatch] = useState<Batch | null>(null);
 
   useEffect(() => {
-    void fetchAllBatches();
-    void fetchDropdowns();
+    fetchAllBatches();
+    fetchDropdowns();
   }, []);
 
   const fetchAllBatches = async (): Promise<void> => {
@@ -205,29 +201,10 @@ const BatchManagement: React.FC = () => {
         axios.get<Warehouse[]>(WAREHOUSE_API_URL, { headers }),
         axios.get<ProductOption[]>(PRODUCT_API_URL, { headers }),
       ]);
-
       setWarehouses(Array.isArray(warehouseRes.data) ? warehouseRes.data : []);
       setProducts(Array.isArray(productRes.data) ? productRes.data : []);
     } catch (error) {
       ToasterService.error("Failed to load dropdown data", getErrorMessage(error, "Please try again."));
-    }
-  };
-
-  const fetchById = async (): Promise<void> => {
-    if (!lookupId) {
-      ToasterService.error("Batch ID is required");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const response = await axios.get<Batch>(`${API_URL}/${lookupId}`, { headers });
-      setBatches(response.data ? [response.data] : []);
-      ToasterService.success("Batch loaded");
-    } catch (error) {
-      ToasterService.error("Failed to load batch", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -260,7 +237,6 @@ const BatchManagement: React.FC = () => {
     setForm((current) => ({ ...current, [name]: value }));
   };
 
-  // ✅ FIXED: Build payload with FULL warehouse object
   const buildPayload = () => {
     const existing = batches.find((b) => b.id === editingId);
     const selectedWarehouse = warehouses.find(w => String(w.id) === form.warehouse);
@@ -297,8 +273,8 @@ const BatchManagement: React.FC = () => {
       id: editingId,
       createdDate: existing?.createdDate || new Date().toISOString(),
       updatedDate: new Date().toISOString(),
-      createdBy: existing?.createdBy || user?.userId || authUser.userId || "",
-      tenantId: existing?.tenantId || user?.tenantId || authUser.tenantId || "",
+      createdBy: existing?.createdBy || "",
+      tenantId: existing?.tenantId || "",
       batchNumber: form.batchNumber.trim(),
       manufacturingDate: form.manufacturingDate,
       expiryDate: form.expiryDate,
@@ -311,7 +287,6 @@ const BatchManagement: React.FC = () => {
   const handleSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
 
-    // Validate required fields
     if (!form.batchNumber.trim()) {
       ToasterService.error("Batch Number is required");
       return;
@@ -333,7 +308,6 @@ const BatchManagement: React.FC = () => {
       return;
     }
 
-    // Validate dates
     if (new Date(form.expiryDate) <= new Date(form.manufacturingDate)) {
       ToasterService.error("Expiry date must be after manufacturing date");
       return;
@@ -364,47 +338,64 @@ const BatchManagement: React.FC = () => {
     if (!deleteBatch?.id) return;
 
     try {
-      setSubmitting(true);
       await axios.delete(`${API_URL}/${deleteBatch.id}?cascade=true`, { headers });
       ToasterService.success("Batch deleted successfully");
       setDeleteBatch(null);
       await fetchAllBatches();
     } catch (error) {
       ToasterService.error("Failed to delete batch", getErrorMessage(error, "Please try again."));
-    } finally {
-      setSubmitting(false);
     }
   };
 
-  const filteredBatches = batches.filter((batch) => {
-    const product = products.find((p) => p.id === batch.productId || p.productId === batch.productId);
-    const productName = product ? normalizeProductLabel(product) : `Product #${batch.productId}`;
-    const warehouseName = typeof batch.warehouse === 'object' ? batch.warehouse?.name || '' : batch.warehouse || '';
+  const filteredBatches = useMemo(() => {
+    const term = searchableText(search);
 
-    const searchString = `${batch.id} ${batch.batchNumber} ${productName} ${warehouseName}`.toLowerCase();
-    return searchString.includes(search.toLowerCase());
-  });
+    return batches.filter((batch) => {
+      const product = products.find((p) => p.id === batch.productId || p.productId === batch.productId);
+      const productName = product ? normalizeProductLabel(product) : `Product #${batch.productId}`;
+      const warehouseName = typeof batch.warehouse === 'object' ? batch.warehouse?.name || '' : batch.warehouse || '';
 
-  const today = new Date();
-  const thirtyDaysFromNow = new Date(today);
-  thirtyDaysFromNow.setDate(today.getDate() + 30);
+      const searchString = `${batch.id} ${batch.batchNumber} ${productName} ${warehouseName}`.toLowerCase();
+      const matchesSearch = !term || searchString.includes(term);
 
-  const stats = {
-    total: batches.length,
-    expired: batches.filter((b) => new Date(b.expiryDate) < today).length,
-    expiringSoon: batches.filter((b) => {
-      const expiry = new Date(b.expiryDate);
-      return expiry > today && expiry <= thirtyDaysFromNow;
-    }).length,
-    withFailedInspections: batches.filter((b) => b.inspections.some((i) => i.result === "FAIL")).length,
-  };
+      let matchesStatus = true;
+      if (statusFilter === "expired") {
+        matchesStatus = new Date(batch.expiryDate) < new Date();
+      } else if (statusFilter === "expiring") {
+        const today = new Date();
+        const thirtyDaysFromNow = new Date(today);
+        thirtyDaysFromNow.setDate(today.getDate() + 30);
+        const expiry = new Date(batch.expiryDate);
+        matchesStatus = expiry > today && expiry <= thirtyDaysFromNow;
+      } else if (statusFilter === "good") {
+        const today = new Date();
+        const thirtyDaysFromNow = new Date(today);
+        thirtyDaysFromNow.setDate(today.getDate() + 30);
+        matchesStatus = new Date(batch.expiryDate) > thirtyDaysFromNow;
+      }
 
-  const getWarehouseDisplay = (batch: Batch): string => {
-    if (typeof batch.warehouse === 'object' && batch.warehouse !== null) {
-      return batch.warehouse.name || batch.warehouse.code || `ID: ${batch.warehouse.id}`;
-    }
-    return batch.warehouse || '';
-  };
+      return matchesSearch && matchesStatus;
+    });
+  }, [batches, search, statusFilter, products]);
+
+  const stats = useMemo(
+    () => {
+      const today = new Date();
+      const thirtyDaysFromNow = new Date(today);
+      thirtyDaysFromNow.setDate(today.getDate() + 30);
+
+      return {
+        total: batches.length,
+        expired: batches.filter((b) => new Date(b.expiryDate) < today).length,
+        expiringSoon: batches.filter((b) => {
+          const expiry = new Date(b.expiryDate);
+          return expiry > today && expiry <= thirtyDaysFromNow;
+        }).length,
+        withFailedInspections: batches.filter((b) => b.inspections.some((i) => i.result === "FAIL")).length,
+      };
+    },
+    [batches]
+  );
 
   const columns: ColumnDef<Batch>[] = [
     {
@@ -467,11 +458,7 @@ const BatchManagement: React.FC = () => {
 
         return (
           <div>
-            <span
-              className={`text-sm ${
-                isExpired ? "text-red-600" : isExpiringSoon ? "text-yellow-600" : "text-slate-600"
-              }`}
-            >
+            <span className={`text-sm ${isExpired ? "text-red-600" : isExpiringSoon ? "text-yellow-600" : "text-slate-600"}`}>
               {new Date(batch.expiryDate).toLocaleDateString()}
             </span>
             {!isExpired && <p className="text-xs text-slate-400">{daysUntilExpiry} days left</p>}
@@ -486,9 +473,7 @@ const BatchManagement: React.FC = () => {
       render: (batch) => {
         const status = getBatchStatus(batch);
         return (
-          <span
-            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${status.className}`}
-          >
+          <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${status.className}`}>
             {status.icon}
             {status.label}
           </span>
@@ -537,7 +522,7 @@ const BatchManagement: React.FC = () => {
       <PageMeta title="Batch Management" description="Manage product batches" />
       <PageBreadcrumb pageTitle="Batch Management" />
 
-      <div className="w-full max-w-none space-y-6 px-0 py-8">
+      <div className="w-full max-w-none px-0 py-8 space-y-6">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={openCreate} label="Add Batch" />
         </div>
@@ -577,39 +562,41 @@ const BatchManagement: React.FC = () => {
           />
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-            <FloatingInput
-              label="Batch ID"
-              type="number"
-              value={lookupId}
-              onChange={(e) => setLookupId(e.target.value)}
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-md">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search batches..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-purple-500"
             />
-            <button
-              type="button"
-              onClick={fetchById}
-              className="h-[52px] rounded-lg bg-purple-600 px-4 text-sm font-medium text-white hover:bg-purple-700"
-            >
-              Get By ID
-            </button>
-            <button
-              type="button"
-              onClick={fetchAllBatches}
-              className="h-[52px] rounded-lg bg-gray-100 px-4 text-sm font-medium text-gray-700 hover:bg-gray-200"
-            >
-              Load All
-            </button>
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            )}
           </div>
-        </div>
 
-        <div className="relative w-full sm:max-w-md">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search batches..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-transparent focus:ring-2 focus:ring-purple-500"
+          <FilterPopover
+            title="Filter Batches"
+            buttonLabel="Filters"
+            label="Status"
+            value={statusFilter}
+            options={[
+              { label: "All Status", value: "" },
+              { label: "Expired", value: "expired" },
+              { label: "Expiring Soon", value: "expiring" },
+              { label: "Good", value: "good" },
+            ]}
+            onChange={setStatusFilter}
+            onReset={() => setStatusFilter("")}
+            onApply={() => undefined}
           />
         </div>
 
@@ -636,94 +623,69 @@ const BatchManagement: React.FC = () => {
         />
       </div>
 
-      {/* Create/Edit Modal */}
-      {showFormModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-4 backdrop-blur-sm sm:items-center">
-          <div className="mx-auto max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-100 p-5">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {editingId ? "Edit Batch" : "Create Batch"}
-                </h3>
-                <p className="mt-0.5 text-xs text-gray-500">Manage product batches</p>
-              </div>
-              <button type="button" onClick={closeForm} className="text-gray-400 hover:text-gray-600">
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            </div>
+      <PaginatedPopup
+        isOpen={showFormModal}
+        title={editingId ? "Edit Batch" : "Create Batch"}
+        subtitle="Enter batch details from the API schema"
+        onClose={closeForm}
+        onSubmit={handleSubmit}
+        submitting={submitting}
+        submitLabel={editingId ? "Update Batch" : "Create Batch"}
+        maxWidthClassName="max-w-2xl"
+        tabs={[
+          {
+            label: "Batch Details",
+            fields: [
+              <FloatingInput
+                label="Batch Number"
+                name="batchNumber"
+                value={form.batchNumber}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingDatePicker
+                label="Manufacturing Date"
+                name="manufacturingDate"
+                value={form.manufacturingDate}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingDatePicker
+                label="Expiry Date"
+                name="expiryDate"
+                value={form.expiryDate}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingSelect
+                label="Product"
+                name="productId"
+                value={form.productId}
+                onChange={handleChange}
+                emptyOptionLabel="Select product"
+                options={products.map((p) => ({
+                  id: String(p.id || p.productId || 0),
+                  name: normalizeProductLabel(p),
+                }))}
+                required
+              />,
+              <FloatingSelect
+                label="Warehouse"
+                name="warehouse"
+                value={form.warehouse}
+                onChange={handleChange}
+                emptyOptionLabel="Select warehouse"
+                options={warehouses.map((w) => ({
+                  id: String(w.id),
+                  name: `${w.code || ''} - ${w.name || ''}`,
+                }))}
+                required
+              />,
+            ],
+          },
+        ]}
+      />
 
-            <form onSubmit={handleSubmit} className="p-5">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <FloatingInput
-                  label="Batch Number"
-                  name="batchNumber"
-                  value={form.batchNumber}
-                  onChange={handleChange}
-                  required
-                />
-                <FloatingDatePicker
-                  label="Manufacturing Date"
-                  name="manufacturingDate"
-                  value={form.manufacturingDate}
-                  onChange={handleChange}
-                  required
-                />
-                <FloatingDatePicker
-                  label="Expiry Date"
-                  name="expiryDate"
-                  value={form.expiryDate}
-                  onChange={handleChange}
-                  required
-                />
-                <FloatingSelect
-                  label="Product"
-                  name="productId"
-                  value={form.productId}
-                  onChange={handleChange}
-                  emptyOptionLabel="Select product"
-                  options={products.map((p) => ({
-                    id: String(p.id || p.productId || 0),
-                    name: normalizeProductLabel(p),
-                  }))}
-                  required
-                />
-                {/* ✅ Warehouse dropdown - stores warehouse ID in form */}
-                <FloatingSelect
-                  label="Warehouse"
-                  name="warehouse"
-                  value={form.warehouse}
-                  onChange={handleChange}
-                  emptyOptionLabel="Select warehouse"
-                  options={warehouses.map((w) => ({
-                    id: String(w.id),
-                    name: `${w.code || w.id} - ${w.name || ''}`,
-                  }))}
-                  required
-                />
-              </div>
-
-              <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={closeForm}
-                  className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-purple-700 hover:to-pink-700 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {submitting ? "Saving..." : editingId ? "Update Batch" : "Create Batch"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* View Modal */}
       {viewBatch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
           <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
@@ -746,9 +708,7 @@ const BatchManagement: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Status</p>
-                  <span
-                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${getBatchStatus(viewBatch).className}`}
-                  >
+                  <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${getBatchStatus(viewBatch).className}`}>
                     {getBatchStatus(viewBatch).icon}
                     {getBatchStatus(viewBatch).label}
                   </span>
@@ -777,9 +737,7 @@ const BatchManagement: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Warehouse</p>
-                  <p className="font-medium text-gray-900">
-                    {getWarehouseDisplay(viewBatch)}
-                  </p>
+                  <p className="font-medium text-gray-900">{getWarehouseDisplay(viewBatch)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Inspections</p>
@@ -787,48 +745,26 @@ const BatchManagement: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Days Until Expiry</p>
-                  <p
-                    className={`font-medium ${
-                      getDaysUntilExpiry(viewBatch) < 0
-                        ? "text-red-600"
-                        : getDaysUntilExpiry(viewBatch) <= 30
-                        ? "text-yellow-600"
-                        : "text-emerald-600"
-                    }`}
-                  >
-                    {getDaysUntilExpiry(viewBatch) < 0
-                      ? "Expired"
-                      : `${getDaysUntilExpiry(viewBatch)} days`}
+                  <p className={`font-medium ${getDaysUntilExpiry(viewBatch) < 0 ? "text-red-600" : getDaysUntilExpiry(viewBatch) <= 30 ? "text-yellow-600" : "text-emerald-600"}`}>
+                    {getDaysUntilExpiry(viewBatch) < 0 ? "Expired" : `${getDaysUntilExpiry(viewBatch)} days`}
                   </p>
                 </div>
               </div>
 
               {viewBatch.inspections.length > 0 && (
                 <div className="border-t border-gray-100 pt-4">
-                  <p className="mb-2 text-xs text-gray-500">Inspections</p>
+                  <p className="text-xs text-gray-500 mb-2">Inspections</p>
                   <div className="space-y-2">
                     {viewBatch.inspections.slice(0, 3).map((inspection, index) => (
                       <div key={index} className="flex items-center gap-2 text-sm">
-                        <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                            inspection.result === "PASS"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-red-100 text-red-700"
-                          }`}
-                        >
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${inspection.result === "PASS" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
                           {inspection.result}
                         </span>
-                        <span className="text-gray-500">
-                          {new Date(inspection.inspectionDate).toLocaleDateString()}
-                        </span>
+                        <span className="text-gray-500">{new Date(inspection.inspectionDate).toLocaleDateString()}</span>
                         <span className="text-gray-500">by {inspection.inspector}</span>
                       </div>
                     ))}
-                    {viewBatch.inspections.length > 3 && (
-                      <p className="text-xs text-gray-400">
-                        +{viewBatch.inspections.length - 3} more
-                      </p>
-                    )}
+                    {viewBatch.inspections.length > 3 && <p className="text-xs text-gray-400">+{viewBatch.inspections.length - 3} more</p>}
                   </div>
                 </div>
               )}
@@ -855,11 +791,7 @@ const BatchManagement: React.FC = () => {
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
         innerText="Delete Batch"
-        subText={
-          deleteBatch
-            ? `Are you sure you want to delete batch "${deleteBatch.batchNumber}"?`
-            : "Are you sure?"
-        }
+        subText={deleteBatch ? `Are you sure you want to delete batch "${deleteBatch.batchNumber}"?` : "Are you sure?"}
         confirmLabel="Delete"
         cancelLabel="Cancel"
         onConfirm={confirmDelete}
