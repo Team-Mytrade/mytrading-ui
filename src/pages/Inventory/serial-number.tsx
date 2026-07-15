@@ -27,7 +27,7 @@ import { ToasterService } from "../../Services/ToasterService";
 
 interface Product {
   id: number;
-  name: string;
+  productName: string;
 }
 
 interface WarehouseRef {
@@ -195,16 +195,14 @@ const SerialNumberManager: React.FC = () => {
       warrantyStart: form.warrantyStart,
       warrantyEnd: form.warrantyEnd,
       productId,
-      productNumber: products.find((item) => item.id === productId)?.name || "",
+      productNumber: products.find((item) => item.id === productId)?.productName || "",
       warehouse: warehouseId ? { id: warehouseId } : null,
       batch: batchId ? { id: batchId } : null,
       inspections: [],
     };
   };
 
-  // Client-side uniqueness check. The API schema does not enforce a serial
-  // pattern or uniqueness constraint, so we guard against duplicates here
-  // before hitting the server.
+ 
   const isDuplicateSerial = (serial: string) => {
     const normalized = serial.trim().toLowerCase();
     return serialNumbers.some(
@@ -362,7 +360,7 @@ const SerialNumberManager: React.FC = () => {
       label: "Product",
       sortable: true,
       render: (sn) =>
-        sn.productNumber || products.find((p) => p.id === sn.productId)?.name || "N/A",
+        sn.productNumber || products.find((p) => p.id === sn.productId)?.productName || "N/A",
     },
     {
       key: "warehouse",
@@ -515,7 +513,7 @@ const SerialNumberManager: React.FC = () => {
                   name="filterProductId"
                   value={filterProductId}
                   onChange={(e) => setFilterProductId(e.target.value)}
-                  options={products.map((product) => ({ id: String(product.id), name: product.name }))}
+                  options={products.map((product) => ({ id: String(product.id), name: product.productName }))}
                 />
                 <FloatingSelect
                   label="Warehouse"
@@ -602,7 +600,7 @@ const SerialNumberManager: React.FC = () => {
                 name="productId"
                 value={form.productId}
                 onChange={handleChange}
-                options={products.map((product) => ({ id: String(product.id), name: product.name }))}
+                options={products.map((product) => ({ id: String(product.id), name: product.productName }))}
               />,
               <FloatingSelect
                 label="Warehouse"

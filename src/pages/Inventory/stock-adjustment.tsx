@@ -92,7 +92,7 @@ type StockAdjustmentForm = {
 };
 
 const API_URL = "/v1/api/inventory";
-const PRODUCT_URL = "/v1/api/purchase/products";
+const PRODUCT_URL = "/v1/api/purchase";
 const PAGE_SIZE = 10;
 
 const emptyForm: StockAdjustmentForm = {

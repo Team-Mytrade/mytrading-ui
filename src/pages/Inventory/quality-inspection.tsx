@@ -81,7 +81,7 @@ const QualityInspectionManager: React.FC = () => {
     const [deletingRecord, setDeletingRecord] = useState<QualityInspection | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
-    const [products, setProducts] = useState<{ id: number; productName: string; sku?: string; code?: string }[]>([]);
+    const [products, setProducts] = useState<{ id: number; productName: string; productSku?: string; code?: string }[]>([]);
 
     const [formData, setFormData] = useState<Omit<QualityInspection, "id">>({
         productSKU: "",
@@ -736,12 +736,12 @@ const QualityInspectionManager: React.FC = () => {
                                     setFormData({
                                         ...formData,
                                         productId: id,
-                                        productSKU: product?.sku || product?.code || product?.productName || String(id),
+                                        productSKU: product?.productSku || product?.code || product?.productName || String(id),
                                     });
                                 }}
                                 options={products.map(product => ({
                                     id: String(product.id),
-                                    name: product.sku ? `${product.productName} (${product.sku})` : product.productName,
+                                    name: product.productSku ? `${product.productName} (${product.productSku})` : product.productName,
                                 }))}
                                 required
                             />,
