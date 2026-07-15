@@ -1,16 +1,12 @@
 import React, { useContext, useEffect, useState, useMemo } from "react";
 import axios from "axios";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import {
     PencilSquareIcon,
     TrashIcon,
     MagnifyingGlassIcon,
-    FunnelIcon,
     CheckCircleIcon,
     XCircleIcon,
-    DocumentArrowDownIcon,
     TableCellsIcon,
     EyeIcon,
     CubeIcon,
@@ -25,10 +21,17 @@ import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import { ToasterService } from "../../Services/ToasterService";
-import ConfirmDialog from "../../components/common/ConfirmDialog";
-import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { ListingPdfExportButton } from "../../components/common/export";
+import FilterPopover from "../../components/common/filter";
+import DynamicPopup from "../../components/common/Popup";
+import PaginatedPopup from "../../components/common/unpopup";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import {
+    FloatingInput,
+    FloatingSelect1 as FloatingSelect,
+    FloatingTextarea,
+} from "../../components/inputfeild/FloatingInput";
 import { AuthContext } from "../../context/AuthContext";
 
 interface QualityInspection {
@@ -70,14 +73,13 @@ const QualityInspectionManager: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
     const [showForm, setShowForm] = useState(false);
-    const [showFilters, setShowFilters] = useState(false);
-    const [showExportMenu, setShowExportMenu] = useState(false);
     const [formMode, setFormMode] = useState<"add" | "edit">("add");
     const [editingId, setEditingId] = useState<number | null>(null);
     const [resultFilter, setResultFilter] = useState<"All" | "Pass" | "Fail">("All");
     const [viewModalOpen, setViewModalOpen] = useState(false);
     const [selectedRecord, setSelectedRecord] = useState<QualityInspection | null>(null);
-    const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
+    const [deletingRecord, setDeletingRecord] = useState<QualityInspection | null>(null);
+    const [submitting, setSubmitting] = useState(false);
 
     const [products, setProducts] = useState<{ id: number; productName: string; sku?: string; code?: string }[]>([]);
 
@@ -190,10 +192,12 @@ const QualityInspectionManager: React.FC = () => {
         return payload;
     };
 
-    const handleSave = async () => {
+    const handleSave = async (e?: React.FormEvent) => {
+        e?.preventDefault();
         const payload = buildPayload();
 
         try {
+            setSubmitting(true);
             if (formMode === "edit" && editingId) {
                 const response = await qualityInspectionApi.put(`${API_URL}/${editingId}`, payload);
                 const updatedRecord = normalizeInspection({
@@ -211,6 +215,8 @@ const QualityInspectionManager: React.FC = () => {
             closeForm();
         } catch (err: any) {
             ToasterService.error(err.response?.data?.message || err.response?.data?.error || err.response?.data?.detail || "Save failed");
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -251,20 +257,17 @@ const QualityInspectionManager: React.FC = () => {
         setViewModalOpen(true);
     };
 
-    const handleDelete = async (id: number, productSKU: string) => {
-        const ok = await confirm({
-            message: `Are you sure you want to delete inspection record for ${productSKU}? This action cannot be undone.`,
-            confirmLabel: "Delete",
-            variant: "danger",
-        });
-        if (!ok) return;
+    const confirmDelete = async () => {
+        if (!deletingRecord) return;
 
         try {
-            await qualityInspectionApi.delete(`${API_URL}/${id}`);
+            await qualityInspectionApi.delete(`${API_URL}/${deletingRecord.id}`);
             ToasterService.success("Inspection record deleted successfully");
             await fetchRecords();
         } catch (err: any) {
             ToasterService.error(err.response?.data?.message || "Delete failed");
+        } finally {
+            setDeletingRecord(null);
         }
     };
 
@@ -285,31 +288,6 @@ const QualityInspectionManager: React.FC = () => {
         });
     };
 
-    const exportPDF = () => {
-        const doc = new jsPDF();
-        doc.setFontSize(18);
-        doc.text("Quality Inspection Report", 14, 15);
-        doc.setFontSize(10);
-        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
-        doc.text(`Total Records: ${filtered.length}`, 14, 28);
-
-        autoTable(doc, {
-            head: [["SKU", "Inspector", "Date", "Result", "Remarks"]],
-            body: filtered.map(r => [
-                r.productSKU,
-                r.inspectorName,
-                new Date(r.inspectionDate).toLocaleDateString(),
-                r.result,
-                r.remarks || "-"
-            ]),
-            startY: 35,
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: [6, 182, 212] },
-        });
-        doc.save(`Quality_Inspection_${new Date().toISOString().split("T")[0]}.pdf`);
-        setShowExportMenu(false);
-    };
-
     const exportExcel = () => {
         const ws = XLSX.utils.json_to_sheet(filtered.map(r => ({
             'Product ID': r.productSKU,
@@ -323,7 +301,6 @@ const QualityInspectionManager: React.FC = () => {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Quality Inspections");
         XLSX.writeFile(wb, `Quality_Inspection_${new Date().toISOString().split("T")[0]}.xlsx`);
-        setShowExportMenu(false);
     };
 
     const filtered = useMemo(() => {
@@ -458,7 +435,7 @@ const QualityInspectionManager: React.FC = () => {
                     </button>
                     <button
                         type="button"
-                        onClick={() => handleDelete(record.id, record.productSKU)}
+                        onClick={() => setDeletingRecord(record)}
                         className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
                         title="Delete Inspection"
                     >
@@ -541,58 +518,76 @@ const QualityInspectionManager: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        {/* Export Menu */}
-                        <div className="relative">
-                            <button
-                                onClick={() => setShowExportMenu(!showExportMenu)}
-                                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                                disabled={records.length === 0}
-                            >
-                                <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
-                            </button>
+                        <ListingPdfExportButton
+                            title="Quality Inspections"
+                            subtitle="Filtered quality inspection listing"
+                            reportLabel="Quality Inspection Report"
+                            data={filtered}
+                            fileName="Quality_Inspection"
+                            disabled={records.length === 0}
+                            metadata={(rows) => [
+                                { label: "Total", value: rows.length },
+                                { label: "Result", value: resultFilter },
+                                { label: "Search", value: search || "None" },
+                            ]}
+                        />
 
-                            {showExportMenu && (
-                                <div className="absolute right-0 mt-1 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50">
-                                    <button
-                                        onClick={exportPDF}
-                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
-                                    >
-                                        <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
-                                        Export PDF
-                                    </button>
-                                    <button
-                                        onClick={exportExcel}
-                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
-                                    >
-                                        <TableCellsIcon className="h-4 w-4 text-green-600" />
-                                        Export Excel
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                        <button
+                            onClick={exportExcel}
+                            className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                            disabled={records.length === 0}
+                            title="Export Excel"
+                        >
+                            <TableCellsIcon className="h-5 w-5 text-green-600" />
+                        </button>
 
                         {/* Print Button */}
                         <button
                             onClick={() => window.print()}
                             className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
                             disabled={records.length === 0}
+                            title="Print"
                         >
                             <PrinterIcon className="h-5 w-5 text-gray-600" />
                         </button>
 
-                        {/* Filter Button */}
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className={`p-2 rounded-lg border ${showFilters ? 'bg-cyan-50 border-cyan-300' : 'border-gray-300 hover:bg-gray-50'
-                                }`}
+                        <FilterPopover
+                            title="Filter Inspections"
+                            buttonLabel="Filters"
+                            widthClassName="w-[20rem]"
+                            showFooter={false}
                         >
-                            <FunnelIcon className={`h-5 w-5 ${showFilters ? 'text-cyan-600' : 'text-gray-600'}`} />
-                        </button>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Result</label>
+                                    <select
+                                        value={resultFilter}
+                                        onChange={e => setResultFilter(e.target.value as any)}
+                                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                                    >
+                                        <option value="All">All Results</option>
+                                        <option value="Pass">Pass</option>
+                                        <option value="Fail">Fail</option>
+                                    </select>
+                                </div>
+                                {resultFilter !== "All" && (
+                                    <div className="flex justify-end">
+                                        <button
+                                            onClick={() => setResultFilter("All")}
+                                            className="text-sm text-red-600 hover:text-red-800"
+                                        >
+                                            Clear Filters
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </FilterPopover>
 
                         {/* Refresh Button */}
                         <button
                             onClick={fetchRecords}
                             className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                            title="Refresh"
                         >
                             <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -600,34 +595,6 @@ const QualityInspectionManager: React.FC = () => {
                         </button>
                     </div>
                 </div>
-
-                {/* Filters Panel */}
-                {showFilters && (
-                    <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex flex-wrap gap-4">
-                            <div className="flex-1 min-w-[200px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Result</label>
-                                <select
-                                    value={resultFilter}
-                                    onChange={e => setResultFilter(e.target.value as any)}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                                >
-                                    <option value="All">All Results</option>
-                                    <option value="Pass">Pass</option>
-                                    <option value="Fail">Fail</option>
-                                </select>
-                            </div>
-                            {resultFilter !== "All" && (
-                                <button
-                                    onClick={() => setResultFilter("All")}
-                                    className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
-                                >
-                                    Clear Filters
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                )}
 
                 {/* Table */}
                 <ReusableTable
@@ -745,123 +712,103 @@ const QualityInspectionManager: React.FC = () => {
                         </div>
                     </div>
                 )}
-
-                {/* Form Modal */}
-                {showForm && (
-                    <div className="fixed inset-0 z-50 overflow-y-auto">
-                        <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={closeForm}></div>
-                            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                                    <div className="sm:flex sm:items-start">
-                                        <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                                            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                                                {formMode === "add" ? "Add Inspection Record" : "Edit Inspection Record"}
-                                            </h3>
-                                            <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Product</label>
-                                                    <select
-                                                        value={formData.productId || ""}
-                                                        onChange={e => {
-                                                            const id = Number(e.target.value) || 0;
-                                                            const product = products.find(p => p.id === id);
-                                                            setFormData({
-                                                                ...formData,
-                                                                productId: id,
-                                                                productSKU: product?.sku || product?.code || product?.productName || String(id),
-                                                            });
-                                                        }}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        required
-                                                    >
-                                                        <option value="">Select a product</option>
-                                                        {products.map(product => (
-                                                            <option key={product.id} value={product.id}>
-                                                                {product.productName}{product.sku ? ` (${product.sku})` : ""}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Inspector Name</label>
-                                                    <input
-                                                        type="text"
-                                                        value={formData.inspectorName}
-                                                        onChange={e => setFormData({ ...formData, inspectorName: e.target.value })}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        required
-                                                    />
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700">Inspection Date</label>
-                                                        <input
-                                                            type="date"
-                                                            value={formData.inspectionDate}
-                                                            onChange={e => setFormData({ ...formData, inspectionDate: e.target.value })}
-                                                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                            required
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700">Result</label>
-                                                        <select
-                                                            value={formData.result}
-                                                            onChange={e => setFormData({ ...formData, result: e.target.value as "Pass" | "Fail" })}
-                                                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        >
-                                                            <option value="Pass">Pass</option>
-                                                            <option value="Fail">Fail</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Remarks (Optional)</label>
-                                                    <textarea
-                                                        value={formData.remarks}
-                                                        onChange={e => setFormData({ ...formData, remarks: e.target.value })}
-                                                        rows={3}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        placeholder="Additional notes about the inspection..."
-                                                    />
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                                    <button
-                                        type="button"
-                                        onClick={handleSave}
-                                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        {formMode === "add" ? "Create" : "Update"}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={closeForm}
-                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <ConfirmDialog
-                    isOpen={confirmState.isOpen}
-                    title={confirmState.title}
-                    message={confirmState.message}
-                    confirmLabel={confirmState.confirmLabel}
-                    cancelLabel={confirmState.cancelLabel}
-                    variant={confirmState.variant}
-                    onConfirm={handleConfirm}
-                    onCancel={handleCancel}
-                />
             </div>
+
+            <PaginatedPopup
+                isOpen={showForm}
+                title={formMode === "add" ? "Add Inspection Record" : "Edit Inspection Record"}
+                subtitle="Enter quality inspection details from the API schema"
+                onClose={closeForm}
+                onSubmit={handleSave}
+                submitting={submitting}
+                submitLabel={formMode === "add" ? "Create" : "Update"}
+                tabs={[
+                    {
+                        label: "Details",
+                        fields: [
+                            <FloatingSelect
+                                label="Product"
+                                name="productId"
+                                value={String(formData.productId || "")}
+                                onChange={(e) => {
+                                    const id = Number(e.target.value) || 0;
+                                    const product = products.find(p => p.id === id);
+                                    setFormData({
+                                        ...formData,
+                                        productId: id,
+                                        productSKU: product?.sku || product?.code || product?.productName || String(id),
+                                    });
+                                }}
+                                options={products.map(product => ({
+                                    id: String(product.id),
+                                    name: product.sku ? `${product.productName} (${product.sku})` : product.productName,
+                                }))}
+                                required
+                            />,
+                            <FloatingInput
+                                label="Inspector Name"
+                                name="inspectorName"
+                                value={formData.inspectorName}
+                                onChange={(e) => setFormData({ ...formData, inspectorName: e.target.value })}
+                                required
+                            />,
+                            <FloatingInput
+                                label="Inspection Date"
+                                name="inspectionDate"
+                                type="date"
+                                value={formData.inspectionDate}
+                                onChange={(e) => setFormData({ ...formData, inspectionDate: e.target.value })}
+                                required
+                            />,
+                            <FloatingSelect
+                                label="Result"
+                                name="result"
+                                value={formData.result}
+                                onChange={(e) => setFormData({ ...formData, result: e.target.value as "Pass" | "Fail" })}
+                                options={[
+                                    { id: "Pass", name: "Pass" },
+                                    { id: "Fail", name: "Fail" },
+                                ]}
+                                includeEmptyOption={false}
+                            />,
+                        ],
+                    },
+                    {
+                        label: "Remarks",
+                        fields: [
+                            <div className="md:col-span-2">
+                                <FloatingTextarea
+                                    label="Remarks (Optional)"
+                                    name="remarks"
+                                    value={formData.remarks}
+                                    onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                                    rows={3}
+                                />
+                            </div>,
+                        ],
+                    },
+                ]}
+            />
+
+            <DynamicPopup
+                isPopupOpen={!!deletingRecord}
+                setIsPopupOpen={(open: boolean) => {
+                    if (!open) setDeletingRecord(null);
+                }}
+                icon={<TrashIcon className="h-6 w-6 text-red-600" />}
+                iconBg="bg-red-100"
+                innerText="Delete Inspection Record"
+                subText={
+                    deletingRecord
+                        ? `Are you sure you want to delete inspection record for ${deletingRecord.productSKU}? This action cannot be undone.`
+                        : "Are you sure you want to delete this inspection record?"
+                }
+                confirmLabel="Delete"
+                cancelLabel="Cancel"
+                onConfirm={confirmDelete}
+                onCancel={() => setDeletingRecord(null)}
+                confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
+            />
         </>
     );
 };

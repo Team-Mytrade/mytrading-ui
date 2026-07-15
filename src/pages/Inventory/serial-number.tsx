@@ -1,10 +1,8 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import axios from "axios";
 import {
   BuildingStorefrontIcon,
   CheckCircleIcon,
-  FunnelIcon,
   MagnifyingGlassIcon,
   PencilSquareIcon,
   QrCodeIcon,
@@ -15,8 +13,12 @@ import {
 import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import { ListingPdfExportButton } from "../../components/common/export";
+import FilterPopover from "../../components/common/filter";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
+import DynamicPopup from "../../components/common/Popup";
+import PaginatedPopup from "../../components/common/unpopup";
 import {
   FloatingInput,
   FloatingSelect1 as FloatingSelect,
@@ -25,7 +27,7 @@ import { ToasterService } from "../../Services/ToasterService";
 
 interface Product {
   id: number;
-  productName: string;
+  name: string;
 }
 
 interface WarehouseRef {
@@ -72,7 +74,7 @@ type SerialNumberForm = {
 };
 
 const API_URL = "/v1/api/inventory";
-const PRODUCT_URL = "/v1/api/purchase";
+const PRODUCT_URL = "/v1/api/purchase"
 const PAGE_SIZE = 10;
 
 const emptyForm: SerialNumberForm = {
@@ -119,11 +121,11 @@ const SerialNumberManager: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
   const [filterProductId, setFilterProductId] = useState("");
   const [filterWarehouseId, setFilterWarehouseId] = useState("");
   const [filterBatchId, setFilterBatchId] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [deletingSerial, setDeletingSerial] = useState<SerialNumber | null>(null);
 
   useEffect(() => {
     fetchSerialNumbers();
@@ -193,7 +195,7 @@ const SerialNumberManager: React.FC = () => {
       warrantyStart: form.warrantyStart,
       warrantyEnd: form.warrantyEnd,
       productId,
-      productNumber: products.find((item) => item.id === productId)?.productName || "",
+      productNumber: products.find((item) => item.id === productId)?.name || "",
       warehouse: warehouseId ? { id: warehouseId } : null,
       batch: batchId ? { id: batchId } : null,
       inspections: [],
@@ -278,15 +280,17 @@ const SerialNumberManager: React.FC = () => {
     setShowFormModal(false);
   };
 
-  const handleDelete = async (sn: SerialNumber) => {
-    if (!window.confirm(`Delete serial number "${sn.serial || sn.id}"?`)) return;
+  const confirmDelete = async () => {
+    if (!deletingSerial) return;
 
     try {
-      await axios.delete(`${API_URL}/serial-numbers/${sn.id}`, { headers });
+      await axios.delete(`${API_URL}/serial-numbers/${deletingSerial.id}`, { headers });
       ToasterService.success("Serial number deleted");
-      setSerialNumbers((current) => current.filter((item) => item.id !== sn.id));
+      setSerialNumbers((current) => current.filter((item) => item.id !== deletingSerial.id));
     } catch (error) {
       ToasterService.error("Failed to delete serial number", getErrorMessage(error, "Please try again."));
+    } finally {
+      setDeletingSerial(null);
     }
   };
 
@@ -318,10 +322,6 @@ const SerialNumberManager: React.FC = () => {
       return haystack.includes(term);
     });
   }, [serialNumbers, search, filterProductId, filterWarehouseId, filterBatchId, filterStatus]);
-
-  const activeFilterCount = [filterProductId, filterWarehouseId, filterBatchId, filterStatus].filter(
-    Boolean
-  ).length;
 
   const resetFilters = () => {
     setFilterProductId("");
@@ -362,7 +362,7 @@ const SerialNumberManager: React.FC = () => {
       label: "Product",
       sortable: true,
       render: (sn) =>
-        sn.productNumber || products.find((p) => p.id === sn.productId)?.productName || "N/A",
+        sn.productNumber || products.find((p) => p.id === sn.productId)?.name || "N/A",
     },
     {
       key: "warehouse",
@@ -420,7 +420,7 @@ const SerialNumberManager: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => handleDelete(sn)}
+            onClick={() => setDeletingSerial(sn)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
             title="Delete"
           >
@@ -469,9 +469,9 @@ const SerialNumberManager: React.FC = () => {
           />
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="relative w-full sm:max-w-md">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/3 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               placeholder="Search by serial, product, warehouse, or batch..."
@@ -490,69 +490,70 @@ const SerialNumberManager: React.FC = () => {
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => setShowFilters((current) => !current)}
-            className={`relative flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition ${
-              showFilters || activeFilterCount > 0
-                ? "border-cyan-500 bg-cyan-50 text-cyan-700"
-                : "border-gray-300 text-gray-600 hover:bg-gray-50"
-            }`}
-          >
-            <FunnelIcon className="h-4 w-4" />
-            Filter
-            {activeFilterCount > 0 && (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-600 text-xs font-semibold text-white">
-                {activeFilterCount}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {showFilters && (
-          <div className="grid grid-cols-1 gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
-            <FloatingSelect
-              label="Product"
-              name="filterProductId"
-              value={filterProductId}
-              onChange={(e) => setFilterProductId(e.target.value)}
-              options={products.map((product) => ({ id: String(product.id), name: product.productName }))}
-            />
-            <FloatingSelect
-              label="Warehouse"
-              name="filterWarehouseId"
-              value={filterWarehouseId}
-              onChange={(e) => setFilterWarehouseId(e.target.value)}
-              options={warehouses.map((warehouse) => ({ id: String(warehouse.id), name: warehouse.name }))}
-            />
-            <FloatingSelect
-              label="Batch"
-              name="filterBatchId"
-              value={filterBatchId}
-              onChange={(e) => setFilterBatchId(e.target.value)}
-              options={batches.map((batch) => ({ id: String(batch.id), name: batch.batchNumber }))}
-            />
-            <FloatingSelect
-              label="Warranty Status"
-              name="filterStatus"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              options={[
-                { id: "active", name: "In Warranty" },
-                { id: "expired", name: "Expired" },
+          <div className="flex items-center gap-2">
+            <ListingPdfExportButton
+              title="Serial Numbers"
+              subtitle="Filtered serial number listing"
+              reportLabel="Serial Numbers Report"
+              data={filteredSerialNumbers}
+              fileName="Serial_Numbers"
+              disabled={loading}
+              metadata={(rows) => [
+                { label: "Total", value: rows.length },
+                { label: "Search", value: search || "None" },
               ]}
             />
-            <div className="sm:col-span-2 lg:col-span-4">
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
-              >
-                Reset filters
-              </button>
-            </div>
+            <FilterPopover
+              title="Filter Serial Numbers"
+              buttonLabel="Filters"
+              widthClassName="w-[21rem] sm:w-[23rem]"
+              showFooter={false}
+            >
+              <div className="space-y-3">
+                <FloatingSelect
+                  label="Product"
+                  name="filterProductId"
+                  value={filterProductId}
+                  onChange={(e) => setFilterProductId(e.target.value)}
+                  options={products.map((product) => ({ id: String(product.id), name: product.name }))}
+                />
+                <FloatingSelect
+                  label="Warehouse"
+                  name="filterWarehouseId"
+                  value={filterWarehouseId}
+                  onChange={(e) => setFilterWarehouseId(e.target.value)}
+                  options={warehouses.map((warehouse) => ({ id: String(warehouse.id), name: warehouse.name }))}
+                />
+                <FloatingSelect
+                  label="Batch"
+                  name="filterBatchId"
+                  value={filterBatchId}
+                  onChange={(e) => setFilterBatchId(e.target.value)}
+                  options={batches.map((batch) => ({ id: String(batch.id), name: batch.batchNumber }))}
+                />
+                <FloatingSelect
+                  label="Warranty Status"
+                  name="filterStatus"
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  options={[
+                    { id: "active", name: "In Warranty" },
+                    { id: "expired", name: "Expired" },
+                  ]}
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                  >
+                    Reset filters
+                  </button>
+                </div>
+              </div>
+            </FilterPopover>
           </div>
-        )}
+        </div>
 
         <ReusableTable
           data={filteredSerialNumbers}
@@ -577,91 +578,91 @@ const SerialNumberManager: React.FC = () => {
         />
       </div>
 
-      {showFormModal &&
-        createPortal(
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-4 backdrop-blur-sm sm:items-center">
-            <div className="mx-auto max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl">
-              <div className="flex items-center justify-between border-b border-gray-100 p-5">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {editingId ? "Edit Serial Number" : "Create Serial Number"}
-                  </h3>
-                  <p className="mt-0.5 text-xs text-gray-500">Enter serial number details from the API schema</p>
-                </div>
-                <button type="button" onClick={closeForm} className="text-gray-400 hover:text-gray-600">
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
+      <PaginatedPopup
+        isOpen={showFormModal}
+        title={editingId ? "Edit Serial Number" : "Create Serial Number"}
+        subtitle="Enter serial number details from the API schema"
+        onClose={closeForm}
+        onSubmit={handleSubmit}
+        submitting={submitting}
+        submitLabel={editingId ? "Update Serial Number" : "Create Serial Number"}
+        tabs={[
+          {
+            label: "Details",
+            fields: [
+              <FloatingInput
+                label="Serial"
+                name="serial"
+                value={form.serial}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingSelect
+                label="Product"
+                name="productId"
+                value={form.productId}
+                onChange={handleChange}
+                options={products.map((product) => ({ id: String(product.id), name: product.name }))}
+              />,
+              <FloatingSelect
+                label="Warehouse"
+                name="warehouseId"
+                value={form.warehouseId}
+                onChange={handleChange}
+                options={warehouses.map((warehouse) => ({ id: String(warehouse.id), name: warehouse.name }))}
+              />,
+              <FloatingSelect
+                label="Batch"
+                name="batchId"
+                value={form.batchId}
+                onChange={handleChange}
+                options={batches.map((batch) => ({ id: String(batch.id), name: batch.batchNumber }))}
+              />,
+            ],
+          },
+          {
+            label: "Warranty",
+            fields: [
+              <FloatingInput
+                label="Warranty Start"
+                name="warrantyStart"
+                type="date"
+                value={form.warrantyStart}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingInput
+                label="Warranty End"
+                name="warrantyEnd"
+                type="date"
+                value={form.warrantyEnd}
+                onChange={handleChange}
+                required
+              />,
+            ],
+          },
+        ]}
+      />
 
-              <form onSubmit={handleSubmit} className="p-5">
-                <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
-                  <FloatingInput
-                    label="Serial"
-                    name="serial"
-                    value={form.serial}
-                    onChange={handleChange}
-                    required
-                  />
-                  <FloatingSelect
-                    label="Product"
-                    name="productId"
-                    value={form.productId}
-                    onChange={handleChange}
-                    options={products.map((product) => ({ id: String(product.id), name: product.productName }))}
-                  />
-                  <FloatingSelect
-                    label="Warehouse"
-                    name="warehouseId"
-                    value={form.warehouseId}
-                    onChange={handleChange}
-                    options={warehouses.map((warehouse) => ({ id: String(warehouse.id), name: warehouse.name }))}
-                  />
-                  <FloatingSelect
-                    label="Batch"
-                    name="batchId"
-                    value={form.batchId}
-                    onChange={handleChange}
-                    options={batches.map((batch) => ({ id: String(batch.id), name: batch.batchNumber }))}
-                  />
-                  <FloatingInput
-                    label="Warranty Start"
-                    name="warrantyStart"
-                    type="date"
-                    value={form.warrantyStart}
-                    onChange={handleChange}
-                    required
-                  />
-                  <FloatingInput
-                    label="Warranty End"
-                    name="warrantyEnd"
-                    type="date"
-                    value={form.warrantyEnd}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={closeForm}
-                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    {submitting ? "Saving..." : editingId ? "Update Serial Number" : "Create Serial Number"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>,
-          document.body
-        )}
+      <DynamicPopup
+        isPopupOpen={!!deletingSerial}
+        setIsPopupOpen={(open: boolean) => {
+          if (!open) setDeletingSerial(null);
+        }}
+        icon={<TrashIcon className="h-6 w-6 text-red-600" />}
+        iconBg="bg-red-100"
+        innerText="Delete Serial Number"
+        subText={
+          deletingSerial
+            ? `Are you sure you want to delete serial number "${deletingSerial.serial || deletingSerial.id}"? This action cannot be undone.`
+            : "Are you sure you want to delete this serial number?"
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeletingSerial(null)}
+        confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
+      />
     </>
   );
 };
