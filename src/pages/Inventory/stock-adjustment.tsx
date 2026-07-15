@@ -31,8 +31,8 @@ import { ToasterService } from "../../Services/ToasterService";
 
 interface Product {
     id: number;
-    name: string;
-    sku?: string;
+    productName: string;
+    productSku?: string;
     currentStock?: number;
 }
 
@@ -284,13 +284,7 @@ const StockAdjustmentManager: React.FC = () => {
         }
     };
 
-    // Payload shape verified against the stock-adjustments swagger schema:
-    // `warehouse`, `batch`, and `serialNumber` are all reference objects
-    // ({ id }), not plain strings. `reference` is intentionally NOT included
-    // here — it does not exist as a field in the schema, so it was dropped
-    // to avoid sending an unrecognized property. Note: the form below still
-    // collects a "Reference" value that is currently not persisted anywhere
-    // — see the note further down if you want that restored or removed.
+    
     const buildPayload = () => ({
         id: editingId || 0,
         adjustmentDate: form.adjustmentDate,
@@ -425,7 +419,7 @@ const StockAdjustmentManager: React.FC = () => {
             head: [["Date", "Product", "Warehouse", "Type", "Quantity", "Reason"]],
             body: filteredAdjustments.map(a => [
                 new Date(a.adjustmentDate).toLocaleDateString(),
-                a.product?.name || "-",
+                a.product?.productName || "-",
                 a.warehouse?.name || "-",
                 a.adjustmentType === "POSITIVE" ? "Stock In" : "Stock Out",
                 `${a.adjustmentType === "POSITIVE" ? "+" : "-"}${a.quantity}`,
@@ -442,8 +436,8 @@ const StockAdjustmentManager: React.FC = () => {
     const exportExcel = () => {
         const ws = XLSX.utils.json_to_sheet(filteredAdjustments.map(a => ({
             'Date': new Date(a.adjustmentDate).toLocaleDateString(),
-            'Product': a.product?.name || "-",
-            'Product SKU': a.product?.sku || "-",
+            'Product': a.product?.productName || "-",
+            'Product SKU': a.product?.productSku || "-",
             'Warehouse': a.warehouse?.name || "-",
             'Warehouse Code': a.warehouse?.code || "-",
             'Batch Number': a.batch?.batchNumber || "-",
@@ -528,8 +522,8 @@ const StockAdjustmentManager: React.FC = () => {
             label: "Product",
             render: (adjustment) => (
                 <div>
-                    <p className="text-sm font-medium text-gray-900">{adjustment.product?.name || "N/A"}</p>
-                    <p className="text-xs text-gray-500">{adjustment.product?.sku || "No SKU"}</p>
+                    <p className="text-sm font-medium text-gray-900">{adjustment.product?.productName || "N/A"}</p>
+                    <p className="text-xs text-gray-500">{adjustment.product?.productSku || "No SKU"}</p>
                 </div>
             ),
         },
@@ -831,7 +825,7 @@ const StockAdjustmentManager: React.FC = () => {
                                                         >
                                                             <option value="">Select Product</option>
                                                             {products.map(p => (
-                                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                                                <option key={p.id} value={p.id}>{p.productName}</option>
                                                             ))}
                                                         </select>
                                                     </div>
@@ -1038,9 +1032,9 @@ const StockAdjustmentManager: React.FC = () => {
                                                     </div>
                                                     <div>
                                                         <p className="text-xs text-gray-500">Product</p>
-                                                        <p className="text-sm font-medium text-gray-900">{selectedAdjustment.product?.name || "N/A"}</p>
-                                                        {selectedAdjustment.product?.sku && (
-                                                            <p className="text-xs text-gray-500 mt-1">SKU: {selectedAdjustment.product.sku}</p>
+                                                        <p className="text-sm font-medium text-gray-900">{selectedAdjustment.product?.productName || "N/A"}</p>
+                                                        {selectedAdjustment.product?.productSku && (
+                                                            <p className="text-xs text-gray-500 mt-1">SKU: {selectedAdjustment.product.productSku}</p>
                                                         )}
                                                     </div>
                                                     <div>
@@ -1160,7 +1154,7 @@ const StockAdjustmentManager: React.FC = () => {
                     innerText="Delete Stock Adjustment"
                     subText={
                         adjustmentToDelete
-                            ? `Are you sure you want to delete ${adjustmentToDelete.adjustmentType === "POSITIVE" ? "stock in" : "stock out"} adjustment for "${adjustmentToDelete.product?.name || "Unknown Product"}" (${adjustmentToDelete.quantity} units)? This action cannot be undone.`
+                            ? `Are you sure you want to delete ${adjustmentToDelete.adjustmentType === "POSITIVE" ? "stock in" : "stock out"} adjustment for "${adjustmentToDelete.product?.productSku || "Unknown Product"}" (${adjustmentToDelete.quantity} units)? This action cannot be undone.`
                             : "Are you sure you want to delete this stock adjustment?"
                     }
                     confirmLabel="Delete"
