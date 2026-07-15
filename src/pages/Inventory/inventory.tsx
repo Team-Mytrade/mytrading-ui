@@ -1,6 +1,6 @@
 // pages/InventoryStockManager.tsx
 
-import React, { ChangeEvent, FormEvent, useContext, useEffect, useMemo, useState } from "react";
+import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
   ArrowsRightLeftIcon,
@@ -17,6 +17,9 @@ import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import { ListingPdfExportButton } from "../../components/common/export";
+import FilterPopover from "../../components/common/filter";
+import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import {
@@ -25,7 +28,6 @@ import {
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
-import { AuthContext } from "../../context/AuthContext";
 
 type Warehouse = {
   id: number;
@@ -113,12 +115,9 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function getStoredUser() {
-  try {
-    return JSON.parse(localStorage.getItem("user") || "null") || {};
-  } catch {
-    return {};
-  }
+function searchableText(value: unknown) {
+  if (value === null || value === undefined) return "";
+  return String(value).toLowerCase().trim();
 }
 
 function normalizeProductLabel(product: ProductOption): string {
@@ -168,17 +167,8 @@ function getStockStatus(stock: InventoryStock) {
 }
 
 const InventoryStockManager: React.FC = () => {
-  const { user } = useContext(AuthContext);
-  const authUser = getStoredUser();
-
-  const headers = useMemo(() => {
-    const token = localStorage.getItem("accessToken");
-    const tenantId = user?.tenantId || authUser.tenantId || "";
-    return {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(tenantId ? { "X-Tenant-ID": tenantId } : {}),
-    };
-  }, [user?.tenantId, authUser.tenantId]);
+  const token = localStorage.getItem("accessToken");
+  const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
 
   const [stocks, setStocks] = useState<InventoryStock[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
@@ -189,15 +179,13 @@ const InventoryStockManager: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
-  const [lookupId, setLookupId] = useState("");
-  const [availabilityProductId, setAvailabilityProductId] = useState("");
-  const [availabilityWarehouseId, setAvailabilityWarehouseId] = useState("");
-  const [availabilityQty, setAvailabilityQty] = useState<number | null>(null);
+  const [typeFilter, setTypeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [deleteStock, setDeleteStock] = useState<InventoryStock | null>(null);
 
   useEffect(() => {
-    void fetchAllStock();
-    void fetchDropdowns();
+    fetchAllStock();
+    fetchDropdowns();
   }, []);
 
   const fetchAllStock = async (): Promise<void> => {
@@ -220,69 +208,10 @@ const InventoryStockManager: React.FC = () => {
         axios.get<Warehouse[]>(WAREHOUSE_API_URL, { headers }),
         axios.get<ProductOption[]>(PRODUCT_API_URL, { headers }),
       ]);
-
       setWarehouses(Array.isArray(warehouseRes.data) ? warehouseRes.data : []);
       setProducts(Array.isArray(productRes.data) ? productRes.data : []);
     } catch (error) {
       ToasterService.error("Failed to load dropdown data", getErrorMessage(error, "Please try again."));
-    }
-  };
-
-  const fetchById = async (): Promise<void> => {
-    if (!lookupId) {
-      ToasterService.error("Stock ID is required");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const response = await axios.get<InventoryStock>(`${API_URL}/${lookupId}`, { headers });
-      setStocks(response.data ? [response.data] : []);
-      ToasterService.success("Inventory stock loaded");
-    } catch (error) {
-      ToasterService.error("Failed to load inventory stock", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchLowStock = async (): Promise<void> => {
-    try {
-      setLoading(true);
-      const response = await axios.get<InventoryStock[]>(`${API_URL}/low-stock`, { headers });
-      const data = Array.isArray(response.data) ? response.data : [];
-      setStocks(data);
-      if (data.length === 0) {
-        ToasterService.noData("No low stock items found");
-      } else {
-        ToasterService.success("Low stock items loaded");
-      }
-    } catch (error) {
-      ToasterService.error("Failed to load low stock items", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const checkAvailability = async (): Promise<void> => {
-    if (!availabilityProductId || !availabilityWarehouseId) {
-      ToasterService.error("Please select both product and warehouse");
-      return;
-    }
-
-    try {
-      const response = await axios.get<number>(`${API_URL}/availability`, {
-        headers,
-        params: {
-          productId: availabilityProductId,
-          warehouseId: availabilityWarehouseId,
-        },
-      });
-      setAvailabilityQty(Number(response.data || 0));
-      ToasterService.success(`Available quantity: ${response.data || 0}`);
-    } catch (error) {
-      setAvailabilityQty(null);
-      ToasterService.error("Failed to check availability", getErrorMessage(error, "Please try again."));
     }
   };
 
@@ -326,8 +255,8 @@ const InventoryStockManager: React.FC = () => {
       id: editingId || 0,
       createdDate: existing?.createdDate || new Date().toISOString(),
       updatedDate: new Date().toISOString(),
-      createdBy: existing?.createdBy || user?.userId || authUser.userId || "",
-      tenantId: existing?.tenantId || user?.tenantId || authUser.tenantId || "",
+      createdBy: existing?.createdBy || "",
+      tenantId: existing?.tenantId || "",
       type: form.type,
       quantity: toNumber(form.quantity),
       movementDate: form.movementDate,
@@ -335,22 +264,24 @@ const InventoryStockManager: React.FC = () => {
       productId: toNumber(form.productId),
       reservedQty: toNumber(form.reservedQty),
       minStockLevel: toNumber(form.minStockLevel),
-      warehouse: selectedWarehouse ? {
-        id: selectedWarehouse.id,
-        createdDate: selectedWarehouse.createdDate || new Date().toISOString(),
-        updatedDate: selectedWarehouse.updatedDate || new Date().toISOString(),
-        createdBy: selectedWarehouse.createdBy || "",
-        tenantId: selectedWarehouse.tenantId || "",
-        code: selectedWarehouse.code || "",
-        name: selectedWarehouse.name || "",
-        locationType: selectedWarehouse.locationType || "MAIN",
-        stockLevels: selectedWarehouse.stockLevels || [],
-        batches: selectedWarehouse.batches || [],
-        serialNumbers: selectedWarehouse.serialNumbers || [],
-        stockMovements: selectedWarehouse.stockMovements || [],
-        stockAdjustments: selectedWarehouse.stockAdjustments || [],
-        stockEntries: selectedWarehouse.stockEntries || [],
-      } : null,
+      warehouse: selectedWarehouse
+        ? {
+            id: selectedWarehouse.id,
+            createdDate: selectedWarehouse.createdDate || new Date().toISOString(),
+            updatedDate: selectedWarehouse.updatedDate || new Date().toISOString(),
+            createdBy: selectedWarehouse.createdBy || "",
+            tenantId: selectedWarehouse.tenantId || "",
+            code: selectedWarehouse.code || "",
+            name: selectedWarehouse.name || "",
+            locationType: selectedWarehouse.locationType || "MAIN",
+            stockLevels: selectedWarehouse.stockLevels || [],
+            batches: selectedWarehouse.batches || [],
+            serialNumbers: selectedWarehouse.serialNumbers || [],
+            stockMovements: selectedWarehouse.stockMovements || [],
+            stockAdjustments: selectedWarehouse.stockAdjustments || [],
+            stockEntries: selectedWarehouse.stockEntries || [],
+          }
+        : null,
     };
   };
 
@@ -391,27 +322,54 @@ const InventoryStockManager: React.FC = () => {
     }
   };
 
-  const filteredStocks = stocks.filter((stock) => {
-    const warehouseName = getWarehouseName(stock.warehouse);
-    const product = products.find(
-      (p) => p.id === stock.productId || p.productId === stock.productId
-    );
-    const productName = product
-      ? normalizeProductLabel(product)
-      : `Product #${stock.productId}`;
+  const filteredStocks = useMemo(() => {
+    const term = searchableText(search);
 
-    const searchString = `${stock.id} ${stock.type} ${stock.referenceNo} ${stock.productId} ${productName} ${warehouseName}`.toLowerCase();
-    return searchString.includes(search.toLowerCase());
-  });
+    return stocks.filter((stock) => {
+      const matchesType = typeFilter === "" || stock.type === typeFilter;
 
-  const stats = {
-    total: stocks.length,
-    totalQty: stocks.reduce((sum, s) => sum + Number(s.quantity || 0), 0),
-    reservedQty: stocks.reduce((sum, s) => sum + Number(s.reservedQty || 0), 0),
-    lowStock: stocks.filter(
-      (s) => Math.max(0, s.quantity - s.reservedQty) <= s.minStockLevel
-    ).length,
-  };
+      const available = Math.max(0, stock.quantity - stock.reservedQty);
+      let matchesStatus = true;
+      if (statusFilter === "low") {
+        matchesStatus = available > 0 && available <= stock.minStockLevel;
+      } else if (statusFilter === "out") {
+        matchesStatus = available <= 0;
+      } else if (statusFilter === "healthy") {
+        matchesStatus = available > stock.minStockLevel;
+      }
+
+      const warehouseName = getWarehouseName(stock.warehouse);
+      const product = products.find(
+        (p) => p.id === stock.productId || p.productId === stock.productId
+      );
+      const productName = product
+        ? normalizeProductLabel(product)
+        : `Product #${stock.productId}`;
+
+      const searchString = `${stock.id} ${stock.type} ${stock.referenceNo} ${stock.productId} ${productName} ${warehouseName}`.toLowerCase();
+      const matchesSearch = !term || searchString.includes(term);
+
+      return matchesType && matchesStatus && matchesSearch;
+    });
+  }, [stocks, search, typeFilter, statusFilter, products]);
+
+  const stats = useMemo(
+    () => ({
+      total: stocks.length,
+      totalQty: stocks.reduce((sum, s) => sum + Number(s.quantity || 0), 0),
+      reservedQty: stocks.reduce((sum, s) => sum + Number(s.reservedQty || 0), 0),
+      lowStock: stocks.filter(
+        (s) => {
+          const available = Math.max(0, s.quantity - s.reservedQty);
+          return available > 0 && available <= s.minStockLevel;
+        }
+      ).length,
+      outOfStock: stocks.filter(
+        (s) => Math.max(0, s.quantity - s.reservedQty) <= 0
+      ).length,
+    }),
+    [stocks]
+  );
 
   const columns: ColumnDef<InventoryStock>[] = [
     {
@@ -550,7 +508,7 @@ const InventoryStockManager: React.FC = () => {
       <PageMeta title="Inventory Stock" description="Manage inventory stock" />
       <PageBreadcrumb pageTitle="Inventory Stock" />
 
-      <div className="w-full max-w-none space-y-6 px-0 py-8">
+      <div className="w-full max-w-none px-0 py-8 space-y-6">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={openCreate} label="Add Stock" />
         </div>
@@ -573,7 +531,7 @@ const InventoryStockManager: React.FC = () => {
             icon={<CubeIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Reserved Quantity"
+            label="Reserved"
             value={stats.reservedQty.toLocaleString()}
             gradient="from-yellow-50 to-orange-50"
             borderColor="border-yellow-100"
@@ -581,7 +539,7 @@ const InventoryStockManager: React.FC = () => {
             icon={<ExclamationTriangleIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Low Stock Items"
+            label="Low Stock"
             value={stats.lowStock}
             gradient="from-red-50 to-rose-50"
             borderColor="border-red-100"
@@ -590,88 +548,73 @@ const InventoryStockManager: React.FC = () => {
           />
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-6">
-            <FloatingInput
-              label="Stock ID"
-              type="number"
-              value={lookupId}
-              onChange={(e) => setLookupId(e.target.value)}
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-md">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search inventory stock..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
             />
-            <button
-              type="button"
-              onClick={fetchById}
-              className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700"
-            >
-              Get By ID
-            </button>
-            <button
-              type="button"
-              onClick={fetchLowStock}
-              className="h-[52px] rounded-lg bg-amber-500 px-4 text-sm font-medium text-white hover:bg-amber-600"
-            >
-              Low Stock
-            </button>
-            <button
-              type="button"
-              onClick={fetchAllStock}
-              className="h-[52px] rounded-lg bg-gray-100 px-4 text-sm font-medium text-gray-700 hover:bg-gray-200"
-            >
-              Load All
-            </button>
-            <FloatingSelect
-              label="Product"
-              name="availabilityProductId"
-              value={availabilityProductId}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                setAvailabilityProductId(e.target.value)
-              }
-              emptyOptionLabel="Select product"
-              options={products.map((p) => ({
-                id: String(p.id || p.productId || 0),
-                name: normalizeProductLabel(p),
-              }))}
-            />
-            <FloatingSelect
-              label="Warehouse"
-              name="availabilityWarehouseId"
-              value={availabilityWarehouseId}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                setAvailabilityWarehouseId(e.target.value)
-              }
-              emptyOptionLabel="Select warehouse"
-              options={warehouses.map((w) => ({
-                id: String(w.id),
-                name: w.name || w.code || `Warehouse #${w.id}`,
-              }))}
-            />
-          </div>
-
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <button
-              type="button"
-              onClick={checkAvailability}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
-            >
-              Check Availability
-            </button>
-            {availabilityQty !== null && (
-              <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
-                Available Qty: {availabilityQty}
-              </span>
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
             )}
           </div>
-        </div>
 
-        <div className="relative w-full sm:max-w-md">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search inventory stock..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-          />
+          <div className="flex items-center gap-2">
+            <ListingPdfExportButton<InventoryStock>
+              title="Inventory Stock Report"
+              subtitle="Filtered inventory stock listing"
+              reportLabel="Stock Report"
+              data={filteredStocks}
+              fileName="Inventory_Stock"
+              disabled={loading}
+              metadata={(rows, rangeLabel) => [
+                { label: "Total", value: rows.length },
+                { label: "Range", value: rangeLabel },
+                { label: "Type", value: typeFilter || "All" },
+                { label: "Status", value: statusFilter || "All" },
+                { label: "Search", value: search || "None" },
+              ]}
+              columns={[
+                { header: "Reference", accessor: (stock) => stock.referenceNo || `ID: ${stock.id}` },
+                { header: "Type", key: "type" },
+                { header: "Product", accessor: (stock) => {
+                  const product = products.find((p) => p.id === stock.productId || p.productId === stock.productId);
+                  return product ? normalizeProductLabel(product) : `Product #${stock.productId}`;
+                }},
+                { header: "Warehouse", accessor: (stock) => getWarehouseName(stock.warehouse) },
+                { header: "Quantity", key: "quantity" },
+                { header: "Reserved", key: "reservedQty" },
+                { header: "Status", accessor: (stock) => getStockStatus(stock).label },
+              ]}
+            />
+
+            <FilterPopover
+              title="Filter Stock"
+              buttonLabel="Filters"
+              label="Type"
+              value={typeFilter}
+              options={[
+                { label: "All Types", value: "" },
+                ...movementTypeOptions.map((type) => ({
+                  label: type,
+                  value: type,
+                })),
+              ]}
+              onChange={setTypeFilter}
+              onReset={() => setTypeFilter("")}
+              onApply={() => undefined}
+            />
+          </div>
         </div>
 
         <ReusableTable
@@ -697,124 +640,94 @@ const InventoryStockManager: React.FC = () => {
         />
       </div>
 
-      {showFormModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-4 backdrop-blur-sm sm:items-center">
-          <div className="mx-auto max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-100 p-5">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {editingId ? "Edit Inventory Stock" : "Create Inventory Stock"}
-                </h3>
-                <p className="mt-0.5 text-xs text-gray-500">
-                  Payload aligned to the inventory swagger
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeForm}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-5">
-              <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-3">
-                <FloatingSelect
-                  label="Movement Type"
-                  name="type"
-                  value={form.type}
-                  onChange={handleChange}
-                  includeEmptyOption={false}
-                  options={movementTypeOptions.map((option) => ({
-                    id: option,
-                    name: option,
-                  }))}
-                />
-                <FloatingDatePicker
-                  label="Movement Date"
-                  name="movementDate"
-                  value={form.movementDate}
-                  onChange={handleChange}
-                  required
-                />
-                <FloatingInput
-                  label="Reference Number"
-                  name="referenceNo"
-                  value={form.referenceNo}
-                  onChange={handleChange}
-                  required
-                />
-                <FloatingSelect
-                  label="Product"
-                  name="productId"
-                  value={form.productId}
-                  onChange={handleChange}
-                  emptyOptionLabel="Select product"
-                  options={products.map((p) => ({
-                    id: String(p.id || p.productId || 0),
-                    name: normalizeProductLabel(p),
-                  }))}
-                  required
-                />
-                <FloatingSelect
-                  label="Warehouse"
-                  name="warehouseId"
-                  value={form.warehouseId}
-                  onChange={handleChange}
-                  emptyOptionLabel="Select warehouse"
-                  options={warehouses.map((w) => ({
-                    id: String(w.id),
-                    name: `${w.name || w.code || `Warehouse #${w.id}`}${
-                      w.code ? ` (${w.code})` : ""
-                    }`,
-                  }))}
-                  required
-                />
-                <FloatingInput
-                  label="Quantity"
-                  name="quantity"
-                  type="number"
-                  value={form.quantity}
-                  onChange={handleChange}
-                  required
-                />
-                <FloatingInput
-                  label="Reserved Quantity"
-                  name="reservedQty"
-                  type="number"
-                  value={form.reservedQty}
-                  onChange={handleChange}
-                />
-                <FloatingInput
-                  label="Minimum Stock Level"
-                  name="minStockLevel"
-                  type="number"
-                  value={form.minStockLevel}
-                  onChange={handleChange}
-                />
-              </div>
-
-              <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={closeForm}
-                  className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {submitting ? "Saving..." : editingId ? "Update Stock" : "Create Stock"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <PaginatedPopup
+        isOpen={showFormModal}
+        title={editingId ? "Edit Inventory Stock" : "Create Inventory Stock"}
+        subtitle="Enter stock details from the inventory schema"
+        onClose={closeForm}
+        onSubmit={handleSubmit}
+        submitting={submitting}
+        submitLabel={editingId ? "Update Stock" : "Create Stock"}
+        maxWidthClassName="max-w-4xl"
+        tabs={[
+          {
+            label: "Stock Details",
+            fields: [
+              <FloatingSelect
+                label="Movement Type"
+                name="type"
+                value={form.type}
+                onChange={handleChange}
+                includeEmptyOption={false}
+                options={movementTypeOptions.map((type) => ({
+                  id: type,
+                  name: type,
+                }))}
+              />,
+              <FloatingDatePicker
+                label="Movement Date"
+                name="movementDate"
+                value={form.movementDate}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingInput
+                label="Reference Number"
+                name="referenceNo"
+                value={form.referenceNo}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingSelect
+                label="Product"
+                name="productId"
+                value={form.productId}
+                onChange={handleChange}
+                emptyOptionLabel="Select product"
+                options={products.map((p) => ({
+                  id: String(p.id || p.productId || 0),
+                  name: normalizeProductLabel(p),
+                }))}
+                required
+              />,
+              <FloatingSelect
+                label="Warehouse"
+                name="warehouseId"
+                value={form.warehouseId}
+                onChange={handleChange}
+                emptyOptionLabel="Select warehouse"
+                options={warehouses.map((w) => ({
+                  id: String(w.id),
+                  name: w.name || w.code || `Warehouse #${w.id}`,
+                }))}
+                required
+              />,
+              <FloatingInput
+                label="Quantity"
+                name="quantity"
+                type="number"
+                value={form.quantity}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingInput
+                label="Reserved Quantity"
+                name="reservedQty"
+                type="number"
+                value={form.reservedQty}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                label="Minimum Stock Level"
+                name="minStockLevel"
+                type="number"
+                value={form.minStockLevel}
+                onChange={handleChange}
+              />,
+            ],
+          },
+        ]}
+      />
 
       <DynamicPopup
         isPopupOpen={!!deleteStock}
