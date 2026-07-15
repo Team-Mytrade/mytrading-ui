@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
   CheckCircleIcon,
+  MagnifyingGlassIcon,
   PencilSquareIcon,
   TrashIcon,
   XCircleIcon,
@@ -12,7 +13,16 @@ import PageMeta from "../../components/common/PageMeta";
 import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import DynamicPopup from "../../components/common/Popup";
+import FilterPopover from "../../components/common/filter";
+import PaginatedPopup from "../../components/common/unpopup";
 import StatsCard from "../../components/common/Statscard";
+import {
+  FloatingDatePicker,
+  FloatingInput,
+  FloatingSelect1,
+  FloatingTextarea,
+  Option as FloatingOption,
+} from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
 export type PurchaseRecord = Record<string, any> & { id?: number | string };
@@ -43,6 +53,7 @@ export type FieldConfig = {
   defaultValue?: any;
   options?: SelectOption[];
   optionsEndpoint?: string;
+  getOptionsParams?: () => Record<string, string | number | boolean>;
   optionLabel?: string | ((row: PurchaseRecord) => string);
   optionValue?: string | ((row: PurchaseRecord) => string | number);
   gridClassName?: string;
@@ -85,6 +96,13 @@ export type PurchaseResourceConfig = {
   renderHeaderActions?: () => React.ReactNode;
   getListParams?: () => Record<string, string | number | boolean>;
   getRequestParams?: () => Record<string, string | number | boolean>;
+  allowInlineActiveToggle?: boolean;
+  inlineBooleanFields?: string[];
+  inlineSelectFields?: Array<{
+    name: string;
+    options: SelectOption[];
+    widthClassName?: string;
+  }>;
   buildPayload?: (
     form: PurchaseRecord,
     editingRow: PurchaseRecord | null,
@@ -109,9 +127,6 @@ const formatDateTimeForInput = (value: any) => {
   const text = String(value);
   return text.length >= 16 ? text.slice(0, 16) : text;
 };
-
-const inputBase =
-  "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:bg-gray-100";
 
 function defaultForField(field: FieldConfig) {
   if (field.defaultValue !== undefined) return field.defaultValue;
@@ -164,6 +179,30 @@ function formatCellValue(value: any) {
   return String(value);
 }
 
+function searchableText(value: unknown) {
+  if (value == null) return "";
+  if (typeof value === "object") return JSON.stringify(value).toLowerCase();
+  return String(value).toLowerCase().trim();
+}
+
+function getInlineSelectTone(value: unknown) {
+  const normalized = String(value || "").toLowerCase();
+
+  if (["active", "approved", "issued", "closed", "received"].includes(normalized)) {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700 focus:border-emerald-300";
+  }
+
+  if (["inactive", "rejected", "cancelled", "block"].includes(normalized)) {
+    return "border-rose-200 bg-rose-50 text-red-600 focus:border-rose-300";
+  }
+
+  if (["draft", "pending", "submitted"].includes(normalized)) {
+    return "border-amber-200 bg-amber-50 text-amber-700 focus:border-amber-300";
+  }
+
+  return "border-slate-200 bg-slate-50 text-slate-700 focus:border-cyan-300";
+}
+
 const StatusPill = ({ active }: { active: boolean }) => (
   <span
     className={[
@@ -192,6 +231,10 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   const [options, setOptions] = useState<Record<string, SelectOption[]>>({});
   const [deleteRow, setDeleteRow] = useState<PurchaseRecord | null>(null);
   const [apiFailed, setApiFailed] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
+  const [inlineUpdatingId, setInlineUpdatingId] = useState<string | number | null>(null);
+  const [search, setSearch] = useState("");
 
   const emptyForm = useMemo(() => {
     return config.fields.reduce<PurchaseRecord>((acc, field) => {
@@ -231,7 +274,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         optionFields.map(async (field) => {
           try {
             const res = await axios.get(field.optionsEndpoint || "", {
-              params: config.getRequestParams?.(),
+              params: field.getOptionsParams?.() || config.getRequestParams?.(),
             });
             next[field.name] = asArray(res.data)
               .map((row) => ({
@@ -308,6 +351,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     const payload = config.buildPayload ? config.buildPayload(form, editingRow, { options }) : form;
 
     try {
+      setIsSubmitting(true);
       if (editingRow && config.allowEdit !== false) {
         const url = config.updateEndpoint
           ? config.updateEndpoint(editingRow, form)
@@ -325,6 +369,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     } catch (error: any) {
       console.error(`Failed to save ${config.title}`, error);
       ToasterService.error(error.response?.data?.message || `Failed to save ${config.title}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -342,6 +388,62 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     }
   };
 
+  const resolveRowForUpdate = async (row: PurchaseRecord) => {
+    if (!config.getByIdEndpoint) return row;
+
+    try {
+      const res = await axios.get(config.getByIdEndpoint(row), {
+        params: config.getRequestParams?.(),
+      });
+      return res.data || row;
+    } catch (error) {
+      console.error(`Failed to load ${config.title} details for update`, error);
+      return row;
+    }
+  };
+
+  const handleInlineActiveChange = async (row: PurchaseRecord, nextActive: boolean) => {
+    if (!row?.id) return;
+
+    try {
+      setInlineUpdatingId(row.id);
+      const rowForUpdate = await resolveRowForUpdate(row);
+      const baseForm = config.normalizeForm ? config.normalizeForm(rowForUpdate) : rowForUpdate;
+      const nextForm = { ...emptyForm, ...baseForm, active: nextActive };
+      const payload = config.buildPayload ? config.buildPayload(nextForm, rowForUpdate, { options }) : nextForm;
+      const url = config.updateEndpoint ? config.updateEndpoint(rowForUpdate, nextForm) : `${config.endpoint}/${row.id}`;
+      await axios.put(url, payload, { params: config.getRequestParams?.() });
+      ToasterService.success(`${config.title} status updated`);
+      await loadRows();
+    } catch (error: any) {
+      console.error(`Failed to update ${config.title} status`, error);
+      ToasterService.error(error.response?.data?.message || `Failed to update ${config.title} status`);
+    } finally {
+      setInlineUpdatingId(null);
+    }
+  };
+
+  const handleInlineSelectChange = async (row: PurchaseRecord, fieldName: string, nextValue: string) => {
+    if (!row?.id) return;
+
+    try {
+      setInlineUpdatingId(`${row.id}-${fieldName}`);
+      const rowForUpdate = await resolveRowForUpdate(row);
+      const baseForm = config.normalizeForm ? config.normalizeForm(rowForUpdate) : rowForUpdate;
+      const nextForm = { ...emptyForm, ...baseForm, [fieldName]: nextValue };
+      const payload = config.buildPayload ? config.buildPayload(nextForm, rowForUpdate, { options }) : nextForm;
+      const url = config.updateEndpoint ? config.updateEndpoint(rowForUpdate, nextForm) : `${config.endpoint}/${row.id}`;
+      await axios.put(url, payload, { params: config.getRequestParams?.() });
+      ToasterService.success(`${config.title} updated`);
+      await loadRows();
+    } catch (error: any) {
+      console.error(`Failed to update ${config.title}`, error);
+      ToasterService.error(error.response?.data?.message || `Failed to update ${config.title}`);
+    } finally {
+      setInlineUpdatingId(null);
+    }
+  };
+
   const tableColumns = useMemo<ColumnDef<PurchaseRecord>[]>(() => {
     const cols = config.columns.map((column) => ({
       key: column.key,
@@ -354,6 +456,53 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       render: (row: PurchaseRecord) => {
         if (column.render) return column.render(row);
         const value = getValue(row, column.key);
+        const isInlineBooleanField =
+          typeof value === "boolean" &&
+          ((column.key === "active" && config.allowInlineActiveToggle) ||
+            config.inlineBooleanFields?.includes(column.key));
+        if (isInlineBooleanField) {
+          const isActive = Boolean(value);
+          return (
+            <select
+              value={isActive ? "ACTIVE" : "INACTIVE"}
+              onChange={(event) => handleInlineActiveChange(row, event.target.value === "ACTIVE")}
+              disabled={inlineUpdatingId === row.id}
+              className={[
+                "w-[126px] rounded-2xl border px-4 py-2.5 text-sm font-medium outline-none transition",
+                "focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60",
+                  isActive
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 focus:border-emerald-300"
+                  : "border-rose-200 bg-rose-50 text-red-600 focus:border-rose-300",
+              ].join(" ")}
+            >
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+            </select>
+          );
+        }
+        const inlineSelectConfig = config.inlineSelectFields?.find((field) => field.name === column.key);
+        if (inlineSelectConfig) {
+          const currentValue = String(value ?? "");
+          return (
+            <select
+              value={currentValue}
+              onChange={(event) => handleInlineSelectChange(row, column.key, event.target.value)}
+              disabled={inlineUpdatingId === `${row.id}-${column.key}`}
+              className={[
+                inlineSelectConfig.widthClassName || "w-[126px]",
+                "rounded-2xl border px-4 py-2.5 text-sm font-medium outline-none transition",
+                "focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60",
+                getInlineSelectTone(currentValue),
+              ].join(" ")}
+            >
+              {inlineSelectConfig.options.map((option) => (
+                <option key={String(option.value)} value={String(option.value)}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          );
+        }
         if (typeof value === "boolean") return <StatusPill active={value} />;
         return <span className="text-sm text-gray-700">{formatCellValue(value)}</span>;
       },
@@ -395,17 +544,114 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         ),
       },
     ];
-  }, [config, openEdit]);
+  }, [config, emptyForm, inlineUpdatingId, openEdit, options]);
 
+  const supportsActiveFilter = useMemo(
+    () => rows.some((row) => typeof row.active === "boolean"),
+    [rows]
+  );
   const searchableFields = (config.searchFields || config.columns.map((column) => column.key)) as any[];
+
+  const filteredRows = useMemo(() => {
+    const term = searchableText(search);
+    return rows.filter((row) => {
+      const matchesActive =
+        !supportsActiveFilter || activeFilter === "ALL"
+          ? true
+          : Boolean(row.active) === (activeFilter === "ACTIVE");
+
+      const matchesSearch =
+        !term ||
+        searchableFields.some((field) => searchableText(getValue(row, String(field))).includes(term));
+
+      return matchesActive && matchesSearch;
+    });
+  }, [activeFilter, rows, search, supportsActiveFilter]);
   const activeCount = rows.filter((row) => row.active === true).length;
+  const popupFields = config.fields.map((field) => {
+    const fieldOptions = field.getOptions
+      ? field.getOptions({ form, options })
+      : field.options || options[field.name] || [];
+    const value = form[field.name] ?? defaultForField(field);
+    const floatingOptions: FloatingOption[] = fieldOptions.map((option) => ({
+      id: option.value,
+      name: option.label,
+    }));
+
+    let control: React.ReactNode;
+
+    if (field.type === "textarea") {
+      control = (
+        <FloatingTextarea
+          label={field.label}
+          value={value}
+          onChange={(event) => setField(field, event.target.value)}
+          required={field.required}
+          rows={4}
+        />
+      );
+    } else if (field.type === "select") {
+      control = (
+        <FloatingSelect1
+          label={field.label}
+          value={value}
+          onChange={(event) => setField(field, event.target.value)}
+          options={floatingOptions}
+          required={field.required}
+          emptyOptionLabel={field.placeholderOption || `Select ${field.label}`}
+        />
+      );
+    } else if (field.type === "checkbox") {
+      control = (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-medium text-slate-700">{field.label}</div>
+              <div className="text-xs text-slate-400">Enable this option for the current record.</div>
+            </div>
+            <input
+              type="checkbox"
+              checked={Boolean(value)}
+              onChange={(event) => setField(field, event.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+            />
+          </div>
+        </div>
+      );
+    } else if (field.type === "date") {
+      control = (
+        <FloatingDatePicker
+          label={field.label}
+          value={value}
+          onChange={(event) => setField(field, event.target.value)}
+          required={field.required}
+        />
+      );
+    } else {
+      control = (
+        <FloatingInput
+          label={field.label}
+          type={field.type || "text"}
+          value={field.type === "datetime-local" ? formatDateTimeForInput(value) : value}
+          onChange={(event) => setField(field, event.target.value)}
+          required={field.required}
+        />
+      );
+    }
+
+    return (
+      <div key={field.name} className={field.gridClassName || ""}>
+        {control}
+      </div>
+    );
+  });
 
   return (
     <>
       <PageMeta title={config.title} description={config.description} />
       <PageBreadcrumb pageTitle={config.title} />
 
-      <div className="w-full px-0 py-6 space-y-6">
+      <div className="w-full max-w-none px-0 py-8 space-y-6">
         <div className="flex justify-start sm:justify-end lg:-mt-[134px]">
           <div className="flex flex-wrap items-center gap-3">
             {config.renderHeaderActions?.()}
@@ -426,128 +672,69 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           />
         </div>
 
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-md">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder={`Search ${config.title.toLowerCase()}...`}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {supportsActiveFilter && (
+            <div className="flex items-center gap-2">
+              <FilterPopover
+                title={`Filter ${config.title}`}
+                buttonLabel="Filter"
+                label="Status"
+                value={activeFilter}
+                options={[
+                  { label: "All Statuses", value: "ALL" },
+                  { label: "Active", value: "ACTIVE" },
+                  { label: "Inactive", value: "INACTIVE" },
+                ]}
+                onChange={(value) => setActiveFilter((value as "ALL" | "ACTIVE" | "INACTIVE") || "ALL")}
+                onReset={() => setActiveFilter("ALL")}
+                onApply={() => undefined}
+              />
+            </div>
+          )}
+        </div>
+
         <ReusableTable<PurchaseRecord>
-          data={rows}
+          data={filteredRows}
           columns={tableColumns}
           loading={loading}
-          searchable
-          searchPlaceholder={`Search ${config.title.toLowerCase()}...`}
-          searchFields={searchableFields}
           pageSize={config.pageSize || 10}
           defaultSortKey={config.columns[0]?.key}
           rowDetailsTitle={`${config.title} Details`}
         />
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex min-h-screen items-center justify-center px-4 py-8">
-            <div className="fixed inset-0 bg-black/50" onClick={closeForm} />
-            <div className="relative w-full max-w-4xl rounded-lg bg-white shadow-2xl">
-              <div className="flex items-center justify-between border-b px-5 py-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {editingRow ? `Edit ${config.title}` : `Add ${config.title}`}
-                  </h3>
-                  <p className="text-sm text-gray-500">Fields follow the Purchase Service Swagger schema.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeForm}
-                  className="rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-                >
-                  <XMarkIcon className="h-6 w-6" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="px-5 py-5">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {config.fields.map((field) => {
-                    const fieldOptions = field.getOptions
-                      ? field.getOptions({ form, options })
-                      : field.options || options[field.name] || [];
-                    const value = form[field.name] ?? defaultForField(field);
-                    const fieldId = `${config.title}-${field.name}`;
-
-                    return (
-                      <label key={field.name} htmlFor={fieldId} className={field.gridClassName || ""}>
-                        <span className="mb-1 block text-sm font-medium text-gray-700">
-                          {field.label}
-                          {field.required && <span className="text-red-500"> *</span>}
-                        </span>
-
-                        {field.type === "textarea" ? (
-                          <textarea
-                            id={fieldId}
-                            value={value}
-                            onChange={(event) => setField(field, event.target.value)}
-                            required={field.required}
-                            placeholder={field.placeholder}
-                            rows={4}
-                            className={inputBase}
-                          />
-                        ) : field.type === "select" ? (
-                          <select
-                            id={fieldId}
-                            value={value}
-                            onChange={(event) => setField(field, event.target.value)}
-                            required={field.required}
-                            className={inputBase}
-                          >
-                            <option value="">{field.placeholderOption || `Select ${field.label}`}</option>
-                            {fieldOptions.map((option) => (
-                              <option key={String(option.value)} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        ) : field.type === "checkbox" ? (
-                          <div className="flex h-10 items-center gap-2">
-                            <input
-                              id={fieldId}
-                              type="checkbox"
-                              checked={Boolean(value)}
-                              onChange={(event) => setField(field, event.target.checked)}
-                              className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
-                            />
-                            <span className="text-sm text-gray-600">Enabled</span>
-                          </div>
-                        ) : (
-                          <input
-                            id={fieldId}
-                            type={field.type || "text"}
-                            value={field.type === "datetime-local" ? formatDateTimeForInput(value) : value}
-                            onChange={(event) => setField(field, event.target.value)}
-                            required={field.required}
-                            placeholder={field.placeholder}
-                            className={inputBase}
-                          />
-                        )}
-                      </label>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-5 flex justify-end gap-3 border-t pt-4">
-                  <button
-                    type="button"
-                    onClick={closeForm}
-                    className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="rounded-lg bg-cyan-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-cyan-700"
-                  >
-                    {editingRow ? "Update" : "Create"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
+      <PaginatedPopup
+        isOpen={showForm}
+        title={editingRow ? `Edit ${config.title}` : `Add ${config.title}`}
+        subtitle="Fields follow the Purchase Service Swagger schema."
+        onClose={closeForm}
+        onSubmit={handleSubmit}
+        submitLabel={editingRow ? "Update" : "Create"}
+        submitting={isSubmitting}
+        maxWidthClassName="max-w-4xl"
+        itemsPerPage={4}
+        fields={popupFields}
+      />
 
       <DynamicPopup
         isPopupOpen={Boolean(deleteRow)}

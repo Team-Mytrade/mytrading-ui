@@ -31,8 +31,8 @@ import { ToasterService } from "../../Services/ToasterService";
 
 interface Product {
     id: number;
-    name: string;
-    sku?: string;
+    productName: string;
+    productSku?: string;
     currentStock?: number;
 }
 
@@ -83,6 +83,7 @@ interface StockAdjustment {
 }
 
 const API_URL = "/v1/api/inventory";
+const PRODUCT_URL = "/v1/api/purchase"
 const PAGE_SIZE = 10;
 
 const StockAdjustmentManager: React.FC = () => {
@@ -151,7 +152,7 @@ const StockAdjustmentManager: React.FC = () => {
 
     const fetchProducts = async () => {
         try {
-            const response = await axios.get(`${API_URL}/products`);
+            const response = await axios.get(`${PRODUCT_URL}/products`);
             setProducts(response.data);
         } catch (err) {
             console.error("Failed to load products", err);
@@ -191,16 +192,17 @@ const StockAdjustmentManager: React.FC = () => {
 
     // Fetch batches by product ID
     const fetchBatchesByProduct = async (productId: number) => {
-        try {
-            const response = await axios.get(`${API_URL}/batches/product/${productId}`);
-            setFilteredBatches(response.data);
-            return response.data;
-        } catch (err) {
-            console.error("Failed to load batches for product", err);
-            setFilteredBatches([]);
-            return [];
-        }
-    };
+    try {
+        const response = await axios.get(`${API_URL}/batches`);
+        const filtered = response.data.filter((b: Batch) => b.productId === productId);
+        setFilteredBatches(filtered);
+        return filtered;
+    } catch (err) {
+        console.error("Failed to load batches for product", err);
+        setFilteredBatches([]);
+        return [];
+    }
+};
 
     // Fetch serial numbers by batch ID
     const fetchSerialNumbersByBatch = async (batchId: number) => {
@@ -282,24 +284,30 @@ const StockAdjustmentManager: React.FC = () => {
         }
     };
 
+    
     const buildPayload = () => ({
         id: editingId || 0,
         adjustmentDate: form.adjustmentDate,
         reason: form.reason,
         quantity: Number(form.quantity),
         adjustmentType: form.adjustmentType,
-        productId: Number(form.productId) || 0,
-        warehouse: warehouses.find((item) => item.id === Number(form.warehouseId))?.code ||
-            warehouses.find((item) => item.id === Number(form.warehouseId))?.name ||
-            form.warehouseId,
-        batch: filteredBatches.find((item) => item.id === Number(form.batchId))?.batchNumber || form.batchId,
+        productId: Number(form.productId),
+
+        warehouse: {
+            id: Number(form.warehouseId),
+        },
+
+        batch: form.batchId
+            ? {
+                id: Number(form.batchId),
+            }
+            : undefined,
+
         serialNumber: form.serialNumberId
             ? {
                 id: Number(form.serialNumberId),
-                serial: filteredSerialNumbers.find((item) => item.id === Number(form.serialNumberId))?.serial || "",
             }
-            : null,
-        reference: form.reference || undefined,
+            : undefined,
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -371,7 +379,7 @@ const StockAdjustmentManager: React.FC = () => {
             serialNumberId: adj.serialNumber?.id?.toString() || "",
             reference: adj.reference || "",
         });
-        
+
         // Load related data for the selected product and batch
         if (adj.product?.id) {
             fetchBatchesByProduct(adj.product.id);
@@ -379,7 +387,7 @@ const StockAdjustmentManager: React.FC = () => {
         if (adj.batch?.id) {
             fetchSerialNumbersByBatch(adj.batch.id);
         }
-        
+
         setShowForm(true);
     };
 
@@ -411,7 +419,7 @@ const StockAdjustmentManager: React.FC = () => {
             head: [["Date", "Product", "Warehouse", "Type", "Quantity", "Reason"]],
             body: filteredAdjustments.map(a => [
                 new Date(a.adjustmentDate).toLocaleDateString(),
-                a.product?.name || "-",
+                a.product?.productName || "-",
                 a.warehouse?.name || "-",
                 a.adjustmentType === "POSITIVE" ? "Stock In" : "Stock Out",
                 `${a.adjustmentType === "POSITIVE" ? "+" : "-"}${a.quantity}`,
@@ -428,8 +436,8 @@ const StockAdjustmentManager: React.FC = () => {
     const exportExcel = () => {
         const ws = XLSX.utils.json_to_sheet(filteredAdjustments.map(a => ({
             'Date': new Date(a.adjustmentDate).toLocaleDateString(),
-            'Product': a.product?.name || "-",
-            'Product SKU': a.product?.sku || "-",
+            'Product': a.product?.productName || "-",
+            'Product SKU': a.product?.productSku || "-",
             'Warehouse': a.warehouse?.name || "-",
             'Warehouse Code': a.warehouse?.code || "-",
             'Batch Number': a.batch?.batchNumber || "-",
@@ -452,7 +460,7 @@ const StockAdjustmentManager: React.FC = () => {
     const filteredAdjustments = useMemo(() => {
         return adjustments.filter(a => {
             const matchesType = typeFilter === "All" || a.adjustmentType === typeFilter;
-            
+
             let matchesDateRange = true;
             if (dateFromFilter) {
                 matchesDateRange = matchesDateRange && new Date(a.adjustmentDate) >= new Date(dateFromFilter);
@@ -514,8 +522,8 @@ const StockAdjustmentManager: React.FC = () => {
             label: "Product",
             render: (adjustment) => (
                 <div>
-                    <p className="text-sm font-medium text-gray-900">{adjustment.product?.name || "N/A"}</p>
-                    <p className="text-xs text-gray-500">{adjustment.product?.sku || "No SKU"}</p>
+                    <p className="text-sm font-medium text-gray-900">{adjustment.product?.productName || "N/A"}</p>
+                    <p className="text-xs text-gray-500">{adjustment.product?.productSku || "No SKU"}</p>
                 </div>
             ),
         },
@@ -677,12 +685,6 @@ const StockAdjustmentManager: React.FC = () => {
             <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
                 <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
                     <div className="flex items-center gap-4">
-                        {/* <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Stock Adjustment</h1>
-                            <p className="text-sm text-gray-500 mt-0.5">
-                                Track stock in and stock out adjustments
-                            </p>
-                        </div> */}
                     </div>
 
                     <AddButton
@@ -823,7 +825,7 @@ const StockAdjustmentManager: React.FC = () => {
                                                         >
                                                             <option value="">Select Product</option>
                                                             {products.map(p => (
-                                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                                                <option key={p.id} value={p.id}>{p.productName}</option>
                                                             ))}
                                                         </select>
                                                     </div>
@@ -909,6 +911,9 @@ const StockAdjustmentManager: React.FC = () => {
                                                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
                                                         placeholder="PO #, Invoice #, or other reference"
                                                     />
+                                                    <p className="text-xs text-amber-600 mt-1">
+                                                        Note: this value is not currently sent to the server — the stock-adjustments API schema has no "reference" field.
+                                                    </p>
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700">Reason</label>
@@ -923,7 +928,7 @@ const StockAdjustmentManager: React.FC = () => {
                                                 </div>
                                                 <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                                                     <p className="text-sm text-blue-800">
-                                                        <strong>Note:</strong> Stock adjustments affect inventory levels. 
+                                                        <strong>Note:</strong> Stock adjustments affect inventory levels.
                                                         Positive adjustments increase stock, negative adjustments decrease stock.
                                                         {form.adjustmentType === "NEGATIVE" && " Ensure sufficient stock is available before making negative adjustments."}
                                                     </p>
@@ -1027,9 +1032,9 @@ const StockAdjustmentManager: React.FC = () => {
                                                     </div>
                                                     <div>
                                                         <p className="text-xs text-gray-500">Product</p>
-                                                        <p className="text-sm font-medium text-gray-900">{selectedAdjustment.product?.name || "N/A"}</p>
-                                                        {selectedAdjustment.product?.sku && (
-                                                            <p className="text-xs text-gray-500 mt-1">SKU: {selectedAdjustment.product.sku}</p>
+                                                        <p className="text-sm font-medium text-gray-900">{selectedAdjustment.product?.productName || "N/A"}</p>
+                                                        {selectedAdjustment.product?.productSku && (
+                                                            <p className="text-xs text-gray-500 mt-1">SKU: {selectedAdjustment.product.productSku}</p>
                                                         )}
                                                     </div>
                                                     <div>
@@ -1149,7 +1154,7 @@ const StockAdjustmentManager: React.FC = () => {
                     innerText="Delete Stock Adjustment"
                     subText={
                         adjustmentToDelete
-                            ? `Are you sure you want to delete ${adjustmentToDelete.adjustmentType === "POSITIVE" ? "stock in" : "stock out"} adjustment for "${adjustmentToDelete.product?.name || "Unknown Product"}" (${adjustmentToDelete.quantity} units)? This action cannot be undone.`
+                            ? `Are you sure you want to delete ${adjustmentToDelete.adjustmentType === "POSITIVE" ? "stock in" : "stock out"} adjustment for "${adjustmentToDelete.product?.productSku || "Unknown Product"}" (${adjustmentToDelete.quantity} units)? This action cannot be undone.`
                             : "Are you sure you want to delete this stock adjustment?"
                     }
                     confirmLabel="Delete"
@@ -1164,4 +1169,3 @@ const StockAdjustmentManager: React.FC = () => {
 };
 
 export default StockAdjustmentManager;
-
