@@ -32,7 +32,7 @@ type ReportData = {
 
 type Product = {
   id: number;
-  name: string;
+  productName: string;
   code: string;
 };
 
@@ -106,9 +106,9 @@ const InventoryReports: React.FC = () => {
         );
         setReportData(MOCK_REPORT_DATA);
         setProducts([
-          { id: 1, name: "Product 1", code: "P001" },
-          { id: 2, name: "Product 2", code: "P002" },
-          { id: 3, name: "Product 3", code: "P003" },
+          { id: 1, productName: "Product 1", code: "P001" },
+          { id: 2, productName: "Product 2", code: "P002" },
+          { id: 3, productName: "Product 3", code: "P003" },
         ]);
         setWarehouses([
           { id: 1, code: "WH-01", name: "Main Warehouse" },

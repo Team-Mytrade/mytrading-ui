@@ -50,7 +50,7 @@ type Warehouse = {
 
 type Product = {
   id: number;
-  name: string;
+  productName: string;
   code: string;
 };
 
@@ -365,7 +365,7 @@ const InventoryReservationManager: React.FC = () => {
           </div>
           <div>
             <p className="text-sm font-semibold text-slate-900">{reservation.reservationNo}</p>
-            <p className="text-xs text-slate-400">ID: #{reservation.id}</p>
+            {/* <p className="text-xs text-slate-400">ID: #{reservation.id}</p> */}
           </div>
         </div>
       ),
@@ -402,19 +402,22 @@ const InventoryReservationManager: React.FC = () => {
         </span>
       ),
     },
-    {
-      key: "productId",
-      label: "Product",
-      sortable: true,
-      render: (reservation) => {
-        const product = products.find((p) => p.id === reservation.items?.[0]?.productId);
-        return (
-          <span className="text-sm text-slate-700">
-            {product?.name || reservation.items?.[0]?.productId || "--"}
-          </span>
-        );
-      },
-    },
+   {
+  key: "productId",
+  label: "Product",
+  sortable: true,
+  render: (reservation) => {
+    const productId = reservation.items?.[0]?.productId;
+    const product = products.find((p) => p.id === productId);
+    
+    // Always show product name if available
+    return (
+      <span className="text-sm text-slate-700">
+        {product?.productName || "Unknown Product"}
+      </span>
+    );
+  },
+},
     {
       key: "reservedQty",
       label: "Qty",
@@ -604,116 +607,93 @@ const InventoryReservationManager: React.FC = () => {
       </div>
 
       <PaginatedPopup
-        isOpen={showFormModal}
-        title={editingId ? "Edit Reservation" : "Create Reservation"}
-        subtitle="Enter reservation details from the API schema"
-        onClose={closeForm}
-        onSubmit={handleSubmit}
-        submitting={submitting}
-        submitLabel={editingId ? "Update Reservation" : "Create Reservation"}
-        maxWidthClassName="max-w-2xl"
-        tabs={[
-          {
-            label: "Reservation Details",
-            fields: [
-              <FloatingInput
-                label="Reservation No"
-                name="reservationNo"
-                value={form.reservationNo}
-                onChange={handleChange}
-                required
-              />,
-              <FloatingInput
-                label="Sales Order ID"
-                name="salesOrderId"
-                type="number"
-                value={form.salesOrderId}
-                onChange={handleChange}
-                required
-              />,
-              <FloatingSelect
-                label="Warehouse"
-                name="warehouseId"
-                value={form.warehouseId}
-                onChange={handleChange}
-                emptyOptionLabel="Select warehouse"
-                options={warehouses.map((w) => ({
-                  id: String(w.id),
-                  name: w.name || w.code || `Warehouse #${w.id}`,
-                }))}
-                required
-              />,
-              <FloatingSelect
-                label="Status"
-                name="status"
-                value={form.status}
-                onChange={handleChange}
-                includeEmptyOption={false}
-                options={statusOptions.map((status) => ({
-                  id: status,
-                  name: status,
-                }))}
-              />,
-              <FloatingInput
-                label="Reservation Date"
-                name="reservationDate"
-                type="date"
-                value={form.reservationDate}
-                onChange={handleChange}
-                required
-              />,
-              <FloatingInput
-                label="Product ID"
-                name="productId"
-                type="number"
-                value={form.productId}
-                onChange={handleChange}
-                required
-              />,
-              <FloatingInput
-                label="Reserved Quantity"
-                name="reservedQty"
-                type="number"
-                value={form.reservedQty}
-                onChange={handleChange}
-                required
-              />,
-            ],
-          },
-        ]}
-      />
-
-      <DynamicPopup
-        isPopupOpen={!!actionId}
-        setIsPopupOpen={(open) => {
-          if (!open) {
-            setActionId(null);
-            setActionType(null);
-          }
-        }}
-        icon={
-          actionType === "consume" ? (
-            <CheckCircleIcon className="h-6 w-6 text-purple-600" />
-          ) : (
-            <ArrowPathIcon className="h-6 w-6 text-green-600" />
-          )
-        }
-        iconBg={actionType === "consume" ? "bg-purple-100" : "bg-green-100"}
-        innerText={actionType === "consume" ? "Consume Reservation" : "Release Reservation"}
-        subText={
-          actionType === "consume"
-            ? "Are you sure you want to consume this reservation? Items will be marked as shipped."
-            : "Are you sure you want to release this reservation? Items will be available again."
-        }
-        confirmLabel={actionType === "consume" ? "Consume" : "Release"}
-        cancelLabel="Cancel"
-        onConfirm={actionType === "consume" ? handleConsume : handleRelease}
-        confirmBtnClass={
-          actionType === "consume"
-            ? "bg-purple-600 hover:bg-purple-700 text-white"
-            : "bg-green-600 hover:bg-green-700 text-white"
-        }
-      />
+  isOpen={showFormModal}
+  title={editingId ? "Edit Reservation" : "Create Reservation"}
+  subtitle="Reserve stock for a customer order"
+  onClose={closeForm}
+  onSubmit={handleSubmit}
+  submitting={submitting}
+  submitLabel={editingId ? "Update Reservation" : "Create Reservation"}
+  maxWidthClassName="max-w-2xl"
+  tabs={[
+    {
+      label: "Reservation Info",
+      fields: [
+        <FloatingInput
+          key="reservationNo"
+          label="Reservation No"
+          name="reservationNo"
+          value={form.reservationNo}
+          onChange={handleChange}
+          required
+        />,
+        <FloatingInput
+          key="salesOrderId"
+          label="Sales Order ID"
+          name="salesOrderId"
+          type="number"
+          value={form.salesOrderId}
+          onChange={handleChange}
+          required
+        />,
+        <FloatingSelect
+          key="warehouseId"
+          label="Select warehouse"
+          name="warehouseId"
+          value={form.warehouseId}
+          onChange={handleChange}
+          emptyOptionLabel="Select warehouse"
+          options={warehouses.map((w) => ({
+            id: String(w.id),
+            name: w.name || w.code || `Warehouse #${w.id}`,
+          }))}
+          required
+        />,
+        <FloatingSelect
+          key="status"
+          label="Status"
+          name="status"
+          value={form.status}
+          onChange={handleChange}
+          includeEmptyOption={false}
+          options={statusOptions.map((status) => ({ id: status, name: status }))}
+        />,
+        <FloatingInput
+          key="reservationDate"
+          label="Reservation Date"
+          name="reservationDate"
+          type="date"
+          value={form.reservationDate}
+          onChange={handleChange}
+          required
+        />,
+        <FloatingInput
+          key="productId"
+          label="Product ID"
+          name="productId"
+          type="number"
+          value={form.productId}
+          onChange={handleChange}
+          required
+        />,
+      ],
+    },
+    {
+      label: "Quantity",
+      fields: [
+        <FloatingInput
+          key="reservedQty"
+          label="Reserved Quantity"
+          name="reservedQty"
+          type="number"
+          value={form.reservedQty}
+          onChange={handleChange}
+          required
+        />,
+      ],
+    },
+  ]}
+/>
 
       <DynamicPopup
         isPopupOpen={!!deleteId}

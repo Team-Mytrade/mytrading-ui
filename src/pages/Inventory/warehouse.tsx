@@ -284,7 +284,7 @@ const WarehousePage: React.FC = () => {
           </div>
           <div>
             <p className="text-sm font-semibold text-slate-900">{warehouse.code}</p>
-            <p className="text-xs text-slate-400">ID: #{warehouse.id}</p>
+            <p className="text-xs text-slate-400">Name: #{warehouse.name}</p>
           </div>
         </div>
       ),
