@@ -34,6 +34,13 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { AuthContext } from "../../context/AuthContext";
 
+interface Product {
+    id: number;
+    productName: string;
+    sku?: string;
+    code?: string;
+}
+
 interface QualityInspection {
     id: number;
     productSKU: string;
@@ -81,7 +88,7 @@ const QualityInspectionManager: React.FC = () => {
     const [deletingRecord, setDeletingRecord] = useState<QualityInspection | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
-    const [products, setProducts] = useState<{ id: number; productName: string; productSku?: string; code?: string }[]>([]);
+    const [products, setProducts] = useState<Product[]>([]);
 
     const [formData, setFormData] = useState<Omit<QualityInspection, "id">>({
         productSKU: "",
@@ -99,6 +106,23 @@ const QualityInspectionManager: React.FC = () => {
         fetchRecords();
         fetchProducts();
     }, []);
+
+    // Resolves a human-readable product name for a record, always preferring
+    // the live products lookup over any raw ID that may have been used as a
+    // fallback when the record was normalized (never show a bare numeric ID
+    // to the user as if it were a product name).
+    const getProductDisplayName = (record: QualityInspection) => {
+        const product = products.find((p) => p.id === record.productId);
+        if (product) return product.productName || product.sku || product.code || `Product #${product.id}`;
+        if (record.productName) return record.productName;
+        // Last resort: only show the SKU/code text, never a raw numeric ID.
+        return /^\d+$/.test(record.productSKU || "") ? "N/A" : record.productSKU || "N/A";
+    };
+
+    const getProductSku = (record: QualityInspection) => {
+        const product = products.find((p) => p.id === record.productId);
+        return product?.sku || product?.code || "";
+    };
 
     const getBatchValue = (batch: QualityInspection["batch"]) => {
         if (!batch) return "";
@@ -288,30 +312,49 @@ const QualityInspectionManager: React.FC = () => {
         });
     };
 
+    const filtered = useMemo(() => {
+        return records.filter(r => {
+            const matchesSearch = (r.productSKU || "").toLowerCase().includes(search.toLowerCase()) ||
+                (r.inspectorName || "").toLowerCase().includes(search.toLowerCase()) ||
+                (r.productName?.toLowerCase().includes(search.toLowerCase()) || false) ||
+                getProductDisplayName(r).toLowerCase().includes(search.toLowerCase());
+            const matchesResult = resultFilter === "All" || r.result === resultFilter;
+            return matchesSearch && matchesResult;
+        });
+    }, [records, search, resultFilter, products]);
+
+    // Only the columns a user actually needs to read — no IDs, no nested
+    // batch/serial objects, and dates formatted for display rather than ISO.
     const exportExcel = () => {
         const ws = XLSX.utils.json_to_sheet(filtered.map(r => ({
-            'Product ID': r.productSKU,
-            'Product Name': r.productName || "-",
-            'Inspector Name': r.inspectorName,
+            'Product': getProductDisplayName(r),
+            'Inspector': r.inspectorName,
             'Inspection Date': new Date(r.inspectionDate).toLocaleDateString(),
             'Result': r.result,
-            'Remarks': r.remarks || "",
-            'Created At': r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "",
+            'Remarks': r.remarks || "-",
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Quality Inspections");
         XLSX.writeFile(wb, `Quality_Inspection_${new Date().toISOString().split("T")[0]}.xlsx`);
     };
 
-    const filtered = useMemo(() => {
-        return records.filter(r => {
-            const matchesSearch = (r.productSKU || "").toLowerCase().includes(search.toLowerCase()) ||
-                (r.inspectorName || "").toLowerCase().includes(search.toLowerCase()) ||
-                (r.productName?.toLowerCase().includes(search.toLowerCase()) || false);
-            const matchesResult = resultFilter === "All" || r.result === resultFilter;
-            return matchesSearch && matchesResult;
-        });
-    }, [records, search, resultFilter]);
+    // Explicit column definitions for the PDF export. Using `columns` (rather
+    // than pre-mapping the data into plain objects) keeps the real
+    // `inspectionDate` field intact on each row, which the export button
+    // needs for its 1M/3M/6M/custom date-range filtering to work at all.
+    const pdfColumns = useMemo(
+        () => [
+            { header: "Product", accessor: (row: QualityInspection) => getProductDisplayName(row) },
+            { header: "Inspector", key: "inspectorName" as const },
+            {
+                header: "Inspection Date",
+                accessor: (row: QualityInspection) => new Date(row.inspectionDate).toLocaleDateString(),
+            },
+            { header: "Result", key: "result" as const },
+            { header: "Remarks", accessor: (row: QualityInspection) => row.remarks || "-" },
+        ],
+        [products]
+    );
 
     // Calculate stats from real data
     const totalRecords = records.length;
@@ -335,24 +378,29 @@ const QualityInspectionManager: React.FC = () => {
 
     const tableColumns: ColumnDef<QualityInspection>[] = [
         {
-            key: "productSKU",
-            label: "Product ID",
+            key: "product",
+            label: "Product",
             sortable: true,
             headerClassName: "w-[28%] text-left",
             className: "w-[28%]",
-            render: (record) => (
-                <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
-                        <CubeIcon className="h-4 w-4 text-cyan-600" />
+            sortValueGetter: (record) => getProductDisplayName(record),
+            render: (record) => {
+                const name = getProductDisplayName(record);
+                const sku = getProductSku(record);
+                return (
+                    <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
+                            <CubeIcon className="h-4 w-4 text-cyan-600" />
+                        </div>
+                        <div className="min-w-0">
+                            <div className="text-sm font-semibold text-slate-900 truncate leading-snug">{name}</div>
+                            {sku && (
+                                <div className="text-xs text-slate-500 truncate mt-0.5">SKU: {sku}</div>
+                            )}
+                        </div>
                     </div>
-                    <div className="min-w-0">
-                        <div className="text-sm font-semibold text-slate-900 truncate leading-snug">{record.productSKU}</div>
-                        {record.productName && (
-                            <div className="text-xs text-slate-500 truncate mt-0.5">{record.productName}</div>
-                        )}
-                    </div>
-                </div>
-            ),
+                );
+            },
         },
         {
             key: "inspectorName",
@@ -509,7 +557,7 @@ const QualityInspectionManager: React.FC = () => {
                             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Search by SKU or Inspector..."
+                                placeholder="Search by product or inspector..."
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
                                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
@@ -523,10 +571,13 @@ const QualityInspectionManager: React.FC = () => {
                             subtitle="Filtered quality inspection listing"
                             reportLabel="Quality Inspection Report"
                             data={filtered}
+                            columns={pdfColumns}
+                            dateAccessor={(row) => row.inspectionDate}
                             fileName="Quality_Inspection"
                             disabled={records.length === 0}
-                            metadata={(rows) => [
+                            metadata={(rows, rangeLabel) => [
                                 { label: "Total", value: rows.length },
+                                { label: "Range", value: rangeLabel },
                                 { label: "Result", value: resultFilter },
                                 { label: "Search", value: search || "None" },
                             ]}
@@ -638,18 +689,15 @@ const QualityInspectionManager: React.FC = () => {
                                             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Product ID</p>
-                                                        <p className="text-sm font-medium text-gray-900">{selectedRecord.productSKU}</p>
-                                                        {selectedRecord.productName && (
-                                                            <p className="text-xs text-gray-500 mt-1">{selectedRecord.productName}</p>
+                                                        <p className="text-xs text-gray-500">Product</p>
+                                                        <p className="text-sm font-medium text-gray-900">{getProductDisplayName(selectedRecord)}</p>
+                                                        {getProductSku(selectedRecord) && (
+                                                            <p className="text-xs text-gray-500 mt-1">SKU: {getProductSku(selectedRecord)}</p>
                                                         )}
                                                     </div>
                                                     <div>
                                                         <p className="text-xs text-gray-500">Inspector</p>
                                                         <p className="text-sm text-gray-700">{selectedRecord.inspectorName}</p>
-                                                        {selectedRecord.inspectorId && (
-                                                            <p className="text-xs text-gray-500 mt-1">ID: {selectedRecord.inspectorId}</p>
-                                                        )}
                                                     </div>
                                                     <div>
                                                         <p className="text-xs text-gray-500">Inspection Date</p>
@@ -736,12 +784,12 @@ const QualityInspectionManager: React.FC = () => {
                                     setFormData({
                                         ...formData,
                                         productId: id,
-                                        productSKU: product?.productSku || product?.code || product?.productName || String(id),
+                                        productSKU: product?.sku || product?.code || product?.productName || String(id),
                                     });
                                 }}
                                 options={products.map(product => ({
                                     id: String(product.id),
-                                    name: product.productSku ? `${product.productName} (${product.productSku})` : product.productName,
+                                    name: product.sku ? `${product.productName} (${product.sku})` : product.productName,
                                 }))}
                                 required
                             />,
@@ -800,7 +848,7 @@ const QualityInspectionManager: React.FC = () => {
                 innerText="Delete Inspection Record"
                 subText={
                     deletingRecord
-                        ? `Are you sure you want to delete inspection record for ${deletingRecord.productSKU}? This action cannot be undone.`
+                        ? `Are you sure you want to delete the inspection record for "${getProductDisplayName(deletingRecord)}"? This action cannot be undone.`
                         : "Are you sure you want to delete this inspection record?"
                 }
                 confirmLabel="Delete"

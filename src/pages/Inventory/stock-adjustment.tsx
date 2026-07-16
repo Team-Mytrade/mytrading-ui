@@ -5,7 +5,6 @@ import {
   ArrowUpIcon,
   ChartBarIcon,
   ClipboardDocumentCheckIcon,
-  ExclamationTriangleIcon,
   MagnifyingGlassIcon,
   PencilSquareIcon,
   TrashIcon,
@@ -67,6 +66,12 @@ interface StockAdjustment {
   reason: string;
   quantity: number;
   adjustmentType: AdjustmentType;
+  // The stock-adjustments API schema only ever returns `productId` — there
+  // is no nested `product` object (unlike warehouse/batch/serialNumber,
+  // which ARE returned as full nested objects). `product` is kept here only
+  // for local optimistic-update convenience; never rely on it being
+  // populated from a real API response.
+  productId?: number;
   product?: Product;
   warehouse?: Warehouse;
   batch?: Batch;
@@ -233,6 +238,25 @@ const StockAdjustmentManager: React.FC = () => {
     }
   };
 
+  // Resolves a display name for the adjustment's product, always via the
+  // productId -> products lookup (since the API never returns a nested
+  // product object). Falls back to any locally-attached `product` (e.g. an
+  // optimistic update) only if the lookup can't find a match.
+  const getProductDisplayName = (adjustment: StockAdjustment) => {
+    const productId = adjustment.productId ?? adjustment.product?.id;
+    const product = products.find((p) => p.id === productId);
+    if (product) {
+      return product.productSku ? `${product.productName} (${product.productSku})` : product.productName;
+    }
+    return adjustment.product?.productName || "N/A";
+  };
+
+  const getProductSku = (adjustment: StockAdjustment) => {
+    const productId = adjustment.productId ?? adjustment.product?.id;
+    const product = products.find((p) => p.id === productId);
+    return product?.productSku || adjustment.product?.productSku || "";
+  };
+
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -301,7 +325,7 @@ const StockAdjustmentManager: React.FC = () => {
     try {
       setSubmitting(true);
       const payload = buildPayload();
-      
+
       if (editingId) {
         await axios.put(`${API_URL}/stock-adjustments/${editingId}`, payload, { headers });
         ToasterService.success("Stock adjustment updated");
@@ -309,7 +333,7 @@ const StockAdjustmentManager: React.FC = () => {
         await axios.post(`${API_URL}/stock-adjustments`, payload, { headers });
         ToasterService.success("Stock adjustment created");
       }
-      
+
       closeForm();
       fetchAdjustments();
     } catch (error) {
@@ -331,21 +355,22 @@ const StockAdjustmentManager: React.FC = () => {
   };
 
   const openEdit = (adjustment: StockAdjustment) => {
+    const productId = adjustment.productId ?? adjustment.product?.id;
     setEditingId(adjustment.id);
     setForm({
       adjustmentDate: adjustment.adjustmentDate?.split('T')[0] || new Date().toISOString().split('T')[0],
       reason: adjustment.reason || "",
       quantity: String(adjustment.quantity || 0),
       adjustmentType: adjustment.adjustmentType || AdjustmentType.POSITIVE,
-      productId: String(adjustment.product?.id || ""),
+      productId: String(productId || ""),
       warehouseId: String(adjustment.warehouse?.id || ""),
       batchId: String(adjustment.batch?.id || ""),
       serialNumberId: String(adjustment.serialNumber?.id || ""),
       reference: adjustment.reference || "",
     });
 
-    if (adjustment.product?.id) {
-      const filtered = batches.filter((b) => b.productId === adjustment.product?.id);
+    if (productId) {
+      const filtered = batches.filter((b) => b.productId === productId);
       setFilteredBatches(filtered);
     }
     if (adjustment.batch?.id) {
@@ -398,8 +423,7 @@ const StockAdjustmentManager: React.FC = () => {
         adjustment.reference,
         adjustment.quantity,
         adjustment.adjustmentType,
-        adjustment.product?.productName,
-        adjustment.product?.productSku,
+        getProductDisplayName(adjustment),
         adjustment.warehouse?.name,
         adjustment.warehouse?.code,
         adjustment.batch?.batchNumber,
@@ -412,7 +436,7 @@ const StockAdjustmentManager: React.FC = () => {
 
       return haystack.includes(term);
     });
-  }, [adjustments, search, filterType, filterDateFrom, filterDateTo]);
+  }, [adjustments, search, filterType, filterDateFrom, filterDateTo, products]);
 
   const resetFilters = () => {
     setFilterType("");
@@ -454,7 +478,7 @@ const StockAdjustmentManager: React.FC = () => {
   const batchOptions = useMemo(() => {
     return filteredBatches.map((batch) => ({
       id: String(batch.id),
-      name: batch.expiryDate 
+      name: batch.expiryDate
         ? `${batch.batchNumber} (Exp: ${new Date(batch.expiryDate).toLocaleDateString()})`
         : batch.batchNumber,
     }));
@@ -497,12 +521,12 @@ const StockAdjustmentManager: React.FC = () => {
       key: "product",
       label: "Product",
       sortable: true,
-      sortValueGetter: (adjustment) => adjustment.product?.productName || "",
+      sortValueGetter: (adjustment) => getProductDisplayName(adjustment),
       render: (adjustment) => (
         <div>
-          <p className="text-sm font-medium text-gray-900">{adjustment.product?.productName || "N/A"}</p>
-          {adjustment.product?.productSku && (
-            <p className="text-xs text-gray-500">SKU: {adjustment.product.productSku}</p>
+          <p className="text-sm font-medium text-gray-900">{getProductDisplayName(adjustment)}</p>
+          {getProductSku(adjustment) && (
+            <p className="text-xs text-gray-500">SKU: {getProductSku(adjustment)}</p>
           )}
         </div>
       ),
@@ -598,12 +622,12 @@ const StockAdjustmentManager: React.FC = () => {
   // Render adjustment details for view modal
   const getAdjustmentDetailsText = (adjustment: StockAdjustment): string => {
     if (!adjustment) return "No adjustment details available";
-    
+
     let details = `Adjustment Date: ${new Date(adjustment.adjustmentDate).toLocaleDateString()}`;
     details += `\nType: ${adjustment.adjustmentType === "POSITIVE" ? "Stock In" : "Stock Out"}`;
-    details += `\nProduct: ${adjustment.product?.productName || "N/A"}`;
-    if (adjustment.product?.productSku) {
-      details += `\nSKU: ${adjustment.product.productSku}`;
+    details += `\nProduct: ${getProductDisplayName(adjustment)}`;
+    if (getProductSku(adjustment)) {
+      details += `\nSKU: ${getProductSku(adjustment)}`;
     }
     details += `\nWarehouse: ${adjustment.warehouse?.name || "N/A"}`;
     if (adjustment.warehouse?.code) {
@@ -638,7 +662,7 @@ const StockAdjustmentManager: React.FC = () => {
     if (adjustment.approvedAt) {
       details += `\nApproved At: ${new Date(adjustment.approvedAt).toLocaleString()}`;
     }
-    
+
     return details;
   };
 
@@ -713,18 +737,34 @@ const StockAdjustmentManager: React.FC = () => {
               data={filteredAdjustments}
               fileName="Stock_Adjustments"
               disabled={loading}
-              metadata={(rows) => [
+              // `dateAccessor` is required — the component only auto-detects
+              // dates from a fixed list of known field names (createdAt,
+              // date, orderDate, etc.) and "adjustmentDate" isn't one of
+              // them. Without this, every date-range preset (1M/3M/6M/
+              // custom) silently returns zero rows.
+              dateAccessor={(row) => row.adjustmentDate}
+              metadata={(rows, rangeLabel) => [
                 { label: "Total", value: rows.length },
+                { label: "Range", value: rangeLabel },
                 { label: "Search", value: search || "None" },
-                { label: "Net Change", value: rows.reduce((sum, a) => sum + (a.adjustmentType === "POSITIVE" ? a.quantity : -a.quantity), 0) },
+                {
+                  label: "Net Change",
+                  value: rows.reduce((sum, a) => sum + (a.adjustmentType === "POSITIVE" ? a.quantity : -a.quantity), 0),
+                },
               ]}
+              // Explicit accessors instead of raw object keys — `product`
+              // and `warehouse` are nested objects, so a bare `key` would
+              // print "[object Object]" rather than a readable value.
               columns={[
-                { key: "adjustmentDate", header: "Date" },
-                { key: "product", header: "Product" },
-                { key: "warehouse", header: "Warehouse" },
-                { key: "adjustmentType", header: "Type" },
-                { key: "quantity", header: "Quantity" },
-                { key: "reason", header: "Reason" },
+                { header: "Date", accessor: (row) => new Date(row.adjustmentDate).toLocaleDateString() },
+                { header: "Product", accessor: (row) => getProductDisplayName(row) },
+                { header: "Warehouse", accessor: (row) => row.warehouse?.name || "N/A" },
+                { header: "Type", accessor: (row) => (row.adjustmentType === "POSITIVE" ? "Stock In" : "Stock Out") },
+                {
+                  header: "Quantity",
+                  accessor: (row) => `${row.adjustmentType === "POSITIVE" ? "+" : "-"}${row.quantity}`,
+                },
+                { header: "Reason", accessor: (row) => row.reason || "-" },
               ]}
             />
             <FilterPopover
@@ -933,7 +973,7 @@ const StockAdjustmentManager: React.FC = () => {
         innerText="Delete Adjustment"
         subText={
           deletingAdjustment
-            ? `Are you sure you want to delete the ${deletingAdjustment.adjustmentType === "POSITIVE" ? "stock in" : "stock out"} adjustment for "${deletingAdjustment.product?.productName || "this product"}" (${deletingAdjustment.quantity} units)? This action cannot be undone.`
+            ? `Are you sure you want to delete the ${deletingAdjustment.adjustmentType === "POSITIVE" ? "stock in" : "stock out"} adjustment for "${getProductDisplayName(deletingAdjustment)}" (${deletingAdjustment.quantity} units)? This action cannot be undone.`
             : "Are you sure you want to delete this adjustment?"
         }
         confirmLabel="Delete"
