@@ -236,6 +236,15 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   const [inlineUpdatingId, setInlineUpdatingId] = useState<string | number | null>(null);
   const [search, setSearch] = useState("");
 
+  const updateRowLocally = useCallback((rowId: string | number, updater: (row: PurchaseRecord) => PurchaseRecord) => {
+    setRows((current) =>
+      current.map((item) => {
+        if (String(item.id) !== String(rowId)) return item;
+        return updater(item);
+      })
+    );
+  }, []);
+
   const emptyForm = useMemo(() => {
     return config.fields.reduce<PurchaseRecord>((acc, field) => {
       acc[field.name] = defaultForField(field);
@@ -413,8 +422,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       const payload = config.buildPayload ? config.buildPayload(nextForm, rowForUpdate, { options }) : nextForm;
       const url = config.updateEndpoint ? config.updateEndpoint(rowForUpdate, nextForm) : `${config.endpoint}/${row.id}`;
       await axios.put(url, payload, { params: config.getRequestParams?.() });
+      updateRowLocally(row.id, (currentRow) => ({ ...currentRow, active: nextActive }));
       ToasterService.success(`${config.title} status updated`);
-      await loadRows();
     } catch (error: any) {
       console.error(`Failed to update ${config.title} status`, error);
       ToasterService.error(error.response?.data?.message || `Failed to update ${config.title} status`);
@@ -434,8 +443,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       const payload = config.buildPayload ? config.buildPayload(nextForm, rowForUpdate, { options }) : nextForm;
       const url = config.updateEndpoint ? config.updateEndpoint(rowForUpdate, nextForm) : `${config.endpoint}/${row.id}`;
       await axios.put(url, payload, { params: config.getRequestParams?.() });
+      updateRowLocally(row.id, (currentRow) => ({ ...currentRow, [fieldName]: nextValue }));
       ToasterService.success(`${config.title} updated`);
-      await loadRows();
     } catch (error: any) {
       console.error(`Failed to update ${config.title}`, error);
       ToasterService.error(error.response?.data?.message || `Failed to update ${config.title}`);
