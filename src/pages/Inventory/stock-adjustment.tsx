@@ -192,12 +192,20 @@ function getBatchWarehouseId(batch?: Batch | null) {
   return Number(batch?.warehouse && typeof batch.warehouse !== "string" ? batch.warehouse.id : 0);
 }
 
+function getBatchWarehouseName(batch?: Batch | null) {
+  return batch?.warehouse && typeof batch.warehouse !== "string" ? batch.warehouse.name : "";
+}
+
 function getSerialBatchId(serial?: SerialNumber | null) {
   return Number(serial?.batch?.id ?? serial?.batchId ?? 0);
 }
 
 function getSerialWarehouseId(serial?: SerialNumber | null) {
   return Number(serial?.warehouse && typeof serial.warehouse !== "string" ? serial.warehouse.id : 0);
+}
+
+function getSerialWarehouseName(serial?: SerialNumber | null) {
+  return serial?.warehouse && typeof serial.warehouse !== "string" ? serial.warehouse.name : "";
 }
 
 const StockAdjustmentManager: React.FC = () => {
@@ -324,14 +332,22 @@ const StockAdjustmentManager: React.FC = () => {
     setForm((current) => ({ ...current, [name]: value }));
   };
 
+  // Batches/serials are filtered by PRODUCT only. Warehouse is intentionally
+  // NOT used as a filter condition here: real data has shown batches whose
+  // own `warehouse` differs from the warehouse selected on the adjustment
+  // (e.g. a batch created against warehouse #6 being referenced by an
+  // adjustment for warehouse #2). Filtering on warehouse match hid valid,
+  // correctly-saved batches from the dropdown — most visibly when editing
+  // an existing adjustment, where the saved batch would silently vanish
+  // from the options list. Product is the only relationship we've
+  // confirmed is reliable, so it's the only hard filter kept. Warehouse
+  // mismatches are surfaced instead as a soft warning label in
+  // batchOptions/serialOptions below, so users still get visibility without
+  // valid data disappearing.
   const handleProductChange = (productId: string) => {
     setForm((prev) => ({ ...prev, productId, batchId: "", serialNumberId: "" }));
     if (productId) {
-      const filtered = batches.filter((b) => {
-        const matchesProduct = b.productId === Number(productId);
-        const matchesWarehouse = !form.warehouseId || getBatchWarehouseId(b) === Number(form.warehouseId);
-        return matchesProduct && matchesWarehouse;
-      });
+      const filtered = batches.filter((b) => b.productId === Number(productId));
       setFilteredBatches(filtered);
     } else {
       setFilteredBatches([]);
@@ -342,15 +358,14 @@ const StockAdjustmentManager: React.FC = () => {
   const handleWarehouseChange = (warehouseId: string) => {
     setForm((prev) => ({ ...prev, warehouseId, batchId: "", serialNumberId: "" }));
 
-    if (!warehouseId || !form.productId) {
+    if (!form.productId) {
       setFilteredBatches([]);
       setFilteredSerialNumbers([]);
       return;
     }
 
-    const filtered = batches.filter(
-      (batch) => batch.productId === Number(form.productId) && getBatchWarehouseId(batch) === Number(warehouseId)
-    );
+    // Still filtered by product only — see note above handleProductChange.
+    const filtered = batches.filter((batch) => batch.productId === Number(form.productId));
     setFilteredBatches(filtered);
     setFilteredSerialNumbers([]);
   };
@@ -361,8 +376,7 @@ const StockAdjustmentManager: React.FC = () => {
       const filtered = serialNumbers.filter((sn) => {
         const matchesBatch = getSerialBatchId(sn) === Number(batchId);
         const matchesProduct = !form.productId || sn.productId === Number(form.productId);
-        const matchesWarehouse = !form.warehouseId || getSerialWarehouseId(sn) === Number(form.warehouseId);
-        return matchesBatch && matchesProduct && matchesWarehouse;
+        return matchesBatch && matchesProduct;
       });
       setFilteredSerialNumbers(filtered);
     } else {
@@ -483,12 +497,15 @@ const StockAdjustmentManager: React.FC = () => {
       reference: adjustment.reference || "",
     });
 
+    // Filtered by product only — see note above handleProductChange for why
+    // warehouse is deliberately not used as a filter condition here. This
+    // is what fixes the "batch disappears when editing" symptom: previously
+    // a saved batch whose own warehouse differed from the adjustment's
+    // warehouse would be filtered out of filteredBatches entirely, so the
+    // dropdown had no matching option even though form.batchId was set
+    // correctly underneath.
     if (productId) {
-      const filtered = batches.filter((b) => {
-        const matchesProduct = b.productId === productId;
-        const matchesWarehouse = !adjustment.warehouse?.id || getBatchWarehouseId(b) === adjustment.warehouse.id;
-        return matchesProduct && matchesWarehouse;
-      });
+      const filtered = batches.filter((b) => b.productId === productId);
       setFilteredBatches(filtered);
     }
     if (adjustment.batch?.id) {
@@ -593,21 +610,44 @@ const StockAdjustmentManager: React.FC = () => {
     }));
   }, [warehouses]);
 
+  // Soft warning instead of a hard filter: if a batch's own warehouse
+  // differs from the warehouse currently selected on the form, it still
+  // shows up in the list (so it can't silently disappear), but its label
+  // flags the mismatch so the user can make an informed choice.
   const batchOptions = useMemo(() => {
-    return filteredBatches.map((batch) => ({
-      id: String(batch.id),
-      name: batch.expiryDate
-        ? `${batch.batchNumber} (Exp: ${new Date(batch.expiryDate).toLocaleDateString()})`
-        : batch.batchNumber,
-    }));
-  }, [filteredBatches]);
+    const selectedWarehouseId = Number(form.warehouseId || 0);
+    return filteredBatches.map((batch) => {
+      const batchWarehouseId = getBatchWarehouseId(batch);
+      const batchWarehouseName = getBatchWarehouseName(batch);
+      const mismatch = selectedWarehouseId > 0 && batchWarehouseId > 0 && batchWarehouseId !== selectedWarehouseId;
+
+      let label = batch.batchNumber;
+      if (batch.expiryDate) {
+        label += ` (Exp: ${new Date(batch.expiryDate).toLocaleDateString()})`;
+      }
+      if (mismatch) {
+        label += ` — warehouse: ${batchWarehouseName || `#${batchWarehouseId}`} ⚠️ differs from selected warehouse`;
+      }
+
+      return { id: String(batch.id), name: label };
+    });
+  }, [filteredBatches, form.warehouseId]);
 
   const serialOptions = useMemo(() => {
-    return filteredSerialNumbers.map((serial) => ({
-      id: String(serial.id),
-      name: serial.status ? `${serial.serial} (${serial.status})` : serial.serial,
-    }));
-  }, [filteredSerialNumbers]);
+    const selectedWarehouseId = Number(form.warehouseId || 0);
+    return filteredSerialNumbers.map((serial) => {
+      const serialWarehouseId = getSerialWarehouseId(serial);
+      const serialWarehouseName = getSerialWarehouseName(serial);
+      const mismatch = selectedWarehouseId > 0 && serialWarehouseId > 0 && serialWarehouseId !== selectedWarehouseId;
+
+      let label = serial.status ? `${serial.serial} (${serial.status})` : serial.serial;
+      if (mismatch) {
+        label += ` — warehouse: ${serialWarehouseName || `#${serialWarehouseId}`} ⚠️ differs from selected warehouse`;
+      }
+
+      return { id: String(serial.id), name: label };
+    });
+  }, [filteredSerialNumbers, form.warehouseId]);
 
   const typeOptions = useMemo(() => {
     return [

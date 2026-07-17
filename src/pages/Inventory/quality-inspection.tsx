@@ -338,10 +338,6 @@ const QualityInspectionManager: React.FC = () => {
         XLSX.writeFile(wb, `Quality_Inspection_${new Date().toISOString().split("T")[0]}.xlsx`);
     };
 
-    // Explicit column definitions for the PDF export. Using `columns` (rather
-    // than pre-mapping the data into plain objects) keeps the real
-    // `inspectionDate` field intact on each row, which the export button
-    // needs for its 1M/3M/6M/custom date-range filtering to work at all.
     const pdfColumns = useMemo(
         () => [
             { header: "Product", accessor: (row: QualityInspection) => getProductDisplayName(row) },
@@ -556,7 +552,7 @@ const QualityInspectionManager: React.FC = () => {
                         <div className="relative">
                             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input
-                                type="text"
+                                type="search"
                                 placeholder="Search by product or inspector..."
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
