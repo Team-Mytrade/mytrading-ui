@@ -27,6 +27,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
+// ---------- Type Definitions ----------
 interface Product {
   id: number;
   productName: string;
@@ -39,6 +40,7 @@ interface Warehouse {
   code?: string;
 }
 
+// StockLevel can have nested objects or separate IDs
 interface StockLevel {
   id: number;
   quantity: number;
@@ -46,6 +48,8 @@ interface StockLevel {
   available: number;
   product?: Product;
   warehouse?: Warehouse;
+  productId?: number;
+  warehouseId?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -68,6 +72,7 @@ const emptyForm: StockLevelForm = {
   warehouseId: "",
 };
 
+// ---------- Helpers ----------
 function getErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data;
@@ -83,15 +88,55 @@ function searchableText(value: unknown) {
 }
 
 function getStockStatus(available: number, quantity: number) {
-  if (quantity === 0) return { color: "bg-gray-50 text-gray-600 border-gray-200", label: "No Stock", icon: <XCircleIcon className="h-3 w-3 mr-1" /> };
+  if (quantity === 0) {
+    return { color: "bg-gray-50 text-gray-600 border-gray-200", label: "No Stock", icon: <XCircleIcon className="h-3 w-3 mr-1" /> };
+  }
   const percentage = (available / quantity) * 100;
-  if (percentage <= 20) return { color: "bg-red-50 text-red-700 border-red-200", label: "Low Stock", icon: <ExclamationTriangleIcon className="h-3 w-3 mr-1" /> };
-  if (percentage <= 50) return { color: "bg-yellow-50 text-yellow-700 border-yellow-200", label: "Medium Stock", icon: <ChartBarIcon className="h-3 w-3 mr-1" /> };
+  if (percentage <= 20) {
+    return { color: "bg-red-50 text-red-700 border-red-200", label: "Low Stock", icon: <ExclamationTriangleIcon className="h-3 w-3 mr-1" /> };
+  }
+  if (percentage <= 50) {
+    return { color: "bg-yellow-50 text-yellow-700 border-yellow-200", label: "Medium Stock", icon: <ChartBarIcon className="h-3 w-3 mr-1" /> };
+  }
   return { color: "bg-green-50 text-green-700 border-green-200", label: "Healthy Stock", icon: <CheckBadgeIcon className="h-3 w-3 mr-1" /> };
 }
 
-// Helper function to generate stock details as string for DynamicPopup
-function getStockDetailsText(stock: StockLevel): string {
+// ---- ID extractors ----
+function getProductId(stock: StockLevel): number | undefined {
+  return stock.product?.id ?? stock.productId;
+}
+
+function getWarehouseId(stock: StockLevel): number | undefined {
+  return stock.warehouse?.id ?? stock.warehouseId;
+}
+
+// ---- Name/SKU getters ----
+function getProductName(stock: StockLevel, products: Product[]) {
+  const id = getProductId(stock);
+  const product = products.find(p => p.id === id);
+  return product ? product.productName : "N/A";
+}
+
+function getProductSku(stock: StockLevel, products: Product[]) {
+  const id = getProductId(stock);
+  const product = products.find(p => p.id === id);
+  return product?.productSku || "";
+}
+
+function getWarehouseName(stock: StockLevel, warehouses: Warehouse[]) {
+  const id = getWarehouseId(stock);
+  const warehouse = warehouses.find(w => w.id === id);
+  return warehouse ? warehouse.name : "N/A";
+}
+
+function getWarehouseCode(stock: StockLevel, warehouses: Warehouse[]) {
+  const id = getWarehouseId(stock);
+  const warehouse = warehouses.find(w => w.id === id);
+  return warehouse?.code || "";
+}
+
+// View details text generator
+function getStockDetailsText(stock: StockLevel, products: Product[], warehouses: Warehouse[]) {
   if (!stock) return "No stock details available";
   
   const status = getStockStatus(stock.available, stock.quantity);
@@ -99,14 +144,12 @@ function getStockDetailsText(stock: StockLevel): string {
     ? `${Math.round((stock.reserved / stock.quantity) * 100)}%` 
     : "0%";
   
-  let details = `Product: ${stock.product?.productName || "N/A"}`;
-  if (stock.product?.productSku) {
-    details += `\nSKU: ${stock.product.productSku}`;
-  }
-  details += `\nWarehouse: ${stock.warehouse?.name || "N/A"}`;
-  if (stock.warehouse?.code) {
-    details += ` (${stock.warehouse.code})`;
-  }
+  let details = `Product: ${getProductName(stock, products)}`;
+  const sku = getProductSku(stock, products);
+  if (sku) details += `\nSKU: ${sku}`;
+  details += `\nWarehouse: ${getWarehouseName(stock, warehouses)}`;
+  const code = getWarehouseCode(stock, warehouses);
+  if (code) details += ` (${code})`;
   details += `\n\nTotal Quantity: ${stock.quantity}`;
   details += `\nReserved: ${stock.reserved}`;
   details += `\nAvailable: ${stock.available}`;
@@ -122,6 +165,7 @@ function getStockDetailsText(stock: StockLevel): string {
   return details;
 }
 
+// ---------- Component ----------
 const StockLevelsManager: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
@@ -275,8 +319,8 @@ const StockLevelsManager: React.FC = () => {
     setForm({
       quantity: String(stock.quantity || 0),
       reserved: String(stock.reserved || 0),
-      productId: String(stock.product?.id || ""),
-      warehouseId: String(stock.warehouse?.id || ""),
+      productId: String(getProductId(stock) ?? ""),
+      warehouseId: String(getWarehouseId(stock) ?? ""),
     });
     setShowFormModal(true);
   };
@@ -311,8 +355,11 @@ const StockLevelsManager: React.FC = () => {
     const term = searchableText(search);
 
     return stockLevels.filter((stock) => {
-      if (filterProductId && String(stock.product?.id || "") !== filterProductId) return false;
-      if (filterWarehouseId && String(stock.warehouse?.id || "") !== filterWarehouseId) return false;
+      const productId = getProductId(stock);
+      const warehouseId = getWarehouseId(stock);
+      
+      if (filterProductId && String(productId ?? "") !== filterProductId) return false;
+      if (filterWarehouseId && String(warehouseId ?? "") !== filterWarehouseId) return false;
       
       const status = getStockStatus(stock.available, stock.quantity);
       if (filterStatus && status.label !== filterStatus) return false;
@@ -320,10 +367,10 @@ const StockLevelsManager: React.FC = () => {
       if (!term) return true;
 
       const haystack = [
-        stock.product?.productName,
-        stock.product?.productSku,
-        stock.warehouse?.name,
-        stock.warehouse?.code,
+        getProductName(stock, products),
+        getProductSku(stock, products),
+        getWarehouseName(stock, warehouses),
+        getWarehouseCode(stock, warehouses),
         stock.quantity,
         stock.reserved,
         stock.available,
@@ -336,7 +383,7 @@ const StockLevelsManager: React.FC = () => {
 
       return haystack.includes(term);
     });
-  }, [stockLevels, search, filterProductId, filterWarehouseId, filterStatus]);
+  }, [stockLevels, search, filterProductId, filterWarehouseId, filterStatus, products, warehouses]);
 
   const resetFilters = () => {
     setFilterProductId("");
@@ -385,7 +432,7 @@ const StockLevelsManager: React.FC = () => {
       key: "product",
       label: "Product",
       sortable: true,
-      sortValueGetter: (stock) => stock.product?.productName || "",
+      sortValueGetter: (stock) => getProductName(stock, products),
       render: (stock) => (
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50">
@@ -393,10 +440,10 @@ const StockLevelsManager: React.FC = () => {
           </div>
           <div>
             <div className="text-sm font-semibold text-slate-900">
-              {stock.product?.productName || "N/A"}
+              {getProductName(stock, products)}
             </div>
-            {stock.product?.productSku && (
-              <div className="text-xs text-slate-500">SKU: {stock.product.productSku}</div>
+            {getProductSku(stock, products) && (
+              <div className="text-xs text-slate-500">SKU: {getProductSku(stock, products)}</div>
             )}
           </div>
         </div>
@@ -406,12 +453,12 @@ const StockLevelsManager: React.FC = () => {
       key: "warehouse",
       label: "Warehouse",
       sortable: true,
-      sortValueGetter: (stock) => stock.warehouse?.name || "",
+      sortValueGetter: (stock) => getWarehouseName(stock, warehouses),
       render: (stock) => (
         <div className="flex items-center gap-2">
           <BuildingOfficeIcon className="h-4 w-4 text-slate-400" />
           <span className="text-sm text-slate-700">
-            {stock.warehouse?.name || "N/A"}
+            {getWarehouseName(stock, warehouses)}
           </span>
         </div>
       ),
@@ -572,12 +619,12 @@ const StockLevelsManager: React.FC = () => {
                 { label: "Total Stock", value: rows.reduce((sum, s) => sum + s.quantity, 0) },
               ]}
               columns={[
-                { key: "product", header: "Product" },
-                { key: "warehouse", header: "Warehouse" },
-                { key: "quantity", header: "Total Qty" },
-                { key: "reserved", header: "Reserved" },
-                { key: "available", header: "Available" },
-                { key: "status", header: "Status" },
+                { header: "Product", accessor: (row) => getProductName(row, products) },
+                { header: "Warehouse", accessor: (row) => getWarehouseName(row, warehouses) },
+                { header: "Total Qty", accessor: (row) => row.quantity },
+                { header: "Reserved", accessor: (row) => row.reserved },
+                { header: "Available", accessor: (row) => row.available },
+                { header: "Status", accessor: (row) => getStockStatus(row.available, row.quantity).label },
               ]}
             />
             <FilterPopover
@@ -730,7 +777,7 @@ const StockLevelsManager: React.FC = () => {
         icon={<CubeIcon className="h-6 w-6 text-cyan-600" />}
         iconBg="bg-cyan-100"
         innerText="Stock Level Details"
-        subText={viewingStock ? getStockDetailsText(viewingStock) : "No stock details available"}
+        subText={viewingStock ? getStockDetailsText(viewingStock, products, warehouses) : "No stock details available"}
         confirmLabel="Edit"
         cancelLabel="Close"
         onConfirm={() => {
@@ -757,7 +804,7 @@ const StockLevelsManager: React.FC = () => {
         innerText="Delete Stock Level"
         subText={
           deletingStock
-            ? `Are you sure you want to delete the stock level for "${deletingStock.product?.productName || "this item"}" at "${deletingStock.warehouse?.name || "this warehouse"}"? This action cannot be undone.`
+            ? `Are you sure you want to delete the stock level for "${getProductName(deletingStock, products)}" at "${getWarehouseName(deletingStock, warehouses)}"? This action cannot be undone.`
             : "Are you sure you want to delete this stock level?"
         }
         confirmLabel="Delete"

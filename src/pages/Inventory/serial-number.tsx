@@ -25,6 +25,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
+// ---------- Type Definitions ----------
 interface Product {
   id: number;
   productName: string;
@@ -73,8 +74,9 @@ type SerialNumberForm = {
   batchId: string;
 };
 
+// ---------- Constants ----------
 const API_URL = "/v1/api/inventory";
-const PRODUCT_URL = "/v1/api/purchase"
+const PRODUCT_URL = "/v1/api/purchase";
 const PAGE_SIZE = 10;
 
 const emptyForm: SerialNumberForm = {
@@ -86,6 +88,7 @@ const emptyForm: SerialNumberForm = {
   batchId: "",
 };
 
+// ---------- Helpers ----------
 function getErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data;
@@ -107,9 +110,30 @@ function isWarrantyActive(warrantyEnd: string) {
   return end.getTime() >= Date.now();
 }
 
+// Resolve product name from the products list or fallback to productNumber
+function getProductName(sn: SerialNumber, products: Product[]) {
+  const product = products.find((p) => p.id === sn.productId);
+  return product?.productName || sn.productNumber || "N/A";
+}
+
+function getWarehouseName(sn: SerialNumber) {
+  return sn.warehouse?.name || "N/A";
+}
+
+function getBatchNumber(sn: SerialNumber) {
+  return sn.batch?.batchNumber || "N/A";
+}
+
+function getWarrantyStatus(sn: SerialNumber) {
+  return isWarrantyActive(sn.warrantyEnd) ? "In Warranty" : "Expired";
+}
+
+// ---------- Component ----------
 const SerialNumberManager: React.FC = () => {
   const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
+  const headers = token
+    ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
+    : undefined;
 
   const [serialNumbers, setSerialNumbers] = useState<SerialNumber[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -177,9 +201,7 @@ const SerialNumberManager: React.FC = () => {
     }
   };
 
-  const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm((current) => ({ ...current, [name]: value }));
   };
@@ -202,7 +224,6 @@ const SerialNumberManager: React.FC = () => {
     };
   };
 
- 
   const isDuplicateSerial = (serial: string) => {
     const normalized = serial.trim().toLowerCase();
     return serialNumbers.some(
@@ -239,11 +260,13 @@ const SerialNumberManager: React.FC = () => {
     try {
       setSubmitting(true);
       const payload = buildPayload();
-      editingId
-        ? await axios.put(`${API_URL}/serial-numbers/${editingId}`, payload, { headers })
-        : await axios.post(`${API_URL}/serial-numbers`, payload, { headers });
-
-      ToasterService.success(editingId ? "Serial number updated" : "Serial number created");
+      if (editingId) {
+        await axios.put(`${API_URL}/serial-numbers/${editingId}`, payload, { headers });
+        ToasterService.success("Serial number updated");
+      } else {
+        await axios.post(`${API_URL}/serial-numbers`, payload, { headers });
+        ToasterService.success("Serial number created");
+      }
       closeForm();
       fetchSerialNumbers();
     } catch (error) {
@@ -359,20 +382,19 @@ const SerialNumberManager: React.FC = () => {
       key: "product",
       label: "Product",
       sortable: true,
-      render: (sn) =>
-        sn.productNumber || products.find((p) => p.id === sn.productId)?.productName || "N/A",
+      render: (sn) => getProductName(sn, products),
     },
     {
       key: "warehouse",
       label: "Warehouse",
       sortable: true,
-      render: (sn) => sn.warehouse?.name || "N/A",
+      render: (sn) => getWarehouseName(sn),
     },
     {
       key: "batch",
       label: "Batch",
       sortable: true,
-      render: (sn) => sn.batch?.batchNumber || "N/A",
+      render: (sn) => getBatchNumber(sn),
     },
     {
       key: "warrantyStart",
@@ -390,15 +412,18 @@ const SerialNumberManager: React.FC = () => {
       key: "status",
       label: "Status",
       sortable: false,
-      render: (sn) => (
-        <span
-          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-            isWarrantyActive(sn.warrantyEnd) ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-          }`}
-        >
-          {isWarrantyActive(sn.warrantyEnd) ? "In Warranty" : "Expired"}
-        </span>
-      ),
+      render: (sn) => {
+        const active = isWarrantyActive(sn.warrantyEnd);
+        return (
+          <span
+            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+              active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+            }`}
+          >
+            {active ? "In Warranty" : "Expired"}
+          </span>
+        );
+      },
     },
     {
       key: "actions",
@@ -496,9 +521,29 @@ const SerialNumberManager: React.FC = () => {
               data={filteredSerialNumbers}
               fileName="Serial_Numbers"
               disabled={loading}
+              dateAccessor={(row) => row.warrantyStart || row.warrantyEnd}
               metadata={(rows) => [
                 { label: "Total", value: rows.length },
+                { label: "In Warranty", value: rows.filter((sn) => isWarrantyActive(sn.warrantyEnd)).length },
+                { label: "Expired", value: rows.filter((sn) => !isWarrantyActive(sn.warrantyEnd)).length },
                 { label: "Search", value: search || "None" },
+              ]}
+              columns={[
+                { header: "Serial Number", accessor: (row) => row.serial || "N/A" },
+                { header: "Product", accessor: (row) => getProductName(row, products) },
+                { header: "Warehouse", accessor: (row) => getWarehouseName(row) },
+                { header: "Batch", accessor: (row) => getBatchNumber(row) },
+                {
+                  header: "Warranty Start",
+                  accessor: (row) =>
+                    row.warrantyStart ? new Date(row.warrantyStart).toLocaleDateString() : "N/A",
+                },
+                {
+                  header: "Warranty End",
+                  accessor: (row) =>
+                    row.warrantyEnd ? new Date(row.warrantyEnd).toLocaleDateString() : "N/A",
+                },
+                { header: "Status", accessor: (row) => getWarrantyStatus(row) },
               ]}
             />
             <FilterPopover
@@ -513,21 +558,30 @@ const SerialNumberManager: React.FC = () => {
                   name="filterProductId"
                   value={filterProductId}
                   onChange={(e) => setFilterProductId(e.target.value)}
-                  options={products.map((product) => ({ id: String(product.id), name: product.productName }))}
+                  options={products.map((product) => ({
+                    id: String(product.id),
+                    name: product.productName,
+                  }))}
                 />
                 <FloatingSelect
                   label="Warehouse"
                   name="filterWarehouseId"
                   value={filterWarehouseId}
                   onChange={(e) => setFilterWarehouseId(e.target.value)}
-                  options={warehouses.map((warehouse) => ({ id: String(warehouse.id), name: warehouse.name }))}
+                  options={warehouses.map((warehouse) => ({
+                    id: String(warehouse.id),
+                    name: warehouse.name,
+                  }))}
                 />
                 <FloatingSelect
                   label="Batch"
                   name="filterBatchId"
                   value={filterBatchId}
                   onChange={(e) => setFilterBatchId(e.target.value)}
-                  options={batches.map((batch) => ({ id: String(batch.id), name: batch.batchNumber }))}
+                  options={batches.map((batch) => ({
+                    id: String(batch.id),
+                    name: batch.batchNumber,
+                  }))}
                 />
                 <FloatingSelect
                   label="Warranty Status"
@@ -589,6 +643,7 @@ const SerialNumberManager: React.FC = () => {
             label: "Details",
             fields: [
               <FloatingInput
+                key="serial"
                 label="Serial"
                 name="serial"
                 value={form.serial}
@@ -596,25 +651,40 @@ const SerialNumberManager: React.FC = () => {
                 required
               />,
               <FloatingSelect
+                key="productId"
                 label="Product"
                 name="productId"
                 value={form.productId}
                 onChange={handleChange}
-                options={products.map((product) => ({ id: String(product.id), name: product.productName }))}
+                options={products.map((product) => ({
+                  id: String(product.id),
+                  name: product.productName,
+                }))}
+                required
               />,
               <FloatingSelect
+                key="warehouseId"
                 label="Warehouse"
                 name="warehouseId"
                 value={form.warehouseId}
                 onChange={handleChange}
-                options={warehouses.map((warehouse) => ({ id: String(warehouse.id), name: warehouse.name }))}
+                options={warehouses.map((warehouse) => ({
+                  id: String(warehouse.id),
+                  name: warehouse.name,
+                }))}
+                required
               />,
               <FloatingSelect
+                key="batchId"
                 label="Batch"
                 name="batchId"
                 value={form.batchId}
                 onChange={handleChange}
-                options={batches.map((batch) => ({ id: String(batch.id), name: batch.batchNumber }))}
+                options={batches.map((batch) => ({
+                  id: String(batch.id),
+                  name: batch.batchNumber,
+                }))}
+                required
               />,
             ],
           },
@@ -622,6 +692,7 @@ const SerialNumberManager: React.FC = () => {
             label: "Warranty",
             fields: [
               <FloatingInput
+                key="warrantyStart"
                 label="Warranty Start"
                 name="warrantyStart"
                 type="date"
@@ -630,6 +701,7 @@ const SerialNumberManager: React.FC = () => {
                 required
               />,
               <FloatingInput
+                key="warrantyEnd"
                 label="Warranty End"
                 name="warrantyEnd"
                 type="date"

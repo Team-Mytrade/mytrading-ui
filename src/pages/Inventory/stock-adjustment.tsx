@@ -34,24 +34,52 @@ interface Product {
 
 interface Warehouse {
   id: number;
+  createdDate?: string;
+  updatedDate?: string;
+  createdBy?: string;
+  tenantId?: string;
   name: string;
   code?: string;
+  locationType?: "MAIN" | "SUB" | "STORE";
   location?: string;
+  stockLevels?: any[];
+  batches?: any[];
+  serialNumbers?: any[];
+  stockMovements?: any[];
+  stockAdjustments?: any[];
+  stockEntries?: any[];
 }
 
 interface Batch {
   id: number;
+  createdDate?: string;
+  updatedDate?: string;
+  createdBy?: string;
+  tenantId?: string;
   batchNumber: string;
+  manufacturingDate?: string;
   productId?: number;
+  warehouse?: Warehouse | null;
+  inspections?: any[];
   expiryDate?: string;
   quantity?: number;
 }
 
 interface SerialNumber {
   id: number;
+  createdDate?: string;
+  updatedDate?: string;
+  createdBy?: string;
+  tenantId?: string;
   serial: string;
+  warrantyStart?: string;
+  warrantyEnd?: string;
   batchId?: number;
   productId?: number;
+  productNumber?: string;
+  warehouse?: Warehouse | null;
+  batch?: Batch | null;
+  inspections?: any[];
   status?: "AVAILABLE" | "SOLD" | "DAMAGED";
 }
 
@@ -62,6 +90,9 @@ enum AdjustmentType {
 
 interface StockAdjustment {
   id: number;
+  createdDate?: string;
+  updatedDate?: string;
+  tenantId?: string;
   adjustmentDate: string;
   reason: string;
   quantity: number;
@@ -112,6 +143,23 @@ const emptyForm: StockAdjustmentForm = {
   reference: "",
 };
 
+function getSessionMeta() {
+  if (typeof window === "undefined") {
+    return { userId: "", tenantId: "" };
+  }
+
+  try {
+    const raw = window.localStorage.getItem("user");
+    const user = raw ? JSON.parse(raw) : null;
+    return {
+      userId: user?.userId || user?.username || "",
+      tenantId: user?.tenantId || "",
+    };
+  } catch {
+    return { userId: "", tenantId: "" };
+  }
+}
+
 function getErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data;
@@ -138,6 +186,18 @@ function getTypeIcon(type: AdjustmentType) {
     return <ArrowUpIcon className="h-3 w-3 mr-1" />;
   }
   return <ArrowDownIcon className="h-3 w-3 mr-1" />;
+}
+
+function getBatchWarehouseId(batch?: Batch | null) {
+  return Number(batch?.warehouse && typeof batch.warehouse !== "string" ? batch.warehouse.id : 0);
+}
+
+function getSerialBatchId(serial?: SerialNumber | null) {
+  return Number(serial?.batch?.id ?? serial?.batchId ?? 0);
+}
+
+function getSerialWarehouseId(serial?: SerialNumber | null) {
+  return Number(serial?.warehouse && typeof serial.warehouse !== "string" ? serial.warehouse.id : 0);
 }
 
 const StockAdjustmentManager: React.FC = () => {
@@ -267,7 +327,11 @@ const StockAdjustmentManager: React.FC = () => {
   const handleProductChange = (productId: string) => {
     setForm((prev) => ({ ...prev, productId, batchId: "", serialNumberId: "" }));
     if (productId) {
-      const filtered = batches.filter((b) => b.productId === Number(productId));
+      const filtered = batches.filter((b) => {
+        const matchesProduct = b.productId === Number(productId);
+        const matchesWarehouse = !form.warehouseId || getBatchWarehouseId(b) === Number(form.warehouseId);
+        return matchesProduct && matchesWarehouse;
+      });
       setFilteredBatches(filtered);
     } else {
       setFilteredBatches([]);
@@ -275,10 +339,31 @@ const StockAdjustmentManager: React.FC = () => {
     }
   };
 
+  const handleWarehouseChange = (warehouseId: string) => {
+    setForm((prev) => ({ ...prev, warehouseId, batchId: "", serialNumberId: "" }));
+
+    if (!warehouseId || !form.productId) {
+      setFilteredBatches([]);
+      setFilteredSerialNumbers([]);
+      return;
+    }
+
+    const filtered = batches.filter(
+      (batch) => batch.productId === Number(form.productId) && getBatchWarehouseId(batch) === Number(warehouseId)
+    );
+    setFilteredBatches(filtered);
+    setFilteredSerialNumbers([]);
+  };
+
   const handleBatchChange = (batchId: string) => {
     setForm((prev) => ({ ...prev, batchId, serialNumberId: "" }));
     if (batchId) {
-      const filtered = serialNumbers.filter((sn) => sn.batchId === Number(batchId));
+      const filtered = serialNumbers.filter((sn) => {
+        const matchesBatch = getSerialBatchId(sn) === Number(batchId);
+        const matchesProduct = !form.productId || sn.productId === Number(form.productId);
+        const matchesWarehouse = !form.warehouseId || getSerialWarehouseId(sn) === Number(form.warehouseId);
+        return matchesBatch && matchesProduct && matchesWarehouse;
+      });
       setFilteredSerialNumbers(filtered);
     } else {
       setFilteredSerialNumbers([]);
@@ -286,16 +371,41 @@ const StockAdjustmentManager: React.FC = () => {
   };
 
   const buildPayload = () => {
+    const now = new Date().toISOString();
+    const session = getSessionMeta();
+    const existing = adjustments.find((item) => item.id === editingId);
+    const selectedWarehouse = warehouses.find((item) => item.id === Number(form.warehouseId));
+    const selectedBatch = filteredBatches.find((item) => item.id === Number(form.batchId))
+      || batches.find((item) => item.id === Number(form.batchId));
+    const selectedSerial = filteredSerialNumbers.find((item) => item.id === Number(form.serialNumberId))
+      || serialNumbers.find((item) => item.id === Number(form.serialNumberId));
+
     return {
       id: editingId || 0,
+      createdDate: existing?.createdDate || now,
+      updatedDate: now,
+      createdBy: existing?.createdBy || session.userId,
+      tenantId: existing?.tenantId || session.tenantId,
       adjustmentDate: form.adjustmentDate,
       reason: form.reason.trim(),
       quantity: Number(form.quantity),
       adjustmentType: form.adjustmentType,
       productId: Number(form.productId),
-      warehouse: form.warehouseId ? { id: Number(form.warehouseId) } : null,
-      batch: form.batchId ? { id: Number(form.batchId) } : null,
-      serialNumber: form.serialNumberId ? { id: Number(form.serialNumberId) } : null,
+      warehouse: selectedWarehouse
+        ? {
+            id: selectedWarehouse.id,
+          }
+        : null,
+      batch: selectedBatch
+        ? {
+            id: selectedBatch.id,
+          }
+        : null,
+      serialNumber: selectedSerial
+        ? {
+            id: selectedSerial.id,
+          }
+        : null,
       reference: form.reference.trim() || null,
     };
   };
@@ -311,6 +421,10 @@ const StockAdjustmentManager: React.FC = () => {
     }
     if (!form.warehouseId) {
       ToasterService.error("Required field missing", "Warehouse selection is required.");
+      return;
+    }
+    if (!form.batchId) {
+      ToasterService.error("Required field missing", "Batch selection is required.");
       return;
     }
     if (!quantity || quantity <= 0) {
@@ -370,11 +484,15 @@ const StockAdjustmentManager: React.FC = () => {
     });
 
     if (productId) {
-      const filtered = batches.filter((b) => b.productId === productId);
+      const filtered = batches.filter((b) => {
+        const matchesProduct = b.productId === productId;
+        const matchesWarehouse = !adjustment.warehouse?.id || getBatchWarehouseId(b) === adjustment.warehouse.id;
+        return matchesProduct && matchesWarehouse;
+      });
       setFilteredBatches(filtered);
     }
     if (adjustment.batch?.id) {
-      const filtered = serialNumbers.filter((sn) => sn.batchId === adjustment.batch?.id);
+      const filtered = serialNumbers.filter((sn) => getSerialBatchId(sn) === adjustment.batch?.id);
       setFilteredSerialNumbers(filtered);
     }
 
@@ -878,7 +996,7 @@ const StockAdjustmentManager: React.FC = () => {
                 label="Warehouse"
                 name="warehouseId"
                 value={form.warehouseId}
-                onChange={handleChange}
+                onChange={(e) => handleWarehouseChange(e.target.value)}
                 options={warehouseOptions}
                 required
               />,
@@ -898,25 +1016,27 @@ const StockAdjustmentManager: React.FC = () => {
             fields: [
               <FloatingSelect
                 key="batchId"
-                label="Batch (Optional)"
+                label="Batch"
                 name="batchId"
                 value={form.batchId}
                 onChange={(e) => handleBatchChange(e.target.value)}
                 options={batchOptions}
                 disabled={!form.productId}
+                required
               />,
               <FloatingSelect
                 key="serialNumberId"
-                label="Serial Number (Optional)"
+                label="Serial Number"
                 name="serialNumberId"
                 value={form.serialNumberId}
                 onChange={handleChange}
                 options={serialOptions}
                 disabled={!form.batchId}
+                required
               />,
               <FloatingInput
                 key="reference"
-                label="Reference (Optional)"
+                label="Reference"
                 name="reference"
                 value={form.reference}
                 onChange={handleChange}
