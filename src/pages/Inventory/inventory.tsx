@@ -126,10 +126,15 @@ function normalizeProductLabel(product: ProductOption): string {
   return code ? `${name} (${code})` : name;
 }
 
-function getWarehouseId(warehouse: InventoryStock["warehouse"]): string {
+function getWarehouseId(warehouse: InventoryStock["warehouse"], warehouses: Warehouse[]): string {
   if (!warehouse) return "";
   if (typeof warehouse !== "string") return String(warehouse.id || "");
-  return "";
+  // Fallback: if the backend ever returns warehouse as a plain string
+  // (code or name) instead of an object, try to match it against the
+  // loaded warehouse list so the dropdown can still prefill correctly.
+  return String(
+    warehouses.find((w) => w.code === warehouse || w.name === warehouse)?.id || ""
+  );
 }
 
 function getWarehouseName(warehouse: InventoryStock["warehouse"]): string {
@@ -237,7 +242,7 @@ const InventoryStockManager: React.FC = () => {
       productId: String(stock.productId || ""),
       reservedQty: String(stock.reservedQty ?? 0),
       minStockLevel: String(stock.minStockLevel ?? 0),
-      warehouseId: getWarehouseId(stock.warehouse),
+      warehouseId: getWarehouseId(stock.warehouse, warehouses),
     });
     setShowFormModal(true);
   };
@@ -247,16 +252,27 @@ const InventoryStockManager: React.FC = () => {
     setForm((current) => ({ ...current, [name]: value }));
   };
 
+  /**
+   * Builds the Inventory Stock create/update payload.
+   *
+   * Only the fields the frontend actually owns are sent:
+   * type, quantity, movementDate, referenceNo, productId, reservedQty,
+   * minStockLevel, and warehouse as a bare `{ id }` reference (the
+   * backend looks up the full Warehouse record from that id).
+   *
+   * NOT sent: id / createdDate / updatedDate / createdBy / tenantId on
+   * create — these are server-managed audit fields the backend should
+   * stamp itself. `id` is added back only on update, so the backend
+   * knows which record to modify.
+   *
+   * The Warehouse's nested stockLevels/batches/serialNumbers/
+   * stockMovements/stockAdjustments/stockEntries are NOT reconstructed
+   * here — those are the warehouse's own related records with their own
+   * create/update flows elsewhere in the app, not something this form
+   * should read, own, or round-trip.
+   */
   const buildPayload = () => {
-    const selectedWarehouse = warehouses.find((w) => w.id === toNumber(form.warehouseId));
-    const existing = stocks.find((s) => s.id === editingId);
-
-    return {
-      id: editingId || 0,
-      createdDate: existing?.createdDate || new Date().toISOString(),
-      updatedDate: new Date().toISOString(),
-      createdBy: existing?.createdBy || "",
-      tenantId: existing?.tenantId || "",
+    const payload = {
       type: form.type,
       quantity: toNumber(form.quantity),
       movementDate: form.movementDate,
@@ -264,25 +280,14 @@ const InventoryStockManager: React.FC = () => {
       productId: toNumber(form.productId),
       reservedQty: toNumber(form.reservedQty),
       minStockLevel: toNumber(form.minStockLevel),
-      warehouse: selectedWarehouse
-        ? {
-            id: selectedWarehouse.id,
-            createdDate: selectedWarehouse.createdDate || new Date().toISOString(),
-            updatedDate: selectedWarehouse.updatedDate || new Date().toISOString(),
-            createdBy: selectedWarehouse.createdBy || "",
-            tenantId: selectedWarehouse.tenantId || "",
-            code: selectedWarehouse.code || "",
-            name: selectedWarehouse.name || "",
-            locationType: selectedWarehouse.locationType || "MAIN",
-            stockLevels: selectedWarehouse.stockLevels || [],
-            batches: selectedWarehouse.batches || [],
-            serialNumbers: selectedWarehouse.serialNumbers || [],
-            stockMovements: selectedWarehouse.stockMovements || [],
-            stockAdjustments: selectedWarehouse.stockAdjustments || [],
-            stockEntries: selectedWarehouse.stockEntries || [],
-          }
-        : null,
+      warehouse: form.warehouseId ? { id: toNumber(form.warehouseId) } : null,
     };
+
+    if (editingId) {
+      return { id: editingId, ...payload };
+    }
+
+    return payload;
   };
 
   const handleSubmit = async (e: FormEvent): Promise<void> => {
@@ -318,7 +323,17 @@ const InventoryStockManager: React.FC = () => {
       setDeleteStock(null);
       await fetchAllStock();
     } catch (error) {
-      ToasterService.error("Failed to delete inventory stock", getErrorMessage(error, "Please try again."));
+      // Fallback: some backends don't support ?cascade=true and reject the
+      // param, or reject the whole request. Try a plain delete before
+      // giving up, mirroring the Warehouse page's delete fallback pattern.
+      try {
+        await axios.delete(`${API_URL}/${deleteStock.id}`, { headers });
+        ToasterService.success("Inventory stock deleted successfully");
+        setDeleteStock(null);
+        await fetchAllStock();
+      } catch (fallbackError) {
+        ToasterService.error("Failed to delete inventory stock", getErrorMessage(fallbackError, "Please try again."));
+      }
     }
   };
 
@@ -641,201 +656,93 @@ const InventoryStockManager: React.FC = () => {
       </div>
 
       <PaginatedPopup
-  isOpen={showFormModal}
-  title={editingId ? "Edit Stock Entry" : "Create Stock Entry"}
-  subtitle="Add stock to your inventory"
-  onClose={closeForm}
-  onSubmit={handleSubmit}
-  submitting={submitting}
-  submitLabel={editingId ? "Update Stock" : "Create Stock"}
-  maxWidthClassName="max-w-4xl"
-  tabs={[
-    {
-      label: "Basic Info",
-      fields: [
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <FloatingSelect
-            label="Movement Type"
-            name="type"
-            value={form.type}
-            onChange={handleChange}
-            includeEmptyOption={false}
-            options={movementTypeOptions.map((type) => ({ id: type, name: type }))}
-          />
-          <FloatingDatePicker
-            label="Movement Date"
-            name="movementDate"
-            value={form.movementDate}
-            onChange={handleChange}
-            required
-          />
-          <FloatingInput
-            label="Reference Number"
-            name="referenceNo"
-            value={form.referenceNo}
-            onChange={handleChange}
-            required
-          />
-        </div>,
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <FloatingSelect
-            label="Product"
-            name="productId"
-            value={form.productId}
-            onChange={handleChange}
-            emptyOptionLabel="Select product"
-            options={products.map((p) => ({
-              id: String(p.id || p.productId || 0),
-              name: normalizeProductLabel(p),
-            }))}
-            required
-          />
-          <FloatingSelect
-            label="Warehouse"
-            name="warehouseId"
-            value={form.warehouseId}
-            onChange={handleChange}
-            emptyOptionLabel="Select warehouse"
-            options={warehouses.map((w) => ({
-              id: String(w.id),
-              name: `${w.name || w.code || `Warehouse #${w.id}`}`,
-            }))}
-            required
-          />
-          <FloatingInput
-            label="Quantity"
-            name="quantity"
-            type="number"
-            value={form.quantity}
-            onChange={handleChange}
-            required
-          />
-        </div>,
-      ],
-    },
-    {
-      label: "Stock Settings",
-      fields: [
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <FloatingInput
-            label="Reserved Quantity"
-            name="reservedQty"
-            type="number"
-            value={form.reservedQty}
-            onChange={handleChange}
-          />
-          <FloatingInput
-            label="Minimum Stock Level"
-            name="minStockLevel"
-            type="number"
-            value={form.minStockLevel}
-            onChange={handleChange}
-          />
-        </div>,
-      ],
-    },
-  ]}
-/>
-<PaginatedPopup
-  isOpen={showFormModal}
-  title={editingId ? "Edit Stock Entry" : "Create Stock Entry"}
-  subtitle="Add stock to your inventory"
-  onClose={closeForm}
-  onSubmit={handleSubmit}
-  submitting={submitting}
-  submitLabel={editingId ? "Update Stock" : "Create Stock"}
-  maxWidthClassName="max-w-4xl"
-  tabs={[
-    {
-      label: "Stock Info",
-      fields: [
-        <FloatingSelect
-          key="type"
-          label="Movement Type"
-          name="type"
-          value={form.type}
-          onChange={handleChange}
-          includeEmptyOption={false}
-          options={movementTypeOptions.map((type) => ({ id: type, name: type }))}
-          required
-        />,
-        <FloatingDatePicker
-          key="movementDate"
-          label="Movement Date"
-          name="movementDate"
-          value={form.movementDate}
-          onChange={handleChange}
-          required
-        />,
-        <FloatingInput
-          key="referenceNo"
-          label="Reference Number"
-          name="referenceNo"
-          value={form.referenceNo}
-          onChange={handleChange}
-          required
-        />,
-        <FloatingSelect
-          key="productId"
-          label="Select product"
-          name="productId"
-          value={form.productId}
-          onChange={handleChange}
-          emptyOptionLabel="Select product"
-          options={products.map((p) => ({
-            id: String(p.id || p.productId || 0),
-            name: normalizeProductLabel(p),
-          }))}
-          required
-        />,
-        <FloatingSelect
-          key="warehouseId"
-          label="Select warehouse"
-          name="warehouseId"
-          value={form.warehouseId}
-          onChange={handleChange}
-          emptyOptionLabel="Select warehouse"
-          options={warehouses.map((w) => ({
-            id: String(w.id),
-            name: `${w.name || w.code || `Warehouse #${w.id}`}`,
-          }))}
-          required
-        />,
-        <FloatingInput
-          key="quantity"
-          label="Quantity"
-          name="quantity"
-          type="number"
-          value={form.quantity}
-          onChange={handleChange}
-          required
-        />,
-      ],
-    },
-    {
-      label: "Stock Settings",
-      fields: [
-        <FloatingInput
-          key="reservedQty"
-          label="Reserved Quantity"
-          name="reservedQty"
-          type="number"
-          value={form.reservedQty}
-          onChange={handleChange}
-        />,
-        <FloatingInput
-          key="minStockLevel"
-          label="Minimum Stock Level"
-          name="minStockLevel"
-          type="number"
-          value={form.minStockLevel}
-          onChange={handleChange}
-        />,
-      ],
-    },
-  ]}
-/>
-      
+        isOpen={showFormModal}
+        title={editingId ? "Edit Inventory Stock" : "Create Inventory Stock"}
+        subtitle="Enter stock details from the inventory schema"
+        onClose={closeForm}
+        onSubmit={handleSubmit}
+        submitting={submitting}
+        submitLabel={editingId ? "Update Stock" : "Create Stock"}
+        maxWidthClassName="max-w-4xl"
+        tabs={[
+          {
+            label: "Stock Details",
+            fields: [
+              <FloatingSelect
+                label="Movement Type"
+                name="type"
+                value={form.type}
+                onChange={handleChange}
+                includeEmptyOption={false}
+                options={movementTypeOptions.map((type) => ({
+                  id: type,
+                  name: type,
+                }))}
+              />,
+              <FloatingDatePicker
+                label="Movement Date"
+                name="movementDate"
+                value={form.movementDate}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingInput
+                label="Reference Number"
+                name="referenceNo"
+                value={form.referenceNo}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingSelect
+                label="Product"
+                name="productId"
+                value={form.productId}
+                onChange={handleChange}
+                emptyOptionLabel="Select product"
+                options={products.map((p) => ({
+                  id: String(p.id || p.productId || 0),
+                  name: normalizeProductLabel(p),
+                }))}
+                required
+              />,
+              <FloatingSelect
+                label="Warehouse"
+                name="warehouseId"
+                value={form.warehouseId}
+                onChange={handleChange}
+                emptyOptionLabel="Select warehouse"
+                options={warehouses.map((w) => ({
+                  id: String(w.id),
+                  name: w.name || w.code || `Warehouse #${w.id}`,
+                }))}
+                required
+              />,
+              <FloatingInput
+                label="Quantity"
+                name="quantity"
+                type="number"
+                value={form.quantity}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingInput
+                label="Reserved Quantity"
+                name="reservedQty"
+                type="number"
+                value={form.reservedQty}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                label="Minimum Stock Level"
+                name="minStockLevel"
+                type="number"
+                value={form.minStockLevel}
+                onChange={handleChange}
+              />,
+            ],
+          },
+        ]}
+      />
 
       <DynamicPopup
         isPopupOpen={!!deleteStock}
