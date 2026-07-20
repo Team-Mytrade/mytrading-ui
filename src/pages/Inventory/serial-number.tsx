@@ -65,6 +65,7 @@ interface SerialNumber {
   inspections?: Inspection[];
 }
 
+// No 'status' field – matches the API
 type SerialNumberForm = {
   serial: string;
   warrantyStart: string;
@@ -110,7 +111,6 @@ function isWarrantyActive(warrantyEnd: string) {
   return end.getTime() >= Date.now();
 }
 
-// Resolve product name from the products list or fallback to productNumber
 function getProductName(sn: SerialNumber, products: Product[]) {
   const product = products.find((p) => p.id === sn.productId);
   return product?.productName || sn.productNumber || "N/A";
@@ -206,6 +206,7 @@ const SerialNumberManager: React.FC = () => {
     setForm((current) => ({ ...current, [name]: value }));
   };
 
+  // productNumber is auto-filled from the selected product's name
   const buildPayload = () => {
     const productId = Number(form.productId) || 0;
     const warehouseId = Number(form.warehouseId) || 0;
@@ -220,7 +221,7 @@ const SerialNumberManager: React.FC = () => {
       productNumber: products.find((item) => item.id === productId)?.productName || "",
       warehouse: warehouseId ? { id: warehouseId } : null,
       batch: batchId ? { id: batchId } : null,
-      inspections: [],
+      inspections: [], // empty by default – can be extended later
     };
   };
 
@@ -410,7 +411,7 @@ const SerialNumberManager: React.FC = () => {
     },
     {
       key: "status",
-      label: "Status",
+      label: "Warranty Status",   // <-- renamed for clarity
       sortable: false,
       render: (sn) => {
         const active = isWarrantyActive(sn.warrantyEnd);
@@ -543,7 +544,7 @@ const SerialNumberManager: React.FC = () => {
                   accessor: (row) =>
                     row.warrantyEnd ? new Date(row.warrantyEnd).toLocaleDateString() : "N/A",
                 },
-                { header: "Status", accessor: (row) => getWarrantyStatus(row) },
+                { header: "Warranty Status", accessor: (row) => getWarrantyStatus(row) },
               ]}
             />
             <FilterPopover
