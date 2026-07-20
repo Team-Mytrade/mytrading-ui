@@ -10,9 +10,6 @@ import {
   TrashIcon,
   XCircleIcon,
   XMarkIcon,
-  CubeIcon,
-  ClipboardDocumentListIcon,
-  QueueListIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
@@ -28,6 +25,8 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
+type WarehouseLocationType = "MAIN" | "DISTRIBUTION" | "TRANSIT" | "RETURN_CENTER";
+
 type Warehouse = {
   id: number;
   createdDate?: string;
@@ -36,7 +35,7 @@ type Warehouse = {
   tenantId?: string;
   code: string;
   name: string;
-  locationType: "MAIN" | "SUB" | "STORE";
+  locationType: WarehouseLocationType;
   stockLevels?: any[];
   batches?: any[];
   serialNumbers?: any[];
@@ -48,15 +47,19 @@ type Warehouse = {
 type WarehouseForm = {
   code: string;
   name: string;
-  locationType: string;
+  locationType: WarehouseLocationType;
 };
 
 const API_URL = "/v1/api/inventory/warehouses";
-const BATCH_API_URL = "/v1/api/inventory/batches";
-const STOCK_LEVEL_API_URL = "/v1/api/inventory/stock-levels";
-const SERIAL_API_URL = "/v1/api/inventory/serial-numbers";
 const PAGE_SIZE = 10;
-const locationTypeOptions = ["MAIN", "SUB", "STORE"];
+
+// ✅ Updated location types
+const locationTypeOptions: WarehouseLocationType[] = [
+  "MAIN",
+  "DISTRIBUTION",
+  "TRANSIT",
+  "RETURN_CENTER",
+];
 
 const emptyForm: WarehouseForm = {
   code: "",
@@ -82,12 +85,19 @@ function searchableText(value: unknown) {
   return String(value).toLowerCase().trim();
 }
 
-function getLocationTypeColor(type: string) {
+// ✅ Updated color mapping for all location types
+function getLocationTypeColor(type: WarehouseLocationType) {
   switch (type) {
-    case "MAIN": return "bg-purple-100 text-purple-800 border-purple-200";
-    case "SUB": return "bg-blue-100 text-blue-800 border-blue-200";
-    case "STORE": return "bg-green-100 text-green-800 border-green-200";
-    default: return "bg-gray-100 text-gray-800 border-gray-200";
+    case "MAIN":
+      return "bg-purple-100 text-purple-800 border-purple-200";
+    case "DISTRIBUTION":
+      return "bg-blue-100 text-blue-800 border-blue-200";
+    case "TRANSIT":
+      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+    case "RETURN_CENTER":
+      return "bg-orange-100 text-orange-800 border-orange-200";
+    default:
+      return "bg-gray-100 text-gray-800 border-gray-200";
   }
 }
 
@@ -104,8 +114,6 @@ const WarehousePage: React.FC = () => {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [deleteWarehouse, setDeleteWarehouse] = useState<Warehouse | null>(null);
-  const [viewWarehouse, setViewWarehouse] = useState<Warehouse | null>(null);
-  const [viewLoading, setViewLoading] = useState(false);
 
   useEffect(() => {
     fetchWarehouses();
@@ -153,58 +161,62 @@ const WarehousePage: React.FC = () => {
   };
 
   const buildPayload = () => {
-    const existing = warehouses.find((w) => w.id === editingId);
+  const existing = warehouses.find((w) => w.id === editingId);
 
-    if (!editingId) {
-      return {
-        code: form.code.trim(),
-        name: form.name.trim(),
-        locationType: form.locationType,
-      };
-    }
-
+  if (!editingId) {
     return {
-      id: editingId,
-      createdDate: existing?.createdDate || new Date().toISOString(),
-      updatedDate: new Date().toISOString(),
-      createdBy: existing?.createdBy || "",
-      tenantId: existing?.tenantId || "",
       code: form.code.trim(),
       name: form.name.trim(),
       locationType: form.locationType,
-      stockLevels: existing?.stockLevels || [],
-      batches: existing?.batches || [],
-      serialNumbers: existing?.serialNumbers || [],
-      stockMovements: existing?.stockMovements || [],
-      stockAdjustments: existing?.stockAdjustments || [],
-      stockEntries: existing?.stockEntries || [],
     };
-  };
+  }
 
-  const handleSubmit = async (e: FormEvent): Promise<void> => {
-    e.preventDefault();
+  return {
+    id: editingId,
+    code: form.code.trim(),
+    name: form.name.trim(),
+    locationType: form.locationType,
+};
+};
 
-    try {
-      setSubmitting(true);
-      const payload = buildPayload();
+ const handleSubmit = async (e: FormEvent): Promise<void> => {
+  e.preventDefault();
 
-      if (editingId) {
-        await axios.put(`${API_URL}/${editingId}`, payload, { headers });
-        ToasterService.success("Warehouse updated successfully");
-      } else {
-        await axios.post(API_URL, payload, { headers });
-        ToasterService.success("Warehouse created successfully");
-      }
+  try {
+    setSubmitting(true);
+    const payload = buildPayload();
 
-      closeForm();
-      await fetchWarehouses();
-    } catch (error) {
-      ToasterService.error("Failed to save warehouse", getErrorMessage(error, "Please try again."));
-    } finally {
-      setSubmitting(false);
+    if (editingId) {
+      await axios.put(`${API_URL}/${editingId}`, payload, { headers });
+      ToasterService.success("Warehouse updated successfully");
+
+      // ✅ Manually update the warehouse in state
+      setWarehouses((prev) =>
+        prev.map((w) => {
+          if (w.id === editingId) {
+            return {
+              ...w,
+              code: payload.code,
+              name: payload.name,
+              locationType: payload.locationType,
+            };
+          }
+          return w;
+        })
+      );
+    } else {
+      const response = await axios.post(API_URL, payload, { headers });
+      ToasterService.success("Warehouse created successfully");
+      setWarehouses((prev) => [response.data, ...prev]);
     }
-  };
 
+    closeForm();
+  } catch (error) {
+    ToasterService.error("Failed to save warehouse", getErrorMessage(error, "Please try again."));
+  } finally {
+    setSubmitting(false);
+  }
+};
   const confirmDelete = async (): Promise<void> => {
     if (!deleteWarehouse?.id) return;
 
@@ -215,35 +227,6 @@ const WarehousePage: React.FC = () => {
       await fetchWarehouses();
     } catch (error) {
       ToasterService.error("Failed to delete warehouse", getErrorMessage(error, "Please try again."));
-    }
-  };
-
-  // ✅ Fetch warehouse with ALL related data
-  const handleView = async (warehouse: Warehouse) => {
-    try {
-      setViewLoading(true);
-      
-      // Fetch all related data in parallel
-      const [warehouseRes, batchesRes, stockRes, serialRes] = await Promise.all([
-        axios.get(`${API_URL}/${warehouse.id}`, { headers }),
-        axios.get(`${BATCH_API_URL}?warehouseId=${warehouse.id}`, { headers }),
-        axios.get(`${STOCK_LEVEL_API_URL}?warehouseId=${warehouse.id}`, { headers }),
-        axios.get(`${SERIAL_API_URL}?warehouseId=${warehouse.id}`, { headers }),
-      ]);
-      
-      // Combine all data
-      setViewWarehouse({
-        ...warehouseRes.data,
-        batches: batchesRes.data || [],
-        stockLevels: stockRes.data || [],
-        serialNumbers: serialRes.data || [],
-      });
-      
-    } catch (error) {
-      console.error("Failed to load warehouse details:", error);
-      ToasterService.error("Failed to load warehouse details");
-    } finally {
-      setViewLoading(false);
     }
   };
 
@@ -262,8 +245,9 @@ const WarehousePage: React.FC = () => {
     () => ({
       total: warehouses.length,
       main: warehouses.filter((w) => w.locationType === "MAIN").length,
-      sub: warehouses.filter((w) => w.locationType === "SUB").length,
-      store: warehouses.filter((w) => w.locationType === "STORE").length,
+      distribution: warehouses.filter((w) => w.locationType === "DISTRIBUTION").length,
+      transit: warehouses.filter((w) => w.locationType === "TRANSIT").length,
+      returnCenter: warehouses.filter((w) => w.locationType === "RETURN_CENTER").length,
     }),
     [warehouses]
   );
@@ -327,14 +311,6 @@ const WarehousePage: React.FC = () => {
         <div className="flex justify-end gap-1">
           <button
             type="button"
-            onClick={() => handleView(warehouse)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
-            title="View"
-          >
-            <MagnifyingGlassIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
             onClick={() => openEdit(warehouse)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
             title="Edit"
@@ -364,6 +340,7 @@ const WarehousePage: React.FC = () => {
           <AddButton onClick={openCreate} label="Add Warehouse" />
         </div>
 
+        {/* ✅ Updated Stats Cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
             label="Total Warehouses"
@@ -382,19 +359,19 @@ const WarehousePage: React.FC = () => {
             icon={<BuildingOffice2Icon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Sub"
-            value={stats.sub}
+            label="Distribution"
+            value={stats.distribution}
             gradient="from-blue-50 to-indigo-50"
             borderColor="border-blue-100"
             labelColor="text-blue-600"
             icon={<BuildingOffice2Icon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Store"
-            value={stats.store}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
+            label="Transit / Return"
+            value={stats.transit + stats.returnCenter}
+            gradient="from-yellow-50 to-orange-50"
+            borderColor="border-yellow-100"
+            labelColor="text-yellow-600"
             icon={<BuildingOffice2Icon className="h-5 w-5" />}
           />
         </div>
@@ -464,7 +441,7 @@ const WarehousePage: React.FC = () => {
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Warehouse" : "Create Warehouse"}
-        subtitle="Enter warehouse details from the API schema"
+        subtitle="Enter warehouse information"
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
@@ -474,213 +451,39 @@ const WarehousePage: React.FC = () => {
           {
             label: "Warehouse Details",
             fields: [
-              <FloatingInput
-                label="Code"
-                name="code"
-                value={form.code}
-                onChange={handleChange}
-                required
-              />,
-              <FloatingInput
-                label="Name"
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-                required
-              />,
-              <FloatingSelect
-                label="Location Type"
-                name="locationType"
-                value={form.locationType}
-                onChange={handleChange}
-                includeEmptyOption={false}
-                options={locationTypeOptions.map((type) => ({
-                  id: type,
-                  name: type,
-                }))}
-              />,
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <FloatingInput
+                  label="Code"
+                  name="code"
+                  value={form.code}
+                  onChange={handleChange}
+                  required
+                />
+                <FloatingInput
+                  label="Name"
+                  name="name"
+                  value={form.name}
+                  onChange={handleChange}
+                  required
+                />
+              </div>,
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <FloatingSelect
+                  label="Location Type"
+                  name="locationType"
+                  value={form.locationType}
+                  onChange={handleChange}
+                  includeEmptyOption={false}
+                  options={locationTypeOptions.map((type) => ({
+                    id: type,
+                    name: type,
+                  }))}
+                />
+              </div>,
             ],
           },
         ]}
       />
-
-      {/* ✅ View Popup with Full Details */}
-      {viewWarehouse && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex min-h-screen items-center justify-center px-4 py-8">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setViewWarehouse(null)} />
-            <div className="relative z-10 w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-lg bg-white shadow-xl">
-              <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Warehouse Details</h3>
-                <button
-                  type="button"
-                  onClick={() => setViewWarehouse(null)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-6 w-6" />
-                </button>
-              </div>
-
-              {viewLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mx-auto"></div>
-                    <p className="mt-2 text-sm text-gray-500">Loading details...</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-6">
-                  {/* Basic Info */}
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div>
-                      <p className="text-xs text-gray-500">Code</p>
-                      <p className="font-medium text-gray-900">{viewWarehouse.code}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Name</p>
-                      <p className="font-medium text-gray-900">{viewWarehouse.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Location Type</p>
-                      <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${getLocationTypeColor(viewWarehouse.locationType)}`}>
-                        {viewWarehouse.locationType}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Total Stock</p>
-                      <p className="font-medium text-gray-900">{getTotalStock(viewWarehouse)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Created</p>
-                      <p className="font-medium text-gray-900">
-                        {viewWarehouse.createdDate ? new Date(viewWarehouse.createdDate).toLocaleDateString() : "-"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Updated</p>
-                      <p className="font-medium text-gray-900">
-                        {viewWarehouse.updatedDate ? new Date(viewWarehouse.updatedDate).toLocaleDateString() : "-"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Stock Levels */}
-                  <div className="mb-6">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                      <ClipboardDocumentListIcon className="h-4 w-4" />
-                      Stock Levels ({viewWarehouse.stockLevels?.length || 0})
-                    </h4>
-                    {viewWarehouse.stockLevels && viewWarehouse.stockLevels.length > 0 ? (
-                      <div className="overflow-x-auto rounded-lg border border-gray-200">
-                        <table className="min-w-full text-sm">
-                          <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-                            <tr>
-                              <th className="px-3 py-2 text-left">Product ID</th>
-                              <th className="px-3 py-2 text-right">Quantity</th>
-                              <th className="px-3 py-2 text-right">Reserved</th>
-                              <th className="px-3 py-2 text-right">Available</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {viewWarehouse.stockLevels.map((level, index) => (
-                              <tr key={index} className="border-b hover:bg-gray-50">
-                                <td className="px-3 py-2">{level.productId}</td>
-                                <td className="px-3 py-2 text-right">{level.quantity}</td>
-                                <td className="px-3 py-2 text-right">{level.reserved || 0}</td>
-                                <td className="px-3 py-2 text-right font-medium">{level.available || 0}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-400">No stock levels found</p>
-                    )}
-                  </div>
-
-                  {/* Batches */}
-                  <div className="mb-6">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                      <CubeIcon className="h-4 w-4" />
-                      Batches ({viewWarehouse.batches?.length || 0})
-                    </h4>
-                    {viewWarehouse.batches && viewWarehouse.batches.length > 0 ? (
-                      <div className="overflow-x-auto rounded-lg border border-gray-200">
-                        <table className="min-w-full text-sm">
-                          <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-                            <tr>
-                              <th className="px-3 py-2 text-left">Batch Number</th>
-                              <th className="px-3 py-2 text-left">Product ID</th>
-                              <th className="px-3 py-2 text-left">Manufacturing</th>
-                              <th className="px-3 py-2 text-left">Expiry</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {viewWarehouse.batches.map((batch, index) => (
-                              <tr key={index} className="border-b hover:bg-gray-50">
-                                <td className="px-3 py-2 font-medium">{batch.batchNumber}</td>
-                                <td className="px-3 py-2">{batch.productId}</td>
-                                <td className="px-3 py-2">{batch.manufacturingDate ? new Date(batch.manufacturingDate).toLocaleDateString() : "-"}</td>
-                                <td className="px-3 py-2">{batch.expiryDate ? new Date(batch.expiryDate).toLocaleDateString() : "-"}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-400">No batches found</p>
-                    )}
-                  </div>
-
-                  {/* Serial Numbers */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                      <QueueListIcon className="h-4 w-4" />
-                      Serial Numbers ({viewWarehouse.serialNumbers?.length || 0})
-                    </h4>
-                    {viewWarehouse.serialNumbers && viewWarehouse.serialNumbers.length > 0 ? (
-                      <div className="overflow-x-auto rounded-lg border border-gray-200">
-                        <table className="min-w-full text-sm">
-                          <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-                            <tr>
-                              <th className="px-3 py-2 text-left">Serial</th>
-                              <th className="px-3 py-2 text-left">Product ID</th>
-                              <th className="px-3 py-2 text-left">Warranty Start</th>
-                              <th className="px-3 py-2 text-left">Warranty End</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {viewWarehouse.serialNumbers.map((serial, index) => (
-                              <tr key={index} className="border-b hover:bg-gray-50">
-                                <td className="px-3 py-2 font-mono text-sm">{serial.serial}</td>
-                                <td className="px-3 py-2">{serial.productId}</td>
-                                <td className="px-3 py-2">{serial.warrantyStart ? new Date(serial.warrantyStart).toLocaleDateString() : "-"}</td>
-                                <td className="px-3 py-2">{serial.warrantyEnd ? new Date(serial.warrantyEnd).toLocaleDateString() : "-"}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-400">No serial numbers found</p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <div className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4 text-right">
-                <button
-                  type="button"
-                  onClick={() => setViewWarehouse(null)}
-                  className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <DynamicPopup
         isPopupOpen={!!deleteWarehouse}

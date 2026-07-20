@@ -11,6 +11,8 @@ import {
   XCircleIcon,
   MagnifyingGlassIcon,
   XMarkIcon,
+  UserIcon,
+  CubeIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
@@ -40,6 +42,10 @@ type InventoryReservation = {
   status: "RESERVED" | "RELEASED" | "CONSUMED" | "CANCELLED";
   reservationDate: string;
   items: ReservationItem[];
+  // ✅ Enriched fields for row details
+  customerName?: string;
+  productName?: string;
+  productCategory?: string;
 };
 
 type Warehouse = {
@@ -50,8 +56,26 @@ type Warehouse = {
 
 type Product = {
   id: number;
-  name: string;
-  code: string;
+  productId?: number;
+  productName?: string;
+  name?: string;
+  productCode?: string;
+  code?: string;
+  categoryName?: string;
+  productType?: string;
+};
+
+type Customer = {
+  id: number;
+  customerName?: string;
+  tradeName?: string;
+  email?: string;
+};
+
+type SalesOrder = {
+  id: number;
+  customerId: number;
+  orderNumber?: string;
 };
 
 type InventoryForm = {
@@ -67,6 +91,8 @@ type InventoryForm = {
 const API_URL = "/v1/api/inventory/inventory-reservations";
 const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
 const PRODUCT_API_URL = "/v1/api/purchase/products";
+const CUSTOMER_API_URL = "/v1/api/crm/customers";
+const SALES_ORDER_API_URL = "/v1/api/sales/sales-orders";
 const PAGE_SIZE = 10;
 
 const statusOptions = ["RESERVED", "RELEASED", "CONSUMED", "CANCELLED"];
@@ -99,6 +125,21 @@ function searchableText(value: unknown) {
   return String(value).toLowerCase().trim();
 }
 
+function getCustomerName(customer: Customer | undefined): string {
+  if (!customer) return "--";
+  return customer.customerName || customer.tradeName || `Customer #${customer.id}`;
+}
+
+function getProductName(product: Product | undefined): string {
+  if (!product) return "--";
+  return product.productName || product.name || `Product #${product.id}`;
+}
+
+function getProductCategory(product: Product | undefined): string {
+  if (!product) return "--";
+  return product.categoryName || product.productType || "--";
+}
+
 const InventoryReservationManager: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
@@ -106,6 +147,8 @@ const InventoryReservationManager: React.FC = () => {
   const [reservations, setReservations] = useState<InventoryReservation[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
   const [form, setForm] = useState<InventoryForm>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
@@ -122,30 +165,51 @@ const InventoryReservationManager: React.FC = () => {
     fetchDropdowns();
   }, []);
 
+  const fetchDropdowns = async (): Promise<void> => {
+    try {
+      const [warehouseRes, productRes, customerRes, salesOrderRes] = await Promise.all([
+        axios.get<Warehouse[]>(WAREHOUSE_API_URL, { headers }),
+        axios.get<Product[]>(PRODUCT_API_URL, { headers }),
+        axios.get<Customer[]>(CUSTOMER_API_URL, { headers }),
+        axios.get<SalesOrder[]>(SALES_ORDER_API_URL, { headers }),
+      ]);
+
+      setWarehouses(Array.isArray(warehouseRes.data) ? warehouseRes.data : []);
+      setProducts(Array.isArray(productRes.data) ? productRes.data : []);
+      setCustomers(Array.isArray(customerRes.data) ? customerRes.data : []);
+      setSalesOrders(Array.isArray(salesOrderRes.data) ? salesOrderRes.data : []);
+    } catch (error) {
+      ToasterService.error("Failed to load dropdown data", getErrorMessage(error, "Please try again."));
+    }
+  };
+
+  // ✅ FIXED: Enrich reservations with customer and product names
   const fetchReservations = async (): Promise<void> => {
     try {
       setLoading(true);
       const response = await axios.get<InventoryReservation[]>(API_URL, { headers });
       const data = Array.isArray(response.data) ? response.data : [];
-      setReservations(data);
+      
+      const enrichedData = data.map((reservation) => {
+        const order = salesOrders.find((o) => o.id === reservation.salesOrderId);
+        const customer = order ? customers.find((c) => c.id === order.customerId) : null;
+        const product = products.find((p) => p.id === reservation.items?.[0]?.productId || p.productId === reservation.items?.[0]?.productId);
+        
+        return {
+          ...reservation,
+          customerName: customer ? getCustomerName(customer) : `Order #${reservation.salesOrderId}`,
+          productName: product ? getProductName(product) : `Product #${reservation.items?.[0]?.productId}`,
+          productCategory: product ? getProductCategory(product) : '',
+          reservedQty: reservation.items?.[0]?.reservedQty || 0,
+        };
+      });
+      
+      setReservations(enrichedData);
     } catch (error) {
       setReservations([]);
       ToasterService.error("Failed to load reservations", getErrorMessage(error, "Please try again."));
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchDropdowns = async (): Promise<void> => {
-    try {
-      const [warehouseRes, productRes] = await Promise.all([
-        axios.get<Warehouse[]>(WAREHOUSE_API_URL, { headers }),
-        axios.get<Product[]>(PRODUCT_API_URL, { headers }),
-      ]);
-      setWarehouses(Array.isArray(warehouseRes.data) ? warehouseRes.data : []);
-      setProducts(Array.isArray(productRes.data) ? productRes.data : []);
-    } catch (error) {
-      ToasterService.error("Failed to load dropdowns", getErrorMessage(error, "Please try again."));
     }
   };
 
@@ -305,13 +369,20 @@ const InventoryReservationManager: React.FC = () => {
     }
   };
 
+  const getCustomerBySalesOrder = (salesOrderId: number): string => {
+    const order = salesOrders.find((o) => o.id === salesOrderId);
+    if (!order) return `Order #${salesOrderId}`;
+    const customer = customers.find((c) => c.id === order.customerId);
+    return getCustomerName(customer);
+  };
+
   const filteredReservations = useMemo(() => {
     const term = searchableText(search);
 
     return reservations.filter((reservation) => {
       const matchesStatus = statusFilter === "" || reservation.status === statusFilter;
 
-      const searchString = `${reservation.id} ${reservation.reservationNo} ${reservation.salesOrderId} ${reservation.warehouseId}`.toLowerCase();
+      const searchString = `${reservation.id} ${reservation.reservationNo} ${reservation.salesOrderId} ${reservation.warehouseId} ${reservation.customerName || ''} ${reservation.productName || ''}`.toLowerCase();
       const matchesSearch = !term || searchString.includes(term);
 
       return matchesStatus && matchesSearch;
@@ -371,6 +442,37 @@ const InventoryReservationManager: React.FC = () => {
       ),
     },
     {
+      key: "customerName",
+      label: "Customer Name",
+      sortable: true,
+      render: (reservation) => (
+        <div className="flex items-center gap-2">
+          <UserIcon className="h-4 w-4 text-slate-400" />
+          <span className="text-sm text-slate-700">
+            {reservation.customerName || '--'}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "productName",
+      label: "Product",
+      sortable: true,
+      render: (reservation) => (
+        <div className="flex items-center gap-2">
+          <CubeIcon className="h-4 w-4 text-slate-400" />
+          <div>
+            <p className="text-sm text-slate-700">
+              {reservation.productName || '--'}
+            </p>
+            {reservation.productCategory && reservation.productCategory !== '--' && (
+              <p className="text-xs text-slate-400">{reservation.productCategory}</p>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
       key: "salesOrderId",
       label: "Sales Order",
       sortable: true,
@@ -401,19 +503,6 @@ const InventoryReservationManager: React.FC = () => {
           {reservation.status}
         </span>
       ),
-    },
-    {
-      key: "productId",
-      label: "Product",
-      sortable: true,
-      render: (reservation) => {
-        const product = products.find((p) => p.id === reservation.items?.[0]?.productId);
-        return (
-          <span className="text-sm text-slate-700">
-            {product?.name || reservation.items?.[0]?.productId || "--"}
-          </span>
-        );
-      },
     },
     {
       key: "reservedQty",
@@ -606,7 +695,7 @@ const InventoryReservationManager: React.FC = () => {
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Reservation" : "Create Reservation"}
-        subtitle="Enter reservation details from the API schema"
+        subtitle="Reserve stock for a customer order"
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
@@ -662,12 +751,16 @@ const InventoryReservationManager: React.FC = () => {
                 onChange={handleChange}
                 required
               />,
-              <FloatingInput
-                label="Product ID"
+              <FloatingSelect
+                label="Product"
                 name="productId"
-                type="number"
                 value={form.productId}
                 onChange={handleChange}
+                emptyOptionLabel="Select product"
+                options={products.map((p) => ({
+                  id: String(p.id),
+                  name: p.productName || p.name || `Product #${p.id}`,
+                }))}
                 required
               />,
               <FloatingInput

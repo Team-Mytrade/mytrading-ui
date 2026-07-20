@@ -126,10 +126,15 @@ function normalizeProductLabel(product: ProductOption): string {
   return code ? `${name} (${code})` : name;
 }
 
-function getWarehouseId(warehouse: InventoryStock["warehouse"]): string {
+function getWarehouseId(warehouse: InventoryStock["warehouse"], warehouses: Warehouse[]): string {
   if (!warehouse) return "";
   if (typeof warehouse !== "string") return String(warehouse.id || "");
-  return "";
+  // Fallback: if the backend ever returns warehouse as a plain string
+  // (code or name) instead of an object, try to match it against the
+  // loaded warehouse list so the dropdown can still prefill correctly.
+  return String(
+    warehouses.find((w) => w.code === warehouse || w.name === warehouse)?.id || ""
+  );
 }
 
 function getWarehouseName(warehouse: InventoryStock["warehouse"]): string {
@@ -237,7 +242,7 @@ const InventoryStockManager: React.FC = () => {
       productId: String(stock.productId || ""),
       reservedQty: String(stock.reservedQty ?? 0),
       minStockLevel: String(stock.minStockLevel ?? 0),
-      warehouseId: getWarehouseId(stock.warehouse),
+      warehouseId: getWarehouseId(stock.warehouse, warehouses),
     });
     setShowFormModal(true);
   };
@@ -247,16 +252,27 @@ const InventoryStockManager: React.FC = () => {
     setForm((current) => ({ ...current, [name]: value }));
   };
 
+  /**
+   * Builds the Inventory Stock create/update payload.
+   *
+   * Only the fields the frontend actually owns are sent:
+   * type, quantity, movementDate, referenceNo, productId, reservedQty,
+   * minStockLevel, and warehouse as a bare `{ id }` reference (the
+   * backend looks up the full Warehouse record from that id).
+   *
+   * NOT sent: id / createdDate / updatedDate / createdBy / tenantId on
+   * create — these are server-managed audit fields the backend should
+   * stamp itself. `id` is added back only on update, so the backend
+   * knows which record to modify.
+   *
+   * The Warehouse's nested stockLevels/batches/serialNumbers/
+   * stockMovements/stockAdjustments/stockEntries are NOT reconstructed
+   * here — those are the warehouse's own related records with their own
+   * create/update flows elsewhere in the app, not something this form
+   * should read, own, or round-trip.
+   */
   const buildPayload = () => {
-    const selectedWarehouse = warehouses.find((w) => w.id === toNumber(form.warehouseId));
-    const existing = stocks.find((s) => s.id === editingId);
-
-    return {
-      id: editingId || 0,
-      createdDate: existing?.createdDate || new Date().toISOString(),
-      updatedDate: new Date().toISOString(),
-      createdBy: existing?.createdBy || "",
-      tenantId: existing?.tenantId || "",
+    const payload = {
       type: form.type,
       quantity: toNumber(form.quantity),
       movementDate: form.movementDate,
@@ -264,25 +280,14 @@ const InventoryStockManager: React.FC = () => {
       productId: toNumber(form.productId),
       reservedQty: toNumber(form.reservedQty),
       minStockLevel: toNumber(form.minStockLevel),
-      warehouse: selectedWarehouse
-        ? {
-            id: selectedWarehouse.id,
-            createdDate: selectedWarehouse.createdDate || new Date().toISOString(),
-            updatedDate: selectedWarehouse.updatedDate || new Date().toISOString(),
-            createdBy: selectedWarehouse.createdBy || "",
-            tenantId: selectedWarehouse.tenantId || "",
-            code: selectedWarehouse.code || "",
-            name: selectedWarehouse.name || "",
-            locationType: selectedWarehouse.locationType || "MAIN",
-            stockLevels: selectedWarehouse.stockLevels || [],
-            batches: selectedWarehouse.batches || [],
-            serialNumbers: selectedWarehouse.serialNumbers || [],
-            stockMovements: selectedWarehouse.stockMovements || [],
-            stockAdjustments: selectedWarehouse.stockAdjustments || [],
-            stockEntries: selectedWarehouse.stockEntries || [],
-          }
-        : null,
+      warehouse: form.warehouseId ? { id: toNumber(form.warehouseId) } : null,
     };
+
+    if (editingId) {
+      return { id: editingId, ...payload };
+    }
+
+    return payload;
   };
 
   const handleSubmit = async (e: FormEvent): Promise<void> => {
@@ -318,7 +323,17 @@ const InventoryStockManager: React.FC = () => {
       setDeleteStock(null);
       await fetchAllStock();
     } catch (error) {
-      ToasterService.error("Failed to delete inventory stock", getErrorMessage(error, "Please try again."));
+      // Fallback: some backends don't support ?cascade=true and reject the
+      // param, or reject the whole request. Try a plain delete before
+      // giving up, mirroring the Warehouse page's delete fallback pattern.
+      try {
+        await axios.delete(`${API_URL}/${deleteStock.id}`, { headers });
+        ToasterService.success("Inventory stock deleted successfully");
+        setDeleteStock(null);
+        await fetchAllStock();
+      } catch (fallbackError) {
+        ToasterService.error("Failed to delete inventory stock", getErrorMessage(fallbackError, "Please try again."));
+      }
     }
   };
 

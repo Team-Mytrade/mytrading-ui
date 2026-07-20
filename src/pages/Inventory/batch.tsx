@@ -409,7 +409,7 @@ const BatchManagement: React.FC = () => {
           </div>
           <div>
             <p className="text-sm font-semibold text-slate-900">{batch.batchNumber}</p>
-            <p className="text-xs text-slate-400">ID: #{batch.id}</p>
+            {/* <p className="text-xs text-slate-400">ID: #{batch.name}</p> */}
           </div>
         </div>
       ),
@@ -623,165 +623,73 @@ const BatchManagement: React.FC = () => {
         />
       </div>
 
-      <PaginatedPopup
-        isOpen={showFormModal}
-        title={editingId ? "Edit Batch" : "Create Batch"}
-        subtitle="Enter batch details from the API schema"
-        onClose={closeForm}
-        onSubmit={handleSubmit}
-        submitting={submitting}
-        submitLabel={editingId ? "Update Batch" : "Create Batch"}
-        maxWidthClassName="max-w-2xl"
-        tabs={[
-          {
-            label: "Batch Details",
-            fields: [
-              <FloatingInput
-                label="Batch Number"
-                name="batchNumber"
-                value={form.batchNumber}
-                onChange={handleChange}
-                required
-              />,
-              <FloatingDatePicker
-                label="Manufacturing Date"
-                name="manufacturingDate"
-                value={form.manufacturingDate}
-                onChange={handleChange}
-                required
-              />,
-              <FloatingDatePicker
-                label="Expiry Date"
-                name="expiryDate"
-                value={form.expiryDate}
-                onChange={handleChange}
-                required
-              />,
-              <FloatingSelect
-                label="Product"
-                name="productId"
-                value={form.productId}
-                onChange={handleChange}
-                emptyOptionLabel="Select product"
-                options={products.map((p) => ({
-                  id: String(p.id || p.productId || 0),
-                  name: normalizeProductLabel(p),
-                }))}
-                required
-              />,
-              <FloatingSelect
-                label="Warehouse"
-                name="warehouse"
-                value={form.warehouse}
-                onChange={handleChange}
-                emptyOptionLabel="Select warehouse"
-                options={warehouses.map((w) => ({
-                  id: String(w.id),
-                  name: `${w.code || ''} - ${w.name || ''}`,
-                }))}
-                required
-              />,
-            ],
-          },
-        ]}
-      />
-
-      {viewBatch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-100 p-5">
-              <h3 className="text-lg font-semibold text-gray-900">Batch Details</h3>
-              <button
-                type="button"
-                onClick={() => setViewBatch(null)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4 p-5">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-gray-500">Batch Number</p>
-                  <p className="font-medium text-gray-900">{viewBatch.batchNumber}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Status</p>
-                  <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${getBatchStatus(viewBatch).className}`}>
-                    {getBatchStatus(viewBatch).icon}
-                    {getBatchStatus(viewBatch).label}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Manufacturing Date</p>
-                  <p className="font-medium text-gray-900">
-                    {new Date(viewBatch.manufacturingDate).toLocaleDateString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Expiry Date</p>
-                  <p className="font-medium text-gray-900">
-                    {new Date(viewBatch.expiryDate).toLocaleDateString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Product</p>
-                  <p className="font-medium text-gray-900">
-                    {products.find((p) => p.id === viewBatch.productId || p.productId === viewBatch.productId)
-                      ? normalizeProductLabel(
-                          products.find((p) => p.id === viewBatch.productId || p.productId === viewBatch.productId)!
-                        )
-                      : `Product #${viewBatch.productId}`}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Warehouse</p>
-                  <p className="font-medium text-gray-900">{getWarehouseDisplay(viewBatch)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Inspections</p>
-                  <p className="font-medium text-gray-900">{viewBatch.inspections.length}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Days Until Expiry</p>
-                  <p className={`font-medium ${getDaysUntilExpiry(viewBatch) < 0 ? "text-red-600" : getDaysUntilExpiry(viewBatch) <= 30 ? "text-yellow-600" : "text-emerald-600"}`}>
-                    {getDaysUntilExpiry(viewBatch) < 0 ? "Expired" : `${getDaysUntilExpiry(viewBatch)} days`}
-                  </p>
-                </div>
-              </div>
-
-              {viewBatch.inspections.length > 0 && (
-                <div className="border-t border-gray-100 pt-4">
-                  <p className="text-xs text-gray-500 mb-2">Inspections</p>
-                  <div className="space-y-2">
-                    {viewBatch.inspections.slice(0, 3).map((inspection, index) => (
-                      <div key={index} className="flex items-center gap-2 text-sm">
-                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${inspection.result === "PASS" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
-                          {inspection.result}
-                        </span>
-                        <span className="text-gray-500">{new Date(inspection.inspectionDate).toLocaleDateString()}</span>
-                        <span className="text-gray-500">by {inspection.inspector}</span>
-                      </div>
-                    ))}
-                    {viewBatch.inspections.length > 3 && <p className="text-xs text-gray-400">+{viewBatch.inspections.length - 3} more</p>}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-gray-100 px-5 py-4 text-right">
-              <button
-                type="button"
-                onClick={() => setViewBatch(null)}
-                className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+     <PaginatedPopup
+  isOpen={showFormModal}
+  title={editingId ? "Edit Batch" : "Create Batch"}
+  subtitle="Create a new product batch"
+  onClose={closeForm}
+  onSubmit={handleSubmit}
+  submitting={submitting}
+  submitLabel={editingId ? "Update Batch" : "Create Batch"}
+  maxWidthClassName="max-w-2xl"
+  tabs={[
+    {
+      label: "Batch Info",
+      fields: [
+        <FloatingInput
+          key="batchNumber"
+          label="Batch Number"
+          name="batchNumber"
+          value={form.batchNumber}
+          onChange={handleChange}
+          required
+        />,
+        <FloatingDatePicker
+          key="manufacturingDate"
+          label="Manufacturing Date"
+          name="manufacturingDate"
+          value={form.manufacturingDate}
+          onChange={handleChange}
+          required
+        />,
+        <FloatingDatePicker
+          key="expiryDate"
+          label="Expiry Date"
+          name="expiryDate"
+          value={form.expiryDate}
+          onChange={handleChange}
+          required
+        />,
+        <FloatingSelect
+          key="productId"
+          label="Select product"
+          name="productId"
+          value={form.productId}
+          onChange={handleChange}
+          emptyOptionLabel="Select product"
+          options={products.map((p) => ({
+            id: String(p.id || p.productId || 0),
+            name: normalizeProductLabel(p),
+          }))}
+          required
+        />,
+        <FloatingSelect
+          key="warehouse"
+          label="Select warehouse"
+          name="warehouse"
+          value={form.warehouse}
+          onChange={handleChange}
+          emptyOptionLabel="Select warehouse"
+          options={warehouses.map((w) => ({
+            id: String(w.id),
+            name: `${w.code || ''} - ${w.name || ''}`,
+          }))}
+          required
+        />,
+      ],
+    },
+  ]}
+/>
 
       <DynamicPopup
         isPopupOpen={!!deleteBatch}
