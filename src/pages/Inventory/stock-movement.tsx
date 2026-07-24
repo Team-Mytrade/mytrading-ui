@@ -97,7 +97,7 @@ const WAREHOUSES_API_URL = "/v1/api/inventory/warehouses";
 const BATCHES_API_URL = "/v1/api/inventory/batches";
 const SERIALS_API_URL = "/v1/api/inventory/serial-numbers";
 const PAGE_SIZE = 10;
-const MOVEMENT_TYPES = ["GRN", "TRANSFER", "ADJUSTMENT", "RETURN", "SALE"];
+const MOVEMENT_TYPES = ["GRN", "ISSUE", "TRANSFER", "RETURN"];
 
 const emptyForm: MovementForm = {
   movementDate: new Date().toISOString().split("T")[0],
@@ -223,16 +223,26 @@ const StockMovementsManager: React.FC = () => {
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setForm((current) => ({ ...current, [name]: value }));
+    setForm((current) => {
+      const next = { ...current, [name]: value };
+      // Changing the product invalidates any previously selected batch/serial
+      // (they belong to a specific product), so clear them to force a
+      // re-pick — this is what prevents sending a mismatched batch/serial id.
+      if (name === "productId" && value !== current.productId) {
+        next.batchId = "";
+        next.serialNumberId = "";
+      }
+      return next;
+    });
   };
 
+  // Builds the request payload. Only includes `warehouse`, `batch`, and
+  // `serialNumber` keys when something was actually selected — omitting the
+  // key entirely (rather than sending `null`) avoids backend code paths that
+  // try to eagerly resolve a reference and blow up with things like
+  // "No value present" (Optional.get() on an empty Optional).
   const buildPayload = () => {
-    const selectedWarehouse = warehouses.find((item) => item.id === toNumber(form.warehouseId));
-    const selectedBatch = batches.find((item) => item.id === toNumber(form.batchId));
-    const selectedSerial = serialNumbers.find((item) => item.id === toNumber(form.serialNumberId));
-
-    return {
-      id: editingId || 0,
+    const payload: Record<string, unknown> = {
       movementDate: form.movementDate,
       movementType: form.movementType,
       quantity: toNumber(form.quantity),
@@ -240,10 +250,26 @@ const StockMovementsManager: React.FC = () => {
       toLocation: form.toLocation,
       reference: form.reference,
       productId: toNumber(form.productId),
-      warehouse: selectedWarehouse ? { id: selectedWarehouse.id } : null,
-      batch: selectedBatch ? { id: selectedBatch.id } : null,
-      serialNumber: selectedSerial ? { id: selectedSerial.id } : null,
     };
+
+    // Only send id when actually editing an existing record — sending id:0
+    // on create can make some JPA save() implementations try to look up an
+    // existing row with that id first, which throws when none exists.
+    if (editingId) {
+      payload.id = editingId;
+    }
+
+    if (form.warehouseId) {
+      payload.warehouse = { id: toNumber(form.warehouseId) };
+    }
+    if (form.batchId) {
+      payload.batch = { id: toNumber(form.batchId) };
+    }
+    if (form.serialNumberId) {
+      payload.serialNumber = { id: toNumber(form.serialNumberId) };
+    }
+
+    return payload;
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -274,7 +300,7 @@ const StockMovementsManager: React.FC = () => {
     try {
       setSubmitting(true);
       const payload = buildPayload();
-      
+
       if (editingId) {
         await axios.put(`${API_URL}/${editingId}`, payload, { headers });
         ToasterService.success("Stock movement updated");
@@ -282,7 +308,7 @@ const StockMovementsManager: React.FC = () => {
         await axios.post(API_URL, payload, { headers });
         ToasterService.success("Stock movement created");
       }
-      
+
       closeForm();
       fetchStockMovements();
     } catch (error) {
@@ -402,19 +428,30 @@ const StockMovementsManager: React.FC = () => {
     }));
   }, [warehouses]);
 
+  // Batches and serial numbers are scoped to a specific product. Filtering
+  // these by the currently selected product prevents picking a batch/serial
+  // that belongs to a different product — a mismatch that the backend may
+  // reject (or accept incorrectly) since batch/serial rows carry their own
+  // productId.
   const batchOptions = useMemo(() => {
-    return batches.map((batch) => ({
-      id: String(batch.id),
-      name: batch.batchNumber,
-    }));
-  }, [batches]);
+    const selectedProductId = toNumber(form.productId);
+    return batches
+      .filter((batch) => !selectedProductId || batch.productId === selectedProductId)
+      .map((batch) => ({
+        id: String(batch.id),
+        name: batch.batchNumber,
+      }));
+  }, [batches, form.productId]);
 
   const serialOptions = useMemo(() => {
-    return serialNumbers.map((serial) => ({
-      id: String(serial.id),
-      name: serial.serial || `Serial #${serial.id}`,
-    }));
-  }, [serialNumbers]);
+    const selectedProductId = toNumber(form.productId);
+    return serialNumbers
+      .filter((serial) => !selectedProductId || serial.productId === selectedProductId)
+      .map((serial) => ({
+        id: String(serial.id),
+        name: serial.serial || `Serial #${serial.id}`,
+      }));
+  }, [serialNumbers, form.productId]);
 
   const movementTypeOptions = useMemo(() => {
     return MOVEMENT_TYPES.map((type) => ({
@@ -770,6 +807,7 @@ const StockMovementsManager: React.FC = () => {
                 value={form.batchId}
                 onChange={handleChange}
                 options={batchOptions}
+                disabled={!form.productId}
               />,
               <FloatingSelect
                 key="serialNumberId"
@@ -778,6 +816,7 @@ const StockMovementsManager: React.FC = () => {
                 value={form.serialNumberId}
                 onChange={handleChange}
                 options={serialOptions}
+                disabled={!form.productId}
               />,
             ],
           },

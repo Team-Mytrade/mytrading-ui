@@ -1,5 +1,6 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import {
   BuildingStorefrontIcon,
   CheckCircleIcon,
@@ -9,6 +10,7 @@ import {
   TrashIcon,
   XCircleIcon,
   XMarkIcon,
+  EyeIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -25,10 +27,11 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
-// ---------- Type Definitions ----------
+
 interface Product {
   id: number;
   productName: string;
+  sku: string;
 }
 
 interface WarehouseRef {
@@ -51,6 +54,9 @@ interface Inspection {
   inspector: string;
   result: string;
   remarks?: string;
+  // Adjust this to match your actual quality-inspections API field name
+  // (e.g. it might be `serialId` or nested under `batchId` instead).
+  serialNumberId?: number;
 }
 
 interface SerialNumber {
@@ -67,7 +73,7 @@ interface SerialNumber {
 
 // No 'status' field – matches the API
 type SerialNumberForm = {
-  serial: string;
+  // serial: string;
   warrantyStart: string;
   warrantyEnd: string;
   productId: string;
@@ -81,7 +87,7 @@ const PRODUCT_URL = "/v1/api/purchase";
 const PAGE_SIZE = 10;
 
 const emptyForm: SerialNumberForm = {
-  serial: "",
+  // serial: "",
   warrantyStart: "",
   warrantyEnd: "",
   productId: "",
@@ -124,6 +130,18 @@ function getBatchNumber(sn: SerialNumber) {
   return sn.batch?.batchNumber || "N/A";
 }
 
+// Reads merged (client-side fetched) inspections first, falls back to
+// any inspections the backend embeds directly on the serial number.
+function getInspections(
+  sn: SerialNumber,
+  inspectionsBySerial: Record<number, Inspection[]>
+): string {
+  const inspections = inspectionsBySerial[sn.id] ?? sn.inspections ?? [];
+  if (inspections.length === 0) return "N/A";
+  const results = inspections.map((i) => i.result).join(", ");
+  return `${inspections.length} (${results})`;
+}
+
 function getWarrantyStatus(sn: SerialNumber) {
   return isWarrantyActive(sn.warrantyEnd) ? "In Warranty" : "Expired";
 }
@@ -135,10 +153,12 @@ const SerialNumberManager: React.FC = () => {
     ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
     : undefined;
 
+  const navigate = useNavigate();
   const [serialNumbers, setSerialNumbers] = useState<SerialNumber[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<WarehouseRef[]>([]);
   const [batches, setBatches] = useState<BatchRef[]>([]);
+  const [inspectionsBySerial, setInspectionsBySerial] = useState<Record<number, Inspection[]>>({});
   const [form, setForm] = useState<SerialNumberForm>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
@@ -149,6 +169,7 @@ const SerialNumberManager: React.FC = () => {
   const [filterWarehouseId, setFilterWarehouseId] = useState("");
   const [filterBatchId, setFilterBatchId] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [viewingSerial, setViewingSerial] = useState<SerialNumber | null>(null);
   const [deletingSerial, setDeletingSerial] = useState<SerialNumber | null>(null);
 
   useEffect(() => {
@@ -156,6 +177,7 @@ const SerialNumberManager: React.FC = () => {
     fetchProducts();
     fetchWarehouses();
     fetchBatches();
+    fetchInspections();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -201,6 +223,28 @@ const SerialNumberManager: React.FC = () => {
     }
   };
 
+  // Fetches the quality-inspections submodule and groups results by the
+  // serial number they belong to, so each row can look up its own list.
+  const fetchInspections = async () => {
+    try {
+      const res = await axios.get<Inspection[]>(`${API_URL}/quality-inspections`, { headers });
+      const data = Array.isArray(res.data) ? res.data : [];
+      const grouped: Record<number, Inspection[]> = {};
+      data.forEach((inspection) => {
+        const key = inspection.serialNumberId;
+        if (!key) return;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(inspection);
+      });
+      setInspectionsBySerial(grouped);
+    } catch (error) {
+      ToasterService.error(
+        "Failed to load quality inspections",
+        getErrorMessage(error, "Please try again.")
+      );
+    }
+  };
+
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm((current) => ({ ...current, [name]: value }));
@@ -211,36 +255,39 @@ const SerialNumberManager: React.FC = () => {
     const productId = Number(form.productId) || 0;
     const warehouseId = Number(form.warehouseId) || 0;
     const batchId = Number(form.batchId) || 0;
+    const existing = editingId
+      ? serialNumbers.find((sn) => sn.id === editingId)
+      : undefined;
 
     return {
       id: editingId || 0,
-      serial: form.serial.trim(),
+      // serial: form.serial.trim(),
       warrantyStart: form.warrantyStart,
       warrantyEnd: form.warrantyEnd,
       productId,
-      productNumber: products.find((item) => item.id === productId)?.productName || "",
+      productNumber: products.find((item) => item.id === productId)?.sku || "",
       warehouse: warehouseId ? { id: warehouseId } : null,
       batch: batchId ? { id: batchId } : null,
-      inspections: [], // empty by default – can be extended later
+      inspections: existing?.inspections ?? [], // empty by default – can be extended later
     };
   };
 
-  const isDuplicateSerial = (serial: string) => {
-    const normalized = serial.trim().toLowerCase();
-    return serialNumbers.some(
-      (sn) => sn.serial?.trim().toLowerCase() === normalized && sn.id !== editingId
-    );
-  };
+  // const isDuplicateSerial = (serial: string) => {
+  //   const normalized = serial.trim().toLowerCase();
+  //   return serialNumbers.some(
+  //     (sn) => sn.serial?.trim().toLowerCase() === normalized && sn.id !== editingId
+  //   );
+  // };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    const trimmedSerial = form.serial.trim();
+    // const trimmedSerial = form.serial.trim();
 
-    if (!trimmedSerial) {
-      ToasterService.error("Required field missing", "Serial number is required.");
-      return;
-    }
+    // if (!trimmedSerial) {
+    //   ToasterService.error("Required field missing", "Serial number is required.");
+    //   return;
+    // }
     if (!form.productId || !form.warehouseId || !form.batchId) {
       ToasterService.error("Required fields missing", "Product, warehouse, and batch are required.");
       return;
@@ -253,10 +300,10 @@ const SerialNumberManager: React.FC = () => {
       ToasterService.error("Invalid warranty range", "Warranty end date cannot be before the start date.");
       return;
     }
-    if (isDuplicateSerial(trimmedSerial)) {
-      ToasterService.error("Duplicate serial number", "This serial number already exists.");
-      return;
-    }
+    // if (isDuplicateSerial(trimmedSerial)) {
+    //   ToasterService.error("Duplicate serial number", "This serial number already exists.");
+    //   return;
+    // }
 
     try {
       setSubmitting(true);
@@ -286,7 +333,7 @@ const SerialNumberManager: React.FC = () => {
   const openEdit = (sn: SerialNumber) => {
     setEditingId(sn.id);
     setForm({
-      serial: sn.serial || "",
+      // serial: sn.serial || "",
       warrantyStart: sn.warrantyStart ? sn.warrantyStart.slice(0, 10) : "",
       warrantyEnd: sn.warrantyEnd ? sn.warrantyEnd.slice(0, 10) : "",
       productId: sn.productId ? String(sn.productId) : "",
@@ -329,7 +376,7 @@ const SerialNumberManager: React.FC = () => {
       if (!term) return true;
 
       const haystack = [
-        sn.serial,
+        // sn.serial,
         sn.id,
         sn.productNumber,
         sn.productId,
@@ -384,6 +431,18 @@ const SerialNumberManager: React.FC = () => {
       label: "Product",
       sortable: true,
       render: (sn) => getProductName(sn, products),
+      //       render: (sn) => (
+      //   <button
+      //     type="button"
+      //     onClick={(e) => {
+      //       e.stopPropagation();
+      //       navigate(`/products/${sn.productId}`);
+      //     }}
+      //     className="text-cyan-600 hover:underline"
+      //   >
+      //     {getProductName(sn, products)}
+      //   </button>
+      // ),
     },
     {
       key: "warehouse",
@@ -417,9 +476,8 @@ const SerialNumberManager: React.FC = () => {
         const active = isWarrantyActive(sn.warrantyEnd);
         return (
           <span
-            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-              active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-            }`}
+            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+              }`}
           >
             {active ? "In Warranty" : "Expired"}
           </span>
@@ -434,6 +492,14 @@ const SerialNumberManager: React.FC = () => {
       className: "text-right",
       render: (sn) => (
         <div className="flex justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => setViewingSerial(sn)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            title="View"
+          >
+            <EyeIcon className="h-4 w-4" />
+          </button>
           <button
             type="button"
             onClick={() => openEdit(sn)}
@@ -643,14 +709,14 @@ const SerialNumberManager: React.FC = () => {
           {
             label: "Details",
             fields: [
-              <FloatingInput
-                key="serial"
-                label="Serial"
-                name="serial"
-                value={form.serial}
-                onChange={handleChange}
-                required
-              />,
+              // <FloatingInput
+              //   key="serial"
+              //   label="Serial"
+              //   name="serial"
+              //   value={form.serial}
+              //   onChange={handleChange}
+              //   required
+              // />,
               <FloatingSelect
                 key="productId"
                 label="Product"

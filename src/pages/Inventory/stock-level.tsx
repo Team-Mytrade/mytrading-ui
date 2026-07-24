@@ -31,7 +31,7 @@ import { ToasterService } from "../../Services/ToasterService";
 interface Product {
   id: number;
   productName: string;
-  productSku?: string;
+  sku?: string;
 }
 
 interface Warehouse {
@@ -54,11 +54,21 @@ interface StockLevel {
   updatedAt?: string;
 }
 
+// The 5 supported stock movement operations. Each maps 1:1 to a backend
+// endpoint of the shape:
+//   PUT /stock-levels/warehouse/{warehouseId}/product/{productId}/{action}?quantity={quantity}
+type StockOperation =
+  | "add-stock"
+  | "reserve"
+  | "release"
+  | "remove-stock"
+  | "complete-sale";
+
 type StockLevelForm = {
-  quantity: string;
-  reserved: string;
   productId: string;
   warehouseId: string;
+  operationType: StockOperation;
+  quantity: string;
 };
 
 const API_URL = "/v1/api/inventory";
@@ -66,10 +76,43 @@ const PRODUCT_URL = "/v1/api/purchase/products";
 const PAGE_SIZE = 10;
 
 const emptyForm: StockLevelForm = {
-  quantity: "",
-  reserved: "",
   productId: "",
   warehouseId: "",
+  operationType: "add-stock",
+  quantity: "",
+};
+
+// Config for each operation: label shown in the dropdown, success toast copy,
+// and the endpoint segment used to build the request URL.
+const STOCK_OPERATIONS: Record<
+  StockOperation,
+  { label: string; endpoint: string; successMessage: string }
+> = {
+  "add-stock": {
+    label: "Add Stock",
+    endpoint: "add-stock",
+    successMessage: "Stock added successfully",
+  },
+  reserve: {
+    label: "Reserve",
+    endpoint: "reserve",
+    successMessage: "Stock reserved successfully",
+  },
+  release: {
+    label: "Release",
+    endpoint: "release",
+    successMessage: "Reserved stock released successfully",
+  },
+  "remove-stock": {
+    label: "Remove Stock",
+    endpoint: "remove-stock",
+    successMessage: "Stock removed successfully",
+  },
+  "complete-sale": {
+    label: "Complete Sale",
+    endpoint: "complete-sale",
+    successMessage: "Sale completed successfully",
+  },
 };
 
 // ---------- Helpers ----------
@@ -120,7 +163,7 @@ function getProductName(stock: StockLevel, products: Product[]) {
 function getProductSku(stock: StockLevel, products: Product[]) {
   const id = getProductId(stock);
   const product = products.find(p => p.id === id);
-  return product?.productSku || "";
+  return product?.sku || "";
 }
 
 function getWarehouseName(stock: StockLevel, warehouses: Warehouse[]) {
@@ -138,12 +181,12 @@ function getWarehouseCode(stock: StockLevel, warehouses: Warehouse[]) {
 // View details text generator
 function getStockDetailsText(stock: StockLevel, products: Product[], warehouses: Warehouse[]) {
   if (!stock) return "No stock details available";
-  
+
   const status = getStockStatus(stock.available, stock.quantity);
-  const utilization = stock.quantity > 0 
-    ? `${Math.round((stock.reserved / stock.quantity) * 100)}%` 
+  const utilization = stock.quantity > 0
+    ? `${Math.round((stock.reserved / stock.quantity) * 100)}%`
     : "0%";
-  
+
   let details = `Product: ${getProductName(stock, products)}`;
   const sku = getProductSku(stock, products);
   if (sku) details += `\nSKU: ${sku}`;
@@ -161,7 +204,7 @@ function getStockDetailsText(stock: StockLevel, products: Product[], warehouses:
   if (status.label === "Low Stock") {
     details += `\n\n⚠️ Low Stock Alert: This item has low stock levels. Consider replenishing soon.`;
   }
-  
+
   return details;
 }
 
@@ -174,8 +217,6 @@ const StockLevelsManager: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [form, setForm] = useState<StockLevelForm>(emptyForm);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [originalQuantity, setOriginalQuantity] = useState(0);
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -186,6 +227,10 @@ const StockLevelsManager: React.FC = () => {
   const [deletingStock, setDeletingStock] = useState<StockLevel | null>(null);
   const [viewingStock, setViewingStock] = useState<StockLevel | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
+  // null => "Add Stock Movement" (create) form, which always uses "add-stock"
+  // and hides the Operation Type dropdown. Non-null => "Adjust Stock" (edit)
+  // form for that row, which shows all 5 operation types.
+  const [editingStock, setEditingStock] = useState<StockLevel | null>(null);
 
   useEffect(() => {
     fetchStockLevels();
@@ -233,48 +278,26 @@ const StockLevelsManager: React.FC = () => {
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setForm((current) => ({ ...current, [name]: value }));
+    setForm((current) => ({ ...current, [name]: value } as StockLevelForm));
   };
 
-  const computedAvailable = useMemo(() => {
-    const quantity = Number(form.quantity) || 0;
-    const reserved = Number(form.reserved) || 0;
-    return Math.max(quantity - reserved, 0);
-  }, [form.quantity, form.reserved]);
-
-  const buildPayload = () => {
-    const desiredQuantity = Number(form.quantity) || 0;
-    const desiredReserved = Number(form.reserved) || 0;
-    const productId = Number(form.productId) || 0;
-
-    return {
-      id: editingId || 0,
-      quantity: editingId ? desiredQuantity - originalQuantity : desiredQuantity,
-      reserved: desiredReserved,
-      available: computedAvailable,
-      productId,
-      warehouse: { id: Number(form.warehouseId) },
-    };
+  // Builds the endpoint URL for the selected operation, e.g.:
+  // /v1/api/inventory/stock-levels/warehouse/1/product/2/reserve?quantity=100
+  const buildOperationUrl = (
+    warehouseId: string,
+    productId: string,
+    operationType: StockOperation,
+    quantity: string
+  ) => {
+    const endpoint = STOCK_OPERATIONS[operationType].endpoint;
+    return `${API_URL}/stock-levels/warehouse/${warehouseId}/product/${productId}/${endpoint}?quantity=${quantity}`;
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     const quantity = Number(form.quantity) || 0;
-    const reserved = Number(form.reserved) || 0;
 
-    if (quantity <= 0) {
-      ToasterService.error("Invalid quantity", "Quantity must be greater than 0.");
-      return;
-    }
-    if (reserved < 0) {
-      ToasterService.error("Invalid reserved", "Reserved quantity cannot be negative.");
-      return;
-    }
-    if (reserved > quantity) {
-      ToasterService.error("Invalid reserved", "Reserved quantity cannot exceed total quantity.");
-      return;
-    }
     if (!form.productId) {
       ToasterService.error("Required field missing", "Product selection is required.");
       return;
@@ -283,44 +306,74 @@ const StockLevelsManager: React.FC = () => {
       ToasterService.error("Required field missing", "Warehouse selection is required.");
       return;
     }
+    if (!form.operationType) {
+      ToasterService.error("Required field missing", "Operation type is required.");
+      return;
+    }
+    if (quantity <= 0) {
+      ToasterService.error("Invalid quantity", "Quantity must be greater than 0.");
+      return;
+    }
 
+    // Create mode always hides the Operation Type dropdown; it creates a
+    // brand-new StockLevel row via POST (handles product/warehouse combos
+    // that have never been stocked before).
+    // Edit mode adjusts an EXISTING row via the PUT action endpoints.
     try {
       setSubmitting(true);
-      const payload = buildPayload();
-      const quantityDelta = editingId ? quantity - originalQuantity : quantity;
-      
-      if (editingId) {
-        await axios.put(`${API_URL}/stock-levels/${editingId}?delta=${quantityDelta}`, payload, { headers });
-        ToasterService.success("Stock level updated");
-      } else {
+
+      if (!editingStock) {
+        const reserved = 0;
+        const payload = {
+          id: 0,
+          quantity,
+          reserved,
+          available: quantity - reserved,
+          productId: Number(form.productId),
+          warehouse: { id: Number(form.warehouseId) },
+        };
         await axios.post(`${API_URL}/stock-levels`, payload, { headers });
-        ToasterService.success("Stock level created");
+        ToasterService.success("Stock level created successfully");
+      } else {
+        const operationType = form.operationType;
+        const url = buildOperationUrl(form.warehouseId, form.productId, operationType, String(quantity));
+        // Confirmed via Swagger + backend controller source: these are all
+        // @PutMapping endpoints, e.g.
+        //   @PutMapping("/warehouse/{warehouseId}/product/{productId}/add-stock")
+        // No request body — quantity is a @RequestParam (query string).
+        // NOTE: this endpoint expects the StockLevel row to already exist
+        // for this product/warehouse combo — it will not create a new one.
+        await axios.put(url, null, { headers });
+        ToasterService.success(STOCK_OPERATIONS[operationType].successMessage);
       }
-      
+
       closeForm();
       fetchStockLevels();
     } catch (error) {
-      ToasterService.error("Failed to save stock level", getErrorMessage(error, "Please try again."));
+      ToasterService.error(
+        editingStock ? `Failed to ${STOCK_OPERATIONS[form.operationType].label.toLowerCase()}` : "Failed to create stock level",
+        getErrorMessage(error, "Please try again.")
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
   const openCreate = () => {
-    setEditingId(null);
-    setOriginalQuantity(0);
+    setEditingStock(null);
     setForm(emptyForm);
     setShowFormModal(true);
   };
 
+  // Pre-fills product/warehouse from the clicked row so the user only has to
+  // pick the operation and quantity to apply against that stock level.
   const openEdit = (stock: StockLevel) => {
-    setEditingId(stock.id);
-    setOriginalQuantity(stock.quantity || 0);
+    setEditingStock(stock);
     setForm({
-      quantity: String(stock.quantity || 0),
-      reserved: String(stock.reserved || 0),
       productId: String(getProductId(stock) ?? ""),
       warehouseId: String(getWarehouseId(stock) ?? ""),
+      operationType: "add-stock",
+      quantity: "",
     });
     setShowFormModal(true);
   };
@@ -331,9 +384,8 @@ const StockLevelsManager: React.FC = () => {
   };
 
   const closeForm = () => {
-    setEditingId(null);
-    setOriginalQuantity(0);
     setForm(emptyForm);
+    setEditingStock(null);
     setShowFormModal(false);
   };
 
@@ -357,10 +409,10 @@ const StockLevelsManager: React.FC = () => {
     return stockLevels.filter((stock) => {
       const productId = getProductId(stock);
       const warehouseId = getWarehouseId(stock);
-      
+
       if (filterProductId && String(productId ?? "") !== filterProductId) return false;
       if (filterWarehouseId && String(warehouseId ?? "") !== filterWarehouseId) return false;
-      
+
       const status = getStockStatus(stock.available, stock.quantity);
       if (filterStatus && status.label !== filterStatus) return false;
 
@@ -425,6 +477,14 @@ const StockLevelsManager: React.FC = () => {
       { id: "Medium Stock", name: "Medium Stock" },
       { id: "Healthy Stock", name: "Healthy Stock" },
     ];
+  }, []);
+
+  // Options shown in the "Operation Type" dropdown of the form.
+  const operationTypeOptions = useMemo(() => {
+    return (Object.keys(STOCK_OPERATIONS) as StockOperation[]).map((key) => ({
+      id: key,
+      name: STOCK_OPERATIONS[key].label,
+    }));
   }, []);
 
   const columns: ColumnDef<StockLevel>[] = [
@@ -525,7 +585,7 @@ const StockLevelsManager: React.FC = () => {
             type="button"
             onClick={() => openEdit(stock)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit"
+            title="Adjust Stock"
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>
@@ -549,7 +609,7 @@ const StockLevelsManager: React.FC = () => {
 
       <div className="w-full max-w-none px-0 py-8 space-y-6">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Stock Level" />
+          <AddButton onClick={openCreate} label="Add Stock Movement" />
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -686,22 +746,32 @@ const StockLevelsManager: React.FC = () => {
                 onClick={openCreate}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
               >
-                Create your first stock level
+                Record your first stock movement
               </button>
             </div>
           }
         />
       </div>
 
-      {/* Form Modal */}
+      {/* Stock Operation Modal (Add Stock / Reserve / Release / Remove Stock / Complete Sale) */}
       <PaginatedPopup
         isOpen={showFormModal}
-        title={editingId ? "Edit Stock Level" : "Add Stock Level"}
-        subtitle="Enter stock level details"
+        title={editingStock ? "Adjust Stock" : "Add Stock Movement"}
+        subtitle={
+          editingStock
+            ? "Choose an operation and quantity to apply to this stock level"
+            : "Select a product, warehouse, and quantity to add to stock"
+        }
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
-        submitLabel={editingId ? "Update Stock Level" : "Create Stock Level"}
+        submitLabel={
+          submitting
+            ? "Processing..."
+            : editingStock
+            ? STOCK_OPERATIONS[form.operationType].label
+            : "Create"
+        }
         tabs={[
           {
             label: "Details",
@@ -714,6 +784,7 @@ const StockLevelsManager: React.FC = () => {
                 onChange={handleChange}
                 options={productOptions}
                 required
+                disabled={!!editingStock}
               />,
               <FloatingSelect
                 key="warehouseId"
@@ -723,44 +794,61 @@ const StockLevelsManager: React.FC = () => {
                 onChange={handleChange}
                 options={warehouseOptions}
                 required
+                disabled={!!editingStock}
               />,
             ],
           },
           {
-            label: "Quantities",
-            fields: [
-              <FloatingInput
-                key="quantity"
-                label="Total Quantity"
-                name="quantity"
-                type="number"
-                value={form.quantity}
-                onChange={handleChange}
-                required
-              />,
-              <FloatingInput
-                key="reserved"
-                label="Reserved Quantity"
-                name="reserved"
-                type="number"
-                value={form.reserved}
-                onChange={handleChange}
-                required
-              />,
-              <div key="available" className="relative">
-                <FloatingInput
-                  label="Available Quantity"
-                  name="available"
-                  type="number"
-                  value={computedAvailable}
-                  onChange={() => {}}
-                  disabled
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Automatically calculated as Total Quantity − Reserved Quantity
-                </p>
-              </div>,
-            ],
+            label: "Operation",
+            fields: editingStock
+              ? [
+                  // Edit mode: full 5-way operation picker
+                  <FloatingSelect
+                    key="operationType"
+                    label="Operation Type"
+                    name="operationType"
+                    value={form.operationType}
+                    onChange={handleChange}
+                    options={operationTypeOptions}
+                    required
+                  />,
+                  <FloatingInput
+                    key="quantity"
+                    label="Quantity"
+                    name="quantity"
+                    type="number"
+                    value={form.quantity}
+                    onChange={handleChange}
+                    required
+                  />,
+                  <p key="operation-hint" className="text-xs text-gray-500">
+                    {form.operationType === "add-stock" &&
+                      "Adds quantity to the total stock for this product/warehouse."}
+                    {form.operationType === "reserve" &&
+                      "Moves quantity from available into reserved (e.g. for a pending order)."}
+                    {form.operationType === "release" &&
+                      "Moves quantity from reserved back into available (e.g. order cancelled)."}
+                    {form.operationType === "remove-stock" &&
+                      "Removes quantity from the total stock (e.g. damage, write-off)."}
+                    {form.operationType === "complete-sale" &&
+                      "Finalizes a sale — deducts quantity from both reserved and total stock."}
+                  </p>,
+                ]
+              : [
+                  // Create mode: no Operation Type dropdown — always add-stock
+                  <FloatingInput
+                    key="quantity"
+                    label="Quantity"
+                    name="quantity"
+                    type="number"
+                    value={form.quantity}
+                    onChange={handleChange}
+                    required
+                  />,
+                  <p key="operation-hint" className="text-xs text-gray-500">
+                    This creates a new stock level record for this product/warehouse with the given quantity as initial stock.
+                  </p>,
+                ],
           },
         ]}
       />
@@ -778,7 +866,7 @@ const StockLevelsManager: React.FC = () => {
         iconBg="bg-cyan-100"
         innerText="Stock Level Details"
         subText={viewingStock ? getStockDetailsText(viewingStock, products, warehouses) : "No stock details available"}
-        confirmLabel="Edit"
+        confirmLabel="Adjust Stock"
         cancelLabel="Close"
         onConfirm={() => {
           if (viewingStock) {
