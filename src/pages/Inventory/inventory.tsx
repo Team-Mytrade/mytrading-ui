@@ -1,5 +1,3 @@
-// pages/InventoryStockManager.tsx
-
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
@@ -686,13 +684,13 @@ const InventoryStockManager: React.FC = () => {
                 onChange={handleChange}
                 required
               />,
-              <FloatingInput
-                label="Reference Number"
-                name="referenceNo"
-                value={form.referenceNo}
-                onChange={handleChange}
-                required
-              />,
+              // <FloatingInput
+              //   label="Reference Number"
+              //   name="referenceNo"
+              //   value={form.referenceNo}
+              //   onChange={handleChange}
+              //   required
+              // />,
               <FloatingSelect
                 label="Product"
                 name="productId"

@@ -1,5 +1,3 @@
-// pages/InventoryReservationManager.tsx
-
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
@@ -32,6 +30,8 @@ type ReservationItem = {
   id?: number;
   productId: number;
   reservedQty: number;
+  productName?: string;      
+  productCategory?: string; 
 };
 
 type InventoryReservation = {
@@ -79,7 +79,7 @@ type SalesOrder = {
 };
 
 type InventoryForm = {
-  reservationNo: string;
+  // reservationNo: string;
   salesOrderId: string;
   warehouseId: string;
   status: string;
@@ -98,7 +98,7 @@ const PAGE_SIZE = 10;
 const statusOptions = ["RESERVED", "RELEASED", "CONSUMED", "CANCELLED"];
 
 const emptyForm: InventoryForm = {
-  reservationNo: "",
+  // reservationNo: "",
   salesOrderId: "",
   warehouseId: "",
   status: "RESERVED",
@@ -191,15 +191,16 @@ const InventoryReservationManager: React.FC = () => {
       const data = Array.isArray(response.data) ? response.data : [];
       
       const enrichedData = data.map((reservation) => {
+        const firstItem = reservation.items?.[0];
         const order = salesOrders.find((o) => o.id === reservation.salesOrderId);
         const customer = order ? customers.find((c) => c.id === order.customerId) : null;
-        const product = products.find((p) => p.id === reservation.items?.[0]?.productId || p.productId === reservation.items?.[0]?.productId);
         
         return {
           ...reservation,
           customerName: customer ? getCustomerName(customer) : `Order #${reservation.salesOrderId}`,
-          productName: product ? getProductName(product) : `Product #${reservation.items?.[0]?.productId}`,
-          productCategory: product ? getProductCategory(product) : '',
+            productName: firstItem?.productName || `Product #${firstItem?.productId || 'Unknown'}`,
+        productCategory: firstItem?.productCategory || '',
+         
           reservedQty: reservation.items?.[0]?.reservedQty || 0,
         };
       });
@@ -228,7 +229,7 @@ const InventoryReservationManager: React.FC = () => {
   const openEdit = (reservation: InventoryReservation): void => {
     setEditingId(reservation.id || null);
     setForm({
-      reservationNo: reservation.reservationNo || "",
+      // reservationNo: reservation.reservationNo || "",
       salesOrderId: String(reservation.salesOrderId || ""),
       warehouseId: String(reservation.warehouseId || ""),
       status: reservation.status || "RESERVED",
@@ -245,7 +246,7 @@ const InventoryReservationManager: React.FC = () => {
   };
 
   const buildCreatePayload = () => ({
-    reservationNo: form.reservationNo.trim(),
+    // reservationNo: form.reservationNo.trim(),
     salesOrderId: toNumber(form.salesOrderId),
     warehouseId: toNumber(form.warehouseId),
     status: form.status,
@@ -260,7 +261,7 @@ const InventoryReservationManager: React.FC = () => {
 
   const buildUpdatePayload = () => ({
     id: editingId || 0,
-    reservationNo: form.reservationNo.trim(),
+    // reservationNo: form.reservationNo.trim(),
     salesOrderId: toNumber(form.salesOrderId),
     warehouseId: toNumber(form.warehouseId),
     status: form.status,
@@ -277,10 +278,10 @@ const InventoryReservationManager: React.FC = () => {
   const handleSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
 
-    if (!form.reservationNo.trim()) {
-      ToasterService.error("Reservation number is required");
-      return;
-    }
+    // if (!form.reservationNo.trim()) {
+    //   ToasterService.error("Reservation number is required");
+    //   return;
+    // }
     if (!form.salesOrderId || toNumber(form.salesOrderId) <= 0) {
       ToasterService.error("Sales Order ID is required");
       return;
@@ -705,20 +706,26 @@ const InventoryReservationManager: React.FC = () => {
           {
             label: "Reservation Details",
             fields: [
-              <FloatingInput
-                label="Reservation No"
-                name="reservationNo"
-                value={form.reservationNo}
-                onChange={handleChange}
-                required
-              />,
-              <FloatingInput
+              // <FloatingInput
+              //   label="Reservation No"
+              //   name="reservationNo"
+              //   value={form.reservationNo}
+              //   onChange={handleChange}
+              //   required
+              // />,
+              <FloatingSelect
                 label="Sales Order ID"
                 name="salesOrderId"
-                type="number"
+              
                 value={form.salesOrderId}
                 onChange={handleChange}
-                required
+  emptyOptionLabel="Select sales order"
+  options={salesOrders.map((order) => ({
+    id: String(order.id),
+    name: `#${order.id} - ${order.orderNumber || 'Order'}`,
+  }))}
+  required
+                
               />,
               <FloatingSelect
                 label="Warehouse"
