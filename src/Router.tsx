@@ -184,6 +184,7 @@ import OverTimeEntryPage from "./pages/Attendance/OverTimeEntryPage";
 import AttendanceViolationPage from "./pages/Attendance/AttendanceViolationPage";
 import AttendanceApprovalPage from "./pages/Attendance/AttendanceApprovalRequestPage";
 import ShiftSchedulePage from "./pages/Attendance/EmployeeShiftSchedulePage";
+import TimesheetManagementPage from "./pages/Attendance/TimesheetManagementPage";
 import PayrollPage from "./pages/Payroll/PayrollPage";
 import EmployeeDocumentsPage from "./pages/Payroll/EmployeeDocumentsPage";
 import SalesDashboard from "./pages/Sales/SalesDashboard";
@@ -399,6 +400,7 @@ export default function AppRouter() {
           <Route path="/notifications" element={<NotificationInboxPage />} />
           <Route path="/notifications/:id" element={<NotificationDetailPage />} />
           <Route path="/attendance_dashboard" element={<AttendanceDashboard />} />
+          <Route path="/att_timesheetManagement" element={<TimesheetManagementPage />} />
 
           <Route path="/sales-summary" element={<SalesSummary />} />
           <Route path="/activities" element={<Tasks />} />

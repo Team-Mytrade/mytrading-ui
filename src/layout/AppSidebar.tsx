@@ -172,6 +172,7 @@ export const navItems: NavItem[] = [
     icon: <Calendar className="w-5 h-5" />,
     name: "Attendance",
     subItems: [
+      { name: "Timesheet Mgmt", path: "/att_timesheetManagement" },
       { name: "Shift", path: "/att_shift" },
       { name: "Shift Schedule", path: "/att_shiftSchedule" },
       { name: "Attendance Record", path: "/att_attendanceRecord" },
