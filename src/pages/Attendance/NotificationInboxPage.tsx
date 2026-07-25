@@ -18,6 +18,7 @@ import {
 } from "@heroicons/react/24/outline";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import FilterPopover from "../../components/common/filter";
 import {
   ATTENDANCE_NOTIFICATIONS_UPDATED,
   getStoredAttendanceNotifications,
@@ -72,7 +73,6 @@ const NotificationInboxPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [priorityFilter, setPriorityFilter] = useState("ALL");
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedNotifications, setSelectedNotifications] = useState<Set<number>>(new Set());
 
   useEffect(() => {
@@ -122,7 +122,6 @@ const NotificationInboxPage: React.FC = () => {
     setStatusFilter("ALL");
     setTypeFilter("ALL");
     setPriorityFilter("ALL");
-    setShowFilters(false);
     setSelectedNotifications(new Set());
   };
 
@@ -269,19 +268,57 @@ const NotificationInboxPage: React.FC = () => {
               </>
             )}
 
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`relative px-4 py-2.5 rounded-xl border transition-all flex items-center gap-2 ${showFilters || hasActiveFilters
-                ? 'bg-blue-50 border-blue-300 text-blue-700'
-                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                }`}
+            <FilterPopover
+              title="Filter Notifications"
+              buttonLabel="Filter"
+              onReset={() => {
+                setStatusFilter("ALL");
+                setTypeFilter("ALL");
+                setPriorityFilter("ALL");
+              }}
+              showFooter={true}
             >
-              <FunnelIcon className="h-4 w-4" />
-              <span className="text-sm font-medium">Filters</span>
-              {hasActiveFilters && (
-                <span className="absolute -top-1 -right-1 h-3 w-3 bg-blue-600 rounded-full"></span>
-              )}
-            </button>
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                  >
+                    <option value="ALL">All Notifications</option>
+                    <option value="UNREAD">Unread Only</option>
+                    <option value="READ">Read Only</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Type</label>
+                  <select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                  >
+                    <option value="ALL">All Types</option>
+                    {uniqueTypes.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Priority</label>
+                  <select
+                    value={priorityFilter}
+                    onChange={(e) => setPriorityFilter(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                  >
+                    <option value="ALL">All Priorities</option>
+                    {uniquePriorities.map(priority => (
+                      <option key={priority} value={priority}>{priority}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </FilterPopover>
 
             {hasActiveFilters && (
               <button
@@ -294,54 +331,6 @@ const NotificationInboxPage: React.FC = () => {
             )}
           </div>
         </div>
-
-        {/* Filter Panel */}
-        {showFilters && (
-          <div className="mb-6 p-5 bg-gray-50 rounded-xl border border-gray-200 animate-fadeIn">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full p-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  <option value="ALL">All Notifications</option>
-                  <option value="UNREAD">Unread Only</option>
-                  <option value="READ">Read Only</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
-                <select
-                  value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
-                  className="w-full p-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  <option value="ALL">All Types</option>
-                  {uniqueTypes.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
-                <select
-                  value={priorityFilter}
-                  onChange={(e) => setPriorityFilter(e.target.value)}
-                  className="w-full p-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  <option value="ALL">All Priorities</option>
-                  {uniquePriorities.map(priority => (
-                    <option key={priority} value={priority}>{priority}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Notifications List */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

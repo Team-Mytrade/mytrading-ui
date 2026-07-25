@@ -8,6 +8,7 @@ import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import { AuthContext } from '../../context/AuthContext';
 import { Employee } from '../../shared/types/employee.types';
+import { ToasterService } from '../../Services/ToasterService';
 
 interface OffboardingTask {
     id: number;
@@ -81,16 +82,16 @@ const ExitManagementPage: React.FC = () => {
         e.preventDefault();
         
         if (!formData.reason.trim()) {
-            alert("Please provide a reason for leaving.");
+            ToasterService.error("Please provide a reason for leaving.");
             return;
         }
         if (!formData.lastWorkingDay) {
-            alert("Please select your proposed last working day.");
+            ToasterService.error("Please select your proposed last working day.");
             return;
         }
 
         if (!resolvedEmployeeId) {
-            alert("No employee record found for your account. You cannot submit a resignation.");
+            ToasterService.error("No employee record found for your account.", "You cannot submit a resignation.");
             return;
         }
         setLoading(true);
@@ -106,9 +107,10 @@ const ExitManagementPage: React.FC = () => {
             const result = await ExitManagementService.submitExitRequest(payload);
             setResignation(result);
             setIsResigning(false);
+            ToasterService.success("Resignation request submitted successfully");
         } catch (error) {
             console.error("Failed to submit exit request", error);
-            alert("Failed to submit resignation request. Please try again.");
+            ToasterService.error("Failed to submit resignation request", "Please try again.");
         } finally {
             setLoading(false);
         }
@@ -128,9 +130,10 @@ const ExitManagementPage: React.FC = () => {
                 reason: resignation.reason
             });
             setResignation(updated);
+            ToasterService.success("Resignation withdrawal requested successfully");
         } catch (error) {
             console.error("Failed to withdraw resignation", error);
-            alert("Failed to request resignation withdrawal. Please try again.");
+            ToasterService.error("Failed to request resignation withdrawal", "Please try again.");
         } finally {
             setLoading(false);
         }

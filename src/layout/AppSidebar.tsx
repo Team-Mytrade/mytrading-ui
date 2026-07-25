@@ -152,8 +152,9 @@ export const navItems: NavItem[] = [
           { name: "Department Summary", path: "/departmentSummary" }
         ]
       },
-      { name: "Payslips", path: "/employeePayroll" },
       { name: "Payroll Engine", path: "/payrollEngine" },
+      { name: "Payslips", path: "/employeePayroll" },
+      { name: "IT Declaration", path: "/it-declaration" },
 
       // { name: "Salary Structure", path: "/salaryStructure" },
 
@@ -570,7 +571,7 @@ const AppSidebar: React.FC = () => {
         }}
         className={`
           fixed top-0 left-0 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800
-          shadow-lg z-30 flex flex-col
+          shadow-lg z-[50] flex flex-col
           ${isResizing ? "transition-none select-none" : "transition-all duration-300 ease-in-out"}
           ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
           lg:translate-x-0

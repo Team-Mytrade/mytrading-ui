@@ -230,9 +230,6 @@ const EmployeeDepartmentsPage: React.FC = () => {
       <PageBreadcrumb pageTitle="Departments" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreateModal} label="Add Department" />
-        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard label="Total Departments" value={departments.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<BuildingOfficeIcon className="h-6 w-6" />} />

@@ -26,6 +26,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import { AddButton } from "../../components/common/AddButton";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -517,66 +518,43 @@ const RemoteAttendancePage: React.FC = () => {
             <h1 className="text-2xl font-bold text-gray-900">Remote Attendance</h1>
             <p className="text-sm text-gray-500 mt-0.5">Record and view work-from-home attendance logs</p>
           </div>
-          {!showForm && (
-            <button
-              onClick={openCreateForm}
-              className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center gap-2 shadow-sm"
-            >
-              <PlusIcon className="h-4 w-4" />
-              <span>Check In / Out</span>
-            </button>
-          )}
+          <AddButton label="Check In / Out" onClick={openCreateForm} />
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Total Logs</p>
-                <p className="text-2xl font-bold text-gray-900">{totalLogs}</p>
-              </div>
-              <div className="p-3 bg-cyan-100 rounded-full">
-                <ComputerDesktopIcon className="h-6 w-6 text-cyan-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Checked In</p>
-                <p className="text-2xl font-bold text-green-600">{checkedIn}</p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-full">
-                <ArrowRightOnRectangleIcon className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Checked Out</p>
-                <p className="text-2xl font-bold text-orange-600">{checkedOut}</p>
-              </div>
-              <div className="p-3 bg-orange-100 rounded-full">
-                <ArrowLeftOnRectangleIcon className="h-6 w-6 text-orange-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Payroll Synced</p>
-                <p className="text-2xl font-bold text-purple-600">{syncedLogs}</p>
-              </div>
-              <div className="p-3 bg-purple-100 rounded-full">
-                <CheckCircleIcon className="h-6 w-6 text-purple-600" />
-              </div>
-            </div>
-          </div>
+          <StatsCard
+            label="Total Logs"
+            value={totalLogs}
+            gradient="from-cyan-50 to-blue-50"
+            borderColor="border-cyan-100"
+            labelColor="text-cyan-600"
+            icon={<ComputerDesktopIcon className="h-6 w-6" />}
+          />
+          <StatsCard
+            label="Checked In"
+            value={checkedIn}
+            gradient="from-green-50 to-emerald-50"
+            borderColor="border-green-100"
+            labelColor="text-green-600"
+            icon={<ArrowRightOnRectangleIcon className="h-6 w-6" />}
+          />
+          <StatsCard
+            label="Checked Out"
+            value={checkedOut}
+            gradient="from-amber-50 to-yellow-50"
+            borderColor="border-amber-100"
+            labelColor="text-yellow-600"
+            icon={<ArrowLeftOnRectangleIcon className="h-6 w-6" />}
+          />
+          <StatsCard
+            label="Payroll Synced"
+            value={syncedLogs}
+            gradient="from-purple-50 to-pink-50"
+            borderColor="border-purple-100"
+            labelColor="text-purple-600"
+            icon={<CheckCircleIcon className="h-6 w-6" />}
+          />
         </div>
 
         {/* Conditional Rendering: Form OR Table */}

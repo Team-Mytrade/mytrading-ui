@@ -245,7 +245,7 @@ export default function UserDropdown() {
               </button>
               
               {statusOpen && (
-                <div className="absolute left-0 right-0 mt-1 ml-3 mr-3 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                <div className="relative mt-1 mx-3 bg-gray-50/50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 z-10">
                   <div className="py-2">
                     <button
                       onClick={() => handleStatusChange("online")}

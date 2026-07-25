@@ -39,6 +39,7 @@ export interface ReusableTableProps<T extends { id?: number | string }> {
   loading?: boolean;
   emptyState?: React.ReactNode;
   className?: string;
+  align?: "left" | "center" | "right";
 }
 
 
@@ -73,7 +74,36 @@ function formatDetailLabel(key: string): string {
     .replace(/^./, (char) => char.toUpperCase());
 }
 
+function formatNestedObject(obj: Record<string, unknown>): React.ReactNode {
+  const entries = Object.entries(obj).filter(([_, v]) => v !== null && typeof v !== "function");
+  if (entries.length === 0) return <span className="text-gray-400">Empty</span>;
+
+  return (
+    <span className="inline-flex flex-wrap gap-x-2 gap-y-1 mt-0.5">
+      {entries.map(([k, v]) => {
+        let displayVal = "";
+        if (typeof v === "boolean") {
+          displayVal = v ? "Yes" : "No";
+        } else if (typeof v === "number") {
+          displayVal = v.toLocaleString();
+        } else if (typeof v === "object" && v !== null) {
+          displayVal = JSON.stringify(v);
+        } else {
+          displayVal = String(v);
+        }
+        return (
+          <span key={k} className="inline-flex items-center px-1.5 py-0.5 rounded bg-white text-[10px] text-gray-600 border border-gray-200 shadow-sm dark:bg-gray-900 dark:text-gray-400 dark:border-gray-800">
+            <span className="font-semibold text-gray-500 mr-1 dark:text-gray-400">{formatDetailLabel(k)}:</span>
+            <span className="font-bold text-cyan-600 dark:text-cyan-400">{displayVal}</span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 function renderDetailValue(value: unknown): React.ReactNode {
+  if (React.isValidElement(value)) return value;
   if (value == null || value === "") return <span className="text-gray-400">--</span>;
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "string" || typeof value === "number") return String(value);
@@ -134,13 +164,14 @@ function renderDetailValue(value: unknown): React.ReactNode {
     }
 
     return (
-      <div className="max-h-40 overflow-auto space-y-1 bg-gray-50 p-2.5 rounded-lg border border-gray-100 dark:bg-gray-800 dark:border-gray-700">
+      <div className="max-h-40 overflow-auto space-y-2 bg-gray-50 p-3 rounded-lg border border-gray-100 dark:bg-gray-800 dark:border-gray-700">
         {Object.entries(rec).map(([k, v]) => {
           if (v === null || typeof v === "function") return null;
+          const isObj = typeof v === "object" && v !== null;
           return (
-            <div key={k} className="text-xs text-gray-700 dark:text-gray-300">
+            <div key={k} className={`text-xs text-gray-700 dark:text-gray-300 ${isObj ? 'flex flex-col gap-1 py-1' : 'flex items-center'}`}>
               <span className="font-semibold text-gray-500 mr-1">{formatDetailLabel(k)}:</span>
-              <span>{typeof v === "object" ? JSON.stringify(v) : String(v)}</span>
+              <span>{isObj ? formatNestedObject(v as Record<string, unknown>) : String(v)}</span>
             </div>
           );
         })}
@@ -162,10 +193,18 @@ function getDetailEntries<T>(row: T, columns: ColumnDef<T>[]) {
     .filter((key) => key !== "actions" && typeof record[key] !== "function")
     .map((key) => {
       const column = columns.find((item) => item.key === key);
+      let val = record[key];
+      if ((val === undefined || val === null || val === "") && column) {
+        if (column.sortValueGetter) {
+          val = column.sortValueGetter(row) as any;
+        } else if (column.render) {
+          val = column.render(row, record[column.key]) as any;
+        }
+      }
       return {
         key,
         label: column?.label || formatDetailLabel(key),
-        value: record[key],
+        value: val,
       };
     });
 }
@@ -255,6 +294,7 @@ export function ReusableTable<T extends { id?: number | string }>({
   loading = false,
   emptyState,
   className = "",
+  align = "left",
 }: ReusableTableProps<T>) {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<string | undefined>(defaultSortKey);
@@ -404,6 +444,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                     onClick={() => col.sortable && handleSort(col.key)}
                     className={[
                       "px-3 py-3 text-xs font-semibold uppercase tracking-wider text-black select-none dark:text-gray-100",
+                      align === "center" ? "text-center" : align === "right" ? "text-right" : "text-left",
                       col.sortable
                         ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                         : "",
@@ -412,7 +453,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                       .filter(Boolean)
                       .join(" ")}
                   >
-                    <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
+                    <span className={`inline-flex min-w-0 max-w-full items-center gap-1.5 ${align === "center" ? "justify-center w-full" : align === "right" ? "justify-end w-full" : ""}`}>
                       <span className="truncate" title={col.label}>{col.label}</span>
                       {col.sortable &&
                         (sortKey === col.key ? (
@@ -457,12 +498,13 @@ export function ReusableTable<T extends { id?: number | string }>({
                             key={col.key}
                             className={[
                               "max-w-0 px-3 py-2 text-sm text-gray-700 dark:text-gray-300",
+                              align === "center" ? "text-center" : align === "right" ? "text-right" : "text-left",
                               col.className ?? "",
                             ]
                               .filter(Boolean)
                               .join(" ")}
                           >
-                            <div className="min-w-0 max-w-full" title={col.render ? getCellTitle(value) : undefined}>
+                            <div className={`min-w-0 max-w-full ${align === "center" ? "flex justify-center text-center items-center" : align === "right" ? "flex justify-end text-right items-center" : ""}`} title={col.render ? getCellTitle(value) : undefined}>
                               {col.render
                                 ? col.render(row, value)
                                 : renderDefaultCell(value)}

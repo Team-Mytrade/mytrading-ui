@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -26,8 +26,10 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
+import FilterPopover from "../../components/common/filter";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import { AddButton } from "../../components/common/AddButton";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -130,7 +132,6 @@ const calculateTotalDays = (startDate: string, endDate: string): number => {
 
 const LeaveRequestPage: React.FC = () => {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
-  const [filteredLeaveRequests, setFilteredLeaveRequests] = useState<LeaveRequest[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
@@ -139,8 +140,6 @@ const LeaveRequestPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null);
   const [form, setForm] = useState<LeaveRequest>({ ...emptyForm });
-  const [search, setSearch] = useState<string>('');
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("");
   const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState<string>("");
   const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
@@ -187,7 +186,6 @@ const LeaveRequestPage: React.FC = () => {
     try {
       const res = await axios.get<LeaveRequest[]>(`${BASE_URL}/employee/${empId}`);
       setLeaveRequests(res.data);
-      setFilteredLeaveRequests(res.data);
     } catch (err) {
       console.error(err);
       ToasterService.error("Failed to load leave requests");
@@ -211,33 +209,6 @@ const LeaveRequestPage: React.FC = () => {
       setLeaveRequests([]);
     }
   }, [selectedEmployeeId]);
-
-  useEffect(() => {
-    applyFilters();
-  }, [leaveRequests, search, selectedEmployeeFilter, selectedStatusFilter]);
-
-  const applyFilters = () => {
-    let filtered = [...leaveRequests];
-
-    if (search) {
-      const searchTerm = search.toLowerCase();
-      filtered = filtered.filter(r =>
-        r.employeeName?.toLowerCase().includes(searchTerm) ||
-        r.reason?.toLowerCase().includes(searchTerm) ||
-        r.leaveTypeName?.toLowerCase().includes(searchTerm)
-      );
-    }
-
-    if (selectedEmployeeFilter) {
-      filtered = filtered.filter(r => r.employeeId.toString() === selectedEmployeeFilter);
-    }
-
-    if (selectedStatusFilter) {
-      filtered = filtered.filter(r => r.status === selectedStatusFilter);
-    }
-
-    setFilteredLeaveRequests(filtered);
-  };
 
   // ── Form ────────────────────────────────────────────────────────────────────
 
@@ -464,6 +435,17 @@ const LeaveRequestPage: React.FC = () => {
 
   // ── Stats ───────────────────────────────────────────────────────────────────
 
+  const filteredLeaveRequests = useMemo(() => {
+    let list = [...leaveRequests];
+    if (selectedEmployeeFilter) {
+      list = list.filter(r => r.employeeId.toString() === selectedEmployeeFilter);
+    }
+    if (selectedStatusFilter) {
+      list = list.filter(r => r.status === selectedStatusFilter);
+    }
+    return list;
+  }, [leaveRequests, selectedEmployeeFilter, selectedStatusFilter]);
+
   const stats = {
     total: filteredLeaveRequests.length,
     pending: filteredLeaveRequests.filter(r => r.status === "PENDING").length,
@@ -480,7 +462,7 @@ const LeaveRequestPage: React.FC = () => {
   const statusOptions: LeaveStatus[] = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"];
 
   // Count active filters
-  const activeFilterCount = [selectedEmployeeFilter, selectedStatusFilter, search].filter(Boolean).length;
+  const activeFilterCount = [selectedEmployeeFilter, selectedStatusFilter].filter(Boolean).length;
 
   const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
 
@@ -695,15 +677,7 @@ const LeaveRequestPage: React.FC = () => {
                     <p className="text-sm text-gray-500">{selectedEmployee?.employeeCode}</p>
                   </div>
                 </div>
-                {!showForm && (
-                  <button
-                    onClick={openCreateForm}
-                    className="px-4 py-2 bg-cyan-600 !text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center gap-2 shadow-sm"
-                  >
-                    <PlusIcon className="h-4 w-4" />
-                    <span>Apply Leave</span>
-                  </button>
-                )}
+                  <AddButton label="Apply Leave" onClick={openCreateForm} />
               </div>
             </div>
 
@@ -932,147 +906,91 @@ const LeaveRequestPage: React.FC = () => {
               <>
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-500">Total Requests</p>
-                        <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-                      </div>
-                      <div className="p-3 bg-cyan-100 rounded-full">
-                        <DocumentTextIcon className="h-6 w-6 text-cyan-600" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-500">Pending</p>
-                        <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
-                      </div>
-                      <div className="p-3 bg-yellow-100 rounded-full">
-                        <ClockIcon className="h-6 w-6 text-yellow-600" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-500">Approved</p>
-                        <p className="text-2xl font-bold text-green-600">{stats.approved}</p>
-                      </div>
-                      <div className="p-3 bg-green-100 rounded-full">
-                        <CheckCircleIcon className="h-6 w-6 text-green-600" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-500">Rejected</p>
-                        <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
-                      </div>
-                      <div className="p-3 bg-red-100 rounded-full">
-                        <XCircleIcon className="h-6 w-6 text-red-600" />
-                      </div>
-                    </div>
-                  </div>
+                  <StatsCard
+                    label="Total Requests"
+                    value={stats.total}
+                    gradient="from-cyan-50 to-blue-50"
+                    borderColor="border-cyan-100"
+                    labelColor="text-cyan-600"
+                    icon={<DocumentTextIcon className="h-6 w-6" />}
+                  />
+                  <StatsCard
+                    label="Pending"
+                    value={stats.pending}
+                    gradient="from-amber-50 to-yellow-50"
+                    borderColor="border-amber-100"
+                    labelColor="text-yellow-600"
+                    icon={<ClockIcon className="h-6 w-6" />}
+                  />
+                  <StatsCard
+                    label="Approved"
+                    value={stats.approved}
+                    gradient="from-green-50 to-emerald-50"
+                    borderColor="border-green-100"
+                    labelColor="text-green-600"
+                    icon={<CheckCircleIcon className="h-6 w-6" />}
+                  />
+                  <StatsCard
+                    label="Rejected"
+                    value={stats.rejected}
+                    gradient="from-red-50 to-rose-50"
+                    borderColor="border-red-100"
+                    labelColor="text-red-600"
+                    icon={<XCircleIcon className="h-6 w-6" />}
+                  />
                 </div>
-
-                {/* Search and Filter Bar */}
-                <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex-1 max-w-md">
-                    <div className="relative">
-                      <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Search by leave type or reason..."
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShowFilters(!showFilters)}
-                      className={`px-4 py-2 rounded-lg border transition-all duration-200 flex items-center gap-2 ${showFilters || activeFilterCount > 0
-                        ? 'bg-cyan-50 border-cyan-300 text-cyan-600'
-                        : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
-                        }`}
-                    >
-                      <FunnelIcon className="h-4 w-4" />
-                      <span>Filters</span>
-                      {activeFilterCount > 0 && (
-                        <span className="absolute -top-2 -right-2 h-5 w-5 bg-cyan-600 text-white text-xs rounded-full flex items-center justify-center">
-                          {activeFilterCount}
-                        </span>
-                      )}
-                    </button>
-
-                    {(search || activeFilterCount > 0) && (
-                      <button
-                        onClick={() => {
-                          setSearch("");
-                          setSelectedEmployeeFilter("");
-                          setSelectedStatusFilter("");
-                          setShowFilters(false);
-                        }}
-                        className="px-3 py-2 text-sm text-red-600 hover:text-red-800 rounded-lg border border-red-200 hover:bg-red-50 transition-colors flex items-center gap-1"
-                      >
-                        <ArrowPathIcon className="h-4 w-4" />
-                        Clear All
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Filter Panel */}
-                {showFilters && (
-                  <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 animate-fadeIn">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
-                        <select
-                          value={selectedEmployeeFilter}
-                          onChange={e => setSelectedEmployeeFilter(e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                        >
-                          <option value="">All Employees</option>
-                          {uniqueEmployees.map(emp => (
-                            <option key={emp.id} value={emp.id}>{emp.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                        <select
-                          value={selectedStatusFilter}
-                          onChange={e => setSelectedStatusFilter(e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                        >
-                          <option value="">All Status</option>
-                          {statusOptions.map(status => (
-                            <option key={status} value={status}>{status}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* Reusable Table */}
                 <ReusableTable<LeaveRequest>
                   data={filteredLeaveRequests}
                   columns={columns}
                   loading={loading}
-                  searchable={false}
+                  searchable={true}
+                  searchPlaceholder="Search by leave type or reason..."
+                  searchFields={["leaveTypeName", "reason", "employeeName"]}
                   pageSize={PAGE_SIZE}
                   defaultSortKey="appliedDate"
                   defaultSortOrder="desc"
+                  toolbar={
+                    <FilterPopover
+                      title="Filter Leave Requests"
+                      buttonLabel="Filter"
+                      onReset={() => {
+                        setSelectedEmployeeFilter("");
+                        setSelectedStatusFilter("");
+                      }}
+                      showFooter={true}
+                    >
+                      <div className="space-y-3">
+                        <div>
+                          <label className="mb-1 block text-sm font-medium text-gray-700">Employee</label>
+                          <select
+                            value={selectedEmployeeFilter}
+                            onChange={e => setSelectedEmployeeFilter(e.target.value)}
+                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                          >
+                            <option value="">All Employees</option>
+                            {uniqueEmployees.map(emp => (
+                              <option key={emp.id} value={emp.id.toString()}>{emp.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
+                          <select
+                            value={selectedStatusFilter}
+                            onChange={e => setSelectedStatusFilter(e.target.value)}
+                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                          >
+                            <option value="">All Status</option>
+                            {statusOptions.map(status => (
+                              <option key={status} value={status}>{status}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </FilterPopover>
+                  }
                   emptyState={
                     <div className="flex flex-col items-center py-12">
                       <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">

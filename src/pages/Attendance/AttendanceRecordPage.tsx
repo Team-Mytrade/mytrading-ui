@@ -28,9 +28,11 @@ import {
 } from "@heroicons/react/24/outline";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import { AddButton } from "../../components/common/AddButton";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -514,66 +516,43 @@ const AttendanceRecordPage: React.FC = () => {
             <h1 className="text-2xl font-bold text-gray-900">Attendance Records</h1>
             <p className="text-sm text-gray-500 mt-0.5">Manage daily attendance check-in and check-out records</p>
           </div>
-          {!showForm && (
-            <button
-              onClick={openCreateForm}
-              className="px-4 py-2 bg-cyan-600 !text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center gap-2 shadow-sm"
-            >
-              <PlusIcon className="h-4 w-4" />
-              <span>Add Record</span>
-            </button>
-          )}
+          <AddButton label="Add Record" onClick={openCreateForm} />
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Total Records</p>
-                <p className="text-2xl font-bold text-gray-900">{totalRecords}</p>
-              </div>
-              <div className="p-3 bg-cyan-100 rounded-full">
-                <CalendarDaysIcon className="h-6 w-6 text-cyan-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Present</p>
-                <p className="text-2xl font-bold text-green-600">{present}</p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-full">
-                <CheckCircleIcon className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Absent</p>
-                <p className="text-2xl font-bold text-red-600">{absent}</p>
-              </div>
-              <div className="p-3 bg-red-100 rounded-full">
-                <XCircleIcon className="h-6 w-6 text-red-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">On Leave</p>
-                <p className="text-2xl font-bold text-blue-600">{onLeave}</p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-full">
-                <PauseCircleIcon className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
+          <StatsCard
+            label="Total Records"
+            value={totalRecords}
+            gradient="from-cyan-50 to-blue-50"
+            borderColor="border-cyan-100"
+            labelColor="text-cyan-600"
+            icon={<CalendarDaysIcon className="h-6 w-6" />}
+          />
+          <StatsCard
+            label="Present"
+            value={present}
+            gradient="from-green-50 to-emerald-50"
+            borderColor="border-green-100"
+            labelColor="text-green-600"
+            icon={<CheckCircleIcon className="h-6 w-6" />}
+          />
+          <StatsCard
+            label="Absent"
+            value={absent}
+            gradient="from-red-50 to-rose-50"
+            borderColor="border-red-100"
+            labelColor="text-red-600"
+            icon={<XCircleIcon className="h-6 w-6" />}
+          />
+          <StatsCard
+            label="On Leave"
+            value={onLeave}
+            gradient="from-blue-50 to-indigo-50"
+            borderColor="border-blue-100"
+            labelColor="text-blue-600"
+            icon={<PauseCircleIcon className="h-6 w-6" />}
+          />
         </div>
 
         {/* Conditional Rendering: Form OR Table */}

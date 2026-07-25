@@ -376,8 +376,6 @@ const EmployeeRecordsPage: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <AddButton label="Add Employee" className="h-10 !my-0" onClick={() => navigate("/addEmployee")} />
-
                         {/* Export Menu */}
                         <div className="relative flex h-10 items-center">
                             <button

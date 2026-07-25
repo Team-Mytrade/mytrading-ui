@@ -229,22 +229,20 @@ const EmployeeSalaryPage: React.FC = () => {
             label: "Employee",
             sortable: true,
             render: (row) => (
-                <div className="flex items-center">
-                    <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3">
+                <div className="flex items-center justify-center mx-auto max-w-max">
+                    <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3 shrink-0">
                         <span className="text-xs font-medium text-cyan-700">
                             {row.employeeName?.charAt(0) || row.employeeCode?.charAt(0) || 'E'}
                         </span>
                     </div>
-                    <div>
+                    <div className="text-left">
                         <div className="text-xs font-medium text-gray-900" title={row.employeeName}>
-                            {(row.employeeName || '').trim().length > 4
-                                ? `${(row.employeeName || '').trim().substring(0, 4)}...`
+                            {(row.employeeName || '').trim().length > 15
+                                ? `${(row.employeeName || '').trim().substring(0, 15)}...`
                                 : row.employeeName}
                         </div>
                         <div className="text-[10px] text-gray-500" title={row.employeeCode}>
-                            {(row.employeeCode || '').trim().length > 4
-                                ? `${(row.employeeCode || '').trim().substring(0, 4)}...`
-                                : row.employeeCode}
+                            {row.employeeCode}
                         </div>
                     </div>
                 </div>
@@ -255,7 +253,7 @@ const EmployeeSalaryPage: React.FC = () => {
             label: "Month",
             sortable: true,
             render: (row) => (
-                <div className="flex items-center">
+                <div className="flex items-center justify-center mx-auto">
                     <CalendarIcon className="h-4 w-4 text-gray-400 mr-2" />
                     <span className="text-xs font-medium text-gray-900">{row.month}</span>
                 </div>
@@ -268,47 +266,15 @@ const EmployeeSalaryPage: React.FC = () => {
             render: (row) => <span className="text-xs text-gray-900 whitespace-nowrap">₹{row.basic.toLocaleString()}</span>
         },
         {
-            key: "hra",
-            label: "HRA",
-            sortable: true,
-            render: (row) => <span className="text-xs text-gray-900 whitespace-nowrap">₹{row.hra.toLocaleString()}</span>
-        },
-        {
-            key: "bonus",
-            label: "Bonus",
-            sortable: true,
-            render: (row) => <span className="text-xs text-green-600 whitespace-nowrap">₹{row.bonus.toLocaleString()}</span>
-        },
-        {
-            key: "grossSalary",
-            label: "Gross",
-            sortable: true,
-            render: (row) => <span className="text-xs font-medium text-gray-900 whitespace-nowrap">₹{row.grossSalary.toLocaleString()}</span>
-        },
-        {
-            key: "totalDeductions",
-            label: "Deductions",
-            sortable: true,
-            render: (row) => <span className="text-xs text-red-600 whitespace-nowrap">₹{row.totalDeductions.toLocaleString()}</span>
-        },
-        {
             key: "netSalary",
             label: "Net Salary",
             sortable: true,
             render: (row) => <span className="text-xs font-bold text-cyan-600 whitespace-nowrap">₹{row.netSalary.toLocaleString()}</span>
         },
         {
-            key: "regime",
-            label: "Regime",
-            sortable: true,
-            render: (row) => <span className="text-xs text-gray-600">{row.regime}</span>
-        },
-        {
             key: "isProcessed",
             label: "Status",
             sortable: true,
-            headerClassName: "w-full",
-            className: "w-full",
             render: (row) => row.isProcessed ? (
                 <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
                     <CheckCircleIcon className="h-3 w-3 mr-1" />
@@ -355,7 +321,6 @@ const EmployeeSalaryPage: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <AddButton label="Refresh Salaries" className="h-10 !my-0" onClick={fetchAllSalaries} />
                         <FilterPopover
                             title="Filter Salaries"
                             buttonLabel="Filter"
@@ -406,6 +371,7 @@ const EmployeeSalaryPage: React.FC = () => {
                     columns={columns}
                     loading={loading}
                     searchable={false}
+                    align="center"
                     pageSize={PAGE_SIZE}
                     defaultSortKey="month"
                     defaultSortOrder="desc"

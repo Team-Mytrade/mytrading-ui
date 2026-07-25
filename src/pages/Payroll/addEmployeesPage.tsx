@@ -493,6 +493,11 @@ const AddEmployeePage: React.FC = () => {
   };
 
   const handleChange = (path: string, value: any) => {
+    if (path === "permanentAddress.postalCode" || path === "currentAddress.postalCode") {
+      if (typeof value === "string") {
+        value = value.replace(/\D/g, "").slice(0, 6);
+      }
+    }
     const keys = path.split(".");
     if (keys.length === 1) {
       setForm((prev) => ({ ...prev, [path]: value }));
@@ -645,12 +650,20 @@ const AddEmployeePage: React.FC = () => {
         if (!(form.permanentAddress.line1 || "").trim()) newErrors["permanentAddress.line1"] = "Address line 1 is required";
         if (!(form.permanentAddress.city || "").trim()) newErrors["permanentAddress.city"] = "City is required";
         if (!form.permanentAddress.state) newErrors["permanentAddress.state"] = "State is required";
-        if (!(form.permanentAddress.postalCode || "").trim()) newErrors["permanentAddress.postalCode"] = "Postal code is required";
+        if (!(form.permanentAddress.postalCode || "").trim()) {
+          newErrors["permanentAddress.postalCode"] = "Postal code is required";
+        } else if (form.permanentAddress.postalCode.length !== 6) {
+          newErrors["permanentAddress.postalCode"] = "Postal code must be exactly 6 digits";
+        }
         if (!sameAsPermanent) {
           if (!(form.currentAddress.line1 || "").trim()) newErrors["currentAddress.line1"] = "Address line 1 is required";
           if (!(form.currentAddress.city || "").trim()) newErrors["currentAddress.city"] = "City is required";
           if (!form.currentAddress.state) newErrors["currentAddress.state"] = "State is required";
-          if (!(form.currentAddress.postalCode || "").trim()) newErrors["currentAddress.postalCode"] = "Postal code is required";
+          if (!(form.currentAddress.postalCode || "").trim()) {
+            newErrors["currentAddress.postalCode"] = "Postal code is required";
+          } else if (form.currentAddress.postalCode.length !== 6) {
+            newErrors["currentAddress.postalCode"] = "Postal code must be exactly 6 digits";
+          }
         }
         break;
 

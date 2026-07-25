@@ -493,7 +493,7 @@ const PayrollPage: React.FC = () => {
 
             <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
                 <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-                    <AddButton label="Run Payroll" onClick={() => setIsProcessModalOpen(true)} />
+                    <AddButton label="Generate Payslips" onClick={() => setIsProcessModalOpen(true)} />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -528,8 +528,6 @@ const PayrollPage: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <AddButton label="Generate Payslips" className="h-10 !my-0" onClick={() => setIsGenerateModalOpen(true)} />
-
                         {/* Export Menu */}
                         <div className="relative flex h-10 items-center">
                             <button

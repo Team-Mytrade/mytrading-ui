@@ -4,6 +4,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import ReusableTable, { ColumnDef } from "../../components/common/Table";
 
 type AttendanceLog = {
   id: number;
@@ -117,6 +118,58 @@ const AttendanceTrackingPage: React.FC = () => {
     doc.save("Attendance.pdf");
   };
 
+  const columns: ColumnDef<AttendanceLog>[] = [
+    {
+      key: "employeeId",
+      label: "Employee ID",
+      sortable: true,
+    },
+    {
+      key: "date",
+      label: "Date",
+      sortable: true,
+    },
+    {
+      key: "checkIn",
+      label: "Check-In",
+      sortable: true,
+    },
+    {
+      key: "checkOut",
+      label: "Check-Out",
+      sortable: true,
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      render: (row) => {
+        const color = row.status === "Present"
+          ? "bg-green-100 text-green-800"
+          : row.status === "Late"
+            ? "bg-yellow-100 text-yellow-800"
+            : "bg-red-100 text-red-800";
+        return (
+          <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}>
+            {row.status}
+          </span>
+        );
+      },
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      className: "print:hidden",
+      headerClassName: "print:hidden",
+      render: (row) => (
+        <div className="flex gap-2">
+          <button onClick={() => handleEdit(row)} className="text-cyan-600 hover:text-cyan-800 font-medium text-sm">Edit</button>
+          <button onClick={() => handleDelete(row.id)} className="text-red-600 hover:text-red-800 font-medium text-sm">Delete</button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="max-w-5xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">Attendance Tracking</h1>
@@ -196,56 +249,11 @@ const AttendanceTrackingPage: React.FC = () => {
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full border text-sm print:text-xs">
-          <thead className="bg-gray-200 print:bg-white">
-            <tr>
-              {["Employee ID", "Date", "Check-In", "Check-Out", "Status", "Actions"].map(h => (
-                <th key={h} className="border px-2 py-2">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {paginated.map(log => (
-              <tr key={log.id} className="border hover:bg-gray-50">
-                <td className="px-2 py-2">{log.employeeId}</td>
-                <td className="px-2 py-2">{log.date}</td>
-                <td className="px-2 py-2">{log.checkIn}</td>
-                <td className="px-2 py-2">{log.checkOut}</td>
-                <td className="px-2 py-2">{log.status}</td>
-                <td className="px-2 py-2 space-x-2 print:hidden">
-                  <button onClick={() => handleEdit(log)} className="text-blue-600">Edit</button>
-                  <button onClick={() => handleDelete(log.id)} className="text-red-600">Delete</button>
-                </td>
-              </tr>
-            ))}
-            {paginated.length === 0 && (
-              <tr>
-                <td colSpan={6} className="text-center py-4 text-gray-500">No records found.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      <div className="flex justify-between items-center mt-4 print:hidden">
-        <button
-          disabled={page === 1}
-          onClick={() => setPage(p => p - 1)}
-          className="px-3 py-1 border rounded disabled:opacity-50"
-        >
-          Prev
-        </button>
-        <span>Page {page} of {totalPages || 1}</span>
-        <button
-          disabled={page === totalPages}
-          onClick={() => setPage(p => p + 1)}
-          className="px-3 py-1 border rounded disabled:opacity-50"
-        >
-          Next
-        </button>
-      </div>
+      <ReusableTable
+        data={filtered}
+        columns={columns}
+        pageSize={5}
+      />
     </div>
   );
 };

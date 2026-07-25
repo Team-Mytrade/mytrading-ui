@@ -185,9 +185,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
         setIsProcessing(true);
         try {
             await axios.post(`/v1/api/payroll/process-all`, {
-                month: salaryMonth,
-                yearMonth: salaryMonth,
-                salaryMonth: salaryMonth
+                month: salaryMonth
             }, {
                 headers: {
                     'Content-Type': 'application/json'
@@ -411,9 +409,11 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                             key: "fileName",
                                                             label: "File Name",
                                                             render: (row) => (
-                                                                <div className="flex items-center gap-3">
-                                                                    <DocumentTextIcon className="h-5 w-5 text-gray-400" />
-                                                                    <span className="text-sm font-medium text-gray-900">{row.fileName}</span>
+                                                                <div className="flex items-center gap-3 min-w-0">
+                                                                    <DocumentTextIcon className="h-5 w-5 text-gray-400 shrink-0" />
+                                                                    <span className="text-sm font-medium text-gray-900 truncate max-w-[220px] block" title={row.fileName}>
+                                                                        {row.fileName}
+                                                                    </span>
                                                                 </div>
                                                             )
                                                         },
@@ -551,24 +551,24 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                     columns={[
                                         { key: "batchReference", label: "Batch Reference", sortable: true },
                                         { key: "salaryMonth", label: "Salary Month", sortable: true },
-                                        { 
-                                            key: "employeeCount", 
-                                            label: "Employees", 
+                                        {
+                                            key: "employeeCount",
+                                            label: "Employees",
                                             sortable: true,
                                             className: "text-center",
-                                            headerClassName: "text-center" 
+                                            headerClassName: "text-center"
                                         },
-                                        { 
-                                            key: "totalSalaryAmount", 
-                                            label: "Total Amount", 
+                                        {
+                                            key: "totalSalaryAmount",
+                                            label: "Total Amount",
                                             sortable: true,
                                             className: "text-center font-semibold",
                                             headerClassName: "text-center",
                                             render: (row: any) => `₹${row.totalSalaryAmount?.toLocaleString() || 0}`
                                         },
-                                        { 
-                                            key: "status", 
-                                            label: "Status", 
+                                        {
+                                            key: "status",
+                                            label: "Status",
                                             sortable: true,
                                             render: (row: any) => (
                                                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${row.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
