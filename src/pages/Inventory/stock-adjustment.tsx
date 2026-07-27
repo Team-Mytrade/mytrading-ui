@@ -1,5 +1,6 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -8,6 +9,7 @@ import {
   MagnifyingGlassIcon,
   PencilSquareIcon,
   TrashIcon,
+  XCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
@@ -88,10 +90,17 @@ enum AdjustmentType {
   NEGATIVE = "NEGATIVE",
 }
 
+// ---------- StockAdjustment, matching the actual backend schema ----------
+// Root fields per the schema: id, createdDate, updatedDate, createdBy, tenantId,
+// adjustmentDate, reason, quantity, adjustmentType, productId, warehouse (nested
+// Warehouse object), batch (nested Batch object), serialNumber (nested SerialNumber
+// object). There is NO `reference`, `approvedBy`, or `approvedAt` field on the
+// backend — those were frontend-only additions that never actually round-trip.
 interface StockAdjustment {
   id: number;
   createdDate?: string;
   updatedDate?: string;
+  createdBy?: string;
   tenantId?: string;
   adjustmentDate: string;
   reason: string;
@@ -107,12 +116,6 @@ interface StockAdjustment {
   warehouse?: Warehouse;
   batch?: Batch;
   serialNumber?: SerialNumber;
-  reference?: string;
-  approvedBy?: string;
-  approvedAt?: string;
-  createdBy?: string;
-  createdAt?: string;
-  updatedAt?: string;
 }
 
 type StockAdjustmentForm = {
@@ -124,12 +127,19 @@ type StockAdjustmentForm = {
   warehouseId: string;
   batchId: string;
   serialNumberId: string;
-  reference: string;
 };
 
 const API_URL = "/v1/api/inventory";
 const PRODUCT_URL = "/v1/api/purchase";
 const PAGE_SIZE = 10;
+
+// Routes matched against AppRouter.tsx. None of these take an :id param, so
+// clicking through opens the relevant list page (with the id passed via
+// state/query in case that page wants to auto-filter/highlight it), same
+// pattern used for warehouse navigation in SerialNumberManager.tsx.
+const PRODUCT_ROUTE = "/purchase-products"; // <Route path="/purchase-products" element={<Products />} />
+const WAREHOUSE_ROUTE = "/warehouse";       // <Route path="/warehouse" element={<Warehouse />} />
+const BATCH_ROUTE = "/batch";               // <Route path="/batch" element={<Batch />} />
 
 const emptyForm: StockAdjustmentForm = {
   adjustmentDate: new Date().toISOString().split('T')[0],
@@ -140,25 +150,7 @@ const emptyForm: StockAdjustmentForm = {
   warehouseId: "",
   batchId: "",
   serialNumberId: "",
-  reference: "",
 };
-
-function getSessionMeta() {
-  if (typeof window === "undefined") {
-    return { userId: "", tenantId: "" };
-  }
-
-  try {
-    const raw = window.localStorage.getItem("user");
-    const user = raw ? JSON.parse(raw) : null;
-    return {
-      userId: user?.userId || user?.username || "",
-      tenantId: user?.tenantId || "",
-    };
-  } catch {
-    return { userId: "", tenantId: "" };
-  }
-}
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {
@@ -211,6 +203,7 @@ function getSerialWarehouseName(serial?: SerialNumber | null) {
 const StockAdjustmentManager: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
+  const navigate = useNavigate();
 
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -254,10 +247,29 @@ const StockAdjustmentManager: React.FC = () => {
     }
   };
 
+  // Unwraps either a raw array, a wrapped {content/data/items} response, or
+  // (seen on some inventory endpoints) a JSON string instead of a parsed
+  // body — see the warehouses/batches bug fixed in SerialNumberManager.tsx.
+  const unwrapList = (resData: any): any[] => {
+    let raw = resData;
+    if (typeof raw === "string") {
+      try {
+        raw = JSON.parse(raw);
+      } catch {
+        return [];
+      }
+    }
+    if (Array.isArray(raw)) return raw;
+    if (raw?.content && Array.isArray(raw.content)) return raw.content;
+    if (raw?.data && Array.isArray(raw.data)) return raw.data;
+    if (raw?.items && Array.isArray(raw.items)) return raw.items;
+    return [];
+  };
+
   const fetchAdjustments = async () => {
     try {
-      const res = await axios.get<StockAdjustment[]>(`${API_URL}/stock-adjustments`, { headers });
-      const data = Array.isArray(res.data) ? res.data : (res.data as any)?.content || (res.data as any)?.data || [];
+      const res = await axios.get(`${API_URL}/stock-adjustments`, { headers });
+      const data = unwrapList(res.data);
       setAdjustments(data);
       if (data.length === 0) ToasterService.noData("No stock adjustments found");
     } catch (error) {
@@ -268,9 +280,8 @@ const StockAdjustmentManager: React.FC = () => {
 
   const fetchProducts = async () => {
     try {
-      const res = await axios.get<Product[]>(`${PRODUCT_URL}/products`, { headers });
-      const data = Array.isArray(res.data) ? res.data : (res.data as any)?.content || (res.data as any)?.data || [];
-      setProducts(data);
+      const res = await axios.get(`${PRODUCT_URL}/products`, { headers });
+      setProducts(unwrapList(res.data));
     } catch (error) {
       ToasterService.error("Failed to load products", getErrorMessage(error, "Please try again."));
     }
@@ -278,9 +289,8 @@ const StockAdjustmentManager: React.FC = () => {
 
   const fetchWarehouses = async () => {
     try {
-      const res = await axios.get<Warehouse[]>(`${API_URL}/warehouses`, { headers });
-      const data = Array.isArray(res.data) ? res.data : (res.data as any)?.content || (res.data as any)?.data || [];
-      setWarehouses(data);
+      const res = await axios.get(`${API_URL}/warehouses`, { headers });
+      setWarehouses(unwrapList(res.data));
     } catch (error) {
       ToasterService.error("Failed to load warehouses", getErrorMessage(error, "Please try again."));
     }
@@ -288,9 +298,8 @@ const StockAdjustmentManager: React.FC = () => {
 
   const fetchBatches = async () => {
     try {
-      const res = await axios.get<Batch[]>(`${API_URL}/batches`, { headers });
-      const data = Array.isArray(res.data) ? res.data : (res.data as any)?.content || (res.data as any)?.data || [];
-      setBatches(data);
+      const res = await axios.get(`${API_URL}/batches`, { headers });
+      setBatches(unwrapList(res.data));
     } catch (error) {
       ToasterService.error("Failed to load batches", getErrorMessage(error, "Please try again."));
     }
@@ -298,9 +307,8 @@ const StockAdjustmentManager: React.FC = () => {
 
   const fetchSerialNumbers = async () => {
     try {
-      const res = await axios.get<SerialNumber[]>(`${API_URL}/serial-numbers`, { headers });
-      const data = Array.isArray(res.data) ? res.data : (res.data as any)?.content || (res.data as any)?.data || [];
-      setSerialNumbers(data);
+      const res = await axios.get(`${API_URL}/serial-numbers`, { headers });
+      setSerialNumbers(unwrapList(res.data));
     } catch (error) {
       ToasterService.error("Failed to load serial numbers", getErrorMessage(error, "Please try again."));
     }
@@ -323,6 +331,29 @@ const StockAdjustmentManager: React.FC = () => {
     const productId = adjustment.productId ?? adjustment.product?.id;
     const product = products.find((p) => p.id === productId);
     return product?.productSku || adjustment.product?.productSku || "";
+  };
+
+  // ---------- Navigation to the owning submodule ----------
+  // None of these routes accept an :id param (confirmed against AppRouter.tsx),
+  // so we land on the relevant list page and pass the id via state + query
+  // string in case that page supports auto-filtering/highlighting on it.
+  const goToProduct = (productId?: number) => {
+    if (!productId) return;
+    navigate(`${PRODUCT_ROUTE}?productId=${productId}`, { state: { productId } });
+  };
+
+  const goToWarehouse = (warehouse?: Warehouse) => {
+    if (!warehouse?.id) return;
+    navigate(`${WAREHOUSE_ROUTE}?warehouseId=${warehouse.id}`, {
+      state: { warehouseId: warehouse.id, warehouseName: warehouse.name },
+    });
+  };
+
+  const goToBatch = (batch?: Batch) => {
+    if (!batch?.id) return;
+    navigate(`${BATCH_ROUTE}?batchId=${batch.id}`, {
+      state: { batchId: batch.id, batchNumber: batch.batchNumber },
+    });
   };
 
   const handleChange = (
@@ -384,44 +415,35 @@ const StockAdjustmentManager: React.FC = () => {
     }
   };
 
+  // NOTE: audit fields (id/createdDate/updatedDate/createdBy/tenantId) are owned by
+  // the backend and must NOT be sent by the client — see the same fix applied in
+  // QualityInspectionManager.tsx (sending them causes a 400 "Failed to read
+  // request" from Jackson). `reference` is also removed: it does not exist
+  // anywhere in the StockAdjustment schema, so sending it risks the same
+  // strict-deserialization rejection.
   const buildPayload = () => {
-    const now = new Date().toISOString();
-    const session = getSessionMeta();
-    const existing = adjustments.find((item) => item.id === editingId);
     const selectedWarehouse = warehouses.find((item) => item.id === Number(form.warehouseId));
     const selectedBatch = filteredBatches.find((item) => item.id === Number(form.batchId))
       || batches.find((item) => item.id === Number(form.batchId));
     const selectedSerial = filteredSerialNumbers.find((item) => item.id === Number(form.serialNumberId))
       || serialNumbers.find((item) => item.id === Number(form.serialNumberId));
 
-    return {
-      id: editingId || 0,
-      createdDate: existing?.createdDate || now,
-      updatedDate: now,
-      createdBy: existing?.createdBy || session.userId,
-      tenantId: existing?.tenantId || session.tenantId,
+    const payload: Record<string, any> = {
       adjustmentDate: form.adjustmentDate,
       reason: form.reason.trim(),
       quantity: Number(form.quantity),
       adjustmentType: form.adjustmentType,
       productId: Number(form.productId),
-      warehouse: selectedWarehouse
-        ? {
-            id: selectedWarehouse.id,
-          }
-        : null,
-      batch: selectedBatch
-        ? {
-            id: selectedBatch.id,
-          }
-        : null,
-      serialNumber: selectedSerial
-        ? {
-            id: selectedSerial.id,
-          }
-        : null,
-      reference: form.reference.trim() || null,
+      warehouse: selectedWarehouse ? { id: selectedWarehouse.id } : null,
+      batch: selectedBatch ? { id: selectedBatch.id } : null,
+      serialNumber: selectedSerial ? { id: selectedSerial.id } : null,
     };
+
+    if (editingId) {
+      payload.id = editingId;
+    }
+
+    return payload;
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -494,7 +516,6 @@ const StockAdjustmentManager: React.FC = () => {
       warehouseId: String(adjustment.warehouse?.id || ""),
       batchId: String(adjustment.batch?.id || ""),
       serialNumberId: String(adjustment.serialNumber?.id || ""),
-      reference: adjustment.reference || "",
     });
 
     // Filtered by product only — see note above handleProductChange for why
@@ -555,7 +576,6 @@ const StockAdjustmentManager: React.FC = () => {
 
       const haystack = [
         adjustment.reason,
-        adjustment.reference,
         adjustment.quantity,
         adjustment.adjustmentType,
         getProductDisplayName(adjustment),
@@ -667,11 +687,6 @@ const StockAdjustmentManager: React.FC = () => {
           <p className="text-sm font-medium text-gray-900">
             {new Date(adjustment.adjustmentDate).toLocaleDateString()}
           </p>
-          {adjustment.createdAt && (
-            <p className="text-xs text-gray-500">
-              {new Date(adjustment.createdAt).toLocaleTimeString()}
-            </p>
-          )}
         </div>
       ),
     },
@@ -680,28 +695,76 @@ const StockAdjustmentManager: React.FC = () => {
       label: "Product",
       sortable: true,
       sortValueGetter: (adjustment) => getProductDisplayName(adjustment),
-      render: (adjustment) => (
-        <div>
-          <p className="text-sm font-medium text-gray-900">{getProductDisplayName(adjustment)}</p>
-          {getProductSku(adjustment) && (
-            <p className="text-xs text-gray-500">SKU: {getProductSku(adjustment)}</p>
-          )}
-        </div>
-      ),
+      render: (adjustment) => {
+        const productId = adjustment.productId ?? adjustment.product?.id;
+        return (
+          <div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                goToProduct(productId);
+              }}
+              className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+              title="View product"
+            >
+              {getProductDisplayName(adjustment)}
+            </button>
+            {getProductSku(adjustment) && (
+              <p className="text-xs text-gray-500">SKU: {getProductSku(adjustment)}</p>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: "warehouse",
       label: "Warehouse",
       sortable: true,
       sortValueGetter: (adjustment) => adjustment.warehouse?.name || "",
-      render: (adjustment) => (
-        <div>
-          <p className="text-sm text-gray-900">{adjustment.warehouse?.name || "N/A"}</p>
-          {adjustment.warehouse?.code && (
-            <p className="text-xs text-gray-500">{adjustment.warehouse.code}</p>
-          )}
-        </div>
-      ),
+      render: (adjustment) =>
+        adjustment.warehouse?.id ? (
+          <div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                goToWarehouse(adjustment.warehouse);
+              }}
+              className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+              title="View warehouse"
+            >
+              {adjustment.warehouse.name}
+            </button>
+            {adjustment.warehouse.code && (
+              <p className="text-xs text-gray-500">{adjustment.warehouse.code}</p>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-900">N/A</p>
+        ),
+    },
+    {
+      key: "batch",
+      label: "Batch",
+      sortable: true,
+      sortValueGetter: (adjustment) => adjustment.batch?.batchNumber || "",
+      render: (adjustment) =>
+        adjustment.batch?.id ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              goToBatch(adjustment.batch);
+            }}
+            className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+            title="View batch"
+          >
+            {adjustment.batch.batchNumber}
+          </button>
+        ) : (
+          <span className="text-sm text-gray-900">N/A</span>
+        ),
     },
     {
       key: "adjustmentType",
@@ -729,12 +792,7 @@ const StockAdjustmentManager: React.FC = () => {
       label: "Reason",
       sortable: true,
       render: (adjustment) => (
-        <div>
-          <p className="text-sm text-gray-700 line-clamp-2">{adjustment.reason || "-"}</p>
-          {adjustment.reference && (
-            <p className="text-xs text-gray-500 mt-1">Ref: {adjustment.reference}</p>
-          )}
-        </div>
+        <p className="text-sm text-gray-700 line-clamp-2">{adjustment.reason || "-"}</p>
       ),
     },
     {
@@ -776,53 +834,6 @@ const StockAdjustmentManager: React.FC = () => {
       ),
     },
   ];
-
-  // Render adjustment details for view modal
-  const getAdjustmentDetailsText = (adjustment: StockAdjustment): string => {
-    if (!adjustment) return "No adjustment details available";
-
-    let details = `Adjustment Date: ${new Date(adjustment.adjustmentDate).toLocaleDateString()}`;
-    details += `\nType: ${adjustment.adjustmentType === "POSITIVE" ? "Stock In" : "Stock Out"}`;
-    details += `\nProduct: ${getProductDisplayName(adjustment)}`;
-    if (getProductSku(adjustment)) {
-      details += `\nSKU: ${getProductSku(adjustment)}`;
-    }
-    details += `\nWarehouse: ${adjustment.warehouse?.name || "N/A"}`;
-    if (adjustment.warehouse?.code) {
-      details += ` (${adjustment.warehouse.code})`;
-    }
-    if (adjustment.batch) {
-      details += `\nBatch: ${adjustment.batch.batchNumber}`;
-      if (adjustment.batch.expiryDate) {
-        details += ` (Expires: ${new Date(adjustment.batch.expiryDate).toLocaleDateString()})`;
-      }
-    }
-    if (adjustment.serialNumber) {
-      details += `\nSerial: ${adjustment.serialNumber.serial}`;
-      if (adjustment.serialNumber.status) {
-        details += ` (${adjustment.serialNumber.status})`;
-      }
-    }
-    details += `\n\nQuantity: ${adjustment.adjustmentType === "POSITIVE" ? "+" : "-"}${adjustment.quantity}`;
-    details += `\nReason: ${adjustment.reason || "—"}`;
-    if (adjustment.reference) {
-      details += `\nReference: ${adjustment.reference}`;
-    }
-    if (adjustment.createdBy) {
-      details += `\nCreated By: ${adjustment.createdBy}`;
-    }
-    if (adjustment.createdAt) {
-      details += `\nCreated At: ${new Date(adjustment.createdAt).toLocaleString()}`;
-    }
-    if (adjustment.approvedBy) {
-      details += `\nApproved By: ${adjustment.approvedBy}`;
-    }
-    if (adjustment.approvedAt) {
-      details += `\nApproved At: ${new Date(adjustment.approvedAt).toLocaleString()}`;
-    }
-
-    return details;
-  };
 
   return (
     <>
@@ -871,7 +882,7 @@ const StockAdjustmentManager: React.FC = () => {
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by product, reason, or reference..."
+              placeholder="Search by product or reason..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
@@ -917,6 +928,7 @@ const StockAdjustmentManager: React.FC = () => {
                 { header: "Date", accessor: (row) => new Date(row.adjustmentDate).toLocaleDateString() },
                 { header: "Product", accessor: (row) => getProductDisplayName(row) },
                 { header: "Warehouse", accessor: (row) => row.warehouse?.name || "N/A" },
+                { header: "Batch", accessor: (row) => row.batch?.batchNumber || "N/A" },
                 { header: "Type", accessor: (row) => (row.adjustmentType === "POSITIVE" ? "Stock In" : "Stock Out") },
                 {
                   header: "Quantity",
@@ -1072,14 +1084,6 @@ const StockAdjustmentManager: React.FC = () => {
                 onChange={handleChange}
                 options={serialOptions}
                 disabled={!form.batchId}
-                required
-              />,
-              <FloatingInput
-                key="reference"
-                label="Reference"
-                name="reference"
-                value={form.reference}
-                onChange={handleChange}
               />,
               <FloatingInput
                 key="reason"
@@ -1095,32 +1099,166 @@ const StockAdjustmentManager: React.FC = () => {
       />
 
       {/* View Details Modal */}
-      <DynamicPopup
-        isPopupOpen={showViewModal && !!viewingAdjustment}
-        setIsPopupOpen={(open: boolean) => {
-          if (!open) {
-            setShowViewModal(false);
-            setViewingAdjustment(null);
-          }
-        }}
-        icon={<ClipboardDocumentCheckIcon className="h-6 w-6 text-cyan-600" />}
-        iconBg="bg-cyan-100"
-        innerText="Adjustment Details"
-        subText={viewingAdjustment ? getAdjustmentDetailsText(viewingAdjustment) : "No adjustment details available"}
-        confirmLabel="Edit"
-        cancelLabel="Close"
-        onConfirm={() => {
-          if (viewingAdjustment) {
-            setShowViewModal(false);
-            openEdit(viewingAdjustment);
-          }
-        }}
-        onCancel={() => {
-          setShowViewModal(false);
-          setViewingAdjustment(null);
-        }}
-        confirmBtnClass="bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-500 text-white"
-      />
+      {showViewModal && viewingAdjustment && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div
+              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+              onClick={() => {
+                setShowViewModal(false);
+                setViewingAdjustment(null);
+              }}
+            ></div>
+            <div className="inline-block transform overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:align-middle">
+              <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                <div className="w-full text-center sm:text-left">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="text-lg font-medium leading-6 text-gray-900">Adjustment Details</h3>
+                    <button
+                      onClick={() => {
+                        setShowViewModal(false);
+                        setViewingAdjustment(null);
+                      }}
+                      className="text-gray-400 hover:text-gray-500"
+                    >
+                      <XCircleIcon className="h-6 w-6" />
+                    </button>
+                  </div>
+
+                  <div className="mb-6 rounded-lg bg-gray-50 p-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500">Adjustment Date</p>
+                        <p className="text-sm text-gray-700">
+                          {new Date(viewingAdjustment.adjustmentDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Type</p>
+                        <span
+                          className={`mt-1 inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${getTypeBadge(viewingAdjustment.adjustmentType)}`}
+                        >
+                          {getTypeIcon(viewingAdjustment.adjustmentType)}
+                          {viewingAdjustment.adjustmentType === "POSITIVE" ? "Stock In" : "Stock Out"}
+                        </span>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-gray-500">Product</p>
+                        <button
+                          type="button"
+                          onClick={() => goToProduct(viewingAdjustment.productId ?? viewingAdjustment.product?.id)}
+                          className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                        >
+                          {getProductDisplayName(viewingAdjustment)}
+                        </button>
+                        {getProductSku(viewingAdjustment) && (
+                          <p className="mt-1 text-xs text-gray-500">SKU: {getProductSku(viewingAdjustment)}</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Quantity</p>
+                        <p
+                          className={`text-sm font-semibold ${viewingAdjustment.adjustmentType === "POSITIVE" ? "text-green-600" : "text-red-600"}`}
+                        >
+                          {viewingAdjustment.adjustmentType === "POSITIVE" ? "+" : "-"}
+                          {viewingAdjustment.quantity}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-gray-500">Warehouse</p>
+                        {viewingAdjustment.warehouse?.id ? (
+                          <button
+                            type="button"
+                            onClick={() => goToWarehouse(viewingAdjustment.warehouse)}
+                            className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                          >
+                            {viewingAdjustment.warehouse.name || "N/A"}
+                          </button>
+                        ) : (
+                          <p className="text-sm text-gray-700">N/A</p>
+                        )}
+                        {viewingAdjustment.warehouse?.code && (
+                          <p className="mt-1 text-xs text-gray-500">{viewingAdjustment.warehouse.code}</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Batch</p>
+                        {viewingAdjustment.batch?.id ? (
+                          <button
+                            type="button"
+                            onClick={() => goToBatch(viewingAdjustment.batch)}
+                            className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                          >
+                            {viewingAdjustment.batch.batchNumber || "N/A"}
+                          </button>
+                        ) : (
+                          <p className="text-sm text-gray-700">N/A</p>
+                        )}
+                        {viewingAdjustment.batch?.expiryDate && (
+                          <p className="mt-1 text-xs text-gray-500">
+                            Expires: {new Date(viewingAdjustment.batch.expiryDate).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-gray-500">Serial Number</p>
+                        <p className="text-sm text-gray-700">
+                          {viewingAdjustment.serialNumber?.serial || "N/A"}
+                          {viewingAdjustment.serialNumber?.status ? ` (${viewingAdjustment.serialNumber.status})` : ""}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Created By</p>
+                        <p className="text-sm text-gray-700">{viewingAdjustment.createdBy || "N/A"}</p>
+                      </div>
+
+                      <div className="col-span-2">
+                        <p className="text-xs text-gray-500">Reason</p>
+                        <p className="text-sm text-gray-700">{viewingAdjustment.reason || "—"}</p>
+                      </div>
+
+                      {viewingAdjustment.createdDate && (
+                        <div className="col-span-2">
+                          <p className="text-xs text-gray-500">Created At</p>
+                          <p className="text-sm text-gray-600">
+                            {new Date(viewingAdjustment.createdDate).toLocaleString()}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowViewModal(false);
+                    openEdit(viewingAdjustment);
+                  }}
+                  className="inline-flex w-full justify-center rounded-md border border-transparent bg-cyan-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  <PencilSquareIcon className="mr-2 h-4 w-4" />
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowViewModal(false);
+                    setViewingAdjustment(null);
+                  }}
+                  className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 sm:mt-0 sm:w-auto sm:text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       <DynamicPopup
