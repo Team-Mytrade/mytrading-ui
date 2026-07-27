@@ -1,5 +1,3 @@
-// pages/BatchManagement.tsx
-
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
@@ -40,10 +38,13 @@ type Batch = {
   productId: number;
   warehouse: any;
   inspections: any[];
+  status?: string;
+  statusLabel?: string;
+  statusIcon?: any;
 };
 
 type BatchForm = {
-  batchNumber: string;
+  // batchNumber: string;
   manufacturingDate: string;
   expiryDate: string;
   productId: string;
@@ -83,8 +84,10 @@ const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
 const PRODUCT_API_URL = "/v1/api/purchase/products";
 const PAGE_SIZE = 10;
 
+
+
 const emptyForm: BatchForm = {
-  batchNumber: "",
+  // batchNumber: "",
   manufacturingDate: new Date().toISOString().split("T")[0],
   expiryDate: "",
   productId: "",
@@ -186,7 +189,18 @@ const BatchManagement: React.FC = () => {
       setLoading(true);
       const response = await axios.get<Batch[]>(API_URL, { headers });
       const data = Array.isArray(response.data) ? response.data : [];
-      setBatches(data);
+      
+      const batchesWithStatus = data.map((batch) => {
+  const status = getBatchStatus(batch);
+  return {
+    ...batch,
+    status: status.label,
+    // statusClass: status.className,
+    // statusIcon: status.icon,
+  };
+});
+setBatches(batchesWithStatus);     
+
     } catch (error) {
       setBatches([]);
       ToasterService.error("Failed to load batches", getErrorMessage(error, "Please try again."));
@@ -223,7 +237,7 @@ const BatchManagement: React.FC = () => {
   const openEdit = (batch: Batch): void => {
     setEditingId(batch.id);
     setForm({
-      batchNumber: batch.batchNumber,
+      // batchNumber: batch.batchNumber,
       manufacturingDate: batch.manufacturingDate,
       expiryDate: batch.expiryDate,
       productId: String(batch.productId),
@@ -260,7 +274,7 @@ const BatchManagement: React.FC = () => {
 
     if (!editingId) {
       return {
-        batchNumber: form.batchNumber.trim(),
+        // batchNumber: form.batchNumber.trim(),
         manufacturingDate: form.manufacturingDate,
         expiryDate: form.expiryDate,
         productId: toNumber(form.productId),
@@ -275,7 +289,7 @@ const BatchManagement: React.FC = () => {
       updatedDate: new Date().toISOString(),
       createdBy: existing?.createdBy || "",
       tenantId: existing?.tenantId || "",
-      batchNumber: form.batchNumber.trim(),
+      // batchNumber: form.batchNumber.trim(),
       manufacturingDate: form.manufacturingDate,
       expiryDate: form.expiryDate,
       productId: toNumber(form.productId),
@@ -287,10 +301,10 @@ const BatchManagement: React.FC = () => {
   const handleSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
 
-    if (!form.batchNumber.trim()) {
-      ToasterService.error("Batch Number is required");
-      return;
-    }
+    // if (!form.batchNumber.trim()) {
+    //   ToasterService.error("Batch Number is required");
+    //   return;
+    // }
     if (!form.manufacturingDate) {
       ToasterService.error("Manufacturing Date is required");
       return;
@@ -636,14 +650,14 @@ const BatchManagement: React.FC = () => {
     {
       label: "Batch Info",
       fields: [
-        <FloatingInput
-          key="batchNumber"
-          label="Batch Number"
-          name="batchNumber"
-          value={form.batchNumber}
-          onChange={handleChange}
-          required
-        />,
+        // <FloatingInput
+        //   key="batchNumber"
+        //   label="Batch Number"
+        //   name="batchNumber"
+        //   value={form.batchNumber}
+        //   onChange={handleChange}
+        //   required
+        // />,
         <FloatingDatePicker
           key="manufacturingDate"
           label="Manufacturing Date"
@@ -682,7 +696,7 @@ const BatchManagement: React.FC = () => {
           emptyOptionLabel="Select warehouse"
           options={warehouses.map((w) => ({
             id: String(w.id),
-            name: `${w.code || ''} - ${w.name || ''}`,
+            name: `${w.name || ''}`,
           }))}
           required
         />,

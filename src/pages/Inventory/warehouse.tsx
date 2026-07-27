@@ -1,14 +1,10 @@
-// pages/WarehousePage.tsx
-
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
   BuildingOffice2Icon,
-  CheckCircleIcon,
   MagnifyingGlassIcon,
   PencilSquareIcon,
   TrashIcon,
-  XCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
@@ -42,10 +38,10 @@ type Warehouse = {
   stockMovements?: any[];
   stockAdjustments?: any[];
   stockEntries?: any[];
+  stockCount?: number;
 };
 
 type WarehouseForm = {
-  code: string;
   name: string;
   locationType: WarehouseLocationType;
 };
@@ -53,7 +49,6 @@ type WarehouseForm = {
 const API_URL = "/v1/api/inventory/warehouses";
 const PAGE_SIZE = 10;
 
-// ✅ Updated location types
 const locationTypeOptions: WarehouseLocationType[] = [
   "MAIN",
   "DISTRIBUTION",
@@ -62,14 +57,9 @@ const locationTypeOptions: WarehouseLocationType[] = [
 ];
 
 const emptyForm: WarehouseForm = {
-  code: "",
   name: "",
   locationType: "MAIN",
 };
-
-function toNumber(value: string | number | undefined | null): number {
-  return Number(value || 0);
-}
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
@@ -85,7 +75,6 @@ function searchableText(value: unknown) {
   return String(value).toLowerCase().trim();
 }
 
-// ✅ Updated color mapping for all location types
 function getLocationTypeColor(type: WarehouseLocationType) {
   switch (type) {
     case "MAIN":
@@ -124,7 +113,24 @@ const WarehousePage: React.FC = () => {
       setLoading(true);
       const response = await axios.get<Warehouse[]>(API_URL, { headers });
       const data = Array.isArray(response.data) ? response.data : [];
-      setWarehouses(data);
+      
+      const enrichedData = await Promise.all(
+        data.map(async (warehouse) => {
+          const detailRes = await axios.get(`${API_URL}/${warehouse.id}`, { headers });
+          const fullData = detailRes.data;
+          
+          const stockCount = fullData.stockLevels?.reduce(
+            (sum: number, level: any) => sum + (level.quantity || 0), 0
+          ) || 0;
+          
+          return {
+            ...fullData,
+            stockCount,
+          };
+        })
+      );
+      
+      setWarehouses(enrichedData);
     } catch (error) {
       setWarehouses([]);
       ToasterService.error("Failed to load warehouses", getErrorMessage(error, "Please try again."));
@@ -148,7 +154,6 @@ const WarehousePage: React.FC = () => {
   const openEdit = (warehouse: Warehouse): void => {
     setEditingId(warehouse.id);
     setForm({
-      code: warehouse.code,
       name: warehouse.name,
       locationType: warehouse.locationType,
     });
@@ -161,62 +166,81 @@ const WarehousePage: React.FC = () => {
   };
 
   const buildPayload = () => {
-  const existing = warehouses.find((w) => w.id === editingId);
-
-  if (!editingId) {
+    if (!editingId) {
+      return {
+        name: form.name.trim(),
+        locationType: form.locationType,
+      };
+    }
     return {
-      code: form.code.trim(),
+      id: editingId,
       name: form.name.trim(),
       locationType: form.locationType,
     };
+  };
+
+  const handleSubmit = async (e: FormEvent): Promise<void> => {
+    e.preventDefault();
+//Validations
+ if (!form.name || !form.name.trim()) {
+    ToasterService.error("Warehouse Name is required");
+    return;
+  }
+    
+ if (form.name.trim().length < 2) {
+    ToasterService.error("Warehouse Name must be at least 2 characters");
+    return;
   }
 
-  return {
-    id: editingId,
-    code: form.code.trim(),
-    name: form.name.trim(),
-    locationType: form.locationType,
-};
-};
+  if (!form.locationType) {
+    ToasterService.error("Location Type is required");
+    return;
+  }
+  
+   const duplicate = warehouses.find(
+    (w) => 
+      w.name.toLowerCase() === form.name.trim().toLowerCase() && 
+      w.id !== editingId
+  );
+  if (duplicate) {
+    ToasterService.error("A warehouse with this name already exists");
+    return;
+  }
 
- const handleSubmit = async (e: FormEvent): Promise<void> => {
-  e.preventDefault();
 
-  try {
-    setSubmitting(true);
-    const payload = buildPayload();
+    try {
+      setSubmitting(true);
+      const payload = buildPayload();
 
-    if (editingId) {
-      await axios.put(`${API_URL}/${editingId}`, payload, { headers });
-      ToasterService.success("Warehouse updated successfully");
+      if (editingId) {
+        await axios.put(`${API_URL}/${editingId}`, payload, { headers });
+        ToasterService.success("Warehouse updated successfully");
+        setWarehouses((prev) =>
+          prev.map((w) => {
+            if (w.id === editingId) {
+              return {
+                ...w,
+                name: payload.name,
+                locationType: payload.locationType,
+              };
+            }
+            return w;
+          })
+        );
+      } else {
+        const response = await axios.post(API_URL, payload, { headers });
+        ToasterService.success("Warehouse created successfully");
+        setWarehouses((prev) => [response.data, ...prev]);
+      }
 
-      // ✅ Manually update the warehouse in state
-      setWarehouses((prev) =>
-        prev.map((w) => {
-          if (w.id === editingId) {
-            return {
-              ...w,
-              code: payload.code,
-              name: payload.name,
-              locationType: payload.locationType,
-            };
-          }
-          return w;
-        })
-      );
-    } else {
-      const response = await axios.post(API_URL, payload, { headers });
-      ToasterService.success("Warehouse created successfully");
-      setWarehouses((prev) => [response.data, ...prev]);
+      closeForm();
+    } catch (error) {
+      ToasterService.error("Failed to save warehouse", getErrorMessage(error, "Please try again."));
+    } finally {
+      setSubmitting(false);
     }
+  };
 
-    closeForm();
-  } catch (error) {
-    ToasterService.error("Failed to save warehouse", getErrorMessage(error, "Please try again."));
-  } finally {
-    setSubmitting(false);
-  }
-};
   const confirmDelete = async (): Promise<void> => {
     if (!deleteWarehouse?.id) return;
 
@@ -232,7 +256,6 @@ const WarehousePage: React.FC = () => {
 
   const filteredWarehouses = useMemo(() => {
     const term = searchableText(search);
-
     return warehouses.filter((warehouse) => {
       const matchesType = typeFilter === "" || warehouse.locationType === typeFilter;
       const searchString = `${warehouse.id} ${warehouse.code} ${warehouse.name} ${warehouse.locationType}`.toLowerCase();
@@ -253,7 +276,7 @@ const WarehousePage: React.FC = () => {
   );
 
   const getTotalStock = (warehouse: Warehouse): number => {
-    return warehouse.stockLevels?.reduce((sum, level) => sum + level.quantity, 0) || 0;
+    return warehouse.stockLevels?.reduce((sum, level) => sum + (level.quantity || 0), 0) || 0;
   };
 
   const columns: ColumnDef<Warehouse>[] = [
@@ -297,7 +320,7 @@ const WarehousePage: React.FC = () => {
       sortable: true,
       render: (warehouse) => (
         <span className="text-sm text-slate-600">
-          {getTotalStock(warehouse)}
+          {warehouse.stockCount || 0}
         </span>
       ),
     },
@@ -340,7 +363,6 @@ const WarehousePage: React.FC = () => {
           <AddButton onClick={openCreate} label="Add Warehouse" />
         </div>
 
-        {/* ✅ Updated Stats Cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
             label="Total Warehouses"
@@ -415,6 +437,7 @@ const WarehousePage: React.FC = () => {
           />
         </div>
 
+        {/* ✅ Use built-in table popup - enableRowDetails is true by default */}
         <ReusableTable
           data={filteredWarehouses}
           columns={columns}
@@ -422,6 +445,8 @@ const WarehousePage: React.FC = () => {
           pageSize={PAGE_SIZE}
           defaultSortKey="id"
           defaultSortOrder="desc"
+          enableRowDetails={true}  // ← This enables the built-in popup
+          rowDetailsTitle="Warehouse Details"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <BuildingOffice2Icon className="mb-3 h-12 w-12 text-gray-400" />
@@ -438,6 +463,7 @@ const WarehousePage: React.FC = () => {
         />
       </div>
 
+      {/* Form Popup */}
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Warehouse" : "Create Warehouse"}
@@ -452,13 +478,6 @@ const WarehousePage: React.FC = () => {
             label: "Warehouse Details",
             fields: [
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <FloatingInput
-                  label="Code"
-                  name="code"
-                  value={form.code}
-                  onChange={handleChange}
-                  required
-                />
                 <FloatingInput
                   label="Name"
                   name="name"
@@ -485,6 +504,7 @@ const WarehousePage: React.FC = () => {
         ]}
       />
 
+      {/* Delete Popup */}
       <DynamicPopup
         isPopupOpen={!!deleteWarehouse}
         setIsPopupOpen={(open) => {

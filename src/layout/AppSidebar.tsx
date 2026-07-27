@@ -65,7 +65,7 @@ export const navItems: NavItem[] = [
     name: "Inventory",
     subItems: [
       { name: "Warehouse", path: "/warehouse" },
-      { name: "Inventory", path: "/inventory" },
+      { name: "Inventory Stock", path: "/inventory" },
       { name: "Batch", path: "/batch" },
        { name: "Serial Number", path: "/serial-number" },
         { name: "Quality Inspection", path: "/quality-inspection" },
