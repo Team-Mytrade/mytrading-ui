@@ -27,11 +27,21 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
-
+// ---------- Product interface (sku removed - unused, productCode is source of truth) ----------
 interface Product {
   id: number;
   productName: string;
-  sku: string;
+  productCode?: string;
+  categoryName?: string;
+  brand?: string;
+  uom?: string;
+  standardCost?: number;
+  sellingPrice?: number;
+  stockItem?: boolean;
+  serviceItem?: boolean;
+  active?: boolean;
+  imageName?: string | null;
+  imageType?: string | null;
 }
 
 interface WarehouseRef {
@@ -54,9 +64,7 @@ interface Inspection {
   inspector: string;
   result: string;
   remarks?: string;
-  // Adjust this to match your actual quality-inspections API field name
-  // (e.g. it might be `serialId` or nested under `batchId` instead).
-  serialNumberId?: number;
+  serialNumberId?: number;   // adjust to match your API if needed
 }
 
 interface SerialNumber {
@@ -71,9 +79,7 @@ interface SerialNumber {
   inspections?: Inspection[];
 }
 
-// No 'status' field – matches the API
 type SerialNumberForm = {
-  // serial: string;
   warrantyStart: string;
   warrantyEnd: string;
   productId: string;
@@ -86,8 +92,10 @@ const API_URL = "/v1/api/inventory";
 const PRODUCT_URL = "/v1/api/purchase";
 const PAGE_SIZE = 10;
 
+// Matches: <Route path="/warehouse" element={<Warehouse />} /> in AppRouter.tsx
+const WAREHOUSE_ROUTE = "/warehouse";
+
 const emptyForm: SerialNumberForm = {
-  // serial: "",
   warrantyStart: "",
   warrantyEnd: "",
   productId: "",
@@ -130,8 +138,6 @@ function getBatchNumber(sn: SerialNumber) {
   return sn.batch?.batchNumber || "N/A";
 }
 
-// Reads merged (client-side fetched) inspections first, falls back to
-// any inspections the backend embeds directly on the serial number.
 function getInspections(
   sn: SerialNumber,
   inspectionsBySerial: Record<number, Inspection[]>
@@ -198,8 +204,17 @@ const SerialNumberManager: React.FC = () => {
 
   const fetchProducts = async () => {
     try {
-      const res = await axios.get<Product[]>(`${PRODUCT_URL}/products`, { headers });
-      setProducts(Array.isArray(res.data) ? res.data : []);
+      const res = await axios.get(`${PRODUCT_URL}/products`, { headers });
+      let productList: Product[] = [];
+      const raw = res.data;
+      if (Array.isArray(raw)) {
+        productList = raw;
+      } else if (raw?.data && Array.isArray(raw.data)) {
+        productList = raw.data;
+      } else if (raw?.items && Array.isArray(raw.items)) {
+        productList = raw.items;
+      }
+      setProducts(productList);
     } catch (error) {
       ToasterService.error("Failed to load products", getErrorMessage(error, "Please try again."));
     }
@@ -207,24 +222,50 @@ const SerialNumberManager: React.FC = () => {
 
   const fetchWarehouses = async () => {
     try {
-      const res = await axios.get<WarehouseRef[]>(`${API_URL}/warehouses`, { headers });
-      setWarehouses(Array.isArray(res.data) ? res.data : []);
+      const res = await axios.get(`${API_URL}/warehouses`, { headers });
+      // console.log("RAW warehouses response:", res.data); // TEMP DEBUG - remove after fixing
+      let list: WarehouseRef[] = [];
+      const raw = res.data;
+      if (Array.isArray(raw)) {
+        list = raw;
+      } else if (raw?.content && Array.isArray(raw.content)) {
+        list = raw.content;
+      } else if (raw?.data && Array.isArray(raw.data)) {
+        list = raw.data;
+      } else if (raw?.items && Array.isArray(raw.items)) {
+        list = raw.items;
+      }
+      // console.log("Parsed warehouses list:", list); // TEMP DEBUG - remove after fixing
+      setWarehouses(list);
     } catch (error) {
+      // console.error("Warehouses fetch error:", error); // TEMP DEBUG - remove after fixing
       ToasterService.error("Failed to load warehouses", getErrorMessage(error, "Please try again."));
     }
   };
 
   const fetchBatches = async () => {
     try {
-      const res = await axios.get<BatchRef[]>(`${API_URL}/batches`, { headers });
-      setBatches(Array.isArray(res.data) ? res.data : []);
+      const res = await axios.get(`${API_URL}/batches`, { headers });
+      // console.log("RAW batches response:", res.data); // TEMP DEBUG - remove after fixing
+      let list: BatchRef[] = [];
+      const raw = res.data;
+      if (Array.isArray(raw)) {
+        list = raw;
+      } else if (raw?.content && Array.isArray(raw.content)) {
+        list = raw.content;
+      } else if (raw?.data && Array.isArray(raw.data)) {
+        list = raw.data;
+      } else if (raw?.items && Array.isArray(raw.items)) {
+        list = raw.items;
+      }
+      // console.log("Parsed batches list:", list); // TEMP DEBUG - remove after fixing
+      setBatches(list);
     } catch (error) {
+      // console.error("Batches fetch error:", error); // TEMP DEBUG - remove after fixing
       ToasterService.error("Failed to load batches", getErrorMessage(error, "Please try again."));
     }
   };
 
-  // Fetches the quality-inspections submodule and groups results by the
-  // serial number they belong to, so each row can look up its own list.
   const fetchInspections = async () => {
     try {
       const res = await axios.get<Inspection[]>(`${API_URL}/quality-inspections`, { headers });
@@ -250,44 +291,28 @@ const SerialNumberManager: React.FC = () => {
     setForm((current) => ({ ...current, [name]: value }));
   };
 
-  // productNumber is auto-filled from the selected product's name
   const buildPayload = () => {
     const productId = Number(form.productId) || 0;
     const warehouseId = Number(form.warehouseId) || 0;
     const batchId = Number(form.batchId) || 0;
-    const existing = editingId
-      ? serialNumbers.find((sn) => sn.id === editingId)
-      : undefined;
+    const product = products.find((item) => item.id === productId);
+    const productNumber = product?.productCode ?? product?.productName ?? "";
 
     return {
       id: editingId || 0,
-      // serial: form.serial.trim(),
       warrantyStart: form.warrantyStart,
       warrantyEnd: form.warrantyEnd,
       productId,
-      productNumber: products.find((item) => item.id === productId)?.sku || "",
+      productNumber,
       warehouse: warehouseId ? { id: warehouseId } : null,
       batch: batchId ? { id: batchId } : null,
-      inspections: existing?.inspections ?? [], // empty by default – can be extended later
+      inspections: [], // keep empty or fetch existing if editing
     };
   };
-
-  // const isDuplicateSerial = (serial: string) => {
-  //   const normalized = serial.trim().toLowerCase();
-  //   return serialNumbers.some(
-  //     (sn) => sn.serial?.trim().toLowerCase() === normalized && sn.id !== editingId
-  //   );
-  // };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    // const trimmedSerial = form.serial.trim();
-
-    // if (!trimmedSerial) {
-    //   ToasterService.error("Required field missing", "Serial number is required.");
-    //   return;
-    // }
     if (!form.productId || !form.warehouseId || !form.batchId) {
       ToasterService.error("Required fields missing", "Product, warehouse, and batch are required.");
       return;
@@ -300,11 +325,6 @@ const SerialNumberManager: React.FC = () => {
       ToasterService.error("Invalid warranty range", "Warranty end date cannot be before the start date.");
       return;
     }
-    // if (isDuplicateSerial(trimmedSerial)) {
-    //   ToasterService.error("Duplicate serial number", "This serial number already exists.");
-    //   return;
-    // }
-
     try {
       setSubmitting(true);
       const payload = buildPayload();
@@ -333,7 +353,6 @@ const SerialNumberManager: React.FC = () => {
   const openEdit = (sn: SerialNumber) => {
     setEditingId(sn.id);
     setForm({
-      // serial: sn.serial || "",
       warrantyStart: sn.warrantyStart ? sn.warrantyStart.slice(0, 10) : "",
       warrantyEnd: sn.warrantyEnd ? sn.warrantyEnd.slice(0, 10) : "",
       productId: sn.productId ? String(sn.productId) : "",
@@ -363,34 +382,57 @@ const SerialNumberManager: React.FC = () => {
     }
   };
 
+  // ---------- Navigate to warehouse page for a given warehouse ----------
+  // /warehouse has no :id route param (see AppRouter.tsx), so it always opens
+  // the warehouse list/page as-is. We pass the id via state and a query param
+  // in case Warehouse.tsx wants to read it (e.g. to auto-open/highlight that row).
+  const goToWarehouse = (warehouse?: WarehouseRef) => {
+    if (!warehouse?.id) return;
+    navigate(`${WAREHOUSE_ROUTE}?warehouseId=${warehouse.id}`, {
+      state: { warehouseId: warehouse.id, warehouseName: warehouse.name },
+    });
+  };
+
   const filteredSerialNumbers = useMemo(() => {
     const term = searchableText(search);
 
-    return serialNumbers.filter((sn) => {
-      if (filterProductId && String(sn.productId) !== filterProductId) return false;
-      if (filterWarehouseId && String(sn.warehouse?.id || "") !== filterWarehouseId) return false;
-      if (filterBatchId && String(sn.batch?.id || "") !== filterBatchId) return false;
-      if (filterStatus === "active" && !isWarrantyActive(sn.warrantyEnd)) return false;
-      if (filterStatus === "expired" && isWarrantyActive(sn.warrantyEnd)) return false;
+    return serialNumbers
+      .filter((sn) => {
+        if (filterProductId && String(sn.productId) !== filterProductId) return false;
+        if (filterWarehouseId && String(sn.warehouse?.id || "") !== filterWarehouseId) return false;
+        if (filterBatchId && String(sn.batch?.id || "") !== filterBatchId) return false;
+        if (filterStatus === "active" && !isWarrantyActive(sn.warrantyEnd)) return false;
+        if (filterStatus === "expired" && isWarrantyActive(sn.warrantyEnd)) return false;
 
-      if (!term) return true;
+        if (!term) return true;
 
-      const haystack = [
-        // sn.serial,
-        sn.id,
-        sn.productNumber,
-        sn.productId,
-        sn.warehouse?.name,
-        sn.batch?.batchNumber,
-        isWarrantyActive(sn.warrantyEnd) ? "active" : "expired",
-      ]
-        .map(searchableText)
-        .filter(Boolean)
-        .join(" ");
+        const haystack = [
+          sn.serial,
+          sn.id,
+          sn.productNumber,
+          sn.productId,
+          sn.warehouse?.name,
+          sn.batch?.batchNumber,
+          isWarrantyActive(sn.warrantyEnd) ? "active" : "expired",
+        ]
+          .map(searchableText)
+          .filter(Boolean)
+          .join(" ");
 
-      return haystack.includes(term);
-    });
-  }, [serialNumbers, search, filterProductId, filterWarehouseId, filterBatchId, filterStatus]);
+        return haystack.includes(term);
+      })
+      .map((sn) => ({
+        ...sn,
+        // Resolve productNumber from the products list if the API didn't set it directly,
+        // so the table's auto-generated row-detail view (Table.tsx) shows a real value
+        // instead of relying on a field that isn't always populated.
+        productNumber:
+          sn.productNumber || products.find((p) => p.id === sn.productId)?.productCode || "N/A",
+        // Overwrite the (usually empty) nested `inspections` with the ones we fetched
+        // separately from /quality-inspections and grouped by serialNumberId.
+        inspections: inspectionsBySerial[sn.id] ?? sn.inspections ?? [],
+      }));
+  }, [serialNumbers, search, filterProductId, filterWarehouseId, filterBatchId, filterStatus, products, inspectionsBySerial]);
 
   const resetFilters = () => {
     setFilterProductId("");
@@ -431,24 +473,27 @@ const SerialNumberManager: React.FC = () => {
       label: "Product",
       sortable: true,
       render: (sn) => getProductName(sn, products),
-      //       render: (sn) => (
-      //   <button
-      //     type="button"
-      //     onClick={(e) => {
-      //       e.stopPropagation();
-      //       navigate(`/products/${sn.productId}`);
-      //     }}
-      //     className="text-cyan-600 hover:underline"
-      //   >
-      //     {getProductName(sn, products)}
-      //   </button>
-      // ),
     },
     {
       key: "warehouse",
       label: "Warehouse",
       sortable: true,
-      render: (sn) => getWarehouseName(sn),
+      render: (sn) =>
+        sn.warehouse?.id ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              goToWarehouse(sn.warehouse);
+            }}
+            className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
+            title="View warehouse"
+          >
+            {getWarehouseName(sn)}
+          </button>
+        ) : (
+          <span>{getWarehouseName(sn)}</span>
+        ),
     },
     {
       key: "batch",
@@ -470,14 +515,15 @@ const SerialNumberManager: React.FC = () => {
     },
     {
       key: "status",
-      label: "Warranty Status",   // <-- renamed for clarity
+      label: "Warranty Status",
       sortable: false,
       render: (sn) => {
         const active = isWarrantyActive(sn.warrantyEnd);
         return (
           <span
-            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-              }`}
+            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+              active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+            }`}
           >
             {active ? "In Warranty" : "Expired"}
           </span>
@@ -709,14 +755,6 @@ const SerialNumberManager: React.FC = () => {
           {
             label: "Details",
             fields: [
-              // <FloatingInput
-              //   key="serial"
-              //   label="Serial"
-              //   name="serial"
-              //   value={form.serial}
-              //   onChange={handleChange}
-              //   required
-              // />,
               <FloatingSelect
                 key="productId"
                 label="Product"

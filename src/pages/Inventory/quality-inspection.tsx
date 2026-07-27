@@ -41,26 +41,61 @@ interface Product {
     code?: string;
 }
 
+// ---------- Nested reference types, matching the actual backend schema ----------
+interface WarehouseRef {
+    id: number;
+    code?: string;
+    name: string;
+    locationType?: string;
+}
+
+interface BatchRef {
+    id: number;
+    batchNumber: string;
+    manufacturingDate?: string;
+    expiryDate?: string;
+    productId?: number;
+    warehouse?: WarehouseRef;
+}
+
+interface SerialNumberRef {
+    id: number;
+    serial: string;
+    warrantyStart?: string;
+    warrantyEnd?: string;
+    productId?: number;
+    productNumber?: string;
+    warehouse?: WarehouseRef;
+    batch?: BatchRef;
+}
+
+// ---------- QualityInspection, matching the backend schema ----------
+// Backend fields: id, createdDate, updatedDate, createdBy, tenantId, inspectionDate,
+// inspector, result ("PASS" | "FAIL"), remarks, productId, batch (nested BatchRef),
+// serialNumber (nested SerialNumberRef). There is NO productSKU or status field on
+// the backend — productSKU/productName below are frontend-only derived display values.
 interface QualityInspection {
     id: number;
-    productSKU: string;
-    productName?: string;
+    productSKU: string;       // frontend-derived only, not sent to backend
+    productName?: string;     // frontend-derived only, not sent to backend
     productId?: number;
     inspectionDate: string;
-    inspectorName: string;
+    inspectorName: string;    // UI-facing alias for backend's `inspector`
     inspector?: string;
-    inspectorId?: string;
     result: "Pass" | "Fail" | "PASS" | "FAIL";
     remarks?: string;
-    batch?: string | { id?: number; batchNumber?: string };
-    serialNumber?: string | { id?: number; serial?: string };
+    batch?: BatchRef;
+    serialNumber?: SerialNumberRef;
     createdAt?: string;
     updatedAt?: string;
     createdDate?: string;
     updatedDate?: string;
 }
 
-const API_URL = "/v1/api/inventory/quality-inspections";
+const API_BASE = "/v1/api/inventory";
+const API_URL = `${API_BASE}/quality-inspections`;
+const BATCHES_URL = `${API_BASE}/batches`;
+const SERIAL_NUMBERS_URL = `${API_BASE}/serial-numbers`;
 const PRODUCTS_API_URL = "/v1/api/purchase/products";
 const qualityInspectionApi = axios.create();
 
@@ -73,6 +108,33 @@ qualityInspectionApi.interceptors.request.use((config) => {
 });
 
 const PAGE_SIZE = 10;
+
+// Editable form state. batchId/serialNumberId hold the selected record's id (as a
+// string, for <select> compatibility) — buildPayload() turns these into the nested
+// { id } reference objects the backend expects.
+type FormState = {
+    productSKU: string;
+    productId: number;
+    inspectionDate: string;
+    inspectorName: string;
+    inspector: string;
+    result: "Pass" | "Fail";
+    remarks: string;
+    batchId: string;
+    serialNumberId: string;
+};
+
+const emptyFormState: FormState = {
+    productSKU: "",
+    productId: 0,
+    inspectionDate: new Date().toISOString().split("T")[0],
+    inspectorName: "",
+    inspector: "",
+    result: "Pass",
+    remarks: "",
+    batchId: "",
+    serialNumberId: "",
+};
 
 const QualityInspectionManager: React.FC = () => {
     const { user } = useContext(AuthContext);
@@ -89,22 +151,16 @@ const QualityInspectionManager: React.FC = () => {
     const [submitting, setSubmitting] = useState(false);
 
     const [products, setProducts] = useState<Product[]>([]);
+    const [batches, setBatches] = useState<BatchRef[]>([]);
+    const [serialNumbers, setSerialNumbers] = useState<SerialNumberRef[]>([]);
 
-    const [formData, setFormData] = useState<Omit<QualityInspection, "id">>({
-        productSKU: "",
-        productId: 0,
-        inspectionDate: new Date().toISOString().split('T')[0],
-        inspectorName: "",
-        inspector: "",
-        result: "Pass",
-        remarks: "",
-        batch: "",
-        serialNumber: "",
-    });
+    const [formData, setFormData] = useState<FormState>(emptyFormState);
 
     useEffect(() => {
         fetchRecords();
         fetchProducts();
+        fetchBatches();
+        fetchSerialNumbers();
     }, []);
 
     // Resolves a human-readable product name for a record, always preferring
@@ -124,15 +180,8 @@ const QualityInspectionManager: React.FC = () => {
         return product?.sku || product?.code || "";
     };
 
-    const getBatchValue = (batch: QualityInspection["batch"]) => {
-        if (!batch) return "";
-        return typeof batch === "string" ? batch : batch.batchNumber || "";
-    };
-
-    const getSerialNumberValue = (serialNumber: QualityInspection["serialNumber"]) => {
-        if (!serialNumber) return "";
-        return typeof serialNumber === "string" ? serialNumber : serialNumber.serial || "";
-    };
+    const getBatchDisplay = (batch?: BatchRef) => batch?.batchNumber || "N/A";
+    const getSerialDisplay = (serialNumber?: SerialNumberRef) => serialNumber?.serial || "N/A";
 
     const normalizeInspection = (record: any): QualityInspection => {
         const result = record?.result === "PASS" ? "Pass" : record?.result === "FAIL" ? "Fail" : record?.result || "Pass";
@@ -153,8 +202,8 @@ const QualityInspectionManager: React.FC = () => {
             inspector: record?.inspector || record?.inspectorName || "",
             result,
             remarks: record?.remarks || "",
-            batch: record?.batch,
-            serialNumber: record?.serialNumber,
+            batch: record?.batch || undefined,
+            serialNumber: record?.serialNumber || undefined,
             createdAt: record?.createdAt || record?.createdDate,
             updatedAt: record?.updatedAt || record?.updatedDate,
             createdDate: record?.createdDate,
@@ -189,15 +238,43 @@ const QualityInspectionManager: React.FC = () => {
         }
     };
 
+    const fetchBatches = async () => {
+        try {
+            const res = await qualityInspectionApi.get(BATCHES_URL);
+            const rows = Array.isArray(res.data) ? res.data : res.data?.content || res.data?.data || [];
+            setBatches(rows);
+        } catch (err) {
+            console.error("Failed to load batches", err);
+            ToasterService.error("Failed to load batches");
+            setBatches([]);
+        }
+    };
+
+    const fetchSerialNumbers = async () => {
+        try {
+            const res = await qualityInspectionApi.get(SERIAL_NUMBERS_URL);
+            const rows = Array.isArray(res.data) ? res.data : res.data?.content || res.data?.data || [];
+            setSerialNumbers(rows);
+        } catch (err) {
+            console.error("Failed to load serial numbers", err);
+            ToasterService.error("Failed to load serial numbers");
+            setSerialNumbers([]);
+        }
+    };
+
     // NOTE: audit fields (id/createdDate/updatedDate/createdBy/tenantId) are owned by the
     // backend on create. Sending them in the create request body was causing Jackson to
     // fail deserializing the request DTO ("Failed to read request" / 400 Bad Request),
     // since the create DTO doesn't expect them. The entity/DTO has no `status` field at
     // all (see schema), so it is not part of the payload.
+    //
+    // batch and serialNumber are nested reference objects on the backend (BatchRef /
+    // SerialNumberRef), NOT plain strings — sending only { id } is enough for the
+    // backend to resolve the relation; the rest of the nested fields are read-only.
     const buildPayload = () => {
-        const productId = Number(formData.productSKU) || Number(formData.productId) || 0;
-        const batchNumber = getBatchValue(formData.batch);
-        const serial = getSerialNumberValue(formData.serialNumber);
+        const productId = Number(formData.productId) || 0;
+        const batchId = Number(formData.batchId) || 0;
+        const serialNumberId = Number(formData.serialNumberId) || 0;
 
         const payload: Record<string, any> = {
             inspectionDate: formData.inspectionDate,
@@ -205,8 +282,8 @@ const QualityInspectionManager: React.FC = () => {
             result: String(formData.result).toUpperCase(),
             remarks: formData.remarks || "",
             productId,
-            batch: batchNumber || null,
-            serialNumber: serial || null,
+            batch: batchId ? { id: batchId } : null,
+            serialNumber: serialNumberId ? { id: serialNumberId } : null,
         };
 
         if (editingId) {
@@ -252,10 +329,10 @@ const QualityInspectionManager: React.FC = () => {
             inspectionDate: record.inspectionDate.split('T')[0],
             inspectorName: record.inspectorName,
             inspector: record.inspector || record.inspectorName,
-            result: record.result,
+            result: (record.result === "PASS" ? "Pass" : record.result === "FAIL" ? "Fail" : record.result) as "Pass" | "Fail",
             remarks: record.remarks || "",
-            batch: getBatchValue(record.batch),
-            serialNumber: getSerialNumberValue(record.serialNumber),
+            batchId: record.batch?.id ? String(record.batch.id) : "",
+            serialNumberId: record.serialNumber?.id ? String(record.serialNumber.id) : "",
         });
         setFormMode("edit");
         setShowForm(true);
@@ -299,17 +376,7 @@ const QualityInspectionManager: React.FC = () => {
         setShowForm(false);
         setFormMode("add");
         setEditingId(null);
-        setFormData({
-            productSKU: "",
-            productId: 0,
-            inspectionDate: new Date().toISOString().split('T')[0],
-            inspectorName: "",
-            inspector: "",
-            result: "Pass",
-            remarks: "",
-            batch: "",
-            serialNumber: "",
-        });
+        setFormData(emptyFormState);
     };
 
     const filtered = useMemo(() => {
@@ -331,6 +398,8 @@ const QualityInspectionManager: React.FC = () => {
             'Inspector': r.inspectorName,
             'Inspection Date': new Date(r.inspectionDate).toLocaleDateString(),
             'Result': r.result,
+            'Batch': getBatchDisplay(r.batch),
+            'Serial Number': getSerialDisplay(r.serialNumber),
             'Remarks': r.remarks || "-",
         })));
         const wb = XLSX.utils.book_new();
@@ -347,6 +416,8 @@ const QualityInspectionManager: React.FC = () => {
                 accessor: (row: QualityInspection) => new Date(row.inspectionDate).toLocaleDateString(),
             },
             { header: "Result", key: "result" as const },
+            { header: "Batch", accessor: (row: QualityInspection) => getBatchDisplay(row.batch) },
+            { header: "Serial Number", accessor: (row: QualityInspection) => getSerialDisplay(row.serialNumber) },
             { header: "Remarks", accessor: (row: QualityInspection) => row.remarks || "-" },
         ],
         [products]
@@ -377,8 +448,8 @@ const QualityInspectionManager: React.FC = () => {
             key: "product",
             label: "Product",
             sortable: true,
-            headerClassName: "w-[28%] text-left",
-            className: "w-[28%]",
+            headerClassName: "w-[24%] text-left",
+            className: "w-[24%]",
             sortValueGetter: (record) => getProductDisplayName(record),
             render: (record) => {
                 const name = getProductDisplayName(record);
@@ -402,8 +473,8 @@ const QualityInspectionManager: React.FC = () => {
             key: "inspectorName",
             label: "Inspector",
             sortable: true,
-            headerClassName: "w-[20%] text-left",
-            className: "w-[20%]",
+            headerClassName: "w-[16%] text-left",
+            className: "w-[16%]",
             render: (record) => (
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                     <UserIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
@@ -415,8 +486,8 @@ const QualityInspectionManager: React.FC = () => {
             key: "inspectionDate",
             label: "Inspection Date",
             sortable: true,
-            headerClassName: "w-[18%] text-left",
-            className: "w-[18%]",
+            headerClassName: "w-[14%] text-left",
+            className: "w-[14%]",
             sortValueGetter: (record) => new Date(record.inspectionDate).getTime(),
             render: (record) => (
                 <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -426,31 +497,34 @@ const QualityInspectionManager: React.FC = () => {
             ),
         },
         {
+            key: "batch",
+            label: "Batch",
+            sortable: true,
+            headerClassName: "w-[12%] text-left",
+            className: "w-[12%]",
+            sortValueGetter: (record) => getBatchDisplay(record.batch),
+            render: (record) => <span className="text-sm text-slate-600">{getBatchDisplay(record.batch)}</span>,
+        },
+        {
+            key: "serialNumber",
+            label: "Serial Number",
+            sortable: true,
+            headerClassName: "w-[12%] text-left",
+            className: "w-[12%]",
+            sortValueGetter: (record) => getSerialDisplay(record.serialNumber),
+            render: (record) => <span className="text-sm text-slate-600">{getSerialDisplay(record.serialNumber)}</span>,
+        },
+        {
             key: "result",
             label: "Result",
             sortable: true,
-            headerClassName: "w-[14%] text-left",
-            className: "w-[14%]",
+            headerClassName: "w-[10%] text-left",
+            className: "w-[10%]",
             render: (record) => (
                 <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full border ${getResultBadge(record.result)}`}>
                     {getResultIcon(record.result)}
                     {record.result}
                 </span>
-            ),
-        },
-        {
-            key: "remarks",
-            label: "Remarks",
-            sortable: true,
-            headerClassName: "w-[14%] text-left",
-            className: "w-[14%]",
-            render: (record) => (
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <DocumentTextIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
-                    <span className="truncate font-medium text-slate-600" title={record.remarks || ""}>
-                        {record.remarks || <span className="text-slate-400 italic">--</span>}
-                    </span>
-                </div>
             ),
         },
         {
@@ -502,17 +576,7 @@ const QualityInspectionManager: React.FC = () => {
                         onClick={() => {
                             setFormMode("add");
                             setEditingId(null);
-                            setFormData({
-                                productSKU: "",
-                                productId: 0,
-                                inspectionDate: new Date().toISOString().split('T')[0],
-                                inspectorName: "",
-                                inspector: "",
-                                result: "Pass",
-                                remarks: "",
-                                batch: "",
-                                serialNumber: "",
-                            });
+                            setFormData(emptyFormState);
                             setShowForm(true);
                         }}
                     />
@@ -706,6 +770,14 @@ const QualityInspectionManager: React.FC = () => {
                                                             {selectedRecord.result}
                                                         </span>
                                                     </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-500">Batch</p>
+                                                        <p className="text-sm text-gray-700">{getBatchDisplay(selectedRecord.batch)}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-500">Serial Number</p>
+                                                        <p className="text-sm text-gray-700">{getSerialDisplay(selectedRecord.serialNumber)}</p>
+                                                    </div>
                                                     {selectedRecord.remarks && (
                                                         <div className="col-span-2">
                                                             <p className="text-xs text-gray-500">Remarks</p>
@@ -771,6 +843,7 @@ const QualityInspectionManager: React.FC = () => {
                         label: "Details",
                         fields: [
                             <FloatingSelect
+                                key="productId"
                                 label="Product"
                                 name="productId"
                                 value={String(formData.productId || "")}
@@ -790,6 +863,7 @@ const QualityInspectionManager: React.FC = () => {
                                 required
                             />,
                             <FloatingInput
+                                key="inspectorName"
                                 label="Inspector Name"
                                 name="inspectorName"
                                 value={formData.inspectorName}
@@ -797,6 +871,7 @@ const QualityInspectionManager: React.FC = () => {
                                 required
                             />,
                             <FloatingInput
+                                key="inspectionDate"
                                 label="Inspection Date"
                                 name="inspectionDate"
                                 type="date"
@@ -805,6 +880,7 @@ const QualityInspectionManager: React.FC = () => {
                                 required
                             />,
                             <FloatingSelect
+                                key="result"
                                 label="Result"
                                 name="result"
                                 value={formData.result}
@@ -815,12 +891,34 @@ const QualityInspectionManager: React.FC = () => {
                                 ]}
                                 includeEmptyOption={false}
                             />,
+                            <FloatingSelect
+                                key="batchId"
+                                label="Batch (optional)"
+                                name="batchId"
+                                value={formData.batchId}
+                                onChange={(e) => setFormData({ ...formData, batchId: e.target.value })}
+                                options={batches.map(batch => ({
+                                    id: String(batch.id),
+                                    name: batch.batchNumber,
+                                }))}
+                            />,
+                            <FloatingSelect
+                                key="serialNumberId"
+                                label="Serial Number (optional)"
+                                name="serialNumberId"
+                                value={formData.serialNumberId}
+                                onChange={(e) => setFormData({ ...formData, serialNumberId: e.target.value })}
+                                options={serialNumbers.map(sn => ({
+                                    id: String(sn.id),
+                                    name: sn.serial,
+                                }))}
+                            />,
                         ],
                     },
                     {
                         label: "Remarks",
                         fields: [
-                            <div className="md:col-span-2">
+                            <div className="md:col-span-2" key="remarks">
                                 <FloatingTextarea
                                     label="Remarks (Optional)"
                                     name="remarks"
