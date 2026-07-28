@@ -1,5 +1,6 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import {
   BuildingOfficeIcon,
   CheckBadgeIcon,
@@ -74,6 +75,12 @@ type StockLevelForm = {
 const API_URL = "/v1/api/inventory";
 const PRODUCT_URL = "/v1/api/purchase/products";
 const PAGE_SIZE = 10;
+
+// Matches routes confirmed in AppRouter.tsx. Neither takes an :id param, so
+// navigation lands on the list page with the id passed via query string +
+// state, same pattern used across the other inventory screens.
+const PRODUCT_ROUTE = "/purchase-products"; // <Route path="/purchase-products" element={<Products />} />
+const WAREHOUSE_ROUTE = "/warehouse";       // <Route path="/warehouse" element={<Warehouse />} />
 
 const emptyForm: StockLevelForm = {
   productId: "",
@@ -178,40 +185,11 @@ function getWarehouseCode(stock: StockLevel, warehouses: Warehouse[]) {
   return warehouse?.code || "";
 }
 
-// View details text generator
-function getStockDetailsText(stock: StockLevel, products: Product[], warehouses: Warehouse[]) {
-  if (!stock) return "No stock details available";
-
-  const status = getStockStatus(stock.available, stock.quantity);
-  const utilization = stock.quantity > 0
-    ? `${Math.round((stock.reserved / stock.quantity) * 100)}%`
-    : "0%";
-
-  let details = `Product: ${getProductName(stock, products)}`;
-  const sku = getProductSku(stock, products);
-  if (sku) details += `\nSKU: ${sku}`;
-  details += `\nWarehouse: ${getWarehouseName(stock, warehouses)}`;
-  const code = getWarehouseCode(stock, warehouses);
-  if (code) details += ` (${code})`;
-  details += `\n\nTotal Quantity: ${stock.quantity}`;
-  details += `\nReserved: ${stock.reserved}`;
-  details += `\nAvailable: ${stock.available}`;
-  details += `\nUtilization: ${utilization}`;
-  details += `\nStatus: ${status.label}`;
-  if (stock.updatedAt) {
-    details += `\nLast Updated: ${new Date(stock.updatedAt).toLocaleString()}`;
-  }
-  if (status.label === "Low Stock") {
-    details += `\n\n⚠️ Low Stock Alert: This item has low stock levels. Consider replenishing soon.`;
-  }
-
-  return details;
-}
-
 // ---------- Component ----------
 const StockLevelsManager: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
+  const navigate = useNavigate();
 
   const [stockLevels, setStockLevels] = useState<StockLevel[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -279,6 +257,22 @@ const StockLevelsManager: React.FC = () => {
   ) => {
     const { name, value } = e.target;
     setForm((current) => ({ ...current, [name]: value } as StockLevelForm));
+  };
+
+  // Navigates to the owning submodule's list page. Neither route accepts an
+  // :id param (see PRODUCT_ROUTE/WAREHOUSE_ROUTE notes above), so the id is
+  // passed via query string + state in case the target page reads it to
+  // auto-filter/highlight.
+  const goToProduct = (productId?: number) => {
+    if (!productId) return;
+    navigate(`${PRODUCT_ROUTE}?productId=${productId}`, { state: { productId } });
+  };
+
+  const goToWarehouse = (warehouseId?: number, warehouseName?: string) => {
+    if (!warehouseId) return;
+    navigate(`${WAREHOUSE_ROUTE}?warehouseId=${warehouseId}`, {
+      state: { warehouseId, warehouseName },
+    });
   };
 
   // Builds the endpoint URL for the selected operation, e.g.:
@@ -493,35 +487,62 @@ const StockLevelsManager: React.FC = () => {
       label: "Product",
       sortable: true,
       sortValueGetter: (stock) => getProductName(stock, products),
-      render: (stock) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50">
-            <CubeIcon className="h-4 w-4 text-cyan-700" />
-          </div>
-          <div>
-            <div className="text-sm font-semibold text-slate-900">
-              {getProductName(stock, products)}
+      render: (stock) => {
+        const productId = getProductId(stock);
+        return (
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50">
+              <CubeIcon className="h-4 w-4 text-cyan-700" />
             </div>
-            {getProductSku(stock, products) && (
-              <div className="text-xs text-slate-500">SKU: {getProductSku(stock, products)}</div>
-            )}
+            <div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goToProduct(productId);
+                }}
+                className="text-sm font-semibold text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                title="View product"
+              >
+                {getProductName(stock, products)}
+              </button>
+              {getProductSku(stock, products) && (
+                <div className="text-xs text-slate-500">SKU: {getProductSku(stock, products)}</div>
+              )}
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: "warehouse",
       label: "Warehouse",
       sortable: true,
       sortValueGetter: (stock) => getWarehouseName(stock, warehouses),
-      render: (stock) => (
-        <div className="flex items-center gap-2">
-          <BuildingOfficeIcon className="h-4 w-4 text-slate-400" />
-          <span className="text-sm text-slate-700">
-            {getWarehouseName(stock, warehouses)}
-          </span>
-        </div>
-      ),
+      render: (stock) => {
+        const warehouseId = getWarehouseId(stock);
+        const warehouseName = getWarehouseName(stock, warehouses);
+        return (
+          <div className="flex items-center gap-2">
+            <BuildingOfficeIcon className="h-4 w-4 text-slate-400" />
+            {warehouseId ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goToWarehouse(warehouseId, warehouseName);
+                }}
+                className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                title="View warehouse"
+              >
+                {warehouseName}
+              </button>
+            ) : (
+              <span className="text-sm text-slate-700">{warehouseName}</span>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: "quantity",
@@ -673,11 +694,6 @@ const StockLevelsManager: React.FC = () => {
               data={filteredStockLevels}
               fileName="Stock_Levels"
               disabled={loading}
-              metadata={(rows) => [
-                { label: "Total", value: rows.length },
-                { label: "Search", value: search || "None" },
-                { label: "Total Stock", value: rows.reduce((sum, s) => sum + s.quantity, 0) },
-              ]}
               columns={[
                 { header: "Product", accessor: (row) => getProductName(row, products) },
                 { header: "Warehouse", accessor: (row) => getWarehouseName(row, warehouses) },
@@ -685,6 +701,11 @@ const StockLevelsManager: React.FC = () => {
                 { header: "Reserved", accessor: (row) => row.reserved },
                 { header: "Available", accessor: (row) => row.available },
                 { header: "Status", accessor: (row) => getStockStatus(row.available, row.quantity).label },
+              ]}
+              metadata={(rows) => [
+                { label: "Total", value: rows.length },
+                { label: "Search", value: search || "None" },
+                { label: "Total Stock", value: rows.reduce((sum, s) => sum + s.quantity, 0) },
               ]}
             />
             <FilterPopover
@@ -853,33 +874,155 @@ const StockLevelsManager: React.FC = () => {
         ]}
       />
 
-      {/* View Details Modal */}
-      <DynamicPopup
-        isPopupOpen={showViewModal && !!viewingStock}
-        setIsPopupOpen={(open: boolean) => {
-          if (!open) {
-            setShowViewModal(false);
-            setViewingStock(null);
-          }
-        }}
-        icon={<CubeIcon className="h-6 w-6 text-cyan-600" />}
-        iconBg="bg-cyan-100"
-        innerText="Stock Level Details"
-        subText={viewingStock ? getStockDetailsText(viewingStock, products, warehouses) : "No stock details available"}
-        confirmLabel="Adjust Stock"
-        cancelLabel="Close"
-        onConfirm={() => {
-          if (viewingStock) {
-            setShowViewModal(false);
-            openEdit(viewingStock);
-          }
-        }}
-        onCancel={() => {
-          setShowViewModal(false);
-          setViewingStock(null);
-        }}
-        confirmBtnClass="bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-500 text-white"
-      />
+      {/* View Details Modal — structured grid instead of a plain-text subText
+          (subText collapses \n line breaks into one run-on paragraph). */}
+      {showViewModal && viewingStock && (() => {
+        const status = getStockStatus(viewingStock.available, viewingStock.quantity);
+        const utilization =
+          viewingStock.quantity > 0
+            ? `${Math.round((viewingStock.reserved / viewingStock.quantity) * 100)}%`
+            : "0%";
+        const productId = getProductId(viewingStock);
+        const warehouseId = getWarehouseId(viewingStock);
+        const warehouseName = getWarehouseName(viewingStock, warehouses);
+        const warehouseCode = getWarehouseCode(viewingStock, warehouses);
+        const sku = getProductSku(viewingStock, products);
+        const isLowStock = status.label === "Low Stock";
+
+        return (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+              <div
+                className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+                onClick={() => {
+                  setShowViewModal(false);
+                  setViewingStock(null);
+                }}
+              ></div>
+              <div className="inline-block transform overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:align-middle">
+                <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                  <div className="w-full text-center sm:text-left">
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="text-lg font-medium leading-6 text-gray-900">Stock Level Details</h3>
+                      <button
+                        onClick={() => {
+                          setShowViewModal(false);
+                          setViewingStock(null);
+                        }}
+                        className="text-gray-400 hover:text-gray-500"
+                      >
+                        <XCircleIcon className="h-6 w-6" />
+                      </button>
+                    </div>
+
+                    <div className="mb-4 rounded-lg bg-gray-50 p-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2">
+                          <p className="text-xs text-gray-500">Product</p>
+                          <button
+                            type="button"
+                            onClick={() => goToProduct(productId)}
+                            className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                          >
+                            {getProductName(viewingStock, products)}
+                          </button>
+                          {sku && <p className="mt-1 text-xs text-gray-500">SKU: {sku}</p>}
+                        </div>
+
+                        <div className="col-span-2">
+                          <p className="text-xs text-gray-500">Warehouse</p>
+                          {warehouseId ? (
+                            <button
+                              type="button"
+                              onClick={() => goToWarehouse(warehouseId, warehouseName)}
+                              className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                            >
+                              {warehouseName}
+                            </button>
+                          ) : (
+                            <p className="text-sm text-gray-700">{warehouseName}</p>
+                          )}
+                          {warehouseCode && <p className="mt-1 text-xs text-gray-500">{warehouseCode}</p>}
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-gray-500">Total Quantity</p>
+                          <p className="text-sm font-semibold text-gray-900">{viewingStock.quantity}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Status</p>
+                          <span
+                            className={`mt-1 inline-flex items-center rounded-full border px-2 py-1 text-xs font-medium ${status.color}`}
+                          >
+                            {status.icon}
+                            {status.label}
+                          </span>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-gray-500">Reserved</p>
+                          <p className="text-sm font-medium text-yellow-600">{viewingStock.reserved}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Available</p>
+                          <p className="text-sm font-bold text-green-600">{viewingStock.available}</p>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-gray-500">Utilization</p>
+                          <p className="text-sm text-gray-700">{utilization}</p>
+                        </div>
+                        {viewingStock.updatedAt && (
+                          <div>
+                            <p className="text-xs text-gray-500">Last Updated</p>
+                            <p className="text-sm text-gray-600">
+                              {new Date(viewingStock.updatedAt).toLocaleString()}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {isLowStock && (
+                      <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                        <p className="flex items-start gap-2 text-sm text-red-800">
+                          <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                          <span>
+                            <strong>Low Stock Alert:</strong> This item has low stock levels. Consider replenishing soon.
+                          </span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowViewModal(false);
+                      openEdit(viewingStock);
+                    }}
+                    className="inline-flex w-full justify-center rounded-md border border-transparent bg-cyan-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm"
+                  >
+                    <PencilSquareIcon className="mr-2 h-4 w-4" />
+                    Adjust Stock
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowViewModal(false);
+                      setViewingStock(null);
+                    }}
+                    className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 sm:mt-0 sm:w-auto sm:text-sm"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Delete Confirmation Modal */}
       <DynamicPopup

@@ -1,14 +1,17 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowRightIcon,
   ArrowsRightLeftIcon,
   CalendarIcon,
   ClipboardDocumentListIcon,
   CubeIcon,
+  EyeIcon,
   MagnifyingGlassIcon,
   PencilSquareIcon,
   TrashIcon,
+  XCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
@@ -99,6 +102,8 @@ const SERIALS_API_URL = "/v1/api/inventory/serial-numbers";
 const PAGE_SIZE = 10;
 const MOVEMENT_TYPES = ["GRN", "ISSUE", "TRANSFER", "RETURN"];
 
+const PRODUCT_ROUTE = "/purchase-products";
+
 const emptyForm: MovementForm = {
   movementDate: new Date().toISOString().split("T")[0],
   movementType: "GRN",
@@ -161,9 +166,25 @@ function getSerialId(serialNumber: SerialNumber | string | null | undefined, ser
   return String(serialNumbers.find((item) => item.serial === serialNumber)?.id || "");
 }
 
+function getMovementTypeBadge(type: string) {
+  switch (type?.toUpperCase()) {
+    case "GRN":
+      return "bg-green-50 text-green-700 border-green-200";
+    case "ISSUE":
+      return "bg-red-50 text-red-700 border-red-200";
+    case "TRANSFER":
+      return "bg-blue-50 text-blue-700 border-blue-200";
+    case "RETURN":
+      return "bg-amber-50 text-amber-700 border-amber-200";
+    default:
+      return "bg-slate-50 text-slate-700 border-slate-200";
+  }
+}
+
 const StockMovementsManager: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
+  const navigate = useNavigate();
 
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -179,6 +200,8 @@ const StockMovementsManager: React.FC = () => {
   const [filterMovementType, setFilterMovementType] = useState("");
   const [filterProductId, setFilterProductId] = useState("");
   const [deletingMovement, setDeletingMovement] = useState<StockMovement | null>(null);
+  const [viewingMovement, setViewingMovement] = useState<StockMovement | null>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
 
   useEffect(() => {
     fetchStockMovements();
@@ -225,9 +248,6 @@ const StockMovementsManager: React.FC = () => {
     const { name, value } = e.target;
     setForm((current) => {
       const next = { ...current, [name]: value };
-      // Changing the product invalidates any previously selected batch/serial
-      // (they belong to a specific product), so clear them to force a
-      // re-pick — this is what prevents sending a mismatched batch/serial id.
       if (name === "productId" && value !== current.productId) {
         next.batchId = "";
         next.serialNumberId = "";
@@ -236,11 +256,6 @@ const StockMovementsManager: React.FC = () => {
     });
   };
 
-  // Builds the request payload. Only includes `warehouse`, `batch`, and
-  // `serialNumber` keys when something was actually selected — omitting the
-  // key entirely (rather than sending `null`) avoids backend code paths that
-  // try to eagerly resolve a reference and blow up with things like
-  // "No value present" (Optional.get() on an empty Optional).
   const buildPayload = () => {
     const payload: Record<string, unknown> = {
       movementDate: form.movementDate,
@@ -252,9 +267,6 @@ const StockMovementsManager: React.FC = () => {
       productId: toNumber(form.productId),
     };
 
-    // Only send id when actually editing an existing record — sending id:0
-    // on create can make some JPA save() implementations try to look up an
-    // existing row with that id first, which throws when none exists.
     if (editingId) {
       payload.id = editingId;
     }
@@ -344,6 +356,11 @@ const StockMovementsManager: React.FC = () => {
     setShowFormModal(true);
   };
 
+  const openView = (movement: StockMovement) => {
+    setViewingMovement(movement);
+    setShowViewModal(true);
+  };
+
   const closeForm = () => {
     setEditingId(null);
     setForm(emptyForm);
@@ -403,6 +420,30 @@ const StockMovementsManager: React.FC = () => {
     setFilterProductId("");
   };
 
+  const getProductDisplayName = (movement: StockMovement) => {
+    const productId = movement.productId ?? movement.product?.id;
+    const product = products.find((p) => p.id === productId || p.productId === productId);
+    if (product) {
+      return product.productName || product.name || `Product #${product.id}`;
+    }
+    return (
+      movement.product?.productName ||
+      movement.product?.name ||
+      (productId ? `Product #${productId}` : "N/A")
+    );
+  };
+
+  // const getProductSku = (movement: StockMovement) => {
+  //   const productId = movement.productId ?? movement.product?.id;
+  //   const product = products.find((p) => p.id === productId || p.productId === productId);
+  //   return product?.productCode || product?.code || movement.product?.productCode || movement.product?.code || "";
+  // };
+
+  const goToProduct = (productId?: number) => {
+    if (!productId) return;
+    navigate(`${PRODUCT_ROUTE}?productId=${productId}`, { state: { productId } });
+  };
+
   const stats = useMemo(
     () => ({
       total: stockMovements.length,
@@ -428,11 +469,6 @@ const StockMovementsManager: React.FC = () => {
     }));
   }, [warehouses]);
 
-  // Batches and serial numbers are scoped to a specific product. Filtering
-  // these by the currently selected product prevents picking a batch/serial
-  // that belongs to a different product — a mismatch that the backend may
-  // reject (or accept incorrectly) since batch/serial rows carry their own
-  // productId.
   const batchOptions = useMemo(() => {
     const selectedProductId = toNumber(form.productId);
     return batches
@@ -480,8 +516,8 @@ const StockMovementsManager: React.FC = () => {
       label: "Type",
       sortable: true,
       render: (movement) => (
-        <span className="inline-flex items-center gap-1 rounded-full border border-cyan-200/40 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">
-          <ArrowsRightLeftIcon className="h-3.5 w-3.5 text-cyan-600 opacity-80" />
+        <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${getMovementTypeBadge(movement.movementType)}`}>
+          <ArrowsRightLeftIcon className="h-3.5 w-3.5 opacity-80" />
           {movement.movementType}
         </span>
       ),
@@ -490,17 +526,29 @@ const StockMovementsManager: React.FC = () => {
       key: "product",
       label: "Product",
       sortable: true,
-      sortValueGetter: (movement) => getProductLabel(products.find((item) => item.id === movement.productId || item.productId === movement.productId) || movement.product),
+      sortValueGetter: (movement) => getProductDisplayName(movement),
       render: (movement) => {
-        const product = products.find((item) => item.id === movement.productId || item.productId === movement.productId) || movement.product;
+        const productId = movement.productId ?? movement.product?.id;
+        // const sku = getProductSku(movement);
         return (
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 shadow-sm">
               <CubeIcon className="h-4 w-4 text-cyan-600" />
             </div>
-            <span className="truncate text-sm font-semibold text-slate-900">
-              {getProductLabel(product) || `Product #${movement.productId}`}
-            </span>
+            <div className="min-w-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goToProduct(productId);
+                }}
+                className="truncate text-sm font-semibold text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                title="View product"
+              >
+                {getProductDisplayName(movement)}
+              </button>
+              {/* {sku && <div className="truncate text-xs text-slate-500">SKU: {sku}</div>} */}
+            </div>
           </div>
         );
       },
@@ -550,6 +598,14 @@ const StockMovementsManager: React.FC = () => {
       className: "text-right",
       render: (movement) => (
         <div className="flex justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => openView(movement)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
+            title="View Details"
+          >
+            <EyeIcon className="h-4 w-4" />
+          </button>
           <button
             type="button"
             onClick={() => openEdit(movement)}
@@ -642,19 +698,22 @@ const StockMovementsManager: React.FC = () => {
               data={filteredStockMovements}
               fileName="Stock_Movements"
               disabled={loading}
+              dateAccessor={(row) => row.movementDate}
               metadata={(rows) => [
                 { label: "Total", value: rows.length },
                 { label: "Search", value: search || "None" },
                 { label: "Total Quantity", value: rows.reduce((sum, sm) => sum + (Number(sm.quantity) || 0), 0) },
               ]}
+              // Explicit accessors instead of raw keys — `product` is a nested
+              // object and would otherwise print "[object Object]".
               columns={[
-                { key: "movementDate", header: "Date" },
-                { key: "movementType", header: "Type" },
-                { key: "product", header: "Product" },
-                { key: "quantity", header: "Quantity" },
-                { key: "fromLocation", header: "From" },
-                { key: "toLocation", header: "To" },
-                { key: "reference", header: "Reference" },
+                { header: "Date", accessor: (row) => new Date(row.movementDate).toLocaleDateString() },
+                { header: "Type", accessor: (row) => row.movementType },
+                { header: "Product", accessor: (row) => getProductDisplayName(row) },
+                { header: "Quantity", accessor: (row) => String(row.quantity) },
+                { header: "From", accessor: (row) => row.fromLocation || "N/A" },
+                { header: "To", accessor: (row) => row.toLocation || "N/A" },
+                { header: "Reference", accessor: (row) => row.reference || "-" },
               ]}
             />
             <FilterPopover
@@ -699,6 +758,7 @@ const StockMovementsManager: React.FC = () => {
           pageSize={PAGE_SIZE}
           defaultSortKey="movementDate"
           defaultSortOrder="desc"
+          onRowClick={openView}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <ArrowsRightLeftIcon className="mb-3 h-12 w-12 text-gray-400" />
@@ -822,6 +882,153 @@ const StockMovementsManager: React.FC = () => {
           },
         ]}
       />
+
+      {/* View Details Modal — structured grid, not a plain-text blob (a plain-text
+          subText prop collapses \n line breaks, as seen in StockAdjustmentManager). */}
+      {showViewModal && viewingMovement && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div
+              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+              onClick={() => {
+                setShowViewModal(false);
+                setViewingMovement(null);
+              }}
+            ></div>
+            <div className="inline-block transform overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:align-middle">
+              <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                <div className="w-full text-center sm:text-left">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="text-lg font-medium leading-6 text-gray-900">Movement Details</h3>
+                    <button
+                      onClick={() => {
+                        setShowViewModal(false);
+                        setViewingMovement(null);
+                      }}
+                      className="text-gray-400 hover:text-gray-500"
+                    >
+                      <XCircleIcon className="h-6 w-6" />
+                    </button>
+                  </div>
+
+                  <div className="mb-6 rounded-lg bg-gray-50 p-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500">Movement Date</p>
+                        <p className="text-sm text-gray-700">
+                          {new Date(viewingMovement.movementDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Type</p>
+                        <span
+                          className={`mt-1 inline-flex items-center rounded-full border px-2 py-1 text-xs font-medium ${getMovementTypeBadge(viewingMovement.movementType)}`}
+                        >
+                          {viewingMovement.movementType}
+                        </span>
+                      </div>
+
+                      <div className="col-span-2">
+                        <p className="text-xs text-gray-500">Product</p>
+                        <button
+                          type="button"
+                          onClick={() => goToProduct(viewingMovement.productId ?? viewingMovement.product?.id)}
+                          className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                        >
+                          {getProductDisplayName(viewingMovement)}
+                        </button>
+                        {/* {getProductSku(viewingMovement) && (
+                          <p className="mt-1 text-xs text-gray-500">SKU: {getProductSku(viewingMovement)}</p>
+                        )} */}
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-gray-500">Quantity</p>
+                        <p className="text-sm font-semibold text-gray-900">{viewingMovement.quantity}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Reference</p>
+                        <p className="text-sm text-gray-700">{viewingMovement.reference || "N/A"}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-gray-500">From Location</p>
+                        <p className="text-sm text-gray-700">{viewingMovement.fromLocation || "N/A"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">To Location</p>
+                        <p className="text-sm text-gray-700">{viewingMovement.toLocation || "N/A"}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-gray-500">Warehouse</p>
+                        <p className="text-sm text-gray-700">
+                          {getWarehouseValue(viewingMovement.warehouse) || "N/A"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Batch</p>
+                        <p className="text-sm text-gray-700">
+                          {typeof viewingMovement.batch === "string"
+                            ? viewingMovement.batch
+                            : viewingMovement.batch?.batchNumber || "N/A"}
+                        </p>
+                      </div>
+
+                      <div className="col-span-2">
+                        <p className="text-xs text-gray-500">Serial Number</p>
+                        <p className="text-sm text-gray-700">
+                          {typeof viewingMovement.serialNumber === "string"
+                            ? viewingMovement.serialNumber
+                            : viewingMovement.serialNumber?.serial || "N/A"}
+                        </p>
+                      </div>
+
+                      {viewingMovement.createdBy && (
+                        <div>
+                          <p className="text-xs text-gray-500">Created By</p>
+                          <p className="text-sm text-gray-700">{viewingMovement.createdBy}</p>
+                        </div>
+                      )}
+                      {viewingMovement.createdDate && (
+                        <div>
+                          <p className="text-xs text-gray-500">Created At</p>
+                          <p className="text-sm text-gray-600">
+                            {new Date(viewingMovement.createdDate).toLocaleString()}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowViewModal(false);
+                    openEdit(viewingMovement);
+                  }}
+                  className="inline-flex w-full justify-center rounded-md border border-transparent bg-cyan-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  <PencilSquareIcon className="mr-2 h-4 w-4" />
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowViewModal(false);
+                    setViewingMovement(null);
+                  }}
+                  className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 sm:mt-0 sm:w-auto sm:text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       <DynamicPopup

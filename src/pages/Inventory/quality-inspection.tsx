@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
+import { useNavigate } from "react-router-dom";
 import {
     PencilSquareIcon,
     TrashIcon,
@@ -73,10 +74,11 @@ interface SerialNumberRef {
 // Backend fields: id, createdDate, updatedDate, createdBy, tenantId, inspectionDate,
 // inspector, result ("PASS" | "FAIL"), remarks, productId, batch (nested BatchRef),
 // serialNumber (nested SerialNumberRef). There is NO productSKU or status field on
-// the backend — productSKU/productName below are frontend-only derived display values.
+// the backend — productName below is a frontend-only derived display value.
+// (productSKU has been removed: it was a dead fallback-only field never sent to
+// the backend, and getProductDisplayName() already has a proper fallback chain.)
 interface QualityInspection {
     id: number;
-    productSKU: string;       // frontend-derived only, not sent to backend
     productName?: string;     // frontend-derived only, not sent to backend
     productId?: number;
     inspectionDate: string;
@@ -109,11 +111,17 @@ qualityInspectionApi.interceptors.request.use((config) => {
 
 const PAGE_SIZE = 10;
 
+// Routes matched against AppRouter.tsx. None of these take an :id param, so
+// navigation lands on the relevant list page with the id passed via query
+// string + state, same pattern used across the other inventory screens.
+const PRODUCT_ROUTE = "/purchase-products"; // <Route path="/purchase-products" element={<Products />} />
+const BATCH_ROUTE = "/batch";               // <Route path="/batch" element={<Batch />} />
+const SERIAL_NUMBER_ROUTE = "/serial-number"; // <Route path="/serial-number" element={<SerialNumber />} />
+
 // Editable form state. batchId/serialNumberId hold the selected record's id (as a
 // string, for <select> compatibility) — buildPayload() turns these into the nested
 // { id } reference objects the backend expects.
 type FormState = {
-    productSKU: string;
     productId: number;
     inspectionDate: string;
     inspectorName: string;
@@ -125,7 +133,6 @@ type FormState = {
 };
 
 const emptyFormState: FormState = {
-    productSKU: "",
     productId: 0,
     inspectionDate: new Date().toISOString().split("T")[0],
     inspectorName: "",
@@ -138,6 +145,7 @@ const emptyFormState: FormState = {
 
 const QualityInspectionManager: React.FC = () => {
     const { user } = useContext(AuthContext);
+    const navigate = useNavigate();
     const [records, setRecords] = useState<QualityInspection[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
@@ -164,15 +172,13 @@ const QualityInspectionManager: React.FC = () => {
     }, []);
 
     // Resolves a human-readable product name for a record, always preferring
-    // the live products lookup over any raw ID that may have been used as a
-    // fallback when the record was normalized (never show a bare numeric ID
-    // to the user as if it were a product name).
+    // the live products lookup over anything else (never show a bare numeric
+    // ID to the user as if it were a product name).
     const getProductDisplayName = (record: QualityInspection) => {
         const product = products.find((p) => p.id === record.productId);
         if (product) return product.productName || product.sku || product.code || `Product #${product.id}`;
         if (record.productName) return record.productName;
-        // Last resort: only show the SKU/code text, never a raw numeric ID.
-        return /^\d+$/.test(record.productSKU || "") ? "N/A" : record.productSKU || "N/A";
+        return record.productId ? `Product #${record.productId}` : "N/A";
     };
 
     const getProductSku = (record: QualityInspection) => {
@@ -183,18 +189,35 @@ const QualityInspectionManager: React.FC = () => {
     const getBatchDisplay = (batch?: BatchRef) => batch?.batchNumber || "N/A";
     const getSerialDisplay = (serialNumber?: SerialNumberRef) => serialNumber?.serial || "N/A";
 
+    // ---------- Navigation to the owning submodule ----------
+    // None of these routes accept an :id param (confirmed against
+    // AppRouter.tsx), so we land on the relevant list page and pass the id
+    // via state + query string in case that page supports auto-filtering.
+    const goToProduct = (productId?: number) => {
+        if (!productId) return;
+        navigate(`${PRODUCT_ROUTE}?productId=${productId}`, { state: { productId } });
+    };
+
+    const goToBatch = (batch?: BatchRef) => {
+        if (!batch?.id) return;
+        navigate(`${BATCH_ROUTE}?batchId=${batch.id}`, {
+            state: { batchId: batch.id, batchNumber: batch.batchNumber },
+        });
+    };
+
+    const goToSerialNumber = (serialNumber?: SerialNumberRef) => {
+        if (!serialNumber?.id) return;
+        navigate(`${SERIAL_NUMBER_ROUTE}?serialNumberId=${serialNumber.id}`, {
+            state: { serialNumberId: serialNumber.id, serial: serialNumber.serial },
+        });
+    };
+
     const normalizeInspection = (record: any): QualityInspection => {
         const result = record?.result === "PASS" ? "Pass" : record?.result === "FAIL" ? "Fail" : record?.result || "Pass";
-        const productSKU =
-            record?.productSKU ||
-            record?.productNumber ||
-            record?.serialNumber?.productNumber ||
-            (record?.productId != null ? String(record.productId) : "");
 
         return {
             ...record,
             id: record?.id ?? 0,
-            productSKU,
             productName: record?.productName || record?.product?.name || "",
             productId: record?.productId,
             inspectionDate: record?.inspectionDate || new Date().toISOString().split("T")[0],
@@ -271,6 +294,10 @@ const QualityInspectionManager: React.FC = () => {
     // batch and serialNumber are nested reference objects on the backend (BatchRef /
     // SerialNumberRef), NOT plain strings — sending only { id } is enough for the
     // backend to resolve the relation; the rest of the nested fields are read-only.
+    //
+    // batch/serialNumber are sent as null when left unselected — if your backend
+    // actually requires one or both (see conversation), add validation in
+    // handleSave before calling buildPayload, similar to the productId check.
     const buildPayload = () => {
         const productId = Number(formData.productId) || 0;
         const batchId = Number(formData.batchId) || 0;
@@ -324,8 +351,7 @@ const QualityInspectionManager: React.FC = () => {
     const handleEdit = (record: QualityInspection) => {
         setEditingId(record.id);
         setFormData({
-            productSKU: record.productSKU,
-            productId: record.productId || Number(record.productSKU) || 0,
+            productId: record.productId || 0,
             inspectionDate: record.inspectionDate.split('T')[0],
             inspectorName: record.inspectorName,
             inspector: record.inspector || record.inspectorName,
@@ -381,8 +407,7 @@ const QualityInspectionManager: React.FC = () => {
 
     const filtered = useMemo(() => {
         return records.filter(r => {
-            const matchesSearch = (r.productSKU || "").toLowerCase().includes(search.toLowerCase()) ||
-                (r.inspectorName || "").toLowerCase().includes(search.toLowerCase()) ||
+            const matchesSearch = (r.inspectorName || "").toLowerCase().includes(search.toLowerCase()) ||
                 (r.productName?.toLowerCase().includes(search.toLowerCase()) || false) ||
                 getProductDisplayName(r).toLowerCase().includes(search.toLowerCase());
             const matchesResult = resultFilter === "All" || r.result === resultFilter;
@@ -452,7 +477,6 @@ const QualityInspectionManager: React.FC = () => {
             className: "w-[24%]",
             sortValueGetter: (record) => getProductDisplayName(record),
             render: (record) => {
-                const name = getProductDisplayName(record);
                 const sku = getProductSku(record);
                 return (
                     <div className="flex items-center gap-3">
@@ -460,7 +484,17 @@ const QualityInspectionManager: React.FC = () => {
                             <CubeIcon className="h-4 w-4 text-cyan-600" />
                         </div>
                         <div className="min-w-0">
-                            <div className="text-sm font-semibold text-slate-900 truncate leading-snug">{name}</div>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    goToProduct(record.productId);
+                                }}
+                                className="truncate text-sm font-semibold text-cyan-600 hover:text-cyan-700 hover:underline text-left leading-snug"
+                                title="View product"
+                            >
+                                {getProductDisplayName(record)}
+                            </button>
                             {sku && (
                                 <div className="text-xs text-slate-500 truncate mt-0.5">SKU: {sku}</div>
                             )}
@@ -503,7 +537,22 @@ const QualityInspectionManager: React.FC = () => {
             headerClassName: "w-[12%] text-left",
             className: "w-[12%]",
             sortValueGetter: (record) => getBatchDisplay(record.batch),
-            render: (record) => <span className="text-sm text-slate-600">{getBatchDisplay(record.batch)}</span>,
+            render: (record) =>
+                record.batch?.id ? (
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            goToBatch(record.batch);
+                        }}
+                        className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                        title="View batch"
+                    >
+                        {getBatchDisplay(record.batch)}
+                    </button>
+                ) : (
+                    <span className="text-sm text-slate-600">N/A</span>
+                ),
         },
         {
             key: "serialNumber",
@@ -512,7 +561,22 @@ const QualityInspectionManager: React.FC = () => {
             headerClassName: "w-[12%] text-left",
             className: "w-[12%]",
             sortValueGetter: (record) => getSerialDisplay(record.serialNumber),
-            render: (record) => <span className="text-sm text-slate-600">{getSerialDisplay(record.serialNumber)}</span>,
+            render: (record) =>
+                record.serialNumber?.id ? (
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            goToSerialNumber(record.serialNumber);
+                        }}
+                        className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                        title="View serial number"
+                    >
+                        {getSerialDisplay(record.serialNumber)}
+                    </button>
+                ) : (
+                    <span className="text-sm text-slate-600">N/A</span>
+                ),
         },
         {
             key: "result",
@@ -750,7 +814,13 @@ const QualityInspectionManager: React.FC = () => {
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <p className="text-xs text-gray-500">Product</p>
-                                                        <p className="text-sm font-medium text-gray-900">{getProductDisplayName(selectedRecord)}</p>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => goToProduct(selectedRecord.productId)}
+                                                            className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                                                        >
+                                                            {getProductDisplayName(selectedRecord)}
+                                                        </button>
                                                         {getProductSku(selectedRecord) && (
                                                             <p className="text-xs text-gray-500 mt-1">SKU: {getProductSku(selectedRecord)}</p>
                                                         )}
@@ -772,11 +842,31 @@ const QualityInspectionManager: React.FC = () => {
                                                     </div>
                                                     <div>
                                                         <p className="text-xs text-gray-500">Batch</p>
-                                                        <p className="text-sm text-gray-700">{getBatchDisplay(selectedRecord.batch)}</p>
+                                                        {selectedRecord.batch?.id ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => goToBatch(selectedRecord.batch)}
+                                                                className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                                                            >
+                                                                {getBatchDisplay(selectedRecord.batch)}
+                                                            </button>
+                                                        ) : (
+                                                            <p className="text-sm text-gray-700">N/A</p>
+                                                        )}
                                                     </div>
                                                     <div>
                                                         <p className="text-xs text-gray-500">Serial Number</p>
-                                                        <p className="text-sm text-gray-700">{getSerialDisplay(selectedRecord.serialNumber)}</p>
+                                                        {selectedRecord.serialNumber?.id ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => goToSerialNumber(selectedRecord.serialNumber)}
+                                                                className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                                                            >
+                                                                {getSerialDisplay(selectedRecord.serialNumber)}
+                                                            </button>
+                                                        ) : (
+                                                            <p className="text-sm text-gray-700">N/A</p>
+                                                        )}
                                                     </div>
                                                     {selectedRecord.remarks && (
                                                         <div className="col-span-2">
@@ -849,11 +939,9 @@ const QualityInspectionManager: React.FC = () => {
                                 value={String(formData.productId || "")}
                                 onChange={(e) => {
                                     const id = Number(e.target.value) || 0;
-                                    const product = products.find(p => p.id === id);
                                     setFormData({
                                         ...formData,
                                         productId: id,
-                                        productSKU: product?.sku || product?.code || product?.productName || String(id),
                                     });
                                 }}
                                 options={products.map(product => ({

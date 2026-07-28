@@ -30,7 +30,7 @@ import { ToasterService } from "../../Services/ToasterService";
 interface Product {
   id: number;
   productName: string;
-  productSku?: string;
+    productCode?: string;
   currentStock?: number;
 }
 
@@ -90,12 +90,7 @@ enum AdjustmentType {
   NEGATIVE = "NEGATIVE",
 }
 
-// ---------- StockAdjustment, matching the actual backend schema ----------
-// Root fields per the schema: id, createdDate, updatedDate, createdBy, tenantId,
-// adjustmentDate, reason, quantity, adjustmentType, productId, warehouse (nested
-// Warehouse object), batch (nested Batch object), serialNumber (nested SerialNumber
-// object). There is NO `reference`, `approvedBy`, or `approvedAt` field on the
-// backend — those were frontend-only additions that never actually round-trip.
+
 interface StockAdjustment {
   id: number;
   createdDate?: string;
@@ -106,11 +101,6 @@ interface StockAdjustment {
   reason: string;
   quantity: number;
   adjustmentType: AdjustmentType;
-  // The stock-adjustments API schema only ever returns `productId` — there
-  // is no nested `product` object (unlike warehouse/batch/serialNumber,
-  // which ARE returned as full nested objects). `product` is kept here only
-  // for local optimistic-update convenience; never rely on it being
-  // populated from a real API response.
   productId?: number;
   product?: Product;
   warehouse?: Warehouse;
@@ -133,10 +123,6 @@ const API_URL = "/v1/api/inventory";
 const PRODUCT_URL = "/v1/api/purchase";
 const PAGE_SIZE = 10;
 
-// Routes matched against AppRouter.tsx. None of these take an :id param, so
-// clicking through opens the relevant list page (with the id passed via
-// state/query in case that page wants to auto-filter/highlight it), same
-// pattern used for warehouse navigation in SerialNumberManager.tsx.
 const PRODUCT_ROUTE = "/purchase-products"; // <Route path="/purchase-products" element={<Products />} />
 const WAREHOUSE_ROUTE = "/warehouse";       // <Route path="/warehouse" element={<Warehouse />} />
 const BATCH_ROUTE = "/batch";               // <Route path="/batch" element={<Batch />} />
@@ -246,10 +232,6 @@ const StockAdjustmentManager: React.FC = () => {
       setLoading(false);
     }
   };
-
-  // Unwraps either a raw array, a wrapped {content/data/items} response, or
-  // (seen on some inventory endpoints) a JSON string instead of a parsed
-  // body — see the warehouses/batches bug fixed in SerialNumberManager.tsx.
   const unwrapList = (resData: any): any[] => {
     let raw = resData;
     if (typeof raw === "string") {
@@ -314,29 +296,21 @@ const StockAdjustmentManager: React.FC = () => {
     }
   };
 
-  // Resolves a display name for the adjustment's product, always via the
-  // productId -> products lookup (since the API never returns a nested
-  // product object). Falls back to any locally-attached `product` (e.g. an
-  // optimistic update) only if the lookup can't find a match.
   const getProductDisplayName = (adjustment: StockAdjustment) => {
     const productId = adjustment.productId ?? adjustment.product?.id;
     const product = products.find((p) => p.id === productId);
     if (product) {
-      return product.productSku ? `${product.productName} (${product.productSku})` : product.productName;
+      return product.productCode ? `${product.productName} (${product.productCode})` : product.productName;
     }
     return adjustment.product?.productName || "N/A";
   };
 
-  const getProductSku = (adjustment: StockAdjustment) => {
-    const productId = adjustment.productId ?? adjustment.product?.id;
-    const product = products.find((p) => p.id === productId);
-    return product?.productSku || adjustment.product?.productSku || "";
-  };
+  // const getProductSku = (adjustment: StockAdjustment) => {
+  //   const productId = adjustment.productId ?? adjustment.product?.id;
+  //   const product = products.find((p) => p.id === productId);
+  //   return product?.productCode || adjustment.product?.productCode || "";
+  // };
 
-  // ---------- Navigation to the owning submodule ----------
-  // None of these routes accept an :id param (confirmed against AppRouter.tsx),
-  // so we land on the relevant list page and pass the id via state + query
-  // string in case that page supports auto-filtering/highlighting on it.
   const goToProduct = (productId?: number) => {
     if (!productId) return;
     navigate(`${PRODUCT_ROUTE}?productId=${productId}`, { state: { productId } });
@@ -363,18 +337,6 @@ const StockAdjustmentManager: React.FC = () => {
     setForm((current) => ({ ...current, [name]: value }));
   };
 
-  // Batches/serials are filtered by PRODUCT only. Warehouse is intentionally
-  // NOT used as a filter condition here: real data has shown batches whose
-  // own `warehouse` differs from the warehouse selected on the adjustment
-  // (e.g. a batch created against warehouse #6 being referenced by an
-  // adjustment for warehouse #2). Filtering on warehouse match hid valid,
-  // correctly-saved batches from the dropdown — most visibly when editing
-  // an existing adjustment, where the saved batch would silently vanish
-  // from the options list. Product is the only relationship we've
-  // confirmed is reliable, so it's the only hard filter kept. Warehouse
-  // mismatches are surfaced instead as a soft warning label in
-  // batchOptions/serialOptions below, so users still get visibility without
-  // valid data disappearing.
   const handleProductChange = (productId: string) => {
     setForm((prev) => ({ ...prev, productId, batchId: "", serialNumberId: "" }));
     if (productId) {
@@ -395,7 +357,6 @@ const StockAdjustmentManager: React.FC = () => {
       return;
     }
 
-    // Still filtered by product only — see note above handleProductChange.
     const filtered = batches.filter((batch) => batch.productId === Number(form.productId));
     setFilteredBatches(filtered);
     setFilteredSerialNumbers([]);
@@ -415,12 +376,6 @@ const StockAdjustmentManager: React.FC = () => {
     }
   };
 
-  // NOTE: audit fields (id/createdDate/updatedDate/createdBy/tenantId) are owned by
-  // the backend and must NOT be sent by the client — see the same fix applied in
-  // QualityInspectionManager.tsx (sending them causes a 400 "Failed to read
-  // request" from Jackson). `reference` is also removed: it does not exist
-  // anywhere in the StockAdjustment schema, so sending it risks the same
-  // strict-deserialization rejection.
   const buildPayload = () => {
     const selectedWarehouse = warehouses.find((item) => item.id === Number(form.warehouseId));
     const selectedBatch = filteredBatches.find((item) => item.id === Number(form.batchId))
@@ -518,13 +473,6 @@ const StockAdjustmentManager: React.FC = () => {
       serialNumberId: String(adjustment.serialNumber?.id || ""),
     });
 
-    // Filtered by product only — see note above handleProductChange for why
-    // warehouse is deliberately not used as a filter condition here. This
-    // is what fixes the "batch disappears when editing" symptom: previously
-    // a saved batch whose own warehouse differed from the adjustment's
-    // warehouse would be filtered out of filteredBatches entirely, so the
-    // dropdown had no matching option even though form.batchId was set
-    // correctly underneath.
     if (productId) {
       const filtered = batches.filter((b) => b.productId === productId);
       setFilteredBatches(filtered);
@@ -619,7 +567,7 @@ const StockAdjustmentManager: React.FC = () => {
   const productOptions = useMemo(() => {
     return products.map((product) => ({
       id: String(product.id),
-      name: product.productSku ? `${product.productName} (${product.productSku})` : product.productName,
+      name: product.productCode ? `${product.productName} (${product.productCode})` : product.productName,
     }));
   }, [products]);
 
@@ -630,10 +578,7 @@ const StockAdjustmentManager: React.FC = () => {
     }));
   }, [warehouses]);
 
-  // Soft warning instead of a hard filter: if a batch's own warehouse
-  // differs from the warehouse currently selected on the form, it still
-  // shows up in the list (so it can't silently disappear), but its label
-  // flags the mismatch so the user can make an informed choice.
+
   const batchOptions = useMemo(() => {
     const selectedWarehouseId = Number(form.warehouseId || 0);
     return filteredBatches.map((batch) => {
@@ -710,9 +655,9 @@ const StockAdjustmentManager: React.FC = () => {
             >
               {getProductDisplayName(adjustment)}
             </button>
-            {getProductSku(adjustment) && (
-              <p className="text-xs text-gray-500">SKU: {getProductSku(adjustment)}</p>
-            )}
+            {/* {getProductSku(adjustment) && (
+              <p className="text-xs text-gray-500">SKU: {getProductSku(adjustment)}</p> */}
+            {/* )} */}
           </div>
         );
       },
@@ -906,11 +851,6 @@ const StockAdjustmentManager: React.FC = () => {
               data={filteredAdjustments}
               fileName="Stock_Adjustments"
               disabled={loading}
-              // `dateAccessor` is required — the component only auto-detects
-              // dates from a fixed list of known field names (createdAt,
-              // date, orderDate, etc.) and "adjustmentDate" isn't one of
-              // them. Without this, every date-range preset (1M/3M/6M/
-              // custom) silently returns zero rows.
               dateAccessor={(row) => row.adjustmentDate}
               metadata={(rows, rangeLabel) => [
                 { label: "Total", value: rows.length },
@@ -921,9 +861,7 @@ const StockAdjustmentManager: React.FC = () => {
                   value: rows.reduce((sum, a) => sum + (a.adjustmentType === "POSITIVE" ? a.quantity : -a.quantity), 0),
                 },
               ]}
-              // Explicit accessors instead of raw object keys — `product`
-              // and `warehouse` are nested objects, so a bare `key` would
-              // print "[object Object]" rather than a readable value.
+        
               columns={[
                 { header: "Date", accessor: (row) => new Date(row.adjustmentDate).toLocaleDateString() },
                 { header: "Product", accessor: (row) => getProductDisplayName(row) },
@@ -1152,9 +1090,9 @@ const StockAdjustmentManager: React.FC = () => {
                         >
                           {getProductDisplayName(viewingAdjustment)}
                         </button>
-                        {getProductSku(viewingAdjustment) && (
+                        {/* {getProductSku(viewingAdjustment) && (
                           <p className="mt-1 text-xs text-gray-500">SKU: {getProductSku(viewingAdjustment)}</p>
-                        )}
+                        )} */}
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Quantity</p>
