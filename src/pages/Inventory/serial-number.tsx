@@ -150,7 +150,7 @@ function getInspections(
 
 function getWarrantyStatus(sn: SerialNumber) {
   return isWarrantyActive(sn.warrantyEnd) ? "In Warranty" : "Expired";
-}
+} 
 
 // ---------- Component ----------
 const SerialNumberManager: React.FC = () => {

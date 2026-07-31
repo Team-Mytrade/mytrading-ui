@@ -1,5 +1,6 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowsRightLeftIcon,
   BuildingOffice2Icon,
@@ -10,6 +11,8 @@ import {
   PencilSquareIcon,
   TrashIcon,
   XMarkIcon,
+  ClipboardDocumentCheckIcon,
+  ChartBarIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
@@ -82,6 +85,16 @@ type InventoryForm = {
   warehouseId: string;
 };
 
+type AvailabilityCheck = {
+  productId: number;
+  warehouseId: number;
+  requiredQty: number;
+  isAvailable: boolean;
+  availableQty: number;
+  totalQty: number;
+  reservedQty: number;
+};
+
 const API_URL = "/v1/api/inventory/stock";
 const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
 const PRODUCT_API_URL = "/v1/api/purchase/products";
@@ -127,9 +140,6 @@ function normalizeProductLabel(product: ProductOption): string {
 function getWarehouseId(warehouse: InventoryStock["warehouse"], warehouses: Warehouse[]): string {
   if (!warehouse) return "";
   if (typeof warehouse !== "string") return String(warehouse.id || "");
-  // Fallback: if the backend ever returns warehouse as a plain string
-  // (code or name) instead of an object, try to match it against the
-  // loaded warehouse list so the dropdown can still prefill correctly.
   return String(
     warehouses.find((w) => w.code === warehouse || w.name === warehouse)?.id || ""
   );
@@ -169,10 +179,43 @@ function getStockStatus(stock: InventoryStock) {
   };
 }
 
+const getCleanStockData = (stock: InventoryStock): any => {
+  let warehouseDisplay = '--';
+  if (stock.warehouse) {
+    if (typeof stock.warehouse === 'object') {
+      const name = stock.warehouse.name || 'Warehouse';
+      const code = stock.warehouse.code ? `(${stock.warehouse.code})` : '';
+      warehouseDisplay = `${name} ${code}`.trim();
+    } else {
+      warehouseDisplay = stock.warehouse;
+    }
+  }
+
+  return {
+    id: stock.id,
+    referenceNo: stock.referenceNo || `#${stock.id}`,
+    type: stock.type || 'N/A',
+    productId: stock.productId || 0,
+    quantity: stock.quantity || 0,
+    reservedQty: stock.reservedQty || 0,
+    minStockLevel: stock.minStockLevel || 0,
+    movementDate: stock.movementDate || '--',
+    createdDate: stock.createdDate,
+    updatedDate: stock.updatedDate,
+    createdBy: stock.createdBy,
+    tenantId: stock.tenantId,
+    status: getStockStatus(stock).label,
+    warehouse: warehouseDisplay,
+  };
+};
+
 const InventoryStockManager: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
-
+  
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
   const [stocks, setStocks] = useState<InventoryStock[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -185,11 +228,34 @@ const InventoryStockManager: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [deleteStock, setDeleteStock] = useState<InventoryStock | null>(null);
+  
+  // ✅ New state for availability check
+  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
+  const [availabilityCheck, setAvailabilityCheck] = useState<AvailabilityCheck | null>(null);
+  const [availabilityForm, setAvailabilityForm] = useState({
+    productId: "",
+    warehouseId: "",
+    requiredQty: "",
+  });
+
+  // ✅ New state for product stock summary
+  const [showProductStockModal, setShowProductStockModal] = useState(false);
+  const [selectedProductForStock, setSelectedProductForStock] = useState<number | null>(null);
 
   useEffect(() => {
     fetchAllStock();
     fetchDropdowns();
   }, []);
+
+  // Watch for warehouseId in URL and filter stocks
+  useEffect(() => {
+    const warehouseId = searchParams.get('warehouseId');
+    if (warehouseId) {
+      fetchStockByWarehouse(warehouseId);
+    } else {
+      fetchAllStock();
+    }
+  }, [searchParams]);
 
   const fetchAllStock = async (): Promise<void> => {
     try {
@@ -200,6 +266,28 @@ const InventoryStockManager: React.FC = () => {
     } catch (error) {
       setStocks([]);
       ToasterService.error("Failed to load inventory stock", getErrorMessage(error, "Please try again."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStockByWarehouse = async (warehouseId: string): Promise<void> => {
+    try {
+      setLoading(true);
+      const response = await axios.get<InventoryStock[]>(API_URL, { headers });
+      const data = Array.isArray(response.data) ? response.data : [];
+      const filtered = data.filter(stock => {
+        const wid = typeof stock.warehouse === 'string' 
+          ? stock.warehouse 
+          : stock.warehouse?.id?.toString();
+        return wid === warehouseId;
+      });
+      setStocks(filtered);
+      const warehouseName = warehouses.find(w => w.id.toString() === warehouseId)?.name || warehouseId;
+      ToasterService.success(`Showing stock for warehouse: ${warehouseName}`);
+    } catch (error) {
+      setStocks([]);
+      ToasterService.error("Failed to load warehouse stock", getErrorMessage(error, "Please try again."));
     } finally {
       setLoading(false);
     }
@@ -250,25 +338,6 @@ const InventoryStockManager: React.FC = () => {
     setForm((current) => ({ ...current, [name]: value }));
   };
 
-  /**
-   * Builds the Inventory Stock create/update payload.
-   *
-   * Only the fields the frontend actually owns are sent:
-   * type, quantity, movementDate, referenceNo, productId, reservedQty,
-   * minStockLevel, and warehouse as a bare `{ id }` reference (the
-   * backend looks up the full Warehouse record from that id).
-   *
-   * NOT sent: id / createdDate / updatedDate / createdBy / tenantId on
-   * create — these are server-managed audit fields the backend should
-   * stamp itself. `id` is added back only on update, so the backend
-   * knows which record to modify.
-   *
-   * The Warehouse's nested stockLevels/batches/serialNumbers/
-   * stockMovements/stockAdjustments/stockEntries are NOT reconstructed
-   * here — those are the warehouse's own related records with their own
-   * create/update flows elsewhere in the app, not something this form
-   * should read, own, or round-trip.
-   */
   const buildPayload = () => {
     const payload = {
       type: form.type,
@@ -304,7 +373,12 @@ const InventoryStockManager: React.FC = () => {
       }
 
       closeForm();
-      await fetchAllStock();
+      const warehouseId = searchParams.get('warehouseId');
+      if (warehouseId) {
+        fetchStockByWarehouse(warehouseId);
+      } else {
+        await fetchAllStock();
+      }
     } catch (error) {
       ToasterService.error("Failed to save inventory stock", getErrorMessage(error, "Please try again."));
     } finally {
@@ -319,21 +393,84 @@ const InventoryStockManager: React.FC = () => {
       await axios.delete(`${API_URL}/${deleteStock.id}?cascade=true`, { headers });
       ToasterService.success("Inventory stock deleted successfully");
       setDeleteStock(null);
-      await fetchAllStock();
+      const warehouseId = searchParams.get('warehouseId');
+      if (warehouseId) {
+        fetchStockByWarehouse(warehouseId);
+      } else {
+        await fetchAllStock();
+      }
     } catch (error) {
-      // Fallback: some backends don't support ?cascade=true and reject the
-      // param, or reject the whole request. Try a plain delete before
-      // giving up, mirroring the Warehouse page's delete fallback pattern.
       try {
         await axios.delete(`${API_URL}/${deleteStock.id}`, { headers });
         ToasterService.success("Inventory stock deleted successfully");
         setDeleteStock(null);
-        await fetchAllStock();
+        const warehouseId = searchParams.get('warehouseId');
+        if (warehouseId) {
+          fetchStockByWarehouse(warehouseId);
+        } else {
+          await fetchAllStock();
+        }
       } catch (fallbackError) {
         ToasterService.error("Failed to delete inventory stock", getErrorMessage(fallbackError, "Please try again."));
       }
     }
   };
+
+  // ✅ Stock Availability Check
+  const handleAvailabilityCheck = () => {
+    const productId = toNumber(availabilityForm.productId);
+    const warehouseId = toNumber(availabilityForm.warehouseId);
+    const requiredQty = toNumber(availabilityForm.requiredQty);
+
+    if (!productId || !warehouseId || !requiredQty) {
+      ToasterService.error("Please fill all fields");
+      return;
+    }
+
+    const stock = stocks.find(
+      (s) => s.productId === productId && 
+      getWarehouseId(s.warehouse, warehouses) === String(warehouseId)
+    );
+
+    if (!stock) {
+      setAvailabilityCheck({
+        productId,
+        warehouseId,
+        requiredQty,
+        isAvailable: false,
+        availableQty: 0,
+        totalQty: 0,
+        reservedQty: 0,
+      });
+      return;
+    }
+
+    const availableQty = stock.quantity - stock.reservedQty;
+    setAvailabilityCheck({
+      productId,
+      warehouseId,
+      requiredQty,
+      isAvailable: availableQty >= requiredQty,
+      availableQty,
+      totalQty: stock.quantity,
+      reservedQty: stock.reservedQty,
+    });
+  };
+
+  // ✅ Get product stock summary
+  const getProductStockSummary = (productId: number) => {
+    return stocks.filter((s) => s.productId === productId);
+  };
+
+  const productStockSummary = selectedProductForStock 
+    ? getProductStockSummary(selectedProductForStock)
+    : [];
+
+  const totalForProduct = productStockSummary.reduce((sum, s) => sum + s.quantity, 0);
+  const totalReservedForProduct = productStockSummary.reduce((sum, s) => sum + s.reservedQty, 0);
+  const totalAvailableForProduct = productStockSummary.reduce(
+    (sum, s) => sum + (s.quantity - s.reservedQty), 0
+  );
 
   const filteredStocks = useMemo(() => {
     const term = searchableText(search);
@@ -363,7 +500,8 @@ const InventoryStockManager: React.FC = () => {
       const matchesSearch = !term || searchString.includes(term);
 
       return matchesType && matchesStatus && matchesSearch;
-    });
+    })
+    .map((stock) => getCleanStockData(stock));
   }, [stocks, search, typeFilter, statusFilter, products]);
 
   const stats = useMemo(
@@ -422,10 +560,18 @@ const InventoryStockManager: React.FC = () => {
           (p) => p.id === stock.productId || p.productId === stock.productId
         );
         return (
-          <div className="flex items-center gap-2 text-sm text-slate-700">
+          <button 
+            className="flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 transition-colors"
+            onClick={() => {
+              const productId = stock.productId;
+              if (productId) {
+                navigate(`/products?productId=${productId}`);
+              }
+            }}
+          >
             <CubeIcon className="h-4 w-4 text-slate-400" />
             <span>{product ? normalizeProductLabel(product) : `Product #${stock.productId}`}</span>
-          </div>
+          </button>
         );
       },
     },
@@ -433,42 +579,48 @@ const InventoryStockManager: React.FC = () => {
       key: "warehouse",
       label: "Warehouse",
       sortable: false,
-      render: (stock) => (
-        <div className="flex items-center gap-2 text-sm text-slate-700">
-          <BuildingOffice2Icon className="h-4 w-4 text-slate-400" />
-          <div>
-            <p>{getWarehouseName(stock.warehouse)}</p>
-            {getWarehouseCode(stock.warehouse) && (
-              <p className="text-xs text-slate-400">{getWarehouseCode(stock.warehouse)}</p>
-            )}
-          </div>
-        </div>
-      ),
+      render: (stock) => {
+        const warehouseId = typeof stock.warehouse === 'string' 
+          ? stock.warehouse 
+          : stock.warehouse?.id?.toString();
+        
+        return (
+          <button 
+            className="flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 transition-colors"
+            onClick={() => {
+              if (warehouseId) {
+                navigate(`/warehouse?warehouseId=${warehouseId}`);
+              }
+            }}
+          >
+            <BuildingOffice2Icon className="h-4 w-4 text-slate-400" />
+            <div className="text-left">
+              <p>{getWarehouseName(stock.warehouse)}</p>
+              {getWarehouseCode(stock.warehouse) && (
+                <p className="text-xs text-slate-400">{getWarehouseCode(stock.warehouse)}</p>
+              )}
+            </div>
+          </button>
+        );
+      },
     },
     {
       key: "quantity",
       label: "Qty",
       sortable: true,
       render: (stock) => (
-        <span className="text-sm font-semibold text-slate-800">{stock.quantity}</span>
-      ),
-    },
-    {
-      key: "reservedQty",
-      label: "Reserved",
-      sortable: true,
-      render: (stock) => (
-        <span className="text-sm font-medium text-amber-600">{stock.reservedQty}</span>
-      ),
-    },
-    {
-      key: "movementDate",
-      label: "Movement Date",
-      sortable: true,
-      render: (stock) => (
-        <span className="text-sm text-slate-600">
-          {stock.movementDate ? new Date(stock.movementDate).toLocaleDateString() : "--"}
-        </span>
+        <button 
+          className="text-sm font-semibold text-slate-800 hover:text-cyan-600 hover:underline transition-colors"
+          onClick={() => {
+            const warehouseId = typeof stock.warehouse === 'string' 
+              ? stock.warehouse 
+              : stock.warehouse?.id?.toString();
+            
+            navigate(`/stock-movement?productId=${stock.productId}&warehouseId=${warehouseId || ''}`);
+          }}
+        >
+          {stock.quantity}
+        </button>
       ),
     },
     {
@@ -516,16 +668,18 @@ const InventoryStockManager: React.FC = () => {
     },
   ];
 
-  return (
+ return (
     <>
       <PageMeta title="Inventory Stock" description="Manage inventory stock" />
       <PageBreadcrumb pageTitle="Inventory Stock" />
 
       <div className="w-full max-w-none px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+        {/* ✅ Top Actions - Add Button on Right */}
+        <div className="mb-6 flex justify-end">
           <AddButton onClick={openCreate} label="Add Stock" />
         </div>
 
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
             label="Stock Records"
@@ -561,6 +715,7 @@ const InventoryStockManager: React.FC = () => {
           />
         </div>
 
+        {/* Search and Filters + Buttons */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-md">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
@@ -583,11 +738,32 @@ const InventoryStockManager: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* ✅ Check Availability Button - Styled like PDF/Filter */}
+            <button
+              onClick={() => setShowAvailabilityModal(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600"
+              title="Check stock availability for a product in a warehouse"
+            >
+              <ClipboardDocumentCheckIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">Check Availability</span>
+            </button>
+
+            {/* ✅ Product Summary Button - Styled like PDF/Filter */}
+            <button
+              onClick={() => setShowProductStockModal(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-purple-600"
+              title="View stock summary for a product across all warehouses"
+            >
+              <ChartBarIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">Product Summary</span>
+            </button>
+
+            {/* PDF Export Button */}
             <ListingPdfExportButton<InventoryStock>
               title="Inventory Stock Report"
               subtitle="Filtered inventory stock listing"
               reportLabel="Stock Report"
-              data={filteredStocks}
+              data={stocks}
               fileName="Inventory_Stock"
               disabled={loading}
               metadata={(rows, rangeLabel) => [
@@ -611,6 +787,7 @@ const InventoryStockManager: React.FC = () => {
               ]}
             />
 
+            {/* Filter Button */}
             <FilterPopover
               title="Filter Stock"
               buttonLabel="Filters"
@@ -630,6 +807,7 @@ const InventoryStockManager: React.FC = () => {
           </div>
         </div>
 
+        {/* Table */}
         <ReusableTable
           data={filteredStocks}
           columns={columns}
@@ -637,6 +815,8 @@ const InventoryStockManager: React.FC = () => {
           pageSize={PAGE_SIZE}
           defaultSortKey="movementDate"
           defaultSortOrder="desc"
+          enableRowDetails={true}
+          rowDetailsTitle="Stock Details"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <CubeIcon className="mb-3 h-12 w-12 text-gray-400" />
@@ -653,6 +833,184 @@ const InventoryStockManager: React.FC = () => {
         />
       </div>
 
+      {/* ✅ Stock Availability Check Modal */}
+      <PaginatedPopup
+        isOpen={showAvailabilityModal}
+        title="Check Stock Availability"
+        subtitle="Verify if stock is available for a product in a warehouse"
+        onClose={() => {
+          setShowAvailabilityModal(false);
+          setAvailabilityCheck(null);
+          setAvailabilityForm({ productId: "", warehouseId: "", requiredQty: "" });
+        }}
+        submitting={false}
+        // submitLabel={null}
+        maxWidthClassName="max-w-2xl"
+        tabs={[
+          {
+            label: "Availability Check",
+            fields: [
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FloatingSelect
+                    label="Product"
+                    name="productId"
+                    value={availabilityForm.productId}
+                    onChange={(e) => setAvailabilityForm({ ...availabilityForm, productId: e.target.value })}
+                    emptyOptionLabel="Select product"
+                    options={products.map((p) => ({
+                      id: String(p.id || p.productId || 0),
+                      name: normalizeProductLabel(p),
+                    }))}
+                  />
+                  <FloatingSelect
+                    label="Warehouse"
+                    name="warehouseId"
+                    value={availabilityForm.warehouseId}
+                    onChange={(e) => setAvailabilityForm({ ...availabilityForm, warehouseId: e.target.value })}
+                    emptyOptionLabel="Select warehouse"
+                    options={warehouses.map((w) => ({
+                      id: String(w.id),
+                      name: w.name || w.code || `Warehouse #${w.id}`,
+                    }))}
+                  />
+                  <FloatingInput
+                    label="Required Quantity"
+                    name="requiredQty"
+                    type="number"
+                    value={availabilityForm.requiredQty}
+                    onChange={(e) => setAvailabilityForm({ ...availabilityForm, requiredQty: e.target.value })}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAvailabilityCheck}
+                  className="w-full rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-700 transition-colors"
+                  disabled={!availabilityForm.productId || !availabilityForm.warehouseId || !availabilityForm.requiredQty}
+                >
+                  Check Availability
+                </button>
+
+                {availabilityCheck && (
+                  <div className={`mt-4 rounded-lg border p-4 ${
+                    availabilityCheck.isAvailable 
+                      ? 'border-green-200 bg-green-50' 
+                      : 'border-red-200 bg-red-50'
+                  }`}>
+                    <div className="flex items-start gap-3">
+                      {availabilityCheck.isAvailable ? (
+                        <CheckCircleIcon className="h-6 w-6 text-green-600 flex-shrink-0" />
+                      ) : (
+                        <XMarkIcon className="h-6 w-6 text-red-600 flex-shrink-0" />
+                      )}
+                      <div>
+                        <p className={`font-semibold ${
+                          availabilityCheck.isAvailable ? 'text-green-700' : 'text-red-700'
+                        }`}>
+                          {availabilityCheck.isAvailable 
+                            ? '✅ Stock is available!' 
+                            : '❌ Stock is NOT available'}
+                        </p>
+                        <div className="mt-2 space-y-1 text-sm">
+                          <p>Required: <strong>{availabilityCheck.requiredQty}</strong> units</p>
+                          <p>Available: <strong>{availabilityCheck.availableQty}</strong> units</p>
+                          <p>Total Stock: <strong>{availabilityCheck.totalQty}</strong> units</p>
+                          <p>Reserved: <strong>{availabilityCheck.reservedQty}</strong> units</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ],
+          },
+        ]}
+      />
+
+      {/* ✅ Product Stock Summary Modal */}
+      <PaginatedPopup
+        isOpen={showProductStockModal}
+        title="Product Stock Summary"
+        subtitle="View stock details for a specific product across all warehouses"
+        onClose={() => {
+          setShowProductStockModal(false);
+          setSelectedProductForStock(null);
+        }}
+        submitting={false}
+        // submitLabel={null}
+        maxWidthClassName="max-w-4xl"
+        tabs={[
+          {
+            label: "Stock Summary",
+            fields: [
+              <div className="space-y-4">
+                <FloatingSelect
+                  label="Select Product"
+                  name="productId"
+                  value={String(selectedProductForStock || '')}
+                  onChange={(e) => setSelectedProductForStock(Number(e.target.value))}
+                  emptyOptionLabel="Select product"
+                  options={products.map((p) => ({
+                    id: String(p.id || p.productId || 0),
+                    name: normalizeProductLabel(p),
+                  }))}
+                />
+
+                {selectedProductForStock && (
+                  <>
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="rounded-lg bg-cyan-50 p-4 text-center dark:bg-cyan-900/20">
+                        <p className="text-xs text-gray-500">Total Stock</p>
+                        <p className="text-2xl font-bold text-cyan-600">{totalForProduct}</p>
+                      </div>
+                      <div className="rounded-lg bg-orange-50 p-4 text-center dark:bg-orange-900/20">
+                        <p className="text-xs text-gray-500">Reserved</p>
+                        <p className="text-2xl font-bold text-orange-600">{totalReservedForProduct}</p>
+                      </div>
+                      <div className="rounded-lg bg-green-50 p-4 text-center dark:bg-green-900/20">
+                        <p className="text-xs text-gray-500">Available</p>
+                        <p className="text-2xl font-bold text-green-600">{totalAvailableForProduct}</p>
+                      </div>
+                    </div>
+
+                    {/* Warehouse Breakdown */}
+                    {productStockSummary.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-gray-700">Warehouse Breakdown:</p>
+                        {productStockSummary.map((stock) => (
+                          <div key={stock.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-3 dark:bg-gray-800/40">
+                            <div className="flex items-center gap-2">
+                              <BuildingOffice2Icon className="h-4 w-4 text-slate-400" />
+                              <span className="font-medium text-sm">{getWarehouseName(stock.warehouse)}</span>
+                              {getWarehouseCode(stock.warehouse) && (
+                                <span className="text-xs text-slate-400">({getWarehouseCode(stock.warehouse)})</span>
+                              )}
+                            </div>
+                            <div className="flex gap-4 text-sm">
+                              <span>Total: <strong>{stock.quantity}</strong></span>
+                              <span className="text-orange-600">Reserved: <strong>{stock.reservedQty}</strong></span>
+                              <span className="text-green-600">Available: <strong>{stock.quantity - stock.reservedQty}</strong></span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <CubeIcon className="h-12 w-12 mx-auto text-gray-300 mb-2" />
+                        <p>No stock found for this product</p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            ],
+          },
+        ]}
+      />
+
+      {/* Create/Edit Form */}
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Inventory Stock" : "Create Inventory Stock"}
@@ -684,13 +1042,6 @@ const InventoryStockManager: React.FC = () => {
                 onChange={handleChange}
                 required
               />,
-              // <FloatingInput
-              //   label="Reference Number"
-              //   name="referenceNo"
-              //   value={form.referenceNo}
-              //   onChange={handleChange}
-              //   required
-              // />,
               <FloatingSelect
                 label="Product"
                 name="productId"
@@ -742,6 +1093,7 @@ const InventoryStockManager: React.FC = () => {
         ]}
       />
 
+      {/* Delete Confirmation */}
       <DynamicPopup
         isPopupOpen={!!deleteStock}
         setIsPopupOpen={(open) => {

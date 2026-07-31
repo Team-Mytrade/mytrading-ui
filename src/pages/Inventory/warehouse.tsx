@@ -1,4 +1,5 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   BuildingOffice2Icon,
@@ -61,6 +62,7 @@ const emptyForm: WarehouseForm = {
   locationType: "MAIN",
 };
 
+
 function getErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data;
@@ -94,6 +96,7 @@ const WarehousePage: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
 
+  const navigate = useNavigate();
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [form, setForm] = useState<WarehouseForm>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -118,7 +121,8 @@ const WarehousePage: React.FC = () => {
         data.map(async (warehouse) => {
           const detailRes = await axios.get(`${API_URL}/${warehouse.id}`, { headers });
           const fullData = detailRes.data;
-          
+    
+       
           const stockCount = fullData.stockLevels?.reduce(
             (sum: number, level: any) => sum + (level.quantity || 0), 0
           ) || 0;
@@ -254,6 +258,37 @@ const WarehousePage: React.FC = () => {
     }
   };
 
+  
+const getCleanWarehouseData = (warehouse: Warehouse): any => {
+  
+  
+   return {
+    //Basic info
+    id: warehouse.id,
+    code: warehouse.code,
+    name: warehouse.name,
+    locationType: warehouse.locationType,
+    stockCount: warehouse.stockCount || 0,
+   
+    //Summary Count
+    batchCount: warehouse.batches?.length || 0,
+    serialCount: warehouse.serialNumbers?.length || 0,
+    movementCount: warehouse.stockMovements?.length || 0,
+    adjustmentCount: warehouse.stockAdjustments?.length || 0,
+    //  stockEntries: warehouse.stockEntries?.length || 0,
+
+     //Metadata
+      createdDate: warehouse.createdDate,
+    updatedDate: warehouse.updatedDate,
+    createdBy: warehouse.createdBy,
+    tenantId: warehouse.tenantId,
+    
+};};
+
+  //Only fields show in the popup
+  
+
+
   const filteredWarehouses = useMemo(() => {
     const term = searchableText(search);
     return warehouses.filter((warehouse) => {
@@ -261,7 +296,8 @@ const WarehousePage: React.FC = () => {
       const searchString = `${warehouse.id} ${warehouse.code} ${warehouse.name} ${warehouse.locationType}`.toLowerCase();
       const matchesSearch = !term || searchString.includes(term);
       return matchesType && matchesSearch;
-    });
+    })
+     .map((warehouse) => getCleanWarehouseData(warehouse));
   }, [warehouses, search, typeFilter]);
 
   const stats = useMemo(
@@ -275,9 +311,6 @@ const WarehousePage: React.FC = () => {
     [warehouses]
   );
 
-  const getTotalStock = (warehouse: Warehouse): number => {
-    return warehouse.stockLevels?.reduce((sum, level) => sum + (level.quantity || 0), 0) || 0;
-  };
 
   const columns: ColumnDef<Warehouse>[] = [
     {
@@ -319,9 +352,12 @@ const WarehousePage: React.FC = () => {
       label: "Stock Items",
       sortable: true,
       render: (warehouse) => (
-        <span className="text-sm text-slate-600">
-          {warehouse.stockCount || 0}
-        </span>
+         <button
+      onClick={() => navigate(`/products?warehouseId=${warehouse.id}`)}
+      className="text-sm text-cyan-600 hover:text-cyan-800 hover:underline cursor-pointer font-medium"
+    >
+      {warehouse.stockCount || 0} items
+    </button>
       ),
     },
     {
