@@ -111,16 +111,11 @@ qualityInspectionApi.interceptors.request.use((config) => {
 
 const PAGE_SIZE = 10;
 
-// Routes matched against AppRouter.tsx. None of these take an :id param, so
-// navigation lands on the relevant list page with the id passed via query
-// string + state, same pattern used across the other inventory screens.
+
 const PRODUCT_ROUTE = "/purchase-products"; // <Route path="/purchase-products" element={<Products />} />
 const BATCH_ROUTE = "/batch";               // <Route path="/batch" element={<Batch />} />
 const SERIAL_NUMBER_ROUTE = "/serial-number"; // <Route path="/serial-number" element={<SerialNumber />} />
 
-// Editable form state. batchId/serialNumberId hold the selected record's id (as a
-// string, for <select> compatibility) — buildPayload() turns these into the nested
-// { id } reference objects the backend expects.
 type FormState = {
     productId: number;
     inspectionDate: string;
@@ -171,9 +166,7 @@ const QualityInspectionManager: React.FC = () => {
         fetchSerialNumbers();
     }, []);
 
-    // Resolves a human-readable product name for a record, always preferring
-    // the live products lookup over anything else (never show a bare numeric
-    // ID to the user as if it were a product name).
+   
     const getProductDisplayName = (record: QualityInspection) => {
         const product = products.find((p) => p.id === record.productId);
         if (product) return product.productName || product.sku || product.code || `Product #${product.id}`;
@@ -1043,4 +1036,4 @@ const QualityInspectionManager: React.FC = () => {
     );
 };
 
-export default QualityInspectionManager;
+export default QualityInspectionManager;                
