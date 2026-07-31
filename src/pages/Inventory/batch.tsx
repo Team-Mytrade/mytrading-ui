@@ -1,5 +1,6 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import {
   CubeIcon,
   CheckCircleIcon,
@@ -10,6 +11,7 @@ import {
   TrashIcon,
   XCircleIcon,
   XMarkIcon,
+  BuildingOffice2Icon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
@@ -165,6 +167,7 @@ function getWarehouseDisplay(batch: Batch): string {
 const BatchManagement: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
+  const navigate = useNavigate();   
 
   const [batches, setBatches] = useState<Batch[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
@@ -429,28 +432,50 @@ setBatches(batchesWithStatus);
       ),
     },
     {
-      key: "productId",
-      label: "Product",
-      sortable: true,
-      render: (batch) => {
-        const product = products.find((p) => p.id === batch.productId || p.productId === batch.productId);
-        return (
-          <span className="text-sm text-slate-700">
-            {product ? normalizeProductLabel(product) : `Product #${batch.productId}`}
-          </span>
-        );
-      },
-    },
+  key: "productId",
+  label: "Product",
+  sortable: true,
+  render: (batch) => {
+    const product = products.find((p) => p.id === batch.productId || p.productId === batch.productId);
+    return (
+      <button
+        className="text-sm text-slate-700 hover:text-cyan-600 hover:underline transition-colors"
+        onClick={() => {
+          const productId = batch.productId;
+          if (productId) {
+            navigate(`/products?productId=${productId}`);
+          }
+        }}
+      >
+        {product ? normalizeProductLabel(product) : `Product #${batch.productId}`}
+      </button>
+    );
+  },
+},
     {
-      key: "warehouse",
-      label: "Warehouse",
-      sortable: true,
-      render: (batch) => (
-        <span className="text-sm text-slate-700">
-          {getWarehouseDisplay(batch)}
-        </span>
-      ),
-    },
+  key: "warehouse",
+  label: "Warehouse",
+  sortable: true,
+  render: (batch) => {
+    const warehouseId = typeof batch.warehouse === 'object' 
+      ? batch.warehouse?.id?.toString() 
+      : batch.warehouse;
+    
+    return (
+      <button
+        className="flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 transition-colors"
+        onClick={() => {
+          if (warehouseId) {
+            navigate(`/warehouse?warehouseId=${warehouseId}`);
+          }
+        }}
+      >
+        <BuildingOffice2Icon className="h-4 w-4 text-slate-400" />
+        <span>{getWarehouseDisplay(batch)}</span>
+      </button>
+    );
+  },
+},
     {
       key: "manufacturingDate",
       label: "Manufacturing",

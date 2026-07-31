@@ -1,5 +1,6 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import {
   CheckCircleIcon,
   ClockIcon,
@@ -11,6 +12,8 @@ import {
   XMarkIcon,
   UserIcon,
   CubeIcon,
+    BuildingOffice2Icon,
+  ShoppingBagIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
@@ -42,6 +45,9 @@ type InventoryReservation = {
   status: "RESERVED" | "RELEASED" | "CONSUMED" | "CANCELLED";
   reservationDate: string;
   items: ReservationItem[];
+  customerId?: number; 
+  productId?: number;
+
   // ✅ Enriched fields for row details
   customerName?: string;
   productName?: string;
@@ -143,6 +149,7 @@ function getProductCategory(product: Product | undefined): string {
 const InventoryReservationManager: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
+  const navigate = useNavigate();
 
   const [reservations, setReservations] = useState<InventoryReservation[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -185,34 +192,37 @@ const InventoryReservationManager: React.FC = () => {
 
   // ✅ FIXED: Enrich reservations with customer and product names
   const fetchReservations = async (): Promise<void> => {
-    try {
-      setLoading(true);
-      const response = await axios.get<InventoryReservation[]>(API_URL, { headers });
-      const data = Array.isArray(response.data) ? response.data : [];
+  try {
+    setLoading(true);
+    const response = await axios.get<InventoryReservation[]>(API_URL, { headers });
+    const data = Array.isArray(response.data) ? response.data : [];
+    
+    const enrichedData = data.map((reservation) => {
+      const firstItem = reservation.items?.[0];
+      const order = salesOrders.find((o) => o.id === reservation.salesOrderId);
+      const customer = order ? customers.find((c) => c.id === order.customerId) : null;
       
-      const enrichedData = data.map((reservation) => {
-        const firstItem = reservation.items?.[0];
-        const order = salesOrders.find((o) => o.id === reservation.salesOrderId);
-        const customer = order ? customers.find((c) => c.id === order.customerId) : null;
-        
-        return {
-          ...reservation,
-          customerName: customer ? getCustomerName(customer) : `Order #${reservation.salesOrderId}`,
-            productName: firstItem?.productName || `Product #${firstItem?.productId || 'Unknown'}`,
+      return {
+        ...reservation,
+        // ✅ Set customerId from the customer object
+        customerId: customer?.id || 0,
+        customerName: customer ? getCustomerName(customer) : `Order #${reservation.salesOrderId}`,
+        // ✅ Set productId from the first item
+        productId: firstItem?.productId || 0,
+        productName: firstItem?.productName || `Product #${firstItem?.productId || 'Unknown'}`,
         productCategory: firstItem?.productCategory || '',
-         
-          reservedQty: reservation.items?.[0]?.reservedQty || 0,
-        };
-      });
-      
-      setReservations(enrichedData);
-    } catch (error) {
-      setReservations([]);
-      ToasterService.error("Failed to load reservations", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
-    }
-  };
+        reservedQty: reservation.items?.[0]?.reservedQty || 0,
+      };
+    });
+    
+    setReservations(enrichedData);
+  } catch (error) {
+    setReservations([]);
+    ToasterService.error("Failed to load reservations", getErrorMessage(error, "Please try again."));
+  } finally {
+    setLoading(false);
+  }
+};
 
   const openCreate = (): void => {
     setEditingId(null);
@@ -425,166 +435,200 @@ const InventoryReservationManager: React.FC = () => {
     }
   };
 
-  const columns: ColumnDef<InventoryReservation>[] = [
-    {
-      key: "reservationNo",
-      label: "Reservation No",
-      sortable: true,
-      render: (reservation) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-100 bg-cyan-50">
-            <ClockIcon className="h-4 w-4 text-cyan-600" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-slate-900">{reservation.reservationNo}</p>
-            <p className="text-xs text-slate-400">ID: #{reservation.id}</p>
-          </div>
+ const columns: ColumnDef<InventoryReservation>[] = [
+  {
+    key: "reservationNo",
+    label: "Reservation No",
+    sortable: true,
+    render: (reservation) => (
+      <div className="flex items-center gap-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-100 bg-cyan-50">
+          <ClockIcon className="h-4 w-4 text-cyan-600" />
         </div>
-      ),
-    },
-    {
-      key: "customerName",
-      label: "Customer Name",
-      sortable: true,
-      render: (reservation) => (
-        <div className="flex items-center gap-2">
-          <UserIcon className="h-4 w-4 text-slate-400" />
-          <span className="text-sm text-slate-700">
-            {reservation.customerName || '--'}
-          </span>
+        <div>
+          <p className="text-sm font-semibold text-slate-900">{reservation.reservationNo}</p>
+          <p className="text-xs text-slate-400">ID: #{reservation.id}</p>
         </div>
-      ),
+      </div>
+    ),
+  },
+  {
+  key: "customerName",
+  label: "Customer",
+  sortable: true,
+  render: (reservation) => (
+    <button
+      className="flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 hover:underline transition-colors"
+      onClick={() => {
+        if (reservation.customerId) {
+          navigate(`/customer-management/${reservation.customerId}`);
+        }
+      }}
+    >
+      <UserIcon className="h-4 w-4 text-slate-400" />
+      <span>{reservation.customerName || 'N/A'}</span>
+    </button>
+  ),
+},
+  {
+  key: "productName",
+  label: "Product",
+  sortable: true,
+  render: (reservation) => (
+    <button
+      className="flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 hover:underline transition-colors"
+      onClick={() => {
+        if (reservation.productId) {
+          navigate(`/products?productId=${reservation.productId}`);
+        }
+      }}
+      >
+      <CubeIcon className="h-4 w-4 text-slate-400" />
+      <div className="text-left">
+        <p className="text-sm text-slate-700">
+          {reservation.productName || '--'}
+        </p>
+        {reservation.productCategory && reservation.productCategory !== '--' && (
+          <p className="text-xs text-slate-400">{reservation.productCategory}</p>
+        )}
+      </div>
+    </button>
+  ),
+},
+  {
+    key: "salesOrderId",
+    label: "Sales Order",
+    sortable: true,
+    render: (reservation) => {
+      const orderId = reservation.salesOrderId;
+      return (
+        <button
+          className="flex items-center gap-2 text-sm text-cyan-600 hover:text-cyan-800 hover:underline transition-colors"
+          onClick={() => {
+            if (orderId) {
+              navigate(`/sales-orders?orderId=${orderId}`);
+            }
+          }}
+        >
+          <ShoppingBagIcon className="h-4 w-4 text-slate-400" />
+          <span>{orderId || '--'}</span>
+        </button>
+      );
     },
-    {
-      key: "productName",
-      label: "Product",
-      sortable: true,
-      render: (reservation) => (
-        <div className="flex items-center gap-2">
-          <CubeIcon className="h-4 w-4 text-slate-400" />
-          <div>
-            <p className="text-sm text-slate-700">
-              {reservation.productName || '--'}
-            </p>
-            {reservation.productCategory && reservation.productCategory !== '--' && (
-              <p className="text-xs text-slate-400">{reservation.productCategory}</p>
-            )}
-          </div>
-        </div>
-      ),
+  },
+  {
+    key: "warehouseId",
+    label: "Warehouse",
+    sortable: true,
+    render: (reservation) => {
+      const warehouse = warehouses.find((w) => w.id === reservation.warehouseId);
+      const warehouseId = reservation.warehouseId;
+      return (
+        <button
+          className="flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 transition-colors"
+          onClick={() => {
+            if (warehouseId) {
+              navigate(`/warehouse?warehouseId=${warehouseId}`);
+            }
+          }}
+        >
+          <BuildingOffice2Icon className="h-4 w-4 text-slate-400" />
+          <span>{warehouse?.name || reservation.warehouseId || 'N/A'}</span>
+        </button>
+      );
     },
-    {
-      key: "salesOrderId",
-      label: "Sales Order",
-      sortable: true,
-      render: (reservation) => (
-        <span className="text-sm text-slate-700">{reservation.salesOrderId}</span>
-      ),
-    },
-    {
-      key: "warehouseId",
-      label: "Warehouse",
-      sortable: true,
-      render: (reservation) => {
-        const warehouse = warehouses.find((w) => w.id === reservation.warehouseId);
-        return (
-          <span className="text-sm text-slate-700">
-            {warehouse?.name || reservation.warehouseId}
-          </span>
-        );
-      },
-    },
-    {
-      key: "status",
-      label: "Status",
-      sortable: true,
-      render: (reservation) => (
-        <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusColor(reservation.status)}`}>
-          {getStatusIcon(reservation.status)}
-          {reservation.status}
-        </span>
-      ),
-    },
-    {
-      key: "reservedQty",
-      label: "Qty",
-      sortable: true,
-      render: (reservation) => (
-        <span className="text-sm font-medium text-slate-700">
-          {reservation.items?.[0]?.reservedQty || 0}
-        </span>
-      ),
-    },
-    {
-      key: "actions",
-      label: "Actions",
-      sortable: false,
-      headerClassName: "text-right",
-      className: "text-right",
-      render: (reservation) => (
-        <div className="flex justify-end gap-1">
-          <button
-            type="button"
-            onClick={() => openEdit(reservation)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit"
-          >
-            <PencilIcon className="h-4 w-4" />
-          </button>
+  },
+  {
+    key: "status",
+    label: "Status",
+    sortable: true,
+    render: (reservation) => (
+      <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusColor(reservation.status)}`}>
+        {getStatusIcon(reservation.status)}
+        {reservation.status}
+      </span>
+    ),
+  },
+  {
+    key: "reservedQty",
+    label: "Qty",
+    sortable: true,
+    render: (reservation) => (
+      <span className="text-sm font-medium text-slate-700">
+        {reservation.items?.[0]?.reservedQty || 0}
+      </span>
+    ),
+  },
+  {
+    key: "actions",
+    label: "Actions",
+    sortable: false,
+    headerClassName: "text-right",
+    className: "text-right",
+    render: (reservation) => (
+      <div className="flex justify-end gap-1">
+        <button
+          type="button"
+          onClick={() => openEdit(reservation)}
+          className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+          title="Edit"
+        >
+          <PencilIcon className="h-4 w-4" />
+        </button>
 
-          {canRelease(reservation.status) && (
-            <button
-              type="button"
-              onClick={() => {
-                setActionId(reservation.id || null);
-                setActionType("release");
-              }}
-              className="rounded-lg p-1.5 text-green-600 transition hover:bg-green-50"
-              title="Release"
-            >
-              <ArrowPathIcon className="h-4 w-4" />
-            </button>
-          )}
-
-          {canConsume(reservation.status) && (
-            <button
-              type="button"
-              onClick={() => {
-                setActionId(reservation.id || null);
-                setActionType("consume");
-              }}
-              className="rounded-lg p-1.5 text-purple-600 transition hover:bg-purple-50"
-              title="Consume"
-            >
-              <CheckCircleIcon className="h-4 w-4" />
-            </button>
-          )}
-
+        {canRelease(reservation.status) && (
           <button
             type="button"
             onClick={() => {
-              if (canDelete(reservation.status)) {
-                setDeleteId(reservation.id || null);
-              } else {
-                ToasterService.warning(
-                  `Cannot delete ${reservation.status} reservation. Only RESERVED or CANCELLED can be deleted.`
-                );
-              }
+              setActionId(reservation.id || null);
+              setActionType("release");
             }}
-            className={`rounded-lg p-1.5 transition ${
-              canDelete(reservation.status)
-                ? "text-slate-400 hover:bg-red-50 hover:text-red-600"
-                : "text-gray-300 cursor-not-allowed"
-            }`}
-            title={canDelete(reservation.status) ? "Delete" : "Cannot delete"}
-            disabled={!canDelete(reservation.status)}
+            className="rounded-lg p-1.5 text-green-600 transition hover:bg-green-50"
+            title="Release"
           >
-            <TrashIcon className="h-4 w-4" />
+            <ArrowPathIcon className="h-4 w-4" />
           </button>
-        </div>
-      ),
-    },
-  ];
+        )}
+
+        {canConsume(reservation.status) && (
+          <button
+            type="button"
+            onClick={() => {
+              setActionId(reservation.id || null);
+              setActionType("consume");
+            }}
+            className="rounded-lg p-1.5 text-purple-600 transition hover:bg-purple-50"
+            title="Consume"
+          >
+            <CheckCircleIcon className="h-4 w-4" />
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={() => {
+            if (canDelete(reservation.status)) {
+              setDeleteId(reservation.id || null);
+            } else {
+              ToasterService.warning(
+                `Cannot delete ${reservation.status} reservation. Only RESERVED or CANCELLED can be deleted.`
+              );
+            }
+          }}
+          className={`rounded-lg p-1.5 transition ${
+            canDelete(reservation.status)
+              ? "text-slate-400 hover:bg-red-50 hover:text-red-600"
+              : "text-gray-300 cursor-not-allowed"
+          }`}
+          title={canDelete(reservation.status) ? "Delete" : "Cannot delete"}
+          disabled={!canDelete(reservation.status)}
+        >
+          <TrashIcon className="h-4 w-4" />
+        </button>
+      </div>
+    ),
+  },
+];
 
   return (
     <>

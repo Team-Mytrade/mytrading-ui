@@ -254,6 +254,7 @@ export default function AppRouter() {
           <Route path="/quote-view/:id" element={<Quotations />} />
 
           <Route path="/warehouse" element={<Warehouse />} />
+           <Route path="/products" element={<Products />} />
           <Route path="/inventory" element={<InventoryModule />} />
           <Route path="/stock-movement" element={<StockMovement />} />
           <Route path="/stock-level" element={<StockLevel />} />
@@ -261,6 +262,7 @@ export default function AppRouter() {
           <Route path="/serial-number" element={<SerialNumber />} />
           <Route path="/quality-inspection" element={<QualityInspection />} />
           <Route path="/inventory-reservation" element={<InventoryReservation />} />
+          <Route path="/customer" element={<Customers />} />
           <Route path="/batch" element={<Batch />} />
           <Route path="/inventory-report" element={<InventoryReport />} />
 
