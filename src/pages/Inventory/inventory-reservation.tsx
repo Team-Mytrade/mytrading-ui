@@ -503,7 +503,7 @@ const InventoryReservationManager: React.FC = () => {
       const orderId = reservation.salesOrderId;
       return (
         <button
-          className="flex items-center gap-2 text-sm text-cyan-600 hover:text-cyan-800 hover:underline transition-colors"
+          className="flex items-center ml-5 gap-2 text-sm text-cyan-600 hover:text-cyan-800 hover:underline transition-colors"
           onClick={() => {
             if (orderId) {
               navigate(`/sales-orders?orderId=${orderId}`);
@@ -525,7 +525,7 @@ const InventoryReservationManager: React.FC = () => {
       const warehouseId = reservation.warehouseId;
       return (
         <button
-          className="flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 transition-colors"
+          className=" ml-2 flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 transition-colors"
           onClick={() => {
             if (warehouseId) {
               navigate(`/warehouse?warehouseId=${warehouseId}`);
@@ -543,7 +543,7 @@ const InventoryReservationManager: React.FC = () => {
     label: "Status",
     sortable: true,
     render: (reservation) => (
-      <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusColor(reservation.status)}`}>
+      <span className={`inline-flex items-center gap-1 -ml-5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusColor(reservation.status)}`}>
         {getStatusIcon(reservation.status)}
         {reservation.status}
       </span>
@@ -554,7 +554,7 @@ const InventoryReservationManager: React.FC = () => {
     label: "Qty",
     sortable: true,
     render: (reservation) => (
-      <span className="text-sm font-medium text-slate-700">
+      <span className="text-sm font-medium text-slate-700 ml-2">
         {reservation.items?.[0]?.reservedQty || 0}
       </span>
     ),

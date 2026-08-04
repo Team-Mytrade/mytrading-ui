@@ -334,7 +334,7 @@ const getCleanWarehouseData = (warehouse: Warehouse): any => {
       label: "Name",
       sortable: true,
       render: (warehouse) => (
-        <span className="text-sm text-slate-700">{warehouse.name}</span>
+        <span className="text-sm text-slate-700 ml-10">{warehouse.name}</span>
       ),
     },
     {
@@ -342,7 +342,7 @@ const getCleanWarehouseData = (warehouse: Warehouse): any => {
       label: "Location Type",
       sortable: true,
       render: (warehouse) => (
-        <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${getLocationTypeColor(warehouse.locationType)}`}>
+        <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ml-20 ${getLocationTypeColor(warehouse.locationType)}`}>
           {warehouse.locationType}
         </span>
       ),
@@ -354,7 +354,7 @@ const getCleanWarehouseData = (warehouse: Warehouse): any => {
       render: (warehouse) => (
          <button
       onClick={() => navigate(`/products?warehouseId=${warehouse.id}`)}
-      className="text-sm text-cyan-600 hover:text-cyan-800 hover:underline cursor-pointer font-medium"
+      className="text-sm text-cyan-600 hover:text-cyan-800 hover:underline cursor-pointer font-medium ml-20"
     >
       {warehouse.stockCount || 0} items
     </button>
