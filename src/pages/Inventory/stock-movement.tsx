@@ -62,6 +62,54 @@ type SerialNumber = {
   batch?: Batch | string;
 };
 
+// Fixed set of movement types per the Inventory Module spec's
+// "Stock Movement Types" list (8 total). Previously only 4 were supported
+// (GRN, ISSUE, TRANSFER, RETURN) — RETURN didn't distinguish customer vs
+// supplier, and Stock Adjustment / Damage / Stock Correction were missing
+// entirely as movement-type options.
+enum MovementType {
+  PURCHASE_RECEIPT = "PURCHASE_RECEIPT",
+  SALES_ISSUE = "SALES_ISSUE",
+  WAREHOUSE_TRANSFER = "WAREHOUSE_TRANSFER",
+  CUSTOMER_RETURN = "CUSTOMER_RETURN",
+  SUPPLIER_RETURN = "SUPPLIER_RETURN",
+  STOCK_ADJUSTMENT = "STOCK_ADJUSTMENT",
+  DAMAGE = "DAMAGE",
+  STOCK_CORRECTION = "STOCK_CORRECTION",
+}
+
+const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
+  [MovementType.PURCHASE_RECEIPT]: "Purchase Receipt",
+  [MovementType.SALES_ISSUE]: "Sales Issue",
+  [MovementType.WAREHOUSE_TRANSFER]: "Warehouse Transfer",
+  [MovementType.CUSTOMER_RETURN]: "Customer Return",
+  [MovementType.SUPPLIER_RETURN]: "Supplier Return",
+  [MovementType.STOCK_ADJUSTMENT]: "Stock Adjustment",
+  [MovementType.DAMAGE]: "Damage",
+  [MovementType.STOCK_CORRECTION]: "Stock Correction",
+};
+
+// Legacy codes some existing records may still carry (e.g. "GRN", "ISSUE",
+// "TRANSFER", "RETURN") are mapped onto the new spec-aligned types so old
+// data still displays a sensible label instead of the raw code.
+const LEGACY_MOVEMENT_TYPE_MAP: Record<string, MovementType> = {
+  GRN: MovementType.PURCHASE_RECEIPT,
+  ISSUE: MovementType.SALES_ISSUE,
+  TRANSFER: MovementType.WAREHOUSE_TRANSFER,
+  RETURN: MovementType.CUSTOMER_RETURN,
+};
+
+function normalizeMovementType(type?: string | null): MovementType | string {
+  if (!type) return "";
+  if ((Object.values(MovementType) as string[]).includes(type)) return type as MovementType;
+  return LEGACY_MOVEMENT_TYPE_MAP[type] || type;
+}
+
+function getMovementTypeLabel(type?: string | null) {
+  const normalized = normalizeMovementType(type);
+  return MOVEMENT_TYPE_LABELS[normalized as MovementType] || String(type || "-");
+}
+
 type StockMovement = {
   id: number;
   createdDate?: string;
@@ -100,13 +148,12 @@ const WAREHOUSES_API_URL = "/v1/api/inventory/warehouses";
 const BATCHES_API_URL = "/v1/api/inventory/batches";
 const SERIALS_API_URL = "/v1/api/inventory/serial-numbers";
 const PAGE_SIZE = 10;
-const MOVEMENT_TYPES = ["GRN", "ISSUE", "TRANSFER", "RETURN"];
 
 const PRODUCT_ROUTE = "/purchase-products";
 
 const emptyForm: MovementForm = {
   movementDate: new Date().toISOString().split("T")[0],
-  movementType: "GRN",
+  movementType: MovementType.PURCHASE_RECEIPT,
   quantity: "",
   fromLocation: "",
   toLocation: "",
@@ -167,15 +214,23 @@ function getSerialId(serialNumber: SerialNumber | string | null | undefined, ser
 }
 
 function getMovementTypeBadge(type: string) {
-  switch (type?.toUpperCase()) {
-    case "GRN":
+  const normalized = normalizeMovementType(type);
+  switch (normalized) {
+    case MovementType.PURCHASE_RECEIPT:
       return "bg-green-50 text-green-700 border-green-200";
-    case "ISSUE":
+    case MovementType.SALES_ISSUE:
       return "bg-red-50 text-red-700 border-red-200";
-    case "TRANSFER":
+    case MovementType.WAREHOUSE_TRANSFER:
       return "bg-blue-50 text-blue-700 border-blue-200";
-    case "RETURN":
+    case MovementType.CUSTOMER_RETURN:
+    case MovementType.SUPPLIER_RETURN:
       return "bg-amber-50 text-amber-700 border-amber-200";
+    case MovementType.STOCK_ADJUSTMENT:
+      return "bg-purple-50 text-purple-700 border-purple-200";
+    case MovementType.DAMAGE:
+      return "bg-rose-50 text-rose-700 border-rose-200";
+    case MovementType.STOCK_CORRECTION:
+      return "bg-teal-50 text-teal-700 border-teal-200";
     default:
       return "bg-slate-50 text-slate-700 border-slate-200";
   }
@@ -343,7 +398,7 @@ const StockMovementsManager: React.FC = () => {
     setEditingId(movement.id);
     setForm({
       movementDate: movement.movementDate || emptyForm.movementDate,
-      movementType: movement.movementType || "GRN",
+      movementType: normalizeMovementType(movement.movementType) || MovementType.PURCHASE_RECEIPT,
       quantity: String(movement.quantity || 0),
       fromLocation: movement.fromLocation || "",
       toLocation: movement.toLocation || "",
@@ -385,7 +440,7 @@ const StockMovementsManager: React.FC = () => {
     const term = searchableText(search);
 
     return stockMovements.filter((movement) => {
-      if (filterMovementType && movement.movementType !== filterMovementType) return false;
+      if (filterMovementType && normalizeMovementType(movement.movementType) !== filterMovementType) return false;
       if (filterProductId && String(movement.productId || movement.product?.id || "") !== filterProductId) return false;
 
       if (!term) return true;
@@ -396,7 +451,7 @@ const StockMovementsManager: React.FC = () => {
       const serialLabel = typeof movement.serialNumber === "string" ? movement.serialNumber : movement.serialNumber?.serial || "";
 
       const haystack = [
-        movement.movementType,
+        getMovementTypeLabel(movement.movementType),
         movement.fromLocation,
         movement.toLocation,
         movement.reference,
@@ -433,12 +488,6 @@ const StockMovementsManager: React.FC = () => {
     );
   };
 
-  // const getProductSku = (movement: StockMovement) => {
-  //   const productId = movement.productId ?? movement.product?.id;
-  //   const product = products.find((p) => p.id === productId || p.productId === productId);
-  //   return product?.productCode || product?.code || movement.product?.productCode || movement.product?.code || "";
-  // };
-
   const goToProduct = (productId?: number) => {
     if (!productId) return;
     navigate(`${PRODUCT_ROUTE}?productId=${productId}`, { state: { productId } });
@@ -448,7 +497,7 @@ const StockMovementsManager: React.FC = () => {
     () => ({
       total: stockMovements.length,
       totalQuantity: stockMovements.reduce((sum, sm) => sum + (Number(sm.quantity) || 0), 0),
-      transfers: stockMovements.filter((sm) => sm.movementType?.toUpperCase() === "TRANSFER").length,
+      transfers: stockMovements.filter((sm) => normalizeMovementType(sm.movementType) === MovementType.WAREHOUSE_TRANSFER).length,
       uniqueProducts: new Set(stockMovements.map((sm) => sm.productId || sm.product?.id).filter(Boolean)).size,
     }),
     [stockMovements]
@@ -489,10 +538,11 @@ const StockMovementsManager: React.FC = () => {
       }));
   }, [serialNumbers, form.productId]);
 
+  // Fixed movement-type dropdown options, matching all 8 spec-defined types.
   const movementTypeOptions = useMemo(() => {
-    return MOVEMENT_TYPES.map((type) => ({
+    return Object.values(MovementType).map((type) => ({
       id: type,
-      name: type,
+      name: MOVEMENT_TYPE_LABELS[type],
     }));
   }, []);
 
@@ -515,21 +565,21 @@ const StockMovementsManager: React.FC = () => {
       key: "movementType",
       label: "Type",
       sortable: true,
+      sortValueGetter: (movement) => getMovementTypeLabel(movement.movementType),
       render: (movement) => (
         <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${getMovementTypeBadge(movement.movementType)}`}>
           <ArrowsRightLeftIcon className="h-3.5 w-3.5 opacity-80" />
-          {movement.movementType}
+          {getMovementTypeLabel(movement.movementType)}
         </span>
       ),
     },
     {
       key: "product",
-      label: "Product",
+      label: "Product Name",
       sortable: true,
       sortValueGetter: (movement) => getProductDisplayName(movement),
       render: (movement) => {
         const productId = movement.productId ?? movement.product?.id;
-        // const sku = getProductSku(movement);
         return (
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 shadow-sm">
@@ -547,7 +597,6 @@ const StockMovementsManager: React.FC = () => {
               >
                 {getProductDisplayName(movement)}
               </button>
-              {/* {sku && <div className="truncate text-xs text-slate-500">SKU: {sku}</div>} */}
             </div>
           </div>
         );
@@ -704,11 +753,9 @@ const StockMovementsManager: React.FC = () => {
                 { label: "Search", value: search || "None" },
                 { label: "Total Quantity", value: rows.reduce((sum, sm) => sum + (Number(sm.quantity) || 0), 0) },
               ]}
-              // Explicit accessors instead of raw keys — `product` is a nested
-              // object and would otherwise print "[object Object]".
               columns={[
                 { header: "Date", accessor: (row) => new Date(row.movementDate).toLocaleDateString() },
-                { header: "Type", accessor: (row) => row.movementType },
+                { header: "Type", accessor: (row) => getMovementTypeLabel(row.movementType) },
                 { header: "Product", accessor: (row) => getProductDisplayName(row) },
                 { header: "Quantity", accessor: (row) => String(row.quantity) },
                 { header: "From", accessor: (row) => row.fromLocation || "N/A" },
@@ -883,8 +930,7 @@ const StockMovementsManager: React.FC = () => {
         ]}
       />
 
-      {/* View Details Modal — structured grid, not a plain-text blob (a plain-text
-          subText prop collapses \n line breaks, as seen in StockAdjustmentManager). */}
+      {/* View Details Modal */}
       {showViewModal && viewingMovement && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
@@ -924,7 +970,7 @@ const StockMovementsManager: React.FC = () => {
                         <span
                           className={`mt-1 inline-flex items-center rounded-full border px-2 py-1 text-xs font-medium ${getMovementTypeBadge(viewingMovement.movementType)}`}
                         >
-                          {viewingMovement.movementType}
+                          {getMovementTypeLabel(viewingMovement.movementType)}
                         </span>
                       </div>
 
@@ -937,9 +983,6 @@ const StockMovementsManager: React.FC = () => {
                         >
                           {getProductDisplayName(viewingMovement)}
                         </button>
-                        {/* {getProductSku(viewingMovement) && (
-                          <p className="mt-1 text-xs text-gray-500">SKU: {getProductSku(viewingMovement)}</p>
-                        )} */}
                       </div>
 
                       <div>

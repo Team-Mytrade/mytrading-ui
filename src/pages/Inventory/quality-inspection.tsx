@@ -70,19 +70,13 @@ interface SerialNumberRef {
     batch?: BatchRef;
 }
 
-// ---------- QualityInspection, matching the backend schema ----------
-// Backend fields: id, createdDate, updatedDate, createdBy, tenantId, inspectionDate,
-// inspector, result ("PASS" | "FAIL"), remarks, productId, batch (nested BatchRef),
-// serialNumber (nested SerialNumberRef). There is NO productSKU or status field on
-// the backend — productName below is a frontend-only derived display value.
-// (productSKU has been removed: it was a dead fallback-only field never sent to
-// the backend, and getProductDisplayName() already has a proper fallback chain.)
+
 interface QualityInspection {
     id: number;
-    productName?: string;     // frontend-derived only, not sent to backend
+    productName?: string;   
     productId?: number;
     inspectionDate: string;
-    inspectorName: string;    // UI-facing alias for backend's `inspector`
+    inspectorName: string; 
     inspector?: string;
     result: "Pass" | "Fail" | "PASS" | "FAIL";
     remarks?: string;
@@ -182,10 +176,6 @@ const QualityInspectionManager: React.FC = () => {
     const getBatchDisplay = (batch?: BatchRef) => batch?.batchNumber || "N/A";
     const getSerialDisplay = (serialNumber?: SerialNumberRef) => serialNumber?.serial || "N/A";
 
-    // ---------- Navigation to the owning submodule ----------
-    // None of these routes accept an :id param (confirmed against
-    // AppRouter.tsx), so we land on the relevant list page and pass the id
-    // via state + query string in case that page supports auto-filtering.
     const goToProduct = (productId?: number) => {
         if (!productId) return;
         navigate(`${PRODUCT_ROUTE}?productId=${productId}`, { state: { productId } });
@@ -278,19 +268,6 @@ const QualityInspectionManager: React.FC = () => {
         }
     };
 
-    // NOTE: audit fields (id/createdDate/updatedDate/createdBy/tenantId) are owned by the
-    // backend on create. Sending them in the create request body was causing Jackson to
-    // fail deserializing the request DTO ("Failed to read request" / 400 Bad Request),
-    // since the create DTO doesn't expect them. The entity/DTO has no `status` field at
-    // all (see schema), so it is not part of the payload.
-    //
-    // batch and serialNumber are nested reference objects on the backend (BatchRef /
-    // SerialNumberRef), NOT plain strings — sending only { id } is enough for the
-    // backend to resolve the relation; the rest of the nested fields are read-only.
-    //
-    // batch/serialNumber are sent as null when left unselected — if your backend
-    // actually requires one or both (see conversation), add validation in
-    // handleSave before calling buildPayload, similar to the productId check.
     const buildPayload = () => {
         const productId = Number(formData.productId) || 0;
         const batchId = Number(formData.batchId) || 0;
@@ -709,7 +686,6 @@ const QualityInspectionManager: React.FC = () => {
                             <TableCellsIcon className="h-5 w-5 text-green-600" />
                         </button>
 
-                        {/* Print Button */}
                         <button
                             onClick={() => window.print()}
                             className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
@@ -764,7 +740,6 @@ const QualityInspectionManager: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Table */}
                 <ReusableTable
                     data={filtered}
                     columns={tableColumns}

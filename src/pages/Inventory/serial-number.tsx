@@ -11,6 +11,7 @@ import {
   XCircleIcon,
   XMarkIcon,
   EyeIcon,
+  CubeIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -95,6 +96,11 @@ const PAGE_SIZE = 10;
 // Matches: <Route path="/warehouse" element={<Warehouse />} /> in AppRouter.tsx
 const WAREHOUSE_ROUTE = "/warehouse";
 
+// Matches: <Route path="/product" element={<Product />} /> in AppRouter.tsx
+// NOTE: update this to whatever the actual product listing route is registered as
+// (e.g. "/product-master") if it differs in AppRouter.tsx.
+const PRODUCT_ROUTE = "/product";
+
 const emptyForm: SerialNumberForm = {
   warrantyStart: "",
   warrantyEnd: "",
@@ -176,6 +182,7 @@ const SerialNumberManager: React.FC = () => {
   const [filterBatchId, setFilterBatchId] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [viewingSerial, setViewingSerial] = useState<SerialNumber | null>(null);
+  const [viewLoading, setViewLoading] = useState(false);
   const [deletingSerial, setDeletingSerial] = useState<SerialNumber | null>(null);
 
   useEffect(() => {
@@ -382,6 +389,30 @@ const SerialNumberManager: React.FC = () => {
     }
   };
 
+  // ---------- View (navigate-in-place) for a single serial number ----------
+  // Opens the detail modal immediately with the row data we already have, then
+  // refreshes it from GET /v1/api/inventory/serial-numbers/{id} so warranty,
+  // batch, inspection, and status info reflect the latest server state.
+  const openView = async (sn: SerialNumber) => {
+    setViewingSerial(sn);
+    try {
+      setViewLoading(true);
+      const res = await axios.get<SerialNumber>(`${API_URL}/serial-numbers/${sn.id}`, { headers });
+      if (res.data) setViewingSerial(res.data);
+    } catch (error) {
+      ToasterService.error(
+        "Failed to load serial number details",
+        getErrorMessage(error, "Showing last known details.")
+      );
+    } finally {
+      setViewLoading(false);
+    }
+  };
+
+  const closeView = () => {
+    setViewingSerial(null);
+  };
+
   // ---------- Navigate to warehouse page for a given warehouse ----------
   // /warehouse has no :id route param (see AppRouter.tsx), so it always opens
   // the warehouse list/page as-is. We pass the id via state and a query param
@@ -390,6 +421,17 @@ const SerialNumberManager: React.FC = () => {
     if (!warehouse?.id) return;
     navigate(`${WAREHOUSE_ROUTE}?warehouseId=${warehouse.id}`, {
       state: { warehouseId: warehouse.id, warehouseName: warehouse.name },
+    });
+  };
+
+  // ---------- Navigate to product page for a given product ----------
+  // Same pattern as goToWarehouse above: passes the id via query param + state
+  // so Product.tsx can auto-open/highlight that product if it supports it.
+  const goToProduct = (productId?: number) => {
+    if (!productId) return;
+    const product = products.find((p) => p.id === productId);
+    navigate(`${PRODUCT_ROUTE}?productId=${productId}`, {
+      state: { productId, productName: product?.productName },
     });
   };
 
@@ -462,7 +504,17 @@ const SerialNumberManager: React.FC = () => {
             <QrCodeIcon className="h-4 w-4 text-cyan-700" />
           </div>
           <div>
-            <div className="text-sm font-semibold text-slate-900">{sn.serial || "N/A"}</div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                openView(sn);
+              }}
+              className="text-sm font-semibold text-cyan-600 hover:text-cyan-700 hover:underline"
+              title="View serial number details"
+            >
+              {sn.serial || "N/A"}
+            </button>
             <div className="text-xs text-slate-500">ID: {sn.id}</div>
           </div>
         </div>
@@ -470,9 +522,26 @@ const SerialNumberManager: React.FC = () => {
     },
     {
       key: "product",
-      label: "Product",
+      label: "Product Name",
       sortable: true,
-      render: (sn) => getProductName(sn, products),
+      render: (sn) => {
+        const name = getProductName(sn, products);
+        return sn.productId ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              goToProduct(sn.productId);
+            }}
+            className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
+            title="View product"
+          >
+            {name}
+          </button>
+        ) : (
+          <span>{name}</span>
+        );
+      },
     },
     {
       key: "warehouse",
@@ -540,7 +609,7 @@ const SerialNumberManager: React.FC = () => {
         <div className="flex justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
-            onClick={() => setViewingSerial(sn)}
+            onClick={() => openView(sn)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
             title="View"
           >
@@ -643,7 +712,7 @@ const SerialNumberManager: React.FC = () => {
               ]}
               columns={[
                 { header: "Serial Number", accessor: (row) => row.serial || "N/A" },
-                { header: "Product", accessor: (row) => getProductName(row, products) },
+                { header: "Product Name", accessor: (row) => getProductName(row, products) },
                 { header: "Warehouse", accessor: (row) => getWarehouseName(row) },
                 { header: "Batch", accessor: (row) => getBatchNumber(row) },
                 {
@@ -667,7 +736,7 @@ const SerialNumberManager: React.FC = () => {
             >
               <div className="space-y-3">
                 <FloatingSelect
-                  label="Product"
+                  label="Product Name"
                   name="filterProductId"
                   value={filterProductId}
                   onChange={(e) => setFilterProductId(e.target.value)}
@@ -757,7 +826,7 @@ const SerialNumberManager: React.FC = () => {
             fields: [
               <FloatingSelect
                 key="productId"
-                label="Product"
+                label="Product Name"
                 name="productId"
                 value={form.productId}
                 onChange={handleChange}
@@ -818,6 +887,151 @@ const SerialNumberManager: React.FC = () => {
           },
         ]}
       />
+
+      {/* ---------- Serial Number Detail / Navigation Modal ---------- */}
+      {viewingSerial && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+          onClick={closeView}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50">
+                  <QrCodeIcon className="h-5 w-5 text-cyan-700" />
+                </div>
+                <div>
+                  <div className="text-base font-semibold text-slate-900">
+                    {viewingSerial.serial || "N/A"}
+                  </div>
+                  <div className="text-xs text-slate-500">ID: {viewingSerial.id}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeView}
+                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            </div>
+
+            {viewLoading && (
+              <div className="mb-3 text-xs text-slate-400">Refreshing latest details…</div>
+            )}
+
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
+                <span className="flex items-center gap-2 text-slate-500">
+                  <CubeIcon className="h-4 w-4" /> Product
+                </span>
+                {viewingSerial.productId ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeView();
+                      goToProduct(viewingSerial.productId);
+                    }}
+                    className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
+                  >
+                    {getProductName(viewingSerial, products)}
+                  </button>
+                ) : (
+                  <span className="font-medium text-slate-800">
+                    {getProductName(viewingSerial, products)}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
+                <span className="flex items-center gap-2 text-slate-500">
+                  <BuildingStorefrontIcon className="h-4 w-4" /> Warehouse
+                </span>
+                {viewingSerial.warehouse?.id ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeView();
+                      goToWarehouse(viewingSerial.warehouse);
+                    }}
+                    className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
+                  >
+                    {getWarehouseName(viewingSerial)}
+                  </button>
+                ) : (
+                  <span className="font-medium text-slate-800">{getWarehouseName(viewingSerial)}</span>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
+                <span className="text-slate-500">Batch</span>
+                <span className="font-medium text-slate-800">{getBatchNumber(viewingSerial)}</span>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
+                <span className="text-slate-500">Warranty Start</span>
+                <span className="font-medium text-slate-800">
+                  {viewingSerial.warrantyStart
+                    ? new Date(viewingSerial.warrantyStart).toLocaleDateString()
+                    : "N/A"}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
+                <span className="text-slate-500">Warranty End</span>
+                <span className="font-medium text-slate-800">
+                  {viewingSerial.warrantyEnd
+                    ? new Date(viewingSerial.warrantyEnd).toLocaleDateString()
+                    : "N/A"}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
+                <span className="text-slate-500">Warranty Status</span>
+                <span
+                  className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                    isWarrantyActive(viewingSerial.warrantyEnd)
+                      ? "bg-green-50 text-green-700"
+                      : "bg-red-50 text-red-700"
+                  }`}
+                >
+                  {getWarrantyStatus(viewingSerial)}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
+                <span className="text-slate-500">Inspections</span>
+                <span className="font-medium text-slate-800">
+                  {getInspections(viewingSerial, inspectionsBySerial)}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  closeView();
+                  openEdit(viewingSerial);
+                }}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={closeView}
+                className="rounded-lg bg-cyan-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-cyan-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <DynamicPopup
         isPopupOpen={!!deletingSerial}

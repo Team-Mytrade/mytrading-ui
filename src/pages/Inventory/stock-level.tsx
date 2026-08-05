@@ -501,7 +501,7 @@ const StockLevelsManager: React.FC = () => {
                   e.stopPropagation();
                   goToProduct(productId);
                 }}
-                className="text-sm font-semibold text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                 className="text-sm font-semibold text-cyan-600 hover:text-cyan-700 text-left"
                 title="View product"
               >
                 {getProductName(stock, products)}
@@ -532,7 +532,7 @@ const StockLevelsManager: React.FC = () => {
                   e.stopPropagation();
                   goToWarehouse(warehouseId, warehouseName);
                 }}
-                className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                className="text-sm font-medium text-cyan-600 hover:text-cyan-700 text-left"
                 title="View warehouse"
               >
                 {warehouseName}
@@ -922,7 +922,7 @@ const StockLevelsManager: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => goToProduct(productId)}
-                            className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                            className="text-sm font-medium text-cyan-600 hover:text-cyan-700 text-left"
                           >
                             {getProductName(viewingStock, products)}
                           </button>
@@ -935,7 +935,7 @@ const StockLevelsManager: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => goToWarehouse(warehouseId, warehouseName)}
-                              className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                              className="text-sm font-medium text-cyan-600 hover:text-cyan-700 text-left"
                             >
                               {warehouseName}
                             </button>

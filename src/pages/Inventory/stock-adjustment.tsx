@@ -90,6 +90,26 @@ enum AdjustmentType {
   NEGATIVE = "NEGATIVE",
 }
 
+// Fixed set of adjustment reasons per the Inventory Module spec.
+// Previously this was free text — now constrained to these six categories
+// so reporting/filtering by reason is reliable.
+enum AdjustmentReason {
+  PHYSICAL_STOCK_COUNT = "PHYSICAL_STOCK_COUNT",
+  DAMAGED_PRODUCTS = "DAMAGED_PRODUCTS",
+  LOST_PRODUCTS = "LOST_PRODUCTS",
+  EXPIRED_PRODUCTS = "EXPIRED_PRODUCTS",
+  INVENTORY_AUDIT = "INVENTORY_AUDIT",
+  MANUAL_CORRECTION = "MANUAL_CORRECTION",
+}
+
+const ADJUSTMENT_REASON_LABELS: Record<AdjustmentReason, string> = {
+  [AdjustmentReason.PHYSICAL_STOCK_COUNT]: "Physical Stock Count",
+  [AdjustmentReason.DAMAGED_PRODUCTS]: "Damaged Products",
+  [AdjustmentReason.LOST_PRODUCTS]: "Lost Products",
+  [AdjustmentReason.EXPIRED_PRODUCTS]: "Expired Products",
+  [AdjustmentReason.INVENTORY_AUDIT]: "Inventory Audit",
+  [AdjustmentReason.MANUAL_CORRECTION]: "Manual Correction",
+};
 
 interface StockAdjustment {
   id: number;
@@ -98,7 +118,7 @@ interface StockAdjustment {
   createdBy?: string;
   tenantId?: string;
   adjustmentDate: string;
-  reason: string;
+  reason: AdjustmentReason | string;
   quantity: number;
   adjustmentType: AdjustmentType;
   productId?: number;
@@ -110,7 +130,7 @@ interface StockAdjustment {
 
 type StockAdjustmentForm = {
   adjustmentDate: string;
-  reason: string;
+  reason: AdjustmentReason | "";
   quantity: string;
   adjustmentType: AdjustmentType;
   productId: string;
@@ -166,6 +186,14 @@ function getTypeIcon(type: AdjustmentType) {
   return <ArrowDownIcon className="h-3 w-3 mr-1" />;
 }
 
+// Renders a human-readable label for a reason, whether it's a known enum value
+// or legacy free-text data already stored from before this fix.
+function getReasonLabel(reason?: string | AdjustmentReason | null) {
+  if (!reason) return "-";
+  const label = ADJUSTMENT_REASON_LABELS[reason as AdjustmentReason];
+  return label || String(reason);
+}
+
 function getBatchWarehouseId(batch?: Batch | null) {
   return Number(batch?.warehouse && typeof batch.warehouse !== "string" ? batch.warehouse.id : 0);
 }
@@ -205,6 +233,7 @@ const StockAdjustmentManager: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("");
+  const [filterReason, setFilterReason] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [deletingAdjustment, setDeletingAdjustment] = useState<StockAdjustment | null>(null);
@@ -305,12 +334,6 @@ const StockAdjustmentManager: React.FC = () => {
     return adjustment.product?.productName || "N/A";
   };
 
-  // const getProductSku = (adjustment: StockAdjustment) => {
-  //   const productId = adjustment.productId ?? adjustment.product?.id;
-  //   const product = products.find((p) => p.id === productId);
-  //   return product?.productCode || adjustment.product?.productCode || "";
-  // };
-
   const goToProduct = (productId?: number) => {
     if (!productId) return;
     navigate(`${PRODUCT_ROUTE}?productId=${productId}`, { state: { productId } });
@@ -385,7 +408,7 @@ const StockAdjustmentManager: React.FC = () => {
 
     const payload: Record<string, any> = {
       adjustmentDate: form.adjustmentDate,
-      reason: form.reason.trim(),
+      reason: form.reason,
       quantity: Number(form.quantity),
       adjustmentType: form.adjustmentType,
       productId: Number(form.productId),
@@ -422,8 +445,8 @@ const StockAdjustmentManager: React.FC = () => {
       ToasterService.error("Invalid quantity", "Quantity must be greater than 0.");
       return;
     }
-    if (!form.reason.trim()) {
-      ToasterService.error("Required field missing", "Please provide a reason for the adjustment.");
+    if (!form.reason) {
+      ToasterService.error("Required field missing", "Please select a reason for the adjustment.");
       return;
     }
 
@@ -464,7 +487,11 @@ const StockAdjustmentManager: React.FC = () => {
     setEditingId(adjustment.id);
     setForm({
       adjustmentDate: adjustment.adjustmentDate?.split('T')[0] || new Date().toISOString().split('T')[0],
-      reason: adjustment.reason || "",
+      // Legacy free-text values that don't match a known reason code fall back to
+      // empty so the user has to pick a valid option on edit.
+      reason: (Object.values(AdjustmentReason) as string[]).includes(adjustment.reason as string)
+        ? (adjustment.reason as AdjustmentReason)
+        : "",
       quantity: String(adjustment.quantity || 0),
       adjustmentType: adjustment.adjustmentType || AdjustmentType.POSITIVE,
       productId: String(productId || ""),
@@ -517,13 +544,14 @@ const StockAdjustmentManager: React.FC = () => {
 
     return adjustments.filter((adjustment) => {
       if (filterType && adjustment.adjustmentType !== filterType) return false;
+      if (filterReason && adjustment.reason !== filterReason) return false;
       if (filterDateFrom && new Date(adjustment.adjustmentDate) < new Date(filterDateFrom)) return false;
       if (filterDateTo && new Date(adjustment.adjustmentDate) > new Date(filterDateTo)) return false;
 
       if (!term) return true;
 
       const haystack = [
-        adjustment.reason,
+        getReasonLabel(adjustment.reason),
         adjustment.quantity,
         adjustment.adjustmentType,
         getProductDisplayName(adjustment),
@@ -539,10 +567,11 @@ const StockAdjustmentManager: React.FC = () => {
 
       return haystack.includes(term);
     });
-  }, [adjustments, search, filterType, filterDateFrom, filterDateTo, products]);
+  }, [adjustments, search, filterType, filterReason, filterDateFrom, filterDateTo, products]);
 
   const resetFilters = () => {
     setFilterType("");
+    setFilterReason("");
     setFilterDateFrom("");
     setFilterDateTo("");
   };
@@ -621,6 +650,14 @@ const StockAdjustmentManager: React.FC = () => {
     ];
   }, []);
 
+  // Fixed reason dropdown options, per the spec's six Adjustment Reasons.
+  const reasonOptions = useMemo(() => {
+    return Object.values(AdjustmentReason).map((value) => ({
+      id: value,
+      name: ADJUSTMENT_REASON_LABELS[value],
+    }));
+  }, []);
+
   const columns: ColumnDef<StockAdjustment>[] = [
     {
       key: "adjustmentDate",
@@ -655,9 +692,6 @@ const StockAdjustmentManager: React.FC = () => {
             >
               {getProductDisplayName(adjustment)}
             </button>
-            {/* {getProductSku(adjustment) && (
-              <p className="text-xs text-gray-500">SKU: {getProductSku(adjustment)}</p> */}
-            {/* )} */}
           </div>
         );
       },
@@ -736,8 +770,9 @@ const StockAdjustmentManager: React.FC = () => {
       key: "reason",
       label: "Reason",
       sortable: true,
+      sortValueGetter: (adjustment) => getReasonLabel(adjustment.reason),
       render: (adjustment) => (
-        <p className="text-sm text-gray-700 line-clamp-2">{adjustment.reason || "-"}</p>
+        <p className="text-sm text-gray-700 line-clamp-2">{getReasonLabel(adjustment.reason)}</p>
       ),
     },
     {
@@ -872,7 +907,7 @@ const StockAdjustmentManager: React.FC = () => {
                   header: "Quantity",
                   accessor: (row) => `${row.adjustmentType === "POSITIVE" ? "+" : "-"}${row.quantity}`,
                 },
-                { header: "Reason", accessor: (row) => row.reason || "-" },
+                { header: "Reason", accessor: (row) => getReasonLabel(row.reason) },
               ]}
             />
             <FilterPopover
@@ -888,6 +923,13 @@ const StockAdjustmentManager: React.FC = () => {
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
                   options={typeOptions}
+                />
+                <FloatingSelect
+                  label="Reason"
+                  name="filterReason"
+                  value={filterReason}
+                  onChange={(e) => setFilterReason(e.target.value)}
+                  options={reasonOptions}
                 />
                 <FloatingInput
                   label="From Date"
@@ -1023,12 +1065,16 @@ const StockAdjustmentManager: React.FC = () => {
                 options={serialOptions}
                 disabled={!form.batchId}
               />,
-              <FloatingInput
+              // Reason is now a fixed dropdown (Physical Stock Count, Damaged
+              // Products, Lost Products, Expired Products, Inventory Audit,
+              // Manual Correction) instead of free text.
+              <FloatingSelect
                 key="reason"
                 label="Reason"
                 name="reason"
                 value={form.reason}
                 onChange={handleChange}
+                options={reasonOptions}
                 required
               />,
             ],
@@ -1090,9 +1136,6 @@ const StockAdjustmentManager: React.FC = () => {
                         >
                           {getProductDisplayName(viewingAdjustment)}
                         </button>
-                        {/* {getProductSku(viewingAdjustment) && (
-                          <p className="mt-1 text-xs text-gray-500">SKU: {getProductSku(viewingAdjustment)}</p>
-                        )} */}
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Quantity</p>
@@ -1155,7 +1198,7 @@ const StockAdjustmentManager: React.FC = () => {
 
                       <div className="col-span-2">
                         <p className="text-xs text-gray-500">Reason</p>
-                        <p className="text-sm text-gray-700">{viewingAdjustment.reason || "—"}</p>
+                        <p className="text-sm text-gray-700">{getReasonLabel(viewingAdjustment.reason)}</p>
                       </div>
 
                       {viewingAdjustment.createdDate && (
