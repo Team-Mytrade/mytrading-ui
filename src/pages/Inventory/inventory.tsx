@@ -229,7 +229,7 @@ const InventoryStockManager: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [deleteStock, setDeleteStock] = useState<InventoryStock | null>(null);
   
-  // ✅ New state for availability check
+  // State for availability check
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
   const [availabilityCheck, setAvailabilityCheck] = useState<AvailabilityCheck | null>(null);
   const [availabilityForm, setAvailabilityForm] = useState({
@@ -238,9 +238,10 @@ const InventoryStockManager: React.FC = () => {
     requiredQty: "",
   });
 
-  // ✅ New state for product stock summary
+  // State for product stock summary
   const [showProductStockModal, setShowProductStockModal] = useState(false);
   const [selectedProductForStock, setSelectedProductForStock] = useState<number | null>(null);
+  const [productStockData, setProductStockData] = useState<InventoryStock[]>([]);
 
   useEffect(() => {
     fetchAllStock();
@@ -257,32 +258,33 @@ const InventoryStockManager: React.FC = () => {
     }
   }, [searchParams]);
 
-  const fetchAllStock = async (): Promise<void> => {
-    try {
-      setLoading(true);
-      const response = await axios.get<InventoryStock[]>(API_URL, { headers });
-      const data = Array.isArray(response.data) ? response.data : [];
-      setStocks(data);
-    } catch (error) {
-      setStocks([]);
-      ToasterService.error("Failed to load inventory stock", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
-    }
-  };
+ // fetchAllStock to clear filters
+const fetchAllStock = async (): Promise<void> => {
+  try {
+    setLoading(true);
+    const response = await axios.get<InventoryStock[]>(API_URL, { headers });
+    const data = Array.isArray(response.data) ? response.data : [];
+    setStocks(data);
+    setTypeFilter("");  // ✅ Reset type filter
+    setStatusFilter(""); // ✅ Reset status filter
+  } catch (error) {
+    setStocks([]);
+    ToasterService.error("Failed to load inventory stock", getErrorMessage(error, "Please try again."));
+  } finally {
+    setLoading(false);
+  }
+};
 
+  // ✅ UPDATED: Use dedicated warehouse API
   const fetchStockByWarehouse = async (warehouseId: string): Promise<void> => {
     try {
       setLoading(true);
-      const response = await axios.get<InventoryStock[]>(API_URL, { headers });
+      const response = await axios.get(
+        `${API_URL}/warehouse/${warehouseId}`,
+        { headers }
+      );
       const data = Array.isArray(response.data) ? response.data : [];
-      const filtered = data.filter(stock => {
-        const wid = typeof stock.warehouse === 'string' 
-          ? stock.warehouse 
-          : stock.warehouse?.id?.toString();
-        return wid === warehouseId;
-      });
-      setStocks(filtered);
+      setStocks(data);
       const warehouseName = warehouses.find(w => w.id.toString() === warehouseId)?.name || warehouseId;
       ToasterService.success(`Showing stock for warehouse: ${warehouseName}`);
     } catch (error) {
@@ -290,6 +292,80 @@ const InventoryStockManager: React.FC = () => {
       ToasterService.error("Failed to load warehouse stock", getErrorMessage(error, "Please try again."));
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ✅ NEW: Fetch product stock using dedicated API
+  const fetchProductStock = async (productId: number): Promise<void> => {
+    try {
+      setLoading(true);
+      const response = await axios.get(
+        `${API_URL}/product/${productId}`,
+        { headers }
+      );
+      const data = Array.isArray(response.data) ? response.data : [];
+      setStocks(data);
+      const productName = products.find(p => p.id === productId)?.productName || `Product #${productId}`;
+      ToasterService.success(`Showing stock for product: ${productName}`);
+    } catch (error) {
+      setStocks([]);
+      ToasterService.error("Failed to load product stock", getErrorMessage(error, "Please try again."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+ const fetchLowStock = async (): Promise<void> => {
+  try {
+    setLoading(true);
+    
+    // Try API first
+    const response = await axios.get(
+      `${API_URL}/low-stock`,
+      { headers }
+    );
+    
+   let data = Array.isArray(response.data) ? response.data : [];
+    
+    // ✅ If API returns empty, use client-side filter
+    if (data.length === 0) {
+      // Fetch all stock first
+      const allStockResponse = await axios.get(API_URL, { headers });
+      const allData = Array.isArray(allStockResponse.data) ? allStockResponse.data : [];
+      
+      // Filter low stock items client-side
+      data = allData.filter((s: InventoryStock) => {
+        const available = Math.max(0, s.quantity - s.reservedQty);
+        return available > 0 && available <= s.minStockLevel;
+      });
+      
+      ToasterService.info(`Found ${data.length} low stock items (client-side filter)`);
+    } else {
+      ToasterService.success(`Showing ${data.length} low stock items`);
+    }
+    
+    setStocks(data);
+    setTypeFilter("");
+    setStatusFilter("low");
+  } catch (error) {
+    setStocks([]);
+    ToasterService.error("Failed to load low stock items", getErrorMessage(error, "Please try again."));
+  } finally {
+    setLoading(false);
+  }
+};
+
+  // ✅ NEW: Fetch product stock summary for modal
+  const fetchProductStockSummary = async (productId: number): Promise<InventoryStock[]> => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/product/${productId}`,
+        { headers }
+      );
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      ToasterService.error("Failed to load product stock summary", getErrorMessage(error, "Please try again."));
+      return [];
     }
   };
 
@@ -416,8 +492,8 @@ const InventoryStockManager: React.FC = () => {
     }
   };
 
-  // ✅ Stock Availability Check
-  const handleAvailabilityCheck = () => {
+  // ✅ UPDATED: Use validate API
+  const handleAvailabilityCheck = async () => {
     const productId = toNumber(availabilityForm.productId);
     const warehouseId = toNumber(availabilityForm.warehouseId);
     const requiredQty = toNumber(availabilityForm.requiredQty);
@@ -427,83 +503,83 @@ const InventoryStockManager: React.FC = () => {
       return;
     }
 
-    const stock = stocks.find(
-      (s) => s.productId === productId && 
-      getWarehouseId(s.warehouse, warehouses) === String(warehouseId)
-    );
+    try {
+      const response = await axios.get(
+        `${API_URL}/validate`,
+        {
+          params: { productId, warehouseId, qty: requiredQty },
+          headers
+        }
+      );
 
-    if (!stock) {
+      const data = response.data;
       setAvailabilityCheck({
         productId,
         warehouseId,
         requiredQty,
-        isAvailable: false,
-        availableQty: 0,
-        totalQty: 0,
-        reservedQty: 0,
+        isAvailable: data.available || false,
+        availableQty: data.availableQty || 0,
+        totalQty: data.totalQty || 0,
+        reservedQty: data.reservedQty || 0,
       });
-      return;
+    } catch (error) {
+      ToasterService.error("Failed to check availability", getErrorMessage(error, "Please try again."));
     }
-
-    const availableQty = stock.quantity - stock.reservedQty;
-    setAvailabilityCheck({
-      productId,
-      warehouseId,
-      requiredQty,
-      isAvailable: availableQty >= requiredQty,
-      availableQty,
-      totalQty: stock.quantity,
-      reservedQty: stock.reservedQty,
-    });
   };
 
-  // ✅ Get product stock summary
-  const getProductStockSummary = (productId: number) => {
-    return stocks.filter((s) => s.productId === productId);
+  // ✅ UPDATED: Handle product summary modal
+  const handleProductSummary = async (productId: number) => {
+    const data = await fetchProductStockSummary(productId);
+    setProductStockData(data);
+    setSelectedProductForStock(productId);
+    setShowProductStockModal(true);
   };
 
-  const productStockSummary = selectedProductForStock 
-    ? getProductStockSummary(selectedProductForStock)
-    : [];
-
-  const totalForProduct = productStockSummary.reduce((sum, s) => sum + s.quantity, 0);
-  const totalReservedForProduct = productStockSummary.reduce((sum, s) => sum + s.reservedQty, 0);
-  const totalAvailableForProduct = productStockSummary.reduce(
+  // Calculate totals for product stock summary
+  const totalForProduct = productStockData.reduce((sum, s) => sum + s.quantity, 0);
+  const totalReservedForProduct = productStockData.reduce((sum, s) => sum + s.reservedQty, 0);
+  const totalAvailableForProduct = productStockData.reduce(
     (sum, s) => sum + (s.quantity - s.reservedQty), 0
   );
 
-  const filteredStocks = useMemo(() => {
-    const term = searchableText(search);
+ const filteredStocks = useMemo(() => {
+  const term = searchableText(search);
 
-    return stocks.filter((stock) => {
-      const matchesType = typeFilter === "" || stock.type === typeFilter;
+  // ✅ If statusFilter is "low", we already have filtered data
+  // But we still need to apply search and type filters
+  return stocks.filter((stock) => {
+    const matchesType = typeFilter === "" || stock.type === typeFilter;
 
+    // ✅ Only apply status filter if we're not showing low stock
+    // (Low stock is already filtered in fetchLowStock)
+    let matchesStatus = true;
+    if (statusFilter === "low") {
+      // If we're showing low stock, just check if it's actually low
       const available = Math.max(0, stock.quantity - stock.reservedQty);
-      let matchesStatus = true;
-      if (statusFilter === "low") {
-        matchesStatus = available > 0 && available <= stock.minStockLevel;
-      } else if (statusFilter === "out") {
-        matchesStatus = available <= 0;
-      } else if (statusFilter === "healthy") {
-        matchesStatus = available > stock.minStockLevel;
-      }
+      matchesStatus = available > 0 && available <= stock.minStockLevel;
+    } else if (statusFilter === "out") {
+      const available = Math.max(0, stock.quantity - stock.reservedQty);
+      matchesStatus = available <= 0;
+    } else if (statusFilter === "healthy") {
+      const available = Math.max(0, stock.quantity - stock.reservedQty);
+      matchesStatus = available > stock.minStockLevel;
+    }
 
-      const warehouseName = getWarehouseName(stock.warehouse);
-      const product = products.find(
-        (p) => p.id === stock.productId || p.productId === stock.productId
-      );
-      const productName = product
-        ? normalizeProductLabel(product)
-        : `Product #${stock.productId}`;
+    const warehouseName = getWarehouseName(stock.warehouse);
+    const product = products.find(
+      (p) => p.id === stock.productId || p.productId === stock.productId
+    );
+    const productName = product
+      ? normalizeProductLabel(product)
+      : `Product #${stock.productId}`;
 
-      const searchString = `${stock.id} ${stock.type} ${stock.referenceNo} ${stock.productId} ${productName} ${warehouseName}`.toLowerCase();
-      const matchesSearch = !term || searchString.includes(term);
+    const searchString = `${stock.id} ${stock.type} ${stock.referenceNo} ${stock.productId} ${productName} ${warehouseName}`.toLowerCase();
+    const matchesSearch = !term || searchString.includes(term);
 
-      return matchesType && matchesStatus && matchesSearch;
-    })
-    .map((stock) => getCleanStockData(stock));
-  }, [stocks, search, typeFilter, statusFilter, products]);
-
+    return matchesType && matchesStatus && matchesSearch;
+  })
+  .map((stock) => getCleanStockData(stock));
+}, [stocks, search, typeFilter, statusFilter, products]);
   const stats = useMemo(
     () => ({
       total: stocks.length,
@@ -546,7 +622,7 @@ const InventoryStockManager: React.FC = () => {
       label: "Type",
       sortable: true,
       render: (stock) => (
-        <span className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-0.5 text-xs font-semibold text-cyan-700">
+        <span className="inline-flex rounded-full border ml-5 border-cyan-200 bg-cyan-50 px-2.5 py-0.5 text-xs font-semibold text-cyan-700">
           {stock.type}
         </span>
       ),
@@ -565,7 +641,8 @@ const InventoryStockManager: React.FC = () => {
             onClick={() => {
               const productId = stock.productId;
               if (productId) {
-                navigate(`/products?productId=${productId}`);
+                // ✅ Navigate to product stock view
+                 handleProductSummary(productId);
               }
             }}
           >
@@ -586,7 +663,7 @@ const InventoryStockManager: React.FC = () => {
         
         return (
           <button 
-            className="flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 transition-colors"
+            className="flex items-center gap-2 ml-8 text-sm text-slate-700 hover:text-cyan-600 transition-colors"
             onClick={() => {
               if (warehouseId) {
                 navigate(`/warehouse?warehouseId=${warehouseId}`);
@@ -610,7 +687,7 @@ const InventoryStockManager: React.FC = () => {
       sortable: true,
       render: (stock) => (
         <button 
-          className="text-sm font-semibold text-slate-800 hover:text-cyan-600 hover:underline transition-colors"
+          className="text-sm font-semibold text-slate-800 ml-7 hover:text-cyan-600 hover:underline transition-colors"
           onClick={() => {
             const warehouseId = typeof stock.warehouse === 'string' 
               ? stock.warehouse 
@@ -668,16 +745,15 @@ const InventoryStockManager: React.FC = () => {
     },
   ];
 
- return (
+  return (
     <>
       <PageMeta title="Inventory Stock" description="Manage inventory stock" />
       <PageBreadcrumb pageTitle="Inventory Stock" />
 
       <div className="w-full max-w-none px-0 py-8 space-y-6">
-        {/* ✅ Top Actions - Add Button on Right */}
-        <div className="mb-6 flex justify-end">
-          <AddButton onClick={openCreate} label="Add Stock" />
-        </div>
+         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+                  <AddButton onClick={openCreate} label="Add Stock" />
+                </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -738,9 +814,10 @@ const InventoryStockManager: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* ✅ Check Availability Button - Styled like PDF/Filter */}
+            {/* Check Availability Button */}
             <button
               onClick={() => setShowAvailabilityModal(true)}
+            
               className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600"
               title="Check stock availability for a product in a warehouse"
             >
@@ -748,15 +825,44 @@ const InventoryStockManager: React.FC = () => {
               <span className="hidden sm:inline">Check Availability</span>
             </button>
 
-            {/* ✅ Product Summary Button - Styled like PDF/Filter */}
+            {/* Product Summary Button */}
             <button
-              onClick={() => setShowProductStockModal(true)}
+              onClick={() => {
+                // Show product summary modal with first product selected
+                setShowProductStockModal(true);
+              }}
               className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-purple-600"
               title="View stock summary for a product across all warehouses"
             >
               <ChartBarIcon className="h-4 w-4" />
               <span className="hidden sm:inline">Product Summary</span>
             </button>
+
+            {/* Low Stock Filter Button */}
+<button
+  onClick={() => {
+    if (statusFilter === "low") {
+      // If showing low stock, reset to all stock
+      fetchAllStock();
+      setStatusFilter("");
+      setTypeFilter("");
+      ToasterService.info("Showing all stock");
+    } else {
+      // Show low stock
+      fetchLowStock();
+      setStatusFilter("low");
+    }
+  }}
+  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+    statusFilter === "low" 
+      ? 'bg-red-50 text-red-700 border-red-200' 
+      : 'bg-white text-gray-700 border-gray-200 hover:bg-red-50 hover:text-red-600'
+  }`}
+  title="Show low stock items"
+>
+  <ExclamationTriangleIcon className="h-4 w-4" />
+  <span className="hidden sm:inline">{statusFilter === "low" ? 'Show All' : 'Low Stock'}</span>
+</button>
 
             {/* PDF Export Button */}
             <ListingPdfExportButton<InventoryStock>
@@ -833,7 +939,7 @@ const InventoryStockManager: React.FC = () => {
         />
       </div>
 
-      {/* ✅ Stock Availability Check Modal */}
+      {/* Stock Availability Check Modal */}
       <PaginatedPopup
         isOpen={showAvailabilityModal}
         title="Check Stock Availability"
@@ -844,7 +950,6 @@ const InventoryStockManager: React.FC = () => {
           setAvailabilityForm({ productId: "", warehouseId: "", requiredQty: "" });
         }}
         submitting={false}
-        // submitLabel={null}
         maxWidthClassName="max-w-2xl"
         tabs={[
           {
@@ -886,7 +991,7 @@ const InventoryStockManager: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleAvailabilityCheck}
-                  className="w-full rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-700 transition-colors"
+                  className="w-full rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={!availabilityForm.productId || !availabilityForm.warehouseId || !availabilityForm.requiredQty}
                 >
                   Check Availability
@@ -928,7 +1033,7 @@ const InventoryStockManager: React.FC = () => {
         ]}
       />
 
-      {/* ✅ Product Stock Summary Modal */}
+      {/* Product Stock Summary Modal */}
       <PaginatedPopup
         isOpen={showProductStockModal}
         title="Product Stock Summary"
@@ -936,9 +1041,9 @@ const InventoryStockManager: React.FC = () => {
         onClose={() => {
           setShowProductStockModal(false);
           setSelectedProductForStock(null);
+          setProductStockData([]);
         }}
         submitting={false}
-        // submitLabel={null}
         maxWidthClassName="max-w-4xl"
         tabs={[
           {
@@ -949,7 +1054,12 @@ const InventoryStockManager: React.FC = () => {
                   label="Select Product"
                   name="productId"
                   value={String(selectedProductForStock || '')}
-                  onChange={(e) => setSelectedProductForStock(Number(e.target.value))}
+                  onChange={async (e) => {
+                    const productId = Number(e.target.value);
+                    if (productId) {
+                      await handleProductSummary(productId);
+                    }
+                  }}
                   emptyOptionLabel="Select product"
                   options={products.map((p) => ({
                     id: String(p.id || p.productId || 0),
@@ -957,7 +1067,7 @@ const InventoryStockManager: React.FC = () => {
                   }))}
                 />
 
-                {selectedProductForStock && (
+                {selectedProductForStock && productStockData.length > 0 && (
                   <>
                     {/* Summary Cards */}
                     <div className="grid grid-cols-3 gap-3">
@@ -976,33 +1086,33 @@ const InventoryStockManager: React.FC = () => {
                     </div>
 
                     {/* Warehouse Breakdown */}
-                    {productStockSummary.length > 0 ? (
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-gray-700">Warehouse Breakdown:</p>
-                        {productStockSummary.map((stock) => (
-                          <div key={stock.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-3 dark:bg-gray-800/40">
-                            <div className="flex items-center gap-2">
-                              <BuildingOffice2Icon className="h-4 w-4 text-slate-400" />
-                              <span className="font-medium text-sm">{getWarehouseName(stock.warehouse)}</span>
-                              {getWarehouseCode(stock.warehouse) && (
-                                <span className="text-xs text-slate-400">({getWarehouseCode(stock.warehouse)})</span>
-                              )}
-                            </div>
-                            <div className="flex gap-4 text-sm">
-                              <span>Total: <strong>{stock.quantity}</strong></span>
-                              <span className="text-orange-600">Reserved: <strong>{stock.reservedQty}</strong></span>
-                              <span className="text-green-600">Available: <strong>{stock.quantity - stock.reservedQty}</strong></span>
-                            </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-gray-700">Warehouse Breakdown:</p>
+                      {productStockData.map((stock) => (
+                        <div key={stock.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-3 dark:bg-gray-800/40">
+                          <div className="flex items-center gap-2">
+                            <BuildingOffice2Icon className="h-4 w-4 text-slate-400" />
+                            <span className="font-medium text-sm">{getWarehouseName(stock.warehouse)}</span>
+                            {getWarehouseCode(stock.warehouse) && (
+                              <span className="text-xs text-slate-400">({getWarehouseCode(stock.warehouse)})</span>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <CubeIcon className="h-12 w-12 mx-auto text-gray-300 mb-2" />
-                        <p>No stock found for this product</p>
-                      </div>
-                    )}
+                          <div className="flex gap-4 text-sm">
+                            <span>Total: <strong>{stock.quantity}</strong></span>
+                            <span className="text-orange-600">Reserved: <strong>{stock.reservedQty}</strong></span>
+                            <span className="text-green-600">Available: <strong>{stock.quantity - stock.reservedQty}</strong></span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </>
+                )}
+
+                {selectedProductForStock && productStockData.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <CubeIcon className="h-12 w-12 mx-auto text-gray-300 mb-2" />
+                    <p>No stock found for this product</p>
+                  </div>
                 )}
               </div>
             ],

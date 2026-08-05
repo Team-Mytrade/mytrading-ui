@@ -34,7 +34,6 @@ const productCategoryConfig: PurchaseResourceConfig = {
     return tenantId ? { tenantId } : {};
   },
   columns: [
-    { key: "categoryCode", label: "Code" },
     { key: "categoryName", label: "Category Name" },
     { key: "shortCode", label: "Short Code" },
     { key: "parentName", label: "Parent" },
