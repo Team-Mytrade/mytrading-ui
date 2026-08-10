@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -10,6 +10,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import PageMeta from '../../components/common/PageMeta';
 import { ToasterService } from '../../Services/ToasterService';
+import { AuthContext } from '../../context/AuthContext';
 
 // --- Types & Interfaces ---
 
@@ -65,11 +66,9 @@ interface SectionConfig {
     subTypes: { value: string; label: string }[];
 }
 
-const OLD_REGIME_SECTIONS: SectionConfig[] = [
+const ALL_HARDCODED_SECTIONS = [
     {
         code: '80C',
-        title: 'Section 80C - Investments & Payments',
-        limit: 150000,
         description: 'Life Insurance, PPF, ELSS, Tuition Fees, Home Loan Principal',
         subTypes: [
             { value: 'LIC', label: 'Life Insurance Premium' },
@@ -84,8 +83,6 @@ const OLD_REGIME_SECTIONS: SectionConfig[] = [
     },
     {
         code: '80D',
-        title: 'Section 80D - Health Insurance',
-        limit: 25000,
         description: 'Medical insurance for self, family, and parents',
         subTypes: [
             { value: 'Self', label: 'Self & Family (Below 60 years)' },
@@ -97,8 +94,6 @@ const OLD_REGIME_SECTIONS: SectionConfig[] = [
     },
     {
         code: '80E',
-        title: 'Section 80E - Education Loan Interest',
-        limit: 0,
         description: 'Interest paid on education loan',
         subTypes: [
             { value: 'EducationLoan', label: 'Education Loan Interest' },
@@ -106,9 +101,7 @@ const OLD_REGIME_SECTIONS: SectionConfig[] = [
     },
     {
         code: '80G',
-        title: 'Section 80G - Donations',
-        limit: 0,
-        description: 'Donations to charitable institutions',
+        description: 'Donations to eligible charitable institutions',
         subTypes: [
             { value: 'Donation100', label: 'Donation (100% Deduction)' },
             { value: 'Donation50', label: 'Donation (50% Deduction)' },
@@ -116,61 +109,67 @@ const OLD_REGIME_SECTIONS: SectionConfig[] = [
     },
     {
         code: '24B',
-        title: 'Section 24(b) - Home Loan Interest',
-        limit: 200000,
         description: 'Interest paid on home loan',
         subTypes: [
             { value: 'HomeLoanInterest', label: 'Home Loan Interest' },
         ]
     },
     {
-        code: '10_13A',
-        title: 'Section 10(13A) - House Rent Allowance (HRA)',
-        limit: 0,
+        code: 'HRA',
         description: 'HRA exemption based on rent paid',
         subTypes: [
             { value: 'HRA', label: 'House Rent Allowance' },
         ]
     },
     {
-        code: '10_14',
-        title: 'Section 10(14) - Leave Travel Allowance (LTA)',
-        limit: 0,
-        description: 'LTA for travel expenses',
-        subTypes: [
-            { value: 'LTA', label: 'Leave Travel Allowance' },
-        ]
-    },
-    {
         code: '80CCD_1B',
-        title: 'Section 80CCD(1B) - NPS Additional',
-        limit: 50000,
         description: 'Additional NPS contribution (above 80C)',
         subTypes: [
             { value: 'NPS', label: 'National Pension System (NPS)' },
         ]
     },
-];
-
-const NEW_REGIME_SECTIONS: SectionConfig[] = [
     {
-        code: 'STANDARD',
-        title: 'Standard Deduction',
-        limit: 50000,
-        description: 'Auto-applied for all salaried employees',
+        code: '80EE',
+        description: 'Additional Interest on Home Loan (First Time Buyers)',
         subTypes: [
-            { value: 'StandardDeduction', label: 'Standard Deduction' },
+            { value: 'HomeLoanInterest80EE', label: 'Home Loan Interest 80EE' }
         ]
     },
     {
-        code: '80CCD_2',
-        title: 'Section 80CCD(2) - Employer NPS Contribution',
-        limit: 0,
-        description: 'Employer contribution to NPS',
+        code: '80EEA',
+        description: 'Interest on Affordable Housing Loan',
         subTypes: [
-            { value: 'EmployerNPS', label: 'Employer NPS Contribution' },
+            { value: 'AffordableHousingLoan', label: 'Affordable Housing Loan Interest' }
         ]
     },
+    {
+        code: '80EEB',
+        description: 'Interest on Electric Vehicle Loan',
+        subTypes: [
+            { value: 'ElectricVehicleLoan', label: 'Electric Vehicle Loan Interest' }
+        ]
+    },
+    {
+        code: '80GG',
+        description: 'Rent Paid Where HRA Is Not Received',
+        subTypes: [
+            { value: 'RentPaid80GG', label: 'Rent Paid (80GG)' }
+        ]
+    },
+    {
+        code: '80TTA',
+        description: 'Interest on Savings Bank Account',
+        subTypes: [
+            { value: 'SavingsInterest', label: 'Savings Bank Account Interest' }
+        ]
+    },
+    {
+        code: '80TTB',
+        description: 'Interest Income for Senior Citizens',
+        subTypes: [
+            { value: 'SeniorSavingsInterest', label: 'Senior Citizen Savings Interest' }
+        ]
+    }
 ];
 
 // --- Utility Functions ---
@@ -357,6 +356,33 @@ const ItDeclarationPage: React.FC = () => {
     // Role State
     const isHR = designation?.toUpperCase() === 'HR' || designation?.toUpperCase() === 'ADMIN' || designation?.toUpperCase() === 'Human Resources';
 
+    const { user } = useContext(AuthContext);
+    const [resolvedEmployeeId, setResolvedEmployeeId] = useState<number | null>(null);
+
+    // Fetch and match employee ID if queryId is not provided
+    useEffect(() => {
+        const resolveId = async () => {
+            if (queryId) {
+                setResolvedEmployeeId(Number(queryId));
+                return;
+            }
+            if (user) {
+                try {
+                    const res = await axios.get('/v1/api/payroll/employee/all');
+                    const match = res.data.find((emp: any) =>
+                        emp.officialEmail?.toLowerCase() === user?.email?.toLowerCase() ||
+                        `${emp.firstName} ${emp.lastName}`.toLowerCase() === user?.fullName?.toLowerCase()
+                    );
+                    setResolvedEmployeeId(match?.id || 1);
+                } catch (error) {
+                    console.error("Failed to resolve employee", error);
+                    setResolvedEmployeeId(1); // Default fallback
+                }
+            }
+        };
+        resolveId();
+    }, [queryId, user]);
+
     // Application State
     const [declaration, setDeclaration] = useState<DeclarationData>({
         id: 0,
@@ -412,8 +438,38 @@ const ItDeclarationPage: React.FC = () => {
     const isLocked = ['LOCKED', 'SUBMITTED', 'APPROVED'].includes(declaration.status);
     const canEdit = !isLocked || isHR;
 
+    const [availableSections, setAvailableSections] = useState<SectionConfig[]>([]);
+
+    // Fetch available sections from the backend
+    useEffect(() => {
+        const fetchSections = async () => {
+            try {
+                const res = await axios.get('/v1/api/payroll/it-declaration/fetchAvailableSections');
+                if (res.data && Array.isArray(res.data)) {
+                    // Map backend data to frontend SectionConfig structure
+                    const mapped: SectionConfig[] = res.data
+                        .filter((sec: any) => sec.active)
+                        .map((sec: any) => {
+                            const hardcoded = ALL_HARDCODED_SECTIONS.find((h: any) => h.code === sec.sectionCode);
+                            return {
+                                code: sec.sectionCode,
+                                title: `Section ${sec.sectionCode} - ${sec.sectionName}`,
+                                limit: sec.maxLimit || 0,
+                                description: hardcoded?.description || sec.sectionName,
+                                subTypes: hardcoded?.subTypes || [{ value: sec.sectionCode, label: sec.sectionName }]
+                            };
+                        });
+                    setAvailableSections(mapped);
+                }
+            } catch (error) {
+                console.error("Error fetching available sections:", error);
+            }
+        };
+        fetchSections();
+    }, []);
+
     // Get current regime sections
-    const currentSections = isOldRegime ? OLD_REGIME_SECTIONS : NEW_REGIME_SECTIONS;
+    const currentSections = isOldRegime ? availableSections : [];
 
     // Show confirmation popup
     const showConfirmation = (
@@ -438,41 +494,63 @@ const ItDeclarationPage: React.FC = () => {
     // Fetch declaration on mount
     useEffect(() => {
         const fetchDeclaration = async () => {
-            if (!queryId) {
-                setIsFetching(false);
+            if (!resolvedEmployeeId) {
                 return;
             }
 
             try {
                 setIsFetching(true);
                 const response = await axios.get(
-                    `/api/it-declaration/fetchDeclarationByEmpId/${queryId}`
+                    `/v1/api/payroll/it-declaration/fetchDeclarationByEmpId/${resolvedEmployeeId}`
                 );
                 if (response.data) {
                     const data = response.data;
                     setDeclaration({
                         id: data.id || 0,
-                        employeeId: data.employeeId || queryId,
-                        employeeName: data.employeeName || queryName || '',
+                        employeeId: data.employeeId || resolvedEmployeeId.toString(),
+                        employeeName: data.employeeName || queryName || user?.fullName || '',
                         employeeCode: data.employeeCode || '',
-                        email: data.email || '',
+                        email: data.email || user?.email || '',
                         financialYear: data.financialYear || getCurrentFinancialYear(),
                         regime: data.regime || 'OLD',
                         status: data.status || 'DRAFT',
                         lastSaved: data.lastSaved || '',
-                        items: data.items || []
+                        items: (data.items || []).map((item: any) => ({
+                            ...item,
+                            declaredAmount: item.declaredAmount || 0,
+                            approvedAmount: item.approvedAmount || 0,
+                            proofs: item.proofs || []
+                        }))
                     });
+                } else {
+                    setDeclaration(prev => ({
+                        ...prev,
+                        employeeId: resolvedEmployeeId.toString(),
+                        employeeName: queryName || user?.fullName || '',
+                        email: user?.email || ''
+                    }));
                 }
             } catch (error) {
                 console.error('Error fetching declaration:', error);
-                ToasterService.error('Failed to load declaration');
+                if (axios.isAxiosError(error) && error.response?.status === 404) {
+                    setDeclaration(prev => ({
+                        ...prev,
+                        id: 0,
+                        employeeId: resolvedEmployeeId.toString(),
+                        employeeName: queryName || user?.fullName || '',
+                        email: user?.email || '',
+                        items: []
+                    }));
+                } else {
+                    ToasterService.error('Failed to load declaration');
+                }
             } finally {
                 setIsFetching(false);
             }
         };
 
         fetchDeclaration();
-    }, [queryId]);
+    }, [resolvedEmployeeId, queryName, user]);
 
     // Cleanup blob URLs on unmount
     useEffect(() => {
@@ -497,21 +575,21 @@ const ItDeclarationPage: React.FC = () => {
         setIsLoading(true);
         try {
             const payload = {
-                employeeId: Number(queryId) || 0,
+                employeeId: Number(resolvedEmployeeId) || 0,
                 financialYear: declaration.financialYear,
                 status: status,
+                regime: declaration.regime,
                 items: declaration.items.map(item => ({
+                    employeeId: Number(resolvedEmployeeId) || 0,
                     sectionCode: item.sectionCode,
-                    subType: item.subType,
                     declaredAmount: item.declaredAmount,
-                    approvedAmount: item.approvedAmount,
-                    description: item.description,
-                    status: item.status,
-                    remarks: item.remarks || ''
+                    approvedAmount: item.approvedAmount || 0,
+                    status: item.status || 'PENDING',
+                    remarks: item.remarks || `${item.sectionCode} submitted`
                 }))
             };
 
-            await axios.post('/api/it-declaration/submit', payload);
+            await axios.post('/v1/api/payroll/it-declaration/submit', payload);
 
             setDeclaration(prev => ({
                 ...prev,
@@ -538,7 +616,7 @@ const ItDeclarationPage: React.FC = () => {
         formData.append('proof', file);
 
         try {
-            await axios.post(`/api/it-declaration/item/${itemId}/link-proof`, formData, {
+            await axios.post(`/v1/api/payroll/it-declaration/item/${itemId}/link-proof`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
@@ -567,7 +645,7 @@ const ItDeclarationPage: React.FC = () => {
             async () => {
                 setIsLoading(true);
                 try {
-                    await axios.put(`/api/it-declaration/proof/${proofId}/verify`);
+                    await axios.put(`/v1/api/payroll/it-declaration/proof/${proofId}/verify`);
 
                     setDeclaration(prev => ({
                         ...prev,
@@ -600,7 +678,7 @@ const ItDeclarationPage: React.FC = () => {
             async () => {
                 setIsLoading(true);
                 try {
-                    await axios.put(`/api/it-declaration/item/${itemId}/approve`, {
+                    await axios.put(`/v1/api/payroll/it-declaration/item/${itemId}/approve`, {
                         approvedAmount: amount,
                         remarks: remarks || 'Approved by HR'
                     });
@@ -640,7 +718,7 @@ const ItDeclarationPage: React.FC = () => {
             async () => {
                 setIsLoading(true);
                 try {
-                    await axios.put(`/api/it-declaration/item/${itemId}/reject`, {
+                    await axios.put(`/v1/api/payroll/it-declaration/item/${itemId}/reject`, {
                         remarks: 'Rejected by HR'
                     });
 
@@ -678,7 +756,7 @@ const ItDeclarationPage: React.FC = () => {
             async () => {
                 setIsLoading(true);
                 try {
-                    await axios.post(`/api/it-declaration/${declaration.id}/unlock`);
+                    await axios.post(`/v1/api/payroll/it-declaration/${declaration.id}/unlock`);
 
                     setDeclaration(prev => ({
                         ...prev,
@@ -706,7 +784,7 @@ const ItDeclarationPage: React.FC = () => {
             async () => {
                 setIsLoading(true);
                 try {
-                    await axios.post(`/api/it-declaration/${declaration.id}/lock`);
+                    await axios.post(`/v1/api/payroll/it-declaration/${declaration.id}/lock`);
 
                     setDeclaration(prev => ({
                         ...prev,
@@ -733,7 +811,7 @@ const ItDeclarationPage: React.FC = () => {
         setIsLoading(true);
         try {
             const response = await axios.get(
-                `/api/it-declaration/it-proofs/download/${declaration.employeeId}`,
+                `/v1/api/payroll/it-declaration/it-proofs/download/${declaration.employeeId}`,
                 { responseType: 'blob' }
             );
 
@@ -755,30 +833,45 @@ const ItDeclarationPage: React.FC = () => {
     };
 
     const fetchDeclaration = async () => {
-        if (!queryId) return;
+        if (!resolvedEmployeeId) return;
 
         try {
             const response = await axios.get(
-                `/api/it-declaration/fetchDeclarationByEmpId/${queryId}`
+                `/v1/api/payroll/it-declaration/fetchDeclarationByEmpId/${resolvedEmployeeId}`
             );
 
             if (response.data) {
                 const data = response.data;
                 setDeclaration({
                     id: data.id || 0,
-                    employeeId: data.employeeId || queryId,
-                    employeeName: data.employeeName || queryName || '',
+                    employeeId: data.employeeId || resolvedEmployeeId.toString(),
+                    employeeName: data.employeeName || queryName || user?.fullName || '',
                     employeeCode: data.employeeCode || '',
                     email: data.email || '',
                     financialYear: data.financialYear || getCurrentFinancialYear(),
                     regime: data.regime || 'OLD',
                     status: data.status || 'DRAFT',
                     lastSaved: data.lastSaved || '',
-                    items: data.items || []
+                    items: (data.items || []).map((item: any) => ({
+                        ...item,
+                        declaredAmount: item.declaredAmount || 0,
+                        approvedAmount: item.approvedAmount || 0,
+                        proofs: item.proofs || []
+                    }))
                 });
             }
         } catch (error) {
             console.error('Error fetching declaration:', error);
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+                setDeclaration(prev => ({
+                    ...prev,
+                    id: 0,
+                    employeeId: resolvedEmployeeId.toString(),
+                    employeeName: queryName || user?.fullName || '',
+                    email: user?.email || '',
+                    items: []
+                }));
+            }
         }
     };
 
@@ -822,16 +915,35 @@ const ItDeclarationPage: React.FC = () => {
             return;
         }
 
-        const sectionConfig = currentSections.find(s => s.code === showAddModal);
+        const sectionCode = showAddModal || '80C';
+        const sectionConfig = currentSections.find(s => s.code === sectionCode);
+        const limit = sectionConfig?.limit || 0;
+        const inputAmount = Number(newItem.amount);
+
+        if (inputAmount <= 0) {
+            ToasterService.error('Please enter a valid amount greater than 0');
+            return;
+        }
+
+        if (limit > 0) {
+            const currentTotal = (declaration.items || [])
+                .filter(i => i.sectionCode === sectionCode)
+                .reduce((sum, i) => sum + i.declaredAmount, 0);
+
+            if (currentTotal + inputAmount > limit) {
+                ToasterService.error(`Total declared amount for ${sectionConfig?.title || sectionCode} cannot exceed the maximum limit of ₹${limit.toLocaleString()}`);
+                return;
+            }
+        }
 
         const item: DeclarationItem = {
             id: Date.now(),
-            sectionCode: showAddModal || '80C',
+            sectionCode: sectionCode,
             subType: newItem.subType,
             description: newItem.description || newItem.subType,
-            declaredAmount: Number(newItem.amount),
+            declaredAmount: inputAmount,
             approvedAmount: 0,
-            maxLimit: sectionConfig?.limit || 0,
+            maxLimit: limit,
             status: 'PENDING',
             proofs: [],
             remarks: ''
@@ -1217,7 +1329,7 @@ const ItDeclarationPage: React.FC = () => {
 
                                     {isOldRegime ? (
                                         <>
-                                            {OLD_REGIME_SECTIONS.map(section => {
+                                            {availableSections.map(section => {
                                                 const total = getSectionTotal(section.code);
                                                 if (total === 0) return null;
                                                 return (
@@ -1391,6 +1503,23 @@ const ItDeclarationPage: React.FC = () => {
                                         value={newItem.amount}
                                         onChange={(e) => setNewItem({ ...newItem, amount: e.target.value })}
                                     />
+                                    {showAddModal && (() => {
+                                        const sectionCode = showAddModal;
+                                        const sectionConfig = currentSections.find(s => s.code === sectionCode);
+                                        const limit = sectionConfig?.limit || 0;
+                                        if (limit > 0) {
+                                            const currentTotal = (declaration.items || [])
+                                                .filter(i => i.sectionCode === sectionCode)
+                                                .reduce((sum, i) => sum + i.declaredAmount, 0);
+                                            const remaining = Math.max(0, limit - currentTotal);
+                                            return (
+                                                <p className="text-xs text-gray-500 mt-1 font-medium">
+                                                    Maximum limit: ₹{limit.toLocaleString()} | Remaining allowed: <span className="text-blue-600 font-bold">₹{remaining.toLocaleString()}</span>
+                                                </p>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
                                 </div>
                             </div>
                             <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-3 justify-end">

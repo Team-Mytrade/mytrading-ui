@@ -95,6 +95,11 @@ function normalizeText(value: unknown) {
   return searchableText(value).replace(/\s+/g, " ");
 }
 
+function getUserSalesCode(user?: UserOption) {
+  if (!user) return "";
+  return user.employeeCode || (user.employeeId ? String(user.employeeId) : "") || user.userId || "";
+}
+
 const SalesPersons: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
@@ -170,7 +175,7 @@ const SalesPersons: React.FC = () => {
         const user = users.find((item) => item.userId === value);
         const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
         next.name = fullName || user?.username || next.name;
-        next.code = user?.employeeCode || next.code;
+        next.code = getUserSalesCode(user) || next.code;
         next.email = user?.email || next.email;
         next.employeeId = user?.employeeId ? String(user.employeeId) : "";
         next.active = String(user?.active ?? true);
@@ -181,7 +186,7 @@ const SalesPersons: React.FC = () => {
         const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
         next.userId = user?.userId || next.userId;
         next.name = fullName || user?.username || next.name;
-        next.code = user?.employeeCode || next.code;
+        next.code = getUserSalesCode(user) || next.code;
         next.email = user?.email || next.email;
         next.active = String(user?.active ?? true);
         next.region = user?.department || next.region;
@@ -193,11 +198,17 @@ const SalesPersons: React.FC = () => {
   const buildPayload = () => {
     const userId = form.userId.trim();
     const employeeId = toNullableNumber(form.employeeId);
+    const selectedUser = users.find(
+      (user) =>
+        (userId && user.userId === userId) ||
+        (employeeId !== null && user.employeeId === employeeId)
+    );
+    const code = form.code.trim() || getUserSalesCode(selectedUser) || userId;
 
     return {
       id: editingId || 0,
       name: form.name.trim(),
-      code: form.code.trim(),
+      code,
       email: form.email.trim(),
       region: form.region.trim(),
       active: form.active === "true",
@@ -221,10 +232,6 @@ const SalesPersons: React.FC = () => {
 
     if (!form.name.trim()) {
       ToasterService.error("Required fields missing", "Name is required.");
-      return;
-    }
-    if (!form.code.trim()) {
-      ToasterService.error("Missing sales code", "Select a user with an employee code.");
       return;
     }
     if (form.employeeId.trim() && toNullableNumber(form.employeeId) === null) {
@@ -447,8 +454,8 @@ const SalesPersons: React.FC = () => {
         </div>
       ),
     },
-    { key: "email", label: "Email", sortable: true },
-    { key: "region", label: "Region", sortable: true },
+    { key: "email", label: "Email", sortable: true},
+    { key: "region", label: "Region", sortable: true, className:"md:pl-9"},
     {
       key: "userId",
       label: "User ID",
@@ -460,6 +467,7 @@ const SalesPersons: React.FC = () => {
       key: "employeeId",
       label: "Employee ID",
       sortable: true,
+      className:"pl-16",
       sortValueGetter: (person) => getResolvedEmployeeId(person),
       render: (person) => getResolvedEmployeeId(person) || "--",
     },
@@ -473,7 +481,7 @@ const SalesPersons: React.FC = () => {
             value={String(person.active)}
             onChange={(e) => handleInlineStatusChange(person, e.target.value)}
             disabled={statusUpdatingId === person.id}
-            className={`w-[84px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
+            className={`w-[84px] md:ml-3 rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
               person.active
                 ? "border-green-200 bg-green-50 text-green-700"
                 : "border-red-200 bg-red-50 text-red-700"
@@ -519,7 +527,7 @@ const SalesPersons: React.FC = () => {
       <PageMeta title="Sales Persons" description="Manage sales persons" />
       <PageBreadcrumb pageTitle="Sales Persons" />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 py-8 space-y-">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={openCreate} label="Add Sales Person" />
         </div>
@@ -552,8 +560,8 @@ const SalesPersons: React.FC = () => {
           />
         </div>
 
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-md">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between md:-mb-5">
+          <div className="relative w-full sm:max-w-md md:-mt-8 mt-1">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"

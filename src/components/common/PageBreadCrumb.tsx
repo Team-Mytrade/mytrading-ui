@@ -38,7 +38,18 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
   const findBreadcrumb = () => {
     for (const item of navItems) {
       if (item.subItems) {
-        const found = item.subItems.find((sub: { path: string }) => sub.path === pathname);
+        let found = item.subItems.find((sub: any) => sub.path === pathname);
+        if (!found) {
+          for (const sub of item.subItems) {
+            if (sub.subItems) {
+              const ss = sub.subItems.find((s: any) => s.path === pathname);
+              if (ss) {
+                found = ss;
+                break;
+              }
+            }
+          }
+        }
         if (found) {
           return { parent: item.name, child: found.name };
         }
@@ -121,7 +132,6 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
               </ol>
             </nav>
           )}
-
           {showAddButton && (
             <div className="shrink-0">
               <AddButton

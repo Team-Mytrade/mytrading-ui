@@ -650,6 +650,7 @@ const SalesTargets: React.FC = () => {
       key: "targetType",
       label: "Type",
       sortable: true,
+      className:"md:px-1 px-1",
       render: (target) => (
         <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">
           {target.targetType}
@@ -660,12 +661,14 @@ const SalesTargets: React.FC = () => {
       key: "targetAmount",
       label: "Target",
       sortable: true,
+      className:"md:pl-10 pl-5",
       render: (target) => <span className="font-semibold text-slate-900">{toCurrency(target.targetAmount)}</span>,
     },
     {
       key: "achievedAmount",
       label: "Achieved",
       sortable: true,
+      className:"md:pl-10 pl-5",
       render: (target) => <span className="font-semibold text-green-700">{toCurrency(target.achievedAmount)}</span>,
     },
     {
@@ -688,7 +691,7 @@ const SalesTargets: React.FC = () => {
             value={String(target.status)}
             onChange={(e) => handleInlineStatusChange(target, e.target.value)}
             disabled={statusUpdatingId === target.id}
-            className={`w-[96px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${getStatusSelectClasses(String(target.status))} ${
+            className={`md:w-[96px] w-[82px] -ml-2 rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${getStatusSelectClasses(String(target.status))} ${
               statusUpdatingId === target.id ? "cursor-not-allowed opacity-70" : ""
             }`}
           >
@@ -708,7 +711,7 @@ const SalesTargets: React.FC = () => {
       headerClassName: "text-right",
       className: "text-right",
       render: (target) => (
-        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className=" md:ml-auto ml-20 flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={() => openEdit(target)}
@@ -757,7 +760,7 @@ const SalesTargets: React.FC = () => {
       <PageMeta title="Sales Targets" description="Manage sales targets" />
       <PageBreadcrumb pageTitle="Sales Targets" />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={openCreate} label="Add Target" />
         </div>
@@ -790,8 +793,8 @@ const SalesTargets: React.FC = () => {
           />
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="relative w-full sm:max-w-md">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between md:-mb-5">
+          <div className="relative w-full sm:max-w-md mt-0.5">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"

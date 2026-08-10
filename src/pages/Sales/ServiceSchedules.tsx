@@ -346,29 +346,34 @@ const ServiceSchedules: React.FC = () => {
         </div>
       ),
     },
-    { key: "customerId", label: "Customer", sortable: true },
+    { key: "customerId", label: "Customer", sortable: true, className:" md:pl-20 pl-10", },
     {
       key: "assignedEmployeeId",
       label: "Employee",
       sortable: true,
+      className:" md:pl-5",
       render: (schedule) => getEmployeeDisplayName(schedule.assignedEmployeeId),
     },
     {
       key: "scheduledDate",
       label: "Date",
       sortable: true,
+      className:" md:pl-5",
       render: (schedule) => schedule.scheduledDate || "--",
     },
     {
       key: "startTime",
       label: "Time",
       sortable: false,
-      render: (schedule) => `${formatTime(schedule.startTime)} - ${formatTime(schedule.endTime)}`,
+      render: (schedule) => <div className="-ml-4 md:ml-2">
+        {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)},
+        </div>
     },
     {
       key: "status",
       label: "Status",
       sortable: true,
+       className:" md:pl-8 -pl-8",
       render: (schedule) => (
         <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">
           {schedule.status || "N/A"}
@@ -380,7 +385,7 @@ const ServiceSchedules: React.FC = () => {
       label: "Actions",
       sortable: false,
       headerClassName: "text-right",
-      className: "text-right",
+      className: "text-right pl-24",
       render: (schedule) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
@@ -420,7 +425,7 @@ const ServiceSchedules: React.FC = () => {
       <PageMeta title="Service Schedules" description="Manage service schedules" />
       <PageBreadcrumb pageTitle="Service Schedules" />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 py-8 ">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={openCreate} label="Add Service Schedule" />
         </div>
@@ -432,8 +437,8 @@ const ServiceSchedules: React.FC = () => {
           <StatsCard label="Completed" value={stats.completed} icon={<CheckCircleIcon />} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="relative w-full sm:max-w-md">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between md:-mb-4">
+          <div className="relative w-full sm:max-w-md md:mt-1">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"

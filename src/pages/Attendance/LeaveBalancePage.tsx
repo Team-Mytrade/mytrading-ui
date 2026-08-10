@@ -20,8 +20,12 @@ import {
 } from "@heroicons/react/24/outline";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import StatsCard from "../../components/common/Statscard";
+import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import FilterPopover from "../../components/common/filter";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import { AddButton } from "../../components/common/AddButton";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -77,17 +81,11 @@ const LeaveBalancePage: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
-  const [filteredBalances, setFilteredBalances] = useState<LeaveBalance[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingBalance, setEditingBalance] = useState<LeaveBalance | null>(null);
   const [form, setForm] = useState<LeaveBalance>({ ...emptyForm });
-  const [search, setSearch] = useState<string>('');
-  const [sortKey, setSortKey] = useState<keyof LeaveBalance>("leaveTypeName");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const [page, setPage] = useState(1);
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedLeaveTypeFilter, setSelectedLeaveTypeFilter] = useState<string>("");
   const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
 
@@ -138,50 +136,8 @@ const LeaveBalancePage: React.FC = () => {
       setEditingBalance(null);
     } else {
       setBalances([]);
-      setFilteredBalances([]);
     }
   }, [selectedEmployeeId]);
-
-  useEffect(() => {
-    applyFilters();
-  }, [balances, search, selectedLeaveTypeFilter, sortKey, sortOrder]);
-
-  const applyFilters = () => {
-    let filtered = [...balances];
-
-    if (search) {
-      const searchTerm = search.toLowerCase();
-      filtered = filtered.filter(b =>
-        b.leaveTypeName?.toLowerCase().includes(searchTerm)
-      );
-    }
-
-    if (selectedLeaveTypeFilter) {
-      filtered = filtered.filter(b => b.leaveTypeId.toString() === selectedLeaveTypeFilter);
-    }
-
-    const sorted = [...filtered].sort((a, b) => {
-      let valA = a[sortKey as keyof LeaveBalance];
-      let valB = b[sortKey as keyof LeaveBalance];
-
-      if (valA == null && valB == null) return 0;
-      if (valA == null) return 1;
-      if (valB == null) return -1;
-
-      if (typeof valA === "string" && typeof valB === "string") {
-        return sortOrder === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
-      }
-
-      if (typeof valA === "number" && typeof valB === "number") {
-        return sortOrder === "asc" ? valA - valB : valB - valA;
-      }
-
-      return 0;
-    });
-
-    setFilteredBalances(sorted);
-    setPage(1);
-  };
 
   // ── Form ────────────────────────────────────────────────────────────────────
 
@@ -290,27 +246,112 @@ const LeaveBalancePage: React.FC = () => {
 
   // ── Stats ───────────────────────────────────────────────────────────────────
 
+  const filteredBalances = useMemo(() => {
+    let list = [...balances];
+    if (selectedLeaveTypeFilter) {
+      list = list.filter(b => b.leaveTypeId.toString() === selectedLeaveTypeFilter);
+    }
+    return list;
+  }, [balances, selectedLeaveTypeFilter]);
+
   const totalAllocated = filteredBalances.reduce((s, b) => s + (b.totalAllocated || 0), 0);
   const totalUsed = filteredBalances.reduce((s, b) => s + (b.used || 0), 0);
   const totalRemaining = filteredBalances.reduce((s, b) => s + (b.remaining || 0), 0);
 
   const uniqueLeaveTypes = [...new Map(balances.map(b => [b.leaveTypeId, { id: b.leaveTypeId, name: b.leaveTypeName }])).values()];
 
-  const paginated = filteredBalances.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const totalPages = Math.ceil(filteredBalances.length / PAGE_SIZE);
-
-  const handleSort = (field: keyof LeaveBalance) => {
-    if (sortKey === field) setSortOrder(o => o === "asc" ? "desc" : "asc");
-    else { setSortKey(field); setSortOrder("asc"); }
-  };
-
-  const SortIcon = ({ col }: { col: keyof LeaveBalance }) =>
-    sortKey !== col ? null : sortOrder === "asc" ? <ArrowUpIcon className="h-3 w-3 inline ml-1" /> : <ArrowDownIcon className="h-3 w-3 inline ml-1" />;
-
   const getEmployeeName = (employeeId: number) => {
     const employee = employees.find(e => e.id === employeeId);
     return employee ? `${employee.firstName} ${employee.lastName}` : `Employee ID: ${employeeId}`;
   };
+
+  const columns: ColumnDef<LeaveBalance>[] = [
+    {
+      key: "leaveTypeName",
+      label: "Leave Type",
+      sortable: true,
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <TagIcon className="h-4 w-4 text-gray-400" />
+          <span className="text-sm font-medium text-gray-900">{row.leaveTypeName}</span>
+        </div>
+      ),
+    },
+    {
+      key: "totalAllocated",
+      label: "Allocated",
+      sortable: true,
+      render: (row) => (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+          <PlusCircleIcon className="h-3 w-3" />
+          {row.totalAllocated}
+        </span>
+      ),
+    },
+    {
+      key: "used",
+      label: "Used",
+      sortable: true,
+      render: (row) => (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">
+          <MinusCircleIcon className="h-3 w-3" />
+          {row.used}
+        </span>
+      ),
+    },
+    {
+      key: "remaining",
+      label: "Remaining",
+      sortable: true,
+      render: (row) => {
+        const remainingPercentage = (row.remaining / row.totalAllocated) * 100;
+        const remainingColor = row.remaining === 0
+          ? "bg-red-100 text-red-700"
+          : remainingPercentage <= 20
+            ? "bg-yellow-100 text-yellow-700"
+            : "bg-green-100 text-green-800";
+
+        return (
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${remainingColor}`}>
+              <CheckCircleIcon className="h-3 w-3" />
+              {row.remaining}
+            </span>
+            <div className="w-16 bg-gray-200 rounded-full h-1.5">
+              <div
+                className={`h-1.5 rounded-full transition-all duration-300 ${row.remaining === 0 ? 'bg-red-500' : remainingPercentage <= 20 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                style={{ width: `${remainingPercentage}%` }}
+              />
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      headerClassName: "text-right",
+      className: "text-right",
+      render: (row) => (
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={() => openEditForm(row)}
+            className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-all duration-200"
+            title="Edit"
+          >
+            <PencilSquareIcon className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => handleDelete(row.id!)}
+            className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
+            title="Delete"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
 
@@ -377,15 +418,7 @@ const LeaveBalancePage: React.FC = () => {
                     <p className="text-sm text-gray-500">{selectedEmployee?.employeeCode}</p>
                   </div>
                 </div>
-                {!showForm && (
-                  <button
-                    onClick={openCreateForm}
-                    className="px-4 py-2 bg-cyan-600 !text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center gap-2 shadow-sm"
-                  >
-                    <PlusIcon className="h-4 w-4" />
-                    <span>Add Leave Balance</span>
-                  </button>
-                )}
+                  <AddButton label="Add Leave Balance" onClick={openCreateForm} />
               </div>
             </div>
 
@@ -532,304 +565,67 @@ const LeaveBalancePage: React.FC = () => {
               <>
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                  <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-500">Total Allocated</p>
-                        <p className="text-2xl font-bold text-blue-600">{totalAllocated}</p>
-                      </div>
-                      <div className="p-3 bg-blue-100 rounded-full">
-                        <PlusCircleIcon className="h-6 w-6 text-blue-600" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-500">Total Used</p>
-                        <p className="text-2xl font-bold text-orange-600">{totalUsed}</p>
-                      </div>
-                      <div className="p-3 bg-orange-100 rounded-full">
-                        <MinusCircleIcon className="h-6 w-6 text-orange-600" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-500">Total Remaining</p>
-                        <p className="text-2xl font-bold text-green-600">{totalRemaining}</p>
-                      </div>
-                      <div className="p-3 bg-green-100 rounded-full">
-                        <CheckCircleIcon className="h-6 w-6 text-green-600" />
-                      </div>
-                    </div>
-                  </div>
+                  <StatsCard
+                    label="Total Allocated"
+                    value={totalAllocated}
+                    gradient="from-blue-50 to-indigo-50"
+                    borderColor="border-blue-100"
+                    labelColor="text-blue-600"
+                    icon={<PlusCircleIcon className="h-6 w-6" />}
+                  />
+                  <StatsCard
+                    label="Total Used"
+                    value={totalUsed}
+                    gradient="from-amber-50 to-yellow-50"
+                    borderColor="border-amber-100"
+                    labelColor="text-yellow-600"
+                    icon={<MinusCircleIcon className="h-6 w-6" />}
+                  />
+                  <StatsCard
+                    label="Total Remaining"
+                    value={totalRemaining}
+                    gradient="from-green-50 to-emerald-50"
+                    borderColor="border-green-100"
+                    labelColor="text-green-600"
+                    icon={<CheckCircleIcon className="h-6 w-6" />}
+                  />
                 </div>
 
-                {/* Toolbar */}
-                <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex-1 max-w-md">
-                    <div className="relative">
-                      <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Search by leave type..."
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShowFilters(!showFilters)}
-                      className={`px-4 py-2 rounded-lg border transition-all duration-200 flex items-center gap-2 ${showFilters
-                        ? 'bg-cyan-50 border-cyan-300 text-cyan-600'
-                        : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
-                        }`}
+                <ReusableTable
+                  data={filteredBalances}
+                  columns={columns}
+                  loading={loading}
+                  searchable={true}
+                  searchPlaceholder="Search by leave type..."
+                  searchFields={["leaveTypeName"]}
+                  pageSize={10}
+                  toolbar={
+                    <FilterPopover
+                      title="Filter Leave Balances"
+                      buttonLabel="Filter"
+                      onReset={() => setSelectedLeaveTypeFilter("")}
+                      showFooter={true}
                     >
-                      <FunnelIcon className="h-4 w-4" />
-                      <span>Filter</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Filters Panel */}
-                {showFilters && (
-                  <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 animate-fadeIn">
-                    <div className="flex flex-wrap gap-4">
-                      <div className="flex-1 min-w-[200px]">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Leave Type</label>
-                        <select
-                          value={selectedLeaveTypeFilter}
-                          onChange={e => setSelectedLeaveTypeFilter(e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                        >
-                          <option value="">All Leave Types</option>
-                          {uniqueLeaveTypes.map(lt => (
-                            <option key={lt.id} value={lt.id}>{lt.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      {selectedLeaveTypeFilter && (
-                        <button
-                          onClick={() => setSelectedLeaveTypeFilter("")}
-                          className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
-                        >
-                          Clear Filter
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Table */}
-                <div className={`${cardCls}`}>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort("leaveTypeName")}>
-                            <span className="flex items-center">Leave Type <SortIcon col="leaveTypeName" /></span>
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort("totalAllocated")}>
-                            <span className="flex items-center">Allocated <SortIcon col="totalAllocated" /></span>
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort("used")}>
-                            <span className="flex items-center">Used <SortIcon col="used" /></span>
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort("remaining")}>
-                            <span className="flex items-center">Remaining <SortIcon col="remaining" /></span>
-                          </th>
-                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {loading ? (
-                          <tr>
-                            <td colSpan={5} className="px-6 py-12 text-center">
-                              <div className="flex flex-col items-center">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mb-3"></div>
-                                <p className="text-gray-500 text-sm">Loading leave balances...</p>
-                              </div>
-                            </td>
-                          </tr>
-                        ) : paginated.length > 0 ? paginated.map(balance => {
-                          const remainingPercentage = (balance.remaining / balance.totalAllocated) * 100;
-                          const remainingColor = balance.remaining === 0
-                            ? "bg-red-100 text-red-700"
-                            : remainingPercentage <= 20
-                              ? "bg-yellow-100 text-yellow-700"
-                              : "bg-green-100 text-green-800";
-
-                          return (
-                            <tr key={balance.id} className="hover:bg-gray-50 transition-colors group">
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center gap-2">
-                                  <TagIcon className="h-4 w-4 text-gray-400" />
-                                  <span className="text-sm font-medium text-gray-900">{balance.leaveTypeName}</span>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                                  <PlusCircleIcon className="h-3 w-3" />
-                                  {balance.totalAllocated}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">
-                                  <MinusCircleIcon className="h-3 w-3" />
-                                  {balance.used}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center gap-2">
-                                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${remainingColor}`}>
-                                    <CheckCircleIcon className="h-3 w-3" />
-                                    {balance.remaining}
-                                  </span>
-                                  <div className="w-16 bg-gray-200 rounded-full h-1.5">
-                                    <div
-                                      className={`h-1.5 rounded-full transition-all duration-300 ${balance.remaining === 0 ? 'bg-red-500' : remainingPercentage <= 20 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                                      style={{ width: `${remainingPercentage}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                  <button
-                                    onClick={() => openEditForm(balance)}
-                                    className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-all duration-200"
-                                    title="Edit"
-                                  >
-                                    <PencilSquareIcon className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDelete(balance.id!)}
-                                    className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
-                                    title="Delete"
-                                  >
-                                    <TrashIcon className="h-4 w-4" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        }) : (
-                          <tr>
-                            <td colSpan={5} className="px-6 py-12 text-center">
-                              <div className="flex flex-col items-center">
-                                <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />
-                                <p className="text-gray-500 text-sm mb-2">No leave balances found</p>
-                                <button
-                                  onClick={openCreateForm}
-                                  className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
-                                >
-                                  <PlusIcon className="h-4 w-4" />
-                                  Add a leave balance
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Pagination */}
-                  {totalPages > 0 && (
-                    <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                      <div className="flex-1 flex justify-between sm:hidden">
-                        <button
-                          onClick={() => setPage(Math.max(1, page - 1))}
-                          disabled={page === 1}
-                          className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Previous
-                        </button>
-                        <button
-                          onClick={() => setPage(Math.min(totalPages, page + 1))}
-                          disabled={page === totalPages}
-                          className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Next
-                        </button>
-                      </div>
-                      <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                      <div className="space-y-3">
                         <div>
-                          <p className="text-sm text-gray-700">
-                            Showing <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> to{' '}
-                            <span className="font-medium">
-                              {Math.min(page * PAGE_SIZE, filteredBalances.length)}
-                            </span>{' '}
-                            of <span className="font-medium">{filteredBalances.length}</span> results
-                          </p>
-                        </div>
-                        <div>
-                          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                            <button
-                              onClick={() => setPage(1)}
-                              disabled={page === 1}
-                              className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              First
-                            </button>
-                            <button
-                              onClick={() => setPage(Math.max(1, page - 1))}
-                              disabled={page === 1}
-                              className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Previous
-                            </button>
-                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                              let pageNum: number;
-                              if (totalPages <= 5) {
-                                pageNum = i + 1;
-                              } else if (page <= 3) {
-                                pageNum = i + 1;
-                              } else if (page >= totalPages - 2) {
-                                pageNum = totalPages - 4 + i;
-                              } else {
-                                pageNum = page - 2 + i;
-                              }
-                              return (
-                                <button
-                                  key={pageNum}
-                                  onClick={() => setPage(pageNum)}
-                                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium transition-colors ${page === pageNum
-                                    ? "z-10 bg-cyan-50 border-cyan-500 text-cyan-600"
-                                    : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                                    }`}
-                                >
-                                  {pageNum}
-                                </button>
-                              );
-                            })}
-                            <button
-                              onClick={() => setPage(Math.min(totalPages, page + 1))}
-                              disabled={page === totalPages}
-                              className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Next
-                            </button>
-                            <button
-                              onClick={() => setPage(totalPages)}
-                              disabled={page === totalPages}
-                              className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Last
-                            </button>
-                          </nav>
+                          <label className="mb-1 block text-sm font-medium text-gray-700">Leave Type</label>
+                          <select
+                            value={selectedLeaveTypeFilter}
+                            onChange={e => setSelectedLeaveTypeFilter(e.target.value)}
+                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                          >
+                            <option value="">All Leave Types</option>
+                            {uniqueLeaveTypes.map(lt => (
+                              <option key={lt.id} value={lt.id.toString()}>
+                                {lt.name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    </FilterPopover>
+                  }
+                />
               </>
             )}
           </>

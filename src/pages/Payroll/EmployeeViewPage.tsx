@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import MyPayslipsTab from "./MyPayslipsTab";
 
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 
@@ -643,6 +644,11 @@ const EmployeeViewPage: React.FC = () => {
               </AnimatePresence>
             </div>
           </div>
+        </div>
+
+        {/* My Payslips Section */}
+        <div className="mt-8">
+          <MyPayslipsTab employeeId={employee.id} />
         </div>
 
         {/* Navigation Cards - Quick Links */}

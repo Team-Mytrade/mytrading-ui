@@ -37,6 +37,7 @@ import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import ReusableTable, { ColumnDef } from "../../components/common/Table";
 
 type SalaryStructure = {
     id: number;
@@ -59,9 +60,6 @@ const SalaryStructurePage: React.FC = () => {
     const [data, setData] = useState<SalaryStructure[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
-    const [sortKey, setSortKey] = useState<keyof SalaryStructure>("effectiveFrom");
-    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-    const [page, setPage] = useState(1);
     const [showForm, setShowForm] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
@@ -258,35 +256,118 @@ const SalaryStructurePage: React.FC = () => {
         return matchSearch && matchEmployee;
     });
 
-    const sorted = [...filtered].sort((a, b) => {
-        let valA = a[sortKey];
-        let valB = b[sortKey];
-        
-        if (valA == null && valB == null) return 0;
-        if (valA == null) return 1;
-        if (valB == null) return -1;
-        
-        if (typeof valA === "string" && typeof valB === "string") {
-            return sortOrder === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    const columns: ColumnDef<SalaryStructure>[] = [
+        {
+            key: "employeeId",
+            label: "Employee ID",
+            sortable: true,
+            render: (row) => (
+                <div className="flex items-center">
+                    <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3">
+                        <span className="text-xs font-medium text-cyan-700">
+                            {row.employeeId.charAt(0)}
+                        </span>
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">{row.employeeId}</span>
+                </div>
+            )
+        },
+        {
+            key: "basic",
+            label: "Basic",
+            sortable: true,
+            render: (row) => <span className="text-sm text-gray-900">₹{row.basic.toLocaleString()}</span>
+        },
+        {
+            key: "hra",
+            label: "HRA",
+            sortable: true,
+            render: (row) => <span className="text-sm text-gray-900">₹{row.hra.toLocaleString()}</span>
+        },
+        {
+            key: "allowances",
+            label: "Allowances",
+            sortable: true,
+            render: (row) => <span className="text-sm text-green-600">₹{row.allowances.toLocaleString()}</span>
+        },
+        {
+            key: "totalDeductions",
+            label: "Deductions",
+            sortable: true,
+            render: (row) => <span className="text-sm text-red-600">₹{(row.totalDeductions || 0).toLocaleString()}</span>
+        },
+        {
+            key: "netSalary",
+            label: "Net Salary",
+            sortable: true,
+            render: (row) => <span className="text-sm font-bold text-cyan-600">₹{row.netSalary.toLocaleString()}</span>
+        },
+        {
+            key: "ctc",
+            label: "Annual CTC",
+            sortable: true,
+            render: (row) => <span className="text-sm text-purple-600 font-medium">₹{(row.ctc / 100000).toFixed(1)}L</span>
+        },
+        {
+            key: "effectiveFrom",
+            label: "Effective From",
+            sortable: true,
+            render: (row) => (
+                <div className="flex items-center">
+                    <CalendarIcon className="h-4 w-4 text-gray-400 mr-1" />
+                    <span className="text-sm text-gray-600">
+                        {new Date(row.effectiveFrom).toLocaleDateString()}
+                    </span>
+                </div>
+            )
+        },
+        {
+            key: "actions",
+            label: "Actions",
+            render: (row) => (
+                <Menu as="div" className="relative inline-block text-left">
+                    <Menu.Button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                        <EllipsisVerticalIcon className="h-5 w-5 text-gray-500" />
+                    </Menu.Button>
+                    <Menu.Items className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-[100]">
+                        <Menu.Item>
+                            {({ active }) => (
+                                <button
+                                    onClick={() => exportPDF(row)}
+                                    className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
+                                >
+                                    <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
+                                    Export PDF
+                                </button>
+                            )}
+                        </Menu.Item>
+                        <Menu.Item>
+                            {({ active }) => (
+                                <button
+                                    onClick={() => openEdit(row)}
+                                    className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-cyan-600`}
+                                >
+                                    <PencilSquareIcon className="h-4 w-4 text-cyan-600" />
+                                    Edit
+                                </button>
+                            )}
+                        </Menu.Item>
+                        <Menu.Item>
+                            {({ active }) => (
+                                <button
+                                    onClick={() => handleDelete(row.id)}
+                                    className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-red-600`}
+                                >
+                                    <TrashIcon className="h-4 w-4" />
+                                    Delete
+                                </button>
+                            )}
+                        </Menu.Item>
+                    </Menu.Items>
+                </Menu>
+            )
         }
-        
-        if (typeof valA === "number" && typeof valB === "number") {
-            return sortOrder === "asc" ? valA - valB : valB - valA;
-        }
-        
-        return 0;
-    });
-
-    const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-    const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
-
-    const handleSort = (field: keyof SalaryStructure) => {
-        if (sortKey === field) setSortOrder(o => o === "asc" ? "desc" : "asc");
-        else { setSortKey(field); setSortOrder("asc"); }
-    };
-
-    const SortIcon = ({ col }: { col: keyof SalaryStructure }) =>
-        sortKey !== col ? null : sortOrder === "asc" ? <ArrowUpIcon className="h-3 w-3 inline ml-1" /> : <ArrowDownIcon className="h-3 w-3 inline ml-1" />;
+    ];
 
     // Calculate stats from real data
     const totalCTC = data.reduce((sum, s) => sum + s.ctc, 0);
@@ -322,7 +403,7 @@ const SalaryStructurePage: React.FC = () => {
                                 type="text"
                                 placeholder="Search by Employee ID..."
                                 value={search}
-                                onChange={e => { setSearch(e.target.value); setPage(1); }}
+                                onChange={e => setSearch(e.target.value)}
                                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                             />
                         </div>
@@ -379,7 +460,7 @@ const SalaryStructurePage: React.FC = () => {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
                                 <select
                                     value={selectedEmployeeFilter}
-                                    onChange={e => { setSelectedEmployeeFilter(e.target.value); setPage(1); }}
+                                    onChange={e => setSelectedEmployeeFilter(e.target.value)}
                                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                                 >
                                     <option value="">All Employees</option>
@@ -401,234 +482,22 @@ const SalaryStructurePage: React.FC = () => {
                 )}
 
                 {/* Table */}
-                <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-visible">
-                    <div className="overflow-x-auto overflow-y-visible">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    {[
-                                        { key: "employeeId", label: "Employee ID" },
-                                        { key: "basic", label: "Basic" },
-                                        { key: "hra", label: "HRA" },
-                                        { key: "allowances", label: "Allowances" },
-                                        { key: "totalDeductions", label: "Deductions" },
-                                        { key: "netSalary", label: "Net Salary" },
-                                        { key: "ctc", label: "Annual CTC" },
-                                        { key: "effectiveFrom", label: "Effective From" },
-                                        { key: null, label: "Actions" },
-                                    ].map((col, i) => (
-                                        <th
-                                            key={i}
-                                            onClick={() => col.key && handleSort(col.key as keyof SalaryStructure)}
-                                            className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${col.key ? "cursor-pointer hover:bg-gray-100" : ""
-                                                }`}
-                                        >
-                                            <span className="flex items-center">
-                                                {col.label}
-                                                {col.key && <SortIcon col={col.key as keyof SalaryStructure} />}
-                                            </span>
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {loading ? (
-                                    <tr>
-                                        <td colSpan={9} className="px-6 py-12 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mb-3"></div>
-                                                <p className="text-gray-500 text-sm">Loading salary structures...</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : paginated.length > 0 ? paginated.map(structure => (
-                                    <tr
-                                        key={structure.id}
-                                        className="hover:bg-gray-50 transition-colors"
-                                    >
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3">
-                                                    <span className="text-xs font-medium text-cyan-700">
-                                                        {structure.employeeId.charAt(0)}
-                                                    </span>
-                                                </div>
-                                                <span className="text-sm font-medium text-gray-900">{structure.employeeId}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="text-sm text-gray-900">₹{structure.basic.toLocaleString()}</span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="text-sm text-gray-900">₹{structure.hra.toLocaleString()}</span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="text-sm text-green-600">₹{structure.allowances.toLocaleString()}</span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="text-sm text-red-600">₹{(structure.totalDeductions || 0).toLocaleString()}</span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="text-sm font-bold text-cyan-600">₹{structure.netSalary.toLocaleString()}</span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="text-sm text-purple-600 font-medium">₹{(structure.ctc / 100000).toFixed(1)}L</span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <CalendarIcon className="h-4 w-4 text-gray-400 mr-1" />
-                                                <span className="text-sm text-gray-600">
-                                                    {new Date(structure.effectiveFrom).toLocaleDateString()}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right relative">
-                                            <Menu as="div" className="relative inline-block text-left">
-                                                <Menu.Button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                                                    <EllipsisVerticalIcon className="h-5 w-5 text-gray-500" />
-                                                </Menu.Button>
-                                                <Menu.Items className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-[100]">
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => exportPDF(structure)}
-                                                                className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                                            >
-                                                                <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
-                                                                Export PDF
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => openEdit(structure)}
-                                                                className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                                            >
-                                                                <PencilSquareIcon className="h-4 w-4 text-cyan-600" />
-                                                                Edit
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => handleDelete(structure.id)}
-                                                                className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-red-600`}
-                                                            >
-                                                                <TrashIcon className="h-4 w-4" />
-                                                                Delete
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                </Menu.Items>
-                                            </Menu>
-                                        </td>
-                                    </tr>
-                                )) : (
-                                    <tr>
-                                        <td colSpan={9} className="px-6 py-12 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />
-                                                <p className="text-gray-500 text-sm mb-2">No salary structures found</p>
-                                                <p className="text-gray-400 text-xs">Click "Add Structure" to create one</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Pagination */}
-                    {totalPages > 0 && (
-                        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                            <div className="flex-1 flex justify-between sm:hidden">
-                                <button
-                                    onClick={() => setPage(Math.max(1, page - 1))}
-                                    disabled={page === 1}
-                                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Previous
-                                </button>
-                                <button
-                                    onClick={() => setPage(Math.min(totalPages, page + 1))}
-                                    disabled={page === totalPages}
-                                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Next
-                                </button>
-                            </div>
-                            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                                <div>
-                                    <p className="text-sm text-gray-700">
-                                        Showing <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> to{' '}
-                                        <span className="font-medium">
-                                            {Math.min(page * PAGE_SIZE, filtered.length)}
-                                        </span>{' '}
-                                        of <span className="font-medium">{filtered.length}</span> results
-                                    </p>
-                                </div>
-                                <div>
-                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                                        <button
-                                            onClick={() => setPage(1)}
-                                            disabled={page === 1}
-                                            className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            First
-                                        </button>
-                                        <button
-                                            onClick={() => setPage(Math.max(1, page - 1))}
-                                            disabled={page === 1}
-                                            className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Previous
-                                        </button>
-                                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                            let pageNum: number;
-                                            if (totalPages <= 5) {
-                                                pageNum = i + 1;
-                                            } else if (page <= 3) {
-                                                pageNum = i + 1;
-                                            } else if (page >= totalPages - 2) {
-                                                pageNum = totalPages - 4 + i;
-                                            } else {
-                                                pageNum = page - 2 + i;
-                                            }
-                                            return (
-                                                <button
-                                                    key={pageNum}
-                                                    onClick={() => setPage(pageNum)}
-                                                    className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page === pageNum
-                                                            ? "z-10 bg-cyan-50 border-cyan-500 text-cyan-600"
-                                                            : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                                                        }`}
-                                                >
-                                                    {pageNum}
-                                                </button>
-                                            );
-                                        })}
-                                        <button
-                                            onClick={() => setPage(Math.min(totalPages, page + 1))}
-                                            disabled={page === totalPages}
-                                            className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Next
-                                        </button>
-                                        <button
-                                            onClick={() => setPage(totalPages)}
-                                            disabled={page === totalPages}
-                                            className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Last
-                                        </button>
-                                    </nav>
-                                </div>
-                            </div>
+                <ReusableTable
+                    data={filtered}
+                    columns={columns}
+                    loading={loading}
+                    searchable={false}
+                    pageSize={10}
+                    defaultSortKey="effectiveFrom"
+                    defaultSortOrder="desc"
+                    emptyState={
+                        <div className="flex flex-col items-center">
+                            <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />
+                            <p className="text-gray-500 text-sm mb-2">No salary structures found</p>
+                            <p className="text-gray-400 text-xs">Click "Add Structure" to create one</p>
                         </div>
-                    )}
-                </div>
+                    }
+                />
 
                 {/* Form Modal */}
                 {showForm && (

@@ -80,10 +80,22 @@ export const vendorConfig: PurchaseResourceConfig = {
   title: "Vendors",
   description: "Create and manage purchase vendors from the Purchase Service vendor controller.",
   endpoint: `${PURCHASE}/vendors`,
+  allowInlineActiveToggle: true,
   columns: [
     { key: "name", label: "Vendor Name" },
     { key: "contactName", label: "Contact" },
-    { key: "contactEmail", label: "Email" },
+    {
+      key: "contactEmail",
+      label: "Email",
+      render: (row) => {
+        const email = row.contactEmail || "--";
+        return (
+          <span className="block max-w-[180px] truncate text-sm text-gray-700" title={email}>
+            {email}
+          </span>
+        );
+      },
+    },
     { key: "contactPhone", label: "Phone" },
     { key: "city", label: "City" },
     { key: "active", label: "Status" },
@@ -101,13 +113,35 @@ export const vendorConfig: PurchaseResourceConfig = {
     { name: "active", label: "Active", type: "checkbox", defaultValue: true },
   ],
   searchFields: ["name", "contactName", "contactEmail", "city", "country"],
-  buildPayload: withAudit,
+  buildPayload: (form, editingRow) => {
+    const now = new Date().toISOString();
+    const session = getSessionMeta();
+
+    return {
+      id: Number(editingRow?.id ?? 0),
+      createdDate: editingRow?.createdDate || now,
+      updatedDate: now,
+      createdBy: editingRow?.createdBy || session.userId,
+      tenantId: editingRow?.tenantId || session.tenantId,
+      name: form.name || "",
+      contactName: form.contactName || "",
+      contactEmail: form.contactEmail || "",
+      contactPhone: form.contactPhone || "",
+      address: form.address || "",
+      city: form.city || "",
+      state: form.state || "",
+      postalCode: form.postalCode || "",
+      country: form.country || "",
+      active: Boolean(form.active),
+    };
+  },
 };
 
 export const termsConfig: PurchaseResourceConfig = {
   title: "Terms and Conditions",
   description: "Maintain purchase terms and conditions exactly as exposed by the terms controller.",
   endpoint: `${PURCHASE}/terms`,
+  allowInlineActiveToggle: true,
   columns: [
     { key: "title", label: "Title" },
     { key: "content", label: "Content" },
@@ -222,6 +256,7 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   title: "Purchase Requisitions",
   description: "Create requisitions and track department, requester, status, and required-by dates.",
   endpoint: `${PURCHASE}/purchase-requisitions`,
+  getByIdEndpoint: (row) => `${PURCHASE}/purchase-requisitions/${row.id}`,
   columns: [
     { key: "id", label: "ID" },
     { key: "notes", label: "Notes" },
@@ -270,7 +305,7 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
     const requesterOption = context.options.requesterId?.find(
       (option) => String(option.value) === String(form.requesterId)
     );
-    const requester = requesterOption?.raw;
+    const requester = requesterOption?.raw || editingRow?.requester || null;
 
     return {
       id: Number(editingRow?.id ?? 0),
@@ -302,7 +337,19 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
               createdBy: requester.createdBy || requester.userId || "system",
               tenantId: requester.tenantId || session.tenantId,
             }
-          : null,
+          : {
+              userId: "",
+              email: "",
+              role: "USER",
+              active: "ACTIVE",
+              fullName: "",
+              userDetails: { ...emptyUserDetails },
+              requisitions: [],
+              createdDate: now,
+              updatedDate: now,
+              createdBy: session.userId,
+              tenantId: session.tenantId,
+            },
     };
   },
 };
@@ -322,7 +369,14 @@ export const requisitionLineItemConfig: PurchaseResourceConfig = {
   fields: [
     { name: "requisitionId", label: "Requisition", type: "select", required: true, optionsEndpoint: `${PURCHASE}/purchase-requisitions`, optionLabel: (row) => `#${row.id} ${row.notes || ""}` },
     { name: "productId", label: "Product", type: "select", required: true, optionsEndpoint: `${PURCHASE}/products`, optionLabel: "productName" },
-    { name: "categoryId", label: "Category", type: "select", optionsEndpoint: CATEGORIES, optionLabel: "categoryName" },
+    {
+      name: "categoryId",
+      label: "Category",
+      type: "select",
+      optionsEndpoint: CATEGORIES,
+      getOptionsParams: () => ({ tenantId: getSessionMeta().tenantId }),
+      optionLabel: "categoryName",
+    },
     { name: "quantity", label: "Quantity", type: "number", required: true, defaultValue: 1 },
     { name: "unitOfMeasure", label: "Unit Of Measure", required: true },
     { name: "remarks", label: "Remarks", type: "textarea", gridClassName: "md:col-span-2" },
@@ -351,6 +405,25 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
   title: "Purchase Orders",
   description: "Create and update purchase orders with vendor, requisition, terms, and totals.",
   endpoint: `${PURCHASE}/purchase-orders`,
+  getByIdEndpoint: (row) => `${PURCHASE}/purchase-orders/${row.id}`,
+  inlineSelectFields: [
+    {
+      name: "status",
+      options: ["DRAFT", "ISSUED", "CANCELLED", "CLOSED"].map((item) => ({
+        value: item,
+        label: item.charAt(0) + item.slice(1).toLowerCase(),
+      })),
+      widthClassName: "w-[136px]",
+    },
+    {
+      name: "approvalStatus",
+      options: ["PENDING", "APPROVED", "REJECTED"].map((item) => ({
+        value: item,
+        label: item.charAt(0) + item.slice(1).toLowerCase(),
+      })),
+      widthClassName: "w-[136px]",
+    },
+  ],
   columns: [
     { key: "poNumber", label: "PO Number" },
     { key: "vendor.name", label: "Vendor" },
@@ -383,55 +456,137 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
     approvalStatus: row.approvalStatus || "PENDING",
     totalAmount: row.totalAmount ?? 0,
   }),
-  buildPayload: (form, editingRow) => ({
-    ...(editingRow || {}),
-    poNumber: form.poNumber,
-    orderDate: form.orderDate,
-    expectedDeliveryDate: form.expectedDeliveryDate,
-    status: form.status || "DRAFT",
-    approvalStatus: form.approvalStatus || "PENDING",
-    totalAmount: toNumberOrZero(form.totalAmount),
-    vendor: makeRelation(form.vendorId),
-    requisition: makeRelation(form.requisitionId),
-    termsAndConditions: makeRelation(form.termsAndConditionsId),
-  }),
+  buildPayload: (form, editingRow, context) => {
+    const now = new Date().toISOString();
+    const session = getSessionMeta();
+    const vendorOption = context.options.vendorId?.find(
+      (option) => String(option.value) === String(form.vendorId)
+    );
+    const requisitionOption = context.options.requisitionId?.find(
+      (option) => String(option.value) === String(form.requisitionId)
+    );
+    const termsOption = context.options.termsAndConditionsId?.find(
+      (option) => String(option.value) === String(form.termsAndConditionsId)
+    );
+
+    const vendor = vendorOption?.raw || editingRow?.vendor || null;
+    const requisition = requisitionOption?.raw || editingRow?.requisition || null;
+    const terms = termsOption?.raw || editingRow?.termsAndConditions || null;
+
+    return {
+      id: Number(editingRow?.id ?? 0),
+      createdDate: editingRow?.createdDate || now,
+      updatedDate: now,
+      createdBy: editingRow?.createdBy || session.userId,
+      tenantId: editingRow?.tenantId || session.tenantId,
+      poNumber: form.poNumber || "",
+      orderDate: form.orderDate || "",
+      expectedDeliveryDate: form.expectedDeliveryDate || "",
+      status: form.status || "DRAFT",
+      approvalStatus: form.approvalStatus || "PENDING",
+      totalAmount: toNumberOrZero(form.totalAmount),
+      vendor: vendor
+        ? {
+            id: Number(vendor.id ?? 0),
+            createdDate: vendor.createdDate || now,
+            updatedDate: vendor.updatedDate || now,
+            createdBy: vendor.createdBy || session.userId,
+            tenantId: vendor.tenantId || session.tenantId,
+            name: vendor.name || "",
+            contactName: vendor.contactName || "",
+            contactEmail: vendor.contactEmail || "",
+            contactPhone: vendor.contactPhone || "",
+            address: vendor.address || "",
+            city: vendor.city || "",
+            state: vendor.state || "",
+            postalCode: vendor.postalCode || "",
+            country: vendor.country || "",
+            active: Boolean(vendor.active),
+          }
+        : {
+            id: 0,
+            createdDate: now,
+            updatedDate: now,
+            createdBy: session.userId,
+            tenantId: session.tenantId,
+            name: "",
+            contactName: "",
+            contactEmail: "",
+            contactPhone: "",
+            address: "",
+            city: "",
+            state: "",
+            postalCode: "",
+            country: "",
+            active: true,
+          },
+      requisition: requisition
+        ? {
+            id: Number(requisition.id ?? 0),
+            createdDate: requisition.createdDate || now,
+            updatedDate: requisition.updatedDate || now,
+            createdBy: requisition.createdBy || session.userId,
+            tenantId: requisition.tenantId || session.tenantId,
+            notes: requisition.notes || "",
+            requiredByDate: requisition.requiredByDate || "",
+            status: requisition.status || "DRAFT",
+            departmentId: Number(requisition.departmentId ?? 0),
+            requester: requisition.requester || null,
+          }
+        : null,
+      items: Array.isArray(editingRow?.items) ? editingRow.items : [],
+      termsAndConditions: terms
+        ? {
+            id: Number(terms.id ?? 0),
+            createdDate: terms.createdDate || now,
+            updatedDate: terms.updatedDate || now,
+            createdBy: terms.createdBy || session.userId,
+            tenantId: terms.tenantId || session.tenantId,
+            title: terms.title || "",
+            content: terms.content || "",
+            active: Boolean(terms.active),
+          }
+        : null,
+      approvals: Array.isArray(editingRow?.approvals) ? editingRow.approvals : [],
+      goodsReceiptNotes: Array.isArray(editingRow?.goodsReceiptNotes) ? editingRow.goodsReceiptNotes : [],
+      deliveries: Array.isArray(editingRow?.deliveries) ? editingRow.deliveries : [],
+    };
+  },
 };
 
 export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
   title: "Goods Receipt Notes",
   description: "Record received goods against purchase orders.",
   endpoint: `${PURCHASE}/grns`,
+  getByIdEndpoint: (row) => `${PURCHASE}/grns/${row.id}`,
   columns: [
     { key: "id", label: "GRN ID" },
-    { key: "purchaseOrder.poNumber", label: "PO Number" },
-    { key: "receivedDate", label: "Received Date" },
-    { key: "receivedBy", label: "Received By" },
-    { key: "status", label: "Status", render: (row) => statusBadge(row.status) },
+    { key: "poNumber", label: "PO Number" },
+    { key: "receiptDate", label: "Receipt Date" },
+    { key: "receivedQuantity", label: "Received Quantity" },
+    { key: "remarks", label: "Remarks" },
   ],
   fields: [
     { name: "purchaseOrderId", label: "Purchase Order", type: "select", required: true, optionsEndpoint: `${PURCHASE}/purchase-orders`, optionLabel: "poNumber" },
-    { name: "receivedDate", label: "Received Date", type: "date", required: true, defaultValue: new Date().toISOString().slice(0, 10) },
-    { name: "receivedBy", label: "Received By", required: true },
-    { name: "status", label: "Status", type: "select", defaultValue: "RECEIVED", options: ["RECEIVED", "PARTIAL", "REJECTED", "CLOSED"].map((item) => ({ value: item, label: item })) },
+    { name: "receiptDate", label: "Receipt Date", type: "date", required: true, defaultValue: new Date().toISOString().slice(0, 10) },
+    { name: "receivedQuantity", label: "Received Quantity", type: "number", required: true, defaultValue: 0 },
     { name: "remarks", label: "Remarks", type: "textarea", gridClassName: "md:col-span-2" },
   ],
-  searchFields: ["id", "receivedBy", "status", "remarks"],
+  searchFields: ["id", "poNumber", "receiptDate", "receivedQuantity", "remarks"],
   normalizeForm: (row) => ({
     purchaseOrderId: row.purchaseOrder?.id ?? row.purchaseOrderId ?? "",
-    receivedDate: dateOnly(row.receivedDate),
-    receivedBy: row.receivedBy || "",
-    status: row.status || "RECEIVED",
+    receiptDate: dateOnly(row.receiptDate),
+    receivedQuantity: row.receivedQuantity ?? 0,
     remarks: row.remarks || "",
   }),
-  buildPayload: (form, editingRow) => ({
-    ...(editingRow || {}),
-    purchaseOrder: makeRelation(form.purchaseOrderId),
-    purchaseOrderId: toNumberOrNull(form.purchaseOrderId),
-    receivedDate: form.receivedDate,
-    receivedBy: form.receivedBy,
-    status: form.status || "RECEIVED",
-    remarks: form.remarks,
-  }),
+  buildPayload: (form) => {
+    return {
+      purchaseOrderId: toNumberOrZero(form.purchaseOrderId),
+      receiptDate: form.receiptDate,
+      receivedQuantity: toNumberOrZero(form.receivedQuantity),
+      remarks: form.remarks || "",
+    };
+  },
 };
 
 export const deliveryConfig: PurchaseResourceConfig = {
@@ -455,12 +610,31 @@ export const deliveryConfig: PurchaseResourceConfig = {
     vendorId: row.vendor?.id ?? "",
     deliveryDate: dateOnly(row.deliveryDate),
   }),
-  buildPayload: (form, editingRow) => ({
-    ...(editingRow || {}),
-    purchaseOrder: makeRelation(form.purchaseOrderId),
-    vendor: makeRelation(form.vendorId),
-    deliveryDate: form.deliveryDate,
-  }),
+  buildPayload: (form, editingRow, context) => {
+    const vendorOption = context.options.vendorId?.find(
+      (option) => String(option.value) === String(form.vendorId)
+    );
+    const now = new Date().toISOString();
+    const session = getSessionMeta();
+
+    if (editingRow?.id) {
+      return {
+        id: Number(editingRow.id),
+        createdDate: editingRow.createdDate || now,
+        updatedDate: now,
+        createdBy: editingRow.createdBy || session.userId,
+        tenantId: editingRow.tenantId || session.tenantId,
+        deliveryDate: form.deliveryDate,
+        vendor: vendorOption?.raw || editingRow?.vendor || makeRelation(form.vendorId),
+      };
+    }
+
+    return {
+      purchaseOrder: makeRelation(form.purchaseOrderId),
+      vendor: vendorOption?.raw || editingRow?.vendor || makeRelation(form.vendorId),
+      deliveryDate: form.deliveryDate,
+    };
+  },
 };
 
 export const approvalStatusConfig: PurchaseResourceConfig = {
@@ -469,6 +643,16 @@ export const approvalStatusConfig: PurchaseResourceConfig = {
   endpoint: `${PURCHASE}/approval-status`,
   updateEndpoint: (_row, form) => `${PURCHASE}/approval-status/${form.purchaseOrderId}/${form.status}`,
   allowDelete: false,
+  inlineSelectFields: [
+    {
+      name: "status",
+      options: ["PENDING", "APPROVED", "REJECTED"].map((item) => ({
+        value: item,
+        label: item.charAt(0) + item.slice(1).toLowerCase(),
+      })),
+      widthClassName: "w-[136px]",
+    },
+  ],
   columns: [
     { key: "poNumber", label: "PO Number" },
     { key: "purchaseOrderId", label: "Purchase Order ID" },

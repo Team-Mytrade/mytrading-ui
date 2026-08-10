@@ -382,12 +382,13 @@ const Refunds: React.FC = () => {
       key: "amount",
       label: "Amount",
       sortable: true,
-      render: (refund) => <span className="font-semibold text-slate-900">{money(refund.amount)}</span>,
+      render: (refund) => <span className="font-semibold text-slate-900 md:ml-12">{money(refund.amount)}</span>,
     },
     {
       key: "refundDate",
       label: "Refund Date",
       sortable: true,
+      className: "md:pl-10",
       render: (refund) => refund.refundDate ? new Date(refund.refundDate).toLocaleString() : "--",
     },
     {
@@ -403,7 +404,7 @@ const Refunds: React.FC = () => {
           }}
           onClick={(e) => e.stopPropagation()}
           disabled={statusUpdatingId === refund.id}
-          className="h-9 w-[112px] rounded-xl border border-cyan-200 bg-cyan-50 px-3 text-sm font-medium text-cyan-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-9 md:w-[112px] w-[100px] -ml-5 rounded-xl border border-cyan-200 bg-cyan-50 px-3 text-sm font-medium text-cyan-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {statusOptions.map((status) => (
             <option key={status} value={status}>
@@ -413,7 +414,7 @@ const Refunds: React.FC = () => {
         </select>
       ),
     },
-    { key: "paymentMethod", label: "Payment Method", sortable: true },
+    { key: "paymentMethod", label: "Payment Method", sortable: true, className:"md:pl-16 pl-2" },
     {
       key: "actions",
       label: "Actions",
@@ -448,7 +449,7 @@ const Refunds: React.FC = () => {
       <PageMeta title="Refunds" description="Manage sales refunds" />
       <PageBreadcrumb pageTitle="Refunds" />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={openCreate} label="Add Refund" />
         </div>
@@ -460,8 +461,8 @@ const Refunds: React.FC = () => {
           <StatsCard label="Failed" value={stats.failed} icon={<XCircleIcon />} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="relative w-full sm:max-w-md">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between md:mt-1 md:-mb-4">
+          <div className="relative w-full sm:max-w-md mt-1">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
@@ -477,7 +478,7 @@ const Refunds: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 -mt-0.5">
             <ListingPdfExportButton
               title="Refunds"
               subtitle="Filtered refund listing"
