@@ -357,6 +357,7 @@ export default function AppRouter() {
           <Route path="/employeeCompensation" element={<EmployeeCompensationPage />} />
           <Route path="/employeeDepartments" element={<EmployeeDepartmentsPage />} />
           <Route path="/employeePayroll" element={<PayrollPage />} />
+          <Route path="/employeePayslips" element={<PayrollPage />} />
           <Route path="/salaryStructure" element={<SalaryStructurePage />} />
           <Route path="/attendance-management" element={<AttendanceManagementPage />} />
           <Route path="/attendanceLogs" element={<AttendanceLogsPage />} />
