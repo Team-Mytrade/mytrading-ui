@@ -19,6 +19,7 @@ type SubItem = {
   name: string;
   path?: string;
   subItems?: { name: string; path: string }[];
+  roles?: string[];
 };
 
 type NavItem = {
@@ -159,7 +160,7 @@ export const navItems: NavItem[] = [
       // { name: "Salary Structure", path: "/salaryStructure" },
 
       // { name: "Attendance Logs", path: "/attendanceLogs"},
-      // { name: "Leave Requests / Approvals", path: "/leaveRequests"},
+      { name: "Leave Requests / Approvals", path: "/leaveRequests"},
       // { name: "Tax Deductions", path: "/taxDeductions"},
       // { name: "Payroll Runs / Payslips", path: "/payrollRuns" },
       // { name: "Benefits / Allowances", path: "/benefits"},
@@ -172,17 +173,18 @@ export const navItems: NavItem[] = [
     icon: <Calendar className="w-5 h-5" />,
     name: "Attendance",
     subItems: [
-      { name: "Timesheet Mgmt", path: "/att_timesheetManagement" },
-      { name: "Shift", path: "/att_shift" },
-      { name: "Shift Schedule", path: "/att_shiftSchedule" },
-      { name: "Attendance Record", path: "/att_attendanceRecord" },
-      { name: "Attendance Approval", path: "/att_attendanceApproval" },
-      { name: "Attendance Violation", path: "/att_attendanceViolation" },
-      { name: "Leave Balance", path: "/att_leaveBalance" },
-      { name: "Leave Request", path: "/att_leaveRequest" },
-      { name: "Leave Type", path: "/att_leaveType" },
-      { name: "Overtime", path: "/att_overtimeEntry" },
-      { name: "WFH Request", path: "/att_workFromHomeRequests" },
+      { name: "Leave Policy Master", path: "/att_leavePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
+      { name: "Leave Application & Balances", path: "/att_leaveRequest" },
+      { name: "Attendance & Leave Approvals", path: "/att_attendanceApproval", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+      { name: "Leave Dashboard & Audits", path: "/att_leaveDashboard" },
+      { name: "Attendance Punch", path: "/att_punch" },
+      { name: "Attendance Regularization", path: "/att_timesheetManagement" },
+      { name: "On Duty Requests", path: "/att_requests" },
+      { name: "Shift Roster & Schedule", path: "/att_shiftSchedule", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+      { name: "Shift Master", path: "/att_shift", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
+      { name: "Holiday Calendar", path: "/att_holidayCalendar" },
+      { name: "Attendance Policy", path: "/att_attendancePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
+      { name: "Attendance Reports", path: "/att_reports", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
     ],
   },
   {
@@ -460,7 +462,11 @@ const AppSidebar: React.FC = () => {
             >
               <div className="overflow-hidden">
                 <div className="ml-9 pl-2 mt-1 space-y-0.5 border-l border-gray-200 dark:border-gray-700">
-                {nav.subItems.map((subItem, subIndex) => {
+                {nav.subItems.filter(subItem => {
+                  if (!subItem.roles) return true;
+                  const currentRole = (user?.role || userRole || "SUPER_ADMIN").toUpperCase().replace(/[\s_]+/g, "");
+                  return subItem.roles.some(r => r.toUpperCase().replace(/[\s_]+/g, "") === currentRole || currentRole === "SUPERADMIN");
+                }).map((subItem, subIndex) => {
                   const subKey = `${index}-${subIndex}`;
                   const hasSubSubItems = subItem.subItems && subItem.subItems.length > 0;
                   

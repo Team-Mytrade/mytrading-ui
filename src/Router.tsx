@@ -171,9 +171,16 @@ import AttendanceRecordPage from "./pages/Attendance/AttendanceRecordPage";
 import LeaveBalancePage from "./pages/Attendance/LeaveBalancePage";
 import LeaveRequestPage from "./pages/Attendance/LeaveRequestPage";
 import LeaveTypePage from "./pages/Attendance/LeaveTypePage";
+import LeavePolicyPage from "./pages/Attendance/LeavePolicyPage";
+import LeaveDashboardPage from "./pages/Attendance/LeaveDashboardPage";
 import NotificationPage from "./pages/Attendance/NotificationPage";
 import NotificationInboxPage from "./pages/Attendance/NotificationInboxPage";
 import NotificationDetailPage from "./pages/Attendance/NotificationDetailPage";
+import AttendancePolicyPage from "./pages/Attendance/AttendancePolicyPage";
+import HolidayCalendarPage from "./pages/Attendance/HolidayCalendarPage";
+import AttendancePunchPage from "./pages/Attendance/AttendancePunchPage";
+import AttendanceRequestsPage from "./pages/Attendance/AttendanceRequestsPage";
+import AttendanceReportsPage from "./pages/Attendance/AttendanceReportsPage";
 import OvertimeRulePage from "./pages/Attendance/OvertimeRulePage";
 import PayrollComponentPage from "./pages/Attendance/PayrollComponentPage";
 import PayrollRecordPage from "./pages/Attendance/PayrollRecordPage";
@@ -388,6 +395,8 @@ export default function AppRouter() {
           <Route path="/att_shiftSchedule" element={<ShiftSchedulePage />} />
           <Route path="/att_leaveBalance" element={<LeaveBalancePage />} />
           <Route path="/att_leaveRequest" element={<LeaveRequestPage />} />
+          <Route path="/att_leavePolicy" element={<LeavePolicyPage />} />
+          <Route path="/att_leaveDashboard" element={<LeaveDashboardPage />} />
           <Route path="/att_overtimeEntry" element={<OverTimeEntryPage />} />
           <Route path="/att_leaveType" element={<LeaveTypePage />} />
           <Route path="/att_overtimeRule" element={<OvertimeRulePage />} />
@@ -397,6 +406,12 @@ export default function AppRouter() {
           <Route path="/att_workFromHomeRequests" element={<WorkFromHomeRequestPage />} />
           <Route path="/att_shift" element={<ShiftPage />} />
           <Route path="/att_notifications" element={<NotificationPage />} />
+          <Route path="/att_attendancePolicy" element={<AttendancePolicyPage />} />
+          <Route path="/att_holidayCalendar" element={<HolidayCalendarPage />} />
+          <Route path="/att_punch" element={<AttendancePunchPage />} />
+          <Route path="/att_requests" element={<AttendanceRequestsPage />} />
+          <Route path="/att_reports" element={<AttendanceReportsPage />} />
+          <Route path="/att_timesheetManagement" element={<TimesheetManagementPage />} />
           <Route path="/notifications" element={<NotificationInboxPage />} />
           <Route path="/notifications/:id" element={<NotificationDetailPage />} />
           <Route path="/attendance_dashboard" element={<AttendanceDashboard />} />

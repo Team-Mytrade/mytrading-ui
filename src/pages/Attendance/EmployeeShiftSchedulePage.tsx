@@ -1,665 +1,555 @@
-import React, { useEffect, useState, useMemo } from "react";
-import axios from "axios";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
-import {
-  TrashIcon,
-  XMarkIcon,
-  CalendarDaysIcon,
-  HashtagIcon,
-  UserIcon,
-  ClockIcon,
-  MoonIcon,
-  SunIcon,
-  MagnifyingGlassIcon,
-  FunnelIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
-  PlusIcon,
-  BuildingOfficeIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  PlayIcon,
-  PauseIcon,
-  CalendarIcon,
-  BriefcaseIcon,
-  PencilSquareIcon,
-} from "@heroicons/react/24/outline";
-import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import { AddButton } from "../../components/common/AddButton";
-import PageMeta from "../../components/common/PageMeta";
-import StatsCard from "../../components/common/Statscard";
-import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import FilterPopover from "../../components/common/filter";
-import { ToasterService } from "../../Services/ToasterService";
-import ConfirmDialog from "../../components/common/ConfirmDialog";
-import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import axios from 'axios';
+import { 
+  UserCheck, Calendar, Users, Layers, Edit2, ShieldCheck, Clock, 
+  RotateCw, Plus, X, Search, AlertCircle, CheckCircle2 
+} from 'lucide-react';
+import PageBreadcrumb from '../../components/common/PageBreadCrumb';
+import PageMeta from '../../components/common/PageMeta';
+import ReusableTable, { ColumnDef } from '../../components/common/Table';
+import { ToasterService } from '../../Services/ToasterService';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+const SCHEDULE_BASE_URL = '/v1/api/attendance/shiftShedules';
 
-interface Employee {
+export interface EmployeeOption {
   id: number;
-  firstName: string;
-  lastName: string;
-  employeeCode?: string;
+  name: string;
+  code: string;
 }
 
-interface Shift {
+export interface ShiftOption {
   id: number;
-  shiftName: string;
-  startTime: string;
-  endTime: string;
-  isNightShift?: boolean;
-  breakDuration?: string;
-  gracePeriodMinutes?: number;
+  code: string;
+  name: string;
+  timings: string;
+  workingHours?: number;
 }
 
-interface EmployeeShiftSchedule {
+export interface AssignmentModel {
   id?: number;
   employeeId: number;
+  employeeName?: string;
   shiftId: number;
-  date: string;
-  remarks: string;
-  status: "PLANNED" | "CONFIRMED" | "CANCELLED";
-  employee?: Employee;
-  shift?: Shift;
-  createdAt?: string;
-  updatedAt?: string;
+  shiftName?: string;
+  shiftCode?: string;
+  timings?: string;
+  effectiveFrom: string;
+  effectiveTo: string;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const API_URL = "/v1/api/attendance/shift-schedules";
-const EMPLOYEE_URL = "/v1/api/payroll/employee";
-const SHIFT_URL = "/v1/api/attendance/shifts";
-
-const PAGE_SIZE = 10;
-
-const STATUS_CONFIG = {
-  PLANNED: { label: "Planned", color: "bg-blue-100 text-blue-800", icon: PlayIcon },
-  CONFIRMED: { label: "Confirmed", color: "bg-green-100 text-green-800", icon: CheckCircleIcon },
-  CANCELLED: { label: "Cancelled", color: "bg-red-100 text-red-800", icon: XCircleIcon },
-};
-
-const inputCls = "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent";
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
+export interface CurrentShiftModel {
+  employeeId: number;
+  employeeName?: string;
+  shiftId: number;
+  shiftName: string;
+  shiftCode: string;
+  startTime: string;
+  endTime: string;
+  workingHours: number;
+}
 
 const EmployeeShiftSchedulePage: React.FC = () => {
-  const [schedules, setSchedules] = useState<EmployeeShiftSchedule[]>([]);
-  const [filteredSchedules, setFilteredSchedules] = useState<EmployeeShiftSchedule[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [shifts, setShifts] = useState<Shift[]>([]);
+  // ── States ─────────────────────────────────────────────────────────────
+  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+  const [shifts, setShifts] = useState<ShiftOption[]>([]);
+  const [assignments, setAssignments] = useState<AssignmentModel[]>([]);
+  const [currentShiftInfo, setCurrentShiftInfo] = useState<CurrentShiftModel | null>(null);
+
   const [loading, setLoading] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [editingSchedule, setEditingSchedule] = useState<EmployeeShiftSchedule | null>(null);
-  const [search, setSearch] = useState<string>('');
-  const [searchEmployee, setSearchEmployee] = useState<string>('');
-  const [sortKey, setSortKey] = useState<keyof EmployeeShiftSchedule>("date");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [page, setPage] = useState(1);
-  const [showFilters, setShowFilters] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<string>("");
-  const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState<string>("");
-  const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // Form fields
-  const [formEmployeeId, setFormEmployeeId] = useState("");
-  const [formShiftId, setFormShiftId] = useState("");
-  const [formDate, setFormDate] = useState<Date | null>(new Date());
-  const [formRemarks, setFormRemarks] = useState("");
-  const [formStatus, setFormStatus] = useState<"PLANNED" | "CONFIRMED" | "CANCELLED">("PLANNED");
+  // Modals & Form
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingAssignment, setEditingAssignment] = useState<AssignmentModel | null>(null);
 
-  // ── Data ────────────────────────────────────────────────────────────────────
+  const [form, setForm] = useState<{
+    employeeId: number;
+    shiftId: number;
+    effectiveFrom: string;
+    effectiveTo: string;
+  }>({
+    employeeId: 0,
+    shiftId: 0,
+    effectiveFrom: new Date().toISOString().slice(0, 10),
+    effectiveTo: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
+  });
 
-  const loadAll = async () => {
-    setLoading(true);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // ── Error Extraction Helper ────────────────────────────────────────────
+  const handleApiError = (err: any, defaultMsg: string) => {
+    const status = err.response?.status;
+    const backendMsg = err.response?.data?.message || err.response?.data?.error || err.response?.data?.detail;
+    
+    if (status === 409) {
+      ToasterService.error(backendMsg || "Overlapping shift assignment detected for this employee (409 Conflict).");
+    } else if (status === 400 || status === 422) {
+      ToasterService.error(backendMsg || "Validation Error (400 Bad Request). Check dates and selections.");
+    } else if (status === 401 || status === 403) {
+      ToasterService.error("Unauthorized / Permission Denied.");
+    } else if (status === 404) {
+      ToasterService.error("Assignment or Employee not found (404).");
+    } else if (status >= 500) {
+      ToasterService.error(backendMsg || "Server Error (500). Please try again later.");
+    } else {
+      ToasterService.error(backendMsg || defaultMsg);
+    }
+  };
+
+  // ── Load Employees & Active Shifts Dynamic APIs ──────────────────────────
+  const fetchInitialDropdowns = async () => {
+    let empList: EmployeeOption[] = [];
+    let shiftList: ShiftOption[] = [];
+
+    // 1. Employee Dropdown: GET /v1/api/payroll/employee/all
     try {
-      const [scheduleRes, empRes, shiftRes] = await Promise.all([
-        axios.get<EmployeeShiftSchedule[]>(API_URL),
-        axios.get<Employee[]>(`${EMPLOYEE_URL}/all`),
-        axios.get<Shift[]>(SHIFT_URL),
-      ]);
-      setSchedules(scheduleRes.data);
-      setEmployees(empRes.data);
-      setShifts(shiftRes.data);
-    } catch (err) {
-      console.error("Error loading data:", err);
-      ToasterService.error("Failed to load data");
+      const empRes = await axios.get('/v1/api/payroll/employee/all');
+      if (Array.isArray(empRes.data) && empRes.data.length > 0) {
+        empList = empRes.data.map((e: any) => ({
+          id: Number(e.id),
+          name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.name || e.fullName || `Employee #${e.id}`,
+          code: e.employeeCode || `EMP-${e.id}`
+        }));
+        setEmployees(empList);
+      }
+    } catch (e) {}
+
+    // 2. Active Shifts Dropdown: GET /v1/api/attendance/shifts/active
+    try {
+      let shiftRes;
+      try {
+        shiftRes = await axios.get('/v1/api/attendance/shifts/active');
+      } catch (e) {
+        shiftRes = await axios.get('/v1/api/attendance/shifts');
+      }
+
+      if (Array.isArray(shiftRes.data) && shiftRes.data.length > 0) {
+        shiftList = shiftRes.data.map((s: any) => ({
+          id: Number(s.id),
+          code: s.shiftCode || 'GEN',
+          name: s.shiftName || 'General Shift',
+          timings: `${s.startTime || '09:00:00'} - ${s.endTime || '18:00:00'}`,
+          workingHours: s.workingHours || 480
+        }));
+        setShifts(shiftList);
+      }
+    } catch (e) {}
+
+    const defaultEmpId = empList[0]?.id || 0;
+    const defaultShiftId = shiftList[0]?.id || 0;
+
+    setForm(prev => ({
+      ...prev,
+      employeeId: prev.employeeId || defaultEmpId,
+      shiftId: prev.shiftId || defaultShiftId
+    }));
+
+    if (defaultEmpId > 0) {
+      loadEmployeeSchedules(defaultEmpId, empList, shiftList);
+    }
+  };
+
+  // ── Load Employee Shift History & Current Shift ─────────────────────────
+  const loadEmployeeSchedules = async (
+    empId: number,
+    empOptions: EmployeeOption[] = employees,
+    shiftOptions: ShiftOption[] = shifts
+  ) => {
+    if (!empId) return;
+    setLoading(true);
+
+    // 1. Shift History: GET /shiftShedules/employee/{employeeId}
+    try {
+      const historyRes = await axios.get(`${SCHEDULE_BASE_URL}/employee/${empId}`);
+      if (Array.isArray(historyRes.data)) {
+        const mapped = historyRes.data.map((a: any) => {
+          const empMatch = empOptions.find(e => e.id === Number(a.employeeId));
+          const shiftMatch = shiftOptions.find(s => s.id === Number(a.shiftId));
+
+          return {
+            id: Number(a.id),
+            employeeId: Number(a.employeeId),
+            employeeName: empMatch?.name || `Employee #${a.employeeId}`,
+            shiftId: Number(a.shiftId),
+            shiftName: shiftMatch?.name || `Shift #${a.shiftId}`,
+            shiftCode: shiftMatch?.code || 'GEN',
+            timings: shiftMatch?.timings || '09:00:00 - 18:00:00',
+            effectiveFrom: String(a.effectiveFrom || '').slice(0, 10),
+            effectiveTo: String(a.effectiveTo || '').slice(0, 10)
+          };
+        });
+        setAssignments(mapped);
+      } else {
+        setAssignments([]);
+      }
+    } catch (e) {
+      setAssignments([]);
     } finally {
       setLoading(false);
     }
+
+    // 2. Current Shift: GET /shiftShedules/employee/{employeeId}/current
+    try {
+      const currentRes = await axios.get(`${SCHEDULE_BASE_URL}/employee/${empId}/current`);
+      if (currentRes.data) {
+        const c = currentRes.data;
+        const empMatch = empOptions.find(e => e.id === empId);
+        setCurrentShiftInfo({
+          employeeId: empId,
+          employeeName: empMatch?.name || `Employee #${empId}`,
+          shiftId: Number(c.shiftId || c.id || 0),
+          shiftName: c.shiftName || "General Shift",
+          shiftCode: c.shiftCode || "GEN",
+          startTime: c.startTime || "09:00:00",
+          endTime: c.endTime || "18:00:00",
+          workingHours: c.workingHours || 480
+        });
+      } else {
+        setCurrentShiftInfo(null);
+      }
+    } catch (e) {
+      setCurrentShiftInfo(null);
+    }
   };
 
   useEffect(() => {
-    loadAll();
+    fetchInitialDropdowns();
   }, []);
 
-  useEffect(() => {
-    applyFilters();
-  }, [schedules, search, searchEmployee, selectedStatus, selectedEmployeeFilter, sortKey, sortOrder]);
+  const handleSelectedEmployeeChange = (empId: number) => {
+    setForm(p => ({ ...p, employeeId: empId }));
+    loadEmployeeSchedules(empId);
+  };
 
-  const applyFilters = () => {
-    let filtered = [...schedules];
+  // ── Validation ─────────────────────────────────────────────────────────
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
 
-    // Filter by employee name/code
-    if (searchEmployee) {
-      const searchTerm = searchEmployee.toLowerCase();
-      filtered = filtered.filter(s =>
-        s.employee?.firstName?.toLowerCase().includes(searchTerm) ||
-        s.employee?.lastName?.toLowerCase().includes(searchTerm) ||
-        s.employee?.employeeCode?.toLowerCase().includes(searchTerm)
-      );
-    }
+    if (!form.employeeId) errors.employeeId = "Please select an Employee.";
+    if (!form.shiftId) errors.shiftId = "Please select a Shift.";
+    if (!form.effectiveFrom) errors.effectiveFrom = "Effective From Date is required.";
+    if (!form.effectiveTo) errors.effectiveTo = "Effective To Date is required.";
 
-    // Filter by selected employee dropdown
-    if (selectedEmployeeFilter) {
-      filtered = filtered.filter(s => s.employeeId.toString() === selectedEmployeeFilter);
-    }
-
-    // Filter by date search
-    if (search) {
-      const searchTerm = search.toLowerCase();
-      filtered = filtered.filter(s =>
-        s.date?.toLowerCase().includes(searchTerm)
-      );
-    }
-
-    // Filter by status
-    if (selectedStatus) {
-      filtered = filtered.filter(s => s.status === selectedStatus);
-    }
-
-    // Sort
-    const sorted = [...filtered].sort((a, b) => {
-      let valA = a[sortKey as keyof EmployeeShiftSchedule];
-      let valB = b[sortKey as keyof EmployeeShiftSchedule];
-
-      if (valA == null && valB == null) return 0;
-      if (valA == null) return 1;
-      if (valB == null) return -1;
-
-      if (typeof valA === "string" && typeof valB === "string") {
-        return sortOrder === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    if (form.effectiveFrom && form.effectiveTo) {
+      if (new Date(form.effectiveTo) < new Date(form.effectiveFrom)) {
+        errors.effectiveTo = "Effective To date must be greater than or equal to Effective From date.";
       }
+    }
 
-      if (typeof valA === "number" && typeof valB === "number") {
-        return sortOrder === "asc" ? valA - valB : valB - valA;
-      }
-
-      return 0;
-    });
-
-    setFilteredSchedules(sorted);
-    setPage(1);
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
-  // ── Form ────────────────────────────────────────────────────────────────────
-
-  const resetForm = () => {
-    setFormEmployeeId("");
-    setFormShiftId("");
-    setFormDate(new Date());
-    setFormRemarks("");
-    setFormStatus("PLANNED");
-    setEditingSchedule(null);
-    setShowForm(false);
-  };
-
-  const openEdit = (schedule: EmployeeShiftSchedule) => {
-    setFormEmployeeId(schedule.employeeId.toString());
-    setFormShiftId(schedule.shiftId.toString());
-    setFormDate(new Date(schedule.date));
-    setFormRemarks(schedule.remarks || "");
-    setFormStatus(schedule.status);
-    setEditingSchedule(schedule);
-    setShowForm(true);
-
-    // Scroll to form
-    document.getElementById('schedule-form')?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const submitForm = async (e: React.FormEvent) => {
+  // ── Submit Create or Update Assignment ─────────────────────────────────
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!formDate) { ToasterService.error("Date is required"); return; }
-    if (!formEmployeeId) { ToasterService.error("Employee is required"); return; }
-    if (!formShiftId) { ToasterService.error("Shift is required"); return; }
-
-    const payload = {
-      employeeId: parseInt(formEmployeeId),
-      shiftId: parseInt(formShiftId),
-      date: formDate.toISOString().split('T')[0],
-      remarks: formRemarks,
-      status: formStatus,
-    };
-    const sample = { employeeId: 38, shiftId: 1, date: "2026-05-13", remarks: "Sample", status: "CONFIRMED" }
+    if (!validateForm()) return;
 
     try {
-      if (editingSchedule?.id) {
-        await axios.put(`${API_URL}/${editingSchedule.id}`, payload);
-        ToasterService.success("Schedule updated successfully");
+      setIsSubmitting(true);
+
+      if (editingAssignment?.id) {
+        // PUT /v1/api/attendance/shiftShedules/{id}
+        const putPayload = {
+          id: editingAssignment.id,
+          employeeId: Number(form.employeeId),
+          shiftId: Number(form.shiftId),
+          effectiveFrom: form.effectiveFrom,
+          effectiveTo: form.effectiveTo
+        };
+
+        const res = await axios.put(`${SCHEDULE_BASE_URL}/${editingAssignment.id}`, putPayload);
+        const empMatch = employees.find(e => e.id === Number(form.employeeId));
+        const shiftMatch = shifts.find(s => s.id === Number(form.shiftId));
+
+        const updatedRecord: AssignmentModel = res.data || {
+          ...putPayload,
+          employeeName: empMatch?.name,
+          shiftName: shiftMatch?.name,
+          shiftCode: shiftMatch?.code,
+          timings: shiftMatch?.timings
+        };
+
+        setAssignments(prev => prev.map(a => a.id === editingAssignment.id ? updatedRecord : a));
+        ToasterService.success("Shift schedule updated successfully!");
+        setEditingAssignment(null);
       } else {
-        await axios.post(`/v1/api/attendance/shiftShedules/create`, sample);
-        ToasterService.success("Schedule assigned successfully");
+        // POST /v1/api/attendance/shiftShedules
+        const postPayload = {
+          employeeId: Number(form.employeeId),
+          shiftId: Number(form.shiftId),
+          effectiveFrom: form.effectiveFrom,
+          effectiveTo: form.effectiveTo
+        };
+
+        const res = await axios.post(SCHEDULE_BASE_URL, postPayload);
+        const empMatch = employees.find(e => e.id === Number(form.employeeId));
+        const shiftMatch = shifts.find(s => s.id === Number(form.shiftId));
+
+        const createdRecord: AssignmentModel = res.data || {
+          ...postPayload,
+          id: Date.now(),
+          employeeName: empMatch?.name,
+          shiftName: shiftMatch?.name,
+          shiftCode: shiftMatch?.code,
+          timings: shiftMatch?.timings
+        };
+
+        setAssignments(prev => [createdRecord, ...prev]);
+        ToasterService.success("Shift assigned successfully!");
+        setIsModalOpen(false);
       }
-      await loadAll();
-      resetForm();
+
+      loadEmployeeSchedules(form.employeeId);
     } catch (err: any) {
-      console.error("Save failed:", err);
-      ToasterService.error(err.response?.data?.message || "Assignment failed");
+      handleApiError(err, "Failed to save shift assignment.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // ── Delete ──────────────────────────────────────────────────────────────────
+  const openCreateModal = () => {
+    setEditingAssignment(null);
+    setFormErrors({});
+    setIsModalOpen(true);
+  };
 
-  const handleDelete = async (id: number) => {
-    const ok = await confirm({
-      message: "Are you sure you want to delete this shift schedule? This action cannot be undone.",
-      confirmLabel: "Delete",
-      variant: "danger",
+  const openEditModal = (row: AssignmentModel) => {
+    setEditingAssignment(row);
+    setForm({
+      employeeId: row.employeeId,
+      shiftId: row.shiftId,
+      effectiveFrom: row.effectiveFrom,
+      effectiveTo: row.effectiveTo
     });
-    if (!ok) return;
-
-    try {
-      await axios.delete(`${API_URL}/${id}`);
-      ToasterService.success("Schedule deleted successfully");
-      await loadAll();
-    } catch (err: any) {
-      console.error("Delete failed:", err);
-      ToasterService.error(err.response?.data?.message || "Delete failed");
-    }
+    setFormErrors({});
+    setIsModalOpen(true);
   };
 
-  // ── Stats ───────────────────────────────────────────────────────────────────
+  // ── Table Search Filter ────────────────────────────────────────────────
+  const filteredAssignments = useMemo(() => {
+    if (!searchQuery.trim()) return assignments;
+    const q = searchQuery.toLowerCase();
+    return assignments.filter(
+      a => (a.employeeName || '').toLowerCase().includes(q) || (a.shiftName || '').toLowerCase().includes(q)
+    );
+  }, [assignments, searchQuery]);
 
-  const totalRecords = filteredSchedules.length;
-  const totalPlanned = filteredSchedules.filter(s => s.status === "PLANNED").length;
-  const totalConfirmed = filteredSchedules.filter(s => s.status === "CONFIRMED").length;
-  const totalEmployees = new Set(filteredSchedules.map(s => s.employeeId).filter(Boolean)).size;
-
-  // Get unique employees for filter
-  const uniqueEmployees = [...new Map(schedules.map(s => [s.employeeId, {
-    id: s.employeeId,
-    name: s.employee ? `${s.employee.firstName} ${s.employee.lastName}` : `Employee ${s.employeeId}`,
-    code: s.employee?.employeeCode || ''
-  }])).values()];
-
-  // Get unique statuses for filter
-  const uniqueStatuses = [...new Set(schedules.map(s => s.status).filter(Boolean))];
-
-  const paginated = filteredSchedules.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const totalPages = Math.ceil(filteredSchedules.length / PAGE_SIZE);
-
-  const handleSort = (field: keyof EmployeeShiftSchedule) => {
-    if (sortKey === field) setSortOrder(o => o === "asc" ? "desc" : "asc");
-    else { setSortKey(field); setSortOrder("asc"); }
-  };
-
-  const SortIcon = ({ col }: { col: keyof EmployeeShiftSchedule }) =>
-    sortKey !== col ? null : sortOrder === "asc" ? <ArrowUpIcon className="h-3 w-3 inline ml-1" /> : <ArrowDownIcon className="h-3 w-3 inline ml-1" />;
-
-  const tableData = useMemo(() => {
-    return schedules.map((s, index) => ({
-      ...s,
-      id: s.id || index,
-      employeeName: s.employee ? `${s.employee.firstName} ${s.employee.lastName}` : `Employee ID: ${s.employeeId}`,
-      shiftName: s.shift?.shiftName || `Shift ID: ${s.shiftId}`,
-    }));
-  }, [schedules]);
-
-  const columns: ColumnDef<any>[] = [
-    {
-      key: "employeeName",
-      label: "Employee",
-      sortable: true,
-      render: (row) => (
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center">
-            <span className="text-xs font-medium text-cyan-700">
-              {row.employee?.firstName?.charAt(0) || row.employee?.lastName?.charAt(0) || 'E'}
-            </span>
-          </div>
-          <div>
-            <div className="text-sm font-medium text-gray-900">
-              {row.employeeName}
-            </div>
-            {row.employee?.employeeCode && (
-              <div className="text-xs text-gray-500">{row.employee.employeeCode}</div>
-            )}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "shiftName",
-      label: "Shift",
-      sortable: true,
-      render: (row) => (
-        <div className="flex items-center gap-2">
-          <ClockIcon className="h-4 w-4 text-cyan-600" />
-          <div>
-            <span className="text-sm font-medium text-gray-900">
-              {row.shiftName}
-            </span>
-            {row.shift && (
-              <span className="text-xs text-gray-500 block">
-                {row.shift.startTime} - {row.shift.endTime}
-              </span>
-            )}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "date",
-      label: "Date",
-      sortable: true,
-      render: (row) => (
-        <div className="flex items-center gap-2">
-          <CalendarIcon className="h-4 w-4 text-gray-400" />
-          <span className="text-sm text-gray-700">
-            {row.date ? new Date(row.date).toLocaleDateString() : "—"}
-          </span>
-        </div>
-      ),
-    },
-    {
-      key: "remarks",
-      label: "Remarks",
-      render: (row) => (
-        <span className="text-sm text-gray-500 block max-w-xs truncate" title={row.remarks}>
-          {row.remarks || "—"}
+  // ── Table Column Definitions ─────────────────────────────────────────────
+  const columns: ColumnDef<AssignmentModel>[] = [
+    { key: 'employeeName', label: 'Employee Name', sortable: true, render: (row) => <span className="font-semibold text-gray-900">{row.employeeName}</span> },
+    { key: 'employeeId', label: 'Emp ID', sortable: true, render: (row) => <span className="font-mono text-cyan-700 font-bold">#{row.employeeId}</span> },
+    { key: 'shiftName', label: 'Assigned Shift', sortable: true, render: (row) => <span className="text-cyan-700 font-bold">{row.shiftName} ({row.shiftCode})</span> },
+    { key: 'timings', label: 'Shift Timings', sortable: true, render: (row) => <span className="text-gray-600 font-mono text-xs">{row.timings}</span> },
+    { key: 'effectiveFrom', label: 'Effective Date Range', sortable: true, render: (row) => (
+        <span className="text-gray-700 text-xs font-mono font-medium">
+          {row.effectiveFrom} to {row.effectiveTo}
         </span>
-      ),
+      ) 
     },
-    {
-      key: "status",
-      label: "Status",
-      sortable: true,
-      render: (row) => {
-        const config = STATUS_CONFIG[row.status as keyof typeof STATUS_CONFIG];
-        const StatusIcon = config?.icon || PlayIcon;
-        return (
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${config?.color || 'bg-gray-100 text-gray-800'}`}>
-            <StatusIcon className="h-3 w-3" />
-            {config?.label || row.status}
-          </span>
-        );
-      },
-    },
-    {
-      key: "actions",
-      label: "Actions",
-      headerClassName: "text-right",
-      className: "text-right",
-      render: (row) => (
-        <div className="flex items-center justify-end gap-2">
-          <button
-            onClick={() => openEdit(row)}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors"
-            title="Edit"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => handleDelete(row.id!)}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-            title="Delete"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
-        </div>
-      ),
-    },
+    { key: 'actions', label: 'Actions', render: (row) => (
+        <button
+          type="button"
+          onClick={() => openEditModal(row)}
+          className="px-2.5 py-1 bg-cyan-50 border border-cyan-200 text-cyan-700 rounded-md text-xs font-bold hover:bg-cyan-100 transition-colors flex items-center gap-1"
+        >
+          <Edit2 className="w-3 h-3" /> Edit Schedule
+        </button>
+      )
+    }
   ];
 
   return (
     <>
-      <PageMeta title="Employee Shift Schedules" description="Manage employee shift schedules" />
-      <PageBreadcrumb pageTitle="Shift Schedules" />
+      <PageMeta title="Employee Shift Assignment" description="Assign shifts to employees and view active current shift schedules" />
+      <PageBreadcrumb pageTitle="Shift Roster & Schedule" />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-        {!showForm && (
-          <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-            <AddButton label="Assign Schedule" onClick={() => setShowForm(true)} />
-          </div>
-        )}
-
-        {!showForm && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            <StatsCard label="Total Schedules" value={totalRecords} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<CalendarIcon className="h-6 w-6" />} />
-            <StatsCard label="Planned" value={totalPlanned} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<PlayIcon className="h-6 w-6" />} />
-            <StatsCard label="Confirmed" value={totalConfirmed} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
-            <StatsCard label="Employees Covered" value={totalEmployees} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<UserIcon className="h-6 w-6" />} />
-          </div>
-        )}
-
-        {/* Inline Form */}
-        {showForm && (
-          <div id="schedule-form" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                {editingSchedule ? "Edit Shift Schedule" : "Assign Shift Schedule"}
+      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
+        
+        {/* Current Shift Summary Banner */}
+        <div className="bg-gradient-to-r from-cyan-600 to-blue-700 text-white rounded-xl p-4 shadow-sm flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-xs">
+              <ShieldCheck className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-cyan-100 uppercase tracking-widest">Active Current Shift</p>
+              <h3 className="text-sm font-extrabold text-white">
+                {currentShiftInfo
+                  ? `${currentShiftInfo.employeeName} — ${currentShiftInfo.shiftName} (${currentShiftInfo.shiftCode}) [${currentShiftInfo.startTime} - ${currentShiftInfo.endTime}]`
+                  : "Select an employee below to load active current shift details"}
               </h3>
-              <button onClick={resetForm} className="text-gray-400 hover:text-gray-600 transition-colors">
-                <XMarkIcon className="h-6 w-6" />
-              </button>
-            </div>
-
-            <form onSubmit={submitForm}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Employee <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={formEmployeeId}
-                    onChange={e => setFormEmployeeId(e.target.value)}
-                    className={inputCls}
-                    required
-                    disabled={!!editingSchedule}
-                  >
-                    <option value="">Select Employee</option>
-                    {employees.map(emp => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.firstName} {emp.lastName} - {emp.employeeCode || `ID: ${emp.id}`}
-                      </option>
-                    ))}
-                  </select>
-                  {editingSchedule && (
-                    <p className="mt-1 text-xs text-gray-500">Employee cannot be changed while editing</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Shift <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={formShiftId}
-                    onChange={e => setFormShiftId(e.target.value)}
-                    className={inputCls}
-                    required
-                  >
-                    <option value="">Select Shift</option>
-                    {shifts.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.shiftName} ({s.startTime} – {s.endTime}) {s.isNightShift ? "🌙 Night" : "☀️ Day"}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Date <span className="text-red-500">*</span>
-                  </label>
-                  <DatePicker
-                    selected={formDate}
-                    onChange={(date: Date | null) => setFormDate(date)}
-                    dateFormat="yyyy-MM-dd"
-                    className={inputCls}
-                    placeholderText="Select date"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Status <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={formStatus}
-                    onChange={e => setFormStatus(e.target.value as "PLANNED" | "CONFIRMED" | "CANCELLED")}
-                    className={inputCls}
-                    required
-                  >
-                    <option value="PLANNED">Planned</option>
-                    <option value="CONFIRMED">Confirmed</option>
-                    <option value="CANCELLED">Cancelled</option>
-                  </select>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
-                  <textarea
-                    value={formRemarks}
-                    onChange={e => setFormRemarks(e.target.value)}
-                    rows={3}
-                    className={inputCls}
-                    placeholder="Enter remarks (optional)"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4 border-t border-gray-200">
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-700 !text-white rounded-lg font-medium transition-colors"
-                >
-                  {editingSchedule ? "Update Schedule" : "Assign Schedule"}
-                </button>
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-5 py-2.5 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Toolbar */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by employee..."
-                value={searchEmployee}
-                onChange={e => setSearchEmployee(e.target.value)}
-                className="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-            </div>
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by date..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-2 w-48 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
             </div>
           </div>
+          <span className="px-3 py-1 bg-white/20 backdrop-blur-xs text-white text-xs font-bold rounded-full border border-white/30">
+            Current Shift
+          </span>
+        </div>
 
-          <div className="flex items-center gap-2">
+        {/* Employee Filter & Action Toolbar */}
+        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <label className="text-xs font-bold text-gray-700 whitespace-nowrap flex items-center gap-1">
+              <Users className="w-4 h-4 text-cyan-600" /> Select Employee:
+            </label>
+            <select
+              value={form.employeeId}
+              onChange={(e) => handleSelectedEmployeeChange(Number(e.target.value))}
+              className="py-1.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:bg-white focus:ring-2 focus:ring-cyan-500/20 outline-none"
+            >
+              {employees.map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.name} ({emp.code})</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
-              onClick={() => {
-                resetForm();
-                setShowForm(true);
-                setTimeout(() => {
-                  document.getElementById('schedule-form')?.scrollIntoView({ behavior: 'smooth' });
-                }, 100);
-              }}
-              className="px-4 py-2 bg-cyan-600 !text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center gap-2 shadow-sm"
+              type="button"
+              onClick={() => loadEmployeeSchedules(form.employeeId)}
+              className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg transition-all"
+              title="Refresh Assignments"
             >
-              <PlusIcon className="h-4 w-4" />
-              <span>Assign Shift</span>
+              <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
             </button>
-
-            <FilterPopover
-              title="Filter Schedules"
-              buttonLabel="Filter"
-              onReset={() => {
-                setSelectedEmployeeFilter("");
-                setSelectedStatus("");
-              }}
-              showFooter={true}
+            <button
+              type="button"
+              onClick={openCreateModal}
+              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
             >
-              <div className="space-y-3">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Employee</label>
-                  <select
-                    value={selectedEmployeeFilter}
-                    onChange={e => setSelectedEmployeeFilter(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                  >
-                    <option value="">All Employees</option>
-                    {uniqueEmployees.map(emp => (
-                      <option key={emp.id} value={emp.id.toString()}>
-                        {emp.name} - {emp.code}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
-                  <select
-                    value={selectedStatus}
-                    onChange={e => setSelectedStatus(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                  >
-                    <option value="">All Status</option>
-                    {uniqueStatuses.map(status => (
-                      <option key={status} value={status}>
-                        {STATUS_CONFIG[status as keyof typeof STATUS_CONFIG]?.label || status}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </FilterPopover>
+              <Plus className="w-4 h-4" /> Assign New Shift
+            </button>
           </div>
         </div>
 
-        {/* Table */}
-        <ReusableTable
-          data={tableData}
-          columns={columns}
-          loading={loading}
-          searchable={true}
-          searchPlaceholder="Search schedule..."
-          searchFields={["employeeName", "shiftName", "remarks"]}
-          pageSize={10}
-        />
+        {/* Employee Shift History Table */}
+        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4">
+          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Employee Shift History & Assignments</h3>
+          <ReusableTable
+            data={filteredAssignments}
+            columns={columns}
+            loading={loading}
+            searchable={true}
+            searchPlaceholder="Search active schedules..."
+            pageSize={5}
+            defaultSortKey="employeeName"
+            defaultSortOrder="asc"
+          />
+        </div>
 
-        <ConfirmDialog
-          isOpen={confirmState.isOpen}
-          title={confirmState.title}
-          message={confirmState.message}
-          confirmLabel={confirmState.confirmLabel}
-          cancelLabel={confirmState.cancelLabel}
-          variant={confirmState.variant}
-          onConfirm={handleConfirm}
-          onCancel={handleCancel}
-        />
+        {/* ── CREATE / EDIT ASSIGNMENT MODAL ─────────────────────────────── */}
+        {(isModalOpen || editingAssignment) && (
+          <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="bg-white rounded-xl max-w-lg w-full p-5 shadow-2xl border border-gray-100">
+              
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-4">
+                <div className="flex items-center gap-2">
+                  <UserCheck className="w-5 h-5 text-cyan-600" />
+                  <h3 className="text-sm font-bold text-gray-900 uppercase">
+                    {editingAssignment ? `Edit Assignment #${editingAssignment.id}` : "Assign Shift to Employee"}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setIsModalOpen(false); setEditingAssignment(null); }}
+                  className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                
+                {/* Employee Dropdown */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Employee (Loaded from API) *</label>
+                  <select
+                    name="employeeId"
+                    value={form.employeeId}
+                    onChange={(e) => setForm(p => ({ ...p, employeeId: Number(e.target.value) }))}
+                    className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md focus:bg-white focus:ring-2 focus:ring-cyan-500/20 outline-none text-xs font-semibold text-gray-800"
+                    required
+                  >
+                    {employees.map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.name} ({emp.code})</option>
+                    ))}
+                  </select>
+                  {formErrors.employeeId && <p className="text-[10px] text-rose-600 mt-0.5">{formErrors.employeeId}</p>}
+                </div>
+
+                {/* Shift Dropdown */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Shift (Loaded from Active Shift API) *</label>
+                  <select
+                    name="shiftId"
+                    value={form.shiftId}
+                    onChange={(e) => setForm(p => ({ ...p, shiftId: Number(e.target.value) }))}
+                    className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md focus:bg-white focus:ring-2 focus:ring-cyan-500/20 outline-none text-xs font-semibold text-gray-800"
+                    required
+                  >
+                    {shifts.map(shift => (
+                      <option key={shift.id} value={shift.id}>{shift.name} ({shift.timings})</option>
+                    ))}
+                  </select>
+                  {formErrors.shiftId && <p className="text-[10px] text-rose-600 mt-0.5">{formErrors.shiftId}</p>}
+                </div>
+
+                {/* Date Pickers */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Effective From *</label>
+                    <input
+                      type="date"
+                      name="effectiveFrom"
+                      value={form.effectiveFrom}
+                      onChange={(e) => setForm(p => ({ ...p, effectiveFrom: e.target.value }))}
+                      className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md focus:bg-white focus:ring-2 focus:ring-cyan-500/20 outline-none text-xs font-semibold text-gray-800"
+                      required
+                    />
+                    {formErrors.effectiveFrom && <p className="text-[10px] text-rose-600 mt-0.5">{formErrors.effectiveFrom}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Effective To *</label>
+                    <input
+                      type="date"
+                      name="effectiveTo"
+                      value={form.effectiveTo}
+                      onChange={(e) => setForm(p => ({ ...p, effectiveTo: e.target.value }))}
+                      className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md focus:bg-white focus:ring-2 focus:ring-cyan-500/20 outline-none text-xs font-semibold text-gray-800"
+                      required
+                    />
+                    {formErrors.effectiveTo && <p className="text-[10px] text-rose-600 mt-0.5">{formErrors.effectiveTo}</p>}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setIsModalOpen(false); setEditingAssignment(null); }}
+                    className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold disabled:opacity-70"
+                  >
+                    {isSubmitting ? "Saving..." : editingAssignment ? "Update Schedule" : "Assign Shift"}
+                  </button>
+                </div>
+
+              </form>
+
+            </div>
+          </div>
+        )}
+
       </div>
     </>
   );
 };
+
 export default EmployeeShiftSchedulePage;

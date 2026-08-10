@@ -129,13 +129,25 @@ function renderDetailValue(value: unknown): React.ReactNode {
                 (item as Record<string, unknown>).title ??
                 null
               : null;
+            if (typeof item === "object" && item !== null) {
+              const rec = item as Record<string, unknown>;
+              return (
+                <div key={idx} className="rounded-lg border border-gray-200/80 bg-white p-2.5 space-y-1 text-xs dark:border-gray-700 dark:bg-gray-800">
+                  {Object.entries(rec).map(([k, v]) => {
+                    if (v === null || v === undefined || v === "" || typeof v === "function") return null;
+                    return (
+                      <div key={k} className="flex items-center justify-between text-xs py-0.5 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
+                        <span className="font-semibold text-gray-500 uppercase text-[10px] tracking-wider">{formatDetailLabel(k)}:</span>
+                        <span className="font-medium text-gray-900 dark:text-gray-100">{String(v)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            }
             return (
               <div key={idx} className="rounded-md border border-gray-100 bg-white px-2.5 py-1.5 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
-                {nameField != null ? (
-                  <span className="font-medium">{String(nameField)}</span>
-                ) : (
-                  <pre className="whitespace-pre-wrap text-xs">{JSON.stringify(item, null, 2)}</pre>
-                )}
+                <span className="font-medium">{String(item)}</span>
               </div>
             );
           })}
@@ -206,7 +218,8 @@ function getDetailEntries<T>(row: T, columns: ColumnDef<T>[]) {
         label: column?.label || formatDetailLabel(key),
         value: val,
       };
-    });
+    })
+    .filter((entry) => entry.value !== undefined && entry.value !== null && entry.value !== "" && entry.value !== "--");
 }
 
 function rowMatchesSearch<T>(
@@ -497,7 +510,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                           <td
                             key={col.key}
                             className={[
-                              "max-w-0 px-3 py-2 text-sm text-gray-700 dark:text-gray-300",
+                              "px-3 py-2 text-sm text-gray-700 dark:text-gray-300 overflow-hidden text-ellipsis",
                               align === "center" ? "text-center" : align === "right" ? "text-right" : "text-left",
                               col.className ?? "",
                             ]
