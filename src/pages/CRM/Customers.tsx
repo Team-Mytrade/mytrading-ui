@@ -312,7 +312,7 @@ const Customers: React.FC = () => {
       headerClassName: "w-[20%] text-left",
       className: "w-[20%]",
       render: (customer) => (
-        <div className="flex items-center text-sm text-slate-600 gap-1.5 min-w-0">
+        <div className="flex items-center text-sm text-slate-600 gap-1.5 min-w-0 lg:-ml-10 -ml-4">
           <EnvelopeIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
           <span className="truncate max-w-[140px] font-medium text-slate-600" title={customer.email}>
             {customer.email || "—"}
@@ -327,7 +327,7 @@ const Customers: React.FC = () => {
       headerClassName: "w-[15%] text-left",
       className: "w-[15%]",
       render: (customer) => (
-        <div className="flex items-center text-sm text-slate-600 gap-1.5 min-w-0">
+        <div className="flex items-center text-sm text-slate-600 gap-1.5 min-w-0 lg:-ml-8 -ml-4">
           <PhoneIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
           <span className="truncate font-medium text-slate-600">{customer.phone || "—"}</span>
         </div>
@@ -353,7 +353,7 @@ const Customers: React.FC = () => {
               value={customer.status}
               onChange={(event) => handleStatusChange(customer, event.target.value as CustomerStatus)}
               disabled={statusUpdatingId === customer.id}
-              className={`w-[116px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
+              className={`w-[116px] lg:-ml-8 -ml-5 rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
                 statusColors[customer.status]
               } ${statusUpdatingId === customer.id ? "cursor-not-allowed opacity-70" : ""}`}
             >
@@ -374,7 +374,7 @@ const Customers: React.FC = () => {
       headerClassName: "w-[15%] text-left",
       className: "w-[15%]",
       render: (customer) => (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 -ml-6 ">
           <MapPinIcon className="h-3.5 w-3.5 text-slate-400" />
           <span className="text-sm text-slate-600">
             {getAddressCount(customer)} address{getAddressCount(customer) !== 1 ? "es" : ""}
@@ -386,10 +386,10 @@ const Customers: React.FC = () => {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "w-[10%] text-right pr-4",
-      className: "w-[10%] text-right",
+      headerClassName: "w-[10%] md:w-[15%] lg:w-[12%] text-right pr-4",
+       className: "w-[10%] text-right",
       render: (customer) => (
-        <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center md:ml-auto ml-32 justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={() => handleViewCustomer(customer)}
@@ -483,7 +483,7 @@ const Customers: React.FC = () => {
 
         {/* Toolbar */}
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
+          <div className="w-full sm:flex-1 sm:max-w-md md:-mt-4">
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
@@ -505,6 +505,7 @@ const Customers: React.FC = () => {
               <FunnelIcon className={`h-5 w-5 ${showFilters ? "text-cyan-600" : "text-gray-600"}`} />
               <span className="text-sm font-medium">Filters</span>
             </button>
+                               
 
             {showFilters && (
               <div className="absolute right-0 top-[48px] z-30 w-72 rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
