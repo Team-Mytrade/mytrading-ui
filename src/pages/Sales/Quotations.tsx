@@ -7,6 +7,7 @@ import {
   CalendarDaysIcon,
   DocumentTextIcon,
   MagnifyingGlassIcon,
+  PlusIcon,
   PencilSquareIcon,
   TrashIcon,
   XMarkIcon,
@@ -15,7 +16,10 @@ import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import { ListingPdfExportButton } from "../../components/common/export";
+import {
+  ListingPdfExportButton,
+  PdfExportColumn,
+} from "../../components/common/export";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import FilterPopover from "../../components/common/filter";
@@ -231,6 +235,16 @@ const PAGE_SIZE = 10;
 const statusOptions = ["DRAFT", "SENT", "ACCEPTED", "REJECTED"];
 const quotationTypeOptions = ["PRODUCT", "SERVICE"];
 
+function getQuotationCustomerName(quotation: Quotation, customers: Customer[]) {
+  const customer = customers.find((item) => Number(item.id) === Number(quotation.customerId));
+  return customer?.customerName || quotation.billingAddress?.customerName || `Customer #${quotation.customerId}`;
+}
+
+function getQuotationCustomerCode(quotation: Quotation, customers: Customer[]) {
+  const customer = customers.find((item) => Number(item.id) === Number(quotation.customerId));
+  return customer?.customerCode || quotation.billingAddress?.customerCode || `ID: ${quotation.customerId}`;
+}
+
 function getStoredTenantId() {
   try {
     const user = JSON.parse(localStorage.getItem("user") || "null");
@@ -371,6 +385,58 @@ function calculateItem(form: QuotationForm) {
   return { grossAmount, discountAmount, additionalDiscount, taxAmount, lineTotal: taxableAmount + taxAmount };
 }
 
+function resetItemFields(form: QuotationForm): QuotationForm {
+  return {
+    ...form,
+    itemCategoryId: "",
+    itemCategoryName: "",
+    itemType: "PRODUCT",
+    itemProductId: "",
+    itemProductName: "",
+    itemServiceItemId: "0",
+    itemDescription: "",
+    itemProductCode: "",
+    itemUom: "",
+    itemQuantity: "1",
+    itemUnitPrice: "0",
+    itemDiscountPercentage: "0",
+    itemDiscountAmount: "0",
+    itemTaxRate: "0",
+    itemTaxCode: "",
+    itemRemarks: "",
+    itemAdditionalDiscount: "0",
+  };
+}
+
+function calculateLineTotal(item: QuotationItemPayload) {
+  const grossAmount = toNumber(item.quantity) * toNumber(item.unitPrice);
+  const discountAmount = toNumber(item.discountAmount);
+  const additionalDiscount = toNumber(item.additionalDiscount);
+  const taxableAmount = Math.max(0, grossAmount - discountAmount - additionalDiscount);
+  const taxAmount = Number(((taxableAmount * toNumber(item.taxRate)) / 100).toFixed(2));
+  return Number((taxableAmount + taxAmount).toFixed(2));
+}
+
+function calculateQuotationTotals(items: QuotationItemPayload[]) {
+  return items.reduce(
+    (acc, item) => {
+      const grossAmount = toNumber(item.quantity) * toNumber(item.unitPrice);
+      const discountAmount = toNumber(item.discountAmount);
+      const additionalDiscount = toNumber(item.additionalDiscount);
+      const taxableAmount = Math.max(0, grossAmount - discountAmount - additionalDiscount);
+      const taxAmount = Number(((taxableAmount * toNumber(item.taxRate)) / 100).toFixed(2));
+
+      acc.subTotal += grossAmount;
+      acc.discountAmount += discountAmount;
+      acc.additionalDiscount += additionalDiscount;
+      acc.taxAmount += taxAmount;
+      acc.grandTotal += taxableAmount + taxAmount;
+      return acc;
+    },
+    { subTotal: 0, discountAmount: 0, additionalDiscount: 0, taxAmount: 0, grandTotal: 0 }
+  );
+}
+
 const Quotations: React.FC = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem("accessToken");
@@ -382,6 +448,7 @@ const Quotations: React.FC = () => {
   const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [form, setForm] = useState<QuotationForm>(emptyForm);
+  const [lineItems, setLineItems] = useState<QuotationItemPayload[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -615,8 +682,32 @@ const Quotations: React.FC = () => {
     employeeId: selectedSalesPerson?.employeeId ?? 0,
   });
 
+  const addCurrentItem = () => {
+    if (
+      lineItems.length === 0 &&
+      (!isPositiveNumber(form.itemQuantity) ||
+        !isPositiveNumber(form.itemUnitPrice) ||
+        (!form.itemProductName.trim() && !form.itemDescription.trim()))
+    ) {
+      ToasterService.error("Line item required", "Add at least one product using the + button.");
+      return;
+    }
+    if (!isPercent(form.itemDiscountPercentage) || !isPercent(form.itemTaxRate)) {
+      ToasterService.error("Invalid percentage", "Discount and tax percentages must be between 0 and 100.");
+      return;
+    }
+
+    setLineItems((current) => [...current, buildItem()]);
+    setForm((current) => resetItemFields(current));
+  };
+
+  const removeLineItem = (index: number) => {
+    setLineItems((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  };
+
   const buildPayload = () => {
-    const calculated = calculateItem(form);
+    const payloadItems = lineItems.length > 0 ? lineItems : [buildItem()];
+    const totals = calculateQuotationTotals(payloadItems);
 
     return {
       id: editingId || 0,
@@ -632,16 +723,16 @@ const Quotations: React.FC = () => {
       email: form.email,
       billingAddress: buildAddress(form, "BILLING"),
       shippingAddress: buildAddress(form, "SHIPPING"),
-      items: [buildItem()],
+      items: payloadItems,
       quoteNumber: form.quoteNumber,
       quoteDate: form.quoteDate,
       status: form.status,
-      subTotal: calculated.grossAmount,
-      discountAmount: calculated.discountAmount,
-      additionalDiscount: calculated.additionalDiscount,
+      subTotal: Number(totals.subTotal.toFixed(2)),
+      discountAmount: Number(totals.discountAmount.toFixed(2)),
+      additionalDiscount: Number(totals.additionalDiscount.toFixed(2)),
       discountPercentage: toNumber(form.discountPercentage),
-      taxAmount: calculated.taxAmount,
-      grandTotal: Number(calculated.lineTotal.toFixed(2)),
+      taxAmount: Number(totals.taxAmount.toFixed(2)),
+      grandTotal: Number(totals.grandTotal.toFixed(2)),
       salesPerson: buildSalesPerson(),
       termsAndConditions: form.termsAndConditions,
       versionNo: toNumber(form.versionNo),
@@ -711,19 +802,21 @@ const Quotations: React.FC = () => {
   };
 
   const applyCalculatedTotals = () => {
-    const item = calculateItem(form);
+    const itemsForTotals = lineItems.length > 0 ? lineItems : [buildItem()];
+    const totals = calculateQuotationTotals(itemsForTotals);
     setForm((current) => ({
       ...current,
-      subTotal: String(item.grossAmount),
-      discountAmount: String(item.discountAmount),
-      additionalDiscount: String(item.additionalDiscount),
-      taxAmount: String(item.taxAmount),
-      grandTotal: String(Number(item.lineTotal.toFixed(2))),
+      subTotal: String(Number(totals.subTotal.toFixed(2))),
+      discountAmount: String(Number(totals.discountAmount.toFixed(2))),
+      additionalDiscount: String(Number(totals.additionalDiscount.toFixed(2))),
+      taxAmount: String(Number(totals.taxAmount.toFixed(2))),
+      grandTotal: String(Number(totals.grandTotal.toFixed(2))),
     }));
   };
 
   const openCreate = () => {
     setEditingId(null);
+    setLineItems([]);
     setForm({
       ...emptyForm,
       tenantId: getStoredTenantId(),
@@ -738,7 +831,28 @@ const Quotations: React.FC = () => {
       setLoading(true);
       const res = await axios.get<Quotation>(`${API_URL}/${quotation.id}`, { headers });
       const full = res.data;
-      const firstItem = full.items?.[0];
+      setLineItems(
+        (full.items || []).map((item) => ({
+          id: item.id || 0,
+          categoryId: item.categoryId,
+          categoryName: item.categoryName || "",
+          itemType: item.itemType || "PRODUCT",
+          productId: item.productId,
+          productName: item.productName || "",
+          serviceItemId: item.serviceItemId,
+          description: item.description || "",
+          productCode: item.productCode || "",
+          uom: item.uom || "",
+          quantity: item.quantity || 1,
+          unitPrice: item.unitPrice || 0,
+          discountPercentage: item.discountPercentage || 0,
+          discountAmount: item.discountAmount || 0,
+          taxRate: item.taxRate || 0,
+          taxCode: item.taxCode || "",
+          remarks: item.remarks || "",
+          additionalDiscount: item.additionalDiscount || 0,
+        }))
+      );
       setEditingId(full.id);
       setForm({
         tenantId: getStoredTenantId(),
@@ -781,23 +895,23 @@ const Quotations: React.FC = () => {
         shippingState: full.shippingAddress?.state || "",
         shippingCountry: full.shippingAddress?.country || "",
         shippingPostalCode: full.shippingAddress?.postalCode || "",
-        itemCategoryId: String(firstItem?.categoryId || ""),
-        itemCategoryName: firstItem?.categoryName || "",
-        itemType: firstItem?.itemType || "PRODUCT",
-        itemProductId: String(firstItem?.productId || ""),
-        itemProductName: firstItem?.productName || "",
-        itemServiceItemId: String(firstItem?.serviceItemId || 0),
-        itemDescription: firstItem?.description || "",
-        itemProductCode: firstItem?.productCode || "",
-        itemUom: firstItem?.uom || "",
-        itemQuantity: String(firstItem?.quantity || 1),
-        itemUnitPrice: String(firstItem?.unitPrice || 0),
-        itemDiscountPercentage: String(firstItem?.discountPercentage || 0),
-        itemDiscountAmount: String(firstItem?.discountAmount || 0),
-        itemTaxRate: String(firstItem?.taxRate || 0),
-        itemTaxCode: firstItem?.taxCode || "",
-        itemRemarks: firstItem?.remarks || "",
-        itemAdditionalDiscount: String(firstItem?.additionalDiscount || 0),
+        itemCategoryId: "",
+        itemCategoryName: "",
+        itemType: "PRODUCT",
+        itemProductId: "",
+        itemProductName: "",
+        itemServiceItemId: "0",
+        itemDescription: "",
+        itemProductCode: "",
+        itemUom: "",
+        itemQuantity: "1",
+        itemUnitPrice: "0",
+        itemDiscountPercentage: "0",
+        itemDiscountAmount: "0",
+        itemTaxRate: "0",
+        itemTaxCode: "",
+        itemRemarks: "",
+        itemAdditionalDiscount: "0",
       });
       setShowFormModal(true);
     } catch (error) {
@@ -810,6 +924,7 @@ const Quotations: React.FC = () => {
   const closeForm = () => {
     setShowFormModal(false);
     setEditingId(null);
+    setLineItems([]);
     setForm(emptyForm);
   };
 
@@ -876,6 +991,62 @@ const Quotations: React.FC = () => {
     grandTotal: quotations.reduce((sum, item) => sum + Number(item.grandTotal || 0), 0),
   }), [quotations]);
 
+  const pdfColumns = useMemo<PdfExportColumn<Quotation>[]>(() => [
+    {
+      header: "Quote No",
+      accessor: (quotation) => quotation.quoteNumber || `Quote #${quotation.id}`,
+      width: 36,
+    },
+    {
+      header: "Customer",
+      accessor: (quotation) => getQuotationCustomerName(quotation, customers),
+      width: 42,
+    },
+    {
+      header: "Customer Code",
+      accessor: (quotation) => getQuotationCustomerCode(quotation, customers),
+      width: 26,
+    },
+    {
+      header: "Quote Date",
+      accessor: (quotation) => quotation.quoteDate || "--",
+      width: 22,
+    },
+    {
+      header: "Valid Until",
+      accessor: (quotation) => quotation.validUntil || "--",
+      width: 22,
+    },
+    {
+      header: "Status",
+      accessor: (quotation) => quotation.status || "N/A",
+      width: 18,
+    },
+    {
+      header: "Sales Person",
+      accessor: (quotation) => quotation.salesPerson?.name || "--",
+      width: 30,
+    },
+    {
+      header: "Items",
+      accessor: (quotation) => quotation.items?.length || 0,
+      align: "center",
+      width: 14,
+    },
+    {
+      header: "Currency",
+      accessor: (quotation) => quotation.currencyCode || "--",
+      align: "center",
+      width: 20,
+    },
+    {
+      header: "Grand Total",
+      accessor: (quotation) => money(quotation.grandTotal),
+      align: "right",
+      width: 26,
+    },
+  ], [customers]);
+
   const columns: ColumnDef<Quotation>[] = [
     {
       key: "quoteNumber",
@@ -893,14 +1064,13 @@ const Quotations: React.FC = () => {
       label: "Customer",
       sortable: true,
       render: (quotation) => {
-        const customer = customers.find((item) => Number(item.id) === Number(quotation.customerId));
         return (
           <div>
             <div className="text-sm font-semibold text-slate-900">
-              {customer?.customerName || quotation.billingAddress?.customerName || `Customer #${quotation.customerId}`}
+              {getQuotationCustomerName(quotation, customers)}
             </div>
             <div className="text-xs text-slate-500">
-              {customer?.customerCode || quotation.billingAddress?.customerCode || `ID: ${quotation.customerId}`}
+              {getQuotationCustomerCode(quotation, customers)}
             </div>
           </div>
         );
@@ -1158,57 +1328,117 @@ const Quotations: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
+                      {lineItems.map((item, index) => (
+                        <tr key={`line-item-${index}`} className="bg-white transition hover:bg-gray-50/60">
+                          <td className="border-r border-gray-100 px-3 py-2 align-top">
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => removeLineItem(index)}
+                                  className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                                  title="Remove item"
+                                >
+                                  <TrashIcon className="h-4 w-4" />
+                                </button>
+                                <div className="flex-1 rounded-2xl bg-white px-4 py-3 text-[13px] font-medium text-gray-900 shadow-sm">
+                                  {item.productName || "--"}
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                <div className="rounded-2xl bg-white px-4 py-3 text-[12px] text-gray-500 shadow-sm">
+                                  {item.productCode || "Product code"}
+                                </div>
+                                <div className="rounded-2xl bg-white px-4 py-4 text-[12px] text-gray-500 shadow-sm">
+                                  {item.description || "Add a description to your item"}
+                                </div>
+                                <div className="rounded-2xl bg-white px-4 py-3 text-[12px] text-gray-500 shadow-sm">
+                                  {item.uom || "UOM"}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
+                            <div className="p-1 text-[13px] font-medium text-gray-900">{item.quantity}</div>
+                          </td>
+                          <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
+                            <div className="p-1 text-[13px] font-medium text-gray-900">{money(item.unitPrice)}</div>
+                          </td>
+                          <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
+                            <div className="p-1 text-[13px] font-medium text-gray-900">{item.discountPercentage}</div>
+                          </td>
+                          <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
+                            <div className="p-1 text-[13px] font-medium text-gray-900">{item.taxRate}</div>
+                          </td>
+                          <td className="bg-white px-3 py-2 text-right align-top">
+                            <div className="p-1 text-[13px] font-semibold text-gray-900">{money(calculateLineTotal(item))}</div>
+                          </td>
+                        </tr>
+                      ))}
                       <tr className="bg-white transition hover:bg-gray-50/60">
                         <td className="border-r border-gray-100 px-3 py-2 align-top">
-                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                            {form.itemType === "PRODUCT" ? (
-                              <>
-                                <select
-                                  name="itemCategoryId"
-                                  value={form.itemCategoryId}
-                                  onChange={handleChange}
-                                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                                >
-                                  <option value="">Select category</option>
-                                  {leafCategories.map((category) => (
-                                    <option key={category.id} value={category.id}>
-                                      {category.parentName ? `${category.parentName} / ${category.categoryName}` : category.categoryName}
-                                    </option>
-                                  ))}
-                                </select>
-                                <select
-                                  name="itemProductId"
-                                  value={form.itemProductId}
-                                  onChange={handleChange}
-                                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                                >
-                                  <option value="">Select product</option>
-                                  {filteredProducts.map((product) => (
-                                    <option key={product.id} value={product.id}>
-                                      {product.productName || product.shortName || `Product #${product.id}`}
-                                    </option>
-                                  ))}
-                                </select>
-                              </>
-                            ) : (
-                              <>
-                                {editingId && (
-                                  <input
-                                    name="itemServiceItemId"
-                                    type="number"
-                                    value={form.itemServiceItemId}
-                                    onChange={handleChange}
-                                    className="rounded-lg border border-transparent bg-transparent p-1 text-[13px] font-medium text-gray-900 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white"
-                                    placeholder="Service item ID"
-                                  />
+                          <div className="space-y-2">
+                            <div className="flex items-start gap-2">
+                              <button
+                                type="button"
+                                onClick={addCurrentItem}
+                                className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-cyan-700 transition hover:bg-cyan-50"
+                                title="Add product row"
+                              >
+                                <PlusIcon className="h-4 w-4" />
+                              </button>
+                              <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
+                                {form.itemType === "PRODUCT" ? (
+                                  <>
+                                    <select
+                                      name="itemCategoryId"
+                                      value={form.itemCategoryId}
+                                      onChange={handleChange}
+                                      className="min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                                    >
+                                      <option value="">Select category</option>
+                                      {leafCategories.map((category) => (
+                                        <option key={category.id} value={category.id}>
+                                          {category.parentName ? `${category.parentName} / ${category.categoryName}` : category.categoryName}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <select
+                                      name="itemProductId"
+                                      value={form.itemProductId}
+                                      onChange={handleChange}
+                                      className="min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                                    >
+                                      <option value="">Select product</option>
+                                      {filteredProducts.map((product) => (
+                                        <option key={product.id} value={product.id}>
+                                          {product.productName || product.shortName || `Product #${product.id}`}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </>
+                                ) : (
+                                  <>
+                                    {editingId && (
+                                      <input
+                                        name="itemServiceItemId"
+                                        type="number"
+                                        value={form.itemServiceItemId}
+                                        onChange={handleChange}
+                                        className="rounded-lg border border-transparent bg-transparent p-1 text-[13px] font-medium text-gray-900 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white"
+                                        placeholder="Service item ID"
+                                      />
+                                    )}
+                                    <input name="itemProductName" value={form.itemProductName} onChange={handleChange} className="rounded-lg border border-transparent bg-transparent p-1 text-[13px] font-medium text-gray-900 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Product name" />
+                                  </>
                                 )}
-                                <input name="itemProductName" value={form.itemProductName} onChange={handleChange} className="rounded-lg border border-transparent bg-transparent p-1 text-[13px] font-medium text-gray-900 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Product name" />
-                              </>
-                            )}
-                            <input name="itemCategoryName" value={form.itemCategoryName} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Category name" />
-                            <input name="itemDescription" value={form.itemDescription} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white sm:col-span-2" placeholder="Add a description to your item" />
-                            <input name="itemProductCode" value={form.itemProductCode} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Product code" />
-                            <input name="itemUom" value={form.itemUom} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="UOM" />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                              <input name="itemProductCode" value={form.itemProductCode} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Product code" />
+                              <input name="itemDescription" value={form.itemDescription} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Add a description to your item" />
+                              <input name="itemUom" value={form.itemUom} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="UOM" />
+                            </div>
                           </div>
                         </td>
                         <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
@@ -1273,7 +1503,7 @@ const Quotations: React.FC = () => {
       <PageMeta title="Quotations" description="Manage sales quotations" />
       <PageBreadcrumb pageTitle="Quotations" />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={openCreate} label="Add Quotation" />
         </div>
@@ -1306,8 +1536,8 @@ const Quotations: React.FC = () => {
           />
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="relative w-full sm:max-w-md">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between md:-mb-5">
+          <div className="relative w-full sm:max-w-md mt-0.5">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
@@ -1333,6 +1563,7 @@ const Quotations: React.FC = () => {
               subtitle="Filtered quotation listing"
               reportLabel="Sales Report"
               data={filteredQuotations}
+              columns={pdfColumns}
               fileName="Quotations"
               disabled={loading}
               metadata={(rows, rangeLabel) => [

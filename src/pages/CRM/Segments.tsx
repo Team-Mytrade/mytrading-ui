@@ -374,9 +374,9 @@ const Segments: React.FC = () => {
       headerClassName: "w-[32%] text-left",
       className: "w-[32%]",
       render: (segment) => (
-        <div className="flex items-center gap-2 text-sm text-slate-600">
+        <div className="flex items-center gap-2 text-sm text-slate-600 my-3">
           <DocumentTextIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
-          <span className="truncate font-medium text-slate-600" title={segment.description}>
+          <span className="truncate font-medium text-slate-600 " title={segment.description}>
             {segment.description || <span className="text-slate-400 italic">No description provided</span>}
           </span>
         </div>
@@ -390,7 +390,7 @@ const Segments: React.FC = () => {
       className: "w-[20%] text-center",
       sortValueGetter: (segment) => getCustomerCount(segment),
       render: (segment) => (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/40">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 -ml-5 text-xs font-semibold rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/40">
           <UserGroupIcon className="h-3.5 w-3.5 text-cyan-600 opacity-80" />
           {getCustomerCount(segment)} customers
         </span>
@@ -498,7 +498,7 @@ const Segments: React.FC = () => {
         {/* Toolbar */}
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
+            <div className="relative md:-mt-4">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"

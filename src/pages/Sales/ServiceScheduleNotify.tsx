@@ -315,14 +315,17 @@ const ServiceScheduleNotify: React.FC = () => {
       key: "email",
       label: "Email",
       sortable: true,
-      render: (user) => <span className="text-sm text-slate-700">{user.email || "--"}</span>,
+      render: (user) =>
+         <div className="max-w-[150px] truncate" title={user.email || ""}>
+      <span className="text-sm text-slate-700">{user.email || "--"}</span>
+    </div>
     },
     {
       key: "employeeId",
       label: "Employee",
       sortable: true,
       render: (user) => (
-        <div>
+        <div className="md:ml-20">
           <div className="text-sm font-medium text-slate-700">{user.employeeId ?? "--"}</div>
           <div className="text-xs text-slate-500">{user.employeeCode || "--"}</div>
         </div>
@@ -332,20 +335,24 @@ const ServiceScheduleNotify: React.FC = () => {
       key: "role",
       label: "Role",
       sortable: true,
-      render: (user) => <span className="text-sm text-slate-700">{user.role || user.userType || "--"}</span>,
+      render: (user) =>
+        <div className="max-w-[150px] truncate" title={user.role || ""}>
+         <span className="text-sm text-slate-700 md:ml-10">{user.role || user.userType || "--"}</span>,
+    </div>
+
     },
     {
       key: "tenantId",
       label: "Tenant",
       sortable: true,
-      render: (user) => <span className="text-sm text-slate-700">{user.tenantId || "--"}</span>,
+      render: (user) => <span className="text-sm text-slate-700 md:ml-10">{user.tenantId || "--"}</span>,
     },
     {
       key: "active",
       label: "Status",
       sortable: true,
       render: (user) => (
-        <span className="inline-flex rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">
+        <span className="inline-flex rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 md:ml-10">
           {user.active ? "Active" : "Inactive"}
         </span>
       ),
@@ -357,7 +364,7 @@ const ServiceScheduleNotify: React.FC = () => {
       <PageMeta title="Service Schedule Notify" description="Manage service schedule notifications" />
       <PageBreadcrumb pageTitle="Service Schedule Notify" />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={() => setShowCreateModal(true)} label="Create Schedule" />
         </div>
@@ -382,8 +389,8 @@ const ServiceScheduleNotify: React.FC = () => {
           />
         </div>
 
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-md">
+        <div className=" flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between md:-my-5 ">
+          <div className="relative w-full sm:max-w-md md:-mt-4">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
@@ -403,7 +410,7 @@ const ServiceScheduleNotify: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mt-6">
             <ListingPdfExportButton
               title="Service Schedule Notify"
               subtitle="Filtered user notification listing"

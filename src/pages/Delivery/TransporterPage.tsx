@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
 import {
@@ -13,6 +13,8 @@ import {
   IdentificationIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
+  ChevronDownIcon,
+  CheckCircleIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -22,7 +24,7 @@ import DynamicPopup from "../../components/common/Popup";
 import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
 import { FloatingInput, FloatingTextarea, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
-import { COUNTRIES, CountryOption} from "../../data/countries";
+import { COUNTRIES, CountryOption } from "../../data/countries";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,6 +60,117 @@ const emptyForm: Transporter = {
   status: "Active",
 };
 
+// ─── Searchable Country Code Combobox ─────────────────────────────────────────
+// Replaces the plain <select> with a searchable dropdown so users can type
+// a country name / dial code / ISO code instead of scrolling a long list.
+
+interface CountryCodeComboboxProps {
+  selected: CountryOption;
+  onSelect: (c: CountryOption) => void;
+}
+
+const CountryCodeCombobox: React.FC<CountryCodeComboboxProps> = ({ selected, onSelect }) => {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return COUNTRIES;
+    return COUNTRIES.filter((c) => {
+      const name = (c as any).name?.toLowerCase?.() ?? "";
+      return (
+        c.code.toLowerCase().includes(q) ||
+        c.dialCode.toLowerCase().includes(q) ||
+        name.includes(q)
+      );
+    });
+  }, [query]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 0);
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative w-[128px] flex-shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`flex h-[46px] w-full items-center justify-between gap-1 rounded-lg border px-2.5 text-sm font-medium transition-colors ${
+          open ? "border-cyan-400 ring-2 ring-cyan-100" : "border-gray-300 hover:border-gray-400"
+        } bg-white`}
+      >
+        <span className="truncate text-slate-700">
+          {selected.dialCode} <span className="text-slate-400">({selected.code})</span>
+        </span>
+        <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-1.5 w-[260px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+          <div className="border-b border-gray-100 p-2">
+            <div className="relative">
+              <MagnifyingGlassIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search country, code, or dial code"
+                className="w-full rounded-lg border border-gray-200 py-1.5 pl-8 pr-2 text-sm outline-none focus:border-cyan-400"
+              />
+            </div>
+          </div>
+
+          <div className="max-h-[240px] overflow-y-auto py-1">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-4 text-center text-sm text-gray-400">No countries match "{query}"</div>
+            ) : (
+              filtered.map((c) => {
+                const isSelected = c.code === selected.code;
+                return (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => {
+                      onSelect(c);
+                      setOpen(false);
+                      setQuery("");
+                    }}
+                    className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-50 ${
+                      isSelected ? "bg-cyan-50/70 font-semibold text-cyan-700" : "text-slate-700"
+                    }`}
+                  >
+                    <span className="truncate">
+                      {(c as any).name ?? c.code}{" "}
+                      <span className="text-slate-400">
+                        {c.dialCode} · {c.code}
+                      </span>
+                    </span>
+                    {isSelected && <CheckCircleIcon className="h-4 w-4 flex-shrink-0 text-cyan-600" />}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const TransporterPage: React.FC = () => {
@@ -73,7 +186,7 @@ const TransporterPage: React.FC = () => {
   // Delete popup
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [deletingItem, setDeletingItem] = useState<Transporter | null>(null);
-  const [selectedCountry, setSelectedCountry] = useState<CountryOption>(COUNTRIES[0])
+  const [selectedCountry, setSelectedCountry] = useState<CountryOption>(COUNTRIES[0]);
 
   useEffect(() => { loadData(); }, []);
 
@@ -82,6 +195,17 @@ const TransporterPage: React.FC = () => {
     document.body.style.overflow = showForm ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [showForm]);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+useEffect(() => {
+  const handleClickOutside = (e: MouseEvent) => {
+    if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+      setShowFilters(false);
+    }
+  };
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => document.removeEventListener("mousedown", handleClickOutside);
+}, []);
 
   const loadData = async () => {
     setLoading(true);
@@ -101,9 +225,9 @@ const TransporterPage: React.FC = () => {
   const handleChange = (key: keyof Transporter, value: string) =>
     setForm(prev => ({ ...prev, [key]: value }));
 
-  const resetForm = () => { setForm(emptyForm); setShowForm(false); };
+  const resetForm = () => { setForm(emptyForm); setSelectedCountry(COUNTRIES[0]); setShowForm(false); };
 
-  const handleAddNew = () => { setForm(emptyForm); setShowForm(true); };
+  const handleAddNew = () => { setForm(emptyForm); setSelectedCountry(COUNTRIES[0]); setShowForm(true); };
 
   const handleEdit = (transporter: Transporter) => {
     setForm({ ...transporter });
@@ -320,10 +444,10 @@ const TransporterPage: React.FC = () => {
   return (
     <>
       <PageMeta
-        title="Transporter / Carrier Management"
-        description="Manage transporters and carriers"
+        title="Transporter "
+        description="Manage transporters"
       />
-      <PageBreadcrumb pageTitle="Transporter / Carrier Management" />
+      <PageBreadcrumb pageTitle="Transporter" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
 
@@ -358,69 +482,73 @@ const TransporterPage: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by name, contact, email, or GST..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
+<div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+  <div className="w-full sm:flex-1 sm:max-w-md">
+    <div className="relative">
+      <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+      <input
+        type="text"
+        placeholder="Search by name, contact, email, or GST..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+      />
+      {search && (
+        <button
+          onClick={() => setSearch("")}
+          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+        >
+          <XMarkIcon className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  </div>
 
-          <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
+  {/* Filter popover trigger */}
+  <div className="relative flex-shrink-0" ref={filterRef}>
+    <button
+      onClick={() => setShowFilters((o) => !o)}
+      className={`relative rounded-lg border p-2 flex items-center justify-center transition-colors h-[40px] w-[40px] ${
+        showFilters ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"
+      }`}
+    >
+      <FunnelIcon className={`h-5 w-5 ${showFilters || activeFilter !== "ALL" ? "text-cyan-600" : "text-gray-600"}`} />
+      {activeFilter !== "ALL" && (
+        <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-cyan-500 ring-2 ring-white" />
+      )}
+    </button>
+
+    {showFilters && (
+      <div className="absolute right-0 z-40 mt-2 w-64 rounded-xl border border-gray-200 bg-white p-3 shadow-lg animate-slide-down">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Status</p>
+        <div className="flex flex-wrap gap-2">
+          {(["ALL", "Active", "Inactive"] as const).map((opt) => (
             <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`rounded-lg border p-2 flex items-center justify-center transition-colors h-[40px] w-[40px] ${showFilters ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"
-                }`}
+              key={opt}
+              onClick={() => setActiveFilter(opt)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                activeFilter === opt
+                  ? "border-cyan-500 bg-cyan-50 text-cyan-700"
+                  : "border-gray-200 text-slate-600 hover:bg-gray-50"
+              }`}
             >
-              <FunnelIcon className={`h-5 w-5 ${showFilters ? "text-cyan-600" : "text-gray-600"}`} />
+              {opt === "ALL" ? "All Transporters" : opt}
             </button>
-          </div>
+          ))}
         </div>
 
-        {/* Filters Panel */}
-        {showFilters && (
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 animate-slide-down">
-            <div className="flex flex-wrap gap-4">
-              <div className="w-full min-w-0 sm:flex-1 sm:min-w-[200px]">
-                <FloatingSelect
-                  label="Filter by Status"
-                  name="filter"
-                  value={activeFilter}
-                  onChange={(e) => setActiveFilter(e.target.value)}
-                  includeEmptyOption={false}
-                  className="!mb-0"
-                  options={[
-                    { id: "ALL", name: "All Transporters" },
-                    { id: "Active", name: "Active" },
-                    { id: "Inactive", name: "Inactive" },
-                  ]}
-                />
-              </div>
-              {activeFilter !== "ALL" && (
-                <button
-                  onClick={() => setActiveFilter("ALL")}
-                  className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
-                >
-                  Clear Filter
-                </button>
-              )}
-            </div>
-          </div>
+        {activeFilter !== "ALL" && (
+          <button
+            onClick={() => setActiveFilter("ALL")}
+            className="mt-3 text-xs font-medium text-red-600 hover:text-red-800"
+          >
+            Clear filter
+          </button>
         )}
+      </div>
+    )}
+  </div>
+</div>
 
         {/* Table */}
         <ReusableTable<Transporter>
@@ -448,115 +576,108 @@ const TransporterPage: React.FC = () => {
           }
         />
 
-        {/* Add / Edit Modal — portal, matches CRM segment modal style */}
+        {/* Add / Edit Modal — portal, modernized sectioned layout */}
         {showForm &&
           createPortal(
             <div
               key="transporter-modal"
               className="fixed inset-0 z-50 flex items-start justify-center bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto p-4 sm:items-center"
             >
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto animate-slide-up">
-                <div className="flex items-center justify-between p-5 border-b border-gray-100">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {form.id ? "Edit Transporter" : "Create New Transporter"}
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {form.id ? "Update this transporter's details" : "Add a new transporter or carrier"}
-                    </p>
+              <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto animate-slide-up">
+                {/* Header */}
+                <div className="flex items-center justify-between gap-4 border-b border-gray-100 bg-gradient-to-r from-cyan-50/60 to-blue-50/40 px-6 py-5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-sm">
+                      <TruckIcon className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {form.id ? "Edit Transporter" : "Create New Transporter"}
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {form.id ? "Update this transporter's details" : "Add a new transporter or carrier"}
+                      </p>
+                    </div>
                   </div>
-                  <button onClick={resetForm} className="text-gray-400 hover:text-gray-600 transition-colors">
+                  <button
+                    onClick={resetForm}
+                    className="flex-shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-white/70 hover:text-gray-600"
+                  >
                     <XMarkIcon className="h-5 w-5" />
                   </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-5 max-h-[75vh] overflow-y-auto">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-  <FloatingInput
-    label="Transporter Name"
-    name="name"
-    value={form.name}
-    onChange={(e) => handleChange("name", e.target.value)}
-    required
-  />
+                <form onSubmit={handleSubmit} className="max-h-[75vh] overflow-y-auto px-6 py-5">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <FloatingInput
+                      label="Transporter Name"
+                      name="name"
+                      value={form.name}
+                      onChange={(e) => handleChange("name", e.target.value)}
+                      required
+                    />
 
-  <FloatingInput
-    label="Contact Person"
-    name="contactPerson"
-    value={form.contactPerson}
-    onChange={(e) => handleChange("contactPerson", e.target.value)}
-    required
-  />
+                    <FloatingInput
+                      label="Contact Person"
+                      name="contactPerson"
+                      value={form.contactPerson}
+                      onChange={(e) => handleChange("contactPerson", e.target.value)}
+                      required
+                    />
 
-  {/* Contact Number — full width row so select + input don't collide with Email */}
-  <div className="md:col-span-2 flex gap-2 items-start">
-    <select
-      value={selectedCountry.code}
-      onChange={(e) => {
-        const c = COUNTRIES.find(c => c.code === e.target.value)!;
-        setSelectedCountry(c);
-      }}
-      className="border border-gray-300 rounded-lg px-2 py-2 text-sm h-[42px] w-[110px] flex-shrink-0"
-    >
-      {COUNTRIES.map(c => (
-        <option key={c.code} value={c.code}>
-          {c.dialCode} ({c.code})
-        </option>
-      ))}
-    </select>
+                    {/* Contact Number with searchable country code combobox */}
+                    <div className="flex items-start gap-2">
+                      <CountryCodeCombobox selected={selectedCountry} onSelect={setSelectedCountry} />
+                      <div className="flex-1">
+                        <FloatingInput
+                          label="Contact Number"
+                          name="contactNumber"
+                          type="tel"
+                          value={form.contactNumber}
+  onChange={(e) => handleChange("contactNumber", e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
 
-    <div className="flex-1">
-      <FloatingInput
-        label="Contact Number"
-        name="contactNumber"
-        type="tel"
-        value={form.contactNumber}
-        onChange={(e) =>
-          handleChange("contactNumber", `${selectedCountry.dialCode} ${e.target.value}`)
-        }
-        required
-      />
-    </div>
-  </div>
+                    <FloatingInput
+                      label="Email"
+                      name="email"
+                      type="email"
+                      value={form.email}
+                      onChange={(e) => handleChange("email", e.target.value)}
+                      required
+                    />
 
-  <FloatingInput
-    label="Email"
-    name="email"
-    type="email"
-    value={form.email}
-    onChange={(e) => handleChange("email", e.target.value)}
-    required
-  />
+                    <FloatingInput
+                      label={selectedCountry.taxLabel}
+                      name="gstNumber"
+                      value={form.gstNumber}
+                      onChange={(e) => handleChange("gstNumber", e.target.value)}
+                      required
+                    />
 
-  <FloatingInput
-    label={selectedCountry.taxLabel}
-    name="gstNumber"
-    value={form.gstNumber}
-    onChange={(e) => handleChange("gstNumber", e.target.value)}
-    required
-  />
+                    <FloatingSelect
+                      label="Status"
+                      name="status"
+                      value={form.status}
+                      onChange={(e) => handleChange("status", e.target.value)}
+                      includeEmptyOption={false}
+                      required
+                      options={STATUS_OPTIONS.map(s => ({ id: s, name: s }))}
+                    />
 
-  <FloatingSelect
-    label="Status"
-    name="status"
-    value={form.status}
-    onChange={(e) => handleChange("status", e.target.value)}
-    includeEmptyOption={false}
-    required
-    options={STATUS_OPTIONS.map(s => ({ id: s, name: s }))}
-  />
-
-  <div className="md:col-span-2">
-    <FloatingTextarea
-      label="Address"
-      name="address"
-      value={form.address}
-      onChange={(e) => handleChange("address", e.target.value)}
-      rows={3}
-      required
-    />
-  </div>
-</div>  
+                    <div className="md:col-span-2">
+                      <FloatingTextarea
+                        label="Address"
+                        name="address"
+                        value={form.address}
+                        onChange={(e) => handleChange("address", e.target.value)}
+                        rows={3}
+                        required
+                      />
+                    </div>
+                  </div>
 
                   <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
                     <button

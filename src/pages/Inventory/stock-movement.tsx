@@ -1,29 +1,33 @@
-import React, { ChangeEvent, FormEvent, useContext, useEffect, useMemo, useState } from "react";
+import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowRightIcon,
   ArrowsRightLeftIcon,
   CalendarIcon,
   ClipboardDocumentListIcon,
   CubeIcon,
+  EyeIcon,
   MagnifyingGlassIcon,
   PencilSquareIcon,
   TrashIcon,
+  XCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import PageMeta from "../../components/common/PageMeta";
-import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
-import StatsCard from "../../components/common/Statscard";
+import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import PageMeta from "../../components/common/PageMeta";
+import { ListingPdfExportButton } from "../../components/common/export";
+import FilterPopover from "../../components/common/filter";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import StatsCard from "../../components/common/Statscard";
 import DynamicPopup from "../../components/common/Popup";
+import PaginatedPopup from "../../components/common/unpopup";
 import {
-  FloatingDatePicker,
   FloatingInput,
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
-import { AuthContext } from "../../context/AuthContext";
 
 type Product = {
   id: number;
@@ -57,6 +61,54 @@ type SerialNumber = {
   warehouse?: string;
   batch?: Batch | string;
 };
+
+// Fixed set of movement types per the Inventory Module spec's
+// "Stock Movement Types" list (8 total). Previously only 4 were supported
+// (GRN, ISSUE, TRANSFER, RETURN) — RETURN didn't distinguish customer vs
+// supplier, and Stock Adjustment / Damage / Stock Correction were missing
+// entirely as movement-type options.
+enum MovementType {
+  PURCHASE_RECEIPT = "PURCHASE_RECEIPT",
+  SALES_ISSUE = "SALES_ISSUE",
+  WAREHOUSE_TRANSFER = "WAREHOUSE_TRANSFER",
+  CUSTOMER_RETURN = "CUSTOMER_RETURN",
+  SUPPLIER_RETURN = "SUPPLIER_RETURN",
+  STOCK_ADJUSTMENT = "STOCK_ADJUSTMENT",
+  DAMAGE = "DAMAGE",
+  STOCK_CORRECTION = "STOCK_CORRECTION",
+}
+
+const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
+  [MovementType.PURCHASE_RECEIPT]: "Purchase Receipt",
+  [MovementType.SALES_ISSUE]: "Sales Issue",
+  [MovementType.WAREHOUSE_TRANSFER]: "Warehouse Transfer",
+  [MovementType.CUSTOMER_RETURN]: "Customer Return",
+  [MovementType.SUPPLIER_RETURN]: "Supplier Return",
+  [MovementType.STOCK_ADJUSTMENT]: "Stock Adjustment",
+  [MovementType.DAMAGE]: "Damage",
+  [MovementType.STOCK_CORRECTION]: "Stock Correction",
+};
+
+// Legacy codes some existing records may still carry (e.g. "GRN", "ISSUE",
+// "TRANSFER", "RETURN") are mapped onto the new spec-aligned types so old
+// data still displays a sensible label instead of the raw code.
+const LEGACY_MOVEMENT_TYPE_MAP: Record<string, MovementType> = {
+  GRN: MovementType.PURCHASE_RECEIPT,
+  ISSUE: MovementType.SALES_ISSUE,
+  TRANSFER: MovementType.WAREHOUSE_TRANSFER,
+  RETURN: MovementType.CUSTOMER_RETURN,
+};
+
+function normalizeMovementType(type?: string | null): MovementType | string {
+  if (!type) return "";
+  if ((Object.values(MovementType) as string[]).includes(type)) return type as MovementType;
+  return LEGACY_MOVEMENT_TYPE_MAP[type] || type;
+}
+
+function getMovementTypeLabel(type?: string | null) {
+  const normalized = normalizeMovementType(type);
+  return MOVEMENT_TYPE_LABELS[normalized as MovementType] || String(type || "-");
+}
 
 type StockMovement = {
   id: number;
@@ -96,12 +148,13 @@ const WAREHOUSES_API_URL = "/v1/api/inventory/warehouses";
 const BATCHES_API_URL = "/v1/api/inventory/batches";
 const SERIALS_API_URL = "/v1/api/inventory/serial-numbers";
 const PAGE_SIZE = 10;
-const MOVEMENT_TYPES = ["GRN", "TRANSFER", "ADJUSTMENT", "RETURN", "SALE"];
+
+const PRODUCT_ROUTE = "/purchase-products";
 
 const emptyForm: MovementForm = {
   movementDate: new Date().toISOString().split("T")[0],
-  movementType: "GRN",
-  quantity: "0",
+  movementType: MovementType.PURCHASE_RECEIPT,
+  quantity: "",
   fromLocation: "",
   toLocation: "",
   reference: "",
@@ -115,21 +168,18 @@ function toNumber(value: string | number | undefined | null) {
   return Number(value || 0);
 }
 
-function getStoredUser() {
-  try {
-    return JSON.parse(localStorage.getItem("user") || "null") || {};
-  } catch {
-    return {};
-  }
-}
-
 function getErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data;
     if (typeof data === "string") return data;
-    return data?.message || data?.detail || data?.error || fallback;
+    return data?.message || data?.detail || data?.error || data?.title || fallback;
   }
   return fallback;
+}
+
+function searchableText(value: unknown) {
+  if (value === null || value === undefined) return "";
+  return String(value).toLowerCase().trim();
 }
 
 function getProductLabel(product?: Product) {
@@ -163,102 +213,106 @@ function getSerialId(serialNumber: SerialNumber | string | null | undefined, ser
   return String(serialNumbers.find((item) => item.serial === serialNumber)?.id || "");
 }
 
+function getMovementTypeBadge(type: string) {
+  const normalized = normalizeMovementType(type);
+  switch (normalized) {
+    case MovementType.PURCHASE_RECEIPT:
+      return "bg-green-50 text-green-700 border-green-200";
+    case MovementType.SALES_ISSUE:
+      return "bg-red-50 text-red-700 border-red-200";
+    case MovementType.WAREHOUSE_TRANSFER:
+      return "bg-blue-50 text-blue-700 border-blue-200";
+    case MovementType.CUSTOMER_RETURN:
+    case MovementType.SUPPLIER_RETURN:
+      return "bg-amber-50 text-amber-700 border-amber-200";
+    case MovementType.STOCK_ADJUSTMENT:
+      return "bg-purple-50 text-purple-700 border-purple-200";
+    case MovementType.DAMAGE:
+      return "bg-rose-50 text-rose-700 border-rose-200";
+    case MovementType.STOCK_CORRECTION:
+      return "bg-teal-50 text-teal-700 border-teal-200";
+    default:
+      return "bg-slate-50 text-slate-700 border-slate-200";
+  }
+}
+
 const StockMovementsManager: React.FC = () => {
-  const { user } = useContext(AuthContext);
-  const authUser = getStoredUser();
-  const headers = useMemo(() => {
-    const token = localStorage.getItem("accessToken");
-    return token ? { Authorization: `Bearer ${token}` } : undefined;
-  }, []);
+  const token = localStorage.getItem("accessToken");
+  const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
+  const navigate = useNavigate();
 
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [serialNumbers, setSerialNumbers] = useState<SerialNumber[]>([]);
-  const [search, setSearch] = useState("");
-  const [lookupId, setLookupId] = useState("");
-  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<MovementForm>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filterMovementType, setFilterMovementType] = useState("");
+  const [filterProductId, setFilterProductId] = useState("");
   const [deletingMovement, setDeletingMovement] = useState<StockMovement | null>(null);
-  const [form, setForm] = useState<MovementForm>(emptyForm);
+  const [viewingMovement, setViewingMovement] = useState<StockMovement | null>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
 
   useEffect(() => {
-    void fetchStockMovements();
-    void fetchLookups();
+    fetchStockMovements();
+    fetchLookups();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchStockMovements = async () => {
     try {
       setLoading(true);
       const res = await axios.get<StockMovement[]>(API_URL, { headers });
-      setStockMovements(Array.isArray(res.data) ? res.data : []);
+      const data = Array.isArray(res.data) ? res.data : (res.data as any)?.content || (res.data as any)?.data || [];
+      setStockMovements(data);
+      if (data.length === 0) ToasterService.noData("No stock movements found");
     } catch (error) {
-      setStockMovements([]);
       ToasterService.error("Failed to load stock movements", getErrorMessage(error, "Please try again."));
+      setStockMovements([]);
     } finally {
       setLoading(false);
     }
   };
 
   const fetchLookups = async () => {
-    const [productsRes, warehousesRes, batchesRes, serialsRes] = await Promise.allSettled([
-      axios.get<Product[]>(PRODUCTS_API_URL, { headers }),
-      axios.get<Warehouse[]>(WAREHOUSES_API_URL, { headers }),
-      axios.get<Batch[]>(BATCHES_API_URL, { headers }),
-      axios.get<SerialNumber[]>(SERIALS_API_URL, { headers }),
-    ]);
-
-    setProducts(productsRes.status === "fulfilled" && Array.isArray(productsRes.value.data) ? productsRes.value.data : []);
-    setWarehouses(warehousesRes.status === "fulfilled" && Array.isArray(warehousesRes.value.data) ? warehousesRes.value.data : []);
-    setBatches(batchesRes.status === "fulfilled" && Array.isArray(batchesRes.value.data) ? batchesRes.value.data : []);
-    setSerialNumbers(serialsRes.status === "fulfilled" && Array.isArray(serialsRes.value.data) ? serialsRes.value.data : []);
-  };
-
-  const fetchById = async () => {
-    if (!lookupId) {
-      ToasterService.error("Movement ID is required");
-      return;
-    }
-
     try {
-      setLoading(true);
-      const res = await axios.get<StockMovement>(`${API_URL}/${lookupId}`, { headers });
-      setStockMovements(res.data ? [res.data] : []);
-      ToasterService.success("Stock movement loaded");
+      const [productsRes, warehousesRes, batchesRes, serialsRes] = await Promise.all([
+        axios.get<Product[]>(PRODUCTS_API_URL, { headers }),
+        axios.get<Warehouse[]>(WAREHOUSES_API_URL, { headers }),
+        axios.get<Batch[]>(BATCHES_API_URL, { headers }),
+        axios.get<SerialNumber[]>(SERIALS_API_URL, { headers }),
+      ]);
+
+      setProducts(Array.isArray(productsRes.data) ? productsRes.data : (productsRes.data as any)?.content || (productsRes.data as any)?.data || []);
+      setWarehouses(Array.isArray(warehousesRes.data) ? warehousesRes.data : (warehousesRes.data as any)?.content || (warehousesRes.data as any)?.data || []);
+      setBatches(Array.isArray(batchesRes.data) ? batchesRes.data : (batchesRes.data as any)?.content || (batchesRes.data as any)?.data || []);
+      setSerialNumbers(Array.isArray(serialsRes.data) ? serialsRes.data : (serialsRes.data as any)?.content || (serialsRes.data as any)?.data || []);
     } catch (error) {
-      ToasterService.error("Failed to load stock movement", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
+      ToasterService.error("Failed to load lookup data", getErrorMessage(error, "Please try again."));
     }
   };
 
-  const clearForm = () => {
-    setForm(emptyForm);
-    setEditingId(null);
-    setShowForm(false);
-  };
-
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((current) => {
+      const next = { ...current, [name]: value };
+      if (name === "productId" && value !== current.productId) {
+        next.batchId = "";
+        next.serialNumberId = "";
+      }
+      return next;
+    });
   };
 
   const buildPayload = () => {
-    const selectedWarehouse = warehouses.find((item) => item.id === toNumber(form.warehouseId));
-    const selectedBatch = batches.find((item) => item.id === toNumber(form.batchId));
-    const selectedSerial = serialNumbers.find((item) => item.id === toNumber(form.serialNumberId));
-    const existingMovement = stockMovements.find((item) => item.id === editingId);
-    const now = new Date().toISOString();
-
-    return {
-      id: editingId || 0,
-      createdDate: existingMovement?.createdDate || now,
-      updatedDate: now,
-      createdBy: existingMovement?.createdBy || user?.userId || user?.username || authUser.userId || authUser.username || "",
-      tenantId: existingMovement?.tenantId || user?.tenantId || authUser.tenantId || "",
+    const payload: Record<string, unknown> = {
       movementDate: form.movementDate,
       movementType: form.movementType,
       quantity: toNumber(form.quantity),
@@ -266,56 +320,64 @@ const StockMovementsManager: React.FC = () => {
       toLocation: form.toLocation,
       reference: form.reference,
       productId: toNumber(form.productId),
-      warehouse: selectedWarehouse ? selectedWarehouse.code || selectedWarehouse.name || String(selectedWarehouse.id) : "",
-      batch: selectedBatch
-        ? {
-            id: selectedBatch.id,
-            createdDate: null,
-            updatedDate: null,
-            createdBy: null,
-            tenantId: null,
-            batchNumber: selectedBatch.batchNumber,
-            manufacturingDate: selectedBatch.manufacturingDate || null,
-            expiryDate: selectedBatch.expiryDate || null,
-            productId: selectedBatch.productId || toNumber(form.productId),
-            warehouse: selectedBatch.warehouse || (selectedWarehouse ? selectedWarehouse.code || selectedWarehouse.name || "" : ""),
-            inspections: [],
-          }
-        : null,
-      serialNumber: selectedSerial
-        ? {
-            id: selectedSerial.id,
-            createdDate: null,
-            updatedDate: null,
-            createdBy: null,
-            tenantId: null,
-            serial: selectedSerial.serial || "",
-            warrantyStart: null,
-            warrantyEnd: null,
-            productId: selectedSerial.productId || toNumber(form.productId),
-            productNumber: selectedSerial.productNumber || "",
-            warehouse: selectedSerial.warehouse || (selectedWarehouse ? selectedWarehouse.code || selectedWarehouse.name || "" : ""),
-            batch: null,
-            inspections: [],
-          }
-        : null,
     };
+
+    if (editingId) {
+      payload.id = editingId;
+    }
+
+    if (form.warehouseId) {
+      payload.warehouse = { id: toNumber(form.warehouseId) };
+    }
+    if (form.batchId) {
+      payload.batch = { id: toNumber(form.batchId) };
+    }
+    if (form.serialNumberId) {
+      payload.serialNumber = { id: toNumber(form.serialNumberId) };
+    }
+
+    return payload;
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
+    const quantity = toNumber(form.quantity);
+    if (quantity <= 0) {
+      ToasterService.error("Invalid quantity", "Quantity must be greater than 0.");
+      return;
+    }
+    if (!form.movementDate) {
+      ToasterService.error("Required field missing", "Movement date is required.");
+      return;
+    }
+    if (!form.movementType) {
+      ToasterService.error("Required field missing", "Movement type is required.");
+      return;
+    }
+    if (!form.fromLocation || !form.toLocation) {
+      ToasterService.error("Required field missing", "From and to locations are required.");
+      return;
+    }
+    if (!form.productId) {
+      ToasterService.error("Required field missing", "Product selection is required.");
+      return;
+    }
+
     try {
       setSubmitting(true);
+      const payload = buildPayload();
+
       if (editingId) {
-        await axios.put(`${API_URL}/${editingId}`, buildPayload(), { headers });
+        await axios.put(`${API_URL}/${editingId}`, payload, { headers });
         ToasterService.success("Stock movement updated");
       } else {
-        await axios.post(API_URL, buildPayload(), { headers });
+        await axios.post(API_URL, payload, { headers });
         ToasterService.success("Stock movement created");
       }
-      clearForm();
-      await fetchStockMovements();
+
+      closeForm();
+      fetchStockMovements();
     } catch (error) {
       ToasterService.error("Failed to save stock movement", getErrorMessage(error, "Please try again."));
     } finally {
@@ -323,62 +385,179 @@ const StockMovementsManager: React.FC = () => {
     }
   };
 
-  const handleEdit = (sm: StockMovement) => {
-    setEditingId(sm.id);
+  const openCreate = () => {
+    setEditingId(null);
     setForm({
-      movementDate: sm.movementDate || emptyForm.movementDate,
-      movementType: sm.movementType || "GRN",
-      quantity: String(sm.quantity || 0),
-      fromLocation: sm.fromLocation || "",
-      toLocation: sm.toLocation || "",
-      reference: sm.reference || "",
-      productId: String(sm.productId || sm.product?.id || ""),
-      warehouseId: getWarehouseId(sm.warehouse, warehouses),
-      batchId: getBatchId(sm.batch, batches),
-      serialNumberId: getSerialId(sm.serialNumber, serialNumbers),
+      ...emptyForm,
+      movementDate: new Date().toISOString().split('T')[0],
     });
-    setShowForm(true);
+    setShowFormModal(true);
+  };
+
+  const openEdit = (movement: StockMovement) => {
+    setEditingId(movement.id);
+    setForm({
+      movementDate: movement.movementDate || emptyForm.movementDate,
+      movementType: normalizeMovementType(movement.movementType) || MovementType.PURCHASE_RECEIPT,
+      quantity: String(movement.quantity || 0),
+      fromLocation: movement.fromLocation || "",
+      toLocation: movement.toLocation || "",
+      reference: movement.reference || "",
+      productId: String(movement.productId || movement.product?.id || ""),
+      warehouseId: getWarehouseId(movement.warehouse, warehouses),
+      batchId: getBatchId(movement.batch, batches),
+      serialNumberId: getSerialId(movement.serialNumber, serialNumbers),
+    });
+    setShowFormModal(true);
+  };
+
+  const openView = (movement: StockMovement) => {
+    setViewingMovement(movement);
+    setShowViewModal(true);
+  };
+
+  const closeForm = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setShowFormModal(false);
   };
 
   const confirmDelete = async () => {
-    if (!deletingMovement?.id) return;
+    if (!deletingMovement) return;
 
     try {
       await axios.delete(`${API_URL}/${deletingMovement.id}`, { headers });
       ToasterService.success("Stock movement deleted");
-      setDeletingMovement(null);
-      await fetchStockMovements();
+      setStockMovements((current) => current.filter((item) => item.id !== deletingMovement.id));
     } catch (error) {
       ToasterService.error("Failed to delete stock movement", getErrorMessage(error, "Please try again."));
+    } finally {
+      setDeletingMovement(null);
     }
   };
 
-  const filtered = stockMovements.filter((sm) => {
-    const productName = getProductLabel(products.find((item) => item.id === sm.productId || item.productId === sm.productId) || sm.product);
-    const warehouseName = getWarehouseValue(sm.warehouse);
-    const batchLabel = typeof sm.batch === "string" ? sm.batch : sm.batch?.batchNumber || "";
-    const serialLabel = typeof sm.serialNumber === "string" ? sm.serialNumber : sm.serialNumber?.serial || "";
+  const filteredStockMovements = useMemo(() => {
+    const term = searchableText(search);
 
-    return `${sm.movementType || ""} ${sm.fromLocation || ""} ${sm.toLocation || ""} ${sm.reference || ""} ${productName} ${warehouseName} ${batchLabel} ${serialLabel}`
-      .toLowerCase()
-      .includes(search.toLowerCase());
-  });
+    return stockMovements.filter((movement) => {
+      if (filterMovementType && normalizeMovementType(movement.movementType) !== filterMovementType) return false;
+      if (filterProductId && String(movement.productId || movement.product?.id || "") !== filterProductId) return false;
 
-  const totalMovements = stockMovements.length;
-  const totalQuantity = stockMovements.reduce((sum, sm) => sum + (Number(sm.quantity) || 0), 0);
-  const transferCount = stockMovements.filter((sm) => sm.movementType?.toUpperCase() === "TRANSFER").length;
-  const uniqueProducts = new Set(stockMovements.map((sm) => sm.productId || sm.product?.id).filter(Boolean)).size;
+      if (!term) return true;
 
-  const tableColumns: ColumnDef<StockMovement>[] = [
+      const productName = getProductLabel(products.find((item) => item.id === movement.productId || item.productId === movement.productId) || movement.product);
+      const warehouseName = getWarehouseValue(movement.warehouse);
+      const batchLabel = typeof movement.batch === "string" ? movement.batch : movement.batch?.batchNumber || "";
+      const serialLabel = typeof movement.serialNumber === "string" ? movement.serialNumber : movement.serialNumber?.serial || "";
+
+      const haystack = [
+        getMovementTypeLabel(movement.movementType),
+        movement.fromLocation,
+        movement.toLocation,
+        movement.reference,
+        productName,
+        warehouseName,
+        batchLabel,
+        serialLabel,
+        movement.id,
+        movement.quantity,
+      ]
+        .map(searchableText)
+        .filter(Boolean)
+        .join(" ");
+
+      return haystack.includes(term);
+    });
+  }, [stockMovements, search, filterMovementType, filterProductId, products]);
+
+  const resetFilters = () => {
+    setFilterMovementType("");
+    setFilterProductId("");
+  };
+
+  const getProductDisplayName = (movement: StockMovement) => {
+    const productId = movement.productId ?? movement.product?.id;
+    const product = products.find((p) => p.id === productId || p.productId === productId);
+    if (product) {
+      return product.productName || product.name || `Product #${product.id}`;
+    }
+    return (
+      movement.product?.productName ||
+      movement.product?.name ||
+      (productId ? `Product #${productId}` : "N/A")
+    );
+  };
+
+  const goToProduct = (productId?: number) => {
+    if (!productId) return;
+    navigate(`${PRODUCT_ROUTE}?productId=${productId}`, { state: { productId } });
+  };
+
+  const stats = useMemo(
+    () => ({
+      total: stockMovements.length,
+      totalQuantity: stockMovements.reduce((sum, sm) => sum + (Number(sm.quantity) || 0), 0),
+      transfers: stockMovements.filter((sm) => normalizeMovementType(sm.movementType) === MovementType.WAREHOUSE_TRANSFER).length,
+      uniqueProducts: new Set(stockMovements.map((sm) => sm.productId || sm.product?.id).filter(Boolean)).size,
+    }),
+    [stockMovements]
+  );
+
+  // Prepare options for selects
+  const productOptions = useMemo(() => {
+    return products.map((product) => ({
+      id: String(product.id || product.productId || 0),
+      name: getProductLabel(product),
+    }));
+  }, [products]);
+
+  const warehouseOptions = useMemo(() => {
+    return warehouses.map((warehouse) => ({
+      id: String(warehouse.id),
+      name: warehouse.code ? `${warehouse.name || `Warehouse #${warehouse.id}`} (${warehouse.code})` : warehouse.name || `Warehouse #${warehouse.id}`,
+    }));
+  }, [warehouses]);
+
+  const batchOptions = useMemo(() => {
+    const selectedProductId = toNumber(form.productId);
+    return batches
+      .filter((batch) => !selectedProductId || batch.productId === selectedProductId)
+      .map((batch) => ({
+        id: String(batch.id),
+        name: batch.batchNumber,
+      }));
+  }, [batches, form.productId]);
+
+  const serialOptions = useMemo(() => {
+    const selectedProductId = toNumber(form.productId);
+    return serialNumbers
+      .filter((serial) => !selectedProductId || serial.productId === selectedProductId)
+      .map((serial) => ({
+        id: String(serial.id),
+        name: serial.serial || `Serial #${serial.id}`,
+      }));
+  }, [serialNumbers, form.productId]);
+
+  // Fixed movement-type dropdown options, matching all 8 spec-defined types.
+  const movementTypeOptions = useMemo(() => {
+    return Object.values(MovementType).map((type) => ({
+      id: type,
+      name: MOVEMENT_TYPE_LABELS[type],
+    }));
+  }, []);
+
+  const columns: ColumnDef<StockMovement>[] = [
     {
       key: "movementDate",
       label: "Date",
       sortable: true,
-      sortValueGetter: (sm) => new Date(sm.movementDate).getTime(),
-      render: (sm) => (
-        <div className="flex items-center gap-2 text-sm text-slate-600">
-          <CalendarIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
-          <span className="font-medium">{new Date(sm.movementDate).toLocaleDateString()}</span>
+      sortValueGetter: (movement) => new Date(movement.movementDate).getTime(),
+      render: (movement) => (
+        <div className="flex items-center gap-2">
+          <CalendarIcon className="h-4 w-4 text-slate-400" />
+          <span className="text-sm font-medium text-slate-700">
+            {new Date(movement.movementDate).toLocaleDateString()}
+          </span>
         </div>
       ),
     },
@@ -386,44 +565,64 @@ const StockMovementsManager: React.FC = () => {
       key: "movementType",
       label: "Type",
       sortable: true,
-      render: (sm) => (
-        <span className="inline-flex items-center gap-1 rounded-full border border-cyan-200/40 bg-cyan-50 px-2.5 py-0.5 text-xs font-semibold text-cyan-700">
-          <ArrowsRightLeftIcon className="h-3.5 w-3.5 text-cyan-600 opacity-80" />
-          {sm.movementType}
+      sortValueGetter: (movement) => getMovementTypeLabel(movement.movementType),
+      render: (movement) => (
+        <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${getMovementTypeBadge(movement.movementType)}`}>
+          <ArrowsRightLeftIcon className="h-3.5 w-3.5 opacity-80" />
+          {getMovementTypeLabel(movement.movementType)}
         </span>
       ),
     },
     {
-      key: "productId",
-      label: "Product",
+      key: "product",
+      label: "Product Name",
       sortable: true,
-      sortValueGetter: (sm) => getProductLabel(products.find((item) => item.id === sm.productId || item.productId === sm.productId) || sm.product),
-      render: (sm) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border border-cyan-500/10 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 shadow-sm">
-            <CubeIcon className="h-4 w-4 text-cyan-600" />
+      sortValueGetter: (movement) => getProductDisplayName(movement),
+      render: (movement) => {
+        const productId = movement.productId ?? movement.product?.id;
+        return (
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 shadow-sm">
+              <CubeIcon className="h-4 w-4 text-cyan-600" />
+            </div>
+            <div className="min-w-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goToProduct(productId);
+                }}
+                className="truncate text-sm font-semibold text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                title="View product"
+              >
+                {getProductDisplayName(movement)}
+              </button>
+            </div>
           </div>
-          <span className="truncate text-sm font-semibold leading-snug text-slate-900">
-            {getProductLabel(products.find((item) => item.id === sm.productId || item.productId === sm.productId) || sm.product) || `Product #${sm.productId}`}
-          </span>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: "quantity",
       label: "Qty",
       sortable: true,
-      render: (sm) => <span className="text-sm font-semibold text-slate-700">{sm.quantity}</span>,
+      render: (movement) => (
+        <span className="text-sm font-semibold text-slate-700">{movement.quantity}</span>
+      ),
     },
     {
       key: "route",
       label: "Movement",
       sortable: false,
-      render: (sm) => (
+      render: (movement) => (
         <div className="flex min-w-0 items-center gap-2 text-sm text-slate-600">
-          <span className="truncate font-medium" title={sm.fromLocation}>{sm.fromLocation || "N/A"}</span>
+          <span className="truncate font-medium" title={movement.fromLocation}>
+            {movement.fromLocation || "N/A"}
+          </span>
           <ArrowRightIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
-          <span className="truncate font-medium" title={sm.toLocation}>{sm.toLocation || "N/A"}</span>
+          <span className="truncate font-medium" title={movement.toLocation}>
+            {movement.toLocation || "N/A"}
+          </span>
         </div>
       ),
     },
@@ -431,10 +630,12 @@ const StockMovementsManager: React.FC = () => {
       key: "reference",
       label: "Reference",
       sortable: true,
-      render: (sm) => (
+      render: (movement) => (
         <div className="flex items-center gap-2 text-sm text-slate-600">
           <ClipboardDocumentListIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
-          <span className="truncate font-medium" title={sm.reference}>{sm.reference || "--"}</span>
+          <span className="truncate font-medium" title={movement.reference}>
+            {movement.reference || "--"}
+          </span>
         </div>
       ),
     },
@@ -442,23 +643,31 @@ const StockMovementsManager: React.FC = () => {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "text-right pr-4",
+      headerClassName: "text-right",
       className: "text-right",
-      render: (sm) => (
-        <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+      render: (movement) => (
+        <div className="flex justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
-            onClick={() => handleEdit(sm)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit Stock Movement"
+            onClick={() => openView(movement)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
+            title="View Details"
+          >
+            <EyeIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => openEdit(movement)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>
           <button
             type="button"
-            onClick={() => setDeletingMovement(sm)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-            title="Delete Stock Movement"
+            onClick={() => setDeletingMovement(movement)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
           </button>
@@ -472,248 +681,412 @@ const StockMovementsManager: React.FC = () => {
       <PageMeta title="Stock Movements" description="Track and manage inventory stock movements" />
       <PageBreadcrumb pageTitle="Stock Movements" />
 
-      <div className="w-full max-w-none space-y-6 px-0 py-8">
-        {!showForm && (
-          <>
-            <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-              <AddButton
-                label="Add Stock Movement"
-                onClick={() => {
-                  clearForm();
-                  setShowForm(true);
-                }}
-              />
-            </div>
+      <div className="w-full max-w-none px-0 py-8 space-y-6">
+        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+          <AddButton onClick={openCreate} label="Add Stock Movement" />
+        </div>
 
-            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <StatsCard
-                label="Total Movements"
-                value={totalMovements}
-                gradient="from-cyan-50 to-blue-50"
-                borderColor="border-cyan-100"
-                labelColor="text-cyan-600"
-                icon={<ArrowsRightLeftIcon />}
-              />
-              <StatsCard
-                label="Total Quantity"
-                value={totalQuantity.toLocaleString()}
-                gradient="from-green-50 to-emerald-50"
-                borderColor="border-green-100"
-                labelColor="text-green-600"
-                icon={<CubeIcon />}
-              />
-              <StatsCard
-                label="Transfers"
-                value={transferCount}
-                gradient="from-blue-50 to-indigo-50"
-                borderColor="border-blue-100"
-                labelColor="text-blue-600"
-                icon={<ArrowRightIcon />}
-              />
-              <StatsCard
-                label="Products Moved"
-                value={uniqueProducts}
-                gradient="from-orange-50 to-yellow-50"
-                borderColor="border-orange-100"
-                labelColor="text-orange-600"
-                icon={<ClipboardDocumentListIcon />}
-              />
-            </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatsCard
+            label="Total Movements"
+            value={stats.total}
+            icon={<ArrowsRightLeftIcon />}
+          />
+          <StatsCard
+            label="Total Quantity"
+            value={stats.totalQuantity.toLocaleString()}
+            gradient="from-green-50 to-emerald-50"
+            borderColor="border-green-100"
+            labelColor="text-green-600"
+            icon={<CubeIcon />}
+          />
+          <StatsCard
+            label="Transfers"
+            value={stats.transfers}
+            gradient="from-blue-50 to-indigo-50"
+            borderColor="border-blue-100"
+            labelColor="text-blue-600"
+            icon={<ArrowRightIcon />}
+          />
+          <StatsCard
+            label="Products Moved"
+            value={stats.uniqueProducts}
+            gradient="from-orange-50 to-yellow-50"
+            borderColor="border-orange-100"
+            labelColor="text-orange-600"
+            icon={<ClipboardDocumentListIcon />}
+          />
+        </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-                <FloatingInput
-                  label="Movement ID"
-                  type="number"
-                  value={lookupId}
-                  onChange={(e) => setLookupId(e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={fetchById}
-                  className="h-[52px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700"
-                >
-                  Get By ID
-                </button>
-                <button
-                  type="button"
-                  onClick={fetchStockMovements}
-                  className="h-[52px] rounded-lg bg-gray-100 px-4 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                >
-                  Load All
-                </button>
-              </div>
-            </div>
-
-            <div className="relative w-full max-w-md">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by type, location, reference, or product..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-              />
-            </div>
-          </>
-        )}
-
-        {showForm && (
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between border-b border-gray-100 pb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {editingId ? "Edit Stock Movement" : "Create Stock Movement"}
-                </h3>
-                <p className="mt-0.5 text-xs text-gray-500">Form aligned to the stock movement swagger payload</p>
-              </div>
-              <button type="button" onClick={clearForm} className="text-gray-400 hover:text-gray-600">
-                <XMarkIcon className="h-5 w-5" />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="relative w-full sm:max-w-md">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by type, location, reference, or product..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-4 w-4" />
               </button>
-            </div>
+            )}
+          </div>
 
-            <form onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <FloatingDatePicker
-                  label="Movement Date"
-                  name="movementDate"
-                  value={form.movementDate}
-                  onChange={handleChange}
-                  required
-                />
+          <div className="flex items-center gap-2">
+            <ListingPdfExportButton
+              title="Stock Movements"
+              subtitle="Filtered stock movement listing"
+              reportLabel="Stock Movements Report"
+              data={filteredStockMovements}
+              fileName="Stock_Movements"
+              disabled={loading}
+              dateAccessor={(row) => row.movementDate}
+              metadata={(rows) => [
+                { label: "Total", value: rows.length },
+                { label: "Search", value: search || "None" },
+                { label: "Total Quantity", value: rows.reduce((sum, sm) => sum + (Number(sm.quantity) || 0), 0) },
+              ]}
+              columns={[
+                { header: "Date", accessor: (row) => new Date(row.movementDate).toLocaleDateString() },
+                { header: "Type", accessor: (row) => getMovementTypeLabel(row.movementType) },
+                { header: "Product", accessor: (row) => getProductDisplayName(row) },
+                { header: "Quantity", accessor: (row) => String(row.quantity) },
+                { header: "From", accessor: (row) => row.fromLocation || "N/A" },
+                { header: "To", accessor: (row) => row.toLocation || "N/A" },
+                { header: "Reference", accessor: (row) => row.reference || "-" },
+              ]}
+            />
+            <FilterPopover
+              title="Filter Stock Movements"
+              buttonLabel="Filters"
+              widthClassName="w-[21rem] sm:w-[23rem]"
+              showFooter={false}
+            >
+              <div className="space-y-3">
                 <FloatingSelect
                   label="Movement Type"
-                  name="movementType"
-                  value={form.movementType}
-                  onChange={handleChange}
-                  includeEmptyOption={false}
-                  options={MOVEMENT_TYPES.map((type) => ({ id: type, name: type }))}
-                />
-                <FloatingInput
-                  label="Quantity"
-                  name="quantity"
-                  type="number"
-                  value={form.quantity}
-                  onChange={handleChange}
-                  required
+                  name="filterMovementType"
+                  value={filterMovementType}
+                  onChange={(e) => setFilterMovementType(e.target.value)}
+                  options={movementTypeOptions}
                 />
                 <FloatingSelect
                   label="Product"
-                  name="productId"
-                  value={form.productId}
-                  onChange={handleChange}
-                  emptyOptionLabel="Select product"
-                  options={products.map((product) => ({
-                    id: String(product.id || product.productId || 0),
-                    name: getProductLabel(product),
-                  }))}
-                  required
+                  name="filterProductId"
+                  value={filterProductId}
+                  onChange={(e) => setFilterProductId(e.target.value)}
+                  options={productOptions}
                 />
-                <FloatingSelect
-                  label="Warehouse"
-                  name="warehouseId"
-                  value={form.warehouseId}
-                  onChange={handleChange}
-                  emptyOptionLabel="Select warehouse"
-                  options={warehouses.map((warehouse) => ({
-                    id: String(warehouse.id),
-                    name: warehouse.code ? `${warehouse.name || `Warehouse #${warehouse.id}`} (${warehouse.code})` : warehouse.name || `Warehouse #${warehouse.id}`,
-                  }))}
-                  required
-                />
-                <FloatingInput
-                  label="Reference"
-                  name="reference"
-                  value={form.reference}
-                  onChange={handleChange}
-                  required
-                />
-                <FloatingInput
-                  label="From Location"
-                  name="fromLocation"
-                  value={form.fromLocation}
-                  onChange={handleChange}
-                  required
-                />
-                <FloatingInput
-                  label="To Location"
-                  name="toLocation"
-                  value={form.toLocation}
-                  onChange={handleChange}
-                  required
-                />
-                <FloatingSelect
-                  label="Batch"
-                  name="batchId"
-                  value={form.batchId}
-                  onChange={handleChange}
-                  emptyOptionLabel="Select batch"
-                  options={batches.map((batch) => ({
-                    id: String(batch.id),
-                    name: batch.batchNumber,
-                  }))}
-                />
-                <FloatingSelect
-                  label="Serial Number"
-                  name="serialNumberId"
-                  value={form.serialNumberId}
-                  onChange={handleChange}
-                  emptyOptionLabel="Select serial"
-                  options={serialNumbers.map((serial) => ({
-                    id: String(serial.id),
-                    name: serial.serial || `Serial #${serial.id}`,
-                  }))}
-                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                  >
+                    Reset filters
+                  </button>
+                </div>
               </div>
-
-              <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={clearForm}
-                  className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {submitting ? "Saving..." : editingId ? "Update Stock Movement" : "Create Stock Movement"}
-                </button>
-              </div>
-            </form>
+            </FilterPopover>
           </div>
-        )}
+        </div>
 
-        {!showForm && (
-          <ReusableTable
-            data={filtered}
-            columns={tableColumns}
-            pageSize={PAGE_SIZE}
-            defaultSortKey="movementDate"
-            defaultSortOrder="desc"
-            loading={loading}
-            emptyState={
-              <div className="flex flex-col items-center justify-center py-12">
-                <ArrowsRightLeftIcon className="mb-3 h-12 w-12 text-gray-400" />
-                <p className="mb-2 text-sm text-gray-500">No stock movements found</p>
-                <p className="text-xs text-gray-400">Click "Add Stock Movement" to create one</p>
-              </div>
-            }
-          />
-        )}
+        <ReusableTable
+          data={filteredStockMovements}
+          columns={columns}
+          loading={loading}
+          pageSize={PAGE_SIZE}
+          defaultSortKey="movementDate"
+          defaultSortOrder="desc"
+          onRowClick={openView}
+          emptyState={
+            <div className="flex flex-col items-center justify-center py-12">
+              <ArrowsRightLeftIcon className="mb-3 h-12 w-12 text-gray-400" />
+              <p className="mb-2 text-sm text-gray-500">No stock movements found</p>
+              <button
+                type="button"
+                onClick={openCreate}
+                className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
+              >
+                Create your first stock movement
+              </button>
+            </div>
+          }
+        />
       </div>
 
+      {/* Form Modal */}
+      <PaginatedPopup
+        isOpen={showFormModal}
+        title={editingId ? "Edit Stock Movement" : "Add Stock Movement"}
+        subtitle="Enter stock movement details"
+        onClose={closeForm}
+        onSubmit={handleSubmit}
+        submitting={submitting}
+        submitLabel={editingId ? "Update Movement" : "Create Movement"}
+        tabs={[
+          {
+            label: "Details",
+            fields: [
+              <FloatingInput
+                key="movementDate"
+                label="Movement Date"
+                name="movementDate"
+                type="date"
+                value={form.movementDate}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingSelect
+                key="movementType"
+                label="Movement Type"
+                name="movementType"
+                value={form.movementType}
+                onChange={handleChange}
+                options={movementTypeOptions}
+                required
+              />,
+              <FloatingSelect
+                key="productId"
+                label="Product"
+                name="productId"
+                value={form.productId}
+                onChange={handleChange}
+                options={productOptions}
+                required
+              />,
+              <FloatingInput
+                key="quantity"
+                label="Quantity"
+                name="quantity"
+                type="number"
+                value={form.quantity}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingInput
+                key="fromLocation"
+                label="From Location"
+                name="fromLocation"
+                value={form.fromLocation}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingInput
+                key="toLocation"
+                label="To Location"
+                name="toLocation"
+                value={form.toLocation}
+                onChange={handleChange}
+                required
+              />,
+            ],
+          },
+          {
+            label: "Additional",
+            fields: [
+              <FloatingInput
+                key="reference"
+                label="Reference"
+                name="reference"
+                value={form.reference}
+                onChange={handleChange}
+              />,
+              <FloatingSelect
+                key="warehouseId"
+                label="Warehouse"
+                name="warehouseId"
+                value={form.warehouseId}
+                onChange={handleChange}
+                options={warehouseOptions}
+              />,
+              <FloatingSelect
+                key="batchId"
+                label="Batch"
+                name="batchId"
+                value={form.batchId}
+                onChange={handleChange}
+                options={batchOptions}
+                disabled={!form.productId}
+              />,
+              <FloatingSelect
+                key="serialNumberId"
+                label="Serial Number"
+                name="serialNumberId"
+                value={form.serialNumberId}
+                onChange={handleChange}
+                options={serialOptions}
+                disabled={!form.productId}
+              />,
+            ],
+          },
+        ]}
+      />
+
+      {/* View Details Modal */}
+      {showViewModal && viewingMovement && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div
+              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+              onClick={() => {
+                setShowViewModal(false);
+                setViewingMovement(null);
+              }}
+            ></div>
+            <div className="inline-block transform overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:align-middle">
+              <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                <div className="w-full text-center sm:text-left">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="text-lg font-medium leading-6 text-gray-900">Movement Details</h3>
+                    <button
+                      onClick={() => {
+                        setShowViewModal(false);
+                        setViewingMovement(null);
+                      }}
+                      className="text-gray-400 hover:text-gray-500"
+                    >
+                      <XCircleIcon className="h-6 w-6" />
+                    </button>
+                  </div>
+
+                  <div className="mb-6 rounded-lg bg-gray-50 p-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500">Movement Date</p>
+                        <p className="text-sm text-gray-700">
+                          {new Date(viewingMovement.movementDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Type</p>
+                        <span
+                          className={`mt-1 inline-flex items-center rounded-full border px-2 py-1 text-xs font-medium ${getMovementTypeBadge(viewingMovement.movementType)}`}
+                        >
+                          {getMovementTypeLabel(viewingMovement.movementType)}
+                        </span>
+                      </div>
+
+                      <div className="col-span-2">
+                        <p className="text-xs text-gray-500">Product</p>
+                        <button
+                          type="button"
+                          onClick={() => goToProduct(viewingMovement.productId ?? viewingMovement.product?.id)}
+                          className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                        >
+                          {getProductDisplayName(viewingMovement)}
+                        </button>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-gray-500">Quantity</p>
+                        <p className="text-sm font-semibold text-gray-900">{viewingMovement.quantity}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Reference</p>
+                        <p className="text-sm text-gray-700">{viewingMovement.reference || "N/A"}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-gray-500">From Location</p>
+                        <p className="text-sm text-gray-700">{viewingMovement.fromLocation || "N/A"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">To Location</p>
+                        <p className="text-sm text-gray-700">{viewingMovement.toLocation || "N/A"}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-gray-500">Warehouse</p>
+                        <p className="text-sm text-gray-700">
+                          {getWarehouseValue(viewingMovement.warehouse) || "N/A"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Batch</p>
+                        <p className="text-sm text-gray-700">
+                          {typeof viewingMovement.batch === "string"
+                            ? viewingMovement.batch
+                            : viewingMovement.batch?.batchNumber || "N/A"}
+                        </p>
+                      </div>
+
+                      <div className="col-span-2">
+                        <p className="text-xs text-gray-500">Serial Number</p>
+                        <p className="text-sm text-gray-700">
+                          {typeof viewingMovement.serialNumber === "string"
+                            ? viewingMovement.serialNumber
+                            : viewingMovement.serialNumber?.serial || "N/A"}
+                        </p>
+                      </div>
+
+                      {viewingMovement.createdBy && (
+                        <div>
+                          <p className="text-xs text-gray-500">Created By</p>
+                          <p className="text-sm text-gray-700">{viewingMovement.createdBy}</p>
+                        </div>
+                      )}
+                      {viewingMovement.createdDate && (
+                        <div>
+                          <p className="text-xs text-gray-500">Created At</p>
+                          <p className="text-sm text-gray-600">
+                            {new Date(viewingMovement.createdDate).toLocaleString()}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowViewModal(false);
+                    openEdit(viewingMovement);
+                  }}
+                  className="inline-flex w-full justify-center rounded-md border border-transparent bg-cyan-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  <PencilSquareIcon className="mr-2 h-4 w-4" />
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowViewModal(false);
+                    setViewingMovement(null);
+                  }}
+                  className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 sm:mt-0 sm:w-auto sm:text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
       <DynamicPopup
         isPopupOpen={!!deletingMovement}
-        setIsPopupOpen={(open) => {
+        setIsPopupOpen={(open: boolean) => {
           if (!open) setDeletingMovement(null);
         }}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
         innerText="Delete Stock Movement"
-        subText={deletingMovement ? `Are you sure you want to delete movement #${deletingMovement.id}?` : "Are you sure?"}
+        subText={
+          deletingMovement
+            ? `Are you sure you want to delete movement #${deletingMovement.id}? This action cannot be undone.`
+            : "Are you sure you want to delete this stock movement?"
+        }
         confirmLabel="Delete"
         cancelLabel="Cancel"
         onConfirm={confirmDelete}

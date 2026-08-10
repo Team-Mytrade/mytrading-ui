@@ -303,14 +303,15 @@ const SalesChannels: React.FC = () => {
       key: "channelType",
       label: "Type",
       sortable: true,
+       className:"md:pl-10",
       render: (channel) => (
         <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClass(channel.channelType)}`}>
           {channel.channelType || "N/A"}
         </span>
       ),
     },
-    { key: "contactInfo", label: "Contact Info", sortable: true },
-    { key: "tenantId", label: "Tenant", sortable: true },
+    { key: "contactInfo", label: "Contact Info", sortable: true, className:"md:pl-24", },
+    { key: "tenantId", label: "Tenant", sortable: true,  className:" sm:pl-auto lg:pl-16",  },
     {
       key: "actions",
       label: "Actions",
@@ -345,7 +346,7 @@ const SalesChannels: React.FC = () => {
       <PageMeta title="Sales Channels" description="Manage sales channels" />
       <PageBreadcrumb pageTitle="Sales Channels" />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={openCreate} label="Add Sales Channel" />
         </div>
@@ -378,8 +379,8 @@ const SalesChannels: React.FC = () => {
           />
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="relative w-full sm:max-w-md">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between -mb-5">
+          <div className="relative w-full sm:max-w-md mt-1">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"

@@ -71,16 +71,16 @@ export const navItems: NavItem[] = [
     icon: <Package className="w-5 h-5" />,
     name: "Inventory",
     subItems: [
-      { name: "warehouse", path: "/warehouse" },
-      { name: "inventory", path: "/inventory" },
-      { name: "batch", path: "/batch" },
-      { name: "stock-movement", path: "/stock-movement" },
-      { name: "stock-level", path: "/stock-level" },
-      { name: "stock-adjustment", path: "/stock-adjustment" },
-      { name: "serial-number", path: "/serial-number" },
-      { name: "quality-inspection", path: "/quality-inspection" },
-      { name: "inventory-reservation", path: "/inventory-reservation" },
-      { name: "inventory-report", path: "/inventory-report" },
+      { name: "Warehouse", path: "/warehouse" },
+      { name: "Quality Inspection", path: "/quality-inspection" },
+      { name: "Batch", path: "/batch" },
+      { name: "Serial Number", path: "/serial-number" },
+      { name: "Inventory Stock", path: "/inventory" },
+      { name: "Stock Level", path: "/stock-level" },
+      { name: "Inventory Reservation", path: "/inventory-reservation" },
+      { name: "Stock Adjustment", path: "/stock-adjustment" },
+      { name: "Stock Movement", path: "/stock-movement" },
+      { name: "Inventory Report", path: "/inventory-report" },
     ],
   },
   {
@@ -106,18 +106,23 @@ export const navItems: NavItem[] = [
     icon: <CreditCard className="w-5 h-5" />,
     name: "Invoice",
     subItems: [
-      { name: "General Ledger (GL) Entries", path: "/generalLedger" },
-      { name: "Expense / Revenue Items", path: "/expense-revenue" },
+      { name: "Vendors", path: "/invoiceVendors" },
       { name: "Tax Types", path: "/taxTypes" },
+      { name: "Tax Details", path: "/taxDetails" },
+      { name: "Purchase Invoices", path: "/purchaseInvoices" },
+      { name: "Payment Terms", path: "/paymentTerms" },
+      { name: "Journal Entries", path: "/journalEntries" },
+      { name: "Invoices", path: "/invoices" },
+      { name: "General Accounts", path: "/generalAccounts" },
+      { name: "Accounts Payable", path: "/accountsPayable" },
+      { name: "Vendor Payments", path: "/vendorPayments" },
       { name: "Tax Records", path: "/taxRecords" },
-      { name: "Payment Terms", path: "/payment-terms" },
-      { name: "Invoice / Billing Document", path: "/invoice-billing" }, //SKU (Stock Keeping Unit)
-      { name: "Payment Receipt", path: "/payment-receipt" },
-      { name: "Accounts Receivable (AR)", path: "/account-receivable" },
-      { name: "Accounts Payable (AP)", path: "/accounts-payable" },
-      // { name: "Tax Details", path: "/taxDetails" },
-      // { name: "Credit Notes / Debit Notes", path: "/credit-debit-notes" },
-      // { name: "Payment Invoice", path: "/payment-invoice" },
+      { name: "Payment Receipts", path: "/paymentReceipts" },
+      { name: "General Ledger", path: "/generalLedger" },
+      { name: "Expense / Revenue", path: "/expenseRevenue" },
+      { name: "Accounts Receivable", path: "/accountsReceivable" },
+      { name: "Tax Report", path: "/taxReport" },
+      { name: "Finance Report", path: "/financeReport" },
     ],
   },
   {
@@ -128,16 +133,15 @@ export const navItems: NavItem[] = [
       { name: "Routes", path: "/route" },
       { name: "Vehicles", path: "/vehicle" },
       { name: "Customer Address", path: "/customerAddress" },
-        { name: "Schedule", path: "/schedule" },
-      { name: "Delivery Note", path: "/delivery-note"},
-      { name: "Shipment", path: "/shipment"},
+      { name: "Schedule", path: "/schedule" },
+      { name: "Delivery Note", path: "/delivery-note" },
+      { name: "Shipment", path: "/shipment" },
       { name: "Goods Issue", path: "/goodsIssue" },
-      { name: "Delivery Order", path: "/deliveryOrder"},
+      { name: "Delivery Order", path: "/deliveryOrder" },
       { name: "Delivery Status", path: "/deliveryStatus" },
     ],
   },
 
-  
   {
     icon: <Users className="w-5 h-5" />,
     name: "HRMS",
@@ -146,6 +150,8 @@ export const navItems: NavItem[] = [
       { name: "Compensation", path: "/employeeCompensation" },
       { name: "Records", path: "/employeeRecords" },
       { name: "Salary", path: "/employeeSalary" },
+      { name: "Payslips", path: "/employeePayslips" },
+      { name: "Payroll", path: "/employeePayroll" },
       { 
         name: "Reports", 
         subItems: [
@@ -154,16 +160,10 @@ export const navItems: NavItem[] = [
         ]
       },
       { name: "Payroll Engine", path: "/payrollEngine" },
-      { name: "Payslips", path: "/employeePayroll" },
       { name: "IT Declaration", path: "/it-declaration" },
-
-      // { name: "Salary Structure", path: "/salaryStructure" },
-
-      // { name: "Attendance Logs", path: "/attendanceLogs"},
+      { name: "Salary Structure", path: "/salaryStructure" },
       { name: "Leave Requests / Approvals", path: "/leaveRequests"},
-      // { name: "Tax Deductions", path: "/taxDeductions"},
-      // { name: "Payroll Runs / Payslips", path: "/payrollRuns" },
-      // { name: "Benefits / Allowances", path: "/benefits"},
+      { name: "Payroll Runs / Payslips", path: "/payrollRuns" },
       { name: "Documents", path: "/employeeDocuments" },
       { name: "Exit Approvals", path: "/exitApprovals" },
       { name: "Exit Management", path: "/exit-management" },
@@ -193,39 +193,38 @@ export const navItems: NavItem[] = [
     subItems: [
       { name: "My Profile", path: "/profile" },
       { name: "Configurations", path: "/role_config" },
-    ]
-
+    ],
   },
 ];
 
 const getInitials = (fullName: string): string => {
   if (!fullName) return "U";
-  const names = fullName.trim().split(' ');
+  const names = fullName.trim().split(" ");
   if (names.length === 1) return names[0].charAt(0).toUpperCase();
   return (names[0].charAt(0) + names[names.length - 1].charAt(0)).toUpperCase();
 };
 
 const generateInitialsImage = (fullName: string, size: number = 40): string => {
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   if (!ctx) return "";
 
-  ctx.fillStyle = '#06b6d4';
+  ctx.fillStyle = "#06b6d4";
   ctx.beginPath();
   ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = '#FFFFFF';
+  ctx.fillStyle = "#FFFFFF";
   ctx.font = `bold ${size * 0.4}px system-ui, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
 
   const initials = getInitials(fullName);
   ctx.fillText(initials, size / 2, size / 2);
 
-  return canvas.toDataURL('image/png');
+  return canvas.toDataURL("image/png");
 };
 
 const AppSidebar: React.FC = () => {
@@ -257,9 +256,16 @@ const AppSidebar: React.FC = () => {
   const [profileImage, setProfileImage] = useState<string>("");
   const [loadingProfile, setLoadingProfile] = useState<boolean>(true);
 
-  const isActive = useCallback((path: string) => location.pathname === path, [location.pathname]);
+  // Tracks the currently-active blob URL so it can be revoked before replacement/unmount
+  const profileImageUrlRef = useRef<string | null>(null);
 
-  const getAuthToken = (): string | null => localStorage.getItem('accessToken');
+  const isActive = useCallback(
+    (path: string) =>
+      location.pathname === path || location.pathname.startsWith(`${path}/`),
+    [location.pathname]
+  );
+
+  const getAuthToken = (): string | null => localStorage.getItem("accessToken");
 
   const fetchUserData = async () => {
     try {
@@ -270,7 +276,7 @@ const AppSidebar: React.FC = () => {
       if (token && userId) {
         const response = await fetch(`/v1/api/user/getUserById/${userId}`, {
           method: "GET",
-          headers: { "Authorization": `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
 
         if (response.ok) {
@@ -305,13 +311,19 @@ const AppSidebar: React.FC = () => {
     try {
       const authToken = getAuthToken();
       const response = await fetch(`/v1/api/user/${userId}/image`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${authToken}` },
+        method: "GET",
+        headers: { Authorization: `Bearer ${authToken}` },
       });
 
       if (response.ok) {
         const imageBlob = await response.blob();
         const imageUrl = URL.createObjectURL(imageBlob);
+
+        // Revoke the previous blob URL before replacing it to avoid leaking memory
+        if (profileImageUrlRef.current) {
+          URL.revokeObjectURL(profileImageUrlRef.current);
+        }
+        profileImageUrlRef.current = imageUrl;
         setProfileImage(imageUrl);
       } else {
         const displayName = user?.fullName || "User";
@@ -324,10 +336,13 @@ const AppSidebar: React.FC = () => {
     }
   };
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-  }, [setIsResizing]);
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      setIsResizing(true);
+    },
+    [setIsResizing]
+  );
 
   useEffect(() => {
     if (!isResizing) return;
@@ -360,6 +375,14 @@ const AppSidebar: React.FC = () => {
       setProfileImage(generateInitialsImage("User"));
       setLoadingProfile(false);
     }
+
+    // Cleanup: revoke any outstanding blob URL when user changes or component unmounts
+    return () => {
+      if (profileImageUrlRef.current) {
+        URL.revokeObjectURL(profileImageUrlRef.current);
+        profileImageUrlRef.current = null;
+      }
+    };
   }, [user]);
 
   useEffect(() => {
@@ -393,18 +416,15 @@ const AppSidebar: React.FC = () => {
     }
   }, [location.pathname, isActive]);
 
-  // We are migrating to CSS max-height for animations, so we no longer need the complex JS height calculation logic!
-  // Removing the buggy height calculation useEffects...
-
   const handleSubmenuToggle = (index: number) => {
     setOpenSubmenu(prev => prev === index ? null : index);
     if (openSubmenu !== index) {
-      setOpenSubSubmenu(null); // Close inner menus when toggling main menu
+      setOpenSubSubmenu(null);
     }
   };
 
   const handleSubSubmenuToggle = (key: string, e: React.MouseEvent) => {
-    e.preventDefault(); // prevent navigation if it's a button
+    e.preventDefault();
     setOpenSubSubmenu(prev => prev === key ? null : key);
   };
 
@@ -433,15 +453,18 @@ const AppSidebar: React.FC = () => {
       return (
         <div key={nav.name} className="relative">
           <button
-            ref={(el) => { menuItemRefs.current[index] = el; }}
+            ref={(el) => {
+              menuItemRefs.current[index] = el;
+            }}
             onClick={() => handleSubmenuToggle(index)}
             onMouseEnter={(e) => isCollapsed && handleTooltipEnter(index, e)}
             onMouseLeave={handleTooltipLeave}
             className={`
               w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 relative
-              ${openSubmenu === index || (isCollapsed && tooltipVisible === index)
-                ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
-                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+              ${
+                openSubmenu === index || (isCollapsed && tooltipVisible === index)
+                  ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
               }
               ${isCollapsed ? "justify-center" : ""}
             `}
@@ -451,7 +474,11 @@ const AppSidebar: React.FC = () => {
               {(isExpanded || isMobileOpen) && <span className="text-sm">{nav.name}</span>}
             </div>
             {(isExpanded || isMobileOpen) && (
-              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${openSubmenu === index ? "rotate-180" : ""}`} />
+              <ChevronDown
+                className={`w-4 h-4 transition-transform duration-200 ${
+                  openSubmenu === index ? "rotate-180" : ""
+                }`}
+              />
             )}
           </button>
 
@@ -535,20 +562,22 @@ const AppSidebar: React.FC = () => {
             </div>
             </div>
           )}
-        </div>
       );
     }
 
     if (nav.path) {
       const linkElement = (
         <Link
-          ref={(el) => { menuItemRefs.current[index] = el; }}
+          ref={(el) => {
+            menuItemRefs.current[index] = el;
+          }}
           to={nav.path}
           className={`
             flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 relative
-            ${isActive(nav.path) || (isCollapsed && tooltipVisible === index)
-              ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
-              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+            ${
+              isActive(nav.path) || (isCollapsed && tooltipVisible === index)
+                ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
+                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
             }
             ${isCollapsed ? "justify-center" : ""}
           `}
@@ -567,6 +596,8 @@ const AppSidebar: React.FC = () => {
 
     return null;
   };
+
+  const activeTooltipItem = tooltipVisible !== null ? navItems[tooltipVisible] : undefined;
 
   return (
     <>
@@ -589,13 +620,7 @@ const AppSidebar: React.FC = () => {
           <Link to="/" className="flex items-center">
             {isExpanded || isMobileOpen ? (
               <>
-                <img
-                  className="dark:hidden"
-                  src="/images/logo/logo.png"
-                  alt="Logo"
-                  width={120}
-                  height={32}
-                />
+                <img className="dark:hidden" src="/images/logo/logo.png" alt="Logo" width={120} height={32} />
                 <img
                   className="hidden dark:block"
                   src="/images/logo/logo.png"
@@ -656,11 +681,7 @@ const AppSidebar: React.FC = () => {
             {loadingProfile ? (
               <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
             ) : profileImage ? (
-              <img
-                src={profileImage}
-                alt={userName}
-                className="w-8 h-8 rounded-full object-cover"
-              />
+              <img src={profileImage} alt={userName} className="w-8 h-8 rounded-full object-cover" />
             ) : (
               <div className="w-8 h-8 rounded-full bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center">
                 <span className="text-sm font-medium text-cyan-600 dark:text-cyan-400">
@@ -674,9 +695,7 @@ const AppSidebar: React.FC = () => {
                 <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                   {loadingProfile ? "Loading..." : userName}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {userRole}
-                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{userRole}</p>
               </div>
             )}
           </Link>
@@ -699,16 +718,16 @@ const AppSidebar: React.FC = () => {
           style={{
             top: tooltipPosition.top,
             left: tooltipPosition.left,
-            transform: 'translateY(-50%)',
+            transform: "translateY(-50%)",
           }}
           onMouseEnter={() => {
             if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
           }}
           onMouseLeave={handleTooltipLeave}
         >
-          {navItems[tooltipVisible]?.subItems ? (
+          {activeTooltipItem?.subItems ? (
             <div className="flex flex-col gap-0.5">
-              {navItems[tooltipVisible].subItems.map((subItem) => (
+              {activeTooltipItem.subItems.map((subItem) => (
                 <div key={subItem.name}>
                   {subItem.path ? (
                     <Link
@@ -734,10 +753,10 @@ const AppSidebar: React.FC = () => {
                       {subItem.subItems.map((ssItem) => (
                         <Link
                           key={ssItem.name}
-                          to={ssItem.path}
+                          to={ssItem.path!}
                           className={`
                             px-3 py-1.5 text-xs rounded-lg transition-all duration-200 block whitespace-nowrap text-left
-                            ${isActive(ssItem.path)
+                            ${isActive(ssItem.path!)
                               ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400 font-semibold"
                               : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
                             }
@@ -751,10 +770,11 @@ const AppSidebar: React.FC = () => {
                   )}
                 </div>
               ))}
+              ))}
             </div>
           ) : (
             <div className="px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-              {navItems[tooltipVisible]?.name}
+              {activeTooltipItem?.name}
             </div>
           )}
 
@@ -762,7 +782,7 @@ const AppSidebar: React.FC = () => {
           <div
             className="absolute top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-white dark:bg-gray-800 border-l border-b border-gray-100 dark:border-gray-700/80 rotate-45"
             style={{
-              left: '0px',
+              left: "0px",
             }}
           />
         </div>

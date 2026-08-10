@@ -69,35 +69,6 @@ import RouteSchedulePage from "./pages/Delivery/RouteSchedulePage";
 import ProductPage from "./pages/Delivery/ProductPage";
 import DeliveryAddressPage from "./pages/Delivery/DeliveryAddressPage";
 import DeliveryStatusPage from "./pages/Delivery/DeliveryStatusPage";
-import InvoiceList from "./pages/Invoice/Billing/InvoiceList";
-import InvoiceForm from "./pages/Invoice/Billing/InvoiceForm";
-import InvoiceDetails from "./pages/Invoice/Billing/InvoiceDetails";
-import PaymentReceiptList from "./pages/Invoice/Receipt/PaymentReceiptList";
-import PaymentReceiptForm from "./pages/Invoice/Receipt/PaymentReceiptForm";
-import PaymentReceiptDetails from "./pages/Invoice/Receipt/PaymentReceiptDetails";
-import AccountsReceivableList from "./pages/Invoice/AccountReceivable/AccountsReceivableList";
-import AccountsReceivableForm from "./pages/Invoice/AccountReceivable/AccountsReceivableForm";
-import AccountsReceivableDetails from "./pages/Invoice/AccountReceivable/AccountsReceivableDetails";
-import GeneralLedgerList from "./pages/Invoice/GeneralLedger/GeneralLedgerList";
-import GeneralLedgerForm from "./pages/Invoice/GeneralLedger/GeneralLedgerForm";
-import GeneralLedgerDetails from "./pages/Invoice/GeneralLedger/GeneralLedgerDetails";
-import PurchaseInvoiceList from "./pages/Invoice/PurchaseInvoice/PurchaseInvoiceList";
-import PurchaseInvoiceForm from "./pages/Invoice/PurchaseInvoice/PurchaseInvoiceForm";
-import PurchaseInvoiceDetails from "./pages/Invoice/PurchaseInvoice/PurchaseInvoiceDetails";
-import TaxRecordList from "./pages/Invoice/TaxRecord/TaxRecordList";
-import TaxRecordForm from "./pages/Invoice/TaxRecord/TaxRecordForm";
-import TaxRecordDetails from "./pages/Invoice/TaxRecord/TaxRecordDetails";
-import ExpenseRevenueList from "./pages/Invoice/ExpenseRevenue/ExpenseRevenueList";
-import ExpenseRevenueForm from "./pages/Invoice/ExpenseRevenue/ExpenseRevenueForm";
-import ExpenseRevenueDetails from "./pages/Invoice/ExpenseRevenue/ExpenseRevenueDetails";
-import CreditDebitNotesPage from "./pages/Invoice/CreditDebitNotesPage";
-import TaxTypeList from "./pages/Invoice/TaxType/TaxTypeList";
-import TaxTypeForm from "./pages/Invoice/TaxType/TaxTypeForm";
-import TaxTypeDetails from "./pages/Invoice/TaxType/TaxTypeDetails";
-import TaxDetailPage from "./pages/Invoice/TaxDetailPage";
-import PaymentTermList from "./pages/Invoice/PaymentTerm/PaymentTermList";
-import PaymentTermForm from "./pages/Invoice/PaymentTerm/PaymentTermForm";
-import PaymentTermDetails from "./pages/Invoice/PaymentTerm/PaymentTermDetails";
 import BenefitsAllowancesPage from "./pages/Payroll/BenefitsAllowancesPage";
 import PayrollRunsPage from "./pages/Payroll/PayrollRunsPage";
 import PayrollTaxDeductionsPage from "./pages/Payroll/PayrollTaxDeductionsPage";
@@ -198,13 +169,9 @@ import SalesDashboard from "./pages/Sales/SalesDashboard";
 import CrmDashboardPage from "./pages/CRM/CrmDashboardPage";
 import ProcurementDashboard from "./pages/Purchase/ProcurementDashboard";
 import DeliveryDashboard from "./pages/Delivery/DeliveryDashboard";
-import FinanceDashboard from "./pages/Invoice/FinanceDashboard";
 import PayrollDashboard from "./pages/Payroll/PayrollDashboard";
 import AttendanceDashboard from "./pages/Attendance/AttendanceDashboard";
 import UserDashboard from "./components/UserProfile/UserDashboard";
-import AccountsPayableForm from "./pages/Invoice/AccountPayable/AccountPayableForm";
-import AccountsPayableDetails from "./pages/Invoice/AccountPayable/AccountPayableDetails";
-import AccountsPayableList from "./pages/Invoice/AccountPayable/AccountPayableList";
 import Mainrole from "./pages/roleconfig/Mainrole";
 import Batch from "./pages/Inventory/batch";
 import EmployeeCompensationPage from "./pages/Payroll/EmployeeCompensationPage";
@@ -218,6 +185,23 @@ import CustomerAddressPage from "./pages/Delivery/CustomerAddress";
 import DeliveryNote from "./pages/Delivery/DeliveryNote";
 import GoodsIssuePage from "./pages/Delivery/GoodsIssue";
 import Schedule from "./pages/Delivery/Schedule";
+import VendorsInvoice from "./pages/Invoice/Vendors";
+import TaxTypesInvoice from "./pages/Invoice/TaxTypes";
+import TaxDetailsInvoice from "./pages/Invoice/TaxDetails";
+import PurchaseInvoices from "./pages/Invoice/PurchaseInvoices";
+import PaymentTermsInvoice from "./pages/Invoice/PaymentTerms";
+import JournalEntries from "./pages/Invoice/JournalEntries";
+import InvoicesInvoice from "./pages/Invoice/Invoices";
+import GeneralAccounts from "./pages/Invoice/GeneralAccounts";
+import AccountsPayable from "./pages/Invoice/AccountsPayable";
+import VendorPayments from "./pages/Invoice/VendorPayments";
+import TaxRecords from "./pages/Invoice/TaxRecords";
+import PaymentReceipts from "./pages/Invoice/PaymentReceipts";
+import GeneralLedger from "./pages/Invoice/GeneralLedger";
+import ExpenseRevenue from "./pages/Invoice/ExpenseRevenue";
+import AccountsReceivable from "./pages/Invoice/AccountsReceivable";
+import TaxReport from "./pages/Invoice/TaxReport";
+import FinanceReport from "./pages/Invoice/FinanceReport";
 
 export default function AppRouter() {
   return (
@@ -266,6 +250,7 @@ export default function AppRouter() {
           <Route path="/quote-view/:id" element={<Quotations />} />
 
           <Route path="/warehouse" element={<Warehouse />} />
+           <Route path="/products" element={<Products />} />
           <Route path="/inventory" element={<InventoryModule />} />
           <Route path="/stock-movement" element={<StockMovement />} />
           <Route path="/stock-level" element={<StockLevel />} />
@@ -273,6 +258,7 @@ export default function AppRouter() {
           <Route path="/serial-number" element={<SerialNumber />} />
           <Route path="/quality-inspection" element={<QualityInspection />} />
           <Route path="/inventory-reservation" element={<InventoryReservation />} />
+          <Route path="/customer" element={<Customers />} />
           <Route path="/batch" element={<Batch />} />
           <Route path="/inventory-report" element={<InventoryReport />} />
 
@@ -299,6 +285,24 @@ export default function AppRouter() {
           <Route path="/deliveryDate" element={<Deliveries />} />
           <Route path="/goodseceiptNote" element={<GoodsReceiptNotes />} />
 
+          <Route path="/invoiceVendors" element={<VendorsInvoice />} />
+          <Route path="/taxTypes" element={<TaxTypesInvoice />} />
+          <Route path="/taxDetails" element={<TaxDetailsInvoice />} />
+          <Route path="/purchaseInvoices" element={<PurchaseInvoices />} />
+          <Route path="/paymentTerms" element={<PaymentTermsInvoice />} />
+          <Route path="/journalEntries" element={<JournalEntries />} />
+          <Route path="/invoices" element={<InvoicesInvoice />} />
+          <Route path="/generalAccounts" element={<GeneralAccounts />} />
+          <Route path="/accountsPayable" element={<AccountsPayable />} />
+          <Route path="/vendorPayments" element={<VendorPayments />} />
+          <Route path="/taxRecords" element={<TaxRecords />} />
+          <Route path="/paymentReceipts" element={<PaymentReceipts />} />
+          <Route path="/generalLedger" element={<GeneralLedger />} />
+          <Route path="/expenseRevenue" element={<ExpenseRevenue />} />
+          <Route path="/accountsReceivable" element={<AccountsReceivable />} />
+          <Route path="/taxReport" element={<TaxReport />} />
+          <Route path="/financeReport" element={<FinanceReport />} />
+
           <Route path="/deliveryOrder" element={<DeliveryOrderPage />} />
           <Route path="/transporter" element={<TransporterPage />} />
           <Route path="/vechile" element={<VehiclePage />} />
@@ -315,49 +319,6 @@ export default function AppRouter() {
           <Route path="/schedule" element={<Schedule />} />
           <Route path="/goodsIssue" element={<GoodsIssuePage />} />
 
-          <Route path="/invoice-billing" element={<InvoiceList />} />
-          <Route path="/invoice-billing/add" element={<InvoiceForm />} />
-          <Route path="/invoice-billing/edit/:id" element={<InvoiceForm />} />
-          <Route path="/invoice-billing/view/:id" element={<InvoiceDetails />} />
-          <Route path="/payment-receipt" element={<PaymentReceiptList />} />
-          <Route path="/payment-receipt/add" element={<PaymentReceiptForm />} />
-          <Route path="/payment-receipt/edit/:id" element={<PaymentReceiptForm />} />
-          <Route path="/payment-receipt/view/:id" element={<PaymentReceiptDetails />} />
-          <Route path="/account-receivable" element={<AccountsReceivableList />} />
-          <Route path="/account-receivable/add" element={<AccountsReceivableForm />} />
-          <Route path="/account-receivable/edit/:id" element={<AccountsReceivableForm />} />
-          <Route path="/account-receivable/view/:id" element={<AccountsReceivableDetails />} />
-          <Route path="/accounts-payable" element={<AccountsPayableList />} />
-          <Route path="/accounts-payable/add" element={<AccountsPayableForm />} />
-          <Route path="/accounts-payable/edit/:id" element={<AccountsPayableForm />} />
-          <Route path="/accounts-payable/view/:id" element={<AccountsPayableDetails />} />
-          <Route path="/generalLedger" element={<GeneralLedgerList />} />
-          <Route path="/generalLedger/add" element={<GeneralLedgerForm />} />
-          <Route path="/generalLedger/edit/:id" element={<GeneralLedgerForm />} />
-          <Route path="/generalLedger/view/:id" element={<GeneralLedgerDetails />} />
-          <Route path="/taxTypes" element={<TaxTypeList />} />
-          <Route path="/taxTypes/add" element={<TaxTypeForm />} />
-          <Route path="/taxTypes/edit/:id" element={<TaxTypeForm />} />
-          <Route path="/taxTypes/view/:id" element={<TaxTypeDetails />} />
-          <Route path="/taxDetails" element={<TaxDetailPage />} />
-          <Route path="/taxRecords" element={<TaxRecordList />} />
-          <Route path="/taxRecords/add" element={<TaxRecordForm />} />
-          <Route path="/taxRecords/edit/:id" element={<TaxRecordForm />} />
-          <Route path="/taxRecords/view/:id" element={<TaxRecordDetails />} />
-          <Route path="/expense-revenue" element={<ExpenseRevenueList />} />
-          <Route path="/expense-revenue/add" element={<ExpenseRevenueForm />} />
-          <Route path="/expense-revenue/edit/:id" element={<ExpenseRevenueForm />} />
-          <Route path="/expense-revenue/view/:id" element={<ExpenseRevenueDetails />} />
-          <Route path="/credit-debit-notes" element={<CreditDebitNotesPage />} />
-          <Route path="/payment-terms" element={<PaymentTermList />} />
-          <Route path="/payment-terms/add" element={<PaymentTermForm />} />
-          <Route path="/payment-terms/edit/:id" element={<PaymentTermForm />} />
-          <Route path="/payment-terms/view/:id" element={<PaymentTermDetails />} />
-          <Route path="/payment-invoice" element={<PurchaseInvoiceList />} />
-          <Route path="/payment-invoice/add" element={<PurchaseInvoiceForm />} />
-          <Route path="/payment-invoice/edit/:id" element={<PurchaseInvoiceForm />} />
-          <Route path="/payment-invoice/view/:id" element={<PurchaseInvoiceDetails />} />
-          <Route path="/invoice_dashboard" element={<FinanceDashboard />} />
 
           <Route path="/employeeRecords" element={<EmployeeRecordsPage />} />
           <Route path="/addEmployee" element={<AddEmployeePage />} />
@@ -367,6 +328,7 @@ export default function AppRouter() {
           <Route path="/employeeCompensation" element={<EmployeeCompensationPage />} />
           <Route path="/employeeDepartments" element={<EmployeeDepartmentsPage />} />
           <Route path="/employeePayroll" element={<PayrollPage />} />
+          <Route path="/employeePayslips" element={<PayrollPage />} />
           <Route path="/salaryStructure" element={<SalaryStructurePage />} />
           <Route path="/attendance-management" element={<AttendanceManagementPage />} />
           <Route path="/attendanceLogs" element={<AttendanceLogsPage />} />

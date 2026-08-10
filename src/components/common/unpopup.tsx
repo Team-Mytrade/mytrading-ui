@@ -70,6 +70,7 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
     for (let index = 0; index < fields.length; index += itemsPerPage) {
       chunks.push(fields.slice(index, index + itemsPerPage));
     }
+
     return (chunks.length > 0 ? chunks : [[]]).map((chunk, index) => ({
       label: `Step ${index + 1}`,
       fields: chunk,
@@ -100,9 +101,11 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-4 backdrop-blur-sm sm:items-center">
-      <div className={`mx-auto w-full ${maxWidthClassName} rounded-xl bg-white shadow-xl`}>
-        <div className="flex items-center justify-between border-b border-gray-100 p-5">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-3 backdrop-blur-sm sm:items-center">
+      <div
+        className={`mx-auto my-6 flex w-full flex-col overflow-hidden rounded-xl bg-white shadow-xl ${maxWidthClassName}`}
+      >
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
             {subtitle && <p className="mt-0.5 text-xs text-gray-500">{subtitle}</p>}
@@ -113,7 +116,7 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
         </div>
 
         {pages.length > 1 && (
-          <div className="border-b border-gray-100 px-5 pt-4">
+          <div className="border-b border-gray-100 px-5 pt-3">
             <div className="flex flex-wrap gap-2">
               {pages.map((tab, index) => (
                 <button
@@ -121,9 +124,7 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
                   type="button"
                   onClick={() => setPage(index)}
                   className={`rounded-t-lg px-4 py-2 text-sm font-medium transition ${
-                    index === page
-                      ? "bg-cyan-50 text-cyan-700"
-                      : "text-slate-400 hover:text-slate-600"
+                    index === page ? "bg-cyan-50 text-cyan-700" : "text-slate-400 hover:text-slate-600"
                   }`}
                 >
                   {tab.label}
@@ -133,14 +134,16 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
           </div>
         )}
 
-        <form ref={formRef} onSubmit={handleFormSubmit} noValidate className="p-5">
-          <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
-            {currentPageFields.map((field, index) => (
-              <React.Fragment key={index}>{field}</React.Fragment>
-            ))}
+        <form ref={formRef} onSubmit={handleFormSubmit} noValidate className="flex flex-col">
+          <div className="px-5 py-4">
+            <div className="grid grid-cols-1 gap-3 pt-1 md:grid-cols-2">
+              {currentPageFields.map((field, index) => (
+                <React.Fragment key={index}>{field}</React.Fragment>
+              ))}
+            </div>
           </div>
 
-          <div className="mt-4 flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 border-t border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-xs font-medium text-gray-500">
               {currentPage.label} • {page + 1} of {pages.length}
             </div>

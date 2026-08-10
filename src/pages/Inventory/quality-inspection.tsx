@@ -1,16 +1,13 @@
 import React, { useContext, useEffect, useState, useMemo } from "react";
 import axios from "axios";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import { useNavigate } from "react-router-dom";
 import {
     PencilSquareIcon,
     TrashIcon,
     MagnifyingGlassIcon,
-    FunnelIcon,
     CheckCircleIcon,
     XCircleIcon,
-    DocumentArrowDownIcon,
     TableCellsIcon,
     EyeIcon,
     CubeIcon,
@@ -20,39 +17,82 @@ import {
     PrinterIcon,
     DocumentTextIcon,
     ChartBarIcon,
-    ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import { ToasterService } from "../../Services/ToasterService";
-import ConfirmDialog from "../../components/common/ConfirmDialog";
-import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { ListingPdfExportButton } from "../../components/common/export";
+import FilterPopover from "../../components/common/filter";
+import DynamicPopup from "../../components/common/Popup";
+import PaginatedPopup from "../../components/common/unpopup";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import {
+    FloatingInput,
+    FloatingSelect1 as FloatingSelect,
+    FloatingTextarea,
+} from "../../components/inputfeild/FloatingInput";
 import { AuthContext } from "../../context/AuthContext";
+
+interface Product {
+    id: number;
+    productName: string;
+    sku?: string;
+    code?: string;
+}
+
+// ---------- Nested reference types, matching the actual backend schema ----------
+interface WarehouseRef {
+    id: number;
+    code?: string;
+    name: string;
+    locationType?: string;
+}
+
+interface BatchRef {
+    id: number;
+    batchNumber: string;
+    manufacturingDate?: string;
+    expiryDate?: string;
+    productId?: number;
+    warehouse?: WarehouseRef;
+}
+
+interface SerialNumberRef {
+    id: number;
+    serial: string;
+    warrantyStart?: string;
+    warrantyEnd?: string;
+    productId?: number;
+    productNumber?: string;
+    warehouse?: WarehouseRef;
+    batch?: BatchRef;
+}
+
 
 interface QualityInspection {
     id: number;
-    productSKU: string;
-    productName?: string;
+    productName?: string;   
     productId?: number;
     inspectionDate: string;
-    inspectorName: string;
+    inspectorName: string; 
     inspector?: string;
-    inspectorId?: string;
     result: "Pass" | "Fail" | "PASS" | "FAIL";
     remarks?: string;
-    status: "Pending" | "Completed" | "InProgress";
-    batch?: string | { id?: number; batchNumber?: string };
-    serialNumber?: string | { id?: number; serial?: string };
+    batch?: BatchRef;
+    serialNumber?: SerialNumberRef;
     createdAt?: string;
     updatedAt?: string;
     createdDate?: string;
     updatedDate?: string;
 }
 
-const API_URL = "/v1/api/inventory/quality-inspections";
+const API_BASE = "/v1/api/inventory";
+const API_URL = `${API_BASE}/quality-inspections`;
+const BATCHES_URL = `${API_BASE}/batches`;
+const SERIAL_NUMBERS_URL = `${API_BASE}/serial-numbers`;
+const PRODUCTS_API_URL = "/v1/api/purchase/products";
 const qualityInspectionApi = axios.create();
 
 qualityInspectionApi.interceptors.request.use((config) => {
@@ -65,62 +105,102 @@ qualityInspectionApi.interceptors.request.use((config) => {
 
 const PAGE_SIZE = 10;
 
+
+const PRODUCT_ROUTE = "/purchase-products"; // <Route path="/purchase-products" element={<Products />} />
+const BATCH_ROUTE = "/batch";               // <Route path="/batch" element={<Batch />} />
+const SERIAL_NUMBER_ROUTE = "/serial-number"; // <Route path="/serial-number" element={<SerialNumber />} />
+
+type FormState = {
+    productId: number;
+    inspectionDate: string;
+    inspectorName: string;
+    inspector: string;
+    result: "Pass" | "Fail";
+    remarks: string;
+    batchId: string;
+    serialNumberId: string;
+};
+
+const emptyFormState: FormState = {
+    productId: 0,
+    inspectionDate: new Date().toISOString().split("T")[0],
+    inspectorName: "",
+    inspector: "",
+    result: "Pass",
+    remarks: "",
+    batchId: "",
+    serialNumberId: "",
+};
+
 const QualityInspectionManager: React.FC = () => {
     const { user } = useContext(AuthContext);
+    const navigate = useNavigate();
     const [records, setRecords] = useState<QualityInspection[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
     const [showForm, setShowForm] = useState(false);
-    const [showFilters, setShowFilters] = useState(false);
-    const [showExportMenu, setShowExportMenu] = useState(false);
     const [formMode, setFormMode] = useState<"add" | "edit">("add");
     const [editingId, setEditingId] = useState<number | null>(null);
     const [resultFilter, setResultFilter] = useState<"All" | "Pass" | "Fail">("All");
-    const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "Completed" | "InProgress">("All");
     const [viewModalOpen, setViewModalOpen] = useState(false);
     const [selectedRecord, setSelectedRecord] = useState<QualityInspection | null>(null);
-    const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
+    const [deletingRecord, setDeletingRecord] = useState<QualityInspection | null>(null);
+    const [submitting, setSubmitting] = useState(false);
 
-    const [formData, setFormData] = useState<Omit<QualityInspection, "id">>({
-        productSKU: "",
-        productId: 0,
-        inspectionDate: new Date().toISOString().split('T')[0],
-        inspectorName: "",
-        inspector: "",
-        result: "Pass",
-        remarks: "",
-        status: "Pending",
-        batch: "",
-        serialNumber: "",
-    });
+    const [products, setProducts] = useState<Product[]>([]);
+    const [batches, setBatches] = useState<BatchRef[]>([]);
+    const [serialNumbers, setSerialNumbers] = useState<SerialNumberRef[]>([]);
+
+    const [formData, setFormData] = useState<FormState>(emptyFormState);
 
     useEffect(() => {
         fetchRecords();
+        fetchProducts();
+        fetchBatches();
+        fetchSerialNumbers();
     }, []);
 
-    const getBatchValue = (batch: QualityInspection["batch"]) => {
-        if (!batch) return "";
-        return typeof batch === "string" ? batch : batch.batchNumber || "";
+   
+    const getProductDisplayName = (record: QualityInspection) => {
+        const product = products.find((p) => p.id === record.productId);
+        if (product) return product.productName || product.sku || product.code || `Product #${product.id}`;
+        if (record.productName) return record.productName;
+        return record.productId ? `Product #${record.productId}` : "N/A";
     };
 
-    const getSerialNumberValue = (serialNumber: QualityInspection["serialNumber"]) => {
-        if (!serialNumber) return "";
-        return typeof serialNumber === "string" ? serialNumber : serialNumber.serial || "";
+    const getProductSku = (record: QualityInspection) => {
+        const product = products.find((p) => p.id === record.productId);
+        return product?.sku || product?.code || "";
+    };
+
+    const getBatchDisplay = (batch?: BatchRef) => batch?.batchNumber || "N/A";
+    const getSerialDisplay = (serialNumber?: SerialNumberRef) => serialNumber?.serial || "N/A";
+
+    const goToProduct = (productId?: number) => {
+        if (!productId) return;
+        navigate(`${PRODUCT_ROUTE}?productId=${productId}`, { state: { productId } });
+    };
+
+    const goToBatch = (batch?: BatchRef) => {
+        if (!batch?.id) return;
+        navigate(`${BATCH_ROUTE}?batchId=${batch.id}`, {
+            state: { batchId: batch.id, batchNumber: batch.batchNumber },
+        });
+    };
+
+    const goToSerialNumber = (serialNumber?: SerialNumberRef) => {
+        if (!serialNumber?.id) return;
+        navigate(`${SERIAL_NUMBER_ROUTE}?serialNumberId=${serialNumber.id}`, {
+            state: { serialNumberId: serialNumber.id, serial: serialNumber.serial },
+        });
     };
 
     const normalizeInspection = (record: any): QualityInspection => {
         const result = record?.result === "PASS" ? "Pass" : record?.result === "FAIL" ? "Fail" : record?.result || "Pass";
-        const status = record?.status || "Pending";
-        const productSKU =
-            record?.productSKU ||
-            record?.productNumber ||
-            record?.serialNumber?.productNumber ||
-            (record?.productId != null ? String(record.productId) : "");
 
         return {
             ...record,
             id: record?.id ?? 0,
-            productSKU,
             productName: record?.productName || record?.product?.name || "",
             productId: record?.productId,
             inspectionDate: record?.inspectionDate || new Date().toISOString().split("T")[0],
@@ -128,9 +208,8 @@ const QualityInspectionManager: React.FC = () => {
             inspector: record?.inspector || record?.inspectorName || "",
             result,
             remarks: record?.remarks || "",
-            status,
-            batch: record?.batch,
-            serialNumber: record?.serialNumber,
+            batch: record?.batch || undefined,
+            serialNumber: record?.serialNumber || undefined,
             createdAt: record?.createdAt || record?.createdDate,
             updatedAt: record?.updatedAt || record?.updatedDate,
             createdDate: record?.createdDate,
@@ -153,52 +232,70 @@ const QualityInspectionManager: React.FC = () => {
         }
     };
 
+    const fetchProducts = async () => {
+        try {
+            const res = await qualityInspectionApi.get(PRODUCTS_API_URL);
+            const rows = Array.isArray(res.data) ? res.data : res.data?.content || res.data?.data || [];
+            setProducts(rows);
+        } catch (err) {
+            console.error("Failed to load products", err);
+            ToasterService.error("Failed to load products");
+            setProducts([]);
+        }
+    };
+
+    const fetchBatches = async () => {
+        try {
+            const res = await qualityInspectionApi.get(BATCHES_URL);
+            const rows = Array.isArray(res.data) ? res.data : res.data?.content || res.data?.data || [];
+            setBatches(rows);
+        } catch (err) {
+            console.error("Failed to load batches", err);
+            ToasterService.error("Failed to load batches");
+            setBatches([]);
+        }
+    };
+
+    const fetchSerialNumbers = async () => {
+        try {
+            const res = await qualityInspectionApi.get(SERIAL_NUMBERS_URL);
+            const rows = Array.isArray(res.data) ? res.data : res.data?.content || res.data?.data || [];
+            setSerialNumbers(rows);
+        } catch (err) {
+            console.error("Failed to load serial numbers", err);
+            ToasterService.error("Failed to load serial numbers");
+            setSerialNumbers([]);
+        }
+    };
+
     const buildPayload = () => {
-        const now = new Date().toISOString();
-        const productId = Number(formData.productSKU) || Number(formData.productId) || 0;
-        const batchNumber = getBatchValue(formData.batch);
-        const serial = getSerialNumberValue(formData.serialNumber);
+        const productId = Number(formData.productId) || 0;
+        const batchId = Number(formData.batchId) || 0;
+        const serialNumberId = Number(formData.serialNumberId) || 0;
 
         const payload: Record<string, any> = {
-            id: editingId || 0,
-            createdDate: now,
-            updatedDate: now,
-            createdBy: user?.userId || user?.username || "",
-            tenantId: user?.tenantId || "",
             inspectionDate: formData.inspectionDate,
             inspector: formData.inspectorName || formData.inspector || "",
             result: String(formData.result).toUpperCase(),
             remarks: formData.remarks || "",
             productId,
+            batch: batchId ? { id: batchId } : null,
+            serialNumber: serialNumberId ? { id: serialNumberId } : null,
         };
 
-        payload.batch = batchNumber;
-
-        if (serial) {
-            payload.serialNumber = {
-                id: 0,
-                createdDate: now,
-                updatedDate: now,
-                createdBy: user?.userId || user?.username || "",
-                tenantId: user?.tenantId || "",
-                serial,
-                warrantyStart: formData.inspectionDate,
-                warrantyEnd: formData.inspectionDate,
-                productId,
-                productNumber: formData.productSKU,
-                warehouse: null,
-                batch: null,
-                inspections: [],
-            };
+        if (editingId) {
+            payload.id = editingId;
         }
 
         return payload;
     };
 
-    const handleSave = async () => {
+    const handleSave = async (e?: React.FormEvent) => {
+        e?.preventDefault();
         const payload = buildPayload();
 
         try {
+            setSubmitting(true);
             if (formMode === "edit" && editingId) {
                 const response = await qualityInspectionApi.put(`${API_URL}/${editingId}`, payload);
                 const updatedRecord = normalizeInspection({
@@ -215,23 +312,23 @@ const QualityInspectionManager: React.FC = () => {
             }
             closeForm();
         } catch (err: any) {
-            ToasterService.error(err.response?.data?.message || err.response?.data?.error || "Save failed");
+            ToasterService.error(err.response?.data?.message || err.response?.data?.error || err.response?.data?.detail || "Save failed");
+        } finally {
+            setSubmitting(false);
         }
     };
 
     const handleEdit = (record: QualityInspection) => {
         setEditingId(record.id);
         setFormData({
-            productSKU: record.productSKU,
-            productId: record.productId || Number(record.productSKU) || 0,
+            productId: record.productId || 0,
             inspectionDate: record.inspectionDate.split('T')[0],
             inspectorName: record.inspectorName,
             inspector: record.inspector || record.inspectorName,
-            result: record.result,
+            result: (record.result === "PASS" ? "Pass" : record.result === "FAIL" ? "Fail" : record.result) as "Pass" | "Fail",
             remarks: record.remarks || "",
-            status: record.status,
-            batch: getBatchValue(record.batch),
-            serialNumber: getSerialNumberValue(record.serialNumber),
+            batchId: record.batch?.id ? String(record.batch.id) : "",
+            serialNumberId: record.serialNumber?.id ? String(record.serialNumber.id) : "",
         });
         setFormMode("edit");
         setShowForm(true);
@@ -257,20 +354,17 @@ const QualityInspectionManager: React.FC = () => {
         setViewModalOpen(true);
     };
 
-    const handleDelete = async (id: number, productSKU: string) => {
-        const ok = await confirm({
-            message: `Are you sure you want to delete inspection record for ${productSKU}? This action cannot be undone.`,
-            confirmLabel: "Delete",
-            variant: "danger",
-        });
-        if (!ok) return;
+    const confirmDelete = async () => {
+        if (!deletingRecord) return;
 
         try {
-            await qualityInspectionApi.delete(`${API_URL}/${id}`);
+            await qualityInspectionApi.delete(`${API_URL}/${deletingRecord.id}`);
             ToasterService.success("Inspection record deleted successfully");
             await fetchRecords();
         } catch (err: any) {
             ToasterService.error(err.response?.data?.message || "Delete failed");
+        } finally {
+            setDeletingRecord(null);
         }
     };
 
@@ -278,108 +372,57 @@ const QualityInspectionManager: React.FC = () => {
         setShowForm(false);
         setFormMode("add");
         setEditingId(null);
-        setFormData({
-            productSKU: "",
-            productId: 0,
-            inspectionDate: new Date().toISOString().split('T')[0],
-            inspectorName: "",
-            inspector: "",
-            result: "Pass",
-            remarks: "",
-            status: "Pending",
-            batch: "",
-            serialNumber: "",
-        });
-    };
-
-    const exportPDF = () => {
-        const doc = new jsPDF();
-        doc.setFontSize(18);
-        doc.text("Quality Inspection Report", 14, 15);
-        doc.setFontSize(10);
-        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
-        doc.text(`Total Records: ${filtered.length}`, 14, 28);
-
-        autoTable(doc, {
-            head: [["SKU", "Inspector", "Date", "Result", "Status", "Remarks"]],
-            body: filtered.map(r => [
-                r.productSKU,
-                r.inspectorName,
-                new Date(r.inspectionDate).toLocaleDateString(),
-                r.result,
-                r.status,
-                r.remarks || "-"
-            ]),
-            startY: 35,
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: [6, 182, 212] },
-        });
-        doc.save(`Quality_Inspection_${new Date().toISOString().split("T")[0]}.pdf`);
-        setShowExportMenu(false);
-    };
-
-    const exportExcel = () => {
-        const ws = XLSX.utils.json_to_sheet(filtered.map(r => ({
-            'Product ID': r.productSKU,
-            'Product Name': r.productName || "-",
-            'Inspector Name': r.inspectorName,
-            'Inspection Date': new Date(r.inspectionDate).toLocaleDateString(),
-            'Result': r.result,
-            'Status': r.status,
-            'Remarks': r.remarks || "",
-            'Created At': r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "",
-        })));
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Quality Inspections");
-        XLSX.writeFile(wb, `Quality_Inspection_${new Date().toISOString().split("T")[0]}.xlsx`);
-        setShowExportMenu(false);
+        setFormData(emptyFormState);
     };
 
     const filtered = useMemo(() => {
         return records.filter(r => {
-            const matchesSearch = (r.productSKU || "").toLowerCase().includes(search.toLowerCase()) ||
-                (r.inspectorName || "").toLowerCase().includes(search.toLowerCase()) ||
-                (r.productName?.toLowerCase().includes(search.toLowerCase()) || false);
+            const matchesSearch = (r.inspectorName || "").toLowerCase().includes(search.toLowerCase()) ||
+                (r.productName?.toLowerCase().includes(search.toLowerCase()) || false) ||
+                getProductDisplayName(r).toLowerCase().includes(search.toLowerCase());
             const matchesResult = resultFilter === "All" || r.result === resultFilter;
-            const matchesStatus = statusFilter === "All" || r.status === statusFilter;
-            return matchesSearch && matchesResult && matchesStatus;
+            return matchesSearch && matchesResult;
         });
-    }, [records, search, resultFilter, statusFilter]);
+    }, [records, search, resultFilter, products]);
+
+    // Only the columns a user actually needs to read — no IDs, no nested
+    // batch/serial objects, and dates formatted for display rather than ISO.
+    const exportExcel = () => {
+        const ws = XLSX.utils.json_to_sheet(filtered.map(r => ({
+            'Product': getProductDisplayName(r),
+            'Inspector': r.inspectorName,
+            'Inspection Date': new Date(r.inspectionDate).toLocaleDateString(),
+            'Result': r.result,
+            'Batch': getBatchDisplay(r.batch),
+            'Serial Number': getSerialDisplay(r.serialNumber),
+            'Remarks': r.remarks || "-",
+        })));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Quality Inspections");
+        XLSX.writeFile(wb, `Quality_Inspection_${new Date().toISOString().split("T")[0]}.xlsx`);
+    };
+
+    const pdfColumns = useMemo(
+        () => [
+            { header: "Product", accessor: (row: QualityInspection) => getProductDisplayName(row) },
+            { header: "Inspector", key: "inspectorName" as const },
+            {
+                header: "Inspection Date",
+                accessor: (row: QualityInspection) => new Date(row.inspectionDate).toLocaleDateString(),
+            },
+            { header: "Result", key: "result" as const },
+            { header: "Batch", accessor: (row: QualityInspection) => getBatchDisplay(row.batch) },
+            { header: "Serial Number", accessor: (row: QualityInspection) => getSerialDisplay(row.serialNumber) },
+            { header: "Remarks", accessor: (row: QualityInspection) => row.remarks || "-" },
+        ],
+        [products]
+    );
 
     // Calculate stats from real data
     const totalRecords = records.length;
     const passedCount = records.filter(r => r.result === "Pass").length;
     const failedCount = records.filter(r => r.result === "Fail").length;
-    const pendingCount = records.filter(r => r.status === "Pending").length;
-    const completedCount = records.filter(r => r.status === "Completed").length;
     const passRate = totalRecords > 0 ? ((passedCount / totalRecords) * 100).toFixed(1) : "0";
-
-    // Status badge configuration
-    const getStatusBadge = (status: string) => {
-        switch (status) {
-            case "Completed":
-                return "bg-green-100 text-green-800 border-green-200";
-            case "Pending":
-                return "bg-yellow-100 text-yellow-800 border-yellow-200";
-            case "InProgress":
-                return "bg-blue-100 text-blue-800 border-blue-200";
-            default:
-                return "bg-gray-100 text-gray-800 border-gray-200";
-        }
-    };
-
-    const getStatusIcon = (status: string) => {
-        switch (status) {
-            case "Completed":
-                return <CheckCircleIcon className="h-3 w-3 mr-1" />;
-            case "Pending":
-                return <ClockIcon className="h-3 w-3 mr-1" />;
-            case "InProgress":
-                return <ChartBarIcon className="h-3 w-3 mr-1" />;
-            default:
-                return null;
-        }
-    };
 
     const getResultBadge = (result: string) => {
         if (result === "Pass") {
@@ -395,40 +438,47 @@ const QualityInspectionManager: React.FC = () => {
         return <XCircleIcon className="h-3 w-3 mr-1" />;
     };
 
-    // Clock Icon component
-    const ClockIcon: React.FC<{ className?: string }> = ({ className = "h-5 w-5" }) => (
-        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-    );
-
     const tableColumns: ColumnDef<QualityInspection>[] = [
         {
-            key: "productSKU",
-            label: "Product ID",
+            key: "product",
+            label: "Product",
             sortable: true,
             headerClassName: "w-[24%] text-left",
             className: "w-[24%]",
-            render: (record) => (
-                <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
-                        <CubeIcon className="h-4 w-4 text-cyan-600" />
+            sortValueGetter: (record) => getProductDisplayName(record),
+            render: (record) => {
+                const sku = getProductSku(record);
+                return (
+                    <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
+                            <CubeIcon className="h-4 w-4 text-cyan-600" />
+                        </div>
+                        <div className="min-w-0">
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    goToProduct(record.productId);
+                                }}
+                                className="truncate text-sm font-semibold text-cyan-600 hover:text-cyan-700 hover:underline text-left leading-snug"
+                                title="View product"
+                            >
+                                {getProductDisplayName(record)}
+                            </button>
+                            {sku && (
+                                <div className="text-xs text-slate-500 truncate mt-0.5">SKU: {sku}</div>
+                            )}
+                        </div>
                     </div>
-                    <div className="min-w-0">
-                        <div className="text-sm font-semibold text-slate-900 truncate leading-snug">{record.productSKU}</div>
-                        {record.productName && (
-                            <div className="text-xs text-slate-500 truncate mt-0.5">{record.productName}</div>
-                        )}
-                    </div>
-                </div>
-            ),
+                );
+            },
         },
         {
             key: "inspectorName",
             label: "Inspector",
             sortable: true,
-            headerClassName: "w-[18%] text-left",
-            className: "w-[18%]",
+            headerClassName: "w-[16%] text-left",
+            className: "w-[16%]",
             render: (record) => (
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                     <UserIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
@@ -440,8 +490,8 @@ const QualityInspectionManager: React.FC = () => {
             key: "inspectionDate",
             label: "Inspection Date",
             sortable: true,
-            headerClassName: "w-[16%] text-left",
-            className: "w-[16%]",
+            headerClassName: "w-[14%] text-left",
+            className: "w-[14%]",
             sortValueGetter: (record) => new Date(record.inspectionDate).getTime(),
             render: (record) => (
                 <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -451,44 +501,64 @@ const QualityInspectionManager: React.FC = () => {
             ),
         },
         {
-            key: "result",
-            label: "Result",
+            key: "batch",
+            label: "Batch",
             sortable: true,
             headerClassName: "w-[12%] text-left",
             className: "w-[12%]",
+            sortValueGetter: (record) => getBatchDisplay(record.batch),
+            render: (record) =>
+                record.batch?.id ? (
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            goToBatch(record.batch);
+                        }}
+                        className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                        title="View batch"
+                    >
+                        {getBatchDisplay(record.batch)}
+                    </button>
+                ) : (
+                    <span className="text-sm text-slate-600">N/A</span>
+                ),
+        },
+        {
+            key: "serialNumber",
+            label: "Serial Number",
+            sortable: true,
+            headerClassName: "w-[12%] text-left",
+            className: "w-[12%]",
+            sortValueGetter: (record) => getSerialDisplay(record.serialNumber),
+            render: (record) =>
+                record.serialNumber?.id ? (
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            goToSerialNumber(record.serialNumber);
+                        }}
+                        className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                        title="View serial number"
+                    >
+                        {getSerialDisplay(record.serialNumber)}
+                    </button>
+                ) : (
+                    <span className="text-sm text-slate-600">N/A</span>
+                ),
+        },
+        {
+            key: "result",
+            label: "Result",
+            sortable: true,
+            headerClassName: "w-[10%] text-left",
+            className: "w-[10%]",
             render: (record) => (
                 <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full border ${getResultBadge(record.result)}`}>
                     {getResultIcon(record.result)}
                     {record.result}
                 </span>
-            ),
-        },
-        {
-            key: "status",
-            label: "Status",
-            sortable: true,
-            headerClassName: "w-[14%] text-left",
-            className: "w-[14%]",
-            render: (record) => (
-                <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full border ${getStatusBadge(record.status)}`}>
-                    {getStatusIcon(record.status)}
-                    {record.status}
-                </span>
-            ),
-        },
-        {
-            key: "remarks",
-            label: "Remarks",
-            sortable: true,
-            headerClassName: "w-[10%] text-left",
-            className: "w-[10%]",
-            render: (record) => (
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <DocumentTextIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
-                    <span className="truncate font-medium text-slate-600" title={record.remarks || ""}>
-                        {record.remarks || <span className="text-slate-400 italic">--</span>}
-                    </span>
-                </div>
             ),
         },
         {
@@ -517,7 +587,7 @@ const QualityInspectionManager: React.FC = () => {
                     </button>
                     <button
                         type="button"
-                        onClick={() => handleDelete(record.id, record.productSKU)}
+                        onClick={() => setDeletingRecord(record)}
                         className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
                         title="Delete Inspection"
                     >
@@ -540,25 +610,14 @@ const QualityInspectionManager: React.FC = () => {
                         onClick={() => {
                             setFormMode("add");
                             setEditingId(null);
-                            setFormData({
-                                productSKU: "",
-                                productId: 0,
-                                inspectionDate: new Date().toISOString().split('T')[0],
-                                inspectorName: "",
-                                inspector: "",
-                                result: "Pass",
-                                remarks: "",
-                                status: "Pending",
-                                batch: "",
-                                serialNumber: "",
-                            });
+                            setFormData(emptyFormState);
                             setShowForm(true);
                         }}
                     />
                 </div>
 
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                     <StatsCard
                         label="Total Inspections"
                         value={totalRecords}
@@ -583,14 +642,6 @@ const QualityInspectionManager: React.FC = () => {
                         labelColor="text-purple-600"
                         icon={<ChartBarIcon />}
                     />
-                    <StatsCard
-                        label="Pending / Completed"
-                        value={`${pendingCount} / ${completedCount}`}
-                        gradient="from-orange-50 to-yellow-50"
-                        borderColor="border-orange-100"
-                        labelColor="text-orange-600"
-                        icon={<ClockIcon />}
-                    />
                 </div>
 
                 {/* Toolbar */}
@@ -599,8 +650,8 @@ const QualityInspectionManager: React.FC = () => {
                         <div className="relative">
                             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input
-                                type="text"
-                                placeholder="Search by SKU or Inspector..."
+                                type="search"
+                                placeholder="Search by product or inspector..."
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
                                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
@@ -609,58 +660,78 @@ const QualityInspectionManager: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        {/* Export Menu */}
-                        <div className="relative">
-                            <button
-                                onClick={() => setShowExportMenu(!showExportMenu)}
-                                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                                disabled={records.length === 0}
-                            >
-                                <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
-                            </button>
+                        <ListingPdfExportButton
+                            title="Quality Inspections"
+                            subtitle="Filtered quality inspection listing"
+                            reportLabel="Quality Inspection Report"
+                            data={filtered}
+                            columns={pdfColumns}
+                            dateAccessor={(row) => row.inspectionDate}
+                            fileName="Quality_Inspection"
+                            disabled={records.length === 0}
+                            metadata={(rows, rangeLabel) => [
+                                { label: "Total", value: rows.length },
+                                { label: "Range", value: rangeLabel },
+                                { label: "Result", value: resultFilter },
+                                { label: "Search", value: search || "None" },
+                            ]}
+                        />
 
-                            {showExportMenu && (
-                                <div className="absolute right-0 mt-1 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50">
-                                    <button
-                                        onClick={exportPDF}
-                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
-                                    >
-                                        <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
-                                        Export PDF
-                                    </button>
-                                    <button
-                                        onClick={exportExcel}
-                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
-                                    >
-                                        <TableCellsIcon className="h-4 w-4 text-green-600" />
-                                        Export Excel
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                        <button
+                            onClick={exportExcel}
+                            className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                            disabled={records.length === 0}
+                            title="Export Excel"
+                        >
+                            <TableCellsIcon className="h-5 w-5 text-green-600" />
+                        </button>
 
-                        {/* Print Button */}
                         <button
                             onClick={() => window.print()}
                             className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
                             disabled={records.length === 0}
+                            title="Print"
                         >
                             <PrinterIcon className="h-5 w-5 text-gray-600" />
                         </button>
 
-                        {/* Filter Button */}
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className={`p-2 rounded-lg border ${showFilters ? 'bg-cyan-50 border-cyan-300' : 'border-gray-300 hover:bg-gray-50'
-                                }`}
+                        <FilterPopover
+                            title="Filter Inspections"
+                            buttonLabel="Filters"
+                            widthClassName="w-[20rem]"
+                            showFooter={false}
                         >
-                            <FunnelIcon className={`h-5 w-5 ${showFilters ? 'text-cyan-600' : 'text-gray-600'}`} />
-                        </button>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Result</label>
+                                    <select
+                                        value={resultFilter}
+                                        onChange={e => setResultFilter(e.target.value as any)}
+                                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                                    >
+                                        <option value="All">All Results</option>
+                                        <option value="Pass">Pass</option>
+                                        <option value="Fail">Fail</option>
+                                    </select>
+                                </div>
+                                {resultFilter !== "All" && (
+                                    <div className="flex justify-end">
+                                        <button
+                                            onClick={() => setResultFilter("All")}
+                                            className="text-sm text-red-600 hover:text-red-800"
+                                        >
+                                            Clear Filters
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </FilterPopover>
 
                         {/* Refresh Button */}
                         <button
                             onClick={fetchRecords}
                             className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                            title="Refresh"
                         >
                             <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -669,51 +740,6 @@ const QualityInspectionManager: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Filters Panel */}
-                {showFilters && (
-                    <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex flex-wrap gap-4">
-                            <div className="flex-1 min-w-[200px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Result</label>
-                                <select
-                                    value={resultFilter}
-                                    onChange={e => setResultFilter(e.target.value as any)}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                                >
-                                    <option value="All">All Results</option>
-                                    <option value="Pass">Pass</option>
-                                    <option value="Fail">Fail</option>
-                                </select>
-                            </div>
-                            <div className="flex-1 min-w-[200px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                                <select
-                                    value={statusFilter}
-                                    onChange={e => setStatusFilter(e.target.value as any)}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                                >
-                                    <option value="All">All Status</option>
-                                    <option value="Pending">Pending</option>
-                                    <option value="InProgress">In Progress</option>
-                                    <option value="Completed">Completed</option>
-                                </select>
-                            </div>
-                            {(resultFilter !== "All" || statusFilter !== "All") && (
-                                <button
-                                    onClick={() => {
-                                        setResultFilter("All");
-                                        setStatusFilter("All");
-                                    }}
-                                    className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
-                                >
-                                    Clear Filters
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Table */}
                 <ReusableTable
                     data={filtered}
                     columns={tableColumns}
@@ -755,18 +781,21 @@ const QualityInspectionManager: React.FC = () => {
                                             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Product ID</p>
-                                                        <p className="text-sm font-medium text-gray-900">{selectedRecord.productSKU}</p>
-                                                        {selectedRecord.productName && (
-                                                            <p className="text-xs text-gray-500 mt-1">{selectedRecord.productName}</p>
+                                                        <p className="text-xs text-gray-500">Product</p>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => goToProduct(selectedRecord.productId)}
+                                                            className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                                                        >
+                                                            {getProductDisplayName(selectedRecord)}
+                                                        </button>
+                                                        {getProductSku(selectedRecord) && (
+                                                            <p className="text-xs text-gray-500 mt-1">SKU: {getProductSku(selectedRecord)}</p>
                                                         )}
                                                     </div>
                                                     <div>
                                                         <p className="text-xs text-gray-500">Inspector</p>
                                                         <p className="text-sm text-gray-700">{selectedRecord.inspectorName}</p>
-                                                        {selectedRecord.inspectorId && (
-                                                            <p className="text-xs text-gray-500 mt-1">ID: {selectedRecord.inspectorId}</p>
-                                                        )}
                                                     </div>
                                                     <div>
                                                         <p className="text-xs text-gray-500">Inspection Date</p>
@@ -780,11 +809,32 @@ const QualityInspectionManager: React.FC = () => {
                                                         </span>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Status</p>
-                                                        <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full mt-1 ${getStatusBadge(selectedRecord.status)}`}>
-                                                            {getStatusIcon(selectedRecord.status)}
-                                                            {selectedRecord.status}
-                                                        </span>
+                                                        <p className="text-xs text-gray-500">Batch</p>
+                                                        {selectedRecord.batch?.id ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => goToBatch(selectedRecord.batch)}
+                                                                className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                                                            >
+                                                                {getBatchDisplay(selectedRecord.batch)}
+                                                            </button>
+                                                        ) : (
+                                                            <p className="text-sm text-gray-700">N/A</p>
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-500">Serial Number</p>
+                                                        {selectedRecord.serialNumber?.id ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => goToSerialNumber(selectedRecord.serialNumber)}
+                                                                className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                                                            >
+                                                                {getSerialDisplay(selectedRecord.serialNumber)}
+                                                            </button>
+                                                        ) : (
+                                                            <p className="text-sm text-gray-700">N/A</p>
+                                                        )}
                                                     </div>
                                                     {selectedRecord.remarks && (
                                                         <div className="col-span-2">
@@ -836,129 +886,129 @@ const QualityInspectionManager: React.FC = () => {
                         </div>
                     </div>
                 )}
-
-                {/* Form Modal */}
-                {showForm && (
-                    <div className="fixed inset-0 z-50 overflow-y-auto">
-                        <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={closeForm}></div>
-                            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                                    <div className="sm:flex sm:items-start">
-                                        <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                                            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                                                {formMode === "add" ? "Add Inspection Record" : "Edit Inspection Record"}
-                                            </h3>
-                                            <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Product ID</label>
-                                                    <input
-                                                        type="number"
-                                                        min={0}
-                                                        value={formData.productSKU}
-                                                        onChange={e => setFormData({
-                                                            ...formData,
-                                                            productSKU: e.target.value,
-                                                            productId: Number(e.target.value) || 0,
-                                                        })}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        placeholder="e.g., 12345"
-                                                        required
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Inspector Name</label>
-                                                    <input
-                                                        type="text"
-                                                        value={formData.inspectorName}
-                                                        onChange={e => setFormData({ ...formData, inspectorName: e.target.value })}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        required
-                                                    />
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700">Inspection Date</label>
-                                                        <input
-                                                            type="date"
-                                                            value={formData.inspectionDate}
-                                                            onChange={e => setFormData({ ...formData, inspectionDate: e.target.value })}
-                                                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                            required
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700">Result</label>
-                                                        <select
-                                                            value={formData.result}
-                                                            onChange={e => setFormData({ ...formData, result: e.target.value as "Pass" | "Fail" })}
-                                                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        >
-                                                            <option value="Pass">Pass</option>
-                                                            <option value="Fail">Fail</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Status</label>
-                                                    <select
-                                                        value={formData.status}
-                                                        onChange={e => setFormData({ ...formData, status: e.target.value as any })}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                    >
-                                                        <option value="Pending">Pending</option>
-                                                        <option value="InProgress">In Progress</option>
-                                                        <option value="Completed">Completed</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Remarks (Optional)</label>
-                                                    <textarea
-                                                        value={formData.remarks}
-                                                        onChange={e => setFormData({ ...formData, remarks: e.target.value })}
-                                                        rows={3}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        placeholder="Additional notes about the inspection..."
-                                                    />
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                                    <button
-                                        type="button"
-                                        onClick={handleSave}
-                                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        {formMode === "add" ? "Create" : "Update"}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={closeForm}
-                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <ConfirmDialog
-                    isOpen={confirmState.isOpen}
-                    title={confirmState.title}
-                    message={confirmState.message}
-                    confirmLabel={confirmState.confirmLabel}
-                    cancelLabel={confirmState.cancelLabel}
-                    variant={confirmState.variant}
-                    onConfirm={handleConfirm}
-                    onCancel={handleCancel}
-                />
             </div>
+
+            <PaginatedPopup
+                isOpen={showForm}
+                title={formMode === "add" ? "Add Inspection Record" : "Edit Inspection Record"}
+                subtitle="Enter quality inspection details from the API schema"
+                onClose={closeForm}
+                onSubmit={handleSave}
+                submitting={submitting}
+                submitLabel={formMode === "add" ? "Create" : "Update"}
+                tabs={[
+                    {
+                        label: "Details",
+                        fields: [
+                            <FloatingSelect
+                                key="productId"
+                                label="Product"
+                                name="productId"
+                                value={String(formData.productId || "")}
+                                onChange={(e) => {
+                                    const id = Number(e.target.value) || 0;
+                                    setFormData({
+                                        ...formData,
+                                        productId: id,
+                                    });
+                                }}
+                                options={products.map(product => ({
+                                    id: String(product.id),
+                                    name: product.sku ? `${product.productName} (${product.sku})` : product.productName,
+                                }))}
+                                required
+                            />,
+                            <FloatingInput
+                                key="inspectorName"
+                                label="Inspector Name"
+                                name="inspectorName"
+                                value={formData.inspectorName}
+                                onChange={(e) => setFormData({ ...formData, inspectorName: e.target.value })}
+                                required
+                            />,
+                            <FloatingInput
+                                key="inspectionDate"
+                                label="Inspection Date"
+                                name="inspectionDate"
+                                type="date"
+                                value={formData.inspectionDate}
+                                onChange={(e) => setFormData({ ...formData, inspectionDate: e.target.value })}
+                                required
+                            />,
+                            <FloatingSelect
+                                key="result"
+                                label="Result"
+                                name="result"
+                                value={formData.result}
+                                onChange={(e) => setFormData({ ...formData, result: e.target.value as "Pass" | "Fail" })}
+                                options={[
+                                    { id: "Pass", name: "Pass" },
+                                    { id: "Fail", name: "Fail" },
+                                ]}
+                                includeEmptyOption={false}
+                            />,
+                            <FloatingSelect
+                                key="batchId"
+                                label="Batch (optional)"
+                                name="batchId"
+                                value={formData.batchId}
+                                onChange={(e) => setFormData({ ...formData, batchId: e.target.value })}
+                                options={batches.map(batch => ({
+                                    id: String(batch.id),
+                                    name: batch.batchNumber,
+                                }))}
+                            />,
+                            <FloatingSelect
+                                key="serialNumberId"
+                                label="Serial Number (optional)"
+                                name="serialNumberId"
+                                value={formData.serialNumberId}
+                                onChange={(e) => setFormData({ ...formData, serialNumberId: e.target.value })}
+                                options={serialNumbers.map(sn => ({
+                                    id: String(sn.id),
+                                    name: sn.serial,
+                                }))}
+                            />,
+                        ],
+                    },
+                    {
+                        label: "Remarks",
+                        fields: [
+                            <div className="md:col-span-2" key="remarks">
+                                <FloatingTextarea
+                                    label="Remarks (Optional)"
+                                    name="remarks"
+                                    value={formData.remarks}
+                                    onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                                    rows={3}
+                                />
+                            </div>,
+                        ],
+                    },
+                ]}
+            />
+
+            <DynamicPopup
+                isPopupOpen={!!deletingRecord}
+                setIsPopupOpen={(open: boolean) => {
+                    if (!open) setDeletingRecord(null);
+                }}
+                icon={<TrashIcon className="h-6 w-6 text-red-600" />}
+                iconBg="bg-red-100"
+                innerText="Delete Inspection Record"
+                subText={
+                    deletingRecord
+                        ? `Are you sure you want to delete the inspection record for "${getProductDisplayName(deletingRecord)}"? This action cannot be undone.`
+                        : "Are you sure you want to delete this inspection record?"
+                }
+                confirmLabel="Delete"
+                cancelLabel="Cancel"
+                onConfirm={confirmDelete}
+                onCancel={() => setDeletingRecord(null)}
+                confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
+            />
         </>
     );
 };
 
-export default QualityInspectionManager;
+export default QualityInspectionManager;                

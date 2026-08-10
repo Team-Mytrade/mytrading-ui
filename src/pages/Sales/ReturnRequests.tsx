@@ -506,17 +506,18 @@ const ReturnRequests: React.FC = () => {
         </div>
       ),
     },
-    { key: "requestDate", label: "Request Date", sortable: true },
+    { key: "requestDate", label: "Request Date", sortable: true, className:"md:pl-16", },
     {
       key: "reason",
       label: "Reason",
       sortable: true,
-      render: (item) => <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">{toFriendlyLabel(item.reason)}</span>,
+      render: (item) =><div className="rounded-full text-center -ml-2 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700"><span >{toFriendlyLabel(item.reason)}</span></div> ,
     },
     {
       key: "status",
       label: "Status",
       sortable: true,
+      className:"px-4",
       render: (item) => (
         <select
           value={item.status || ""}
@@ -526,7 +527,7 @@ const ReturnRequests: React.FC = () => {
           }}
           onClick={(e) => e.stopPropagation()}
           disabled={statusUpdatingId === item.id}
-          className="h-9 w-[112px] rounded-xl border border-cyan-200 bg-cyan-50 px-3 text-sm font-medium text-cyan-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-9 md:w-[112px] w-[98px] rounded-xl border border-cyan-200 bg-cyan-50 px-3  md:ml-3 -ml-5 text-sm font-medium text-cyan-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {availableStatusOptions.map((status) => (
             <option key={status} value={status}>
@@ -541,11 +542,13 @@ const ReturnRequests: React.FC = () => {
       label: "Items",
       sortable: false,
       render: (item) => item.items?.length || 0,
+      className:"md:pl-10",
     },
     {
       key: "refund",
       label: "Refund",
       sortable: false,
+      className: "",
       render: (item) => (item.refund ? `${money(item.refund.amount)} (${item.refund.status})` : "--"),
     },
     {
@@ -553,7 +556,7 @@ const ReturnRequests: React.FC = () => {
       label: "Actions",
       sortable: false,
       headerClassName: "text-right",
-      className: "text-right",
+      className: "text-right md:pl-0 pl-32",
       render: (item) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
@@ -590,7 +593,7 @@ const ReturnRequests: React.FC = () => {
       <PageMeta title="Return Requests" description="Manage sales return requests" />
       <PageBreadcrumb pageTitle="Return Requests" />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={openCreate} label="Add Return Request" />
         </div>
@@ -602,8 +605,8 @@ const ReturnRequests: React.FC = () => {
           <StatsCard label="Refunded" value={stats.refunded} icon={<ReceiptRefundIcon />} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="relative w-full sm:max-w-md">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between md:-mb-4">
+          <div className="relative w-full sm:max-w-md mt-1">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"

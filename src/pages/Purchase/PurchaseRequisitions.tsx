@@ -68,29 +68,26 @@ const createFallbackRequester = (session: { userId: string; tenantId: string }, 
   tenantId: session.tenantId,
 });
 
-const statusBadge = (value: string) => {
-  const status = String(value || "--");
-  const tone =
-    status === "APPROVED" || status === "RECEIVED" || status === "ACTIVE"
-      ? "bg-green-50 text-green-700"
-      : status === "REJECTED" || status === "CANCELLED"
-        ? "bg-red-50 text-red-700"
-        : status === "DRAFT" || status === "PENDING"
-          ? "bg-amber-50 text-amber-700"
-          : "bg-gray-100 text-gray-700";
-
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${tone}`}>{status}</span>;
-};
-
 const purchaseRequisitionConfig: PurchaseResourceConfig = {
   title: "Purchase Requisitions",
   description: "Create requisitions and track department, requester, status, and required-by dates.",
   endpoint: `${PURCHASE}/purchase-requisitions`,
+  getByIdEndpoint: (row) => `${PURCHASE}/purchase-requisitions/${row.id}`,
+  inlineSelectFields: [
+    {
+      name: "status",
+      options: ["DRAFT", "SUBMITTED", "APPROVED", "REJECTED", "CANCELLED"].map((item) => ({
+        value: item,
+        label: item.charAt(0) + item.slice(1).toLowerCase(),
+      })),
+      widthClassName: "w-[136px]",
+    },
+  ],
   columns: [
     { key: "id", label: "ID" },
     { key: "notes", label: "Notes" },
     { key: "requiredByDate", label: "Required By" },
-    { key: "status", label: "Status", render: (row) => statusBadge(row.status) },
+    { key: "status", label: "Status" },
     { key: "departmentId", label: "Department" },
     {
       key: "requester",
@@ -134,7 +131,7 @@ const purchaseRequisitionConfig: PurchaseResourceConfig = {
     const requesterOption = context.options.requesterId?.find(
       (option) => String(option.value) === String(form.requesterId)
     );
-    const requester = requesterOption?.raw;
+    const requester = requesterOption?.raw || editingRow?.requester;
     const requesterPayload = requester
       ? {
           userId: requester.userId || "",
