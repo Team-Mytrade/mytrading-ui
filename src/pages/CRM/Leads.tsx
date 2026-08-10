@@ -44,6 +44,46 @@ interface Customer {
 
 const PAGE_SIZE = 10;
 
+const getArrayPayload = <T,>(payload: unknown): T[] => {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (payload && typeof payload === "object") {
+    const candidates = ["data", "content", "items", "results"];
+
+    for (const key of candidates) {
+      const value = (payload as Record<string, unknown>)[key];
+      if (Array.isArray(value)) {
+        return value as T[];
+      }
+    }
+  }
+
+  return [];
+};
+
+const normalizeLead = (lead: Partial<Lead> & Record<string, unknown>, index: number): Lead => ({
+  id: Number(lead.id ?? index + 1),
+  name: String(lead.name ?? "").trim(),
+  email: String(lead.email ?? "").trim(),
+  phone: String(lead.phone ?? "").trim(),
+  status:
+    lead.status === "CONTACTED" ||
+    lead.status === "QUALIFIED" ||
+    lead.status === "LOST"
+      ? lead.status
+      : "NEW",
+});
+
+const normalizeCustomer = (
+  customer: Partial<Customer> & Record<string, unknown>,
+  index: number
+): Customer => ({
+  id: Number(customer.id ?? index + 1),
+  name: String(customer.name ?? customer.customerName ?? "").trim(),
+});
+
 const Leads: React.FC = () => {
   const navigate = useNavigate();
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -75,10 +115,13 @@ const Leads: React.FC = () => {
       const res = await axios.get<Lead[]>(API_URL, {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
-      setLeads(res.data);
-      setFilteredLeads(res.data);
+      const nextLeads = getArrayPayload<Partial<Lead>>(res.data).map(normalizeLead);
+      setLeads(nextLeads);
+      setFilteredLeads(nextLeads);
     } catch (error) {
       console.error("Error fetching leads:", error);
+      setLeads([]);
+      setFilteredLeads([]);
     }
   };
 
@@ -88,9 +131,10 @@ const Leads: React.FC = () => {
       const res = await axios.get<Customer[]>("/v1/api/crm/customers", {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
-      setCustomers(res.data);
+      setCustomers(getArrayPayload<Partial<Customer>>(res.data).map(normalizeCustomer));
     } catch (error) {
       console.error("Error fetching customers:", error);
+      setCustomers([]);
     }
   };
 
@@ -288,10 +332,10 @@ const Leads: React.FC = () => {
         <div className="flex items-center">
           <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3 flex-shrink-0">
             <span className="text-sm font-medium text-cyan-700">
-              {lead.name.charAt(0).toUpperCase()}
+              {(lead.name || "?").charAt(0).toUpperCase()}
             </span>
           </div>
-          <div className="text-sm font-medium text-gray-900">{lead.name}</div>
+          <div className="text-sm font-medium text-gray-900">{lead.name || "Unnamed lead"}</div>
         </div>
       ),
     },

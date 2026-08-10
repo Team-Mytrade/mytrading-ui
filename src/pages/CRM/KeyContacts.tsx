@@ -90,6 +90,8 @@ const API_URL = "/v1/api/crm/contacts";
 const CUSTOMER_API_URL = "/v1/api/crm/customers";
 const PAGE_SIZE = 10;
 
+const safeText = (value?: string | null) => value?.trim() || "";
+
 const getCustomerDisplayName = (customer?: Customer | null) =>
   customer?.customerName || customer?.companyName || customer?.name || customer?.tradeName || "Unnamed Customer";
 
@@ -97,6 +99,9 @@ const mapContactsFromCustomers = (customerList: Customer[]): Contact[] =>
   customerList.flatMap((customer) =>
     (customer.contacts ?? []).map((contact) => ({
       ...contact,
+      fullName: safeText(contact.fullName) || "Unnamed Contact",
+      email: safeText(contact.email),
+      phone: safeText(contact.phone),
       customer,
     }))
   );
@@ -251,7 +256,15 @@ const KeyContacts: React.FC = () => {
       const res = await axios.get<Contact[]>(API_URL, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setContacts(res.data);
+      const contactData = Array.isArray(res.data) ? res.data : [];
+      setContacts(
+        contactData.map((contact) => ({
+          ...contact,
+          fullName: safeText(contact.fullName) || "Unnamed Contact",
+          email: safeText(contact.email),
+          phone: safeText(contact.phone),
+        }))
+      );
     } catch (err) {
       console.error("Error fetching contacts", err);
     }
@@ -309,7 +322,7 @@ const KeyContacts: React.FC = () => {
   const filtered = contacts.filter((c) => {
     const matchesSearch = [c.fullName, c.email, c.phone]
       .filter(Boolean)
-      .some((field) => field!.toLowerCase().includes(search.toLowerCase()));
+      .some((field) => field.toLowerCase().includes(search.toLowerCase()));
 
     let matchesFilter = true;
     if (activeFilter === "DECISION_MAKER") {

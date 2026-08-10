@@ -70,6 +70,9 @@ const CUSTOMERS_API = "/customers";
 const LEADS_API = "/leads";
 const PAGE_SIZE = 10;
 
+const safeText = (value?: string | null) => value?.trim() || "";
+const getEntityId = (entity?: { id?: number | null } | null) => entity?.id ?? null;
+
 const getCustomerLabel = (customer?: Customer) => customer?.customerName || customer?.name || "";
 
 const Interactions: React.FC = () => {
@@ -105,9 +108,12 @@ const Interactions: React.FC = () => {
   useEffect(() => {
     const term = search.toLowerCase();
     const result = entries.filter((entry) => {
-      const contact = contacts.find((c) => c.id === entry.contact.id);
-      const customer = customers.find((c) => c.id === entry.customer.id);
-      const lead = leads.find((l) => l.id === entry.lead.id);
+      const contactId = getEntityId(entry.contact);
+      const customerId = getEntityId(entry.customer);
+      const leadId = getEntityId(entry.lead);
+      const contact = contacts.find((c) => c.id === contactId);
+      const customer = customers.find((c) => c.id === customerId);
+      const lead = leads.find((l) => l.id === leadId);
       const matchesSearch = [entry.subject, entry.notes, entry.type, contact?.fullName, getCustomerLabel(customer), lead?.name]
         .filter(Boolean).some((text) => text?.toLowerCase().includes(term));
       const matchesType = selectedType ? entry.type === selectedType : true;
@@ -124,12 +130,16 @@ const Interactions: React.FC = () => {
         axios.get(`${API_BASE}${LEADS_API}`),
       ]);
       const cont = await axios.get(`${API_BASE}${CONTACTS_API}`).catch(() => ({ data: [] }));
-      setEntries(comm.data);
-      setFilteredEntries(comm.data);
-      const customerContacts = (cust.data || []).flatMap((customer: Customer) => customer.contacts || []);
-      setContacts(customerContacts.length ? customerContacts : cont.data);
-      setCustomers(cust.data);
-      setLeads(lead.data);
+      const communicationData = Array.isArray(comm.data) ? comm.data : [];
+      const customerData = Array.isArray(cust.data) ? cust.data : [];
+      const leadData = Array.isArray(lead.data) ? lead.data : [];
+      const contactData = Array.isArray(cont.data) ? cont.data : [];
+      setEntries(communicationData);
+      setFilteredEntries(communicationData);
+      const customerContacts = customerData.flatMap((customer: Customer) => customer.contacts || []);
+      setContacts(customerContacts.length ? customerContacts : contactData);
+      setCustomers(customerData);
+      setLeads(leadData);
     } catch (err) {
       console.error("Error fetching data:", err);
     }
@@ -174,8 +184,11 @@ const Interactions: React.FC = () => {
   };
 
   const handleEdit = (entry: CommunicationEntry) => {
+    const contactId = getEntityId(entry.contact);
+    const customerId = getEntityId(entry.customer);
+    const leadId = getEntityId(entry.lead);
     setForm({
-      contactId: entry.contact.id, customerId: entry.customer.id, leadId: entry.lead.id,
+      contactId: contactId ?? "", customerId: customerId ?? "", leadId: leadId ?? "",
       type: entry.type, subject: entry.subject, communicationTime: entry.communicationTime.split('T')[0], notes: entry.notes,
     });
     setEditingId(entry.id);
@@ -329,9 +342,18 @@ const Interactions: React.FC = () => {
     },
   ];
 
-  const getContactName = (entry: CommunicationEntry) => contacts.find((c) => c.id === entry.contact.id)?.fullName || "N/A";
-  const getCustomerName = (entry: CommunicationEntry) => getCustomerLabel(entry.customer) || getCustomerLabel(customers.find((c) => c.id === entry.customer.id)) || "N/A";
-  const getLeadName = (entry: CommunicationEntry) => entry.lead.name || leads.find((l) => l.id === entry.lead.id)?.name || "N/A";
+  const getContactName = (entry: CommunicationEntry) => {
+    const contactId = getEntityId(entry.contact);
+    return safeText(entry.contact?.fullName) || contacts.find((c) => c.id === contactId)?.fullName || "N/A";
+  };
+  const getCustomerName = (entry: CommunicationEntry) => {
+    const customerId = getEntityId(entry.customer);
+    return getCustomerLabel(entry.customer) || getCustomerLabel(customers.find((c) => c.id === customerId)) || "N/A";
+  };
+  const getLeadName = (entry: CommunicationEntry) => {
+    const leadId = getEntityId(entry.lead);
+    return safeText(entry.lead?.name) || leads.find((l) => l.id === leadId)?.name || "N/A";
+  };
 
   return (
     <>
@@ -559,9 +581,9 @@ const Interactions: React.FC = () => {
                   <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedEntry.notes || "No notes available for this communication."}</p>
                 </div>
                 <div className="mt-4 space-y-2 text-xs text-gray-500">
-                  <div className="flex items-center gap-2"><UserIcon className="h-3.5 w-3.5" /><span>Contact: {selectedEntry.contact.fullName || contacts.find(c => c.id === selectedEntry.contact.id)?.fullName || 'N/A'}</span></div>
-                  <div className="flex items-center gap-2"><BuildingOfficeIcon className="h-3.5 w-3.5" /><span>Customer: {getCustomerLabel(selectedEntry.customer) || getCustomerLabel(customers.find(c => c.id === selectedEntry.customer.id)) || 'N/A'}</span></div>
-                  <div className="flex items-center gap-2"><UsersIcon className="h-3.5 w-3.5" /><span>Lead: {selectedEntry.lead.name || leads.find(l => l.id === selectedEntry.lead.id)?.name || 'N/A'}</span></div>
+                  <div className="flex items-center gap-2"><UserIcon className="h-3.5 w-3.5" /><span>Contact: {getContactName(selectedEntry)}</span></div>
+                  <div className="flex items-center gap-2"><BuildingOfficeIcon className="h-3.5 w-3.5" /><span>Customer: {getCustomerName(selectedEntry)}</span></div>
+                  <div className="flex items-center gap-2"><UsersIcon className="h-3.5 w-3.5" /><span>Lead: {getLeadName(selectedEntry)}</span></div>
                 </div>
               </div>
               <div className="sticky bottom-0 bg-white flex justify-end p-5 border-t border-gray-100">

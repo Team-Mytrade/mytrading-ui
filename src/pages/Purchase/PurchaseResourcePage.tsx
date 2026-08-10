@@ -107,8 +107,21 @@ export type PurchaseResourceConfig = {
     form: PurchaseRecord,
     editingRow: PurchaseRecord | null,
     context: { options: Record<string, SelectOption[]> }
-  ) => PurchaseRecord;
+  ) => PurchaseRecord | FormData;
   normalizeForm?: (row: PurchaseRecord) => PurchaseRecord;
+  renderFormExtras?: (context: {
+    form: PurchaseRecord;
+    setForm: React.Dispatch<React.SetStateAction<PurchaseRecord>>;
+    editingRow: PurchaseRecord | null;
+    refreshRows: () => Promise<void>;
+  }) => React.ReactNode;
+  afterSubmit?: (context: {
+    form: PurchaseRecord;
+    editingRow: PurchaseRecord | null;
+    savedRow: PurchaseRecord;
+    isCreate: boolean;
+    refreshRows: () => Promise<void>;
+  }) => Promise<void> | void;
 };
 
 const asArray = (value: any): PurchaseRecord[] => {
@@ -361,17 +374,29 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
 
     try {
       setIsSubmitting(true);
+      let savedRow: PurchaseRecord | null = null;
       if (editingRow && config.allowEdit !== false) {
         const url = config.updateEndpoint
           ? config.updateEndpoint(editingRow, form)
           : `${config.endpoint}/${editingRow.id}`;
-        await axios.put(url, payload, { params: config.getRequestParams?.() });
+        const response = await axios.put(url, payload, { params: config.getRequestParams?.() });
+        savedRow = response.data || editingRow;
         ToasterService.success(`${config.title} updated`);
       } else {
-        await axios.post(config.createEndpoint || config.endpoint, payload, {
+        const response = await axios.post(config.createEndpoint || config.endpoint, payload, {
           params: config.getRequestParams?.(),
         });
+        savedRow = response.data || null;
         ToasterService.success(`${config.title} created`);
+      }
+      if (savedRow && config.afterSubmit) {
+        await config.afterSubmit({
+          form,
+          editingRow,
+          savedRow,
+          isCreate: !editingRow,
+          refreshRows: loadRows,
+        });
       }
       closeForm();
       await Promise.all([loadRows(), loadOptions()]);
@@ -654,6 +679,21 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       </div>
     );
   });
+
+  const extraFormContent = config.renderFormExtras?.({
+    form,
+    setForm,
+    editingRow,
+    refreshRows: loadRows,
+  });
+
+  if (extraFormContent) {
+    popupFields.push(
+      <div key="form-extras" className="md:col-span-2">
+        {extraFormContent}
+      </div>
+    );
+  }
 
   return (
     <>
