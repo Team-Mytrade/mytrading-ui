@@ -10,7 +10,8 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import { ToasterService } from '../../Services/ToasterService';
 
 // Candidate Endpoints according to backend specifications
-const SHIFT_BASE_URL = '/v1/api/attendance/shifts';
+const SHIFT_BASE_URL = '/v1/api/shifts';
+const SHIFT_FALLBACK_URL = '/v1/api/attendance/shifts';
 
 // Backend Enums Constants
 export const DAY_OF_WEEK_ENUMS = [
@@ -40,8 +41,12 @@ export interface ShiftModel {
   workingHours?: number;
   breakMinutes: number;
   gracePeriodMinutes: number;
+  graceInMinutes?: number;
+  graceOutMinutes?: number;
   nightShift?: boolean;
   overtimeAllowed: boolean;
+  holidayCalendarId?: number;
+  attendancePolicyId?: number;
   attendanceFinalizeBufferMinutes?: number;
   active: boolean;
   weeklyOffs?: WeeklyOffItem[];
@@ -63,10 +68,14 @@ const ShiftPage: React.FC = () => {
   const [form, setForm] = useState<ShiftModel>({
     shiftCode: "GEN",
     shiftName: "General Shift",
-    startTime: "09:00:00",
-    endTime: "18:00:00",
+    startTime: "09:00",
+    endTime: "18:00",
     breakMinutes: 60,
     gracePeriodMinutes: 15,
+    graceInMinutes: 15,
+    graceOutMinutes: 15,
+    holidayCalendarId: 1,
+    attendancePolicyId: 1,
     attendanceFinalizeBufferMinutes: 360,
     overtimeAllowed: true,
     active: true
@@ -142,9 +151,17 @@ const ShiftPage: React.FC = () => {
     try {
       let res;
       try {
-        res = await axios.get(`${SHIFT_BASE_URL}/active`);
-      } catch (e) {
         res = await axios.get(SHIFT_BASE_URL);
+      } catch (e) {
+        try {
+          res = await axios.get(`${SHIFT_BASE_URL}/active`);
+        } catch (e2) {
+          try {
+            res = await axios.get(SHIFT_FALLBACK_URL);
+          } catch (e3) {
+            res = await axios.get(`${SHIFT_FALLBACK_URL}/active`);
+          }
+        }
       }
 
       if (Array.isArray(res.data)) {
@@ -152,13 +169,17 @@ const ShiftPage: React.FC = () => {
           id: s.id,
           shiftCode: s.shiftCode || "",
           shiftName: s.shiftName || "",
-          startTime: s.startTime || "09:00:00",
-          endTime: s.endTime || "18:00:00",
+          startTime: s.startTime || "09:00",
+          endTime: s.endTime || "18:00",
           workingHours: s.workingHours ?? 480,
           breakMinutes: s.breakMinutes ?? 60,
-          gracePeriodMinutes: s.gracePeriodMinutes ?? 15,
+          gracePeriodMinutes: s.graceInMinutes ?? s.gracePeriodMinutes ?? 15,
+          graceInMinutes: s.graceInMinutes ?? 15,
+          graceOutMinutes: s.graceOutMinutes ?? 15,
           nightShift: Boolean(s.nightShift),
           overtimeAllowed: s.overtimeAllowed !== false,
+          holidayCalendarId: s.holidayCalendarId ?? 1,
+          attendancePolicyId: s.attendancePolicyId ?? 1,
           attendanceFinalizeBufferMinutes: s.attendanceFinalizeBufferMinutes ?? 360,
           active: s.active !== false,
           weeklyOffs: Array.isArray(s.weeklyOffs) ? s.weeklyOffs : []
@@ -206,9 +227,10 @@ const ShiftPage: React.FC = () => {
       errors.breakMinutes = `Break Minutes (${form.breakMinutes}m) cannot equal or exceed shift duration (${totalShiftDuration}m).`;
     }
 
+    const graceVal = Number(form.graceInMinutes ?? form.gracePeriodMinutes) || 0;
     const netWorkingDuration = totalShiftDuration - (Number(form.breakMinutes) || 0);
-    if ((Number(form.gracePeriodMinutes) || 0) >= netWorkingDuration) {
-      errors.gracePeriodMinutes = `Grace Period (${form.gracePeriodMinutes}m) cannot equal or exceed working duration (${netWorkingDuration}m).`;
+    if (graceVal >= netWorkingDuration) {
+      errors.gracePeriodMinutes = `Grace Period (${graceVal}m) cannot equal or exceed working duration (${netWorkingDuration}m).`;
     }
 
     // Check code uniqueness locally
@@ -228,54 +250,50 @@ const ShiftPage: React.FC = () => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    const formattedStart = formatTimeWithSeconds(form.startTime);
-    const formattedEnd = formatTimeWithSeconds(form.endTime);
+    const shortStart = form.startTime.length > 5 ? form.startTime.substring(0, 5) : form.startTime;
+    const shortEnd = form.endTime.length > 5 ? form.endTime.substring(0, 5) : form.endTime;
     const netWorkingMins = computedWorkingHours;
     const isNight = computedNightShift;
 
     try {
       setIsSubmitting(true);
 
-      if (editingShift?.id) {
-        // PUT /v1/api/attendance/shifts/{id}
-        const putPayload = {
-          shiftCode: form.shiftCode.trim().toUpperCase(),
-          shiftName: form.shiftName.trim(),
-          startTime: formattedStart,
-          endTime: formattedEnd,
-          workingHours: netWorkingMins,
-          breakMinutes: Number(form.breakMinutes),
-          gracePeriodMinutes: Number(form.gracePeriodMinutes),
-          nightShift: isNight,
-          overtimeAllowed: Boolean(form.overtimeAllowed),
-          active: Boolean(form.active)
-        };
+      const postPayload = {
+        shiftCode: form.shiftCode.trim().toUpperCase(),
+        shiftName: form.shiftName.trim(),
+        startTime: shortStart,
+        endTime: shortEnd,
+        graceInMinutes: Number(form.graceInMinutes ?? form.gracePeriodMinutes ?? 15),
+        graceOutMinutes: Number(form.graceOutMinutes ?? form.gracePeriodMinutes ?? 15),
+        nightShift: Boolean(isNight),
+        holidayCalendarId: Number(form.holidayCalendarId) || 1,
+        attendancePolicyId: Number(form.attendancePolicyId) || 1,
+        active: Boolean(form.active)
+      };
 
-        const res = await axios.put(`${SHIFT_BASE_URL}/${editingShift.id}`, putPayload);
-        const updatedShift = res.data || { ...editingShift, ...putPayload };
+      if (editingShift?.id) {
+        let res;
+        try {
+          res = await axios.put(`${SHIFT_BASE_URL}/${editingShift.id}`, postPayload);
+        } catch (err) {
+          res = await axios.put(`${SHIFT_FALLBACK_URL}/${editingShift.id}`, postPayload);
+        }
+        const updatedShift = res.data || { ...editingShift, ...postPayload };
 
         setShifts(prev => prev.map(s => s.id === editingShift.id ? updatedShift : s));
         ToasterService.success("Shift updated successfully!");
         setEditingShift(null);
       } else {
-        // POST /v1/api/attendance/shifts
-        const postPayload = {
-          shiftCode: form.shiftCode.trim().toUpperCase(),
-          shiftName: form.shiftName.trim(),
-          startTime: formattedStart,
-          endTime: formattedEnd,
-          breakMinutes: Number(form.breakMinutes),
-          gracePeriodMinutes: Number(form.gracePeriodMinutes),
-          overtimeAllowed: Boolean(form.overtimeAllowed),
-          attendanceFinalizeBufferMinutes: Number(form.attendanceFinalizeBufferMinutes) || 360,
-          active: Boolean(form.active)
-        };
-
-        const res = await axios.post(SHIFT_BASE_URL, postPayload);
-        const createdShift = res.data || { ...postPayload, id: Date.now(), workingHours: netWorkingMins, nightShift: isNight };
+        let res;
+        try {
+          res = await axios.post(SHIFT_BASE_URL, postPayload);
+        } catch (err) {
+          res = await axios.post(SHIFT_FALLBACK_URL, postPayload);
+        }
+        const createdShift = res.data || { ...postPayload, id: Date.now(), workingHours: netWorkingMins };
 
         setShifts(prev => [createdShift, ...prev]);
-        ToasterService.success("Shift created successfully!");
+        ToasterService.success("Shift created.");
         setIsCreateModalOpen(false);
       }
 

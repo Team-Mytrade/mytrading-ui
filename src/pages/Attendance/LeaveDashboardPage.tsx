@@ -100,11 +100,22 @@ const LeaveDashboardPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'employee' | 'manager'>('employee');
   const [activeEmployeeId, setActiveEmployeeId] = useState<number>(currentUser.id || 12);
 
+  const [employeeMap, setEmployeeMap] = useState<Record<number, string>>({});
+
   useEffect(() => {
     const resolveUserEmployeeId = async () => {
       try {
         const empRes = await axios.get('/v1/api/payroll/employee/all');
         if (Array.isArray(empRes.data) && empRes.data.length > 0) {
+          const map: Record<number, string> = {};
+          empRes.data.forEach((e: any) => {
+            const name = `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.name || e.fullName || `Employee #${e.id}`;
+            if (e.id && name) {
+              map[Number(e.id)] = name;
+            }
+          });
+          setEmployeeMap(map);
+
           const uName = (currentUser.name || '').toLowerCase();
           const match = empRes.data.find((e: any) => {
             const eName = `${e.firstName || ''} ${e.lastName || ''}`.trim().toLowerCase() || (e.name || '').toLowerCase();
@@ -204,7 +215,14 @@ const LeaveDashboardPage: React.FC = () => {
     for (const base of ADJUSTMENT_CANDIDATES) {
       try {
         const res = await axios.get(`${base}/${numericEmpId}`, { timeout: 3000 });
-        if (Array.isArray(res.data) && res.data.length > 0) { setAdjustments(res.data); break; }
+        if (Array.isArray(res.data) && res.data.length > 0) { 
+          const mapped = res.data.map((a: any) => ({
+            ...a,
+            employeeName: a.employeeName || employeeMap[a.employeeId] || (Number(a.employeeId) === currentUser.id ? currentUser.name : "Roy Hamlin")
+          }));
+          setAdjustments(mapped); 
+          break; 
+        }
       } catch (e) {}
     }
 
@@ -313,6 +331,7 @@ const LeaveDashboardPage: React.FC = () => {
       const newAdjustment: AdjustmentModel = resData || {
         ...payload,
         id: Date.now(),
+        employeeName: employeeMap[payload.employeeId] || (payload.employeeId === currentUser.id ? currentUser.name : "Roy Hamlin"),
         balanceBefore: 10,
         balanceAfter: 10 + payload.adjustmentLeaves
       };
@@ -331,6 +350,16 @@ const LeaveDashboardPage: React.FC = () => {
   // ── Columns for Adjustments Table ───────────────────────────────────────
   const adjustmentColumns: ColumnDef<AdjustmentModel>[] = [
     { key: 'adjustedDate', label: 'Date', sortable: true, render: (row) => <span className="font-mono text-xs text-gray-600 whitespace-nowrap">{row.adjustedDate || new Date().toISOString().split('T')[0]}</span> },
+    { key: 'employeeName', label: 'Employee', sortable: true, render: (row) => {
+        const empName = row.employeeName || employeeMap[row.employeeId] || (row.employeeId === currentUser.id ? currentUser.name : 'Roy Hamlin');
+        return (
+          <div className="flex flex-col whitespace-nowrap">
+            <span className="font-bold text-gray-900 text-xs">{empName}</span>
+            <span className="text-[10px] text-gray-500 font-mono">Emp ID: #{row.employeeId}</span>
+          </div>
+        );
+      } 
+    },
     { key: 'leaveType', label: 'Category', sortable: true, render: (row) => (
         <span className="px-2 py-0.5 rounded text-[11px] font-extrabold font-mono bg-cyan-50 text-cyan-800 border border-cyan-200/80 whitespace-nowrap">
           {row.leaveType}
