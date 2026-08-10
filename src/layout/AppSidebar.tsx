@@ -523,10 +523,10 @@ const AppSidebar: React.FC = () => {
                             {subItem.subItems!.map((ssItem) => (
                               <Link
                                 key={ssItem.name}
-                                to={ssItem.path!}
+                                to={ssItem.path || "#"}
                                 className={`
                                   block px-3 py-1.5 text-xs rounded-md transition-all duration-200
-                                  ${isActive(ssItem.path!)
+                                  ${isActive(ssItem.path || "")
                                     ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
                                     : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800"
                                   }
@@ -545,10 +545,10 @@ const AppSidebar: React.FC = () => {
                   return (
                     <Link
                       key={subItem.name}
-                      to={subItem.path!}
+                      to={subItem.path || "#"}
                       className={`
                         block px-3 py-1.5 text-sm rounded-md transition-all duration-200
-                        ${isActive(subItem.path!)
+                        ${isActive(subItem.path || "")
                           ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
                           : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800"
                         }
@@ -560,10 +560,11 @@ const AppSidebar: React.FC = () => {
                 })}
               </div>
             </div>
-            </div>
-          )}
-      );
-    }
+          </div>
+        )}
+      </div>
+    );
+  }
 
     if (nav.path) {
       const linkElement = (
@@ -753,10 +754,10 @@ const AppSidebar: React.FC = () => {
                       {subItem.subItems.map((ssItem) => (
                         <Link
                           key={ssItem.name}
-                          to={ssItem.path!}
+                          to={ssItem.path || "#"}
                           className={`
                             px-3 py-1.5 text-xs rounded-lg transition-all duration-200 block whitespace-nowrap text-left
-                            ${isActive(ssItem.path!)
+                            ${isActive(ssItem.path || "")
                               ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400 font-semibold"
                               : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
                             }
@@ -769,7 +770,6 @@ const AppSidebar: React.FC = () => {
                     </div>
                   )}
                 </div>
-              ))}
               ))}
             </div>
           ) : (
