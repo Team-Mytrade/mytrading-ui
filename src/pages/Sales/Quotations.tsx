@@ -1273,7 +1273,7 @@ const Quotations: React.FC = () => {
       <PageMeta title="Quotations" description="Manage sales quotations" />
       <PageBreadcrumb pageTitle="Quotations" />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={openCreate} label="Add Quotation" />
         </div>
@@ -1306,8 +1306,8 @@ const Quotations: React.FC = () => {
           />
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="relative w-full sm:max-w-md">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between md:-mb-5">
+          <div className="relative w-full sm:max-w-md mt-0.5">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"

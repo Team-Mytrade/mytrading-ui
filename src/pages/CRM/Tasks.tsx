@@ -378,7 +378,7 @@ const Tasks: React.FC = () => {
       render: (activity) => (
         <div className="flex items-start">
           <div className="flex-shrink-0 mt-0.5">{getPriorityIcon(activity.priority)}</div>
-          <div className="ml-2">
+          <div className="ml-2 overflow-hidden">
             <div className="text-sm font-medium text-gray-900 truncate max-w-[200px]">{activity.title}</div>
             {activity.description && (
               <div className="text-xs text-gray-500 truncate max-w-[200px] mt-0.5">
@@ -394,7 +394,7 @@ const Tasks: React.FC = () => {
       label: "Type",
       sortable: true,
       render: (activity) => (
-        <div className="flex items-center gap-1.5 text-sm text-gray-600">
+        <div className="flex items-center gap-1.5 text-sm text-gray-600 -ml-4">
           {getTypeIcon(activity.activityType)}
           <span>{activity.activityType || "N/A"}</span>
         </div>
@@ -410,7 +410,7 @@ const Tasks: React.FC = () => {
             value={activity.status || "PENDING"}
             onChange={(event) => handleInlineStatusChange(activity, event.target.value)}
             disabled={statusUpdatingId === activity.id}
-            className={`w-[112px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${getStatusBadgeColor(activity.status)} ${
+            className={`lg:w-[112px] w-[93px] -ml-2 rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${getStatusBadgeColor(activity.status)} ${
               statusUpdatingId === activity.id ? "cursor-not-allowed opacity-70" : "cursor-pointer"
             }`}
           >
@@ -425,7 +425,7 @@ const Tasks: React.FC = () => {
       label: "Scheduled",
       sortable: true,
       render: (activity) => (
-        <div className="flex items-center text-xs text-gray-600">
+        <div className="flex items-center text-xs text-gray-600 md:ml-8">
           <CalendarIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
           {activity.scheduledTime ? (
             new Date(activity.scheduledTime).toLocaleDateString("en-US", { year: "numeric", month: "numeric", day: "numeric" })
@@ -440,7 +440,7 @@ const Tasks: React.FC = () => {
       label: "Assigned To",
       sortable: true,
       render: (activity) => (
-        <div className="flex items-center gap-1.5 text-sm text-gray-600">
+        <div className="flex items-center gap-1.5 text-sm text-gray-600 ml-8">
           <UserIcon className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
           <span className="truncate max-w-[100px]">{activity.assignedTo || "Unassigned"}</span>
         </div>
@@ -548,7 +548,7 @@ const Tasks: React.FC = () => {
 
         {/* Toolbar */}
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex-1 max-w-md">
+          <div className="flex-1 max-w-md md:-mt-4">
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input

@@ -473,7 +473,7 @@ const getCleanWarehouseData = (warehouse: Warehouse): any => {
           />
         </div>
 
-        {/* ✅ Use built-in table popup - enableRowDetails is true by default */}
+        {/*  Use built-in table popup - enableRowDetails is true by default */}
         <ReusableTable
           data={filteredWarehouses}
           columns={columns}

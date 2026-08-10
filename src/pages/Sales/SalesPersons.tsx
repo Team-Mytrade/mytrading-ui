@@ -454,8 +454,8 @@ const SalesPersons: React.FC = () => {
         </div>
       ),
     },
-    { key: "email", label: "Email", sortable: true },
-    { key: "region", label: "Region", sortable: true },
+    { key: "email", label: "Email", sortable: true},
+    { key: "region", label: "Region", sortable: true, className:"md:pl-9"},
     {
       key: "userId",
       label: "User ID",
@@ -467,6 +467,7 @@ const SalesPersons: React.FC = () => {
       key: "employeeId",
       label: "Employee ID",
       sortable: true,
+      className:"pl-16",
       sortValueGetter: (person) => getResolvedEmployeeId(person),
       render: (person) => getResolvedEmployeeId(person) || "--",
     },
@@ -480,7 +481,7 @@ const SalesPersons: React.FC = () => {
             value={String(person.active)}
             onChange={(e) => handleInlineStatusChange(person, e.target.value)}
             disabled={statusUpdatingId === person.id}
-            className={`w-[84px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
+            className={`w-[84px] md:ml-3 rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
               person.active
                 ? "border-green-200 bg-green-50 text-green-700"
                 : "border-red-200 bg-red-50 text-red-700"
@@ -526,7 +527,7 @@ const SalesPersons: React.FC = () => {
       <PageMeta title="Sales Persons" description="Manage sales persons" />
       <PageBreadcrumb pageTitle="Sales Persons" />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 py-8 space-y-">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={openCreate} label="Add Sales Person" />
         </div>
@@ -559,8 +560,8 @@ const SalesPersons: React.FC = () => {
           />
         </div>
 
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-md">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between md:-mb-5">
+          <div className="relative w-full sm:max-w-md md:-mt-8 mt-1">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"

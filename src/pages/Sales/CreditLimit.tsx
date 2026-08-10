@@ -823,7 +823,7 @@ const CreditLimit: React.FC = () => {
       <PageMeta title="Credit Limit" description="Manage sales credit limit checks" />
       <PageBreadcrumb pageTitle="Credit Limit" />
 
-      <div className="-mt-3 w-full max-w-none space-y-6 px-0 pb-8 pt-0">
+      <div className="-mt-3 w-full max-w-none space-y-6 px-0 pb-8 pt-4">
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-cyan-50 via-white to-slate-50 shadow-sm">
           <div className="grid gap-6 px-6 py-6 lg:grid-cols-[1.45fr_1fr] lg:px-7">
             <div>

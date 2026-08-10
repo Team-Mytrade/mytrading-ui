@@ -258,15 +258,15 @@ const InventoryStockManager: React.FC = () => {
     }
   }, [searchParams]);
 
- // fetchAllStock to clear filters
+ 
 const fetchAllStock = async (): Promise<void> => {
   try {
     setLoading(true);
     const response = await axios.get<InventoryStock[]>(API_URL, { headers });
     const data = Array.isArray(response.data) ? response.data : [];
     setStocks(data);
-    setTypeFilter("");  // ✅ Reset type filter
-    setStatusFilter(""); // ✅ Reset status filter
+    setTypeFilter("");  
+    setStatusFilter(""); 
   } catch (error) {
     setStocks([]);
     ToasterService.error("Failed to load inventory stock", getErrorMessage(error, "Please try again."));
@@ -275,7 +275,7 @@ const fetchAllStock = async (): Promise<void> => {
   }
 };
 
-  // ✅ UPDATED: Use dedicated warehouse API
+
   const fetchStockByWarehouse = async (warehouseId: string): Promise<void> => {
     try {
       setLoading(true);
@@ -295,7 +295,7 @@ const fetchAllStock = async (): Promise<void> => {
     }
   };
 
-  // ✅ NEW: Fetch product stock using dedicated API
+  
   const fetchProductStock = async (productId: number): Promise<void> => {
     try {
       setLoading(true);
@@ -327,7 +327,7 @@ const fetchAllStock = async (): Promise<void> => {
     
    let data = Array.isArray(response.data) ? response.data : [];
     
-    // ✅ If API returns empty, use client-side filter
+    //  If API returns empty, use client-side filter
     if (data.length === 0) {
       // Fetch all stock first
       const allStockResponse = await axios.get(API_URL, { headers });
@@ -355,7 +355,7 @@ const fetchAllStock = async (): Promise<void> => {
   }
 };
 
-  // ✅ NEW: Fetch product stock summary for modal
+  
   const fetchProductStockSummary = async (productId: number): Promise<InventoryStock[]> => {
     try {
       const response = await axios.get(
@@ -492,7 +492,7 @@ const fetchAllStock = async (): Promise<void> => {
     }
   };
 
-  // ✅ UPDATED: Use validate API
+  
   const handleAvailabilityCheck = async () => {
     const productId = toNumber(availabilityForm.productId);
     const warehouseId = toNumber(availabilityForm.warehouseId);
@@ -527,7 +527,7 @@ const fetchAllStock = async (): Promise<void> => {
     }
   };
 
-  // ✅ UPDATED: Handle product summary modal
+ 
   const handleProductSummary = async (productId: number) => {
     const data = await fetchProductStockSummary(productId);
     setProductStockData(data);
@@ -545,13 +545,10 @@ const fetchAllStock = async (): Promise<void> => {
  const filteredStocks = useMemo(() => {
   const term = searchableText(search);
 
-  // ✅ If statusFilter is "low", we already have filtered data
-  // But we still need to apply search and type filters
   return stocks.filter((stock) => {
     const matchesType = typeFilter === "" || stock.type === typeFilter;
 
-    // ✅ Only apply status filter if we're not showing low stock
-    // (Low stock is already filtered in fetchLowStock)
+    
     let matchesStatus = true;
     if (statusFilter === "low") {
       // If we're showing low stock, just check if it's actually low
@@ -641,7 +638,6 @@ const fetchAllStock = async (): Promise<void> => {
             onClick={() => {
               const productId = stock.productId;
               if (productId) {
-                // ✅ Navigate to product stock view
                  handleProductSummary(productId);
               }
             }}
