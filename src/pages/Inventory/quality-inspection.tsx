@@ -71,6 +71,36 @@ interface SerialNumberRef {
 }
 
 
+// ---------- Enums ----------
+// TODO(backend): these are hardcoded until the backend exposes a validation-enum
+// endpoint (e.g. GET /v1/api/inventory/quality-inspections/enums). When that's
+// ready, replace RESULT_OPTIONS / INSPECTION_TYPE_OPTIONS below with data fetched
+// from that endpoint instead of editing this list by hand. Keeping the values
+// centralized here (rather than scattered as inline strings) means that swap is
+// a one-place change.
+type ResultCode = "PASS" | "FAIL" | "HOLD" | "REJECT";
+type InspectionTypeCode = "INCOMING" | "RETURN" | "RANDOM" | "AUDIT";
+
+const RESULT_OPTIONS: { id: ResultCode; name: string }[] = [
+    { id: "PASS", name: "Pass" },
+    { id: "FAIL", name: "Fail" },
+    { id: "HOLD", name: "Hold" },
+    { id: "REJECT", name: "Reject" },
+];
+
+const INSPECTION_TYPE_OPTIONS: { id: InspectionTypeCode; name: string }[] = [
+    { id: "INCOMING", name: "Incoming" },
+    { id: "RETURN", name: "Return" },
+    { id: "RANDOM", name: "Random" },
+    { id: "AUDIT", name: "Audit" },
+];
+
+const getResultLabel = (result: string) =>
+    RESULT_OPTIONS.find((r) => r.id === result)?.name || result;
+
+const getInspectionTypeLabel = (type?: string) =>
+    INSPECTION_TYPE_OPTIONS.find((t) => t.id === type)?.name || type || "N/A";
+
 interface QualityInspection {
     id: number;
     productName?: string;   
@@ -78,7 +108,8 @@ interface QualityInspection {
     inspectionDate: string;
     inspectorName: string; 
     inspector?: string;
-    result: "Pass" | "Fail" | "PASS" | "FAIL";
+    result: ResultCode;
+    inspectionType?: InspectionTypeCode;
     remarks?: string;
     batch?: BatchRef;
     serialNumber?: SerialNumberRef;
@@ -115,7 +146,8 @@ type FormState = {
     inspectionDate: string;
     inspectorName: string;
     inspector: string;
-    result: "Pass" | "Fail";
+    result: ResultCode;
+    inspectionType: InspectionTypeCode | "";
     remarks: string;
     batchId: string;
     serialNumberId: string;
@@ -126,7 +158,8 @@ const emptyFormState: FormState = {
     inspectionDate: new Date().toISOString().split("T")[0],
     inspectorName: "",
     inspector: "",
-    result: "Pass",
+    result: "PASS",
+    inspectionType: "",
     remarks: "",
     batchId: "",
     serialNumberId: "",
@@ -141,7 +174,7 @@ const QualityInspectionManager: React.FC = () => {
     const [showForm, setShowForm] = useState(false);
     const [formMode, setFormMode] = useState<"add" | "edit">("add");
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [resultFilter, setResultFilter] = useState<"All" | "Pass" | "Fail">("All");
+    const [resultFilter, setResultFilter] = useState<"All" | ResultCode>("All");
     const [viewModalOpen, setViewModalOpen] = useState(false);
     const [selectedRecord, setSelectedRecord] = useState<QualityInspection | null>(null);
     const [deletingRecord, setDeletingRecord] = useState<QualityInspection | null>(null);
@@ -196,7 +229,15 @@ const QualityInspectionManager: React.FC = () => {
     };
 
     const normalizeInspection = (record: any): QualityInspection => {
-        const result = record?.result === "PASS" ? "Pass" : record?.result === "FAIL" ? "Fail" : record?.result || "Pass";
+        const rawResult = String(record?.result || "PASS").toUpperCase();
+        const result: ResultCode = RESULT_OPTIONS.some((r) => r.id === rawResult)
+            ? (rawResult as ResultCode)
+            : "PASS";
+
+        const rawType = record?.inspectionType ? String(record.inspectionType).toUpperCase() : undefined;
+        const inspectionType: InspectionTypeCode | undefined = INSPECTION_TYPE_OPTIONS.some((t) => t.id === rawType)
+            ? (rawType as InspectionTypeCode)
+            : undefined;
 
         return {
             ...record,
@@ -207,6 +248,7 @@ const QualityInspectionManager: React.FC = () => {
             inspectorName: record?.inspectorName || record?.inspector || "",
             inspector: record?.inspector || record?.inspectorName || "",
             result,
+            inspectionType,
             remarks: record?.remarks || "",
             batch: record?.batch || undefined,
             serialNumber: record?.serialNumber || undefined,
@@ -277,6 +319,7 @@ const QualityInspectionManager: React.FC = () => {
             inspectionDate: formData.inspectionDate,
             inspector: formData.inspectorName || formData.inspector || "",
             result: String(formData.result).toUpperCase(),
+            inspectionType: formData.inspectionType || null,
             remarks: formData.remarks || "",
             productId,
             batch: batchId ? { id: batchId } : null,
@@ -325,7 +368,8 @@ const QualityInspectionManager: React.FC = () => {
             inspectionDate: record.inspectionDate.split('T')[0],
             inspectorName: record.inspectorName,
             inspector: record.inspector || record.inspectorName,
-            result: (record.result === "PASS" ? "Pass" : record.result === "FAIL" ? "Fail" : record.result) as "Pass" | "Fail",
+            result: record.result,
+            inspectionType: record.inspectionType || "",
             remarks: record.remarks || "",
             batchId: record.batch?.id ? String(record.batch.id) : "",
             serialNumberId: record.serialNumber?.id ? String(record.serialNumber.id) : "",
@@ -392,7 +436,8 @@ const QualityInspectionManager: React.FC = () => {
             'Product': getProductDisplayName(r),
             'Inspector': r.inspectorName,
             'Inspection Date': new Date(r.inspectionDate).toLocaleDateString(),
-            'Result': r.result,
+            'Inspection Type': getInspectionTypeLabel(r.inspectionType),
+            'Result': getResultLabel(r.result),
             'Batch': getBatchDisplay(r.batch),
             'Serial Number': getSerialDisplay(r.serialNumber),
             'Remarks': r.remarks || "-",
@@ -410,7 +455,8 @@ const QualityInspectionManager: React.FC = () => {
                 header: "Inspection Date",
                 accessor: (row: QualityInspection) => new Date(row.inspectionDate).toLocaleDateString(),
             },
-            { header: "Result", key: "result" as const },
+            { header: "Inspection Type", accessor: (row: QualityInspection) => getInspectionTypeLabel(row.inspectionType) },
+            { header: "Result", accessor: (row: QualityInspection) => getResultLabel(row.result) },
             { header: "Batch", accessor: (row: QualityInspection) => getBatchDisplay(row.batch) },
             { header: "Serial Number", accessor: (row: QualityInspection) => getSerialDisplay(row.serialNumber) },
             { header: "Remarks", accessor: (row: QualityInspection) => row.remarks || "-" },
@@ -420,19 +466,28 @@ const QualityInspectionManager: React.FC = () => {
 
     // Calculate stats from real data
     const totalRecords = records.length;
-    const passedCount = records.filter(r => r.result === "Pass").length;
-    const failedCount = records.filter(r => r.result === "Fail").length;
+    const passedCount = records.filter(r => r.result === "PASS").length;
+    const failedCount = records.filter(r => r.result === "FAIL").length;
+    const holdCount = records.filter(r => r.result === "HOLD").length;
+    const rejectCount = records.filter(r => r.result === "REJECT").length;
     const passRate = totalRecords > 0 ? ((passedCount / totalRecords) * 100).toFixed(1) : "0";
 
     const getResultBadge = (result: string) => {
-        if (result === "Pass") {
-            return "bg-green-100 text-green-800 border-green-200";
+        switch (result) {
+            case "PASS":
+                return "bg-green-100 text-green-800 border-green-200";
+            case "HOLD":
+                return "bg-amber-100 text-amber-800 border-amber-200";
+            case "REJECT":
+                return "bg-orange-100 text-orange-800 border-orange-200";
+            case "FAIL":
+            default:
+                return "bg-red-100 text-red-800 border-red-200";
         }
-        return "bg-red-100 text-red-800 border-red-200";
     };
 
     const getResultIcon = (result: string) => {
-        if (result === "Pass") {
+        if (result === "PASS") {
             return <CheckCircleIcon className="h-3 w-3 mr-1" />;
         }
         return <XCircleIcon className="h-3 w-3 mr-1" />;
@@ -443,8 +498,8 @@ const QualityInspectionManager: React.FC = () => {
             key: "product",
             label: "Product",
             sortable: true,
-            headerClassName: "w-[24%] text-left",
-            className: "w-[24%]",
+            headerClassName: "w-[22%] text-left",
+            className: "w-[22%]",
             sortValueGetter: (record) => getProductDisplayName(record),
             render: (record) => {
                 const sku = getProductSku(record);
@@ -477,8 +532,8 @@ const QualityInspectionManager: React.FC = () => {
             key: "inspectorName",
             label: "Inspector",
             sortable: true,
-            headerClassName: "w-[16%] text-left",
-            className: "w-[16%]",
+            headerClassName: "w-[10%] text-left",
+            className: "w-[10%]",
             render: (record) => (
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                     <UserIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
@@ -557,8 +612,19 @@ const QualityInspectionManager: React.FC = () => {
             render: (record) => (
                 <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full border ${getResultBadge(record.result)}`}>
                     {getResultIcon(record.result)}
-                    {record.result}
+                    {getResultLabel(record.result)}
                 </span>
+            ),
+        },
+        {
+            key: "inspectionType",
+            label: "Inspection Type",
+            sortable: true,
+            headerClassName: "w-[10%] text-left",
+            className: "w-[10%]",
+            sortValueGetter: (record) => getInspectionTypeLabel(record.inspectionType),
+            render: (record) => (
+                <span className="text-sm text-slate-600">{getInspectionTypeLabel(record.inspectionType)}</span>
             ),
         },
         {
@@ -710,8 +776,11 @@ const QualityInspectionManager: React.FC = () => {
                                         className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                                     >
                                         <option value="All">All Results</option>
-                                        <option value="Pass">Pass</option>
-                                        <option value="Fail">Fail</option>
+                                        {RESULT_OPTIONS.map((option) => (
+                                            <option key={option.id} value={option.id}>
+                                                {option.name}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
                                 {resultFilter !== "All" && (
@@ -805,8 +874,12 @@ const QualityInspectionManager: React.FC = () => {
                                                         <p className="text-xs text-gray-500">Result</p>
                                                         <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full mt-1 ${getResultBadge(selectedRecord.result)}`}>
                                                             {getResultIcon(selectedRecord.result)}
-                                                            {selectedRecord.result}
+                                                            {getResultLabel(selectedRecord.result)}
                                                         </span>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-500">Inspection Type</p>
+                                                        <p className="text-sm text-gray-700">{getInspectionTypeLabel(selectedRecord.inspectionType)}</p>
                                                     </div>
                                                     <div>
                                                         <p className="text-xs text-gray-500">Batch</p>
@@ -851,10 +924,10 @@ const QualityInspectionManager: React.FC = () => {
                                                 </div>
                                             </div>
 
-                                            {selectedRecord.result === "Fail" && (
+                                            {(selectedRecord.result === "FAIL" || selectedRecord.result === "REJECT") && (
                                                 <div className="p-4 bg-red-50 rounded-lg border border-red-200">
                                                     <p className="text-sm text-red-800">
-                                                        <strong>Failed Inspection:</strong> This product did not meet quality standards.
+                                                        <strong>{selectedRecord.result === "REJECT" ? "Rejected Inspection:" : "Failed Inspection:"}</strong> This product did not meet quality standards.
                                                         {selectedRecord.remarks && ` Reason: ${selectedRecord.remarks}`}
                                                     </p>
                                                 </div>
@@ -940,12 +1013,18 @@ const QualityInspectionManager: React.FC = () => {
                                 label="Result"
                                 name="result"
                                 value={formData.result}
-                                onChange={(e) => setFormData({ ...formData, result: e.target.value as "Pass" | "Fail" })}
-                                options={[
-                                    { id: "Pass", name: "Pass" },
-                                    { id: "Fail", name: "Fail" },
-                                ]}
+                                onChange={(e) => setFormData({ ...formData, result: e.target.value as ResultCode })}
+                                options={RESULT_OPTIONS}
                                 includeEmptyOption={false}
+                            />,
+                            <FloatingSelect
+                                key="inspectionType"
+                                label="Inspection Type"
+                                name="inspectionType"
+                                value={formData.inspectionType}
+                                onChange={(e) => setFormData({ ...formData, inspectionType: e.target.value as InspectionTypeCode })}
+                                options={INSPECTION_TYPE_OPTIONS}
+                                required
                             />,
                             <FloatingSelect
                                 key="batchId"
@@ -1011,4 +1090,4 @@ const QualityInspectionManager: React.FC = () => {
     );
 };
 
-export default QualityInspectionManager;                
+export default QualityInspectionManager;

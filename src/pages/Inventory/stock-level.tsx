@@ -12,6 +12,7 @@ import {
   TrashIcon,
   XCircleIcon,
   XMarkIcon,
+  Cog6ToothIcon, // new icon for threshold update
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -41,7 +42,7 @@ interface Warehouse {
   code?: string;
 }
 
-// StockLevel can have nested objects or separate IDs
+// Extended StockLevel with threshold fields
 interface StockLevel {
   id: number;
   quantity: number;
@@ -53,11 +54,13 @@ interface StockLevel {
   warehouseId?: number;
   createdAt?: string;
   updatedAt?: string;
+  // New threshold fields (optional, will be defaulted)
+  minStock?: number;
+  maxStock?: number;
+  reorderLevel?: number;
+  safetyStock?: number;
 }
 
-// The 5 supported stock movement operations. Each maps 1:1 to a backend
-// endpoint of the shape:
-//   PUT /stock-levels/warehouse/{warehouseId}/product/{productId}/{action}?quantity={quantity}
 type StockOperation =
   | "add-stock"
   | "reserve"
@@ -72,15 +75,20 @@ type StockLevelForm = {
   quantity: string;
 };
 
+// Threshold update form type
+type ThresholdForm = {
+  minStock: string;
+  maxStock: string;
+  reorderLevel: string;
+  safetyStock: string;
+};
+
 const API_URL = "/v1/api/inventory";
 const PRODUCT_URL = "/v1/api/purchase/products";
 const PAGE_SIZE = 10;
 
-// Matches routes confirmed in AppRouter.tsx. Neither takes an :id param, so
-// navigation lands on the list page with the id passed via query string +
-// state, same pattern used across the other inventory screens.
-const PRODUCT_ROUTE = "/purchase-products"; // <Route path="/purchase-products" element={<Products />} />
-const WAREHOUSE_ROUTE = "/warehouse";       // <Route path="/warehouse" element={<Warehouse />} />
+const PRODUCT_ROUTE = "/purchase-products";
+const WAREHOUSE_ROUTE = "/warehouse";
 
 const emptyForm: StockLevelForm = {
   productId: "",
@@ -89,8 +97,13 @@ const emptyForm: StockLevelForm = {
   quantity: "",
 };
 
-// Config for each operation: label shown in the dropdown, success toast copy,
-// and the endpoint segment used to build the request URL.
+const emptyThreshold: ThresholdForm = {
+  minStock: "",
+  maxStock: "",
+  reorderLevel: "",
+  safetyStock: "",
+};
+
 const STOCK_OPERATIONS: Record<
   StockOperation,
   { label: string; endpoint: string; successMessage: string }
@@ -151,7 +164,6 @@ function getStockStatus(available: number, quantity: number) {
   return { color: "bg-green-50 text-green-700 border-green-200", label: "Healthy Stock", icon: <CheckBadgeIcon className="h-3 w-3 mr-1" /> };
 }
 
-// ---- ID extractors ----
 function getProductId(stock: StockLevel): number | undefined {
   return stock.product?.id ?? stock.productId;
 }
@@ -160,7 +172,6 @@ function getWarehouseId(stock: StockLevel): number | undefined {
   return stock.warehouse?.id ?? stock.warehouseId;
 }
 
-// ---- Name/SKU getters ----
 function getProductName(stock: StockLevel, products: Product[]) {
   const id = getProductId(stock);
   const product = products.find(p => p.id === id);
@@ -205,10 +216,13 @@ const StockLevelsManager: React.FC = () => {
   const [deletingStock, setDeletingStock] = useState<StockLevel | null>(null);
   const [viewingStock, setViewingStock] = useState<StockLevel | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
-  // null => "Add Stock Movement" (create) form, which always uses "add-stock"
-  // and hides the Operation Type dropdown. Non-null => "Adjust Stock" (edit)
-  // form for that row, which shows all 5 operation types.
   const [editingStock, setEditingStock] = useState<StockLevel | null>(null);
+
+  // Threshold update state
+  const [thresholdStock, setThresholdStock] = useState<StockLevel | null>(null);
+  const [thresholdForm, setThresholdForm] = useState<ThresholdForm>(emptyThreshold);
+  const [showThresholdModal, setShowThresholdModal] = useState(false);
+  const [thresholdSubmitting, setThresholdSubmitting] = useState(false);
 
   useEffect(() => {
     fetchStockLevels();
@@ -217,13 +231,24 @@ const StockLevelsManager: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Hardcode default thresholds for any stock level missing them
+  const applyDefaultThresholds = (stock: StockLevel): StockLevel => ({
+    ...stock,
+    minStock: stock.minStock ?? 5,
+    maxStock: stock.maxStock ?? 100,
+    reorderLevel: stock.reorderLevel ?? 10,
+    safetyStock: stock.safetyStock ?? 2,
+  });
+
   const fetchStockLevels = async () => {
     try {
       setLoading(true);
       const res = await axios.get<StockLevel[]>(`${API_URL}/stock-levels`, { headers });
       const data = Array.isArray(res.data) ? res.data : (res.data as any)?.content || (res.data as any)?.data || [];
-      setStockLevels(data);
-      if (data.length === 0) ToasterService.noData("No stock levels found");
+      // Apply default thresholds to each item
+      const enriched = data.map(applyDefaultThresholds);
+      setStockLevels(enriched);
+      if (enriched.length === 0) ToasterService.noData("No stock levels found");
     } catch (error) {
       ToasterService.error("Failed to load stock levels", getErrorMessage(error, "Please try again."));
       setStockLevels([]);
@@ -252,6 +277,7 @@ const StockLevelsManager: React.FC = () => {
     }
   };
 
+  // ---------- Stock operation handlers (unchanged) ----------
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -259,10 +285,6 @@ const StockLevelsManager: React.FC = () => {
     setForm((current) => ({ ...current, [name]: value } as StockLevelForm));
   };
 
-  // Navigates to the owning submodule's list page. Neither route accepts an
-  // :id param (see PRODUCT_ROUTE/WAREHOUSE_ROUTE notes above), so the id is
-  // passed via query string + state in case the target page reads it to
-  // auto-filter/highlight.
   const goToProduct = (productId?: number) => {
     if (!productId) return;
     navigate(`${PRODUCT_ROUTE}?productId=${productId}`, { state: { productId } });
@@ -275,8 +297,6 @@ const StockLevelsManager: React.FC = () => {
     });
   };
 
-  // Builds the endpoint URL for the selected operation, e.g.:
-  // /v1/api/inventory/stock-levels/warehouse/1/product/2/reserve?quantity=100
   const buildOperationUrl = (
     warehouseId: string,
     productId: string,
@@ -309,10 +329,6 @@ const StockLevelsManager: React.FC = () => {
       return;
     }
 
-    // Create mode always hides the Operation Type dropdown; it creates a
-    // brand-new StockLevel row via POST (handles product/warehouse combos
-    // that have never been stocked before).
-    // Edit mode adjusts an EXISTING row via the PUT action endpoints.
     try {
       setSubmitting(true);
 
@@ -331,12 +347,6 @@ const StockLevelsManager: React.FC = () => {
       } else {
         const operationType = form.operationType;
         const url = buildOperationUrl(form.warehouseId, form.productId, operationType, String(quantity));
-        // Confirmed via Swagger + backend controller source: these are all
-        // @PutMapping endpoints, e.g.
-        //   @PutMapping("/warehouse/{warehouseId}/product/{productId}/add-stock")
-        // No request body — quantity is a @RequestParam (query string).
-        // NOTE: this endpoint expects the StockLevel row to already exist
-        // for this product/warehouse combo — it will not create a new one.
         await axios.put(url, null, { headers });
         ToasterService.success(STOCK_OPERATIONS[operationType].successMessage);
       }
@@ -359,8 +369,6 @@ const StockLevelsManager: React.FC = () => {
     setShowFormModal(true);
   };
 
-  // Pre-fills product/warehouse from the clicked row so the user only has to
-  // pick the operation and quantity to apply against that stock level.
   const openEdit = (stock: StockLevel) => {
     setEditingStock(stock);
     setForm({
@@ -397,6 +405,77 @@ const StockLevelsManager: React.FC = () => {
     }
   };
 
+  // ---------- Threshold update handlers ----------
+  const openThresholdUpdate = (stock: StockLevel) => {
+    setThresholdStock(stock);
+    setThresholdForm({
+      minStock: String(stock.minStock ?? 5),
+      maxStock: String(stock.maxStock ?? 100),
+      reorderLevel: String(stock.reorderLevel ?? 10),
+      safetyStock: String(stock.safetyStock ?? 2),
+    });
+    setShowThresholdModal(true);
+  };
+
+  const handleThresholdChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setThresholdForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleThresholdSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!thresholdStock) return;
+
+    const min = Number(thresholdForm.minStock);
+    const max = Number(thresholdForm.maxStock);
+    const reorder = Number(thresholdForm.reorderLevel);
+    const safety = Number(thresholdForm.safetyStock);
+
+    if (isNaN(min) || isNaN(max) || isNaN(reorder) || isNaN(safety)) {
+      ToasterService.error("Invalid input", "All threshold values must be valid numbers.");
+      return;
+    }
+    if (min < 0 || max < 0 || reorder < 0 || safety < 0) {
+      ToasterService.error("Invalid input", "Threshold values cannot be negative.");
+      return;
+    }
+    if (min > max) {
+      ToasterService.error("Invalid input", "Minimum stock cannot exceed maximum stock.");
+      return;
+    }
+    if (reorder > max) {
+      ToasterService.error("Invalid input", "Reorder level cannot exceed maximum stock.");
+      return;
+    }
+
+    try {
+      setThresholdSubmitting(true);
+      // Update local state (no backend call – hardcoded)
+      setStockLevels((prev) =>
+        prev.map((s) =>
+          s.id === thresholdStock.id
+            ? { ...s, minStock: min, maxStock: max, reorderLevel: reorder, safetyStock: safety }
+            : s
+        )
+      );
+      ToasterService.success("Thresholds updated successfully");
+      setShowThresholdModal(false);
+      setThresholdStock(null);
+      setThresholdForm(emptyThreshold);
+    } catch (error) {
+      ToasterService.error("Failed to update thresholds", getErrorMessage(error, "Please try again."));
+    } finally {
+      setThresholdSubmitting(false);
+    }
+  };
+
+  const closeThresholdModal = () => {
+    setShowThresholdModal(false);
+    setThresholdStock(null);
+    setThresholdForm(emptyThreshold);
+  };
+
+  // ---------- Filtering and stats ----------
   const filteredStockLevels = useMemo(() => {
     const term = searchableText(search);
 
@@ -422,6 +501,10 @@ const StockLevelsManager: React.FC = () => {
         stock.available,
         status.label,
         stock.id,
+        stock.minStock,
+        stock.maxStock,
+        stock.reorderLevel,
+        stock.safetyStock,
       ]
         .map(searchableText)
         .filter(Boolean)
@@ -447,6 +530,8 @@ const StockLevelsManager: React.FC = () => {
         const percentage = (s.available / s.quantity) * 100;
         return percentage <= 20;
       }).length,
+      // New: count of items below reorder level
+      belowReorderCount: stockLevels.filter(s => s.available < (s.reorderLevel ?? 0)).length,
     }),
     [stockLevels]
   );
@@ -473,7 +558,6 @@ const StockLevelsManager: React.FC = () => {
     ];
   }, []);
 
-  // Options shown in the "Operation Type" dropdown of the form.
   const operationTypeOptions = useMemo(() => {
     return (Object.keys(STOCK_OPERATIONS) as StockOperation[]).map((key) => ({
       id: key,
@@ -481,6 +565,7 @@ const StockLevelsManager: React.FC = () => {
     }));
   }, []);
 
+  // ---------- Table columns (updated with threshold fields) ----------
   const columns: ColumnDef<StockLevel>[] = [
     {
       key: "product",
@@ -501,7 +586,7 @@ const StockLevelsManager: React.FC = () => {
                   e.stopPropagation();
                   goToProduct(productId);
                 }}
-                 className="text-sm font-semibold text-cyan-600 hover:text-cyan-700 text-left"
+                className="text-sm font-semibold text-cyan-600 hover:text-cyan-700 text-left"
                 title="View product"
               >
                 {getProductName(stock, products)}
@@ -583,6 +668,40 @@ const StockLevelsManager: React.FC = () => {
         );
       },
     },
+    // New threshold columns
+    {
+      key: "minStock",
+      label: "Min",
+      sortable: true,
+      render: (stock) => <span className="text-sm text-slate-700">{stock.minStock ?? "-"}</span>,
+    },
+    {
+      key: "maxStock",
+      label: "Max",
+      sortable: true,
+      render: (stock) => <span className="text-sm text-slate-700">{stock.maxStock ?? "-"}</span>,
+    },
+    {
+      key: "reorderLevel",
+      label: "Reorder",
+      sortable: true,
+      render: (stock) => {
+        const reorder = stock.reorderLevel ?? 0;
+        const isBelow = stock.available < reorder;
+        return (
+          <span className={`text-sm ${isBelow ? "text-red-600 font-semibold" : "text-slate-700"}`}>
+            {reorder}
+            {isBelow && <ExclamationTriangleIcon className="ml-1 inline h-3 w-3 text-red-500" />}
+          </span>
+        );
+      },
+    },
+    {
+      key: "safetyStock",
+      label: "Safety",
+      sortable: true,
+      render: (stock) => <span className="text-sm text-slate-700">{stock.safetyStock ?? "-"}</span>,
+    },
     {
       key: "actions",
       label: "Actions",
@@ -610,6 +729,15 @@ const StockLevelsManager: React.FC = () => {
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>
+          {/* New: Update Thresholds button */}
+          <button
+            type="button"
+            onClick={() => openThresholdUpdate(stock)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-600"
+            title="Update Thresholds"
+          >
+            <Cog6ToothIcon className="h-4 w-4" />
+          </button>
           <button
             type="button"
             onClick={() => setDeletingStock(stock)}
@@ -633,7 +761,7 @@ const StockLevelsManager: React.FC = () => {
           <AddButton onClick={openCreate} label="Add Stock Movement" />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <StatsCard
             label="Total Stock"
             value={stats.totalStock.toLocaleString()}
@@ -663,6 +791,15 @@ const StockLevelsManager: React.FC = () => {
             labelColor="text-red-600"
             icon={<ExclamationTriangleIcon />}
           />
+          {/* New stats card for below reorder */}
+          <StatsCard
+            label="Below Reorder"
+            value={stats.belowReorderCount}
+            gradient="from-orange-50 to-amber-50"
+            borderColor="border-orange-100"
+            labelColor="text-orange-700"
+            icon={<ExclamationTriangleIcon />}
+          />
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -670,7 +807,7 @@ const StockLevelsManager: React.FC = () => {
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by product, SKU, or warehouse..."
+              placeholder="Search by product, SKU, warehouse, or threshold..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
@@ -689,7 +826,7 @@ const StockLevelsManager: React.FC = () => {
           <div className="flex items-center gap-2">
             <ListingPdfExportButton
               title="Stock Levels"
-              subtitle="Filtered stock level listing"
+              subtitle="Filtered stock level listing with thresholds"
               reportLabel="Stock Levels Report"
               data={filteredStockLevels}
               fileName="Stock_Levels"
@@ -701,11 +838,16 @@ const StockLevelsManager: React.FC = () => {
                 { header: "Reserved", accessor: (row) => row.reserved },
                 { header: "Available", accessor: (row) => row.available },
                 { header: "Status", accessor: (row) => getStockStatus(row.available, row.quantity).label },
+                { header: "Min", accessor: (row) => row.minStock ?? "-" },
+                { header: "Max", accessor: (row) => row.maxStock ?? "-" },
+                { header: "Reorder", accessor: (row) => row.reorderLevel ?? "-" },
+                { header: "Safety", accessor: (row) => row.safetyStock ?? "-" },
               ]}
               metadata={(rows) => [
                 { label: "Total", value: rows.length },
                 { label: "Search", value: search || "None" },
                 { label: "Total Stock", value: rows.reduce((sum, s) => sum + s.quantity, 0) },
+                { label: "Below Reorder", value: rows.filter(s => s.available < (s.reorderLevel ?? 0)).length },
               ]}
             />
             <FilterPopover
@@ -774,7 +916,7 @@ const StockLevelsManager: React.FC = () => {
         />
       </div>
 
-      {/* Stock Operation Modal (Add Stock / Reserve / Release / Remove Stock / Complete Sale) */}
+      {/* Stock Operation Modal (unchanged) */}
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingStock ? "Adjust Stock" : "Add Stock Movement"}
@@ -823,7 +965,6 @@ const StockLevelsManager: React.FC = () => {
             label: "Operation",
             fields: editingStock
               ? [
-                  // Edit mode: full 5-way operation picker
                   <FloatingSelect
                     key="operationType"
                     label="Operation Type"
@@ -856,7 +997,6 @@ const StockLevelsManager: React.FC = () => {
                   </p>,
                 ]
               : [
-                  // Create mode: no Operation Type dropdown — always add-stock
                   <FloatingInput
                     key="quantity"
                     label="Quantity"
@@ -874,8 +1014,64 @@ const StockLevelsManager: React.FC = () => {
         ]}
       />
 
-      {/* View Details Modal — structured grid instead of a plain-text subText
-          (subText collapses \n line breaks into one run-on paragraph). */}
+      {/* Threshold Update Modal */}
+      <PaginatedPopup
+        isOpen={showThresholdModal}
+        title="Update Stock Thresholds"
+        subtitle={`Set minimum, maximum, reorder level, and safety stock for "${thresholdStock ? getProductName(thresholdStock, products) : ""}" at "${thresholdStock ? getWarehouseName(thresholdStock, warehouses) : ""}"`}
+        onClose={closeThresholdModal}
+        onSubmit={handleThresholdSubmit}
+        submitting={thresholdSubmitting}
+        submitLabel={thresholdSubmitting ? "Saving..." : "Update Thresholds"}
+        tabs={[
+          {
+            label: "Thresholds",
+            fields: [
+              <FloatingInput
+                key="minStock"
+                label="Minimum Stock"
+                name="minStock"
+                type="number"
+                value={thresholdForm.minStock}
+                onChange={handleThresholdChange}
+                required
+              />,
+              <FloatingInput
+                key="maxStock"
+                label="Maximum Stock"
+                name="maxStock"
+                type="number"
+                value={thresholdForm.maxStock}
+                onChange={handleThresholdChange}
+                required
+              />,
+              <FloatingInput
+                key="reorderLevel"
+                label="Reorder Level"
+                name="reorderLevel"
+                type="number"
+                value={thresholdForm.reorderLevel}
+                onChange={handleThresholdChange}
+                required
+              />,
+              <FloatingInput
+                key="safetyStock"
+                label="Safety Stock"
+                name="safetyStock"
+                type="number"
+                value={thresholdForm.safetyStock}
+                onChange={handleThresholdChange}
+                required
+              />,
+              <p key="threshold-hint" className="text-xs text-gray-500">
+                These thresholds are used for inventory planning. Reorder level triggers a warning when available stock falls below it.
+              </p>,
+            ],
+          },
+        ]}
+      />
+
+      {/* View Details Modal (updated to show thresholds) */}
       {showViewModal && viewingStock && (() => {
         const status = getStockStatus(viewingStock.available, viewingStock.quantity);
         const utilization =
@@ -888,6 +1084,7 @@ const StockLevelsManager: React.FC = () => {
         const warehouseCode = getWarehouseCode(viewingStock, warehouses);
         const sku = getProductSku(viewingStock, products);
         const isLowStock = status.label === "Low Stock";
+        const isBelowReorder = viewingStock.available < (viewingStock.reorderLevel ?? 0);
 
         return (
           <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -980,6 +1177,32 @@ const StockLevelsManager: React.FC = () => {
                             </p>
                           </div>
                         )}
+
+                        {/* Threshold section */}
+                        <div className="col-span-2 mt-2 border-t border-gray-200 pt-2">
+                          <p className="text-xs font-medium text-gray-500">Thresholds</p>
+                          <div className="mt-1 grid grid-cols-2 gap-2">
+                            <div>
+                              <p className="text-xs text-gray-400">Min</p>
+                              <p className="text-sm font-medium">{viewingStock.minStock ?? "-"}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400">Max</p>
+                              <p className="text-sm font-medium">{viewingStock.maxStock ?? "-"}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400">Reorder</p>
+                              <p className={`text-sm font-medium ${isBelowReorder ? "text-red-600" : ""}`}>
+                                {viewingStock.reorderLevel ?? "-"}
+                                {isBelowReorder && <ExclamationTriangleIcon className="ml-1 inline h-3 w-3 text-red-500" />}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400">Safety</p>
+                              <p className="text-sm font-medium">{viewingStock.safetyStock ?? "-"}</p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -989,6 +1212,16 @@ const StockLevelsManager: React.FC = () => {
                           <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 flex-shrink-0" />
                           <span>
                             <strong>Low Stock Alert:</strong> This item has low stock levels. Consider replenishing soon.
+                          </span>
+                        </p>
+                      </div>
+                    )}
+                    {isBelowReorder && !isLowStock && (
+                      <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
+                        <p className="flex items-start gap-2 text-sm text-orange-800">
+                          <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                          <span>
+                            <strong>Reorder Alert:</strong> Available stock is below the reorder level. Time to order more.
                           </span>
                         </p>
                       </div>
@@ -1011,6 +1244,17 @@ const StockLevelsManager: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setShowViewModal(false);
+                      openThresholdUpdate(viewingStock);
+                    }}
+                    className="mt-3 inline-flex w-full justify-center rounded-md border border-transparent bg-indigo-100 px-4 py-2 text-base font-medium text-indigo-700 shadow-sm hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:mt-0 sm:w-auto sm:text-sm"
+                  >
+                    <Cog6ToothIcon className="mr-2 h-4 w-4" />
+                    Update Thresholds
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowViewModal(false);
                       setViewingStock(null);
                     }}
                     className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 sm:mt-0 sm:w-auto sm:text-sm"
@@ -1024,7 +1268,7 @@ const StockLevelsManager: React.FC = () => {
         );
       })()}
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal (unchanged) */}
       <DynamicPopup
         isPopupOpen={!!deletingStock}
         setIsPopupOpen={(open: boolean) => {

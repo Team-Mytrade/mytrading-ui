@@ -62,11 +62,6 @@ type SerialNumber = {
   batch?: Batch | string;
 };
 
-// Fixed set of movement types per the Inventory Module spec's
-// "Stock Movement Types" list (8 total). Previously only 4 were supported
-// (GRN, ISSUE, TRANSFER, RETURN) — RETURN didn't distinguish customer vs
-// supplier, and Stock Adjustment / Damage / Stock Correction were missing
-// entirely as movement-type options.
 enum MovementType {
   PURCHASE_RECEIPT = "PURCHASE_RECEIPT",
   SALES_ISSUE = "SALES_ISSUE",

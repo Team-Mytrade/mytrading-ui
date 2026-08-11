@@ -12,6 +12,8 @@ import {
   XMarkIcon,
   EyeIcon,
   CubeIcon,
+  CalendarIcon,
+  ShoppingBagIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -28,7 +30,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
-// ---------- Product interface (sku removed - unused, productCode is source of truth) ----------
+// ---------- Interfaces ----------
 interface Product {
   id: number;
   productName: string;
@@ -65,7 +67,7 @@ interface Inspection {
   inspector: string;
   result: string;
   remarks?: string;
-  serialNumberId?: number;   // adjust to match your API if needed
+  serialNumberId?: number;
 }
 
 interface SerialNumber {
@@ -78,6 +80,10 @@ interface SerialNumber {
   warehouse?: WarehouseRef;
   batch?: BatchRef;
   inspections?: Inspection[];
+  // --- NEW fields ---
+  purchaseDate?: string | null;   // ISO date string
+  salesDate?: string | null;     // ISO date string, null if not sold
+  currentStatus?: string;        // e.g., "Available", "Sold", "In Repair", "Returned"
 }
 
 type SerialNumberForm = {
@@ -86,20 +92,25 @@ type SerialNumberForm = {
   productId: string;
   warehouseId: string;
   batchId: string;
+  purchaseDate: string;
+  salesDate: string;
+  currentStatus: string;
 };
 
 // ---------- Constants ----------
 const API_URL = "/v1/api/inventory";
 const PRODUCT_URL = "/v1/api/purchase";
 const PAGE_SIZE = 10;
-
-// Matches: <Route path="/warehouse" element={<Warehouse />} /> in AppRouter.tsx
 const WAREHOUSE_ROUTE = "/warehouse";
-
-// Matches: <Route path="/product" element={<Product />} /> in AppRouter.tsx
-// NOTE: update this to whatever the actual product listing route is registered as
-// (e.g. "/product-master") if it differs in AppRouter.tsx.
 const PRODUCT_ROUTE = "/product";
+
+// Hardcoded status options
+const STATUS_OPTIONS = [
+  { id: "Available", name: "Available" },
+  { id: "Sold", name: "Sold" },
+  { id: "In Repair", name: "In Repair" },
+  { id: "Returned", name: "Returned" },
+];
 
 const emptyForm: SerialNumberForm = {
   warrantyStart: "",
@@ -107,6 +118,9 @@ const emptyForm: SerialNumberForm = {
   productId: "",
   warehouseId: "",
   batchId: "",
+  purchaseDate: "",
+  salesDate: "",
+  currentStatus: "Available",
 };
 
 // ---------- Helpers ----------
@@ -144,10 +158,7 @@ function getBatchNumber(sn: SerialNumber) {
   return sn.batch?.batchNumber || "N/A";
 }
 
-function getInspections(
-  sn: SerialNumber,
-  inspectionsBySerial: Record<number, Inspection[]>
-): string {
+function getInspections(sn: SerialNumber, inspectionsBySerial: Record<number, Inspection[]>): string {
   const inspections = inspectionsBySerial[sn.id] ?? sn.inspections ?? [];
   if (inspections.length === 0) return "N/A";
   const results = inspections.map((i) => i.result).join(", ");
@@ -156,7 +167,7 @@ function getInspections(
 
 function getWarrantyStatus(sn: SerialNumber) {
   return isWarrantyActive(sn.warrantyEnd) ? "In Warranty" : "Expired";
-} 
+}
 
 // ---------- Component ----------
 const SerialNumberManager: React.FC = () => {
@@ -181,6 +192,7 @@ const SerialNumberManager: React.FC = () => {
   const [filterWarehouseId, setFilterWarehouseId] = useState("");
   const [filterBatchId, setFilterBatchId] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [filterCurrentStatus, setFilterCurrentStatus] = useState(""); // NEW
   const [viewingSerial, setViewingSerial] = useState<SerialNumber | null>(null);
   const [viewLoading, setViewLoading] = useState(false);
   const [deletingSerial, setDeletingSerial] = useState<SerialNumber | null>(null);
@@ -194,13 +206,23 @@ const SerialNumberManager: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // --- Hardcode default values for new fields ---
+  const applyDefaults = (sn: SerialNumber): SerialNumber => ({
+    ...sn,
+    purchaseDate: sn.purchaseDate ?? new Date().toISOString().split("T")[0],
+    salesDate: sn.salesDate ?? null,
+    currentStatus: sn.currentStatus ?? "Available",
+  });
+
   const fetchSerialNumbers = async () => {
     try {
       setLoading(true);
       const res = await axios.get<SerialNumber[]>(`${API_URL}/serial-numbers`, { headers });
       const data = Array.isArray(res.data) ? res.data : [];
-      setSerialNumbers(data);
-      if (data.length === 0) ToasterService.noData("No serial numbers found");
+      // Apply defaults
+      const enriched = data.map(applyDefaults);
+      setSerialNumbers(enriched);
+      if (enriched.length === 0) ToasterService.noData("No serial numbers found");
     } catch (error) {
       ToasterService.error("Failed to load serial numbers", getErrorMessage(error, "Please try again."));
       setSerialNumbers([]);
@@ -230,22 +252,14 @@ const SerialNumberManager: React.FC = () => {
   const fetchWarehouses = async () => {
     try {
       const res = await axios.get(`${API_URL}/warehouses`, { headers });
-      // console.log("RAW warehouses response:", res.data); // TEMP DEBUG - remove after fixing
       let list: WarehouseRef[] = [];
       const raw = res.data;
-      if (Array.isArray(raw)) {
-        list = raw;
-      } else if (raw?.content && Array.isArray(raw.content)) {
-        list = raw.content;
-      } else if (raw?.data && Array.isArray(raw.data)) {
-        list = raw.data;
-      } else if (raw?.items && Array.isArray(raw.items)) {
-        list = raw.items;
-      }
-      // console.log("Parsed warehouses list:", list); // TEMP DEBUG - remove after fixing
+      if (Array.isArray(raw)) list = raw;
+      else if (raw?.content && Array.isArray(raw.content)) list = raw.content;
+      else if (raw?.data && Array.isArray(raw.data)) list = raw.data;
+      else if (raw?.items && Array.isArray(raw.items)) list = raw.items;
       setWarehouses(list);
     } catch (error) {
-      // console.error("Warehouses fetch error:", error); // TEMP DEBUG - remove after fixing
       ToasterService.error("Failed to load warehouses", getErrorMessage(error, "Please try again."));
     }
   };
@@ -253,22 +267,14 @@ const SerialNumberManager: React.FC = () => {
   const fetchBatches = async () => {
     try {
       const res = await axios.get(`${API_URL}/batches`, { headers });
-      // console.log("RAW batches response:", res.data); // TEMP DEBUG - remove after fixing
       let list: BatchRef[] = [];
       const raw = res.data;
-      if (Array.isArray(raw)) {
-        list = raw;
-      } else if (raw?.content && Array.isArray(raw.content)) {
-        list = raw.content;
-      } else if (raw?.data && Array.isArray(raw.data)) {
-        list = raw.data;
-      } else if (raw?.items && Array.isArray(raw.items)) {
-        list = raw.items;
-      }
-      // console.log("Parsed batches list:", list); // TEMP DEBUG - remove after fixing
+      if (Array.isArray(raw)) list = raw;
+      else if (raw?.content && Array.isArray(raw.content)) list = raw.content;
+      else if (raw?.data && Array.isArray(raw.data)) list = raw.data;
+      else if (raw?.items && Array.isArray(raw.items)) list = raw.items;
       setBatches(list);
     } catch (error) {
-      // console.error("Batches fetch error:", error); // TEMP DEBUG - remove after fixing
       ToasterService.error("Failed to load batches", getErrorMessage(error, "Please try again."));
     }
   };
@@ -286,10 +292,7 @@ const SerialNumberManager: React.FC = () => {
       });
       setInspectionsBySerial(grouped);
     } catch (error) {
-      ToasterService.error(
-        "Failed to load quality inspections",
-        getErrorMessage(error, "Please try again.")
-      );
+      ToasterService.error("Failed to load quality inspections", getErrorMessage(error, "Please try again."));
     }
   };
 
@@ -313,7 +316,11 @@ const SerialNumberManager: React.FC = () => {
       productNumber,
       warehouse: warehouseId ? { id: warehouseId } : null,
       batch: batchId ? { id: batchId } : null,
-      inspections: [], // keep empty or fetch existing if editing
+      inspections: [],
+      // NEW fields
+      purchaseDate: form.purchaseDate || null,
+      salesDate: form.salesDate || null,
+      currentStatus: form.currentStatus || "Available",
     };
   };
 
@@ -330,6 +337,11 @@ const SerialNumberManager: React.FC = () => {
     }
     if (new Date(form.warrantyEnd) < new Date(form.warrantyStart)) {
       ToasterService.error("Invalid warranty range", "Warranty end date cannot be before the start date.");
+      return;
+    }
+    // Validate purchase/sales dates if provided
+    if (form.purchaseDate && form.salesDate && new Date(form.salesDate) < new Date(form.purchaseDate)) {
+      ToasterService.error("Invalid dates", "Sales date cannot be before purchase date.");
       return;
     }
     try {
@@ -353,7 +365,10 @@ const SerialNumberManager: React.FC = () => {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+      purchaseDate: new Date().toISOString().split("T")[0], // default today
+    });
     setShowFormModal(true);
   };
 
@@ -365,6 +380,9 @@ const SerialNumberManager: React.FC = () => {
       productId: sn.productId ? String(sn.productId) : "",
       warehouseId: sn.warehouse?.id ? String(sn.warehouse.id) : "",
       batchId: sn.batch?.id ? String(sn.batch.id) : "",
+      purchaseDate: sn.purchaseDate || "",
+      salesDate: sn.salesDate || "",
+      currentStatus: sn.currentStatus || "Available",
     });
     setShowFormModal(true);
   };
@@ -377,7 +395,6 @@ const SerialNumberManager: React.FC = () => {
 
   const confirmDelete = async () => {
     if (!deletingSerial) return;
-
     try {
       await axios.delete(`${API_URL}/serial-numbers/${deletingSerial.id}`, { headers });
       ToasterService.success("Serial number deleted");
@@ -389,21 +406,18 @@ const SerialNumberManager: React.FC = () => {
     }
   };
 
-  // ---------- View (navigate-in-place) for a single serial number ----------
-  // Opens the detail modal immediately with the row data we already have, then
-  // refreshes it from GET /v1/api/inventory/serial-numbers/{id} so warranty,
-  // batch, inspection, and status info reflect the latest server state.
   const openView = async (sn: SerialNumber) => {
     setViewingSerial(sn);
     try {
       setViewLoading(true);
       const res = await axios.get<SerialNumber>(`${API_URL}/serial-numbers/${sn.id}`, { headers });
-      if (res.data) setViewingSerial(res.data);
+      if (res.data) {
+        // Apply defaults to fetched data
+        const enriched = applyDefaults(res.data);
+        setViewingSerial(enriched);
+      }
     } catch (error) {
-      ToasterService.error(
-        "Failed to load serial number details",
-        getErrorMessage(error, "Showing last known details.")
-      );
+      ToasterService.error("Failed to load serial number details", getErrorMessage(error, "Showing last known details."));
     } finally {
       setViewLoading(false);
     }
@@ -413,10 +427,6 @@ const SerialNumberManager: React.FC = () => {
     setViewingSerial(null);
   };
 
-  // ---------- Navigate to warehouse page for a given warehouse ----------
-  // /warehouse has no :id route param (see AppRouter.tsx), so it always opens
-  // the warehouse list/page as-is. We pass the id via state and a query param
-  // in case Warehouse.tsx wants to read it (e.g. to auto-open/highlight that row).
   const goToWarehouse = (warehouse?: WarehouseRef) => {
     if (!warehouse?.id) return;
     navigate(`${WAREHOUSE_ROUTE}?warehouseId=${warehouse.id}`, {
@@ -424,9 +434,6 @@ const SerialNumberManager: React.FC = () => {
     });
   };
 
-  // ---------- Navigate to product page for a given product ----------
-  // Same pattern as goToWarehouse above: passes the id via query param + state
-  // so Product.tsx can auto-open/highlight that product if it supports it.
   const goToProduct = (productId?: number) => {
     if (!productId) return;
     const product = products.find((p) => p.id === productId);
@@ -435,6 +442,7 @@ const SerialNumberManager: React.FC = () => {
     });
   };
 
+  // ---------- Filtering ----------
   const filteredSerialNumbers = useMemo(() => {
     const term = searchableText(search);
 
@@ -445,6 +453,7 @@ const SerialNumberManager: React.FC = () => {
         if (filterBatchId && String(sn.batch?.id || "") !== filterBatchId) return false;
         if (filterStatus === "active" && !isWarrantyActive(sn.warrantyEnd)) return false;
         if (filterStatus === "expired" && isWarrantyActive(sn.warrantyEnd)) return false;
+        if (filterCurrentStatus && sn.currentStatus !== filterCurrentStatus) return false;
 
         if (!term) return true;
 
@@ -456,6 +465,9 @@ const SerialNumberManager: React.FC = () => {
           sn.warehouse?.name,
           sn.batch?.batchNumber,
           isWarrantyActive(sn.warrantyEnd) ? "active" : "expired",
+          sn.currentStatus,
+          sn.purchaseDate,
+          sn.salesDate,
         ]
           .map(searchableText)
           .filter(Boolean)
@@ -465,34 +477,38 @@ const SerialNumberManager: React.FC = () => {
       })
       .map((sn) => ({
         ...sn,
-        // Resolve productNumber from the products list if the API didn't set it directly,
-        // so the table's auto-generated row-detail view (Table.tsx) shows a real value
-        // instead of relying on a field that isn't always populated.
         productNumber:
           sn.productNumber || products.find((p) => p.id === sn.productId)?.productCode || "N/A",
-        // Overwrite the (usually empty) nested `inspections` with the ones we fetched
-        // separately from /quality-inspections and grouped by serialNumberId.
         inspections: inspectionsBySerial[sn.id] ?? sn.inspections ?? [],
+        // Ensure defaults are applied (in case we missed any)
+        ...applyDefaults(sn),
       }));
-  }, [serialNumbers, search, filterProductId, filterWarehouseId, filterBatchId, filterStatus, products, inspectionsBySerial]);
+  }, [serialNumbers, search, filterProductId, filterWarehouseId, filterBatchId, filterStatus, filterCurrentStatus, products, inspectionsBySerial]);
 
   const resetFilters = () => {
     setFilterProductId("");
     setFilterWarehouseId("");
     setFilterBatchId("");
     setFilterStatus("");
+    setFilterCurrentStatus("");
   };
 
-  const stats = useMemo(
-    () => ({
-      total: serialNumbers.length,
-      inWarranty: serialNumbers.filter((sn) => isWarrantyActive(sn.warrantyEnd)).length,
-      expired: serialNumbers.filter((sn) => !isWarrantyActive(sn.warrantyEnd)).length,
-      warehouses: new Set(serialNumbers.map((sn) => sn.warehouse?.name).filter(Boolean)).size,
-    }),
-    [serialNumbers]
-  );
+  // ---------- Stats ----------
+  const stats = useMemo(() => {
+    const total = serialNumbers.length;
+    const inWarranty = serialNumbers.filter((sn) => isWarrantyActive(sn.warrantyEnd)).length;
+    const expired = total - inWarranty;
+    const warehouses = new Set(serialNumbers.map((sn) => sn.warehouse?.name).filter(Boolean)).size;
+    // Status counts
+    const statusCounts: Record<string, number> = {};
+    serialNumbers.forEach((sn) => {
+      const status = sn.currentStatus || "Unknown";
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+    });
+    return { total, inWarranty, expired, warehouses, statusCounts };
+  }, [serialNumbers]);
 
+  // ---------- Table columns (new columns added) ----------
   const columns: ColumnDef<SerialNumber>[] = [
     {
       key: "serial",
@@ -571,6 +587,18 @@ const SerialNumberManager: React.FC = () => {
       render: (sn) => getBatchNumber(sn),
     },
     {
+      key: "purchaseDate",
+      label: "Purchase Date",
+      sortable: true,
+      render: (sn) => (sn.purchaseDate ? new Date(sn.purchaseDate).toLocaleDateString() : "N/A"),
+    },
+    {
+      key: "salesDate",
+      label: "Sales Date",
+      sortable: true,
+      render: (sn) => (sn.salesDate ? new Date(sn.salesDate).toLocaleDateString() : "N/A"),
+    },
+    {
       key: "warrantyStart",
       label: "Warranty Start",
       sortable: true,
@@ -583,7 +611,7 @@ const SerialNumberManager: React.FC = () => {
       render: (sn) => (sn.warrantyEnd ? new Date(sn.warrantyEnd).toLocaleDateString() : "N/A"),
     },
     {
-      key: "status",
+      key: "warrantyStatus",
       label: "Warranty Status",
       sortable: false,
       render: (sn) => {
@@ -595,6 +623,24 @@ const SerialNumberManager: React.FC = () => {
             }`}
           >
             {active ? "In Warranty" : "Expired"}
+          </span>
+        );
+      },
+    },
+    {
+      key: "currentStatus",
+      label: "Current Status",
+      sortable: true,
+      render: (sn) => {
+        const status = sn.currentStatus || "Available";
+        let colorClass = "bg-gray-50 text-gray-700";
+        if (status === "Available") colorClass = "bg-green-50 text-green-700";
+        else if (status === "Sold") colorClass = "bg-blue-50 text-blue-700";
+        else if (status === "In Repair") colorClass = "bg-yellow-50 text-yellow-700";
+        else if (status === "Returned") colorClass = "bg-red-50 text-red-700";
+        return (
+          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${colorClass}`}>
+            {status}
           </span>
         );
       },
@@ -646,7 +692,8 @@ const SerialNumberManager: React.FC = () => {
           <AddButton onClick={openCreate} label="Add Serial Number" />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <StatsCard label="Serial Numbers" value={stats.total} icon={<QrCodeIcon />} />
           <StatsCard
             label="In Warranty"
@@ -672,14 +719,23 @@ const SerialNumberManager: React.FC = () => {
             labelColor="text-purple-600"
             icon={<BuildingStorefrontIcon />}
           />
+          <StatsCard
+            label="Available"
+            value={stats.statusCounts["Available"] || 0}
+            gradient="from-green-50 to-emerald-50"
+            borderColor="border-green-100"
+            labelColor="text-green-600"
+            icon={<CheckCircleIcon />}
+          />
         </div>
 
+        {/* Search & Filters */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="relative w-full sm:max-w-md">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by serial, product, warehouse, or batch..."
+              placeholder="Search by serial, product, warehouse, batch, status..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
@@ -716,16 +772,23 @@ const SerialNumberManager: React.FC = () => {
                 { header: "Warehouse", accessor: (row) => getWarehouseName(row) },
                 { header: "Batch", accessor: (row) => getBatchNumber(row) },
                 {
+                  header: "Purchase Date",
+                  accessor: (row) => (row.purchaseDate ? new Date(row.purchaseDate).toLocaleDateString() : "N/A"),
+                },
+                {
+                  header: "Sales Date",
+                  accessor: (row) => (row.salesDate ? new Date(row.salesDate).toLocaleDateString() : "N/A"),
+                },
+                {
                   header: "Warranty Start",
-                  accessor: (row) =>
-                    row.warrantyStart ? new Date(row.warrantyStart).toLocaleDateString() : "N/A",
+                  accessor: (row) => (row.warrantyStart ? new Date(row.warrantyStart).toLocaleDateString() : "N/A"),
                 },
                 {
                   header: "Warranty End",
-                  accessor: (row) =>
-                    row.warrantyEnd ? new Date(row.warrantyEnd).toLocaleDateString() : "N/A",
+                  accessor: (row) => (row.warrantyEnd ? new Date(row.warrantyEnd).toLocaleDateString() : "N/A"),
                 },
                 { header: "Warranty Status", accessor: (row) => getWarrantyStatus(row) },
+                { header: "Current Status", accessor: (row) => row.currentStatus || "Available" },
               ]}
             />
             <FilterPopover
@@ -775,6 +838,13 @@ const SerialNumberManager: React.FC = () => {
                     { id: "expired", name: "Expired" },
                   ]}
                 />
+                <FloatingSelect
+                  label="Current Status"
+                  name="filterCurrentStatus"
+                  value={filterCurrentStatus}
+                  onChange={(e) => setFilterCurrentStatus(e.target.value)}
+                  options={STATUS_OPTIONS}
+                />
                 <div className="flex justify-end">
                   <button
                     type="button"
@@ -812,10 +882,11 @@ const SerialNumberManager: React.FC = () => {
         />
       </div>
 
+      {/* Form Modal */}
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Serial Number" : "Create Serial Number"}
-        subtitle="Enter serial number details from the API schema"
+        subtitle="Enter serial number details including purchase/sales dates and current status"
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
@@ -863,6 +934,36 @@ const SerialNumberManager: React.FC = () => {
             ],
           },
           {
+            label: "Dates & Status",
+            fields: [
+              <FloatingInput
+                key="purchaseDate"
+                label="Purchase Date"
+                name="purchaseDate"
+                type="date"
+                value={form.purchaseDate}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="salesDate"
+                label="Sales Date"
+                name="salesDate"
+                type="date"
+                value={form.salesDate}
+                onChange={handleChange}
+              />,
+              <FloatingSelect
+                key="currentStatus"
+                label="Current Status"
+                name="currentStatus"
+                value={form.currentStatus}
+                onChange={handleChange}
+                options={STATUS_OPTIONS}
+                required
+              />,
+            ],
+          },
+          {
             label: "Warranty",
             fields: [
               <FloatingInput
@@ -888,7 +989,7 @@ const SerialNumberManager: React.FC = () => {
         ]}
       />
 
-      {/* ---------- Serial Number Detail / Navigation Modal ---------- */}
+      {/* Detail View Modal (updated with new fields) */}
       {viewingSerial && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
@@ -919,9 +1020,7 @@ const SerialNumberManager: React.FC = () => {
               </button>
             </div>
 
-            {viewLoading && (
-              <div className="mb-3 text-xs text-slate-400">Refreshing latest details…</div>
-            )}
+            {viewLoading && <div className="mb-3 text-xs text-slate-400">Refreshing latest details…</div>}
 
             <div className="space-y-3 text-sm">
               <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
@@ -972,20 +1071,34 @@ const SerialNumberManager: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
+                <span className="flex items-center gap-2 text-slate-500">
+                  <CalendarIcon className="h-4 w-4" /> Purchase Date
+                </span>
+                <span className="font-medium text-slate-800">
+                  {viewingSerial.purchaseDate ? new Date(viewingSerial.purchaseDate).toLocaleDateString() : "N/A"}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
+                <span className="flex items-center gap-2 text-slate-500">
+                  <ShoppingBagIcon className="h-4 w-4" /> Sales Date
+                </span>
+                <span className="font-medium text-slate-800">
+                  {viewingSerial.salesDate ? new Date(viewingSerial.salesDate).toLocaleDateString() : "N/A"}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
                 <span className="text-slate-500">Warranty Start</span>
                 <span className="font-medium text-slate-800">
-                  {viewingSerial.warrantyStart
-                    ? new Date(viewingSerial.warrantyStart).toLocaleDateString()
-                    : "N/A"}
+                  {viewingSerial.warrantyStart ? new Date(viewingSerial.warrantyStart).toLocaleDateString() : "N/A"}
                 </span>
               </div>
 
               <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
                 <span className="text-slate-500">Warranty End</span>
                 <span className="font-medium text-slate-800">
-                  {viewingSerial.warrantyEnd
-                    ? new Date(viewingSerial.warrantyEnd).toLocaleDateString()
-                    : "N/A"}
+                  {viewingSerial.warrantyEnd ? new Date(viewingSerial.warrantyEnd).toLocaleDateString() : "N/A"}
                 </span>
               </div>
 
@@ -1000,6 +1113,11 @@ const SerialNumberManager: React.FC = () => {
                 >
                   {getWarrantyStatus(viewingSerial)}
                 </span>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
+                <span className="text-slate-500">Current Status</span>
+                <span className="font-medium text-slate-800">{viewingSerial.currentStatus || "Available"}</span>
               </div>
 
               <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
