@@ -334,7 +334,7 @@ const getCleanWarehouseData = (warehouse: Warehouse): any => {
       label: "Name",
       sortable: true,
       render: (warehouse) => (
-        <span className="text-sm text-slate-700 ml-10">{warehouse.name}</span>
+        <span className="text-sm text-center text-slate-700 md:ml-10 items-center">{warehouse.name}</span>
       ),
     },
     {
@@ -342,7 +342,7 @@ const getCleanWarehouseData = (warehouse: Warehouse): any => {
       label: "Location Type",
       sortable: true,
       render: (warehouse) => (
-        <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ml-20 ${getLocationTypeColor(warehouse.locationType)}`}>
+        <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium md:ml-20 ${getLocationTypeColor(warehouse.locationType)}`}>
           {warehouse.locationType}
         </span>
       ),
@@ -354,7 +354,7 @@ const getCleanWarehouseData = (warehouse: Warehouse): any => {
       render: (warehouse) => (
          <button
       onClick={() => navigate(`/products?warehouseId=${warehouse.id}`)}
-      className="text-sm text-cyan-600 hover:text-cyan-800 hover:underline cursor-pointer font-medium ml-20"
+      className="text-sm text-cyan-600 hover:text-cyan-800 hover:underline cursor-pointer font-medium md:ml-20"
     >
       {warehouse.stockCount || 0} items
     </button>
@@ -435,7 +435,7 @@ const getCleanWarehouseData = (warehouse: Warehouse): any => {
         </div>
 
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-md">
+          <div className="relative w-full sm:max-w-md md:-mt-4">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"

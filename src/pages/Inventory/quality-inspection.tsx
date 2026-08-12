@@ -647,7 +647,7 @@ const QualityInspectionManager: React.FC = () => {
                 {/* Toolbar */}
                 <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex-1 max-w-md">
-                        <div className="relative">
+                        <div className="relative md:-mt-4">
                             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input
                                 type="search"
@@ -679,7 +679,7 @@ const QualityInspectionManager: React.FC = () => {
 
                         <button
                             onClick={exportExcel}
-                            className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                            className="p-2 rounded-lg -mt-4 border border-gray-300 hover:bg-gray-50 transition-colors"
                             disabled={records.length === 0}
                             title="Export Excel"
                         >
@@ -688,7 +688,7 @@ const QualityInspectionManager: React.FC = () => {
 
                         <button
                             onClick={() => window.print()}
-                            className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                            className="p-2 rounded-lg border -mt-4  border-gray-300 hover:bg-gray-50 transition-colors"
                             disabled={records.length === 0}
                             title="Print"
                         >
@@ -730,7 +730,7 @@ const QualityInspectionManager: React.FC = () => {
                         {/* Refresh Button */}
                         <button
                             onClick={fetchRecords}
-                            className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                            className="p-2 rounded-lg border -mt-4  border-gray-300 hover:bg-gray-50 transition-colors"
                             title="Refresh"
                         >
                             <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
