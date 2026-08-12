@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import {
   PencilSquareIcon,
@@ -23,7 +23,10 @@ import PageMeta from "../../components/common/PageMeta";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
+import FilterPopover from "../../components/common/filter";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import PaginatedPopup from "../../components/common/unpopup";
+import { AddButton } from "../../components/common/AddButton";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -101,13 +104,10 @@ const parseDuration = (duration: string): { value: string; unit: "M" | "H" } => 
 
 const OvertimeRulePage: React.FC = () => {
   const [rules, setRules] = useState<OvertimeRule[]>([]);
-  const [filteredRules, setFilteredRules] = useState<OvertimeRule[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingRule, setEditingRule] = useState<OvertimeRule | null>(null);
   const [form, setForm] = useState<OvertimeRule>({ ...emptyForm });
-  const [search, setSearch] = useState<string>('');
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedActiveFilter, setSelectedActiveFilter] = useState<string>("");
   const [selectedWeekendFilter, setSelectedWeekendFilter] = useState<string>("");
   const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
@@ -137,20 +137,8 @@ const OvertimeRulePage: React.FC = () => {
     loadRules();
   }, []);
 
-  useEffect(() => {
-    applyFilters();
-  }, [rules, search, selectedActiveFilter, selectedWeekendFilter]);
-
-  const applyFilters = () => {
+  const filteredRules = useMemo(() => {
     let filtered = [...rules];
-
-    if (search) {
-      const searchTerm = search.toLowerCase();
-      filtered = filtered.filter(r =>
-        r.ruleName?.toLowerCase().includes(searchTerm) ||
-        r.description?.toLowerCase().includes(searchTerm)
-      );
-    }
 
     if (selectedActiveFilter !== "") {
       filtered = filtered.filter(r => r.active === (selectedActiveFilter === "active"));
@@ -160,8 +148,8 @@ const OvertimeRulePage: React.FC = () => {
       filtered = filtered.filter(r => r.applicableOnWeekends === (selectedWeekendFilter === "yes"));
     }
 
-    setFilteredRules(filtered);
-  };
+    return filtered;
+  }, [rules, selectedActiveFilter, selectedWeekendFilter]);
 
   // ── Form ────────────────────────────────────────────────────────────────────
 
@@ -420,202 +408,215 @@ const OvertimeRulePage: React.FC = () => {
             <h1 className="text-2xl font-bold text-gray-900">Overtime Rules</h1>
             <p className="text-sm text-gray-500 mt-0.5">Configure overtime multipliers and eligibility policies</p>
           </div>
-          {!showForm && (
-            <button
-              onClick={openCreateForm}
-              className="px-4 py-2 bg-cyan-600 !text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center gap-2 shadow-sm"
-            >
-              <PlusIcon className="h-4 w-4" />
-              <span>Add Rule</span>
-            </button>
-          )}
+          <AddButton label="Add Rule" onClick={openCreateForm} />
         </div>
 
-        {/* Stats Cards - Hidden when form is visible */}
-        {!showForm && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatsCard
+            label="Total Rules"
+            value={stats.total}
+            gradient="from-cyan-50 to-blue-50"
+            borderColor="border-cyan-100"
+            labelColor="text-cyan-600"
+            icon={<BoltIcon className="h-6 w-6" />}
+          />
+          <StatsCard
+            label="Active Rules"
+            value={stats.active}
+            gradient="from-green-50 to-emerald-50"
+            borderColor="border-green-100"
+            labelColor="text-green-600"
+            icon={<CheckCircleIcon className="h-6 w-6" />}
+          />
+          <StatsCard
+            label="Weekend Rules"
+            value={stats.weekends}
+            gradient="from-purple-50 to-pink-50"
+            borderColor="border-purple-100"
+            labelColor="text-purple-600"
+            icon={<CalendarDaysIcon className="h-6 w-6" />}
+          />
+          <StatsCard
+            label="Holiday Rules"
+            value={stats.holidays}
+            gradient="from-amber-50 to-yellow-50"
+            borderColor="border-amber-100"
+            labelColor="text-yellow-600"
+            icon={<StarIcon className="h-6 w-6" />}
+          />
+        </div>
+
+        {/* Reusable Table */}
+        <ReusableTable<OvertimeRule>
+          data={filteredRules}
+          columns={columns}
+          loading={loading}
+          searchable={true}
+          searchPlaceholder="Search by rule name or description..."
+          searchFields={["ruleName", "description"]}
+          pageSize={PAGE_SIZE}
+          defaultSortKey="priority"
+          defaultSortOrder="asc"
+          toolbar={
+            <FilterPopover
+              title="Filter Rules"
+              buttonLabel="Filter"
+              onReset={() => {
+                setSelectedActiveFilter("");
+                setSelectedWeekendFilter("");
+              }}
+              showFooter={true}
+            >
+              <div className="space-y-3">
                 <div>
-                  <p className="text-sm text-gray-500">Total Rules</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
+                  <select
+                    value={selectedActiveFilter}
+                    onChange={e => setSelectedActiveFilter(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                  >
+                    <option value="">All Rules</option>
+                    <option value="active">Active Only</option>
+                    <option value="inactive">Inactive Only</option>
+                  </select>
                 </div>
-                <div className="p-3 bg-cyan-100 rounded-full">
-                  <BoltIcon className="h-6 w-6 text-cyan-600" />
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Weekend Applicable</label>
+                  <select
+                    value={selectedWeekendFilter}
+                    onChange={e => setSelectedWeekendFilter(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                  >
+                    <option value="">All</option>
+                    <option value="yes">Applicable on Weekends</option>
+                    <option value="no">Not Applicable on Weekends</option>
+                  </select>
                 </div>
               </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Active Rules</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.active}</p>
-                </div>
-                <div className="p-3 bg-green-100 rounded-full">
-                  <CheckCircleIcon className="h-6 w-6 text-green-600" />
-                </div>
+            </FilterPopover>
+          }
+          emptyState={
+            <div className="flex flex-col items-center py-12">
+              <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <BoltIcon className="h-8 w-8 text-gray-400" />
               </div>
+              <p className="text-gray-500 text-sm font-medium mb-2">No rules found</p>
+              <button
+                onClick={openCreateForm}
+                className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
+              >
+                <PlusIcon className="h-4 w-4" />
+                Add your first rule
+              </button>
             </div>
+          }
+        />
 
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Weekend Rules</p>
-                  <p className="text-2xl font-bold text-purple-600">{stats.weekends}</p>
-                </div>
-                <div className="p-3 bg-purple-100 rounded-full">
-                  <CalendarDaysIcon className="h-6 w-6 text-purple-600" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Holiday Rules</p>
-                  <p className="text-2xl font-bold text-orange-600">{stats.holidays}</p>
-                </div>
-                <div className="p-3 bg-orange-100 rounded-full">
-                  <StarIcon className="h-6 w-6 text-orange-600" />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Conditional Rendering: Form OR Table */}
-        {showForm ? (
-          // Form View
-          <div className={`${cardCls} mb-6`}>
-            <div className="border-b border-gray-200 px-6 py-4 bg-gradient-to-r from-gray-50 to-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-cyan-100 rounded-lg">
-                    <BoltIcon className="h-5 w-5 text-cyan-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {editingRule ? "Edit Overtime Rule" : "Add Overtime Rule"}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      {editingRule ? "Update overtime rule details" : "Configure a new overtime rule"}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={resetForm}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Back to list"
+        {/* Overtime Rule Form Modal */}
+        <PaginatedPopup
+          isOpen={showForm}
+          title={editingRule ? "Edit Overtime Rule" : "Add Overtime Rule"}
+          subtitle={editingRule ? "Update overtime rule details" : "Configure a new overtime rule"}
+          onClose={resetForm}
+          onSubmit={submitForm}
+          submitLabel={editingRule ? "Update Rule" : "Add Rule"}
+          fields={[
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Rule Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.ruleName}
+                required
+                onChange={e => handleChange("ruleName", e.target.value)}
+                placeholder="e.g., Weekday OT"
+                className={inputCls}
+              />
+            </div>,
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Multiplier</label>
+              <input
+                type="number"
+                step="0.1"
+                min={1}
+                value={form.multiplier}
+                onChange={e => handleChange("multiplier", parseFloat(e.target.value))}
+                className={inputCls}
+              />
+            </div>,
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+              <input
+                type="number"
+                step="1"
+                min={1}
+                value={form.priority}
+                onChange={e => handleChange("priority", parseInt(e.target.value))}
+                className={inputCls}
+              />
+              <p className="mt-1 text-xs text-gray-500">Lower number = Higher priority</p>
+            </div>,
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Duration</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={minDurationValue}
+                  onChange={e => handleMinDurationChange(e.target.value, minDurationUnit)}
+                  placeholder="Enter duration"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                />
+                <select
+                  value={minDurationUnit}
+                  onChange={e => handleMinDurationChange(minDurationValue, e.target.value as "M" | "H")}
+                  className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 >
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
+                  <option value="M">Minutes</option>
+                  <option value="H">Hours</option>
+                </select>
               </div>
-            </div>
-
-            <form onSubmit={submitForm} className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Rule Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={form.ruleName}
-                    required
-                    onChange={e => handleChange("ruleName", e.target.value)}
-                    placeholder="e.g., Weekday OT"
-                    className={inputCls}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Multiplier</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min={1}
-                    value={form.multiplier}
-                    onChange={e => handleChange("multiplier", parseFloat(e.target.value))}
-                    className={inputCls}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
-                  <input
-                    type="number"
-                    step="1"
-                    min={1}
-                    value={form.priority}
-                    onChange={e => handleChange("priority", parseInt(e.target.value))}
-                    className={inputCls}
-                  />
-                  <p className="mt-1 text-xs text-gray-500">Lower number = Higher priority</p>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                  <textarea
-                    value={form.description}
-                    onChange={e => handleChange("description", e.target.value)}
-                    rows={2}
-                    placeholder="Describe when this rule applies..."
-                    className={inputCls}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Duration</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      value={minDurationValue}
-                      onChange={e => handleMinDurationChange(e.target.value, minDurationUnit)}
-                      placeholder="Enter duration"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                    />
-                    <select
-                      value={minDurationUnit}
-                      onChange={e => handleMinDurationChange(minDurationValue, e.target.value as "M" | "H")}
-                      className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                    >
-                      <option value="M">Minutes</option>
-                      <option value="H">Hours</option>
-                    </select>
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">Minimum overtime duration required</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Threshold Hours</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      value={thresholdValue}
-                      onChange={e => handleThresholdChange(e.target.value, thresholdUnit)}
-                      placeholder="Enter threshold"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                    />
-                    <select
-                      value={thresholdUnit}
-                      onChange={e => handleThresholdChange(thresholdValue, e.target.value as "M" | "H")}
-                      className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                    >
-                      <option value="M">Minutes</option>
-                      <option value="H">Hours</option>
-                    </select>
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">Hours after which overtime applies</p>
-                </div>
+              <p className="mt-1 text-xs text-gray-500">Minimum overtime duration required</p>
+            </div>,
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Threshold Hours</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={thresholdValue}
+                  onChange={e => handleThresholdChange(e.target.value, thresholdUnit)}
+                  placeholder="Enter threshold"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                />
+                <select
+                  value={thresholdUnit}
+                  onChange={e => handleThresholdChange(thresholdValue, e.target.value as "M" | "H")}
+                  className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                >
+                  <option value="M">Minutes</option>
+                  <option value="H">Hours</option>
+                </select>
               </div>
-
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mt-6 mb-3">Applicability</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+              <p className="mt-1 text-xs text-gray-500">Hours after which overtime applies</p>
+            </div>,
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+              <textarea
+                value={form.description}
+                onChange={e => handleChange("description", e.target.value)}
+                rows={2}
+                placeholder="Describe when this rule applies..."
+                className={inputCls}
+              />
+            </div>,
+            <div className="md:col-span-2">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Applicability</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {([
                   { key: "applicableOnWeekends", label: "Applicable on Weekends" },
                   { key: "applicableOnHolidays", label: "Applicable on Holidays" },
@@ -632,134 +633,9 @@ const OvertimeRulePage: React.FC = () => {
                   </label>
                 ))}
               </div>
-
-              <div className="flex gap-3 pt-4 border-t border-gray-200">
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-700 !mb-0 !text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-                >
-                  <BoltIcon className="h-4 w-4" />
-                  {editingRule ? "Update Rule" : "Add Rule"}
-                </button>
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-5 py-2.5 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        ) : (
-          // Table View
-          <>
-            {/* Search Bar and Filter Button in same line */}
-            <div className="mb-6 flex flex-wrap items-center gap-4">
-              <div className="flex-1 min-w-[250px]">
-                <div className="relative">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search by rule name or description..."
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`relative px-4 py-2 rounded-lg border transition-all duration-200 flex items-center gap-2 ${showFilters || activeFilterCount > 0
-                  ? 'bg-cyan-50 border-cyan-300 text-cyan-600'
-                  : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
-                  }`}
-              >
-                <FunnelIcon className="h-4 w-4" />
-                <span>Filters</span>
-                {activeFilterCount > 0 && (
-                  <span className="absolute -top-2 -right-2 h-5 w-5 bg-cyan-600 text-white text-xs rounded-full flex items-center justify-center">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </button>
-
-              {(search || activeFilterCount > 0) && (
-                <button
-                  onClick={() => {
-                    setSearch("");
-                    setSelectedActiveFilter("");
-                    setSelectedWeekendFilter("");
-                    setShowFilters(false);
-                  }}
-                  className="px-3 py-2 text-sm text-red-600 hover:text-red-800 rounded-lg border border-red-200 hover:bg-red-50 transition-colors flex items-center gap-1"
-                >
-                  <ArrowPathIcon className="h-4 w-4" />
-                  Clear All
-                </button>
-              )}
             </div>
-
-            {/* Filter Panel - Collapsible */}
-            {showFilters && (
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 animate-fadeIn">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select
-                      value={selectedActiveFilter}
-                      onChange={e => setSelectedActiveFilter(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                    >
-                      <option value="">All Rules</option>
-                      <option value="active">Active Only</option>
-                      <option value="inactive">Inactive Only</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Weekend Applicable</label>
-                    <select
-                      value={selectedWeekendFilter}
-                      onChange={e => setSelectedWeekendFilter(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                    >
-                      <option value="">All</option>
-                      <option value="yes">Applicable on Weekends</option>
-                      <option value="no">Not Applicable on Weekends</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Reusable Table */}
-            <ReusableTable<OvertimeRule>
-              data={filteredRules}
-              columns={columns}
-              loading={loading}
-              searchable={false}
-              pageSize={PAGE_SIZE}
-              defaultSortKey="priority"
-              defaultSortOrder="asc"
-              emptyState={
-                <div className="flex flex-col items-center py-12">
-                  <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                    <BoltIcon className="h-8 w-8 text-gray-400" />
-                  </div>
-                  <p className="text-gray-500 text-sm font-medium mb-2">No overtime rules found</p>
-                  <button
-                    onClick={openCreateForm}
-                    className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
-                  >
-                    <PlusIcon className="h-4 w-4" />
-                    Add your first rule
-                  </button>
-                </div>
-              }
-            />
-          </>
-        )}
+          ]}
+        />
 
         <ConfirmDialog
           isOpen={confirmState.isOpen}

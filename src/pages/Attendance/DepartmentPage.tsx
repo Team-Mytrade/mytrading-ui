@@ -166,7 +166,6 @@ const DepartmentPage: React.FC = () => {
             <h1 className="text-2xl font-bold text-gray-900">Departments</h1>
             <p className="text-sm text-gray-500 mt-0.5">Manage organisational departments and locations</p>
           </div>
-          <AddButton label="Add Department" onClick={() => { setForm({ ...emptyForm }); setShowForm(true); }} />
         </div>
 
         {/* Stats */}

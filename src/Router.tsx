@@ -82,10 +82,14 @@ import DocumentManagementPage from "./pages/Payroll/DocumentManagementPage";
 import EmployeeSelfDashboard from "./pages/Payroll/EmployeeSelfDashboard";
 import EmployeeViewPage from "./pages/Payroll/EmployeeViewPage";
 import ExitManagementPage from "./pages/Payroll/ExitManagementPage";
+import ExitApprovalsPage from "./pages/Payroll/ExitApprovalsPage";
 import ItDeclarationPage from "./pages/Payroll/ItDeclarationPage";
 import LeaveManagementPage from "./pages/Payroll/LeaveManagementPage";
 import PerformanceManagementPage from "./pages/Payroll/PerformanceManagementPage";
 import StatutoryCompliancesPage from "./pages/Payroll/StatutoryCompliancesPage";
+import PayrollProcessingEnginePage from "./pages/Payroll/PayrollProcessingEnginePage";
+import PayrollSummaryPage from "./pages/Payroll/PayrollSummaryPage";
+import DepartmentSummaryPage from "./pages/Payroll/DepartmentSummaryPage";
 import SalesSummary from "./pages/Dashboard/SalesSummary";
 import Tasks from "./pages/CRM/Tasks";
 import DashboardOverview from "./pages/Dashboard/DashboardOverview";
@@ -138,9 +142,16 @@ import AttendanceRecordPage from "./pages/Attendance/AttendanceRecordPage";
 import LeaveBalancePage from "./pages/Attendance/LeaveBalancePage";
 import LeaveRequestPage from "./pages/Attendance/LeaveRequestPage";
 import LeaveTypePage from "./pages/Attendance/LeaveTypePage";
+import LeavePolicyPage from "./pages/Attendance/LeavePolicyPage";
+import LeaveDashboardPage from "./pages/Attendance/LeaveDashboardPage";
 import NotificationPage from "./pages/Attendance/NotificationPage";
 import NotificationInboxPage from "./pages/Attendance/NotificationInboxPage";
 import NotificationDetailPage from "./pages/Attendance/NotificationDetailPage";
+import AttendancePolicyPage from "./pages/Attendance/AttendancePolicyPage";
+import HolidayCalendarPage from "./pages/Attendance/HolidayCalendarPage";
+import AttendancePunchPage from "./pages/Attendance/AttendancePunchPage";
+import AttendanceRequestsPage from "./pages/Attendance/AttendanceRequestsPage";
+import AttendanceReportsPage from "./pages/Attendance/AttendanceReportsPage";
 import OvertimeRulePage from "./pages/Attendance/OvertimeRulePage";
 import PayrollComponentPage from "./pages/Attendance/PayrollComponentPage";
 import PayrollRecordPage from "./pages/Attendance/PayrollRecordPage";
@@ -151,6 +162,7 @@ import OverTimeEntryPage from "./pages/Attendance/OverTimeEntryPage";
 import AttendanceViolationPage from "./pages/Attendance/AttendanceViolationPage";
 import AttendanceApprovalPage from "./pages/Attendance/AttendanceApprovalRequestPage";
 import ShiftSchedulePage from "./pages/Attendance/EmployeeShiftSchedulePage";
+import TimesheetManagementPage from "./pages/Attendance/TimesheetManagementPage";
 import PayrollPage from "./pages/Payroll/PayrollPage";
 import EmployeeDocumentsPage from "./pages/Payroll/EmployeeDocumentsPage";
 import SalesDashboard from "./pages/Sales/SalesDashboard";
@@ -331,9 +343,13 @@ export default function AppRouter() {
           <Route path="/employee-documents" element={<EmployeeDocumentsPage />} />
           <Route path="/performance-management" element={<PerformanceManagementPage />} />
           <Route path="/exit-management" element={<ExitManagementPage />} />
+          <Route path="/exitApprovals" element={<ExitApprovalsPage />} />
           <Route path="/statutoryCompliances" element={<StatutoryCompliancesPage />} />
           <Route path="/employees/:employeeId/documents" element={<EmployeeDocumentsPage />} />
           <Route path="/payroll_dashboard" element={<PayrollDashboard />} />
+          <Route path="/payrollEngine" element={<PayrollProcessingEnginePage />} />
+          <Route path="/payrollSummary" element={<PayrollSummaryPage />} />
+          <Route path="/departmentSummary" element={<DepartmentSummaryPage />} />
 
           <Route path="/att_attendanceApproval" element={<AttendanceApprovalPage />} />
           <Route path="/att_attendanceRecord" element={<AttendanceRecordPage />} />
@@ -341,6 +357,8 @@ export default function AppRouter() {
           <Route path="/att_shiftSchedule" element={<ShiftSchedulePage />} />
           <Route path="/att_leaveBalance" element={<LeaveBalancePage />} />
           <Route path="/att_leaveRequest" element={<LeaveRequestPage />} />
+          <Route path="/att_leavePolicy" element={<LeavePolicyPage />} />
+          <Route path="/att_leaveDashboard" element={<LeaveDashboardPage />} />
           <Route path="/att_overtimeEntry" element={<OverTimeEntryPage />} />
           <Route path="/att_leaveType" element={<LeaveTypePage />} />
           <Route path="/att_overtimeRule" element={<OvertimeRulePage />} />
@@ -350,9 +368,16 @@ export default function AppRouter() {
           <Route path="/att_workFromHomeRequests" element={<WorkFromHomeRequestPage />} />
           <Route path="/att_shift" element={<ShiftPage />} />
           <Route path="/att_notifications" element={<NotificationPage />} />
+          <Route path="/att_attendancePolicy" element={<AttendancePolicyPage />} />
+          <Route path="/att_holidayCalendar" element={<HolidayCalendarPage />} />
+          <Route path="/att_punch" element={<AttendancePunchPage />} />
+          <Route path="/att_requests" element={<AttendanceRequestsPage />} />
+          <Route path="/att_reports" element={<AttendanceReportsPage />} />
+          <Route path="/att_timesheetManagement" element={<TimesheetManagementPage />} />
           <Route path="/notifications" element={<NotificationInboxPage />} />
           <Route path="/notifications/:id" element={<NotificationDetailPage />} />
           <Route path="/attendance_dashboard" element={<AttendanceDashboard />} />
+          <Route path="/att_timesheetManagement" element={<TimesheetManagementPage />} />
 
           <Route path="/sales-summary" element={<SalesSummary />} />
           <Route path="/activities" element={<Tasks />} />

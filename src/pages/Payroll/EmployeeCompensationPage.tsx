@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import {
     TrashIcon,
@@ -19,6 +19,7 @@ import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -303,6 +304,93 @@ const EmployeeCompensationPage: React.FC = () => {
     const defaultConfigurations = compensations.filter(item => item.isDefaultComponent).length;
     const averageComponentsPerRole = totalRoles > 0 ? (totalComponents / totalRoles).toFixed(1) : "0.0";
 
+    const tableData = useMemo(() => {
+        return compensations.map((item, index) => {
+            const components = item.componentDetails || {};
+            const total = Object.values(components).reduce((sum, val) => sum + val, 0);
+            return {
+                id: item.employeeRole || `role-${index}`,
+                employeeRole: item.employeeRole,
+                componentDetails: components,
+                total,
+                isDefaultComponent: item.isDefaultComponent || false,
+                rawItem: item,
+            };
+        });
+    }, [compensations]);
+
+    const columns: ColumnDef<any>[] = [
+        {
+            key: "employeeRole",
+            label: "Employee Role",
+            sortable: true,
+            render: (row) => (
+                <div className="flex items-center gap-2">
+                    <BriefcaseIcon className="h-5 w-5 text-cyan-600 flex-shrink-0" />
+                    <div>
+                        <span className="font-semibold text-gray-900">{row.employeeRole}</span>
+                        {row.isDefaultComponent && (
+                            <span className="ml-2 text-xs bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full font-medium">
+                                Default
+                            </span>
+                        )}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            key: "componentDetails",
+            label: "Components Breakdown",
+            render: (row) => {
+                const entries = Object.entries(row.componentDetails || {});
+                if (entries.length === 0) return <span className="text-gray-400 text-xs">No components</span>;
+                return (
+                    <div className="flex flex-wrap gap-1.5 py-1">
+                        {entries.map(([name, pct]) => (
+                            <span key={name} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-50 text-gray-800 border border-gray-200 shadow-2xsm">
+                                <span className="font-semibold text-gray-600 mr-1">{name}:</span> {pct as number}%
+                            </span>
+                        ))}
+                    </div>
+                );
+            },
+        },
+        {
+            key: "total",
+            label: "Total %",
+            sortable: true,
+            render: (row) => (
+                <span className="font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full text-xs border border-cyan-100">
+                    {row.total}%
+                </span>
+            ),
+        },
+        {
+            key: "actions",
+            label: "Actions",
+            headerClassName: "text-right",
+            className: "text-right",
+            render: (row) => (
+                <div className="flex items-center justify-end gap-2">
+                    <button
+                        onClick={() => handleEdit(row.rawItem)}
+                        className="p-1.5 text-gray-500 hover:text-cyan-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Edit"
+                    >
+                        <PencilSquareIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                        onClick={() => handleDelete(row.employeeRole)}
+                        className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Delete"
+                    >
+                        <TrashIcon className="h-4 w-4" />
+                    </button>
+                </div>
+            ),
+        },
+    ];
+
     return (
         <>
             <PageMeta title="Employee Compensations" description="Configure compensation components by role" />
@@ -336,10 +424,10 @@ const EmployeeCompensationPage: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-3 w-full sm:w-auto">
                         {!showForm && (
-                            <div className="relative">
+                            <div className="relative flex h-10 items-center">
                                 <button
                                     onClick={() => setShowExportMenu(!showExportMenu)}
-                                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                                    className="h-10 w-10 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
                                     disabled={compensations.length === 0}
                                 >
                                     <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
@@ -364,7 +452,6 @@ const EmployeeCompensationPage: React.FC = () => {
                                 )}
                             </div>
                         )}
-
                     </div>
                 </div>
 
@@ -587,89 +674,17 @@ const EmployeeCompensationPage: React.FC = () => {
                     </div>
                 )}
 
-                {/* Compensations List */}
+                {/* Compensations List Table */}
                 {!showForm && (
-                    <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
-                        {loading ? (
-                            <div className="py-12 text-center">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mx-auto mb-3"></div>
-                                <p className="text-gray-500 text-sm">Loading compensations...</p>
-                            </div>
-                        ) : compensations.length === 0 ? (
-                            <div className="py-12 text-center">
-                                <BriefcaseIcon className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                                <p className="text-gray-500 text-sm mb-2">No compensation configurations found</p>
-                                <p className="text-gray-400 text-xs">Click "Add Role Compensation" to create one</p>
-                            </div>
-                        ) : (
-                            <div className="divide-y divide-gray-200">
-                                {compensations.map((compItem, idx) => {
-                                    const components = compItem.componentDetails || {};
-                                    const total = Object.values(components).reduce((sum, val) => sum + val, 0);
-                                    const totalRoles = compensations.length;
-    const totalComponents = compensations.reduce((sum, item) => sum + Object.keys(item.componentDetails || {}).length, 0);
-    const defaultConfigurations = compensations.filter(item => item.isDefaultComponent).length;
-    const averageComponentsPerRole = totalRoles > 0 ? (totalComponents / totalRoles).toFixed(1) : "0.0";
-
-    return (
-                                        <div key={compItem.employeeRole || idx} className="p-4 sm:p-6 hover:bg-gray-50 transition-colors">
-                                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-                                                <div className="w-full sm:w-auto">
-                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                        <BriefcaseIcon className="h-5 w-5 text-cyan-600 flex-shrink-0" />
-                                                        <h3 className="text-lg font-semibold text-gray-900 break-words">
-                                                            {compItem.employeeRole}
-                                                        </h3>
-                                                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full whitespace-nowrap">
-                                                            Total: {total}%
-                                                        </span>
-                                                        {compItem.isDefaultComponent && (
-                                                            <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full whitespace-nowrap">
-                                                                Default
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <p className="text-sm text-gray-500 mt-1">
-                                                        {Object.keys(components).length} component(s) configured
-                                                    </p>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() => handleEdit(compItem)}
-                                                        className="p-2 text-gray-500 hover:text-cyan-600 transition-colors"
-                                                        title="Edit"
-                                                    >
-                                                        <PencilSquareIcon className="h-4 w-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDelete(compItem.employeeRole)}
-                                                        className="p-2 text-gray-500 hover:text-red-600 transition-colors"
-                                                        title="Delete"
-                                                    >
-                                                        <TrashIcon className="h-4 w-4" />
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                                                {Object.entries(components).map(([name, percentage]) => (
-                                                    <div
-                                                        key={name}
-                                                        className="bg-gray-50 rounded-lg p-3 border border-gray-100"
-                                                    >
-                                                        <div className="text-xs text-gray-500 uppercase tracking-wider truncate" title={name}>
-                                                            {name}
-                                                        </div>
-                                                        <div className="text-xl font-semibold text-gray-900">{percentage}%</div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
+                    <ReusableTable
+                        data={tableData}
+                        columns={columns}
+                        loading={loading}
+                        searchable={true}
+                        searchPlaceholder="Search role..."
+                        searchFields={["employeeRole"]}
+                        pageSize={10}
+                    />
                 )}
 
                 {/* Disclaimer Modal */}

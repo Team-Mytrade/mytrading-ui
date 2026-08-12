@@ -34,6 +34,8 @@ import { Menu } from "@headlessui/react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
+import FilterPopover from "../../components/common/filter";
+import PaginatedPopup from "../../components/common/unpopup";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { ArrowCircleDownRounded, Image } from "@mui/icons-material";
@@ -66,7 +68,6 @@ const EmployeeDocumentsPage: React.FC = () => {
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
     const [page, setPage] = useState(1);
     const [isUploadOpen, setIsUploadOpen] = useState(false);
-    const [showFilters, setShowFilters] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [verifiedFilter, setVerifiedFilter] = useState<"All" | "Verified" | "Pending">("All");
     const [typeFilter, setTypeFilter] = useState<string>("");
@@ -394,13 +395,43 @@ const EmployeeDocumentsPage: React.FC = () => {
                         </button>
 
                         {/* Filter Button */}
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className={`p-2 rounded-lg border ${showFilters ? 'bg-cyan-50 border-cyan-300' : 'border-gray-300 hover:bg-gray-50'
-                                }`}
+                        <FilterPopover
+                            title="Filter Documents"
+                            buttonLabel="Filter"
+                            onReset={() => {
+                                setVerifiedFilter("All");
+                                setTypeFilter("");
+                            }}
+                            showFooter={true}
                         >
-                            <FunnelIcon className={`h-5 w-5 ${showFilters ? 'text-cyan-600' : 'text-gray-600'}`} />
-                        </button>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="mb-1 block text-sm font-medium text-gray-700">Verification Status</label>
+                                    <select
+                                        value={verifiedFilter}
+                                        onChange={e => { setVerifiedFilter(e.target.value as any); setPage(1); }}
+                                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                                    >
+                                        <option value="All">All Status</option>
+                                        <option value="Verified">Verified</option>
+                                        <option value="Pending">Pending</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="mb-1 block text-sm font-medium text-gray-700">Document Type</label>
+                                    <select
+                                        value={typeFilter}
+                                        onChange={e => { setTypeFilter(e.target.value); setPage(1); }}
+                                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                                    >
+                                        <option value="">All Types</option>
+                                        {uniqueTypes.map(type => (
+                                            <option key={type} value={type}>{type}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        </FilterPopover>
 
                         {/* Refresh Button */}
                         <button
@@ -413,50 +444,6 @@ const EmployeeDocumentsPage: React.FC = () => {
                         </button>
                     </div>
                 </div>
-
-                {/* Filters Panel */}
-                {showFilters && (
-                    <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex flex-wrap gap-4">
-                            <div className="flex-1 min-w-[200px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Verification Status</label>
-                                <select
-                                    value={verifiedFilter}
-                                    onChange={e => { setVerifiedFilter(e.target.value as any); setPage(1); }}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                                >
-                                    <option value="All">All Status</option>
-                                    <option value="Verified">Verified</option>
-                                    <option value="Pending">Pending</option>
-                                </select>
-                            </div>
-                            <div className="flex-1 min-w-[200px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Document Type</label>
-                                <select
-                                    value={typeFilter}
-                                    onChange={e => { setTypeFilter(e.target.value); setPage(1); }}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                                >
-                                    <option value="">All Types</option>
-                                    {uniqueTypes.map(type => (
-                                        <option key={type} value={type}>{type}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            {(verifiedFilter !== "All" || typeFilter) && (
-                                <button
-                                    onClick={() => {
-                                        setVerifiedFilter("All");
-                                        setTypeFilter("");
-                                    }}
-                                    className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
-                                >
-                                    Clear Filters
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                )}
 
                 {/* Documents Grid */}
                 {!isUploadOpen && (
@@ -665,101 +652,75 @@ const EmployeeDocumentsPage: React.FC = () => {
                 )}
 
                 {/* Upload Modal */}
-                {isUploadOpen && (
-                    <div className="fixed inset-0 z-50 overflow-y-auto">
-                        <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setIsUploadOpen(false)}></div>
-                            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                                    <div className="sm:flex sm:items-start">
-                                        <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                                            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                                                Upload Document
-                                            </h3>
-                                            <form onSubmit={handleUpload} className="space-y-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Document Type</label>
-                                                    <select
-                                                        value={documentType}
-                                                        onChange={e => setDocumentType(e.target.value)}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        required
-                                                    >
-                                                        <option value="">Select Document Type</option>
-                                                        <option value="PAN">PAN Card</option>
-                                                        <option value="AADHAAR">Aadhaar Card</option>
-                                                        <option value="PASSPORT">Passport</option>
-                                                        <option value="WORK_PERMIT">Work Permit</option>
-                                                        <option value="EDUCATION">Education Certificate</option>
-                                                        <option value="EXPERIENCE">Experience Letter</option>
-                                                        <option value="PHOTO">Photograph</option>
-                                                        <option value="SIGNATURE">Signature</option>
-                                                        <option value="OTHER">Other</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700">File</label>
-                                                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg">
-                                                        <div className="space-y-1 text-center">
-                                                            <ArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
-                                                            <div className="flex text-sm text-gray-600">
-                                                                <label className="relative cursor-pointer bg-white rounded-md font-medium text-cyan-600 hover:text-cyan-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-cyan-500">
-                                                                    <span>Upload a file</span>
-                                                                    <input
-                                                                        type="file"
-                                                                        className="sr-only"
-                                                                        onChange={e => setFile(e.target.files?.[0] || null)}
-                                                                        required
-                                                                    />
-                                                                </label>
-                                                                <p className="pl-1">or drag and drop</p>
-                                                            </div>
-                                                            <p className="text-xs text-gray-500">
-                                                                PDF, PNG, JPG, DOC up to 10MB
-                                                            </p>
-                                                            {file && (
-                                                                <p className="text-xs text-cyan-600 mt-2">
-                                                                    Selected: {file.name} ({(file.size / 1024).toFixed(2)} KB)
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                                                    <p className="text-sm text-blue-800">
-                                                        <strong>Note:</strong> Encrypted assets take 24-48 hours for auditing. 
-                                                        Ensure clarity in source scans for faster verification.
-                                                    </p>
-                                                </div>
-                                            </form>
-                                        </div>
+                <PaginatedPopup
+                    isOpen={isUploadOpen}
+                    title="Upload Document"
+                    onClose={() => setIsUploadOpen(false)}
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        handleUpload(e);
+                    }}
+                    submitLabel={loading ? "Uploading..." : "Upload"}
+                    cancelLabel="Cancel"
+                    maxWidthClassName="max-w-lg"
+                    submitting={loading}
+                    fields={[
+                        <div key="doc-type">
+                            <label className="block text-sm font-medium text-gray-700">Document Type</label>
+                            <select
+                                value={documentType}
+                                onChange={e => setDocumentType(e.target.value)}
+                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
+                                required
+                            >
+                                <option value="">Select Document Type</option>
+                                <option value="PAN">PAN Card</option>
+                                <option value="AADHAAR">Aadhaar Card</option>
+                                <option value="PASSPORT">Passport</option>
+                                <option value="WORK_PERMIT">Work Permit</option>
+                                <option value="EDUCATION">Education Certificate</option>
+                                <option value="EXPERIENCE">Experience Letter</option>
+                                <option value="PHOTO">Photograph</option>
+                                <option value="SIGNATURE">Signature</option>
+                                <option value="OTHER">Other</option>
+                            </select>
+                        </div>,
+                        <div key="file-upload">
+                            <label className="block text-sm font-medium text-gray-700">File</label>
+                            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg">
+                                <div className="space-y-1 text-center">
+                                    <ArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
+                                    <div className="flex text-sm text-gray-600">
+                                        <label className="relative cursor-pointer bg-white rounded-md font-medium text-cyan-600 hover:text-cyan-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-cyan-500">
+                                            <span>Upload a file</span>
+                                            <input
+                                                type="file"
+                                                className="sr-only"
+                                                onChange={e => setFile(e.target.files?.[0] || null)}
+                                                required
+                                            />
+                                        </label>
+                                        <p className="pl-1">or drag and drop</p>
                                     </div>
-                                </div>
-                                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                                    <button
-                                        type="submit"
-                                        onClick={handleUpload}
-                                        disabled={loading}
-                                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        {loading ? (
-                                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                                        ) : (
-                                            "Upload"
-                                        )}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsUploadOpen(false)}
-                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        Cancel
-                                    </button>
+                                    <p className="text-xs text-gray-500">
+                                        PDF, PNG, JPG, DOC up to 10MB
+                                    </p>
+                                    {file && (
+                                        <p className="text-xs text-cyan-600 mt-2">
+                                            Selected: {file.name} ({(file.size / 1024).toFixed(2)} KB)
+                                        </p>
+                                    )}
                                 </div>
                             </div>
+                        </div>,
+                        <div key="note-box" className="col-span-2 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            <p className="text-sm text-blue-800">
+                                <strong>Note:</strong> Encrypted assets take 24-48 hours for auditing. 
+                                Ensure clarity in source scans for faster verification.
+                            </p>
                         </div>
-                    </div>
-                )}
+                    ]}
+                />
 
                 {/* View Details Modal */}
                 {viewModalOpen && selectedDocument && (

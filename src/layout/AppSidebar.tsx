@@ -15,11 +15,18 @@ import {
 import { useSidebar } from "../context/SidebarContext";
 import { AuthContext } from "../context/AuthContext";
 
+type SubItem = {
+  name: string;
+  path?: string;
+  subItems?: { name: string; path: string }[];
+  roles?: string[];
+};
+
 type NavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
-  subItems?: { name: string; path: string }[];
+  subItems?: SubItem[];
 };
 
 export const navItems: NavItem[] = [
@@ -141,35 +148,43 @@ export const navItems: NavItem[] = [
     subItems: [
       { name: "Department", path: "/employeeDepartments" },
       { name: "Compensation", path: "/employeeCompensation" },
-      { name: "Records", path: "/employeeRecords" }, //SKU (Stock Keeping Unit)
+      { name: "Records", path: "/employeeRecords" },
       { name: "Salary", path: "/employeeSalary" },
       { name: "Payslips", path: "/employeePayslips" },
       { name: "Payroll", path: "/employeePayroll" },
-
+      { 
+        name: "Reports", 
+        subItems: [
+          { name: "Payroll Summary", path: "/payrollSummary" },
+          { name: "Department Summary", path: "/departmentSummary" }
+        ]
+      },
+      { name: "Payroll Engine", path: "/payrollEngine" },
+      { name: "IT Declaration", path: "/it-declaration" },
       { name: "Salary Structure", path: "/salaryStructure" },
-
-      // { name: "Attendance Logs", path: "/attendanceLogs"},
-      // { name: "Leave Requests / Approvals", path: "/leaveRequests"},
-      // { name: "Tax Deductions", path: "/taxDeductions"},
+      { name: "Leave Requests / Approvals", path: "/leaveRequests"},
       { name: "Payroll Runs / Payslips", path: "/payrollRuns" },
-      // { name: "Benefits / Allowances", path: "/benefits"},
       { name: "Documents", path: "/employeeDocuments" },
+      { name: "Exit Approvals", path: "/exitApprovals" },
+      { name: "Exit Management", path: "/exit-management" },
     ],
   },
   {
     icon: <Calendar className="w-5 h-5" />,
     name: "Attendance",
     subItems: [
-      { name: "Shift", path: "/att_shift" },
-      { name: "Shift Schedule", path: "/att_shiftSchedule" },
-      { name: "Attendance Record", path: "/att_attendanceRecord" },
-      { name: "Attendance Approval", path: "/att_attendanceApproval" },
-      { name: "Attendance Violation", path: "/att_attendanceViolation" },
-      { name: "Leave Balance", path: "/att_leaveBalance" },
-      { name: "Leave Request", path: "/att_leaveRequest" },
-      { name: "Leave Type", path: "/att_leaveType" },
-      { name: "Overtime", path: "/att_overtimeEntry" },
-      { name: "WFH Request", path: "/att_workFromHomeRequests" },
+      { name: "Leave Policy Master", path: "/att_leavePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
+      { name: "Leave Application & Balances", path: "/att_leaveRequest" },
+      { name: "Attendance & Leave Approvals", path: "/att_attendanceApproval", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+      { name: "Leave Dashboard & Audits", path: "/att_leaveDashboard" },
+      { name: "Attendance Punch", path: "/att_punch" },
+      { name: "Attendance Regularization", path: "/att_timesheetManagement" },
+      { name: "On Duty Requests", path: "/att_requests" },
+      { name: "Shift Roster & Schedule", path: "/att_shiftSchedule", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+      { name: "Shift Master", path: "/att_shift", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
+      { name: "Holiday Calendar", path: "/att_holidayCalendar" },
+      { name: "Attendance Policy", path: "/att_attendancePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
+      { name: "Attendance Reports", path: "/att_reports", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
     ],
   },
   {
@@ -231,6 +246,10 @@ const AppSidebar: React.FC = () => {
   const [subMenuHeight, setSubMenuHeight] = useState<Record<number, number>>({});
   const subMenuRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const menuItemRefs = useRef<Record<number, HTMLElement | null>>({});
+
+  const [openSubSubmenu, setOpenSubSubmenu] = useState<string | null>(null);
+  const [subSubMenuHeight, setSubSubMenuHeight] = useState<Record<string, number>>({});
+  const subSubMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const [userName, setUserName] = useState<string>("User");
   const [userRole, setUserRole] = useState<string>("Admin");
@@ -370,28 +389,43 @@ const AppSidebar: React.FC = () => {
     let submenuMatched = false;
     navItems.forEach((nav, index) => {
       if (nav.subItems) {
-        nav.subItems.forEach((subItem) => {
-          if (isActive(subItem.path)) {
+        nav.subItems.forEach((subItem, subIndex) => {
+          // Check level 2 items
+          if (subItem.path && isActive(subItem.path)) {
             setOpenSubmenu(index);
+            // Close sub-submenus if we match a level 2 item
+            setOpenSubSubmenu(null);
             submenuMatched = true;
+          }
+          // Check level 3 items (nested sub-menus)
+          if (subItem.subItems) {
+            subItem.subItems.forEach((ssItem) => {
+              if (ssItem.path && isActive(ssItem.path)) {
+                setOpenSubmenu(index);
+                setOpenSubSubmenu(`${index}-${subIndex}`);
+                submenuMatched = true;
+              }
+            });
           }
         });
       }
     });
-    if (!submenuMatched) setOpenSubmenu(null);
-  }, [location, isActive]);
-
-  useEffect(() => {
-    if (openSubmenu !== null && subMenuRefs.current[openSubmenu]) {
-      setSubMenuHeight((prev) => ({
-        ...prev,
-        [openSubmenu]: subMenuRefs.current[openSubmenu]?.scrollHeight || 0,
-      }));
+    if (!submenuMatched) {
+      setOpenSubmenu(null);
+      setOpenSubSubmenu(null);
     }
-  }, [openSubmenu]);
+  }, [location.pathname, isActive]);
 
   const handleSubmenuToggle = (index: number) => {
-    setOpenSubmenu((prev) => (prev === index ? null : index));
+    setOpenSubmenu(prev => prev === index ? null : index);
+    if (openSubmenu !== index) {
+      setOpenSubSubmenu(null);
+    }
+  };
+
+  const handleSubSubmenuToggle = (key: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    setOpenSubSubmenu(prev => prev === key ? null : key);
   };
 
   const handleTooltipEnter = (index: number, event: React.MouseEvent<HTMLElement>) => {
@@ -450,35 +484,87 @@ const AppSidebar: React.FC = () => {
 
           {(isExpanded || isMobileOpen) && (
             <div
-              ref={(el) => {
-                subMenuRefs.current[index] = el;
-              }}
-              className="overflow-hidden transition-all duration-300"
-              style={{ height: openSubmenu === index ? `${subMenuHeight[index] ?? 0}px` : "0px" }}
+              ref={(el) => { subMenuRefs.current[index] = el; }}
+              className={`grid transition-all duration-300 ease-in-out ${openSubmenu === index ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
             >
-              <div className="ml-9 pl-2 mt-1 space-y-0.5 border-l border-gray-200 dark:border-gray-700">
-                {nav.subItems.map((subItem) => (
-                  <Link
-                    key={subItem.name}
-                    to={subItem.path}
-                    className={`
-                      block px-3 py-1.5 text-sm rounded-md transition-all duration-200
-                      ${
-                        isActive(subItem.path)
+              <div className="overflow-hidden">
+                <div className="ml-9 pl-2 mt-1 space-y-0.5 border-l border-gray-200 dark:border-gray-700">
+                {nav.subItems.filter(subItem => {
+                  if (!subItem.roles) return true;
+                  const currentRole = (user?.role || userRole || "SUPER_ADMIN").toUpperCase().replace(/[\s_]+/g, "");
+                  return subItem.roles.some(r => r.toUpperCase().replace(/[\s_]+/g, "") === currentRole || currentRole === "SUPERADMIN");
+                }).map((subItem, subIndex) => {
+                  const subKey = `${index}-${subIndex}`;
+                  const hasSubSubItems = subItem.subItems && subItem.subItems.length > 0;
+                  
+                  if (hasSubSubItems) {
+                    return (
+                      <div key={subItem.name} className="relative mt-0.5">
+                        <button
+                          onClick={(e) => handleSubSubmenuToggle(subKey, e)}
+                          className={`
+                            w-full flex items-center justify-between px-3 py-1.5 text-sm rounded-md transition-all duration-200
+                            ${openSubSubmenu === subKey
+                              ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
+                              : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800"
+                            }
+                          `}
+                        >
+                          <span>{subItem.name}</span>
+                          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openSubSubmenu === subKey ? "rotate-180" : ""}`} />
+                        </button>
+                        
+                        <div
+                          ref={(el) => { subSubMenuRefs.current[subKey] = el; }}
+                          className={`grid transition-all duration-300 ease-in-out ${openSubSubmenu === subKey ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+                        >
+                          <div className="overflow-hidden">
+                            <div className="ml-4 pl-2 mt-1 space-y-0.5 border-l border-gray-200 dark:border-gray-700">
+                            {subItem.subItems!.map((ssItem) => (
+                              <Link
+                                key={ssItem.name}
+                                to={ssItem.path || "#"}
+                                className={`
+                                  block px-3 py-1.5 text-xs rounded-md transition-all duration-200
+                                  ${isActive(ssItem.path || "")
+                                    ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
+                                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800"
+                                  }
+                                `}
+                              >
+                                {ssItem.name}
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <Link
+                      key={subItem.name}
+                      to={subItem.path || "#"}
+                      className={`
+                        block px-3 py-1.5 text-sm rounded-md transition-all duration-200
+                        ${isActive(subItem.path || "")
                           ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
                           : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800"
-                      }
-                    `}
-                  >
-                    {subItem.name}
-                  </Link>
-                ))}
+                        }
+                      `}
+                    >
+                      {subItem.name}
+                    </Link>
+                  );
+                })}
               </div>
             </div>
-          )}
-        </div>
-      );
-    }
+          </div>
+        )}
+      </div>
+    );
+  }
 
     if (nav.path) {
       const linkElement = (
@@ -524,7 +610,7 @@ const AppSidebar: React.FC = () => {
         }}
         className={`
           fixed top-0 left-0 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800
-          shadow-lg z-30 flex flex-col
+          shadow-lg z-[50] flex flex-col
           ${isResizing ? "transition-none select-none" : "transition-all duration-300 ease-in-out"}
           ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
           lg:translate-x-0
@@ -558,7 +644,30 @@ const AppSidebar: React.FC = () => {
 
         {/* Navigation */}
         <div className="flex-1 overflow-y-auto py-4 px-2 no-scrollbar">
-          <div className="space-y-1">{navItems.map((nav, index) => renderMenuItem(nav, index))}</div>
+          <div className="space-y-1">
+            {navItems.map((nav, index) => {
+              const isAdmin = (userRole === "SUPER_ADMIN" || userRole === "ADMIN" || user?.roles?.includes("SUPER_ADMIN") || user?.roles?.includes("ADMIN")) && user?.userType !== "USER" && user?.userType !== "EMPLOYEE";
+              if (nav.name === "HRMS" && nav.subItems) {
+                const mappedSubItems = nav.subItems.filter(sub => {
+                  if (sub.name === "Exit Approvals" && !isAdmin) {
+                    return false;
+                  }
+                  return true;
+                });
+                return renderMenuItem({ ...nav, subItems: mappedSubItems }, index);
+              }
+              if (nav.name === "Profile" && nav.subItems) {
+                const mappedSubItems = nav.subItems.filter(sub => {
+                  if (sub.name === "Configurations" && !isAdmin) {
+                    return false;
+                  }
+                  return true;
+                });
+                return renderMenuItem({ ...nav, subItems: mappedSubItems }, index);
+              }
+              return renderMenuItem(nav, index);
+            })}
+          </div>
         </div>
 
         {/* User Profile */}
@@ -620,21 +729,47 @@ const AppSidebar: React.FC = () => {
           {activeTooltipItem?.subItems ? (
             <div className="flex flex-col gap-0.5">
               {activeTooltipItem.subItems.map((subItem) => (
-                <Link
-                  key={subItem.name}
-                  to={subItem.path}
-                  className={`
-                    px-3 py-2 text-sm rounded-lg transition-all duration-200 block whitespace-nowrap text-left
-                    ${
-                      isActive(subItem.path)
-                        ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400 font-semibold"
-                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-                    }
-                  `}
-                  onClick={() => setTooltipVisible(null)}
-                >
-                  {subItem.name}
-                </Link>
+                <div key={subItem.name}>
+                  {subItem.path ? (
+                    <Link
+                      to={subItem.path}
+                      className={`
+                        px-3 py-2 text-sm rounded-lg transition-all duration-200 block whitespace-nowrap text-left
+                        ${isActive(subItem.path)
+                          ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400 font-semibold"
+                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                        }
+                      `}
+                      onClick={() => setTooltipVisible(null)}
+                    >
+                      {subItem.name}
+                    </Link>
+                  ) : (
+                    <div className="px-3 py-2 text-sm rounded-lg block whitespace-nowrap text-left text-gray-800 dark:text-gray-200 font-semibold bg-gray-100 dark:bg-gray-800">
+                      {subItem.name}
+                    </div>
+                  )}
+                  {subItem.subItems && (
+                    <div className="ml-3 mt-1 flex flex-col gap-0.5 border-l border-gray-200 dark:border-gray-700 pl-2">
+                      {subItem.subItems.map((ssItem) => (
+                        <Link
+                          key={ssItem.name}
+                          to={ssItem.path || "#"}
+                          className={`
+                            px-3 py-1.5 text-xs rounded-lg transition-all duration-200 block whitespace-nowrap text-left
+                            ${isActive(ssItem.path || "")
+                              ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400 font-semibold"
+                              : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                            }
+                          `}
+                          onClick={() => setTooltipVisible(null)}
+                        >
+                          {ssItem.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           ) : (

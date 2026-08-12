@@ -21,6 +21,8 @@ import {
 } from "recharts";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import StatsCard from "../../components/common/Statscard";
+import ReusableTable, { ColumnDef } from "../../components/common/Table";
 
 // Mock Data
 const attendanceTrendData = [
@@ -119,6 +121,34 @@ const getStatusColor = (status: string) => {
 const AttendanceDashboard: React.FC = () => {
   const navigate = useNavigate();
 
+  const recentLeaveColumns: ColumnDef<any>[] = [
+    {
+      key: "employee",
+      label: "Employee",
+    },
+    {
+      key: "type",
+      label: "Leave Type",
+    },
+    {
+      key: "days",
+      label: "Days",
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (row) => (
+        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(row.status)}`}>
+          {row.status}
+        </span>
+      ),
+    },
+    {
+      key: "date",
+      label: "Date",
+    },
+  ];
+
   return (
     <>
       <PageMeta title="Attendance Dashboard" description="Manage employee attendance and leave" />
@@ -152,26 +182,31 @@ const AttendanceDashboard: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
           {kpiItems.map((kpi, idx) => {
             const Icon = kpi.icon;
-            const TrendIcon = kpi.trend === "up" ? ArrowUpRight : ArrowDownRight;
-            const kpiColorClass = kpiColorClasses[kpi.color as ColorKey];
-            const trendColor = trendColors[kpi.trend];
             return (
-              <div
+              <StatsCard
                 key={idx}
-                className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-all duration-200"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`p-2.5 rounded-lg ${kpiColorClass}`}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${trendColor}`}>
-                    <TrendIcon className="h-3 w-3" />
-                    {kpi.change}
-                  </span>
-                </div>
-                <p className="text-2xl font-bold text-gray-900">{kpi.value}</p>
-                <p className="text-sm text-gray-500 mt-1">{kpi.label}</p>
-              </div>
+                label={kpi.label}
+                value={kpi.value}
+                gradient={
+                  kpi.color === "blue" ? "from-cyan-50 to-blue-50" :
+                  kpi.color === "emerald" ? "from-green-50 to-emerald-50" :
+                  kpi.color === "orange" ? "from-amber-50 to-yellow-50" :
+                  "from-purple-50 to-pink-50"
+                }
+                borderColor={
+                  kpi.color === "blue" ? "border-cyan-100" :
+                  kpi.color === "emerald" ? "border-green-100" :
+                  kpi.color === "orange" ? "border-amber-100" :
+                  "border-purple-100"
+                }
+                labelColor={
+                  kpi.color === "blue" ? "text-cyan-600" :
+                  kpi.color === "emerald" ? "text-green-600" :
+                  kpi.color === "orange" ? "text-amber-600" :
+                  "text-purple-600"
+                }
+                icon={<Icon className="h-6 w-6" />}
+              />
             );
           })}
         </div>
@@ -277,40 +312,18 @@ const AttendanceDashboard: React.FC = () => {
         {/* Recent Leave Requests & Pending Approvals */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Recent Leave Requests Table */}
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100">
-              <h3 className="text-base font-semibold text-gray-900">Recent Leave Requests</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Latest leave applications</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-100">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leave Type</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {recentLeaveRequests.map((leave) => (
-                    <tr key={leave.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">{leave.employee}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{leave.type}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{leave.days}</td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(leave.status)}`}>
-                          {leave.status}
-                        </span>
-                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">{leave.date}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <ReusableTable
+            data={recentLeaveRequests}
+            columns={recentLeaveColumns}
+            searchable={false}
+            pageSize={5}
+            toolbar={
+              <div className="px-4 py-3">
+                <h3 className="text-base font-semibold text-gray-900">Recent Leave Requests</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Latest leave applications</p>
+              </div>
+            }
+          />
 
           {/* Pending Approvals */}
           <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">

@@ -31,7 +31,11 @@ const productCategoryConfig: PurchaseResourceConfig = {
   getByIdEndpoint: (row) => `${CATEGORIES}/${row.id}`,
   getRequestParams: () => {
     const tenantId = getStoredTenantId();
-    return tenantId ? { tenantId } : {};
+    const params: Record<string, string | number | boolean> = {};
+    if (tenantId) {
+      params.tenantId = tenantId;
+    }
+    return params;
   },
   columns: [
     { key: "categoryName", label: "Category Name" },

@@ -170,7 +170,7 @@ const OpportunitiesPage: React.FC = () => {
             }
           />
           <StatsCard
-            // label="Avg. Deal Size"
+            label="Avg. Deal Size"
             value={`$${avgDeal.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
             icon={
               <div className="p-3 bg-cyan-100 rounded-full">
