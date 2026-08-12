@@ -794,7 +794,7 @@ const SalesTargets: React.FC = () => {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between md:-mb-5">
-          <div className="relative w-full sm:max-w-md mt-0.5">
+          <div className="relative w-full sm:max-w-md mt-1">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"

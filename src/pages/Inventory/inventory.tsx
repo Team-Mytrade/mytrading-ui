@@ -789,7 +789,7 @@ const fetchAllStock = async (): Promise<void> => {
 
         {/* Search and Filters + Buttons */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-md">
+          <div className="relative w-full sm:max-w-md -mt-8">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
@@ -809,12 +809,12 @@ const fetchAllStock = async (): Promise<void> => {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center  gap-2">
             {/* Check Availability Button */}
             <button
               onClick={() => setShowAvailabilityModal(true)}
             
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600"
+              className="inline-flex items-center gap-2 -mt-3.5 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600"
               title="Check stock availability for a product in a warehouse"
             >
               <ClipboardDocumentCheckIcon className="h-4 w-4" />
@@ -827,7 +827,7 @@ const fetchAllStock = async (): Promise<void> => {
                 // Show product summary modal with first product selected
                 setShowProductStockModal(true);
               }}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-purple-600"
+              className="inline-flex items-center -mt-3.5 gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-purple-600"
               title="View stock summary for a product across all warehouses"
             >
               <ChartBarIcon className="h-4 w-4" />
@@ -849,7 +849,7 @@ const fetchAllStock = async (): Promise<void> => {
       setStatusFilter("low");
     }
   }}
-  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+  className={`inline-flex items-center -mt-3.5 gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
     statusFilter === "low" 
       ? 'bg-red-50 text-red-700 border-red-200' 
       : 'bg-white text-gray-700 border-gray-200 hover:bg-red-50 hover:text-red-600'

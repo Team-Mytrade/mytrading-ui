@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
+import FilterPopover from "../../components/common/filter";
 import {
   CubeIcon,
   BuildingOffice2Icon,
   ExclamationTriangleIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
   ArrowPathIcon,
   ClockIcon,
   UserIcon,
@@ -277,7 +280,7 @@ const InventoryReports: React.FC = () => {
   const [movements] = useState<Movement[]>(STATIC_MOVEMENT_DATA);
   const [adjustments] = useState<Adjustment[]>(STATIC_ADJUSTMENT_DATA);
   const [loading, setLoading] = useState(false);
-
+  const [search, setSearch] = useState("")
   // Simulate loading
   useEffect(() => {
     setLoading(true);
@@ -526,96 +529,7 @@ const InventoryReports: React.FC = () => {
       <PageBreadcrumb pageTitle="Inventory Reports" />
 
       <div className="w-full max-w-none px-0 py-8 space-y-6">
-        {/*  Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">{getReportTitle()}</h2>
-            <p className="text-sm text-gray-500">Overview of inventory across all warehouses.</p>
-          </div>
-
-          {/*  PDF Export Button */}
-          <ListingPdfExportButton
-            title={getReportTitle()}
-            subtitle="Complete inventory report"
-            buttonClassName="-mt"
-            reportLabel="Inventory Report"
-            data={flattenedData}
-            fileName={`${getReportTitle().replace(/\s/g, '_')}`}
-            disabled={loading}
-            metadata={(rows, rangeLabel) => [
-              { label: "Total Records", value: rows.length },
-              { label: "Total Products", value: stats.totalProducts },
-              { label: "Total Stock Quantity", value: stats.totalQty },
-              { label: "Low Stock Items", value: stats.lowStock },
-            ]}
-            columns={[
-              { header: "Product", accessor: (item) => item.productName },
-              { header: "Code", accessor: (item) => item.productCode },
-              { header: "Warehouse", accessor: (item) => item.warehouseName },
-              { header: "Quantity", accessor: (item) => item.quantity },
-              { header: "Available", accessor: (item) => item.available },
-            ]}
-          />
-        </div>
-
-        {/* ✅ Report Type Buttons */}
-        <div className="flex flex-wrap gap-2">
-          <button onClick={() => setReportType("current")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${reportType === "current" ? "bg-cyan-600 text-white" : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}>Current</button>
-          <button onClick={() => setReportType("warehouse")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${reportType === "warehouse" ? "bg-cyan-600 text-white" : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}>Warehouse</button>
-          <button onClick={() => setReportType("product")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${reportType === "product" ? "bg-cyan-600 text-white" : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}>Product</button>
-          <button onClick={() => setReportType("low")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${reportType === "low" ? "bg-yellow-600 text-white" : "border border-gray-200 bg-white text-gray-700 hover:bg-yellow-50"}`}>Low Stock</button>
-          <button onClick={() => setReportType("reorder")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${reportType === "reorder" ? "bg-orange-600 text-white" : "border border-gray-200 bg-white text-gray-700 hover:bg-orange-50"}`}>Reorder</button>
-          <button onClick={() => setReportType("movement")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${reportType === "movement" ? "bg-blue-600 text-white" : "border border-gray-200 bg-white text-gray-700 hover:bg-blue-50"}`}>Movement</button>
-          <button onClick={() => setReportType("adjustment")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${reportType === "adjustment" ? "bg-purple-600 text-white" : "border border-gray-200 bg-white text-gray-700 hover:bg-purple-50"}`}>Adjustment</button>
-          <button onClick={() => setReportType("batch")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${reportType === "batch" ? "bg-indigo-600 text-white" : "border border-gray-200 bg-white text-gray-700 hover:bg-indigo-50"}`}>Batch</button>
-          <button onClick={() => setReportType("serial")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${reportType === "serial" ? "bg-pink-600 text-white" : "border border-gray-200 bg-white text-gray-700 hover:bg-pink-50"}`}>Serial</button>
-          <button onClick={() => setReportType("valuation")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${reportType === "valuation" ? "bg-emerald-600 text-white" : "border border-gray-200 bg-white text-gray-700 hover:bg-emerald-50"}`}>Valuation</button>
-          <button onClick={() => setReportType("reserved")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${reportType === "reserved" ? "bg-cyan-600 text-white" : "border border-gray-200 bg-white text-gray-700 hover:bg-cyan-50"}`}>Reserved</button>
-          <button onClick={() => setReportType("expired")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${reportType === "expired" ? "bg-red-600 text-white" : "border border-gray-200 bg-white text-gray-700 hover:bg-red-50"}`}>Expired</button>
-          <button onClick={() => setReportType("near-expiry")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${reportType === "near-expiry" ? "bg-yellow-600 text-white" : "border border-gray-200 bg-white text-gray-700 hover:bg-yellow-50"}`}>Near Expiry</button>
-          <button onClick={() => setReportType("dead")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${reportType === "dead" ? "bg-gray-600 text-white" : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}>Dead Stock</button>
-          <button onClick={() => setReportType("fast")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${reportType === "fast" ? "bg-green-600 text-white" : "border border-gray-200 bg-white text-gray-700 hover:bg-green-50"}`}>Fast Moving</button>
-          <button onClick={() => setReportType("slow")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${reportType === "slow" ? "bg-red-600 text-white" : "border border-gray-200 bg-white text-gray-700 hover:bg-red-50"}`}>Slow Moving</button>
-        </div>
-
-        {/* ✅ Filters for Warehouse/Product */}
-        {(reportType === "warehouse" || reportType === "product") && (
-          <div className="flex items-center gap-4">
-            {reportType === "warehouse" && (
-              <select
-                value={selectedWarehouse || ""}
-                onChange={(e) => setSelectedWarehouse(Number(e.target.value) || null)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm"
-              >
-                <option value="">All Warehouses</option>
-                {warehouses.map((w) => (
-                  <option key={w.id} value={w.id}>{w.name}</option>
-                ))}
-              </select>
-            )}
-            {reportType === "product" && (
-              <select
-                value={selectedProduct || ""}
-                onChange={(e) => setSelectedProduct(Number(e.target.value) || null)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm"
-              >
-                <option value="">All Products</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>{p.productName}</option>
-                ))}
-              </select>
-            )}
-          </div>
-        )}
-
-        {/* ✅ Loading State */}
-        {loading ? (
-          <div className="flex min-h-[400px] items-center justify-center">
-            <ArrowPathIcon className="h-8 w-8 animate-spin text-cyan-600" />
-          </div>
-        ) : (
-          <>
-            {/* ✅ Stats Cards - Dynamic based on report */}
+         {/* Stats Cards - Dynamic based on report */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatsCard
                 label="Total Records"
@@ -651,362 +565,102 @@ const InventoryReports: React.FC = () => {
               />
             </div>
 
-            {/* ✅ Table */}
-            <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-              <h3 className="mb-3 text-sm font-semibold text-gray-700">{getReportTitle()}</h3>
-              <ReusableTable
-                data={data}
-                columns={getColumns()}
-                loading={loading}
-                pageSize={10}
-                defaultSortKey="id"
-                defaultSortOrder="desc"
-                enableRowDetails={false}
-              />
-            </div>
-          </>
-        )}
+            
+    {/*  Filters + PDF (Below Stats Cards) */}
+<div className="mb-6  flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
+  <div className="flex items-center gap-2">
+    {/* Report Type Dropdown */}
+    <select
+      value={reportType}
+      onChange={(e) => setReportType(e.target.value as ReportType)}
+      className="rounded-lg border border-gray-200 bg-white -mt-4 px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 min-w-[160px]"
+    >
+      <option value="current"> Current Stock</option>
+      <option value="warehouse"> Warehouse Stock</option>
+      <option value="product"> Product Stock</option>
+      <option value="low"> Low Stock</option>
+      <option value="reorder"> Reorder</option>
+      <option value="movement"> Movement</option>
+      <option value="adjustment"> Adjustment</option>
+      <option value="batch"> Batch</option>
+      <option value="serial"> Serial</option>
+      <option value="valuation"> Valuation</option>
+      <option value="reserved"> Reserved</option>
+      <option value="expired"> Expired</option>
+      <option value="near-expiry"> Near Expiry</option>
+      <option value="quality"> Quality</option>
+      <option value="dead"> Dead Stock</option>
+      <option value="fast"> Fast Moving</option>
+      <option value="slow"> Slow Moving</option>
+    </select>
+
+    {/* Warehouse/Product Filters (shown when needed) */}
+    {reportType === "warehouse" && (
+      <select
+        value={selectedWarehouse || ""}
+        onChange={(e) => setSelectedWarehouse(Number(e.target.value) || null)}
+        className="rounded-lg border -mt-4 border-gray-200 bg-white px-3 pr-8 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+      >
+        <option value="">All Warehouses</option>
+        {warehouses.map((w) => (
+          <option key={w.id} value={w.id}>{w.name}</option>
+        ))}
+      </select>
+    )}
+
+    {reportType === "product" && (
+      <select
+        value={selectedProduct || ""}
+        onChange={(e) => setSelectedProduct(Number(e.target.value) || null)}
+        className="rounded-lg border border-gray-200 bg-white -mt-4 pr-8 px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+      >
+        <option value="">All Products</option>
+        {products.map((p) => (
+          <option key={p.id} value={p.id}>{p.productName}</option>
+        ))}
+      </select>
+    )}
+
+    {/* PDF Export Button */}
+    <ListingPdfExportButton
+      title={getReportTitle()}
+      subtitle="Complete inventory report"
+      reportLabel="Inventory Report"
+      data={flattenedData}
+      fileName={`${getReportTitle().replace(/\s/g, '_')}`}
+      disabled={loading}
+      metadata={(rows, rangeLabel) => [
+        { label: "Total Records", value: rows.length },
+        { label: "Total Products", value: stats.totalProducts },
+        { label: "Total Stock Quantity", value: stats.totalQty },
+        { label: "Low Stock Items", value: stats.lowStock },
+      ]}
+      columns={[
+        { header: "Product", accessor: (item) => item.productName },
+        { header: "Code", accessor: (item) => item.productCode },
+        { header: "Warehouse", accessor: (item) => item.warehouseName },
+        { header: "Quantity", accessor: (item) => item.quantity },
+        { header: "Available", accessor: (item) => item.available },
+      ]}
+    />
+  </div>
+</div>
+
+      {/* ✅ Table */}
+      <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <ReusableTable
+          data={data}
+          columns={getColumns()}
+          loading={loading}
+          pageSize={10}
+          defaultSortKey="id"
+          defaultSortOrder="desc"
+          enableRowDetails={false}
+          className=""
+        />
       </div>
-    </>
-  );
-};
-
+    </div>
+  </>
+);
+}    
 export default InventoryReports;
-
-
-// import React, { useEffect, useMemo, useState } from "react";
-// import axios from "axios";
-// import {
-//   CubeIcon,
-//   BuildingOffice2Icon,
-//   ClockIcon,
-//   ExclamationTriangleIcon,
-//   ArrowPathIcon,
-//   LockClosedIcon,
-// } from "@heroicons/react/24/outline";
-// import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-// import PageMeta from "../../components/common/PageMeta";
-// import { ToasterService } from "../../Services/ToasterService";
-// import StatsCard from "../../components/common/Statscard";
-// import { ListingPdfExportButton } from "../../components/common/export";
-
-// type ReportData = {
-//   stockPerProduct: Record<string, number>;
-//   stockPerWarehouse: Array<{
-//     warehouse: string;
-//     product: string;
-//     quantity: number;
-//   }>;
-//   agedStock: Array<{
-//     product: string;
-//     receivedDate: string;
-//     quantity: number;
-//   }>;
-// };
-
-// type Product = {
-//   id: number;
-//   productName: string;
-//   code: string;
-// };
-
-// type Warehouse = {
-//   id: number;
-//   code: string;
-//   name: string;
-// };
-
-// const API_URL = "/v1/api/inventory/reports";
-// const PRODUCT_API_URL = "/v1/api/purchase/products";
-// const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
-
-// const MOCK_REPORT_DATA: ReportData = {
-//   stockPerProduct: {
-//     "1": 100,
-//     "2": 50,
-//     "3": 25,
-//     "4": 10,
-//   },
-//   stockPerWarehouse: [
-//     { warehouse: "WH-01", product: "Product 1", quantity: 100 },
-//     { warehouse: "WH-01", product: "Product 2", quantity: 50 },
-//     { warehouse: "WH-02", product: "Product 1", quantity: 25 },
-//     { warehouse: "WH-02", product: "Product 3", quantity: 10 },
-//   ],
-//   agedStock: [
-//     { product: "Product 1", receivedDate: "2026-01-15", quantity: 30 },
-//     { product: "Product 2", receivedDate: "2026-02-20", quantity: 20 },
-//     { product: "Product 3", receivedDate: "2026-03-10", quantity: 5 },
-//   ],
-// };
-
-// const InventoryReports: React.FC = () => {
-//   const token = localStorage.getItem("accessToken");
-//   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
-
-//   const [reportData, setReportData] = useState<ReportData | null>(null);
-//   const [products, setProducts] = useState<Product[]>([]);
-//   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-//   const [loading, setLoading] = useState(false);
-//   const [exporting, setExporting] = useState(false);
-//   const [permissionDenied, setPermissionDenied] = useState(false);
-
-//   useEffect(() => {
-//     fetchReports();
-//   }, []);
-
-//   const fetchReports = async (): Promise<void> => {
-//     try {
-//       setLoading(true);
-//       setPermissionDenied(false);
-
-//       const [reportRes, productRes, warehouseRes] = await Promise.all([
-//         axios.get<ReportData>(API_URL, { headers }),
-//         axios.get<Product[]>(PRODUCT_API_URL, { headers }),
-//         axios.get<Warehouse[]>(WAREHOUSE_API_URL, { headers }),
-//       ]);
-
-//       setReportData(reportRes.data);
-//       setProducts(Array.isArray(productRes.data) ? productRes.data : []);
-//       setWarehouses(Array.isArray(warehouseRes.data) ? warehouseRes.data : []);
-//     } catch (error: any) {
-//       console.error("Failed to load reports:", error);
-
-//       if (error.response?.status === 403) {
-//         setPermissionDenied(true);
-//         ToasterService.warning(
-//           "You don't have permission to view reports. Showing mock data for preview.",
-//           "Permission Denied"
-//         );
-//         setReportData(MOCK_REPORT_DATA);
-//         setProducts([
-//           { id: 1, productName: "Product 1", code: "P001" },
-//           { id: 2, productName: "Product 2", code: "P002" },
-//           { id: 3, productName: "Product 3", code: "P003" },
-//         ]);
-//         setWarehouses([
-//           { id: 1, code: "WH-01", name: "Main Warehouse" },
-//           { id: 2, code: "WH-02", name: "Secondary Warehouse" },
-//         ]);
-//       } else {
-//         ToasterService.error("Failed to load reports", getErrorMessage(error, "Please try again."));
-//       }
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   const getErrorMessage = (error: unknown, fallback: string): string => {
-//     if (axios.isAxiosError(error)) {
-//       const data = error.response?.data;
-//       if (typeof data === "string") return data;
-//       return data?.message || data?.detail || data?.error || fallback;
-//     }
-//     return fallback;
-//   };
-
-//   const totalStock = reportData?.stockPerWarehouse?.reduce(
-//     (sum, item) => sum + item.quantity,
-//     0
-//   ) || 0;
-
-//   const totalProducts = Object.keys(reportData?.stockPerProduct || {}).length;
-
-//   const lowStockItems = reportData?.stockPerWarehouse?.filter(
-//     (item) => item.quantity < 10
-//   ).length || 0;
-
-//   const agingStock = reportData?.agedStock?.length || 0;
-
-//   const getAgingStatus = (days: number) => {
-//     if (days > 90) return { label: "Critical", className: "bg-red-100 text-red-700" };
-//     if (days > 60) return { label: "Aging", className: "bg-yellow-100 text-yellow-700" };
-//     return { label: "Healthy", className: "bg-green-100 text-green-700" };
-//   };
-
-//   return (
-//     <>
-//       <PageMeta title="Inventory Reports" description="View inventory reports" />
-//       <PageBreadcrumb pageTitle="Inventory Reports" />
-
-//       <div className="w-full max-w-none px-0 py-8 space-y-6">
-//         <div className="flex items-center justify-between">
-//           <div>
-//             <h2 className="text-lg font-semibold text-gray-900">Inventory Reports</h2>
-//             <p className="text-sm text-gray-500">Overview of your inventory across all warehouses.</p>
-//           </div>
-
-//           {!permissionDenied && reportData && (
-//             <ListingPdfExportButton<ReportData>
-//               title="Inventory Report"
-//               subtitle="Complete inventory report"
-//               reportLabel="Inventory Report"
-//               data={[reportData]}
-//               fileName="Inventory_Report"
-//               disabled={loading || exporting}
-//               metadata={(rows, rangeLabel) => [
-//                 { label: "Total Products", value: totalProducts },
-//                 { label: "Total Stock", value: totalStock },
-//                 { label: "Low Stock Items", value: lowStockItems },
-//                 { label: "Aging Stock", value: agingStock },
-//               ]}
-//               columns={[
-//                 { header: "Product", accessor: (item) => item.stockPerWarehouse?.[0]?.product || "" },
-//                 { header: "Warehouse", accessor: (item) => item.stockPerWarehouse?.[0]?.warehouse || "" },
-//                 { header: "Quantity", accessor: (item) => item.stockPerWarehouse?.[0]?.quantity || 0 },
-//               ]}
-//             />
-//           )}
-//         </div>
-
-//         {permissionDenied && (
-//           <div className="flex items-center gap-3 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-yellow-700">
-//             <LockClosedIcon className="h-5 w-5" />
-//             <div>
-//               <p className="text-sm font-semibold">Demo Mode</p>
-//               <p className="text-xs">
-//                 You don't have permission to view reports. Showing mock data for UI preview.
-//                 Contact administrator for access.
-//               </p>
-//             </div>
-//           </div>
-//         )}
-
-//         {loading ? (
-//           <div className="flex min-h-[400px] items-center justify-center">
-//             <div className="text-center">
-//               <ArrowPathIcon className="mx-auto h-8 w-8 animate-spin text-blue-600" />
-//               <p className="mt-2 text-sm text-gray-500">Loading reports...</p>
-//             </div>
-//           </div>
-//         ) : !reportData ? (
-//           <div className="flex min-h-[400px] items-center justify-center">
-//             <div className="text-center">
-//               <CubeIcon className="mx-auto h-12 w-12 text-gray-400" />
-//               <p className="mt-2 text-sm text-gray-500">No report data available</p>
-//               <button
-//                 onClick={fetchReports}
-//                 className="mt-2 text-sm text-blue-600 hover:text-blue-700"
-//               >
-//                 Try again
-//               </button>
-//             </div>
-//           </div>
-//         ) : (
-//           <>
-//             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-//               <StatsCard
-//                 label="Total Products"
-//                 value={totalProducts}
-//                 gradient="from-blue-50 to-indigo-50"
-//                 borderColor="border-blue-100"
-//                 labelColor="text-blue-600"
-//                 icon={<CubeIcon className="h-5 w-5" />}
-//               />
-//               <StatsCard
-//                 label="Total Stock"
-//                 value={totalStock.toLocaleString()}
-//                 gradient="from-green-50 to-emerald-50"
-//                 borderColor="border-green-100"
-//                 labelColor="text-green-600"
-//                 icon={<BuildingOffice2Icon className="h-5 w-5" />}
-//               />
-//               <StatsCard
-//                 label="Low Stock Items"
-//                 value={lowStockItems}
-//                 gradient="from-yellow-50 to-orange-50"
-//                 borderColor="border-yellow-100"
-//                 labelColor="text-yellow-600"
-//                 icon={<ExclamationTriangleIcon className="h-5 w-5" />}
-//               />
-//               <StatsCard
-//                 label="Aging Stock"
-//                 value={agingStock}
-//                 gradient="from-red-50 to-rose-50"
-//                 borderColor="border-red-100"
-//                 labelColor="text-red-600"
-//                 icon={<ClockIcon className="h-5 w-5" />}
-//               />
-//             </div>
-
-//             <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-//               <h3 className="mb-3 text-sm font-semibold text-gray-700">Stock Per Warehouse</h3>
-//               <div className="overflow-x-auto">
-//                 <table className="min-w-full text-left text-sm">
-//                   <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-//                     <tr>
-//                       <th className="px-4 py-2">Warehouse</th>
-//                       <th className="px-4 py-2">Product</th>
-//                       <th className="px-4 py-2 text-right">Quantity</th>
-//                     </tr>
-//                   </thead>
-//                   <tbody>
-//                     {reportData.stockPerWarehouse.map((item, index) => (
-//                       <tr key={index} className="border-b hover:bg-gray-50">
-//                         <td className="px-4 py-2">{item.warehouse}</td>
-//                         <td className="px-4 py-2">{item.product}</td>
-//                         <td className="px-4 py-2 text-right font-medium">{item.quantity}</td>
-//                       </tr>
-//                     ))}
-//                     {reportData.stockPerWarehouse.length === 0 && (
-//                       <tr>
-//                         <td className="px-4 py-4 text-center text-gray-500" colSpan={3}>
-//                           No stock data available
-//                         </td>
-//                       </tr>
-//                     )}
-//                   </tbody>
-//                 </table>
-//               </div>
-//             </div>
-
-//             <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-//               <h3 className="mb-3 text-sm font-semibold text-gray-700">Aged Stock</h3>
-//               <div className="overflow-x-auto">
-//                 <table className="min-w-full text-left text-sm">
-//                   <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-//                     <tr>
-//                       <th className="px-4 py-2">Product</th>
-//                       <th className="px-4 py-2">Received Date</th>
-//                       <th className="px-4 py-2 text-right">Quantity</th>
-//                       <th className="px-4 py-2 text-center">Age</th>
-//                     </tr>
-//                   </thead>
-//                   <tbody>
-//                     {reportData.agedStock.map((item, index) => {
-//                       const daysOld = Math.floor(
-//                         (Date.now() - new Date(item.receivedDate).getTime()) / (1000 * 60 * 60 * 24)
-//                       );
-//                       const status = getAgingStatus(daysOld);
-//                       return (
-//                         <tr key={index} className="border-b hover:bg-gray-50">
-//                           <td className="px-4 py-2">{item.product}</td>
-//                           <td className="px-4 py-2">{new Date(item.receivedDate).toLocaleDateString()}</td>
-//                           <td className="px-4 py-2 text-right font-medium">{item.quantity}</td>
-//                           <td className="px-4 py-2 text-center">
-//                             <span className={`rounded-full px-2 py-1 text-xs font-medium ${status.className}`}>
-//                               {status.label} ({daysOld}d)
-//                             </span>
-//                           </td>
-//                         </tr>
-//                       );
-//                     })}
-//                     {reportData.agedStock.length === 0 && (
-//                       <tr>
-//                         <td className="px-4 py-4 text-center text-gray-500" colSpan={4}>
-//                           No aging stock data available
-//                         </td>
-//                       </tr>
-//                     )}
-//                   </tbody>
-//                 </table>
-//               </div>
-//             </div>
-//           </>
-//         )}
-//       </div>
-//     </>
-//   );
-// };
-
-// export default InventoryReports;

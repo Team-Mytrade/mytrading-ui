@@ -1,6 +1,5 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
 import {
   CubeIcon,
   CheckCircleIcon,
@@ -11,7 +10,6 @@ import {
   TrashIcon,
   XCircleIcon,
   XMarkIcon,
-  BuildingOffice2Icon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
@@ -28,6 +26,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
+// ✅ Types
 type Batch = {
   id: number;
   createdDate?: string;
@@ -40,17 +39,20 @@ type Batch = {
   productId: number;
   warehouse: any;
   inspections: any[];
-  status?: string;
-  statusLabel?: string;
-  statusIcon?: any;
+  // ✅ Static fields (missing from BE)
+  quantity?: number;
+  supplierName?: string;
 };
 
 type BatchForm = {
-  // batchNumber: string;
+  batchNumber: string;
   manufacturingDate: string;
   expiryDate: string;
   productId: string;
   warehouse: string;
+  // ✅ Static fields (missing from BE)
+  quantity: string;
+  supplierName: string;
 };
 
 type ProductOption = {
@@ -81,19 +83,52 @@ type Warehouse = {
   stockEntries?: any[];
 };
 
+// ✅ Static Data for missing fields
+const STATIC_BATCH_DATA_MAP: Record<number, any> = {
+  1: {
+    quantity: 150,
+    supplierName: "ABC Supplies",
+  },
+  2: {
+    quantity: 200,
+    supplierName: "XYZ Traders",
+  },
+  3: {
+    quantity: 100,
+    supplierName: "Global Imports",
+  },
+};
+
+// ✅ Fallback static data
+const STATIC_BATCH_DATA = {
+  quantity: 100,
+  supplierName: "Default Supplier",
+};
+
+// ✅ Generate Batch Number
+const generateBatchNumber = (): string => {
+  const prefix = "BATCH";
+  const timestamp = new Date()
+    .toISOString()
+    .replace(/[-:T.Z]/g, '')
+    .slice(0, 14);
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  return `${prefix}-${timestamp}-${random}`;
+};
+
 const API_URL = "/v1/api/inventory/batches";
 const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
 const PRODUCT_API_URL = "/v1/api/purchase/products";
 const PAGE_SIZE = 10;
 
-
-
 const emptyForm: BatchForm = {
-  // batchNumber: "",
+  batchNumber: generateBatchNumber(),
   manufacturingDate: new Date().toISOString().split("T")[0],
   expiryDate: "",
   productId: "",
   warehouse: "",
+  quantity: "0",
+  supplierName: "",
 };
 
 function toNumber(value: string | number | undefined | null): number {
@@ -123,6 +158,15 @@ function normalizeProductLabel(product: ProductOption): string {
 function getBatchStatus(batch: Batch) {
   const today = new Date();
   const expiryDate = new Date(batch.expiryDate);
+
+  // ✅ Check quantity first
+  if ((batch.quantity || 0) <= 0) {
+    return {
+      label: "Empty",
+      className: "bg-gray-50 text-gray-700 border-gray-200",
+      icon: <XCircleIcon className="h-3.5 w-3.5" />,
+    };
+  }
 
   if (expiryDate < today) {
     return {
@@ -167,7 +211,6 @@ function getWarehouseDisplay(batch: Batch): string {
 const BatchManagement: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
-  const navigate = useNavigate();   
 
   const [batches, setBatches] = useState<Batch[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
@@ -187,23 +230,25 @@ const BatchManagement: React.FC = () => {
     fetchDropdowns();
   }, []);
 
+  // ✅ Fetch batches with static data enrichment
   const fetchAllBatches = async (): Promise<void> => {
     try {
       setLoading(true);
       const response = await axios.get<Batch[]>(API_URL, { headers });
       const data = Array.isArray(response.data) ? response.data : [];
       
-      const batchesWithStatus = data.map((batch) => {
-  const status = getBatchStatus(batch);
-  return {
-    ...batch,
-    status: status.label,
-    // statusClass: status.className,
-    // statusIcon: status.icon,
-  };
-});
-setBatches(batchesWithStatus);     
-
+      // static data for missing fields
+      const enrichedData = data.map((batch) => {
+        const staticData = STATIC_BATCH_DATA_MAP[batch.id] || STATIC_BATCH_DATA;
+        
+        return {
+          ...batch,
+          quantity: staticData.quantity || 0,
+          supplierName: staticData.supplierName || '--',
+        };
+      });
+      
+      setBatches(enrichedData);
     } catch (error) {
       setBatches([]);
       ToasterService.error("Failed to load batches", getErrorMessage(error, "Please try again."));
@@ -227,7 +272,10 @@ setBatches(batchesWithStatus);
 
   const openCreate = (): void => {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+      batchNumber: generateBatchNumber(),
+    });
     setShowFormModal(true);
   };
 
@@ -240,11 +288,13 @@ setBatches(batchesWithStatus);
   const openEdit = (batch: Batch): void => {
     setEditingId(batch.id);
     setForm({
-      // batchNumber: batch.batchNumber,
+      batchNumber: batch.batchNumber,
       manufacturingDate: batch.manufacturingDate,
       expiryDate: batch.expiryDate,
       productId: String(batch.productId),
       warehouse: typeof batch.warehouse === 'object' ? String(batch.warehouse?.id || '') : String(batch.warehouse || ''),
+      quantity: String(batch.quantity || 0),
+      supplierName: batch.supplierName || '',
     });
     setShowFormModal(true);
   };
@@ -277,12 +327,15 @@ setBatches(batchesWithStatus);
 
     if (!editingId) {
       return {
-        // batchNumber: form.batchNumber.trim(),
+        batchNumber: form.batchNumber.trim(),
         manufacturingDate: form.manufacturingDate,
         expiryDate: form.expiryDate,
         productId: toNumber(form.productId),
         warehouse: warehouseObject,
         inspections: [],
+        // Static fields
+        quantity: toNumber(form.quantity),
+        supplierName: form.supplierName,
       };
     }
 
@@ -292,22 +345,25 @@ setBatches(batchesWithStatus);
       updatedDate: new Date().toISOString(),
       createdBy: existing?.createdBy || "",
       tenantId: existing?.tenantId || "",
-      // batchNumber: form.batchNumber.trim(),
+      batchNumber: form.batchNumber.trim(),
       manufacturingDate: form.manufacturingDate,
       expiryDate: form.expiryDate,
       productId: toNumber(form.productId),
       warehouse: warehouseObject,
       inspections: existing?.inspections || [],
+      //Static fields
+      quantity: toNumber(form.quantity),
+      supplierName: form.supplierName,
     };
   };
 
   const handleSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
 
-    // if (!form.batchNumber.trim()) {
-    //   ToasterService.error("Batch Number is required");
-    //   return;
-    // }
+    if (!form.batchNumber.trim()) {
+      ToasterService.error("Batch Number is required");
+      return;
+    }
     if (!form.manufacturingDate) {
       ToasterService.error("Manufacturing Date is required");
       return;
@@ -372,7 +428,7 @@ setBatches(batchesWithStatus);
       const productName = product ? normalizeProductLabel(product) : `Product #${batch.productId}`;
       const warehouseName = typeof batch.warehouse === 'object' ? batch.warehouse?.name || '' : batch.warehouse || '';
 
-      const searchString = `${batch.id} ${batch.batchNumber} ${productName} ${warehouseName}`.toLowerCase();
+      const searchString = `${batch.id} ${batch.batchNumber} ${productName} ${warehouseName} ${batch.supplierName || ''}`.toLowerCase();
       const matchesSearch = !term || searchString.includes(term);
 
       let matchesStatus = true;
@@ -395,6 +451,7 @@ setBatches(batchesWithStatus);
     });
   }, [batches, search, statusFilter, products]);
 
+  // Updated stats with quantity
   const stats = useMemo(
     () => {
       const today = new Date();
@@ -409,11 +466,13 @@ setBatches(batchesWithStatus);
           return expiry > today && expiry <= thirtyDaysFromNow;
         }).length,
         withFailedInspections: batches.filter((b) => b.inspections.some((i) => i.result === "FAIL")).length,
+        totalQuantity: batches.reduce((sum, b) => sum + (b.quantity || 0), 0),
       };
     },
     [batches]
   );
 
+  //  Updated columns with quantity and supplier
   const columns: ColumnDef<Batch>[] = [
     {
       key: "batchNumber",
@@ -426,56 +485,49 @@ setBatches(batchesWithStatus);
           </div>
           <div>
             <p className="text-sm font-semibold text-slate-900">{batch.batchNumber}</p>
-            {/* <p className="text-xs text-slate-400">ID: #{batch.name}</p> */}
           </div>
         </div>
       ),
     },
     {
-  key: "productId",
-  label: "Product",
-  sortable: true,
-  render: (batch) => {
-    const product = products.find((p) => p.id === batch.productId || p.productId === batch.productId);
-    return (
-      <button
-        className="text-sm text-slate-700 hover:text-cyan-600 hover:underline transition-colors"
-        onClick={() => {
-          const productId = batch.productId;
-          if (productId) {
-            navigate(`/products?productId=${productId}`);
-          }
-        }}
-      >
-        {product ? normalizeProductLabel(product) : `Product #${batch.productId}`}
-      </button>
-    );
-  },
-},
+      key: "productId",
+      label: "Product",
+      sortable: true,
+      render: (batch) => {
+        const product = products.find((p) => p.id === batch.productId || p.productId === batch.productId);
+        return (
+          <span className="text-sm text-slate-700">
+            {product ? normalizeProductLabel(product) : `Product #${batch.productId}`}
+          </span>
+        );
+      },
+    },
     {
-  key: "warehouse",
-  label: "Warehouse",
-  sortable: true,
-  render: (batch) => {
-    const warehouseId = typeof batch.warehouse === 'object' 
-      ? batch.warehouse?.id?.toString() 
-      : batch.warehouse;
-    
-    return (
-      <button
-        className="flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 transition-colors"
-        onClick={() => {
-          if (warehouseId) {
-            navigate(`/warehouse?warehouseId=${warehouseId}`);
-          }
-        }}
-      >
-        <BuildingOffice2Icon className="h-4 w-4 text-slate-400" />
-        <span>{getWarehouseDisplay(batch)}</span>
-      </button>
-    );
-  },
-},
+      key: "warehouse",
+      label: "Warehouse",
+      sortable: true,
+      render: (batch) => (
+        <span className="text-sm text-slate-700">
+          {getWarehouseDisplay(batch)}
+        </span>
+      ),
+    },
+    {
+      key: "quantity",
+      label: "Quantity",
+      sortable: true,
+      render: (batch) => (
+        <span className="text-sm font-semibold text-slate-800">{batch.quantity || 0}</span>
+      ),
+    },
+    {
+      key: "supplierName",
+      label: "Supplier",
+      sortable: true,
+      render: (batch) => (
+        <span className="text-sm text-slate-700">{batch.supplierName || '--'}</span>
+      ),
+    },
     {
       key: "manufacturingDate",
       label: "Manufacturing",
@@ -576,6 +628,14 @@ setBatches(batchesWithStatus);
             icon={<CubeIcon className="h-5 w-5" />}
           />
           <StatsCard
+            label="Total Quantity"
+            value={stats.totalQuantity}
+            gradient="from-cyan-50 to-blue-50"
+            borderColor="border-cyan-100"
+            labelColor="text-cyan-600"
+            icon={<CubeIcon className="h-5 w-5" />}
+          />
+          <StatsCard
             label="Expired"
             value={stats.expired}
             gradient="from-red-50 to-rose-50"
@@ -590,14 +650,6 @@ setBatches(batchesWithStatus);
             borderColor="border-yellow-100"
             labelColor="text-yellow-700"
             icon={<ExclamationTriangleIcon className="h-5 w-5" />}
-          />
-          <StatsCard
-            label="Failed Inspections"
-            value={stats.withFailedInspections}
-            gradient="from-red-50 to-rose-50"
-            borderColor="border-red-100"
-            labelColor="text-red-600"
-            icon={<ExclamationCircleIcon className="h-5 w-5" />}
           />
         </div>
 
@@ -622,21 +674,23 @@ setBatches(batchesWithStatus);
             )}
           </div>
 
-          <FilterPopover
-            title="Filter Batches"
-            buttonLabel="Filters"
-            label="Status"
-            value={statusFilter}
-            options={[
-              { label: "All Status", value: "" },
-              { label: "Expired", value: "expired" },
-              { label: "Expiring Soon", value: "expiring" },
-              { label: "Good", value: "good" },
-            ]}
-            onChange={setStatusFilter}
-            onReset={() => setStatusFilter("")}
-            onApply={() => undefined}
-          />
+          <div className="flex items-center gap-2">
+            <FilterPopover
+              title="Filter Batches"
+              buttonLabel="Filters"
+              label="Status"
+              value={statusFilter}
+              options={[
+                { label: "All Status", value: "" },
+                { label: "Expired", value: "expired" },
+                { label: "Expiring Soon", value: "expiring" },
+                { label: "Good", value: "good" },
+              ]}
+              onChange={setStatusFilter}
+              onReset={() => setStatusFilter("")}
+              onApply={() => undefined}
+            />
+          </div>
         </div>
 
         <ReusableTable
@@ -662,73 +716,89 @@ setBatches(batchesWithStatus);
         />
       </div>
 
-     <PaginatedPopup
-  isOpen={showFormModal}
-  title={editingId ? "Edit Batch" : "Create Batch"}
-  subtitle="Create a new product batch"
-  onClose={closeForm}
-  onSubmit={handleSubmit}
-  submitting={submitting}
-  submitLabel={editingId ? "Update Batch" : "Create Batch"}
-  maxWidthClassName="max-w-2xl"
-  tabs={[
-    {
-      label: "Batch Info",
-      fields: [
-        // <FloatingInput
-        //   key="batchNumber"
-        //   label="Batch Number"
-        //   name="batchNumber"
-        //   value={form.batchNumber}
-        //   onChange={handleChange}
-        //   required
-        // />,
-        <FloatingDatePicker
-          key="manufacturingDate"
-          label="Manufacturing Date"
-          name="manufacturingDate"
-          value={form.manufacturingDate}
-          onChange={handleChange}
-          required
-        />,
-        <FloatingDatePicker
-          key="expiryDate"
-          label="Expiry Date"
-          name="expiryDate"
-          value={form.expiryDate}
-          onChange={handleChange}
-          required
-        />,
-        <FloatingSelect
-          key="productId"
-          label="Select product"
-          name="productId"
-          value={form.productId}
-          onChange={handleChange}
-          emptyOptionLabel="Select product"
-          options={products.map((p) => ({
-            id: String(p.id || p.productId || 0),
-            name: normalizeProductLabel(p),
-          }))}
-          required
-        />,
-        <FloatingSelect
-          key="warehouse"
-          label="Select warehouse"
-          name="warehouse"
-          value={form.warehouse}
-          onChange={handleChange}
-          emptyOptionLabel="Select warehouse"
-          options={warehouses.map((w) => ({
-            id: String(w.id),
-            name: `${w.name || ''}`,
-          }))}
-          required
-        />,
-      ],
-    },
-  ]}
-/>
+      <PaginatedPopup
+        isOpen={showFormModal}
+        title={editingId ? "Edit Batch" : "Create Batch"}
+        subtitle="Create a new product batch"
+        onClose={closeForm}
+        onSubmit={handleSubmit}
+        submitting={submitting}
+        submitLabel={editingId ? "Update Batch" : "Create Batch"}
+        maxWidthClassName="max-w-2xl"
+        tabs={[
+          {
+            label: "Batch Info",
+            fields: [
+              <FloatingInput
+                key="batchNumber"
+                label="Batch Number"
+                name="batchNumber"
+                value={form.batchNumber}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingDatePicker
+                key="manufacturingDate"
+                label="Manufacturing Date"
+                name="manufacturingDate"
+                value={form.manufacturingDate}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingDatePicker
+                key="expiryDate"
+                label="Expiry Date"
+                name="expiryDate"
+                value={form.expiryDate}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingSelect
+                key="productId"
+                label="Select product"
+                name="productId"
+                value={form.productId}
+                onChange={handleChange}
+                emptyOptionLabel="Select product"
+                options={products.map((p) => ({
+                  id: String(p.id || p.productId || 0),
+                  name: normalizeProductLabel(p),
+                }))}
+                required
+              />,
+              <FloatingSelect
+                key="warehouse"
+                label="Select warehouse"
+                name="warehouse"
+                value={form.warehouse}
+                onChange={handleChange}
+                emptyOptionLabel="Select warehouse"
+                options={warehouses.map((w) => ({
+                  id: String(w.id),
+                  name: `${w.code || ''} - ${w.name || ''}`,
+                }))}
+                required
+              />,
+              <FloatingInput
+                key="quantity"
+                label="Quantity"
+                name="quantity"
+                type="number"
+                value={form.quantity}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingInput
+                key="supplierName"
+                label="Supplier Name"
+                name="supplierName"
+                value={form.supplierName}
+                onChange={handleChange}
+              />,
+            ],
+          },
+        ]}
+      />
 
       <DynamicPopup
         isPopupOpen={!!deleteBatch}
