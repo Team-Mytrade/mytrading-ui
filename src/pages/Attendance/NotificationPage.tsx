@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -27,8 +27,11 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
+import FilterPopover from "../../components/common/filter";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import PaginatedPopup from "../../components/common/unpopup";
+import { AddButton } from "../../components/common/AddButton";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import {
   saveAttendanceNotifications,
@@ -125,14 +128,11 @@ const formatDateTime = (dateStr: string | null) => {
 
 const NotificationPage: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [filteredNotifications, setFilteredNotifications] = useState<Notification[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingNotification, setEditingNotification] = useState<Notification | null>(null);
   const [form, setForm] = useState<Notification>({ ...emptyForm });
-  const [search, setSearch] = useState<string>('');
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>("");
   const [selectedPriorityFilter, setSelectedPriorityFilter] = useState<string>("");
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("");
@@ -171,21 +171,8 @@ const NotificationPage: React.FC = () => {
     loadNotifications();
   }, []);
 
-  useEffect(() => {
-    applyFilters();
-  }, [notifications, search, selectedTypeFilter, selectedPriorityFilter, selectedStatusFilter, selectedEmployeeFilter, dateRange.from, dateRange.to]);
-
-  const applyFilters = () => {
+  const filteredNotifications = useMemo(() => {
     let filtered = [...notifications];
-
-    if (search) {
-      const searchTerm = search.toLowerCase();
-      filtered = filtered.filter(n =>
-        n.title?.toLowerCase().includes(searchTerm) ||
-        n.message?.toLowerCase().includes(searchTerm) ||
-        n.employeeName?.toLowerCase().includes(searchTerm)
-      );
-    }
 
     if (selectedEmployeeFilter) {
       filtered = filtered.filter(n => n.employeeId.toString() === selectedEmployeeFilter);
@@ -210,8 +197,8 @@ const NotificationPage: React.FC = () => {
       filtered = filtered.filter(n => new Date(n.createdAt) <= dateRange.to!);
     }
 
-    setFilteredNotifications(filtered);
-  };
+    return filtered;
+  }, [notifications, selectedEmployeeFilter, selectedTypeFilter, selectedPriorityFilter, selectedStatusFilter, dateRange.from, dateRange.to]);
 
   // ── Form ────────────────────────────────────────────────────────────────────
 
@@ -462,405 +449,289 @@ const NotificationPage: React.FC = () => {
             <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
             <p className="text-sm text-gray-500 mt-0.5">Create and manage employee notifications</p>
           </div>
-          {!showForm && (
-            <button
-              onClick={openCreateForm}
-              className="px-4 py-2 bg-cyan-600 !text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center gap-2 shadow-sm"
-            >
-              <PlusIcon className="h-4 w-4" />
-              <span>Add Notification</span>
-            </button>
-          )}
+          <AddButton label="Add Notification" onClick={openCreateForm} />
         </div>
 
-        {/* Stats Cards - Hidden when form is visible */}
-        {!showForm && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Total</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-                </div>
-                <div className="p-3 bg-cyan-100 rounded-full">
-                  <BellIcon className="h-6 w-6 text-cyan-600" />
-                </div>
-              </div>
-            </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatsCard
+            label="Total"
+            value={stats.total}
+            gradient="from-cyan-50 to-blue-50"
+            borderColor="border-cyan-100"
+            labelColor="text-cyan-600"
+            icon={<BellIcon className="h-6 w-6" />}
+          />
+          <StatsCard
+            label="Unread"
+            value={stats.unread}
+            gradient="from-red-50 to-rose-50"
+            borderColor="border-red-100"
+            labelColor="text-red-600"
+            icon={<XCircleIcon className="h-6 w-6" />}
+          />
+          <StatsCard
+            label="High Priority"
+            value={stats.high}
+            gradient="from-amber-50 to-yellow-50"
+            borderColor="border-amber-100"
+            labelColor="text-yellow-600"
+            icon={<BellAlertIcon className="h-6 w-6" />}
+          />
+          <StatsCard
+            label="Read"
+            value={stats.read}
+            gradient="from-green-50 to-emerald-50"
+            borderColor="border-green-100"
+            labelColor="text-green-600"
+            icon={<CheckCircleIcon className="h-6 w-6" />}
+          />
+        </div>
 
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
+        {/* Reusable Table */}
+        <ReusableTable<Notification>
+          data={filteredNotifications}
+          columns={columns}
+          loading={loading}
+          searchable={true}
+          searchPlaceholder="Search by title, message, or employee..."
+          searchFields={["title", "message", "employeeName"]}
+          pageSize={PAGE_SIZE}
+          defaultSortKey="createdAt"
+          defaultSortOrder="desc"
+          toolbar={
+            <FilterPopover
+              title="Filter Notifications"
+              buttonLabel="Filter"
+              onReset={() => {
+                setSelectedEmployeeFilter("");
+                setSelectedTypeFilter("");
+                setSelectedPriorityFilter("");
+                setSelectedStatusFilter("");
+                setDateRange({ from: null, to: null });
+              }}
+              showFooter={true}
+              widthClassName="w-72"
+            >
+              <div className="space-y-3">
                 <div>
-                  <p className="text-sm text-gray-500">Unread</p>
-                  <p className="text-2xl font-bold text-red-600">{stats.unread}</p>
-                </div>
-                <div className="p-3 bg-red-100 rounded-full">
-                  <XCircleIcon className="h-6 w-6 text-red-600" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">High Priority</p>
-                  <p className="text-2xl font-bold text-orange-600">{stats.high}</p>
-                </div>
-                <div className="p-3 bg-orange-100 rounded-full">
-                  <BellAlertIcon className="h-6 w-6 text-orange-600" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Read</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.read}</p>
-                </div>
-                <div className="p-3 bg-green-100 rounded-full">
-                  <CheckCircleIcon className="h-6 w-6 text-green-600" />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Conditional Rendering: Form OR Table */}
-        {showForm ? (
-          // Form View
-          <div className={`${cardCls} mb - 6`}>
-            <div className="border-b border-gray-200 px-6 py-4 bg-gradient-to-r from-gray-50 to-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-cyan-100 rounded-lg">
-                    <BellIcon className="h-5 w-5 text-cyan-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {editingNotification ? "Edit Notification" : "Add Notification"}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      {editingNotification ? "Update notification details" : "Create a new notification"}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={resetForm}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Back to list"
-                >
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-
-            <form onSubmit={submitForm} className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Employee <span className="text-red-500">*</span>
-                  </label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Employee</label>
                   <select
-                    value={form.employeeId || ""}
-                    required
-                    onChange={e => {
-                      const employeeId = Number(e.target.value);
-                      const employee = employees.find(emp => emp.id === employeeId);
-                      handleChange("employeeId", employeeId);
-                      handleChange("employeeName", employee ? `${employee.firstName} ${employee.lastName}` : "");
-                    }}
-                    className={inputCls}
-                    disabled={!!editingNotification}
+                    value={selectedEmployeeFilter}
+                    onChange={e => setSelectedEmployeeFilter(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   >
-                    <option value="">Select Employee</option>
-                    {employees.map(emp => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.firstName} {emp.lastName} - {emp.employeeCode || `ID: ${emp.id}`}
-                      </option>
+                    <option value="">All Employees</option>
+                    {uniqueEmployees.map(emp => (
+                      <option key={emp.id} value={emp.id.toString()}>{emp.name}</option>
                     ))}
                   </select>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Title <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={form.title}
-                    required
-                    onChange={e => handleChange("title", e.target.value)}
-                    placeholder="Notification title"
-                    className={inputCls}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Type</label>
                   <select
-                    value={form.type}
-                    onChange={e => handleChange("type", e.target.value as NotificationType)}
-                    className={inputCls}
+                    value={selectedTypeFilter}
+                    onChange={e => setSelectedTypeFilter(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   >
+                    <option value="">All Types</option>
                     {typeOptions.map(type => (
                       <option key={type} value={type}>{type}</option>
                     ))}
                   </select>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Channel</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Priority</label>
                   <select
-                    value={form.channel}
-                    onChange={e => handleChange("channel", e.target.value as NotificationChannel)}
-                    className={inputCls}
+                    value={selectedPriorityFilter}
+                    onChange={e => setSelectedPriorityFilter(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   >
-                    {channelOptions.map(channel => (
-                      <option key={channel} value={channel}>{channel}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
-                  <select
-                    value={form.priority}
-                    onChange={e => handleChange("priority", e.target.value as NotificationPriority)}
-                    className={inputCls}
-                  >
+                    <option value="">All Priorities</option>
                     {priorityOptions.map(priority => (
                       <option key={priority} value={priority}>{priority}</option>
                     ))}
                   </select>
                 </div>
-
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Message <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={form.message}
-                    required
-                    onChange={e => handleChange("message", e.target.value)}
-                    rows={3}
-                    placeholder="Enter notification message..."
-                    className={inputCls}
-                  />
-                </div>
-
                 <div>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={!!form.isRead}
-                      onChange={e => handleChange("isRead", e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
-                    />
-                    <span className="text-sm font-medium text-gray-700">Mark as Read</span>
-                  </label>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Reference ID</label>
-                  <input
-                    type="number"
-                    value={form.referenceId || ""}
-                    onChange={e => handleChange("referenceId", e.target.value ? Number(e.target.value) : null)}
-                    placeholder="Associated record ID"
-                    className={inputCls}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Reference Type</label>
-                  <input
-                    type="text"
-                    value={form.referenceType || ""}
-                    onChange={e => handleChange("referenceType", e.target.value)}
-                    placeholder="e.g., AttendanceRecord, PayrollRecord"
-                    className={inputCls}
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-6 mt-4 border-t border-gray-200">
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-700 !mb-0 !text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-                >
-                  <BellIcon className="h-4 w-4" />
-                  {editingNotification ? "Update Notification" : "Send Notification"}
-                </button>
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-5 py-2.5 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        ) : (
-          // Table View
-          <>
-            {/* Search Bar and Filter Button in same line */}
-            <div className="mb-6 flex flex-wrap items-center gap-4">
-              <div className="flex-1 min-w-[250px]">
-                <div className="relative">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search by title, message, or employee..."
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`relative px - 4 py - 2 rounded - lg border transition - all duration - 200 flex items - center gap - 2 ${showFilters || activeFilterCount > 0
-                  ? 'bg-cyan-50 border-cyan-300 text-cyan-600'
-                  : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
-                  }`}
-              >
-                <FunnelIcon className="h-4 w-4" />
-                <span>Filters</span>
-                {activeFilterCount > 0 && (
-                  <span className="absolute -top-2 -right-2 h-5 w-5 bg-cyan-600 text-white text-xs rounded-full flex items-center justify-center">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </button>
-
-              {(search || activeFilterCount > 0) && (
-                <button
-                  onClick={() => {
-                    setSearch("");
-                    setSelectedEmployeeFilter("");
-                    setSelectedTypeFilter("");
-                    setSelectedPriorityFilter("");
-                    setSelectedStatusFilter("");
-                    setDateRange({ from: null, to: null });
-                    setShowFilters(false);
-                  }}
-                  className="px-3 py-2 text-sm text-red-600 hover:text-red-800 rounded-lg border border-red-200 hover:bg-red-50 transition-colors flex items-center gap-1"
-                >
-                  <ArrowPathIcon className="h-4 w-4" />
-                  Clear All
-                </button>
-              )}
-            </div>
-
-            {/* Filter Panel - Collapsible */}
-            {showFilters && (
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 animate-fadeIn">
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
-                    <select
-                      value={selectedEmployeeFilter}
-                      onChange={e => setSelectedEmployeeFilter(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                    >
-                      <option value="">All Employees</option>
-                      {uniqueEmployees.map(emp => (
-                        <option key={emp.id} value={emp.id}>{emp.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                    <select
-                      value={selectedTypeFilter}
-                      onChange={e => setSelectedTypeFilter(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                    >
-                      <option value="">All Types</option>
-                      {typeOptions.map(type => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-                    <select
-                      value={selectedPriorityFilter}
-                      onChange={e => setSelectedPriorityFilter(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                    >
-                      <option value="">All Priorities</option>
-                      {priorityOptions.map(priority => (
-                        <option key={priority} value={priority}>{priority}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select
-                      value={selectedStatusFilter}
-                      onChange={e => setSelectedStatusFilter(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                    >
-                      <option value="">All Status</option>
-                      <option value="read">Read</option>
-                      <option value="unread">Unread</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
-                    <div className="flex gap-2">
-                      <DatePicker
-                        selected={dateRange.from}
-                        onChange={(date) => setDateRange(prev => ({ ...prev, from: date }))}
-                        dateFormat="yyyy-MM-dd"
-                        className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500"
-                        placeholderText="From"
-                      />
-                      <DatePicker
-                        selected={dateRange.to}
-                        onChange={(date) => setDateRange(prev => ({ ...prev, to: date }))}
-                        dateFormat="yyyy-MM-dd"
-                        className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500"
-                        placeholderText="To"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Reusable Table */}
-            <ReusableTable<Notification>
-              data={filteredNotifications}
-              columns={columns}
-              loading={loading}
-              searchable={false}
-              pageSize={PAGE_SIZE}
-              defaultSortKey="createdAt"
-              defaultSortOrder="desc"
-              emptyState={
-                <div className="flex flex-col items-center py-12">
-                  <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                    <BellIcon className="h-8 w-8 text-gray-400" />
-                  </div>
-                  <p className="text-gray-500 text-sm font-medium mb-2">No notifications found</p>
-                  <button
-                    onClick={openCreateForm}
-                    className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
+                  <select
+                    value={selectedStatusFilter}
+                    onChange={e => setSelectedStatusFilter(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   >
-                    <PlusIcon className="h-4 w-4" />
-                    Add your first notification
-                  </button>
+                    <option value="">All Status</option>
+                    <option value="read">Read</option>
+                    <option value="unread">Unread</option>
+                  </select>
                 </div>
-              }
-            />
-          </>
-        )}
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Date Range</label>
+                  <div className="flex gap-2">
+                    <DatePicker
+                      selected={dateRange.from}
+                      onChange={(date) => setDateRange(prev => ({ ...prev, from: date }))}
+                      dateFormat="yyyy-MM-dd"
+                      className="flex-1 p-2 border border-gray-200 rounded-xl text-sm focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 outline-none w-full"
+                      placeholderText="From"
+                    />
+                    <DatePicker
+                      selected={dateRange.to}
+                      onChange={(date) => setDateRange(prev => ({ ...prev, to: date }))}
+                      dateFormat="yyyy-MM-dd"
+                      className="flex-1 p-2 border border-gray-200 rounded-xl text-sm focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 outline-none w-full"
+                      placeholderText="To"
+                    />
+                  </div>
+                </div>
+              </div>
+            </FilterPopover>
+          }
+          emptyState={
+            <div className="flex flex-col items-center py-12">
+              <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <BellIcon className="h-8 w-8 text-gray-400" />
+              </div>
+              <p className="text-gray-500 text-sm font-medium mb-2">No notifications found</p>
+              <button
+                onClick={openCreateForm}
+                className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
+              >
+                <PlusIcon className="h-4 w-4" />
+                Add your first notification
+              </button>
+            </div>
+          }
+        />
+
+        {/* Notification Form Modal */}
+        <PaginatedPopup
+          isOpen={showForm}
+          title={editingNotification ? "Edit Notification" : "Add Notification"}
+          subtitle={editingNotification ? "Update notification details" : "Create a new notification"}
+          onClose={resetForm}
+          onSubmit={submitForm}
+          submitLabel={editingNotification ? "Update Notification" : "Send Notification"}
+          fields={[
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Employee <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={form.employeeId || ""}
+                required
+                onChange={e => {
+                  const employeeId = Number(e.target.value);
+                  const employee = employees.find(emp => emp.id === employeeId);
+                  handleChange("employeeId", employeeId);
+                  handleChange("employeeName", employee ? `${employee.firstName} ${employee.lastName}` : "");
+                }}
+                className={inputCls}
+                disabled={!!editingNotification}
+              >
+                <option value="">Select Employee</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.firstName} {emp.lastName} - {emp.employeeCode || `ID: ${emp.id}`}
+                  </option>
+                ))}
+              </select>
+            </div>,
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Title <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.title}
+                required
+                onChange={e => handleChange("title", e.target.value)}
+                placeholder="Notification title"
+                className={inputCls}
+              />
+            </div>,
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+              <select
+                value={form.type}
+                onChange={e => handleChange("type", e.target.value as NotificationType)}
+                className={inputCls}
+              >
+                {typeOptions.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>,
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Channel</label>
+              <select
+                value={form.channel}
+                onChange={e => handleChange("channel", e.target.value as NotificationChannel)}
+                className={inputCls}
+              >
+                {channelOptions.map(channel => (
+                  <option key={channel} value={channel}>{channel}</option>
+                ))}
+              </select>
+            </div>,
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+              <select
+                value={form.priority}
+                onChange={e => handleChange("priority", e.target.value as NotificationPriority)}
+                className={inputCls}
+              >
+                {priorityOptions.map(priority => (
+                  <option key={priority} value={priority}>{priority}</option>
+                ))}
+              </select>
+            </div>,
+            <div>
+              <label className="flex items-center gap-3 cursor-pointer pt-9">
+                <input
+                  type="checkbox"
+                  checked={!!form.isRead}
+                  onChange={e => handleChange("isRead", e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Mark as Read</span>
+              </label>
+            </div>,
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Message <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={form.message}
+                required
+                onChange={e => handleChange("message", e.target.value)}
+                rows={3}
+                placeholder="Enter notification message..."
+                className={inputCls}
+              />
+            </div>,
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Reference ID</label>
+              <input
+                type="number"
+                value={form.referenceId || ""}
+                onChange={e => handleChange("referenceId", e.target.value ? Number(e.target.value) : null)}
+                placeholder="Associated record ID"
+                className={inputCls}
+              />
+            </div>,
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Reference Type</label>
+              <input
+                type="text"
+                value={form.referenceType || ""}
+                onChange={e => handleChange("referenceType", e.target.value)}
+                placeholder="e.g., AttendanceRecord, PayrollRecord"
+                className={inputCls}
+              />
+            </div>
+          ]}
+        />
 
         <ConfirmDialog
           isOpen={confirmState.isOpen}

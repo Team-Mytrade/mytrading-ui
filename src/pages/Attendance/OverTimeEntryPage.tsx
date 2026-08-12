@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -24,7 +24,10 @@ import PageMeta from "../../components/common/PageMeta";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
+import FilterPopover from "../../components/common/filter";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import PaginatedPopup from "../../components/common/unpopup";
+import { AddButton } from "../../components/common/AddButton";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -137,15 +140,12 @@ const formatTimeForDisplay = (timeStr: string): string => {
 
 const OverTimeEntryPage: React.FC = () => {
   const [entries, setEntries] = useState<OvertimeEntry[]>([]);
-  const [filteredEntries, setFilteredEntries] = useState<OvertimeEntry[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [rules, setRules] = useState<OvertimeRule[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<OvertimeEntry | null>(null);
   const [form, setForm] = useState<OvertimeEntry>({ ...emptyForm });
-  const [search, setSearch] = useState<string>('');
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState<string>("");
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("");
   const [dateRange, setDateRange] = useState<{ from: Date | null; to: Date | null }>({ from: null, to: null });
@@ -202,21 +202,8 @@ const OverTimeEntryPage: React.FC = () => {
     loadEntries();
   }, []);
 
-  useEffect(() => {
-    applyFilters();
-  }, [entries, search, selectedEmployeeFilter, selectedStatusFilter, dateRange.from, dateRange.to]);
-
-  const applyFilters = () => {
+  const filteredEntries = useMemo(() => {
     let filtered = [...entries];
-
-    if (search) {
-      const searchTerm = search.toLowerCase();
-      filtered = filtered.filter(e =>
-        e.employeeName?.toLowerCase().includes(searchTerm) ||
-        e.remarks?.toLowerCase().includes(searchTerm) ||
-        e.ruleName?.toLowerCase().includes(searchTerm)
-      );
-    }
 
     if (selectedEmployeeFilter) {
       filtered = filtered.filter(e => e.employeeId.toString() === selectedEmployeeFilter);
@@ -233,8 +220,8 @@ const OverTimeEntryPage: React.FC = () => {
       filtered = filtered.filter(e => new Date(e.date) <= dateRange.to!);
     }
 
-    setFilteredEntries(filtered);
-  };
+    return filtered;
+  }, [entries, selectedEmployeeFilter, selectedStatusFilter, dateRange.from, dateRange.to]);
 
   // ── Form ────────────────────────────────────────────────────────────────────
 
@@ -585,384 +572,250 @@ const OverTimeEntryPage: React.FC = () => {
             <h1 className="text-2xl font-bold text-gray-900">Overtime Entries</h1>
             <p className="text-sm text-gray-500 mt-0.5">Log and manage employee overtime records</p>
           </div>
-          {!showForm && (
-            <button
-              onClick={openCreateForm}
-              className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center gap-2 shadow-sm"
-            >
-              <PlusIcon className="h-4 w-4" />
-              <span>Log Overtime</span>
-            </button>
-          )}
+          <AddButton label="Log Overtime" onClick={openCreateForm} />
         </div>
 
-        {/* Stats Cards - Hidden when form is visible */}
-        {!showForm && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Total Entries</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-                </div>
-                <div className="p-3 bg-cyan-100 rounded-full">
-                  <BoltIcon className="h-6 w-6 text-cyan-600" />
-                </div>
-              </div>
-            </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatsCard
+            label="Total Entries"
+            value={stats.total}
+            gradient="from-cyan-50 to-blue-50"
+            borderColor="border-cyan-100"
+            labelColor="text-cyan-600"
+            icon={<BoltIcon className="h-6 w-6" />}
+          />
+          <StatsCard
+            label="Pending"
+            value={stats.pending}
+            gradient="from-amber-50 to-yellow-50"
+            borderColor="border-amber-100"
+            labelColor="text-yellow-600"
+            icon={<ClockIcon className="h-6 w-6" />}
+          />
+          <StatsCard
+            label="Approved"
+            value={stats.approved}
+            gradient="from-green-50 to-emerald-50"
+            borderColor="border-green-100"
+            labelColor="text-green-600"
+            icon={<CheckCircleIcon className="h-6 w-6" />}
+          />
+          <StatsCard
+            label="Total Hours"
+            value={`${stats.totalHrs}h`}
+            gradient="from-indigo-50 to-blue-50"
+            borderColor="border-indigo-100"
+            labelColor="text-indigo-600"
+            icon={<ClockIcon className="h-6 w-6" />}
+          />
+        </div>
 
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
+        {/* Reusable Table */}
+        <ReusableTable<OvertimeEntry>
+          data={filteredEntries}
+          columns={columns}
+          loading={loading}
+          searchable={true}
+          searchPlaceholder="Search by employee, rule, or status..."
+          searchFields={["employeeName", "ruleName", "status"]}
+          pageSize={PAGE_SIZE}
+          defaultSortKey="date"
+          defaultSortOrder="desc"
+          toolbar={
+            <FilterPopover
+              title="Filter Overtime Entries"
+              buttonLabel="Filter"
+              onReset={() => {
+                setSelectedEmployeeFilter("");
+                setSelectedStatusFilter("");
+                setDateRange({ from: null, to: null });
+              }}
+              showFooter={true}
+              widthClassName="w-72"
+            >
+              <div className="space-y-3">
                 <div>
-                  <p className="text-sm text-gray-500">Pending</p>
-                  <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
-                </div>
-                <div className="p-3 bg-yellow-100 rounded-full">
-                  <ClockIcon className="h-6 w-6 text-yellow-600" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Approved</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.approved}</p>
-                </div>
-                <div className="p-3 bg-green-100 rounded-full">
-                  <CheckCircleIcon className="h-6 w-6 text-green-600" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Total Hours</p>
-                  <p className="text-2xl font-bold text-indigo-600">{stats.totalHrs}h</p>
-                </div>
-                <div className="p-3 bg-indigo-100 rounded-full">
-                  <ClockIcon className="h-6 w-6 text-indigo-600" />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Conditional Rendering: Form OR Table */}
-        {showForm ? (
-          // Form View
-          <div className={`${cardCls} mb-6`}>
-            <div className="border-b border-gray-200 px-6 py-4 bg-gradient-to-r from-gray-50 to-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-cyan-100 rounded-lg">
-                    <BoltIcon className="h-5 w-5 text-cyan-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {editingEntry ? "Edit Overtime Entry" : "Log Overtime"}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      {editingEntry ? "Update overtime entry details" : "Record a new overtime entry"}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={resetForm}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Back to list"
-                >
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-
-            <form onSubmit={submitForm} className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Employee <span className="text-red-500">*</span>
-                  </label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Employee</label>
                   <select
-                    value={form.employeeId || ""}
-                    required
-                    onChange={e => {
-                      const employeeId = Number(e.target.value);
-                      const employee = employees.find(emp => emp.id === employeeId);
-                      handleChange("employeeId", employeeId);
-                      handleChange("employeeName", employee ? `${employee.firstName} ${employee.lastName}` : "");
-                    }}
-                    className={inputCls}
-                    disabled={!!editingEntry}
+                    value={selectedEmployeeFilter}
+                    onChange={e => setSelectedEmployeeFilter(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   >
-                    <option value="">Select Employee</option>
-                    {employees.map(emp => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.firstName} {emp.lastName} - {emp.employeeCode || `ID: ${emp.id}`}
-                      </option>
+                    <option value="">All Employees</option>
+                    {uniqueEmployees.map(emp => (
+                      <option key={emp.id} value={emp.id.toString()}>{emp.name}</option>
                     ))}
                   </select>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Date <span className="text-red-500">*</span>
-                  </label>
-                  <DatePicker
-                    selected={form.date ? new Date(form.date) : null}
-                    onChange={handleDateChange}
-                    dateFormat="yyyy-MM-dd"
-                    className={inputCls}
-                    placeholderText="Select date"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Start Time <span className="text-red-500">*</span>
-                  </label>
-                  <DatePicker
-                    selected={startTimeDate}
-                    onChange={handleStartTimeChange}
-                    showTimeSelect
-                    showTimeSelectOnly
-                    timeIntervals={15}
-                    timeCaption="Time"
-                    dateFormat="hh:mm aa"
-                    className={inputCls}
-                    placeholderText="Select start time"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    End Time <span className="text-red-500">*</span>
-                  </label>
-                  <DatePicker
-                    selected={endTimeDate}
-                    onChange={handleEndTimeChange}
-                    showTimeSelect
-                    showTimeSelectOnly
-                    timeIntervals={15}
-                    timeCaption="Time"
-                    dateFormat="hh:mm aa"
-                    className={inputCls}
-                    placeholderText="Select end time"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Overtime Rule</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
                   <select
-                    value={form.ruleId || ""}
-                    onChange={e => {
-                      const ruleId = Number(e.target.value);
-                      const rule = rules.find(r => r.id === ruleId);
-                      handleChange("ruleId", ruleId || null);
-                      handleChange("ruleName", rule?.ruleName || null);
-                    }}
-                    className={inputCls}
+                    value={selectedStatusFilter}
+                    onChange={e => setSelectedStatusFilter(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   >
-                    <option value="">Select Rule (optional)</option>
-                    {rules.map(rule => (
-                      <option key={rule.id} value={rule.id}>{rule.ruleName}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Total Hours</label>
-                  <input
-                    type="text"
-                    value={form.totalHours ? `${form.totalHours} hours` : "0 hours"}
-                    className={`${inputCls} bg-gray-50 cursor-not-allowed`}
-                    readOnly
-                    disabled
-                  />
-                  <p className="mt-1 text-xs text-gray-500">Auto-calculated from start/end times</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                  <select
-                    value={form.status}
-                    onChange={e => handleChange("status", e.target.value as Status)}
-                    className={inputCls}
-                    disabled={!!editingEntry && editingEntry.status !== "PENDING"}
-                  >
+                    <option value="">All Status</option>
                     <option value="PENDING">Pending</option>
                     <option value="APPROVED">Approved</option>
                     <option value="REJECTED">Rejected</option>
                   </select>
                 </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Remarks <span className="text-gray-400">(optional)</span>
-                  </label>
-                  <textarea
-                    value={form.remarks || ""}
-                    onChange={e => handleChange("remarks", e.target.value)}
-                    rows={3}
-                    placeholder="Add any notes about this overtime..."
-                    className={inputCls}
-                  />
-                </div>
               </div>
-
-              <div className="flex gap-3 pt-6 mt-4 border-t border-gray-200">
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-                >
-                  <BoltIcon className="h-4 w-4" />
-                  {editingEntry ? "Update Entry" : "Log Overtime"}
-                </button>
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-5 py-2.5 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
+            </FilterPopover>
+          }
+          emptyState={
+            <div className="flex flex-col items-center py-12">
+              <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <BoltIcon className="h-8 w-8 text-gray-400" />
               </div>
-            </form>
-          </div>
-        ) : (
-          // Table View
-          <>
-            {/* Search Bar and Filter Button in same line */}
-            <div className="mb-6 flex flex-wrap items-center gap-4">
-              <div className="flex-1 min-w-[250px]">
-                <div className="relative">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search by employee, rule, or remarks..."
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
+              <p className="text-gray-500 text-sm font-medium mb-2">No overtime entries found</p>
               <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`relative px-4 py-2 rounded-lg border transition-all duration-200 flex items-center gap-2 ${showFilters || activeFilterCount > 0
-                    ? 'bg-cyan-50 border-cyan-300 text-cyan-600'
-                    : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
-                  }`}
+                onClick={openCreateForm}
+                className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
               >
-                <FunnelIcon className="h-4 w-4" />
-                <span>Filters</span>
-                {activeFilterCount > 0 && (
-                  <span className="absolute -top-2 -right-2 h-5 w-5 bg-cyan-600 text-white text-xs rounded-full flex items-center justify-center">
-                    {activeFilterCount}
-                  </span>
-                )}
+                <PlusIcon className="h-4 w-4" />
+                Log your first overtime
               </button>
-
-              {(search || activeFilterCount > 0) && (
-                <button
-                  onClick={() => {
-                    setSearch("");
-                    setSelectedEmployeeFilter("");
-                    setSelectedStatusFilter("");
-                    setDateRange({ from: null, to: null });
-                    setShowFilters(false);
-                  }}
-                  className="px-3 py-2 text-sm text-red-600 hover:text-red-800 rounded-lg border border-red-200 hover:bg-red-50 transition-colors flex items-center gap-1"
-                >
-                  <ArrowPathIcon className="h-4 w-4" />
-                  Clear All
-                </button>
-              )}
             </div>
+          }
+        />
 
-            {/* Filter Panel - Collapsible */}
-            {showFilters && (
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 animate-fadeIn">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
-                    <select
-                      value={selectedEmployeeFilter}
-                      onChange={e => setSelectedEmployeeFilter(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                    >
-                      <option value="">All Employees</option>
-                      {uniqueEmployees.map(emp => (
-                        <option key={emp.id} value={emp.id}>{emp.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select
-                      value={selectedStatusFilter}
-                      onChange={e => setSelectedStatusFilter(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                    >
-                      <option value="">All Status</option>
-                      {statusOptions.map(status => (
-                        <option key={status} value={status}>{status}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
-                    <div className="flex gap-2">
-                      <DatePicker
-                        selected={dateRange.from}
-                        onChange={(date) => setDateRange(prev => ({ ...prev, from: date }))}
-                        dateFormat="yyyy-MM-dd"
-                        className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500"
-                        placeholderText="From"
-                      />
-                      <DatePicker
-                        selected={dateRange.to}
-                        onChange={(date) => setDateRange(prev => ({ ...prev, to: date }))}
-                        dateFormat="yyyy-MM-dd"
-                        className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500"
-                        placeholderText="To"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Reusable Table */}
-            <ReusableTable<OvertimeEntry>
-              data={filteredEntries}
-              columns={columns}
-              loading={loading}
-              searchable={false}
-              pageSize={PAGE_SIZE}
-              defaultSortKey="date"
-              defaultSortOrder="desc"
-              emptyState={
-                <div className="flex flex-col items-center py-12">
-                  <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                    <BoltIcon className="h-8 w-8 text-gray-400" />
-                  </div>
-                  <p className="text-gray-500 text-sm font-medium mb-2">No overtime entries found</p>
-                  <button
-                    onClick={openCreateForm}
-                    className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
-                  >
-                    <PlusIcon className="h-4 w-4" />
-                    Log your first overtime
-                  </button>
-                </div>
-              }
-            />
-          </>
-        )}
+        {/* Overtime Entry Form Modal */}
+        <PaginatedPopup
+          isOpen={showForm}
+          title={editingEntry ? "Edit Overtime Entry" : "Log Overtime"}
+          subtitle={editingEntry ? "Update overtime entry details" : "Record a new overtime entry"}
+          onClose={resetForm}
+          onSubmit={submitForm}
+          submitLabel={editingEntry ? "Update Entry" : "Log Overtime"}
+          fields={[
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Employee <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={form.employeeId || ""}
+                required
+                onChange={e => {
+                  const employeeId = Number(e.target.value);
+                  const employee = employees.find(emp => emp.id === employeeId);
+                  handleChange("employeeId", employeeId);
+                  handleChange("employeeName", employee ? `${employee.firstName} ${employee.lastName}` : "");
+                }}
+                className={inputCls}
+                disabled={!!editingEntry}
+              >
+                <option value="">Select Employee</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.firstName} {emp.lastName} - {emp.employeeCode || `ID: ${emp.id}`}
+                  </option>
+                ))}
+              </select>
+            </div>,
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Date <span className="text-red-500">*</span>
+              </label>
+              <DatePicker
+                selected={form.date ? new Date(form.date) : null}
+                onChange={handleDateChange}
+                dateFormat="yyyy-MM-dd"
+                className={inputCls}
+                placeholderText="Select date"
+                required
+              />
+            </div>,
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Start Time <span className="text-red-500">*</span>
+              </label>
+              <DatePicker
+                selected={startTimeDate}
+                onChange={handleStartTimeChange}
+                showTimeSelect
+                showTimeSelectOnly
+                timeIntervals={15}
+                timeCaption="Time"
+                dateFormat="hh:mm aa"
+                className={inputCls}
+                placeholderText="Select start time"
+                required
+              />
+            </div>,
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                End Time <span className="text-red-500">*</span>
+              </label>
+              <DatePicker
+                selected={endTimeDate}
+                onChange={handleEndTimeChange}
+                showTimeSelect
+                showTimeSelectOnly
+                timeIntervals={15}
+                timeCaption="Time"
+                dateFormat="hh:mm aa"
+                className={inputCls}
+                placeholderText="Select end time"
+                required
+              />
+            </div>,
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Overtime Rule</label>
+              <select
+                value={form.ruleId || ""}
+                onChange={e => {
+                  const ruleId = Number(e.target.value);
+                  const rule = rules.find(r => r.id === ruleId);
+                  handleChange("ruleId", ruleId || null);
+                  handleChange("ruleName", rule?.ruleName || null);
+                }}
+                className={inputCls}
+              >
+                <option value="">Select Rule (optional)</option>
+                {rules.map(rule => (
+                  <option key={rule.id} value={rule.id}>{rule.ruleName}</option>
+                ))}
+              </select>
+            </div>,
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Total Hours</label>
+              <input
+                type="text"
+                value={form.totalHours ? `${form.totalHours} hours` : "0 hours"}
+                className={`${inputCls} bg-gray-50 cursor-not-allowed`}
+                readOnly
+                disabled
+              />
+            </div>,
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+              <select
+                value={form.status}
+                onChange={e => handleChange("status", e.target.value as Status)}
+                className={inputCls}
+                disabled={!!editingEntry && editingEntry.status !== "PENDING"}
+              >
+                <option value="PENDING">Pending</option>
+                <option value="APPROVED">Approved</option>
+                <option value="REJECTED">Rejected</option>
+              </select>
+            </div>,
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Remarks <span className="text-gray-400">(optional)</span>
+              </label>
+              <textarea
+                value={form.remarks || ""}
+                onChange={e => handleChange("remarks", e.target.value)}
+                rows={3}
+                placeholder="Add any notes about this overtime..."
+                className={inputCls}
+              />
+            </div>
+          ]}
+        />
 
         {/* Action Dialog (Approve/Reject) */}
         {showActionDialog && (

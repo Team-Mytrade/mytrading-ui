@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import {
   PencilSquareIcon,
@@ -25,7 +25,9 @@ import PageMeta from "../../components/common/PageMeta";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ToasterService } from "../../Services/ToasterService";
+import FilterPopover from "../../components/common/filter";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import PaginatedPopup from "../../components/common/unpopup";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -79,8 +81,6 @@ const LeaveTypePage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingLeaveType, setEditingLeaveType] = useState<LeaveType | null>(null);
   const [form, setForm] = useState<LeaveType>({ ...emptyForm });
-  const [search, setSearch] = useState<string>('');
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<string>("");
   const [selectedPaid, setSelectedPaid] = useState<string>("");
   const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
@@ -178,17 +178,8 @@ const LeaveTypePage: React.FC = () => {
   // ── Stats ───────────────────────────────────────────────────────────────────
 
   // Filter data for stats
-  const getFilteredData = () => {
+  const filteredData = useMemo(() => {
     let filtered = [...leaveTypes];
-
-    if (search) {
-      const searchTerm = search.toLowerCase();
-      filtered = filtered.filter(lt =>
-        lt.name?.toLowerCase().includes(searchTerm) ||
-        lt.code?.toLowerCase().includes(searchTerm) ||
-        lt.eligibilityRule?.toLowerCase().includes(searchTerm)
-      );
-    }
 
     if (selectedUnit) {
       filtered = filtered.filter(lt => lt.unit === selectedUnit);
@@ -199,9 +190,7 @@ const LeaveTypePage: React.FC = () => {
     }
 
     return filtered;
-  };
-
-  const filteredData = getFilteredData();
+  }, [leaveTypes, selectedUnit, selectedPaid]);
 
   const totalRecords = filteredData.length;
   const totalPaid = filteredData.filter(lt => lt.paid).length;
@@ -212,7 +201,7 @@ const LeaveTypePage: React.FC = () => {
   const uniqueUnits = [...new Set(leaveTypes.map(lt => lt.unit).filter(Boolean))];
 
   // Count active filters
-  const activeFilterCount = [selectedUnit, selectedPaid, search].filter(Boolean).length;
+  const activeFilterCount = [selectedUnit, selectedPaid].filter(Boolean).length;
 
   // Generate code from name (auto-generate)
   const generateCode = (name: string) => {
@@ -309,99 +298,142 @@ const LeaveTypePage: React.FC = () => {
       <PageBreadcrumb pageTitle="Leave Types" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-        {!showForm && (
           <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
             <AddButton label="Add Leave Type" onClick={openCreateForm} />
           </div>
-        )}
 
 
-        {/* Conditional Rendering: Form OR Stats & Table */}
-        {showForm ? (
-          // Form View
-          <div id="leave-type-form" className={`${cardCls} mb-6`}>
-            <div className="border-b border-gray-200 px-6 py-4 bg-gradient-to-r from-gray-50 to-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-cyan-100 rounded-lg">
-                    {editingLeaveType ? (
-                      <PencilSquareIcon className="h-5 w-5 text-cyan-600" />
-                    ) : (
-                      <PlusIcon className="h-5 w-5 text-cyan-600" />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {editingLeaveType ? "Edit Leave Type" : "Add Leave Type"}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      {editingLeaveType ? "Update leave type details" : "Configure a new leave type"}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={resetForm}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Back to list"
-                >
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+          <StatsCard label="Total Types" value={totalRecords} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<TagIcon className="h-6 w-6" />} />
+          <StatsCard label="Paid Leaves" value={totalPaid} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
+          <StatsCard label="Carry Forward" value={totalCarryForward} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<ArrowPathIcon className="h-6 w-6" />} />
+          <StatsCard label="Encashment" value={totalEncashment} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<CurrencyRupeeIcon className="h-6 w-6" />} />
+        </div>
 
-            <form onSubmit={submitForm} className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+        {/* Reusable Table */}
+        <ReusableTable<LeaveType>
+          data={filteredData}
+          columns={columns}
+          loading={loading}
+          searchable={true}
+          searchPlaceholder="Search by name, code, or eligibility rule..."
+          searchFields={["name", "code", "eligibilityRule"]}
+          pageSize={PAGE_SIZE}
+          defaultSortKey="name"
+          defaultSortOrder="asc"
+          toolbar={
+            <FilterPopover
+              title="Filter Leave Types"
+              buttonLabel="Filter"
+              onReset={() => {
+                setSelectedUnit("");
+                setSelectedPaid("");
+              }}
+              showFooter={true}
+            >
+              <div className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Leave Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={form.name}
-                    required
-                    onChange={e => {
-                      const name = e.target.value;
-                      handleChange("name", name);
-                      if (!editingLeaveType && !form.code) {
-                        handleChange("code", generateCode(name));
-                      }
-                    }}
-                    placeholder="e.g. Casual Leave"
-                    className={inputCls}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Code <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={form.code}
-                    required
-                    onChange={e => handleChange("code", e.target.value.toUpperCase())}
-                    placeholder="e.g. CL"
-                    className={inputCls}
-                  />
-                  <p className="mt-1 text-xs text-gray-500">Unique identifier for this leave type</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Unit</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Unit</label>
                   <select
-                    value={form.unit}
-                    onChange={e => handleChange("unit", e.target.value as "DAY" | "HOUR")}
-                    className={inputCls}
+                    value={selectedUnit}
+                    onChange={e => setSelectedUnit(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   >
-                    <option value="DAY">Day</option>
-                    <option value="HOUR">Hour</option>
+                    <option value="">All Units</option>
+                    {uniqueUnits.map(unit => (
+                      <option key={unit} value={unit}>{unit}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Paid Status</label>
+                  <select
+                    value={selectedPaid}
+                    onChange={e => setSelectedPaid(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                  >
+                    <option value="">All</option>
+                    <option value="true">Paid</option>
+                    <option value="false">Unpaid</option>
                   </select>
                 </div>
               </div>
+            </FilterPopover>
+          }
+          emptyState={
+            <div className="flex flex-col items-center py-12">
+              <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <TagIcon className="h-8 w-8 text-gray-400" />
+              </div>
+              <p className="text-gray-500 text-sm font-medium mb-2">No leave types found</p>
+              <button
+                onClick={openCreateForm}
+                className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
+              >
+                <PlusIcon className="h-4 w-4" />
+                Add your first leave type
+              </button>
+            </div>
+          }
+        />
 
-              {/* Toggle checkboxes */}
+        {/* Leave Type Form Modal */}
+        <PaginatedPopup
+          isOpen={showForm}
+          title={editingLeaveType ? "Edit Leave Type" : "Add Leave Type"}
+          subtitle={editingLeaveType ? "Update leave type details" : "Configure a new leave type"}
+          onClose={resetForm}
+          onSubmit={submitForm}
+          submitLabel={editingLeaveType ? "Update Leave Type" : "Add Leave Type"}
+          fields={[
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Leave Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.name}
+                required
+                onChange={e => {
+                  const name = e.target.value;
+                  handleChange("name", name);
+                  if (!editingLeaveType && !form.code) {
+                    handleChange("code", generateCode(name));
+                  }
+                }}
+                placeholder="e.g. Casual Leave"
+                className={inputCls}
+              />
+            </div>,
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Code <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.code}
+                required
+                onChange={e => handleChange("code", e.target.value.toUpperCase())}
+                placeholder="e.g. CL"
+                className={inputCls}
+              />
+              <p className="mt-1 text-xs text-gray-500">Unique identifier for this leave type</p>
+            </div>,
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Unit</label>
+              <select
+                value={form.unit}
+                onChange={e => handleChange("unit", e.target.value as "DAY" | "HOUR")}
+                className={inputCls}
+              >
+                <option value="DAY">Day</option>
+                <option value="HOUR">Hour</option>
+              </select>
+            </div>,
+            <div className="md:col-span-2">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Policy Settings</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {([
                   { key: "paid", label: "Paid Leave" },
                   { key: "trackBalance", label: "Track Balance" },
@@ -419,165 +451,21 @@ const LeaveTypePage: React.FC = () => {
                   </label>
                 ))}
               </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Eligibility Rule <span className="text-gray-400 font-normal">(optional)</span>
-                </label>
-                <textarea
-                  value={form.eligibilityRule}
-                  onChange={e => handleChange("eligibilityRule", e.target.value)}
-                  rows={3}
-                  placeholder="Describe eligibility conditions..."
-                  className={inputCls}
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4 border-t border-gray-200">
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-700 !text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-                >
-                  {editingLeaveType ? (
-                    <>
-                      <PencilSquareIcon className="h-4 w-4" />
-                      Update Leave Type
-                    </>
-                  ) : (
-                    <>
-                      <PlusIcon className="h-4 w-4" />
-                      Add Leave Type
-                    </>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-5 py-2.5 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
-                >
-                  <ArrowLeftIcon className="h-4 w-4" />
-                  Back to List
-                </button>
-              </div>
-            </form>
-          </div>
-        ) : (
-          // Table View
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-              <StatsCard label="Total Types" value={totalRecords} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<TagIcon className="h-6 w-6" />} />
-              <StatsCard label="Paid Leaves" value={totalPaid} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
-              <StatsCard label="Carry Forward" value={totalCarryForward} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<ArrowPathIcon className="h-6 w-6" />} />
-              <StatsCard label="Encashment" value={totalEncashment} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<CurrencyRupeeIcon className="h-6 w-6" />} />
+            </div>,
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Eligibility Rule <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <textarea
+                value={form.eligibilityRule}
+                onChange={e => handleChange("eligibilityRule", e.target.value)}
+                rows={3}
+                placeholder="Describe eligibility conditions..."
+                className={inputCls}
+              />
             </div>
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex-1 max-w-md">
-                <div className="relative">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search by name, code, or eligibility rule..."
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`relative px-4 py-2 rounded-lg border transition-colors flex items-center gap-2 shadow-sm ${showFilters || activeFilterCount > 0
-                    ? 'bg-cyan-50 border-cyan-300 text-cyan-600'
-                    : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
-                    }`}
-                >
-                  <FunnelIcon className="h-4 w-4" />
-                  <span>Filters</span>
-                  {activeFilterCount > 0 && (
-                    <span className="absolute -top-2 -right-2 h-5 w-5 bg-cyan-600 text-white text-xs rounded-full flex items-center justify-center">
-                      {activeFilterCount}
-                    </span>
-                  )}
-                </button>
-
-                {(search || activeFilterCount > 0) && (
-                  <button
-                    onClick={() => {
-                      setSearch("");
-                      setSelectedUnit("");
-                      setSelectedPaid("");
-                      setShowFilters(false);
-                    }}
-                    className="px-3 py-2 text-sm text-red-600 hover:text-red-800 rounded-lg border border-red-200 hover:bg-red-50 transition-colors flex items-center gap-1"
-                  >
-                    <ArrowPathIcon className="h-4 w-4" />
-                    Clear All
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Filters Panel */}
-            {showFilters && (
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="flex flex-wrap gap-4">
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
-                    <select
-                      value={selectedUnit}
-                      onChange={e => setSelectedUnit(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                    >
-                      <option value="">All Units</option>
-                      {uniqueUnits.map(unit => (
-                        <option key={unit} value={unit}>{unit}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Paid Status</label>
-                    <select
-                      value={selectedPaid}
-                      onChange={e => setSelectedPaid(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                    >
-                      <option value="">All</option>
-                      <option value="true">Paid</option>
-                      <option value="false">Unpaid</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Reusable Table */}
-            <ReusableTable<LeaveType>
-              data={filteredData}
-              columns={columns}
-              loading={loading}
-              searchable={false}
-              pageSize={PAGE_SIZE}
-              defaultSortKey="name"
-              defaultSortOrder="asc"
-              emptyState={
-                <div className="flex flex-col items-center py-12">
-                  <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                    <TagIcon className="h-8 w-8 text-gray-400" />
-                  </div>
-                  <p className="text-gray-500 text-sm font-medium mb-2">No leave types found</p>
-                  <button
-                    onClick={openCreateForm}
-                    className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
-                  >
-                    <PlusIcon className="h-4 w-4" />
-                    Add your first leave type
-                  </button>
-                </div>
-              }
-            />
-          </>
-        )}
+          ]}
+        />
 
         <ConfirmDialog
           isOpen={confirmState.isOpen}

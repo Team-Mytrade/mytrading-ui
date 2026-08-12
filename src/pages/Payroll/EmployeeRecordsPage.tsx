@@ -30,6 +30,8 @@ import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
+import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import FilterPopover from "../../components/common/filter";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
@@ -47,11 +49,7 @@ const EmployeeRecordsPage: React.FC = () => {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
     const [search, setSearch] = useState("");
-    const [sortKey, setSortKey] = useState<keyof Employee>("employeeCode");
-    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-    const [page, setPage] = useState(1);
     const [selectedDept, setSelectedDept] = useState<string>("");
-    const [showFilters, setShowFilters] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [loading, setLoading] = useState(false);
     const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
@@ -202,7 +200,9 @@ const EmployeeRecordsPage: React.FC = () => {
         setShowExportMenu(false);
     };
 
-    const filtered = employees.filter(e => {
+    const safeEmployees = Array.isArray(employees) ? employees : [];
+    
+    const filtered = safeEmployees.filter(e => {
         const fullName = `${e.firstName ?? ""} ${e.lastName ?? ""}`.toLowerCase();
         const employeeCode = String(e.employeeCode ?? "").toLowerCase();
         const officialEmail = String(e.officialEmail ?? "").toLowerCase();
@@ -214,45 +214,122 @@ const EmployeeRecordsPage: React.FC = () => {
         return matchSearch && matchDept;
     });
 
-    const sorted = [...filtered].sort((a, b) => {
-        let valA = a[sortKey];
-        let valB = b[sortKey];
+    const activeEmployees = safeEmployees.filter(e => e.active).length;
 
-        // Handle special cases for nested properties
-        if (sortKey === "department") {
-            valA = a.department?.name || "";
-            valB = b.department?.name || "";
+    const columns: ColumnDef<Employee>[] = [
+        {
+            key: "employeeCode",
+            label: "Code",
+            sortable: true,
+            render: (row) => (
+                <span className="text-xs font-mono font-medium text-gray-900">
+                    {row.employeeCode}
+                </span>
+            )
+        },
+        {
+            key: "name",
+            label: "Employee Name",
+            sortable: true,
+            sortValueGetter: (row) => `${row.firstName || ''} ${row.lastName || ''}`.trim(),
+            render: (row) => {
+                const fullName = `${row.firstName || ''} ${row.lastName || ''}`.trim();
+                const initials = `${row.firstName?.charAt(0) || ''}${row.lastName?.charAt(0) || ''}`.toUpperCase() || 'E';
+                return (
+                    <div className="flex items-center">
+                        <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3 shrink-0">
+                            <span className="text-xs font-medium text-cyan-700">
+                                {initials}
+                            </span>
+                        </div>
+                        <div>
+                            <div className="text-xs font-medium text-gray-900">
+                                {fullName}
+                            </div>
+                            <div className="text-[10px] text-gray-500 mt-0.5">
+                                {row.designation || "—"}
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+        },
+        {
+            key: "contact",
+            label: "Contact",
+            render: (row) => (
+                <div className="space-y-1 max-w-[120px]">
+                    <div className="flex items-center text-[10px] text-gray-600" title={row.officialEmail || ""}>
+                        <EnvelopeIcon className="h-3 w-3 mr-1 text-gray-400 shrink-0" />
+                        <span className="truncate">{row.officialEmail || "—"}</span>
+                    </div>
+                    <div className="flex items-center text-[10px] text-gray-600" title={row.phone || ""}>
+                        <PhoneIcon className="h-3 w-3 mr-1 text-gray-400 shrink-0" />
+                        <span className="truncate">{row.phone || "—"}</span>
+                    </div>
+                </div>
+            )
+        },
+        {
+            key: "department",
+            label: "Department",
+            sortable: true,
+            sortValueGetter: (row) => row.department?.name || "",
+            render: (row) => (
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                    <BuildingOfficeIcon className="h-3 w-3 mr-1 shrink-0" />
+                    {row.department?.name || "—"}
+                </span>
+            )
+        },
+        {
+            key: "active",
+            label: "Status",
+            sortable: true,
+            render: (row) => row.active ? (
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                    <CheckCircleIcon className="h-3 w-3 mr-1 shrink-0" />
+                    Active
+                </span>
+            ) : (
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                    <XCircleIcon className="h-3 w-3 mr-1 shrink-0" />
+                    Inactive
+                </span>
+            )
+        },
+        {
+            key: "actions",
+            label: "Actions",
+            headerClassName: "text-right w-36",
+            className: "text-right w-36",
+            render: (row) => (
+                <div className="flex items-center justify-end gap-3" onClick={e => e.stopPropagation()}>
+                    <button
+                        onClick={() => navigate(`/employee-view/${row.id}`)}
+                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-1 rounded-md transition-colors"
+                        title="View Details"
+                    >
+                        <EyeIcon className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                        onClick={() => navigate(`/addEmployee?editId=${row.id}`)}
+                        className="text-cyan-600 hover:text-cyan-900 bg-cyan-50 hover:bg-cyan-100 p-1 rounded-md transition-colors"
+                        title="Edit"
+                    >
+                        <PencilSquareIcon className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                        onClick={() => handleDelete(row.id)}
+                        className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 p-1 rounded-md transition-colors"
+                        title="Delete"
+                    >
+                        <TrashIcon className="h-3.5 w-3.5" />
+                    </button>
+                </div>
+            )
         }
-
-        if (valA == null && valB == null) return 0;
-        if (valA == null) return 1;
-        if (valB == null) return -1;
-
-        if (typeof valA === "string" && typeof valB === "string") {
-            return sortOrder === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        }
-
-        if (typeof valA === "boolean" && typeof valB === "boolean") {
-            return sortOrder === "asc" ? (valA === valB ? 0 : valA ? 1 : -1) : (valA === valB ? 0 : valA ? -1 : 1);
-        }
-
-        return 0;
-    });
-
-    const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-    const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
-
-    const handleSort = (field: keyof Employee | "name") => {
-        if (sortKey === field) setSortOrder(o => o === "asc" ? "desc" : "asc");
-        else { setSortKey(field as keyof Employee); setSortOrder("asc"); }
-    };
-
-    const SortIcon = ({ col }: { col: keyof Employee | "name" }) =>
-        sortKey !== col ? null : sortOrder === "asc" ? <ArrowUpIcon className="h-3 w-3 inline ml-1" /> : <ArrowDownIcon className="h-3 w-3 inline ml-1" />;
-
-    // Calculate stats
-    const activeEmployees = employees.filter(e => e.active).length;
-    const totalDepartments = new Set(employees.map(e => e.department?.id)).size;
+    ];
 
     return (
         <>
@@ -270,7 +347,7 @@ const EmployeeRecordsPage: React.FC = () => {
                     <StatsCard label="Departments" value={departments.length} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BuildingOfficeIcon className="h-6 w-6" />} />
                     <StatsCard
                         label="Onboarded (30d)"
-                        value={employees.filter(e => {
+                        value={safeEmployees.filter(e => {
                             if (!e.createdAt) return false;
                             const thirtyDaysAgo = new Date();
                             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -292,18 +369,18 @@ const EmployeeRecordsPage: React.FC = () => {
                                 type="text"
                                 placeholder="Search employees by name, code, or email..."
                                 value={search}
-                                onChange={e => { setSearch(e.target.value); setPage(1); }}
-                                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                                onChange={e => { setSearch(e.target.value); }}
+                                className="h-10 pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                             />
                         </div>
                     </div>
 
                     <div className="flex items-center gap-3">
                         {/* Export Menu */}
-                        <div className="relative">
+                        <div className="relative flex h-10 items-center">
                             <button
                                 onClick={() => setShowExportMenu(!showExportMenu)}
-                                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                                className="h-10 w-10 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
                             >
                                 <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
                             </button>
@@ -334,295 +411,40 @@ const EmployeeRecordsPage: React.FC = () => {
                         </div>
 
                         {/* Filter Button */}
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className={`p-2 rounded-lg border ${showFilters ? 'bg-cyan-50 border-cyan-300' : 'border-gray-300 hover:bg-gray-50'
-                                }`}
-                        >
-                            <FunnelIcon className={`h-5 w-5 ${showFilters ? 'text-cyan-600' : 'text-gray-600'}`} />
-                        </button>
+                        <FilterPopover
+                            title="Filter Employees"
+                            buttonLabel="Filter"
+                            label="Department"
+                            value={selectedDept}
+                            onChange={(val) => setSelectedDept(val)}
+                            options={[
+                                { label: "All Departments", value: "" },
+                                ...departments.map(d => ({ label: d.name, value: d.name }))
+                            ]}
+                            onReset={() => setSelectedDept("")}
+                            showFooter={true}
+                        />
 
                     </div>
                 </div>
-
-                {/* Filters Panel */}
-                {showFilters && (
-                    <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex flex-wrap gap-4">
-                            <div className="flex-1 min-w-[200px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                                <select
-                                    value={selectedDept}
-                                    onChange={e => { setSelectedDept(e.target.value); setPage(1); }}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                                >
-                                    <option value="">All Departments</option>
-                                    {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
-                                </select>
-                            </div>
-                            {selectedDept && (
-                                <button
-                                    onClick={() => setSelectedDept("")}
-                                    className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
-                                >
-                                    Clear Filter
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                )}
 
                 {/* Table */}
-                <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-visible">
-                    <div className="overflow-x-auto overflow-y-visible">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    {[
-                                        { key: "employeeCode", label: "Code" },
-                                        { key: "name", label: "Employee Name" },
-                                        { key: null, label: "Contact" },
-                                        { key: "department", label: "Department" },
-                                        { key: "active", label: "Status" },
-                                        { key: null, label: "Actions" },
-                                    ].map((col, i) => (
-                                        <th
-                                            key={i}
-                                            onClick={() => col.key && handleSort(col.key as keyof Employee | "name")}
-                                            className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${col.key ? "cursor-pointer hover:bg-gray-100" : ""
-                                                }`}
-                                        >
-                                            <span className="flex items-center">
-                                                {col.label}
-                                                {col.key && <SortIcon col={col.key as keyof Employee | "name"} />}
-                                            </span>
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {loading ? (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mb-3"></div>
-                                                <p className="text-gray-500 text-sm">Loading employees...</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : paginated.length > 0 ? paginated.map(employee => (
-                                    <tr
-                                        key={employee.id}
-                                        className="hover:bg-gray-50 transition-colors cursor-pointer"
-                                        onClick={() => navigate(`/employee-view/${employee.id}`)}
-                                    >
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="text-sm font-mono font-medium text-gray-900">{employee.employeeCode}</span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center">
-                                                <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3">
-                                                    <span className="text-sm font-medium text-cyan-700">
-                                                        {employee.firstName?.charAt(0)}{employee.lastName?.charAt(0)}
-                                                    </span>
-                                                </div>
-                                                <div>
-                                                    <div className="text-sm font-medium text-gray-900">
-                                                        {employee.firstName} {employee.lastName}
-                                                    </div>
-                                                    <div className="text-xs text-gray-500 mt-0.5">
-                                                        {employee.designation || "No designation"}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="space-y-1">
-                                                <div className="flex items-center text-xs text-gray-600">
-                                                    <EnvelopeIcon className="h-3 w-3 mr-1 text-gray-400" />
-                                                    {employee.officialEmail || "—"}
-                                                </div>
-                                                <div className="flex items-center text-xs text-gray-600">
-                                                    <PhoneIcon className="h-3 w-3 mr-1 text-gray-400" />
-                                                    {employee.phone || "—"}
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                                                <BuildingOfficeIcon className="h-3 w-3 mr-1" />
-                                                {employee.department?.name || "—"}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            {employee.active ? (
-                                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                                                    <CheckCircleIcon className="h-3 w-3 mr-1" />
-                                                    Active
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                                                    <XCircleIcon className="h-3 w-3 mr-1" />
-                                                    Inactive
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right relative" onClick={e => e.stopPropagation()}>
-                                            <Menu as="div" className="relative inline-block text-left">
-                                                <Menu.Button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                                                    <EllipsisVerticalIcon className="h-5 w-5 text-gray-500" />
-                                                </Menu.Button>
-                                                <Menu.Items className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-[100]">
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => navigate(`/employee-view/${employee.id}`)}
-                                                                className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                                            >
-                                                                <EyeIcon className="h-4 w-4 text-blue-600" />
-                                                                View Details
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => navigate(`/addEmployee?editId=${employee.id}`)}
-                                                                className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                                            >
-                                                                <PencilSquareIcon className="h-4 w-4 text-cyan-600" />
-                                                                Edit
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => handleDelete(employee.id)}
-                                                                className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-red-600`}
-                                                            >
-                                                                <TrashIcon className="h-4 w-4" />
-                                                                Delete
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                </Menu.Items>
-                                            </Menu>
-                                        </td>
-                                    </tr>
-                                )) : (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <UserGroupIcon className="h-12 w-12 text-gray-400 mb-3" />
-                                                <p className="text-gray-500 text-sm mb-2">No employees found</p>
-                                                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Pagination */}
-                    {totalPages > 0 && (
-                        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                            <div className="flex-1 flex justify-between sm:hidden">
-                                <button
-                                    onClick={() => setPage(Math.max(1, page - 1))}
-                                    disabled={page === 1}
-                                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Previous
-                                </button>
-                                <button
-                                    onClick={() => setPage(Math.min(totalPages, page + 1))}
-                                    disabled={page === totalPages}
-                                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Next
-                                </button>
-                            </div>
-                            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                                <div>
-                                    <p className="text-sm text-gray-700">
-                                        Showing <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> to{' '}
-                                        <span className="font-medium">
-                                            {Math.min(page * PAGE_SIZE, filtered.length)}
-                                        </span>{' '}
-                                        of <span className="font-medium">{filtered.length}</span> results
-                                    </p>
-                                </div>
-                                <div>
-                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                                        <button
-                                            onClick={() => setPage(1)}
-                                            disabled={page === 1}
-                                            className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            <span className="sr-only">First</span>
-                                            <span>First</span>
-                                        </button>
-                                        <button
-                                            onClick={() => setPage(Math.max(1, page - 1))}
-                                            disabled={page === 1}
-                                            className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            <span className="sr-only">Previous</span>
-                                            <span>Previous</span>
-                                        </button>
-
-                                        {/* Page Numbers */}
-                                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                            let pageNum: number;
-                                            if (totalPages <= 5) {
-                                                pageNum = i + 1;
-                                            } else if (page <= 3) {
-                                                pageNum = i + 1;
-                                            } else if (page >= totalPages - 2) {
-                                                pageNum = totalPages - 4 + i;
-                                            } else {
-                                                pageNum = page - 2 + i;
-                                            }
-
-                                            return (
-                                                <button
-                                                    key={pageNum}
-                                                    onClick={() => setPage(pageNum)}
-                                                    className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page === pageNum
-                                                        ? "z-10 bg-cyan-50 border-cyan-500 text-cyan-600"
-                                                        : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                                                        }`}
-                                                    aria-current={page === pageNum ? "page" : undefined}
-                                                >
-                                                    {pageNum}
-                                                </button>
-                                            );
-                                        })}
-
-                                        <button
-                                            onClick={() => setPage(Math.min(totalPages, page + 1))}
-                                            disabled={page === totalPages}
-                                            className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            <span className="sr-only">Next</span>
-                                            <span>Next</span>
-                                        </button>
-                                        <button
-                                            onClick={() => setPage(totalPages)}
-                                            disabled={page === totalPages}
-                                            className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            <span className="sr-only">Last</span>
-                                            <span>Last</span>
-                                        </button>
-                                    </nav>
-                                </div>
-                            </div>
+                <ReusableTable
+                    className="[&_th]:!px-2 [&_td]:!px-2"
+                    data={filtered}
+                    columns={columns}
+                    loading={loading}
+                    searchable={false}
+                    pageSize={PAGE_SIZE}
+                    defaultSortKey="employeeCode"
+                    defaultSortOrder="asc"
+                    emptyState={
+                        <div className="flex flex-col items-center">
+                            <UserGroupIcon className="h-12 w-12 text-gray-400 mb-3" />
+                            <p className="text-gray-500 text-sm mb-2">No employees found</p>
                         </div>
-                    )}
-                </div>
+                    }
+                />
 
                 <ConfirmDialog
                     isOpen={confirmState.isOpen}
