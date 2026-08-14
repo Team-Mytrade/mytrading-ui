@@ -304,7 +304,7 @@ export default function Deals() {
       label: "Amount",
       sortable: true,
       render: (o) => (
-        <div className="flex items-center text-sm font-medium text-gray-900 md:ml-7 -ml-2">
+        <div className="flex items-center text-sm font-medium text-gray-900">
           <CurrencyDollarIcon className="h-3.5 w-3.5 mr-0.5 text-gray-400 flex-shrink-0" />
           {formatCurrency(o.amount)}
         </div>
@@ -315,7 +315,7 @@ export default function Deals() {
       label: "Closing Date",
       sortable: true,
       render: (o) => (
-        <div className="flex items-center text-xs text-gray-600 md:ml-12">
+        <div className="flex items-center text-xs text-gray-600">
           <CalendarIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
           {o.expectedCloseDate
             ? new Date(o.expectedCloseDate).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
@@ -333,7 +333,7 @@ export default function Deals() {
             value={normalizeStage(o.stage)}
             onChange={(event) => handleInlineOpportunityChange(o, { stage: event.target.value })}
             disabled={inlineUpdatingId === o.id}
-            className={`md:w-[118px] w-[98px] md:-ml-2 -ml-4 rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${getStageColor(
+            className={`w-[118px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${getStageColor(
               o.stage
             )} ${inlineUpdatingId === o.id ? "cursor-not-allowed opacity-70" : ""}`}
           >
@@ -358,7 +358,7 @@ export default function Deals() {
               handleInlineOpportunityChange(o, { status: event.target.value as Opportunity["status"] })
             }
             disabled={inlineUpdatingId === o.id}
-            className={`md:w-[88px] w-[80px] md:ml-5 rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
+            className={`w-[88px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
               o.status === "ACTIVE"
                 ? "border-green-200 bg-green-50 text-green-700"
                 : "border-red-200 bg-red-50 text-red-700"
@@ -379,7 +379,7 @@ export default function Deals() {
       render: (o) => (
         <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
           <button type="button" onClick={() => { setForm(o); setShowForm(true); }}
-            className=" ml-14 rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600" title="Edit">
+            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600" title="Edit">
             <PencilSquareIcon className="h-4 w-4" />
           </button>
 

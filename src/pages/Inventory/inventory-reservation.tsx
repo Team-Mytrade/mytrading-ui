@@ -12,7 +12,7 @@ import {
   XMarkIcon,
   UserIcon,
   CubeIcon,
-    BuildingOffice2Icon,
+  BuildingOffice2Icon,
   ShoppingBagIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
@@ -33,8 +33,8 @@ type ReservationItem = {
   id?: number;
   productId: number;
   reservedQty: number;
-  productName?: string;      
-  productCategory?: string; 
+  productName?: string;
+  productCategory?: string;
 };
 
 type InventoryReservation = {
@@ -42,13 +42,11 @@ type InventoryReservation = {
   reservationNo: string;
   salesOrderId: number;
   warehouseId: number;
-  status: "RESERVED" | "RELEASED" | "CONSUMED" | "CANCELLED";
+  status: "RESERVED" | "RELEASED" | "CONSUMED" | "CANCELLED" | "EXPIRED";
   reservationDate: string;
   items: ReservationItem[];
-  customerId?: number; 
+  customerId?: number;
   productId?: number;
-
-  // ✅ Enriched fields for row details
   customerName?: string;
   productName?: string;
   productCategory?: string;
@@ -85,7 +83,6 @@ type SalesOrder = {
 };
 
 type InventoryForm = {
-  // reservationNo: string;
   salesOrderId: string;
   warehouseId: string;
   status: string;
@@ -99,15 +96,19 @@ const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
 const PRODUCT_API_URL = "/v1/api/purchase/products";
 const CUSTOMER_API_URL = "/v1/api/crm/customers";
 const SALES_ORDER_API_URL = "/v1/api/sales/sales-orders";
+const ENUM_API_URL = "/v1/api/inventory/enums";
 const PAGE_SIZE = 10;
 
-const statusOptions = ["RESERVED", "RELEASED", "CONSUMED", "CANCELLED"];
+// ✅ User can select these statuses in form (EXPIRED is auto-status)
+const USER_SELECTABLE_STATUSES = ["RESERVED", "RELEASED", "CONSUMED", "CANCELLED"];
+
+// ✅ All statuses including EXPIRED (for display/filter)
+const ALL_STATUSES = ["RESERVED", "RELEASED", "CONSUMED", "CANCELLED", "EXPIRED"];
 
 const emptyForm: InventoryForm = {
-  // reservationNo: "",
   salesOrderId: "",
   warehouseId: "",
-  status: "RESERVED",
+  status: "",
   reservationDate: new Date().toISOString().split("T")[0],
   productId: "",
   reservedQty: "",
@@ -167,10 +168,45 @@ const InventoryReservationManager: React.FC = () => {
   const [actionId, setActionId] = useState<number | null>(null);
   const [actionType, setActionType] = useState<"release" | "consume" | null>(null);
 
+  // ✅ Status options from BE enum API
+  const [statusOptions, setStatusOptions] = useState<string[]>(USER_SELECTABLE_STATUSES);
+  const [enumLoading, setEnumLoading] = useState(false);
+
   useEffect(() => {
+    fetchEnums();
     fetchReservations();
     fetchDropdowns();
   }, []);
+
+  // ✅ Fetch status from BE enum API
+  const fetchEnums = async (): Promise<void> => {
+    try {
+      setEnumLoading(true);
+      const response = await axios.get(`${ENUM_API_URL}?type=RESERVATION_STATUS`, { headers });
+      const data = Array.isArray(response.data) ? response.data : [];
+
+      // ✅ Extract codes from response
+      const codes = data.map((item: any) => {
+        if (typeof item === "string") return item;
+        return item.code || item;
+      }).filter(Boolean) as string[];
+
+      // ✅ Only set USER_SELECTABLE_STATUSES from BE (EXPIRED is auto-status)
+      const userSelectable = codes.filter((code) => code !== "EXPIRED");
+      setStatusOptions(userSelectable.length > 0 ? userSelectable : USER_SELECTABLE_STATUSES);
+
+      // ✅ Set default form value
+      setForm((prev) => ({
+        ...prev,
+        status: userSelectable.length > 0 ? userSelectable[0] : USER_SELECTABLE_STATUSES[0],
+      }));
+    } catch (error) {
+      console.warn("Failed to fetch reservation status, using fallback");
+      setStatusOptions(USER_SELECTABLE_STATUSES);
+    } finally {
+      setEnumLoading(false);
+    }
+  };
 
   const fetchDropdowns = async (): Promise<void> => {
     try {
@@ -190,43 +226,43 @@ const InventoryReservationManager: React.FC = () => {
     }
   };
 
-  // ✅ FIXED: Enrich reservations with customer and product names
   const fetchReservations = async (): Promise<void> => {
-  try {
-    setLoading(true);
-    const response = await axios.get<InventoryReservation[]>(API_URL, { headers });
-    const data = Array.isArray(response.data) ? response.data : [];
-    
-    const enrichedData = data.map((reservation) => {
-      const firstItem = reservation.items?.[0];
-      const order = salesOrders.find((o) => o.id === reservation.salesOrderId);
-      const customer = order ? customers.find((c) => c.id === order.customerId) : null;
-      
-      return {
-        ...reservation,
-        // ✅ Set customerId from the customer object
-        customerId: customer?.id || 0,
-        customerName: customer ? getCustomerName(customer) : `Order #${reservation.salesOrderId}`,
-        // ✅ Set productId from the first item
-        productId: firstItem?.productId || 0,
-        productName: firstItem?.productName || `Product #${firstItem?.productId || 'Unknown'}`,
-        productCategory: firstItem?.productCategory || '',
-        reservedQty: reservation.items?.[0]?.reservedQty || 0,
-      };
-    });
-    
-    setReservations(enrichedData);
-  } catch (error) {
-    setReservations([]);
-    ToasterService.error("Failed to load reservations", getErrorMessage(error, "Please try again."));
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      setLoading(true);
+      const response = await axios.get<InventoryReservation[]>(API_URL, { headers });
+      const data = Array.isArray(response.data) ? response.data : [];
+
+      const enrichedData = data.map((reservation) => {
+        const firstItem = reservation.items?.[0];
+        const order = salesOrders.find((o) => o.id === reservation.salesOrderId);
+        const customer = order ? customers.find((c) => c.id === order.customerId) : null;
+
+        return {
+          ...reservation,
+          customerId: customer?.id || 0,
+          customerName: customer ? getCustomerName(customer) : `Order #${reservation.salesOrderId}`,
+          productId: firstItem?.productId || 0,
+          productName: firstItem?.productName || `Product #${firstItem?.productId || "Unknown"}`,
+          productCategory: firstItem?.productCategory || "",
+          reservedQty: reservation.items?.[0]?.reservedQty || 0,
+        };
+      });
+
+      setReservations(enrichedData);
+    } catch (error) {
+      setReservations([]);
+      ToasterService.error("Failed to load reservations", getErrorMessage(error, "Please try again."));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const openCreate = (): void => {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+      status: statusOptions[0] || "RESERVED",
+    });
     setShowFormModal(true);
   };
 
@@ -239,10 +275,9 @@ const InventoryReservationManager: React.FC = () => {
   const openEdit = (reservation: InventoryReservation): void => {
     setEditingId(reservation.id || null);
     setForm({
-      // reservationNo: reservation.reservationNo || "",
       salesOrderId: String(reservation.salesOrderId || ""),
       warehouseId: String(reservation.warehouseId || ""),
-      status: reservation.status || "RESERVED",
+      status: reservation.status || statusOptions[0] || "RESERVED",
       reservationDate: reservation.reservationDate || emptyForm.reservationDate,
       productId: String(reservation.items?.[0]?.productId || ""),
       reservedQty: String(reservation.items?.[0]?.reservedQty || ""),
@@ -256,7 +291,6 @@ const InventoryReservationManager: React.FC = () => {
   };
 
   const buildCreatePayload = () => ({
-    // reservationNo: form.reservationNo.trim(),
     salesOrderId: toNumber(form.salesOrderId),
     warehouseId: toNumber(form.warehouseId),
     status: form.status,
@@ -271,7 +305,6 @@ const InventoryReservationManager: React.FC = () => {
 
   const buildUpdatePayload = () => ({
     id: editingId || 0,
-    // reservationNo: form.reservationNo.trim(),
     salesOrderId: toNumber(form.salesOrderId),
     warehouseId: toNumber(form.warehouseId),
     status: form.status,
@@ -288,10 +321,6 @@ const InventoryReservationManager: React.FC = () => {
   const handleSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
 
-    // if (!form.reservationNo.trim()) {
-    //   ToasterService.error("Reservation number is required");
-    //   return;
-    // }
     if (!form.salesOrderId || toNumber(form.salesOrderId) <= 0) {
       ToasterService.error("Sales Order ID is required");
       return;
@@ -393,7 +422,9 @@ const InventoryReservationManager: React.FC = () => {
     return reservations.filter((reservation) => {
       const matchesStatus = statusFilter === "" || reservation.status === statusFilter;
 
-      const searchString = `${reservation.id} ${reservation.reservationNo} ${reservation.salesOrderId} ${reservation.warehouseId} ${reservation.customerName || ''} ${reservation.productName || ''}`.toLowerCase();
+      const searchString =
+        `${reservation.id} ${reservation.reservationNo} ${reservation.salesOrderId} ${reservation.warehouseId} ${reservation.customerName || ""} ${reservation.productName || ""}`
+          .toLowerCase();
       const matchesSearch = !term || searchString.includes(term);
 
       return matchesStatus && matchesSearch;
@@ -411,224 +442,251 @@ const InventoryReservationManager: React.FC = () => {
     [reservations]
   );
 
-  const canDelete = (status: string) => status === "RESERVED" || status === "CANCELLED";
+  // ✅ canDelete includes EXPIRED
+  const canDelete = (status: string) =>
+    status === "RESERVED" || status === "CANCELLED" || status === "EXPIRED";
   const canRelease = (status: string) => status === "RESERVED";
   const canConsume = (status: string) => status === "RESERVED";
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "RESERVED": return "bg-blue-100 text-blue-700";
-      case "RELEASED": return "bg-green-100 text-green-700";
-      case "CONSUMED": return "bg-gray-100 text-gray-700";
-      case "CANCELLED": return "bg-red-100 text-red-700";
-      default: return "bg-gray-100 text-gray-700";
+      case "RESERVED":
+        return "bg-blue-100 text-blue-700";
+      case "RELEASED":
+        return "bg-green-100 text-green-700";
+      case "CONSUMED":
+        return "bg-gray-100 text-gray-700";
+      case "CANCELLED":
+        return "bg-red-100 text-red-700";
+      case "EXPIRED":
+        return "bg-red-100 text-red-700 border-red-200";
+      default:
+        return "bg-gray-100 text-gray-700";
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "RESERVED": return <ClockIcon className="h-4 w-4" />;
-      case "RELEASED": return <CheckCircleIcon className="h-4 w-4" />;
-      case "CONSUMED": return <CheckCircleIcon className="h-4 w-4" />;
-      case "CANCELLED": return <XCircleIcon className="h-4 w-4" />;
-      default: return null;
+      case "RESERVED":
+        return <ClockIcon className="h-4 w-4" />;
+      case "RELEASED":
+        return <CheckCircleIcon className="h-4 w-4" />;
+      case "CONSUMED":
+        return <CheckCircleIcon className="h-4 w-4" />;
+      case "CANCELLED":
+        return <XCircleIcon className="h-4 w-4" />;
+      case "EXPIRED":
+        return <XCircleIcon className="h-4 w-4" />;
+      default:
+        return null;
     }
   };
 
- const columns: ColumnDef<InventoryReservation>[] = [
-  {
-    key: "reservationNo",
-    label: "Reservation No",
-    sortable: true,
-    render: (reservation) => (
-      <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-100 bg-cyan-50">
-          <ClockIcon className="h-4 w-4 text-cyan-600" />
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-slate-900">{reservation.reservationNo}</p>
-          <p className="text-xs text-slate-400">ID: #{reservation.id}</p>
-        </div>
-      </div>
-    ),
-  },
-  {
-  key: "customerName",
-  label: "Customer",
-  sortable: true,
-  render: (reservation) => (
-    <button
-      className="flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 hover:underline transition-colors"
-      onClick={() => {
-        if (reservation.customerId) {
-          navigate(`/customer-management/${reservation.customerId}`);
-        }
-      }}
-    >
-      <UserIcon className="h-4 w-4 text-slate-400" />
-      <span>{reservation.customerName || 'N/A'}</span>
-    </button>
-  ),
-},
-  {
-  key: "productName",
-  label: "Product",
-  sortable: true,
-  render: (reservation) => (
-    <button
-      className="flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 hover:underline transition-colors"
-      onClick={() => {
-        if (reservation.productId) {
-          navigate(`/products?productId=${reservation.productId}`);
-        }
-      }}
-      >
-      <CubeIcon className="h-4 w-4 text-slate-400" />
-      <div className="text-left">
-        <p className="text-sm text-slate-700">
-          {reservation.productName || '--'}
-        </p>
-        {reservation.productCategory && reservation.productCategory !== '--' && (
-          <p className="text-xs text-slate-400">{reservation.productCategory}</p>
-        )}
-      </div>
-    </button>
-  ),
-},
-  {
-    key: "salesOrderId",
-    label: "Sales Order",
-    sortable: true,
-    render: (reservation) => {
-      const orderId = reservation.salesOrderId;
-      return (
-        <button
-          className="flex items-center ml-5 gap-2 text-sm text-cyan-600 hover:text-cyan-800 hover:underline transition-colors"
-          onClick={() => {
-            if (orderId) {
-              navigate(`/sales-orders?orderId=${orderId}`);
-            }
-          }}
-        >
-          <ShoppingBagIcon className="h-4 w-4 text-slate-400" />
-          <span>{orderId || '--'}</span>
-        </button>
-      );
-    },
-  },
-  {
-    key: "warehouseId",
-    label: "Warehouse",
-    sortable: true,
-    render: (reservation) => {
-      const warehouse = warehouses.find((w) => w.id === reservation.warehouseId);
-      const warehouseId = reservation.warehouseId;
-      return (
-        <button
-          className=" ml-2 flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 transition-colors"
-          onClick={() => {
-            if (warehouseId) {
-              navigate(`/warehouse?warehouseId=${warehouseId}`);
-            }
-          }}
-        >
-          <BuildingOffice2Icon className="h-4 w-4 text-slate-400" />
-          <span>{warehouse?.name || reservation.warehouseId || 'N/A'}</span>
-        </button>
-      );
-    },
-  },
-  {
-    key: "status",
-    label: "Status",
-    sortable: true,
-    render: (reservation) => (
-      <span className={`inline-flex items-center gap-1 -ml-5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusColor(reservation.status)}`}>
-        {getStatusIcon(reservation.status)}
-        {reservation.status}
-      </span>
-    ),
-  },
-  {
-    key: "reservedQty",
-    label: "Qty",
-    sortable: true,
-    render: (reservation) => (
-      <span className="text-sm font-medium text-slate-700 ml-2">
-        {reservation.items?.[0]?.reservedQty || 0}
-      </span>
-    ),
-  },
-  {
-    key: "actions",
-    label: "Actions",
-    sortable: false,
-    headerClassName: "text-right",
-    className: "text-right",
-    render: (reservation) => (
-      <div className="flex justify-end gap-1">
-        <button
-          type="button"
-          onClick={() => openEdit(reservation)}
-          className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
-          title="Edit"
-        >
-          <PencilIcon className="h-4 w-4" />
-        </button>
+  // ✅ Build status filter options (includes EXPIRED)
+  const statusFilterOptions = useMemo(() => {
+    return [
+      { label: "All Status", value: "" },
+      ...ALL_STATUSES.map((status) => ({
+        label: status,
+        value: status,
+      })),
+    ];
+  }, []);
 
-        {canRelease(reservation.status) && (
+  const columns: ColumnDef<InventoryReservation>[] = [
+    {
+      key: "reservationNo",
+      label: "Reservation No",
+      sortable: true,
+      render: (reservation) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-100 bg-cyan-50">
+            <ClockIcon className="h-4 w-4 text-cyan-600" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-900">{reservation.reservationNo}</p>
+            <p className="text-xs text-slate-400">ID: #{reservation.id}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "customerName",
+      label: "Customer",
+      sortable: true,
+      render: (reservation) => (
+        <button
+          className="flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 hover:underline transition-colors"
+          onClick={() => {
+            if (reservation.customerId) {
+              navigate(`/customer-management/${reservation.customerId}`);
+            }
+          }}
+        >
+          <UserIcon className="h-4 w-4 text-slate-400" />
+          <span>{reservation.customerName || "N/A"}</span>
+        </button>
+      ),
+    },
+    {
+      key: "productName",
+      label: "Product",
+      sortable: true,
+      render: (reservation) => (
+        <button
+          className="flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 hover:underline transition-colors"
+          onClick={() => {
+            if (reservation.productId) {
+              navigate(`/products?productId=${reservation.productId}`);
+            }
+          }}
+        >
+          <CubeIcon className="h-4 w-4 text-slate-400" />
+          <div className="text-left">
+            <p className="text-sm text-slate-700">{reservation.productName || "--"}</p>
+            {reservation.productCategory && reservation.productCategory !== "--" && (
+              <p className="text-xs text-slate-400">{reservation.productCategory}</p>
+            )}
+          </div>
+        </button>
+      ),
+    },
+    {
+      key: "salesOrderId",
+      label: "Sales Order",
+      sortable: true,
+      render: (reservation) => {
+        const orderId = reservation.salesOrderId;
+        return (
+          <button
+            className="flex items-center gap-2 text-sm text-cyan-600 hover:text-cyan-800 hover:underline transition-colors"
+            onClick={() => {
+              if (orderId) {
+                navigate(`/sales-orders?orderId=${orderId}`);
+              }
+            }}
+          >
+            <ShoppingBagIcon className="h-4 w-4 text-slate-400" />
+            <span>{orderId || "--"}</span>
+          </button>
+        );
+      },
+    },
+    {
+      key: "warehouseId",
+      label: "Warehouse",
+      sortable: true,
+      render: (reservation) => {
+        const warehouse = warehouses.find((w) => w.id === reservation.warehouseId);
+        const warehouseId = reservation.warehouseId;
+        return (
+          <button
+            className="flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 transition-colors"
+            onClick={() => {
+              if (warehouseId) {
+                navigate(`/warehouse?warehouseId=${warehouseId}`);
+              }
+            }}
+          >
+            <BuildingOffice2Icon className="h-4 w-4 text-slate-400" />
+            <span>{warehouse?.name || reservation.warehouseId || "N/A"}</span>
+          </button>
+        );
+      },
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      render: (reservation) => (
+        <span
+          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusColor(reservation.status)}`}
+        >
+          {getStatusIcon(reservation.status)}
+          {reservation.status}
+        </span>
+      ),
+    },
+    {
+      key: "reservedQty",
+      label: "Qty",
+      sortable: true,
+      render: (reservation) => (
+        <span className="text-sm font-medium text-slate-700">
+          {reservation.items?.[0]?.reservedQty || 0}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      sortable: false,
+      headerClassName: "text-right",
+      className: "text-right",
+      render: (reservation) => (
+        <div className="flex justify-end gap-1">
+          <button
+            type="button"
+            onClick={() => openEdit(reservation)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            title="Edit"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </button>
+
+          {canRelease(reservation.status) && (
+            <button
+              type="button"
+              onClick={() => {
+                setActionId(reservation.id || null);
+                setActionType("release");
+              }}
+              className="rounded-lg p-1.5 text-green-600 transition hover:bg-green-50"
+              title="Release"
+            >
+              <ArrowPathIcon className="h-4 w-4" />
+            </button>
+          )}
+
+          {canConsume(reservation.status) && (
+            <button
+              type="button"
+              onClick={() => {
+                setActionId(reservation.id || null);
+                setActionType("consume");
+              }}
+              className="rounded-lg p-1.5 text-purple-600 transition hover:bg-purple-50"
+              title="Consume"
+            >
+              <CheckCircleIcon className="h-4 w-4" />
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => {
-              setActionId(reservation.id || null);
-              setActionType("release");
+              if (canDelete(reservation.status)) {
+                setDeleteId(reservation.id || null);
+              } else {
+                ToasterService.warning(
+                  `Cannot delete ${reservation.status} reservation. Only RESERVED, CANCELLED or EXPIRED can be deleted.`
+                );
+              }
             }}
-            className="rounded-lg p-1.5 text-green-600 transition hover:bg-green-50"
-            title="Release"
+            className={`rounded-lg p-1.5 transition ${
+              canDelete(reservation.status)
+                ? "text-slate-400 hover:bg-red-50 hover:text-red-600"
+                : "text-gray-300 cursor-not-allowed"
+            }`}
+            title={canDelete(reservation.status) ? "Delete" : "Cannot delete"}
+            disabled={!canDelete(reservation.status)}
           >
-            <ArrowPathIcon className="h-4 w-4" />
+            <TrashIcon className="h-4 w-4" />
           </button>
-        )}
-
-        {canConsume(reservation.status) && (
-          <button
-            type="button"
-            onClick={() => {
-              setActionId(reservation.id || null);
-              setActionType("consume");
-            }}
-            className="rounded-lg p-1.5 text-purple-600 transition hover:bg-purple-50"
-            title="Consume"
-          >
-            <CheckCircleIcon className="h-4 w-4" />
-          </button>
-        )}
-
-        <button
-          type="button"
-          onClick={() => {
-            if (canDelete(reservation.status)) {
-              setDeleteId(reservation.id || null);
-            } else {
-              ToasterService.warning(
-                `Cannot delete ${reservation.status} reservation. Only RESERVED or CANCELLED can be deleted.`
-              );
-            }
-          }}
-          className={`rounded-lg p-1.5 transition ${
-            canDelete(reservation.status)
-              ? "text-slate-400 hover:bg-red-50 hover:text-red-600"
-              : "text-gray-300 cursor-not-allowed"
-          }`}
-          title={canDelete(reservation.status) ? "Delete" : "Cannot delete"}
-          disabled={!canDelete(reservation.status)}
-        >
-          <TrashIcon className="h-4 w-4" />
-        </button>
-      </div>
-    ),
-  },
-];
+        </div>
+      ),
+    },
+  ];
 
   return (
     <>
@@ -701,13 +759,7 @@ const InventoryReservationManager: React.FC = () => {
             buttonLabel="Filters"
             label="Status"
             value={statusFilter}
-            options={[
-              { label: "All Status", value: "" },
-              ...statusOptions.map((status) => ({
-                label: status,
-                value: status,
-              })),
-            ]}
+            options={statusFilterOptions}
             onChange={setStatusFilter}
             onReset={() => setStatusFilter("")}
             onApply={() => undefined}
@@ -717,7 +769,7 @@ const InventoryReservationManager: React.FC = () => {
         <ReusableTable
           data={filteredReservations}
           columns={columns}
-          loading={loading}
+          loading={loading || enumLoading}
           pageSize={PAGE_SIZE}
           defaultSortKey="id"
           defaultSortOrder="desc"
@@ -750,26 +802,17 @@ const InventoryReservationManager: React.FC = () => {
           {
             label: "Reservation Details",
             fields: [
-              // <FloatingInput
-              //   label="Reservation No"
-              //   name="reservationNo"
-              //   value={form.reservationNo}
-              //   onChange={handleChange}
-              //   required
-              // />,
               <FloatingSelect
                 label="Sales Order ID"
                 name="salesOrderId"
-              
                 value={form.salesOrderId}
                 onChange={handleChange}
-  emptyOptionLabel="Select sales order"
-  options={salesOrders.map((order) => ({
-    id: String(order.id),
-    name: `#${order.id} - ${order.orderNumber || 'Order'}`,
-  }))}
-  required
-                
+                emptyOptionLabel="Select sales order"
+                options={salesOrders.map((order) => ({
+                  id: String(order.id),
+                  name: `#${order.id} - ${order.orderNumber || "Order"}`,
+                }))}
+                required
               />,
               <FloatingSelect
                 label="Warehouse"
