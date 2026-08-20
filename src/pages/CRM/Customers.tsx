@@ -312,7 +312,7 @@ const Customers: React.FC = () => {
       headerClassName: "w-[20%] text-left",
       className: "w-[20%]",
       render: (customer) => (
-        <div className="flex items-center text-sm text-slate-600 gap-1.5 min-w-0 lg:-ml-10 -ml-4">
+        <div className="flex items-center text-sm text-slate-600 gap-1.5 min-w-0">
           <EnvelopeIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
           <span className="truncate max-w-[140px] font-medium text-slate-600" title={customer.email}>
             {customer.email || "—"}
@@ -327,7 +327,7 @@ const Customers: React.FC = () => {
       headerClassName: "w-[15%] text-left",
       className: "w-[15%]",
       render: (customer) => (
-        <div className="flex items-center text-sm text-slate-600 gap-1.5 min-w-0 lg:-ml-8 -ml-4">
+        <div className="flex items-center text-sm text-slate-600 gap-1.5 min-w-0">
           <PhoneIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
           <span className="truncate font-medium text-slate-600">{customer.phone || "—"}</span>
         </div>
@@ -353,7 +353,7 @@ const Customers: React.FC = () => {
               value={customer.status}
               onChange={(event) => handleStatusChange(customer, event.target.value as CustomerStatus)}
               disabled={statusUpdatingId === customer.id}
-              className={`w-[116px] lg:-ml-8 -ml-5 rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
+              className={`w-[116px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
                 statusColors[customer.status]
               } ${statusUpdatingId === customer.id ? "cursor-not-allowed opacity-70" : ""}`}
             >
@@ -374,7 +374,7 @@ const Customers: React.FC = () => {
       headerClassName: "w-[15%] text-left",
       className: "w-[15%]",
       render: (customer) => (
-        <div className="flex items-center gap-1 -ml-6 ">
+        <div className="flex items-center gap-1">
           <MapPinIcon className="h-3.5 w-3.5 text-slate-400" />
           <span className="text-sm text-slate-600">
             {getAddressCount(customer)} address{getAddressCount(customer) !== 1 ? "es" : ""}

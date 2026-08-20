@@ -507,7 +507,7 @@ const KeyContacts: React.FC = () => {
       key: "role",
       label: "Role",
       sortable: true,
-      headerClassName: "w-[16%] text-left",
+      headerClassName: "w-[16%] text-",
       className: "w-[16%]",
       render: (contact) =>
         contact.role ? (

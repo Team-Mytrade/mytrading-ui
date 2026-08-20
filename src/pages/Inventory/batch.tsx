@@ -10,6 +10,8 @@ import {
   TrashIcon,
   XCircleIcon,
   XMarkIcon,
+  ArrowPathIcon,
+  ClockIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
@@ -26,7 +28,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
-// ✅ Types
+// ============ TYPES ============
 type Batch = {
   id: number;
   createdDate?: string;
@@ -39,9 +41,13 @@ type Batch = {
   productId: number;
   warehouse: any;
   inspections: any[];
-  // ✅ Static fields (missing from BE)
   quantity?: number;
+  reservedQty?: number;
+  availableQty?: number;
   supplierName?: string;
+  fifoPriority?: number;
+  fefoPriority?: number;
+  daysUntilExpiry?: number;
 };
 
 type BatchForm = {
@@ -50,8 +56,8 @@ type BatchForm = {
   expiryDate: string;
   productId: string;
   warehouse: string;
-  // ✅ Static fields (missing from BE)
   quantity: string;
+  reservedQty: string;
   supplierName: string;
 };
 
@@ -83,43 +89,36 @@ type Warehouse = {
   stockEntries?: any[];
 };
 
-// ✅ Static Data for missing fields
+// ============ CONSTANTS ============
+const API_URL = "/v1/api/inventory/batches";
+const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
+const PRODUCT_API_URL = "/v1/api/purchase/products";
+const ENUM_API_URL = "/v1/api/inventory/enums";
+const PAGE_SIZE = 10;
+
+// ✅ Static data for missing fields (BE doesn't have these yet)
 const STATIC_BATCH_DATA_MAP: Record<number, any> = {
-  1: {
-    quantity: 150,
-    supplierName: "ABC Supplies",
-  },
-  2: {
-    quantity: 200,
-    supplierName: "XYZ Traders",
-  },
-  3: {
-    quantity: 100,
-    supplierName: "Global Imports",
-  },
+  1: { quantity: 150, reservedQty: 20, availableQty: 130, supplierName: "ABC Supplies" },
+  2: { quantity: 200, reservedQty: 50, availableQty: 150, supplierName: "XYZ Traders" },
+  3: { quantity: 100, reservedQty: 10, availableQty: 90, supplierName: "Global Imports" },
+};
+const STATIC_BATCH_DATA = { 
+  quantity: 100, 
+  reservedQty: 20, 
+  availableQty: 80, 
+  supplierName: "Default Supplier" 
 };
 
-// ✅ Fallback static data
-const STATIC_BATCH_DATA = {
-  quantity: 100,
-  supplierName: "Default Supplier",
-};
+// ✅ Fallback values (BATCH_STATUS not in enum API)
+const FALLBACK_STATUS = ["GOOD", "EXPIRING_SOON", "EXPIRED", "EMPTY"];
 
 // ✅ Generate Batch Number
 const generateBatchNumber = (): string => {
   const prefix = "BATCH";
-  const timestamp = new Date()
-    .toISOString()
-    .replace(/[-:T.Z]/g, '')
-    .slice(0, 14);
-  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  const timestamp = new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
   return `${prefix}-${timestamp}-${random}`;
 };
-
-const API_URL = "/v1/api/inventory/batches";
-const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
-const PRODUCT_API_URL = "/v1/api/purchase/products";
-const PAGE_SIZE = 10;
 
 const emptyForm: BatchForm = {
   batchNumber: generateBatchNumber(),
@@ -128,86 +127,69 @@ const emptyForm: BatchForm = {
   productId: "",
   warehouse: "",
   quantity: "0",
+  reservedQty: "0",
   supplierName: "",
 };
 
-function toNumber(value: string | number | undefined | null): number {
-  return Number(value || 0);
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
+// ============ HELPERS ============
+const toNumber = (v: any) => Number(v || 0);
+const getErrorMessage = (error: any, fallback: string) => {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data;
     if (typeof data === "string") return data;
     return data?.message || data?.detail || data?.error || fallback;
   }
   return fallback;
-}
+};
+const searchableText = (v: any) => (v === null || v === undefined ? "" : String(v).toLowerCase().trim());
 
-function searchableText(value: unknown) {
-  if (value === null || value === undefined) return "";
-  return String(value).toLowerCase().trim();
-}
-
-function normalizeProductLabel(product: ProductOption): string {
+const normalizeProductLabel = (product: ProductOption) => {
   const code = product.productCode || product.code || product.sku;
   const name = product.productName || product.name || `Product #${product.id}`;
   return code ? `${name} (${code})` : name;
-}
+};
 
-function getBatchStatus(batch: Batch) {
-  const today = new Date();
-  const expiryDate = new Date(batch.expiryDate);
+const getDaysUntilExpiry = (batch: Batch) => {
+  const diff = new Date(batch.expiryDate).getTime() - new Date().getTime();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+};
 
-  // ✅ Check quantity first
-  if ((batch.quantity || 0) <= 0) {
-    return {
-      label: "Empty",
-      className: "bg-gray-50 text-gray-700 border-gray-200",
-      icon: <XCircleIcon className="h-3.5 w-3.5" />,
-    };
-  }
-
-  if (expiryDate < today) {
-    return {
-      label: "Expired",
-      className: "bg-red-50 text-red-700 border-red-200",
-      icon: <XCircleIcon className="h-3.5 w-3.5" />,
-    };
-  }
-
-  const thirtyDaysFromNow = new Date(today);
-  thirtyDaysFromNow.setDate(today.getDate() + 30);
-
-  if (expiryDate <= thirtyDaysFromNow) {
-    return {
-      label: "Expiring Soon",
-      className: "bg-yellow-50 text-yellow-700 border-yellow-200",
-      icon: <ExclamationTriangleIcon className="h-3.5 w-3.5" />,
-    };
-  }
-
-  return {
-    label: "Good",
-    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    icon: <CheckCircleIcon className="h-3.5 w-3.5" />,
-  };
-}
-
-function getDaysUntilExpiry(batch: Batch): number {
-  const today = new Date();
-  const expiryDate = new Date(batch.expiryDate);
-  const diffTime = expiryDate.getTime() - today.getTime();
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-}
-
-function getWarehouseDisplay(batch: Batch): string {
-  if (typeof batch.warehouse === 'object' && batch.warehouse !== null) {
+const getWarehouseDisplay = (batch: Batch) => {
+  if (typeof batch.warehouse === "object" && batch.warehouse !== null) {
     return batch.warehouse.name || batch.warehouse.code || `ID: ${batch.warehouse.id}`;
   }
-  return batch.warehouse || '';
-}
+  return batch.warehouse || "";
+};
 
+const getBatchStatus = (batch: Batch) => {
+  if ((batch.quantity || 0) <= 0) {
+    return { label: "Empty", className: "bg-gray-50 text-gray-700 border-gray-200", icon: <XCircleIcon className="h-3.5 w-3.5" /> };
+  }
+  const days = getDaysUntilExpiry(batch);
+  if (days < 0) {
+    return { label: "Expired", className: "bg-red-50 text-red-700 border-red-200", icon: <XCircleIcon className="h-3.5 w-3.5" /> };
+  }
+  if (days <= 30) {
+    return { label: "Expiring Soon", className: "bg-yellow-50 text-yellow-700 border-yellow-200", icon: <ExclamationTriangleIcon className="h-3.5 w-3.5" /> };
+  }
+  return { label: "Good", className: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: <CheckCircleIcon className="h-3.5 w-3.5" /> };
+};
+
+const getFIFORank = (batches: Batch[], batch: Batch) => {
+  const sorted = [...batches]
+    .filter(b => (b.quantity || 0) > 0)
+    .sort((a, b) => new Date(a.manufacturingDate).getTime() - new Date(b.manufacturingDate).getTime());
+  return sorted.findIndex(b => b.id === batch.id) + 1;
+};
+
+const getFEFORank = (batches: Batch[], batch: Batch) => {
+  const sorted = [...batches]
+    .filter(b => (b.quantity || 0) > 0)
+    .sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime());
+  return sorted.findIndex(b => b.id === batch.id) + 1;
+};
+
+// ============ COMPONENT ============
 const BatchManagement: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
@@ -222,33 +204,63 @@ const BatchManagement: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [fifoFilter, setFifoFilter] = useState("");
+  const [fefoFilter, setFefoFilter] = useState("");
   const [deleteBatch, setDeleteBatch] = useState<Batch | null>(null);
   const [viewBatch, setViewBatch] = useState<Batch | null>(null);
 
+  // ✅ Enum options from BE (fallback since BATCH_STATUS not in enum API)
+  const [batchStatusOptions, setBatchStatusOptions] = useState<string[]>(FALLBACK_STATUS);
+  const [enumLoading, setEnumLoading] = useState(false);
+
   useEffect(() => {
+    fetchEnums();
     fetchAllBatches();
     fetchDropdowns();
   }, []);
 
-  // ✅ Fetch batches with static data enrichment
-  const fetchAllBatches = async (): Promise<void> => {
+  // ✅ BATCH_STATUS is not in enum API, use fallback
+  const fetchEnums = async (): Promise<void> => {
+    try {
+      setEnumLoading(true);
+      // ✅ BATCH_STATUS is not in enum API, use fallback directly
+      setBatchStatusOptions(FALLBACK_STATUS);
+    } catch (error) {
+      setBatchStatusOptions(FALLBACK_STATUS);
+    } finally {
+      setEnumLoading(false);
+    }
+  };
+
+  const fetchAllBatches = async () => {
     try {
       setLoading(true);
-      const response = await axios.get<Batch[]>(API_URL, { headers });
-      const data = Array.isArray(response.data) ? response.data : [];
-      
-      // static data for missing fields
-      const enrichedData = data.map((batch) => {
-        const staticData = STATIC_BATCH_DATA_MAP[batch.id] || STATIC_BATCH_DATA;
-        
+      const res = await axios.get<Batch[]>(API_URL, { headers });
+      const data = Array.isArray(res.data) ? res.data : [];
+
+      // ✅ Enrich with static data (quantity, reserved, available, supplier)
+      const enriched = data.map(b => {
+        const staticData = STATIC_BATCH_DATA_MAP[b.id] || STATIC_BATCH_DATA;
         return {
-          ...batch,
+          ...b,
           quantity: staticData.quantity || 0,
+          reservedQty: staticData.reservedQty || 0,
+          availableQty: staticData.availableQty || (staticData.quantity || 0) - (staticData.reservedQty || 0),
           supplierName: staticData.supplierName || '--',
+          daysUntilExpiry: getDaysUntilExpiry(b),
+          fifoPriority: 0,
+          fefoPriority: 0,
         };
       });
-      
-      setBatches(enrichedData);
+
+      // ✅ Calculate FIFO/FEFO ranks
+      const withRanks = enriched.map(b => ({
+        ...b,
+        fifoPriority: getFIFORank(enriched, b),
+        fefoPriority: getFEFORank(enriched, b),
+      }));
+
+      setBatches(withRanks);
     } catch (error) {
       setBatches([]);
       ToasterService.error("Failed to load batches", getErrorMessage(error, "Please try again."));
@@ -257,130 +269,76 @@ const BatchManagement: React.FC = () => {
     }
   };
 
-  const fetchDropdowns = async (): Promise<void> => {
+  const fetchDropdowns = async () => {
     try {
-      const [warehouseRes, productRes] = await Promise.all([
+      const [wRes, pRes] = await Promise.all([
         axios.get<Warehouse[]>(WAREHOUSE_API_URL, { headers }),
         axios.get<ProductOption[]>(PRODUCT_API_URL, { headers }),
       ]);
-      setWarehouses(Array.isArray(warehouseRes.data) ? warehouseRes.data : []);
-      setProducts(Array.isArray(productRes.data) ? productRes.data : []);
+      setWarehouses(Array.isArray(wRes.data) ? wRes.data : []);
+      setProducts(Array.isArray(pRes.data) ? pRes.data : []);
     } catch (error) {
       ToasterService.error("Failed to load dropdown data", getErrorMessage(error, "Please try again."));
     }
   };
 
-  const openCreate = (): void => {
+  const openCreate = () => {
     setEditingId(null);
-    setForm({
-      ...emptyForm,
-      batchNumber: generateBatchNumber(),
-    });
+    setForm({ ...emptyForm, batchNumber: generateBatchNumber() });
     setShowFormModal(true);
   };
 
-  const closeForm = (): void => {
+  const closeForm = () => {
     setEditingId(null);
     setForm(emptyForm);
     setShowFormModal(false);
   };
 
-  const openEdit = (batch: Batch): void => {
+  const openEdit = (batch: Batch) => {
     setEditingId(batch.id);
     setForm({
       batchNumber: batch.batchNumber,
       manufacturingDate: batch.manufacturingDate,
       expiryDate: batch.expiryDate,
       productId: String(batch.productId),
-      warehouse: typeof batch.warehouse === 'object' ? String(batch.warehouse?.id || '') : String(batch.warehouse || ''),
+      warehouse: typeof batch.warehouse === "object" ? String(batch.warehouse?.id || "") : String(batch.warehouse || ""),
       quantity: String(batch.quantity || 0),
+      reservedQty: String(batch.reservedQty || 0),
       supplierName: batch.supplierName || '',
     });
     setShowFormModal(true);
   };
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setForm((current) => ({ ...current, [name]: value }));
+    setForm(prev => ({ ...prev, [name]: value }));
   };
 
   const buildPayload = () => {
-    const existing = batches.find((b) => b.id === editingId);
     const selectedWarehouse = warehouses.find(w => String(w.id) === form.warehouse);
+    const warehouseObject = selectedWarehouse ? { id: selectedWarehouse.id } : null;
 
-    const warehouseObject = selectedWarehouse ? {
-      id: selectedWarehouse.id,
-      createdDate: selectedWarehouse.createdDate || new Date().toISOString(),
-      updatedDate: selectedWarehouse.updatedDate || new Date().toISOString(),
-      createdBy: selectedWarehouse.createdBy || "",
-      tenantId: selectedWarehouse.tenantId || "",
-      code: selectedWarehouse.code || "",
-      name: selectedWarehouse.name || "",
-      locationType: selectedWarehouse.locationType || "MAIN",
-      stockLevels: selectedWarehouse.stockLevels || [],
-      batches: selectedWarehouse.batches || [],
-      serialNumbers: selectedWarehouse.serialNumbers || [],
-      stockMovements: selectedWarehouse.stockMovements || [],
-      stockAdjustments: selectedWarehouse.stockAdjustments || [],
-      stockEntries: selectedWarehouse.stockEntries || [],
-    } : null;
-
-    if (!editingId) {
-      return {
-        batchNumber: form.batchNumber.trim(),
-        manufacturingDate: form.manufacturingDate,
-        expiryDate: form.expiryDate,
-        productId: toNumber(form.productId),
-        warehouse: warehouseObject,
-        inspections: [],
-        // Static fields
-        quantity: toNumber(form.quantity),
-        supplierName: form.supplierName,
-      };
-    }
-
-    return {
-      id: editingId,
-      createdDate: existing?.createdDate || new Date().toISOString(),
-      updatedDate: new Date().toISOString(),
-      createdBy: existing?.createdBy || "",
-      tenantId: existing?.tenantId || "",
+    const base = {
       batchNumber: form.batchNumber.trim(),
       manufacturingDate: form.manufacturingDate,
       expiryDate: form.expiryDate,
       productId: toNumber(form.productId),
       warehouse: warehouseObject,
-      inspections: existing?.inspections || [],
-      //Static fields
       quantity: toNumber(form.quantity),
+      reservedQty: toNumber(form.reservedQty),
       supplierName: form.supplierName,
     };
+
+    if (editingId) return { id: editingId, ...base };
+    return { ...base, inspections: [] };
   };
 
-  const handleSubmit = async (e: FormEvent): Promise<void> => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-
-    if (!form.batchNumber.trim()) {
-      ToasterService.error("Batch Number is required");
+    if (!form.batchNumber.trim() || !form.manufacturingDate || !form.expiryDate || !form.productId || !form.warehouse) {
+      ToasterService.error("All fields are required");
       return;
     }
-    if (!form.manufacturingDate) {
-      ToasterService.error("Manufacturing Date is required");
-      return;
-    }
-    if (!form.expiryDate) {
-      ToasterService.error("Expiry Date is required");
-      return;
-    }
-    if (!form.productId) {
-      ToasterService.error("Product is required");
-      return;
-    }
-    if (!form.warehouse) {
-      ToasterService.error("Warehouse is required");
-      return;
-    }
-
     if (new Date(form.expiryDate) <= new Date(form.manufacturingDate)) {
       ToasterService.error("Expiry date must be after manufacturing date");
       return;
@@ -389,7 +347,6 @@ const BatchManagement: React.FC = () => {
     try {
       setSubmitting(true);
       const payload = buildPayload();
-
       if (editingId) {
         await axios.put(`${API_URL}/${editingId}`, payload, { headers });
         ToasterService.success("Batch updated successfully");
@@ -397,7 +354,6 @@ const BatchManagement: React.FC = () => {
         await axios.post(API_URL, payload, { headers });
         ToasterService.success("Batch created successfully");
       }
-
       closeForm();
       await fetchAllBatches();
     } catch (error) {
@@ -407,9 +363,8 @@ const BatchManagement: React.FC = () => {
     }
   };
 
-  const confirmDelete = async (): Promise<void> => {
+  const confirmDelete = async () => {
     if (!deleteBatch?.id) return;
-
     try {
       await axios.delete(`${API_URL}/${deleteBatch.id}?cascade=true`, { headers });
       ToasterService.success("Batch deleted successfully");
@@ -420,59 +375,45 @@ const BatchManagement: React.FC = () => {
     }
   };
 
+  // ============ FILTERS ============
   const filteredBatches = useMemo(() => {
     const term = searchableText(search);
+    return batches.filter(b => {
+      const product = products.find(p => p.id === b.productId || p.productId === b.productId);
+      const searchStr =
+        `${b.id} ${b.batchNumber} ${product ? normalizeProductLabel(product) : ""} ${getWarehouseDisplay(b)} ${b.supplierName || ""}`
+          .toLowerCase();
+      if (term && !searchStr.includes(term)) return false;
 
-    return batches.filter((batch) => {
-      const product = products.find((p) => p.id === batch.productId || p.productId === batch.productId);
-      const productName = product ? normalizeProductLabel(product) : `Product #${batch.productId}`;
-      const warehouseName = typeof batch.warehouse === 'object' ? batch.warehouse?.name || '' : batch.warehouse || '';
+      // Status filter
+      if (statusFilter === "expired" && getDaysUntilExpiry(b) >= 0) return false;
+      if (statusFilter === "expiring" && (getDaysUntilExpiry(b) < 0 || getDaysUntilExpiry(b) > 30)) return false;
+      if (statusFilter === "good" && getDaysUntilExpiry(b) <= 30) return false;
+      if (statusFilter === "empty" && (b.quantity || 0) > 0) return false;
 
-      const searchString = `${batch.id} ${batch.batchNumber} ${productName} ${warehouseName} ${batch.supplierName || ''}`.toLowerCase();
-      const matchesSearch = !term || searchString.includes(term);
+      // FIFO/FEFO filters
+      if (fifoFilter && b.fifoPriority !== toNumber(fifoFilter)) return false;
+      if (fefoFilter && b.fefoPriority !== toNumber(fefoFilter)) return false;
 
-      let matchesStatus = true;
-      if (statusFilter === "expired") {
-        matchesStatus = new Date(batch.expiryDate) < new Date();
-      } else if (statusFilter === "expiring") {
-        const today = new Date();
-        const thirtyDaysFromNow = new Date(today);
-        thirtyDaysFromNow.setDate(today.getDate() + 30);
-        const expiry = new Date(batch.expiryDate);
-        matchesStatus = expiry > today && expiry <= thirtyDaysFromNow;
-      } else if (statusFilter === "good") {
-        const today = new Date();
-        const thirtyDaysFromNow = new Date(today);
-        thirtyDaysFromNow.setDate(today.getDate() + 30);
-        matchesStatus = new Date(batch.expiryDate) > thirtyDaysFromNow;
-      }
-
-      return matchesSearch && matchesStatus;
+      return true;
     });
-  }, [batches, search, statusFilter, products]);
+  }, [batches, search, statusFilter, fifoFilter, fefoFilter, products]);
 
-  // Updated stats with quantity
-  const stats = useMemo(
-    () => {
-      const today = new Date();
-      const thirtyDaysFromNow = new Date(today);
-      thirtyDaysFromNow.setDate(today.getDate() + 30);
+  // ============ STATS ============
+  const stats = useMemo(() => {
+    const active = batches.filter(b => (b.quantity || 0) > 0);
+    return {
+      total: batches.length,
+      expired: batches.filter(b => getDaysUntilExpiry(b) < 0).length,
+      expiringSoon: batches.filter(b => getDaysUntilExpiry(b) >= 0 && getDaysUntilExpiry(b) <= 30).length,
+      totalQuantity: batches.reduce((s, b) => s + (b.quantity || 0), 0),
+      totalReserved: batches.reduce((s, b) => s + (b.reservedQty || 0), 0),
+      totalAvailable: batches.reduce((s, b) => s + (b.availableQty || 0), 0),
+      emptyBatches: batches.filter(b => (b.quantity || 0) <= 0).length,
+    };
+  }, [batches]);
 
-      return {
-        total: batches.length,
-        expired: batches.filter((b) => new Date(b.expiryDate) < today).length,
-        expiringSoon: batches.filter((b) => {
-          const expiry = new Date(b.expiryDate);
-          return expiry > today && expiry <= thirtyDaysFromNow;
-        }).length,
-        withFailedInspections: batches.filter((b) => b.inspections.some((i) => i.result === "FAIL")).length,
-        totalQuantity: batches.reduce((sum, b) => sum + (b.quantity || 0), 0),
-      };
-    },
-    [batches]
-  );
-
-  //  Updated columns with quantity and supplier
+  // ============ COLUMNS ============
   const columns: ColumnDef<Batch>[] = [
     {
       key: "batchNumber",
@@ -483,9 +424,7 @@ const BatchManagement: React.FC = () => {
           <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-purple-100 bg-purple-50">
             <CubeIcon className="h-4 w-4 text-purple-600" />
           </div>
-          <div>
-            <p className="text-sm font-semibold text-slate-900">{batch.batchNumber}</p>
-          </div>
+          <p className="text-sm font-semibold text-slate-900">{batch.batchNumber}</p>
         </div>
       ),
     },
@@ -494,79 +433,100 @@ const BatchManagement: React.FC = () => {
       label: "Product",
       sortable: true,
       render: (batch) => {
-        const product = products.find((p) => p.id === batch.productId || p.productId === batch.productId);
-        return (
-          <span className="text-sm text-slate-700">
-            {product ? normalizeProductLabel(product) : `Product #${batch.productId}`}
-          </span>
-        );
+        const p = products.find(p => p.id === batch.productId || p.productId === batch.productId);
+        return <span className="text-sm text-slate-700">{p ? normalizeProductLabel(p) : `Product #${batch.productId}`}</span>;
       },
     },
     {
       key: "warehouse",
       label: "Warehouse",
       sortable: true,
-      render: (batch) => (
-        <span className="text-sm text-slate-700">
-          {getWarehouseDisplay(batch)}
-        </span>
-      ),
+      render: (batch) => <span className="text-sm text-slate-700">{getWarehouseDisplay(batch)}</span>,
     },
     {
       key: "quantity",
-      label: "Quantity",
+      label: "Total Qty",
       sortable: true,
-      render: (batch) => (
-        <span className="text-sm font-semibold text-slate-800">{batch.quantity || 0}</span>
-      ),
+      render: (batch) => <span className="text-sm font-semibold">{batch.quantity || 0}</span>,
     },
     {
-      key: "supplierName",
-      label: "Supplier",
+      key: "reservedQty",
+      label: "Reserved",
       sortable: true,
-      render: (batch) => (
-        <span className="text-sm text-slate-700">{batch.supplierName || '--'}</span>
-      ),
+      render: (batch) => <span className="text-sm text-orange-600">{batch.reservedQty || 0}</span>,
     },
     {
-      key: "manufacturingDate",
-      label: "Manufacturing",
+      key: "availableQty",
+      label: "Available",
       sortable: true,
-      render: (batch) => (
-        <span className="text-sm text-slate-600">
-          {new Date(batch.manufacturingDate).toLocaleDateString()}
-        </span>
-      ),
+      render: (batch) => <span className="text-sm text-green-600">{batch.availableQty || 0}</span>,
     },
+    // {
+    //   key: "supplierName",
+    //   label: "Supplier",
+    //   sortable: true,
+    //   render: (batch) => <span className="text-sm">{batch.supplierName || "--"}</span>,
+    // },
     {
       key: "expiryDate",
       label: "Expiry",
       sortable: true,
       render: (batch) => {
-        const daysUntilExpiry = getDaysUntilExpiry(batch);
-        const isExpired = daysUntilExpiry < 0;
-        const isExpiringSoon = daysUntilExpiry >= 0 && daysUntilExpiry <= 30;
-
+        const days = getDaysUntilExpiry(batch);
         return (
           <div>
-            <span className={`text-sm ${isExpired ? "text-red-600" : isExpiringSoon ? "text-yellow-600" : "text-slate-600"}`}>
+            <span className={`text-sm ${days < 0 ? "text-red-600" : days <= 30 ? "text-yellow-600" : "text-slate-600"}`}>
               {new Date(batch.expiryDate).toLocaleDateString()}
             </span>
-            {!isExpired && <p className="text-xs text-slate-400">{daysUntilExpiry} days left</p>}
+            {days >= 0 && <p className="text-xs text-slate-400">{days} days left</p>}
           </div>
         );
       },
     },
+    // {
+    //   key: "fifoPriority",
+    //   label: "FIFO",
+    //   sortable: true,
+    //   render: (batch) => {
+    //     const p = batch.fifoPriority || 0;
+    //     return (
+    //       <span
+    //         className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+    //           p === 1 ? "bg-green-100 text-green-700" : p <= 3 ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"
+    //         }`}
+    //       >
+    //         #{p || "--"}
+    //       </span>
+    //     );
+    //   },
+    // },
+    // {
+    //   key: "fefoPriority",
+    //   label: "FEFO",
+    //   sortable: true,
+    //   render: (batch) => {
+    //     const p = batch.fefoPriority || 0;
+    //     return (
+    //       <span
+    //         className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+    //           p === 1 ? "bg-green-100 text-green-700" : p <= 3 ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"
+    //         }`}
+    //       >
+    //         #{p || "--"}
+    //       </span>
+    //     );
+    //   },
+    // },
     {
       key: "status",
       label: "Status",
       sortable: false,
       render: (batch) => {
-        const status = getBatchStatus(batch);
+        const s = getBatchStatus(batch);
         return (
-          <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${status.className}`}>
-            {status.icon}
-            {status.label}
+          <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${s.className}`}>
+            {s.icon}
+            {s.label}
           </span>
         );
       },
@@ -580,25 +540,22 @@ const BatchManagement: React.FC = () => {
       render: (batch) => (
         <div className="flex justify-end gap-1">
           <button
-            type="button"
             onClick={() => setViewBatch(batch)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-blue-50 hover:text-blue-600"
             title="View"
           >
             <MagnifyingGlassIcon className="h-4 w-4" />
           </button>
           <button
-            type="button"
             onClick={() => openEdit(batch)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>
           <button
-            type="button"
             onClick={() => setDeleteBatch(batch)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
@@ -608,17 +565,45 @@ const BatchManagement: React.FC = () => {
     },
   ];
 
+  // ============ FILTER OPTIONS ============
+  const statusFilterOptions = useMemo(() => {
+    return [
+      { label: "All Status", value: "" },
+      ...FALLBACK_STATUS.map((status) => ({
+        label: status.replace('_', ' '),
+        value: status.toLowerCase(),
+      })),
+    ];
+  }, []);
+
+  const fifoFilterOptions = [
+    { label: "All", value: "" },
+    { label: "Priority 1 (Oldest)", value: "1" },
+    { label: "Priority 2", value: "2" },
+    { label: "Priority 3", value: "3" },
+    { label: "Priority 4+", value: "4" },
+  ];
+
+  const fefoFilterOptions = [
+    { label: "All", value: "" },
+    { label: "Priority 1 (Earliest Expiry)", value: "1" },
+    { label: "Priority 2", value: "2" },
+    { label: "Priority 3", value: "3" },
+    { label: "Priority 4+", value: "4" },
+  ];
+
   return (
     <>
       <PageMeta title="Batch Management" description="Manage product batches" />
       <PageBreadcrumb pageTitle="Batch Management" />
 
       <div className="w-full max-w-none px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+        <div className="mb-6 flex justify-end -mt-12">
           <AddButton onClick={openCreate} label="Add Batch" />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {/* Stats */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
           <StatsCard
             label="Total Batches"
             value={stats.total}
@@ -628,12 +613,28 @@ const BatchManagement: React.FC = () => {
             icon={<CubeIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Total Quantity"
+            label="Total Qty"
             value={stats.totalQuantity}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
             labelColor="text-cyan-600"
             icon={<CubeIcon className="h-5 w-5" />}
+          />
+          <StatsCard
+            label="Reserved"
+            value={stats.totalReserved}
+            gradient="from-orange-50 to-yellow-50"
+            borderColor="border-orange-100"
+            labelColor="text-orange-600"
+            icon={<ClockIcon className="h-5 w-5" />}
+          />
+          <StatsCard
+            label="Available"
+            value={stats.totalAvailable}
+            gradient="from-green-50 to-emerald-50"
+            borderColor="border-green-100"
+            labelColor="text-green-600"
+            icon={<CheckCircleIcon className="h-5 w-5" />}
           />
           <StatsCard
             label="Expired"
@@ -644,15 +645,16 @@ const BatchManagement: React.FC = () => {
             icon={<XCircleIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Expiring Soon"
-            value={stats.expiringSoon}
-            gradient="from-yellow-50 to-orange-50"
-            borderColor="border-yellow-100"
-            labelColor="text-yellow-700"
-            icon={<ExclamationTriangleIcon className="h-5 w-5" />}
+            label="Empty"
+            value={stats.emptyBatches}
+            gradient="from-gray-50 to-slate-50"
+            borderColor="border-gray-100"
+            labelColor="text-gray-600"
+            icon={<XCircleIcon className="h-5 w-5" />}
           />
         </div>
 
+        {/* Search & Filter */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-md">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
@@ -660,15 +662,11 @@ const BatchManagement: React.FC = () => {
               type="text"
               placeholder="Search batches..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={e => setSearch(e.target.value)}
               className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-purple-500"
             />
             {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
+              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                 <XMarkIcon className="h-4 w-4" />
               </button>
             )}
@@ -677,26 +675,71 @@ const BatchManagement: React.FC = () => {
           <div className="flex items-center gap-2">
             <FilterPopover
               title="Filter Batches"
-              buttonLabel="Filters"
+              buttonLabel="Filter"
               label="Status"
               value={statusFilter}
-              options={[
-                { label: "All Status", value: "" },
-                { label: "Expired", value: "expired" },
-                { label: "Expiring Soon", value: "expiring" },
-                { label: "Good", value: "good" },
-              ]}
+              options={statusFilterOptions}
               onChange={setStatusFilter}
-              onReset={() => setStatusFilter("")}
-              onApply={() => undefined}
-            />
+              onReset={() => {
+                setStatusFilter("");
+                setFifoFilter("");
+                setFefoFilter("");
+              }}
+              widthClassName="w-72"
+            >
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Status</label>
+                  <select
+                    value={statusFilter}
+                    onChange={e => setStatusFilter(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
+                  >
+                    <option value="">All Status</option>
+                    {FALLBACK_STATUS.map((status) => (
+                      <option key={status} value={status.toLowerCase()}>
+                        {status.replace('_', ' ')}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">FIFO Priority</label>
+                  <select
+                    value={fifoFilter}
+                    onChange={e => setFifoFilter(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
+                  >
+                    <option value="">All</option>
+                    <option value="1">Priority 1 (Oldest)</option>
+                    <option value="2">Priority 2</option>
+                    <option value="3">Priority 3</option>
+                    <option value="4">Priority 4+</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">FEFO Priority</label>
+                  <select
+                    value={fefoFilter}
+                    onChange={e => setFefoFilter(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
+                  >
+                    <option value="">All</option>
+                    <option value="1">Priority 1 (Earliest Expiry)</option>
+                    <option value="2">Priority 2</option>
+                    <option value="3">Priority 3</option>
+                    <option value="4">Priority 4+</option>
+                  </select>
+                </div>
+              </div>
+            </FilterPopover>
           </div>
         </div>
 
         <ReusableTable
           data={filteredBatches}
           columns={columns}
-          loading={loading}
+          loading={loading || enumLoading}
           pageSize={PAGE_SIZE}
           defaultSortKey="expiryDate"
           defaultSortOrder="asc"
@@ -716,6 +759,7 @@ const BatchManagement: React.FC = () => {
         />
       </div>
 
+      {/* Form Modal */}
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Batch" : "Create Batch"}
@@ -760,7 +804,7 @@ const BatchManagement: React.FC = () => {
                 value={form.productId}
                 onChange={handleChange}
                 emptyOptionLabel="Select product"
-                options={products.map((p) => ({
+                options={products.map(p => ({
                   id: String(p.id || p.productId || 0),
                   name: normalizeProductLabel(p),
                 }))}
@@ -773,20 +817,28 @@ const BatchManagement: React.FC = () => {
                 value={form.warehouse}
                 onChange={handleChange}
                 emptyOptionLabel="Select warehouse"
-                options={warehouses.map((w) => ({
+                options={warehouses.map(w => ({
                   id: String(w.id),
-                  name: `${w.code || ''} - ${w.name || ''}`,
+                  name: `${w.code || ""} - ${w.name || ""}`,
                 }))}
                 required
               />,
               <FloatingInput
                 key="quantity"
-                label="Quantity"
+                label="Total Quantity"
                 name="quantity"
                 type="number"
                 value={form.quantity}
                 onChange={handleChange}
                 required
+              />,
+              <FloatingInput
+                key="reservedQty"
+                label="Reserved Quantity"
+                name="reservedQty"
+                type="number"
+                value={form.reservedQty}
+                onChange={handleChange}
               />,
               <FloatingInput
                 key="supplierName"
@@ -800,11 +852,10 @@ const BatchManagement: React.FC = () => {
         ]}
       />
 
+      {/* Delete Popup */}
       <DynamicPopup
         isPopupOpen={!!deleteBatch}
-        setIsPopupOpen={(open) => {
-          if (!open) setDeleteBatch(null);
-        }}
+        setIsPopupOpen={open => !open && setDeleteBatch(null)}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
         innerText="Delete Batch"
