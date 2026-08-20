@@ -511,7 +511,7 @@ const WarehousePage: React.FC = () => {
       <PageMeta title="Warehouses" description="Manage warehouses" />
       <PageBreadcrumb pageTitle="Warehouses" />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 py-8">
         <div className="mb-6 flex justify-end -mt-12">
           <AddButton onClick={openCreate} label="Add Warehouse" />
         </div>
@@ -551,8 +551,8 @@ const WarehousePage: React.FC = () => {
           />
         </div>
 
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-md">
+        <div className=" flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full -mt-8 sm:max-w-md">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
@@ -632,6 +632,7 @@ const WarehousePage: React.FC = () => {
           defaultSortOrder="desc"
           enableRowDetails={true}
           rowDetailsTitle="Warehouse Details"
+          className="md:-mt-4"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <BuildingOffice2Icon className="mb-3 h-12 w-12 text-gray-400" />

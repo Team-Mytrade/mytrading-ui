@@ -650,7 +650,6 @@ const SalesTargets: React.FC = () => {
       key: "targetType",
       label: "Type",
       sortable: true,
-      className:"md:px-1 px-1",
       render: (target) => (
         <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">
           {target.targetType}
@@ -661,14 +660,12 @@ const SalesTargets: React.FC = () => {
       key: "targetAmount",
       label: "Target",
       sortable: true,
-      className:"md:pl-10 pl-5",
       render: (target) => <span className="font-semibold text-slate-900">{toCurrency(target.targetAmount)}</span>,
     },
     {
       key: "achievedAmount",
       label: "Achieved",
       sortable: true,
-      className:"md:pl-10 pl-5",
       render: (target) => <span className="font-semibold text-green-700">{toCurrency(target.achievedAmount)}</span>,
     },
     {
@@ -691,7 +688,7 @@ const SalesTargets: React.FC = () => {
             value={String(target.status)}
             onChange={(e) => handleInlineStatusChange(target, e.target.value)}
             disabled={statusUpdatingId === target.id}
-            className={`md:w-[96px] w-[82px] -ml-2 rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${getStatusSelectClasses(String(target.status))} ${
+            className={`w-[96px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${getStatusSelectClasses(String(target.status))} ${
               statusUpdatingId === target.id ? "cursor-not-allowed opacity-70" : ""
             }`}
           >
@@ -711,7 +708,7 @@ const SalesTargets: React.FC = () => {
       headerClassName: "text-right",
       className: "text-right",
       render: (target) => (
-        <div className=" md:ml-auto ml-20 flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={() => openEdit(target)}

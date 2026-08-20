@@ -607,6 +607,7 @@ const QualityInspectionManager: React.FC = () => {
                 <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
                     <AddButton
                         label="Add Inspection"
+                        className="-mt-4"
                         onClick={() => {
                             setFormMode("add");
                             setEditingId(null);

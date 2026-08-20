@@ -455,7 +455,7 @@ const SalesPersons: React.FC = () => {
       ),
     },
     { key: "email", label: "Email", sortable: true},
-    { key: "region", label: "Region", sortable: true, className:"md:pl-9"},
+    { key: "region", label: "Region", sortable: true,},
     {
       key: "userId",
       label: "User ID",
@@ -467,7 +467,6 @@ const SalesPersons: React.FC = () => {
       key: "employeeId",
       label: "Employee ID",
       sortable: true,
-      className:"pl-16",
       sortValueGetter: (person) => getResolvedEmployeeId(person),
       render: (person) => getResolvedEmployeeId(person) || "--",
     },
@@ -481,7 +480,7 @@ const SalesPersons: React.FC = () => {
             value={String(person.active)}
             onChange={(e) => handleInlineStatusChange(person, e.target.value)}
             disabled={statusUpdatingId === person.id}
-            className={`w-[84px] md:ml-3 rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
+            className={`w-[84px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
               person.active
                 ? "border-green-200 bg-green-50 text-green-700"
                 : "border-red-200 bg-red-50 text-red-700"

@@ -820,7 +820,7 @@ const StockAdjustmentManager: React.FC = () => {
       <PageMeta title="Stock Adjustment" description="Manage inventory stock adjustments" />
       <PageBreadcrumb pageTitle="Stock Adjustment" />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={openCreate} label="Add Adjustment" />
         </div>
@@ -966,6 +966,7 @@ const StockAdjustmentManager: React.FC = () => {
           pageSize={PAGE_SIZE}
           defaultSortKey="adjustmentDate"
           defaultSortOrder="desc"
+          className="md:-mt-4"
           onRowClick={openView}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
