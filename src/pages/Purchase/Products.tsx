@@ -560,7 +560,7 @@ export default function Products() {
               onClick={() => navigate("/product-categories")}
               className="inline-flex items-center rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100"
             >
-              Add Category
+              + npm run devCategory
             </button>
           ),
         }}

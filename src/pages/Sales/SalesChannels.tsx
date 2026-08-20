@@ -303,15 +303,14 @@ const SalesChannels: React.FC = () => {
       key: "channelType",
       label: "Type",
       sortable: true,
-       className:"md:pl-10",
       render: (channel) => (
         <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClass(channel.channelType)}`}>
           {channel.channelType || "N/A"}
         </span>
       ),
     },
-    { key: "contactInfo", label: "Contact Info", sortable: true, className:"md:pl-24", },
-    { key: "tenantId", label: "Tenant", sortable: true,  className:" sm:pl-auto lg:pl-16",  },
+    { key: "contactInfo", label: "Contact Info", sortable: true,},
+    { key: "tenantId", label: "Tenant", sortable: true,},
     {
       key: "actions",
       label: "Actions",

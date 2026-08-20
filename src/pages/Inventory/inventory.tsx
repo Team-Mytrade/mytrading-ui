@@ -462,33 +462,76 @@ const InventoryStockManager: React.FC = () => {
   };
 
   const handleSubmit = async (e: FormEvent): Promise<void> => {
-    e.preventDefault();
+  e.preventDefault();
 
-    try {
-      setSubmitting(true);
-      const payload = buildPayload();
+  // ✅ Add validations
+  if (!form.type || !form.productId || !form.warehouseId) {
+    ToasterService.error("Type, Product, and Warehouse are required");
+    return;
+  }
 
-      if (editingId) {
-        await axios.put(`${API_URL}/${editingId}`, payload, { headers });
-        ToasterService.success("Inventory stock updated successfully");
-      } else {
-        await axios.post(API_URL, payload, { headers });
-        ToasterService.success("Inventory stock created successfully");
-      }
+  try {
+    setSubmitting(true);
+    const payload = buildPayload();
 
+    // ✅ Add type annotation
+    let response: { data: InventoryStock };
+
+    if (editingId) {
+      response = await axios.put<InventoryStock>(`${API_URL}/${editingId}`, payload, { headers });
+      ToasterService.success("Inventory stock updated successfully");
+      
+      // ✅ CRITICAL: Update local state with response data
+      setStocks((prev) => {
+        return prev.map((stock) => {
+          if (stock.id === editingId) {
+            // ✅ Get correct warehouse from local list
+            const correctWarehouse = warehouses.find(w => w.id === payload.warehouse?.id);
+            
+            return {
+              ...response.data,
+              // ✅ Force correct warehouse (backend bug workaround)
+              warehouse: correctWarehouse || response.data.warehouse,
+            };
+          }
+          return stock;
+        });
+      });
+      
       closeForm();
+      
+      // ✅ Refresh in background to ensure consistency
       const warehouseId = searchParams.get('warehouseId');
       if (warehouseId) {
         fetchStockByWarehouse(warehouseId);
       } else {
-        await fetchAllStock();
+        fetchAllStock();
       }
-    } catch (error) {
-      ToasterService.error("Failed to save inventory stock", getErrorMessage(error, "Please try again."));
-    } finally {
-      setSubmitting(false);
+      
+    } else {
+      response = await axios.post<InventoryStock>(API_URL, payload, { headers });
+      ToasterService.success("Inventory stock created successfully");
+      
+      // ✅ Add new stock to list
+      setStocks((prev) => [response.data, ...prev]);
+      
+      closeForm();
+      
+      // ✅ Refresh in background
+      const warehouseId = searchParams.get('warehouseId');
+      if (warehouseId) {
+        fetchStockByWarehouse(warehouseId);
+      } else {
+        fetchAllStock();
+      }
     }
-  };
+  } catch (error) {
+    console.error("❌ Error:", error);
+    ToasterService.error("Failed to save inventory stock", getErrorMessage(error, "Please try again."));
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const confirmDelete = async (): Promise<void> => {
     if (!deleteStock?.id) return;
@@ -782,7 +825,7 @@ const InventoryStockManager: React.FC = () => {
       <PageMeta title="Inventory Stock" description="Manage inventory stock" />
       <PageBreadcrumb pageTitle="Inventory Stock" />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={openCreate} label="Add Stock" />
         </div>
@@ -945,6 +988,7 @@ const InventoryStockManager: React.FC = () => {
           defaultSortOrder="desc"
           enableRowDetails={true}
           rowDetailsTitle="Stock Details"
+          className="md:-mt-4"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <CubeIcon className="mb-3 h-12 w-12 text-gray-400" />

@@ -713,7 +713,7 @@ const SerialNumberManager: React.FC = () => {
       <PageMeta title="Serial Numbers" description="Manage inventory serial numbers" />
       <PageBreadcrumb pageTitle="Serial Numbers" />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={openCreate} label="Add Serial Number" />
         </div>
@@ -876,6 +876,7 @@ const SerialNumberManager: React.FC = () => {
           pageSize={PAGE_SIZE}
           defaultSortKey="serial"
           defaultSortOrder="asc"
+          className="md:-mt-4"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <QrCodeIcon className="mb-3 h-12 w-12 text-gray-400" />

@@ -325,7 +325,7 @@ const ServiceScheduleNotify: React.FC = () => {
       label: "Employee",
       sortable: true,
       render: (user) => (
-        <div className="md:ml-20">
+        <div className="">
           <div className="text-sm font-medium text-slate-700">{user.employeeId ?? "--"}</div>
           <div className="text-xs text-slate-500">{user.employeeCode || "--"}</div>
         </div>
@@ -337,7 +337,7 @@ const ServiceScheduleNotify: React.FC = () => {
       sortable: true,
       render: (user) =>
         <div className="max-w-[150px] truncate" title={user.role || ""}>
-         <span className="text-sm text-slate-700 md:ml-10">{user.role || user.userType || "--"}</span>,
+         <span className="text-sm text-slate-700">{user.role || user.userType || "--"}</span>,
     </div>
 
     },
@@ -345,14 +345,14 @@ const ServiceScheduleNotify: React.FC = () => {
       key: "tenantId",
       label: "Tenant",
       sortable: true,
-      render: (user) => <span className="text-sm text-slate-700 md:ml-10">{user.tenantId || "--"}</span>,
+      render: (user) => <span className="text-sm text-slate-700">{user.tenantId || "--"}</span>,
     },
     {
       key: "active",
       label: "Status",
       sortable: true,
       render: (user) => (
-        <span className="inline-flex rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 md:ml-10">
+        <span className="inline-flex rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">
           {user.active ? "Active" : "Inactive"}
         </span>
       ),
