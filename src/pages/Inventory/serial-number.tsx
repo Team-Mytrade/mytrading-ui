@@ -12,8 +12,6 @@ import {
   XMarkIcon,
   EyeIcon,
   CubeIcon,
-  CalendarIcon,
-  ShoppingBagIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -70,6 +68,14 @@ interface Inspection {
   serialNumberId?: number;
 }
 
+interface EnumOption {
+  id: string;
+  name: string;
+}
+
+// purchaseDate / salesDate removed entirely — they were speculative additions
+// not confirmed to exist on the backend schema. currentStatus stays, but its
+// allowed values now come exclusively from the enum endpoint (no static list).
 interface SerialNumber {
   id: number;
   serial: string;
@@ -80,10 +86,7 @@ interface SerialNumber {
   warehouse?: WarehouseRef;
   batch?: BatchRef;
   inspections?: Inspection[];
-  // --- NEW fields ---
-  purchaseDate?: string | null;   // ISO date string
-  salesDate?: string | null;     // ISO date string, null if not sold
-  currentStatus?: string;        // e.g., "Available", "Sold", "In Repair", "Returned"
+  currentStatus?: string; // as returned by API — no client-side default
 }
 
 type SerialNumberForm = {
@@ -92,8 +95,6 @@ type SerialNumberForm = {
   productId: string;
   warehouseId: string;
   batchId: string;
-  purchaseDate: string;
-  salesDate: string;
   currentStatus: string;
 };
 
@@ -103,14 +104,7 @@ const PRODUCT_URL = "/v1/api/purchase";
 const PAGE_SIZE = 10;
 const WAREHOUSE_ROUTE = "/warehouse";
 const PRODUCT_ROUTE = "/product";
-
-// Hardcoded status options
-const STATUS_OPTIONS = [
-  { id: "Available", name: "Available" },
-  { id: "Sold", name: "Sold" },
-  { id: "In Repair", name: "In Repair" },
-  { id: "Returned", name: "Returned" },
-];
+const CURRENT_STATUS_ENUM_TYPE = "CURRENTSTATUS";
 
 const emptyForm: SerialNumberForm = {
   warrantyStart: "",
@@ -118,9 +112,7 @@ const emptyForm: SerialNumberForm = {
   productId: "",
   warehouseId: "",
   batchId: "",
-  purchaseDate: "",
-  salesDate: "",
-  currentStatus: "Available",
+  currentStatus: "",
 };
 
 // ---------- Helpers ----------
@@ -145,9 +137,11 @@ function isWarrantyActive(warrantyEnd: string) {
   return end.getTime() >= Date.now();
 }
 
+// Product is shown as productName only — no fallback substitution using
+// productNumber/productCode as a stand-in display name.
 function getProductName(sn: SerialNumber, products: Product[]) {
   const product = products.find((p) => p.id === sn.productId);
-  return product?.productName || sn.productNumber || "N/A";
+  return product?.productName || "N/A";
 }
 
 function getWarehouseName(sn: SerialNumber) {
@@ -169,6 +163,54 @@ function getWarrantyStatus(sn: SerialNumber) {
   return isWarrantyActive(sn.warrantyEnd) ? "In Warranty" : "Expired";
 }
 
+function formatEnumResponse(raw: unknown): EnumOption[] {
+  // Accepts a few common shapes: string[], {id,name}[], {code,label}[], {value}[]
+  if (!Array.isArray(raw)) {
+    if (raw && typeof raw === "object") {
+      const obj = raw as Record<string, unknown>;
+      if (Array.isArray(obj.data)) return formatEnumResponse(obj.data);
+      if (Array.isArray(obj.content)) return formatEnumResponse(obj.content);
+      if (Array.isArray(obj.items)) return formatEnumResponse(obj.items);
+    }
+    return [];
+  }
+  return raw
+    .map((item): EnumOption | null => {
+      if (typeof item === "string") return { id: item, name: item };
+      if (item && typeof item === "object") {
+        const obj = item as Record<string, unknown>;
+        const id = obj.id ?? obj.code ?? obj.value ?? obj.key;
+        const name = obj.name ?? obj.label ?? obj.value ?? id;
+        if (id === undefined || id === null) return null;
+        return { id: String(id), name: String(name ?? id) };
+      }
+      return null;
+    })
+    .filter((item): item is EnumOption => item !== null);
+}
+
+// Deterministic color per status string — no hardcoded mapping tied to
+// specific expected values like "Available"/"Sold"/"In Repair"/"Returned".
+const STATUS_BADGE_PALETTE = [
+  "bg-green-50 text-green-700",
+  "bg-blue-50 text-blue-700",
+  "bg-amber-50 text-amber-700",
+  "bg-red-50 text-red-700",
+  "bg-purple-50 text-purple-700",
+  "bg-teal-50 text-teal-700",
+  "bg-rose-50 text-rose-700",
+  "bg-indigo-50 text-indigo-700",
+];
+
+function getStatusBadgeClass(status?: string | null) {
+  if (!status) return "bg-gray-50 text-gray-700";
+  let hash = 0;
+  for (let i = 0; i < status.length; i++) {
+    hash = (hash * 31 + status.charCodeAt(i)) >>> 0;
+  }
+  return STATUS_BADGE_PALETTE[hash % STATUS_BADGE_PALETTE.length];
+}
+
 // ---------- Component ----------
 const SerialNumberManager: React.FC = () => {
   const token = localStorage.getItem("accessToken");
@@ -182,6 +224,7 @@ const SerialNumberManager: React.FC = () => {
   const [warehouses, setWarehouses] = useState<WarehouseRef[]>([]);
   const [batches, setBatches] = useState<BatchRef[]>([]);
   const [inspectionsBySerial, setInspectionsBySerial] = useState<Record<number, Inspection[]>>({});
+  const [statusOptions, setStatusOptions] = useState<EnumOption[]>([]);
   const [form, setForm] = useState<SerialNumberForm>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
@@ -192,7 +235,7 @@ const SerialNumberManager: React.FC = () => {
   const [filterWarehouseId, setFilterWarehouseId] = useState("");
   const [filterBatchId, setFilterBatchId] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterCurrentStatus, setFilterCurrentStatus] = useState(""); // NEW
+  const [filterCurrentStatus, setFilterCurrentStatus] = useState("");
   const [viewingSerial, setViewingSerial] = useState<SerialNumber | null>(null);
   const [viewLoading, setViewLoading] = useState(false);
   const [deletingSerial, setDeletingSerial] = useState<SerialNumber | null>(null);
@@ -203,26 +246,17 @@ const SerialNumberManager: React.FC = () => {
     fetchWarehouses();
     fetchBatches();
     fetchInspections();
+    fetchCurrentStatusOptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // --- Hardcode default values for new fields ---
-  const applyDefaults = (sn: SerialNumber): SerialNumber => ({
-    ...sn,
-    purchaseDate: sn.purchaseDate ?? new Date().toISOString().split("T")[0],
-    salesDate: sn.salesDate ?? null,
-    currentStatus: sn.currentStatus ?? "Available",
-  });
 
   const fetchSerialNumbers = async () => {
     try {
       setLoading(true);
       const res = await axios.get<SerialNumber[]>(`${API_URL}/serial-numbers`, { headers });
       const data = Array.isArray(res.data) ? res.data : [];
-      // Apply defaults
-      const enriched = data.map(applyDefaults);
-      setSerialNumbers(enriched);
-      if (enriched.length === 0) ToasterService.noData("No serial numbers found");
+      setSerialNumbers(data);
+      if (data.length === 0) ToasterService.noData("No serial numbers found");
     } catch (error) {
       ToasterService.error("Failed to load serial numbers", getErrorMessage(error, "Please try again."));
       setSerialNumbers([]);
@@ -296,6 +330,32 @@ const SerialNumberManager: React.FC = () => {
     }
   };
 
+  // Current Status options come exclusively from the enum endpoint.
+  // No static fallback list — if the call fails or returns nothing, the
+  // dropdown is simply empty rather than silently showing invented values.
+  const fetchCurrentStatusOptions = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/enums`, {
+        headers,
+        params: { type: CURRENT_STATUS_ENUM_TYPE },
+      });
+      const options = formatEnumResponse(res.data);
+      if (options.length === 0) {
+        ToasterService.error(
+          "Current Status options unavailable",
+          "No values returned for CURRENTSTATUS enum."
+        );
+      }
+      setStatusOptions(options);
+    } catch (error) {
+      ToasterService.error(
+        "Failed to load Current Status options",
+        getErrorMessage(error, "Please try again.")
+      );
+      setStatusOptions([]);
+    }
+  };
+
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm((current) => ({ ...current, [name]: value }));
@@ -317,10 +377,7 @@ const SerialNumberManager: React.FC = () => {
       warehouse: warehouseId ? { id: warehouseId } : null,
       batch: batchId ? { id: batchId } : null,
       inspections: [],
-      // NEW fields
-      purchaseDate: form.purchaseDate || null,
-      salesDate: form.salesDate || null,
-      currentStatus: form.currentStatus || "Available",
+      currentStatus: form.currentStatus || null,
     };
   };
 
@@ -337,11 +394,6 @@ const SerialNumberManager: React.FC = () => {
     }
     if (new Date(form.warrantyEnd) < new Date(form.warrantyStart)) {
       ToasterService.error("Invalid warranty range", "Warranty end date cannot be before the start date.");
-      return;
-    }
-    // Validate purchase/sales dates if provided
-    if (form.purchaseDate && form.salesDate && new Date(form.salesDate) < new Date(form.purchaseDate)) {
-      ToasterService.error("Invalid dates", "Sales date cannot be before purchase date.");
       return;
     }
     try {
@@ -365,10 +417,7 @@ const SerialNumberManager: React.FC = () => {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({
-      ...emptyForm,
-      purchaseDate: new Date().toISOString().split("T")[0], // default today
-    });
+    setForm({ ...emptyForm });
     setShowFormModal(true);
   };
 
@@ -380,9 +429,7 @@ const SerialNumberManager: React.FC = () => {
       productId: sn.productId ? String(sn.productId) : "",
       warehouseId: sn.warehouse?.id ? String(sn.warehouse.id) : "",
       batchId: sn.batch?.id ? String(sn.batch.id) : "",
-      purchaseDate: sn.purchaseDate || "",
-      salesDate: sn.salesDate || "",
-      currentStatus: sn.currentStatus || "Available",
+      currentStatus: sn.currentStatus ?? "",
     });
     setShowFormModal(true);
   };
@@ -412,9 +459,7 @@ const SerialNumberManager: React.FC = () => {
       setViewLoading(true);
       const res = await axios.get<SerialNumber>(`${API_URL}/serial-numbers/${sn.id}`, { headers });
       if (res.data) {
-        // Apply defaults to fetched data
-        const enriched = applyDefaults(res.data);
-        setViewingSerial(enriched);
+        setViewingSerial(res.data);
       }
     } catch (error) {
       ToasterService.error("Failed to load serial number details", getErrorMessage(error, "Showing last known details."));
@@ -466,8 +511,6 @@ const SerialNumberManager: React.FC = () => {
           sn.batch?.batchNumber,
           isWarrantyActive(sn.warrantyEnd) ? "active" : "expired",
           sn.currentStatus,
-          sn.purchaseDate,
-          sn.salesDate,
         ]
           .map(searchableText)
           .filter(Boolean)
@@ -480,8 +523,6 @@ const SerialNumberManager: React.FC = () => {
         productNumber:
           sn.productNumber || products.find((p) => p.id === sn.productId)?.productCode || "N/A",
         inspections: inspectionsBySerial[sn.id] ?? sn.inspections ?? [],
-        // Ensure defaults are applied (in case we missed any)
-        ...applyDefaults(sn),
       }));
   }, [serialNumbers, search, filterProductId, filterWarehouseId, filterBatchId, filterStatus, filterCurrentStatus, products, inspectionsBySerial]);
 
@@ -499,7 +540,6 @@ const SerialNumberManager: React.FC = () => {
     const inWarranty = serialNumbers.filter((sn) => isWarrantyActive(sn.warrantyEnd)).length;
     const expired = total - inWarranty;
     const warehouses = new Set(serialNumbers.map((sn) => sn.warehouse?.name).filter(Boolean)).size;
-    // Status counts
     const statusCounts: Record<string, number> = {};
     serialNumbers.forEach((sn) => {
       const status = sn.currentStatus || "Unknown";
@@ -508,7 +548,7 @@ const SerialNumberManager: React.FC = () => {
     return { total, inWarranty, expired, warehouses, statusCounts };
   }, [serialNumbers]);
 
-  // ---------- Table columns (new columns added) ----------
+  // ---------- Table columns ----------
   const columns: ColumnDef<SerialNumber>[] = [
     {
       key: "serial",
@@ -587,18 +627,6 @@ const SerialNumberManager: React.FC = () => {
       render: (sn) => getBatchNumber(sn),
     },
     {
-      key: "purchaseDate",
-      label: "Purchase Date",
-      sortable: true,
-      render: (sn) => (sn.purchaseDate ? new Date(sn.purchaseDate).toLocaleDateString() : "N/A"),
-    },
-    {
-      key: "salesDate",
-      label: "Sales Date",
-      sortable: true,
-      render: (sn) => (sn.salesDate ? new Date(sn.salesDate).toLocaleDateString() : "N/A"),
-    },
-    {
       key: "warrantyStart",
       label: "Warranty Start",
       sortable: true,
@@ -632,14 +660,12 @@ const SerialNumberManager: React.FC = () => {
       label: "Current Status",
       sortable: true,
       render: (sn) => {
-        const status = sn.currentStatus || "Available";
-        let colorClass = "bg-gray-50 text-gray-700";
-        if (status === "Available") colorClass = "bg-green-50 text-green-700";
-        else if (status === "Sold") colorClass = "bg-blue-50 text-blue-700";
-        else if (status === "In Repair") colorClass = "bg-yellow-50 text-yellow-700";
-        else if (status === "Returned") colorClass = "bg-red-50 text-red-700";
+        const status = sn.currentStatus;
+        if (!status) {
+          return <span className="text-xs text-slate-400">N/A</span>;
+        }
         return (
-          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${colorClass}`}>
+          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClass(status)}`}>
             {status}
           </span>
         );
@@ -693,7 +719,7 @@ const SerialNumberManager: React.FC = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatsCard label="Serial Numbers" value={stats.total} icon={<QrCodeIcon />} />
           <StatsCard
             label="In Warranty"
@@ -718,14 +744,6 @@ const SerialNumberManager: React.FC = () => {
             borderColor="border-purple-100"
             labelColor="text-purple-600"
             icon={<BuildingStorefrontIcon />}
-          />
-          <StatsCard
-            label="Available"
-            value={stats.statusCounts["Available"] || 0}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-            icon={<CheckCircleIcon />}
           />
         </div>
 
@@ -772,14 +790,6 @@ const SerialNumberManager: React.FC = () => {
                 { header: "Warehouse", accessor: (row) => getWarehouseName(row) },
                 { header: "Batch", accessor: (row) => getBatchNumber(row) },
                 {
-                  header: "Purchase Date",
-                  accessor: (row) => (row.purchaseDate ? new Date(row.purchaseDate).toLocaleDateString() : "N/A"),
-                },
-                {
-                  header: "Sales Date",
-                  accessor: (row) => (row.salesDate ? new Date(row.salesDate).toLocaleDateString() : "N/A"),
-                },
-                {
                   header: "Warranty Start",
                   accessor: (row) => (row.warrantyStart ? new Date(row.warrantyStart).toLocaleDateString() : "N/A"),
                 },
@@ -788,7 +798,7 @@ const SerialNumberManager: React.FC = () => {
                   accessor: (row) => (row.warrantyEnd ? new Date(row.warrantyEnd).toLocaleDateString() : "N/A"),
                 },
                 { header: "Warranty Status", accessor: (row) => getWarrantyStatus(row) },
-                { header: "Current Status", accessor: (row) => row.currentStatus || "Available" },
+                { header: "Current Status", accessor: (row) => row.currentStatus || "N/A" },
               ]}
             />
             <FilterPopover
@@ -843,7 +853,7 @@ const SerialNumberManager: React.FC = () => {
                   name="filterCurrentStatus"
                   value={filterCurrentStatus}
                   onChange={(e) => setFilterCurrentStatus(e.target.value)}
-                  options={STATUS_OPTIONS}
+                  options={statusOptions}
                 />
                 <div className="flex justify-end">
                   <button
@@ -886,7 +896,7 @@ const SerialNumberManager: React.FC = () => {
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Serial Number" : "Create Serial Number"}
-        subtitle="Enter serial number details including purchase/sales dates and current status"
+        subtitle="Enter serial number details including current status"
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
@@ -934,31 +944,15 @@ const SerialNumberManager: React.FC = () => {
             ],
           },
           {
-            label: "Dates & Status",
+            label: "Status",
             fields: [
-              <FloatingInput
-                key="purchaseDate"
-                label="Purchase Date"
-                name="purchaseDate"
-                type="date"
-                value={form.purchaseDate}
-                onChange={handleChange}
-              />,
-              <FloatingInput
-                key="salesDate"
-                label="Sales Date"
-                name="salesDate"
-                type="date"
-                value={form.salesDate}
-                onChange={handleChange}
-              />,
               <FloatingSelect
                 key="currentStatus"
                 label="Current Status"
                 name="currentStatus"
                 value={form.currentStatus}
                 onChange={handleChange}
-                options={STATUS_OPTIONS}
+                options={statusOptions}
                 required
               />,
             ],
@@ -989,7 +983,7 @@ const SerialNumberManager: React.FC = () => {
         ]}
       />
 
-      {/* Detail View Modal (updated with new fields) */}
+      {/* Detail View Modal */}
       {viewingSerial && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
@@ -1071,24 +1065,6 @@ const SerialNumberManager: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                <span className="flex items-center gap-2 text-slate-500">
-                  <CalendarIcon className="h-4 w-4" /> Purchase Date
-                </span>
-                <span className="font-medium text-slate-800">
-                  {viewingSerial.purchaseDate ? new Date(viewingSerial.purchaseDate).toLocaleDateString() : "N/A"}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                <span className="flex items-center gap-2 text-slate-500">
-                  <ShoppingBagIcon className="h-4 w-4" /> Sales Date
-                </span>
-                <span className="font-medium text-slate-800">
-                  {viewingSerial.salesDate ? new Date(viewingSerial.salesDate).toLocaleDateString() : "N/A"}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
                 <span className="text-slate-500">Warranty Start</span>
                 <span className="font-medium text-slate-800">
                   {viewingSerial.warrantyStart ? new Date(viewingSerial.warrantyStart).toLocaleDateString() : "N/A"}
@@ -1117,7 +1093,7 @@ const SerialNumberManager: React.FC = () => {
 
               <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
                 <span className="text-slate-500">Current Status</span>
-                <span className="font-medium text-slate-800">{viewingSerial.currentStatus || "Available"}</span>
+                <span className="font-medium text-slate-800">{viewingSerial.currentStatus || "N/A"}</span>
               </div>
 
               <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">

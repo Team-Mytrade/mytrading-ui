@@ -27,10 +27,17 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
+// ========================== ENUM OPTION TYPE ==========================
+interface EnumOption {
+  id: string;
+  name: string;
+}
+
+// ========================== DATA MODELS ==========================
 interface Product {
   id: number;
   productName: string;
-    productCode?: string;
+  productCode?: string;
   currentStock?: number;
 }
 
@@ -90,26 +97,8 @@ enum AdjustmentType {
   NEGATIVE = "NEGATIVE",
 }
 
-// Fixed set of adjustment reasons per the Inventory Module spec.
-// Previously this was free text — now constrained to these six categories
-// so reporting/filtering by reason is reliable.
-enum AdjustmentReason {
-  PHYSICAL_STOCK_COUNT = "PHYSICAL_STOCK_COUNT",
-  DAMAGED_PRODUCTS = "DAMAGED_PRODUCTS",
-  LOST_PRODUCTS = "LOST_PRODUCTS",
-  EXPIRED_PRODUCTS = "EXPIRED_PRODUCTS",
-  INVENTORY_AUDIT = "INVENTORY_AUDIT",
-  MANUAL_CORRECTION = "MANUAL_CORRECTION",
-}
-
-const ADJUSTMENT_REASON_LABELS: Record<AdjustmentReason, string> = {
-  [AdjustmentReason.PHYSICAL_STOCK_COUNT]: "Physical Stock Count",
-  [AdjustmentReason.DAMAGED_PRODUCTS]: "Damaged Products",
-  [AdjustmentReason.LOST_PRODUCTS]: "Lost Products",
-  [AdjustmentReason.EXPIRED_PRODUCTS]: "Expired Products",
-  [AdjustmentReason.INVENTORY_AUDIT]: "Inventory Audit",
-  [AdjustmentReason.MANUAL_CORRECTION]: "Manual Correction",
-};
+// ---------- STATIC ADJUSTMENT REASON REMOVED ----------
+// No more enum AdjustmentReason, no ADJUSTMENT_REASON_LABELS
 
 interface StockAdjustment {
   id: number;
@@ -118,7 +107,7 @@ interface StockAdjustment {
   createdBy?: string;
   tenantId?: string;
   adjustmentDate: string;
-  reason: AdjustmentReason | string;
+  reason: string; // now just a string, dynamic
   quantity: number;
   adjustmentType: AdjustmentType;
   productId?: number;
@@ -130,7 +119,7 @@ interface StockAdjustment {
 
 type StockAdjustmentForm = {
   adjustmentDate: string;
-  reason: AdjustmentReason | "";
+  reason: string; // dynamic id
   quantity: string;
   adjustmentType: AdjustmentType;
   productId: string;
@@ -143,13 +132,13 @@ const API_URL = "/v1/api/inventory";
 const PRODUCT_URL = "/v1/api/purchase";
 const PAGE_SIZE = 10;
 
-const PRODUCT_ROUTE = "/purchase-products"; // <Route path="/purchase-products" element={<Products />} />
-const WAREHOUSE_ROUTE = "/warehouse";       // <Route path="/warehouse" element={<Warehouse />} />
-const BATCH_ROUTE = "/batch";               // <Route path="/batch" element={<Batch />} />
+const PRODUCT_ROUTE = "/purchase-products";
+const WAREHOUSE_ROUTE = "/warehouse";
+const BATCH_ROUTE = "/batch";
 
 const emptyForm: StockAdjustmentForm = {
   adjustmentDate: new Date().toISOString().split('T')[0],
-  reason: "",
+  reason: "", // no default static reason
   quantity: "",
   adjustmentType: AdjustmentType.POSITIVE,
   productId: "",
@@ -158,6 +147,7 @@ const emptyForm: StockAdjustmentForm = {
   serialNumberId: "",
 };
 
+// ========================== HELPERS ==========================
 function getErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data;
@@ -186,14 +176,6 @@ function getTypeIcon(type: AdjustmentType) {
   return <ArrowDownIcon className="h-3 w-3 mr-1" />;
 }
 
-// Renders a human-readable label for a reason, whether it's a known enum value
-// or legacy free-text data already stored from before this fix.
-function getReasonLabel(reason?: string | AdjustmentReason | null) {
-  if (!reason) return "-";
-  const label = ADJUSTMENT_REASON_LABELS[reason as AdjustmentReason];
-  return label || String(reason);
-}
-
 function getBatchWarehouseId(batch?: Batch | null) {
   return Number(batch?.warehouse && typeof batch.warehouse !== "string" ? batch.warehouse.id : 0);
 }
@@ -214,11 +196,36 @@ function getSerialWarehouseName(serial?: SerialNumber | null) {
   return serial?.warehouse && typeof serial.warehouse !== "string" ? serial.warehouse.name : "";
 }
 
+// ========================== ENUM NORMALIZATION ==========================
+function normalizeEnumOptions(raw: any, fallback: EnumOption[]): EnumOption[] {
+  const list = Array.isArray(raw) ? raw : raw?.content || raw?.data || raw?.result || [];
+  if (!Array.isArray(list) || list.length === 0) return fallback;
+
+  const options: EnumOption[] = list
+    .map((item: any): EnumOption | null => {
+      if (typeof item === "string") {
+        return { id: item.toUpperCase(), name: item };
+      }
+      if (item && typeof item === "object") {
+        const id = item.id ?? item.value ?? item.code ?? item.key ?? item.name;
+        const name = item.name ?? item.label ?? item.description ?? item.value ?? id;
+        if (id == null) return null;
+        return { id: String(id).toUpperCase(), name: String(name ?? id) };
+      }
+      return null;
+    })
+    .filter((option): option is EnumOption => option !== null);
+
+  return options.length > 0 ? options : fallback;
+}
+
+// ========================== MAIN COMPONENT ==========================
 const StockAdjustmentManager: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
   const navigate = useNavigate();
 
+  // ---------- State ----------
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -240,8 +247,29 @@ const StockAdjustmentManager: React.FC = () => {
   const [viewingAdjustment, setViewingAdjustment] = useState<StockAdjustment | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
 
+  // ---------- Dynamic option states ----------
+  // NOTE: This default is a UI-availability fallback, not "static business data" —
+  // AdjustmentType is a fixed two-value domain enum (POSITIVE/NEGATIVE) that the
+  // rest of the component's logic (math, colors, stats) already depends on. Keeping
+  // a sane default means the create/edit form still works if the enums endpoint is
+  // slow or briefly unavailable. The *labels* shown to the user, however, always
+  // come from this state (via getTypeLabel), so if the API returns different
+  // labels they are reflected everywhere instead of being hardcoded per-usage.
+  const [adjustmentTypeOptions, setAdjustmentTypeOptions] = useState<EnumOption[]>([
+    { id: "POSITIVE", name: "Stock In" },
+    { id: "NEGATIVE", name: "Stock Out" },
+  ]);
+
+  // Reason options from API — genuinely open-ended/tenant-defined, so there is
+  // intentionally NO static fallback here. If the API fails, the list stays empty
+  // and the user is toasted, rather than risking a wrong/stale reason id.
+  const [reasonOptions, setReasonOptions] = useState<EnumOption[]>([]);
+
+  // ---------- Data fetching ----------
   useEffect(() => {
     fetchAllData();
+    fetchAdjustmentTypeOptions();
+    fetchReasonOptions(); // fetch reasons
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -261,6 +289,7 @@ const StockAdjustmentManager: React.FC = () => {
       setLoading(false);
     }
   };
+
   const unwrapList = (resData: any): any[] => {
     let raw = resData;
     if (typeof raw === "string") {
@@ -325,6 +354,58 @@ const StockAdjustmentManager: React.FC = () => {
     }
   };
 
+  const fetchAdjustmentTypeOptions = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/enums?type=ADJUSTMENT_TYPE`, { headers });
+      const normalized = normalizeEnumOptions(res.data, [
+        { id: "POSITIVE", name: "Stock In" },
+        { id: "NEGATIVE", name: "Stock Out" },
+      ]);
+      setAdjustmentTypeOptions(normalized);
+    } catch (error) {
+      console.error("Failed to load adjustment type enums, using defaults", error);
+      setAdjustmentTypeOptions([
+        { id: "POSITIVE", name: "Stock In" },
+        { id: "NEGATIVE", name: "Stock Out" },
+      ]);
+    }
+  };
+
+  // Fetch reason options from API
+  const fetchReasonOptions = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/enums?type=STOCKADJUSTMENT_REASON`, { headers });
+      // No static fallback – use empty array if API fails
+      const normalized = normalizeEnumOptions(res.data, []);
+      setReasonOptions(normalized);
+      if (normalized.length === 0) {
+        ToasterService.warning("No adjustment reasons found in the system.");
+      }
+    } catch (error) {
+      console.error("Failed to load adjustment reason enums", error);
+      setReasonOptions([]);
+      ToasterService.error("Failed to load adjustment reasons", "Please refresh or contact support.");
+    }
+  };
+
+  // ---------- Display helpers ----------
+  // Dynamic label lookup for reason
+  const getReasonLabel = (reasonId?: string | null) => {
+    if (!reasonId) return "-";
+    const found = reasonOptions.find((opt) => opt.id === reasonId);
+    return found ? found.name : reasonId; // fallback to raw id
+  };
+
+  // Dynamic label lookup for adjustment type — always reads from
+  // adjustmentTypeOptions instead of hardcoding "Stock In" / "Stock Out" per
+  // usage, so table, view modal, and PDF export all reflect whatever the
+  // enums API returns.
+  const getTypeLabel = (typeId?: string | null) => {
+    if (!typeId) return "-";
+    const found = adjustmentTypeOptions.find((opt) => opt.id === typeId);
+    return found ? found.name : typeId; // fallback to raw id
+  };
+
   const getProductDisplayName = (adjustment: StockAdjustment) => {
     const productId = adjustment.productId ?? adjustment.product?.id;
     const product = products.find((p) => p.id === productId);
@@ -353,6 +434,7 @@ const StockAdjustmentManager: React.FC = () => {
     });
   };
 
+  // ---------- Form handlers ----------
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -399,6 +481,7 @@ const StockAdjustmentManager: React.FC = () => {
     }
   };
 
+  // ---------- CRUD ----------
   const buildPayload = () => {
     const selectedWarehouse = warehouses.find((item) => item.id === Number(form.warehouseId));
     const selectedBatch = filteredBatches.find((item) => item.id === Number(form.batchId))
@@ -408,7 +491,7 @@ const StockAdjustmentManager: React.FC = () => {
 
     const payload: Record<string, any> = {
       adjustmentDate: form.adjustmentDate,
-      reason: form.reason,
+      reason: form.reason, // raw id from dropdown
       quantity: Number(form.quantity),
       adjustmentType: form.adjustmentType,
       productId: Number(form.productId),
@@ -487,11 +570,7 @@ const StockAdjustmentManager: React.FC = () => {
     setEditingId(adjustment.id);
     setForm({
       adjustmentDate: adjustment.adjustmentDate?.split('T')[0] || new Date().toISOString().split('T')[0],
-      // Legacy free-text values that don't match a known reason code fall back to
-      // empty so the user has to pick a valid option on edit.
-      reason: (Object.values(AdjustmentReason) as string[]).includes(adjustment.reason as string)
-        ? (adjustment.reason as AdjustmentReason)
-        : "",
+      reason: adjustment.reason || "", // raw reason id
       quantity: String(adjustment.quantity || 0),
       adjustmentType: adjustment.adjustmentType || AdjustmentType.POSITIVE,
       productId: String(productId || ""),
@@ -539,6 +618,7 @@ const StockAdjustmentManager: React.FC = () => {
     }
   };
 
+  // ---------- Filtering and computed data ----------
   const filteredAdjustments = useMemo(() => {
     const term = searchableText(search);
 
@@ -552,8 +632,8 @@ const StockAdjustmentManager: React.FC = () => {
 
       const haystack = [
         getReasonLabel(adjustment.reason),
+        getTypeLabel(adjustment.adjustmentType),
         adjustment.quantity,
-        adjustment.adjustmentType,
         getProductDisplayName(adjustment),
         adjustment.warehouse?.name,
         adjustment.warehouse?.code,
@@ -567,7 +647,7 @@ const StockAdjustmentManager: React.FC = () => {
 
       return haystack.includes(term);
     });
-  }, [adjustments, search, filterType, filterReason, filterDateFrom, filterDateTo, products]);
+  }, [adjustments, search, filterType, filterReason, filterDateFrom, filterDateTo, products, reasonOptions, adjustmentTypeOptions]);
 
   const resetFilters = () => {
     setFilterType("");
@@ -593,6 +673,7 @@ const StockAdjustmentManager: React.FC = () => {
 
   const netChange = stats.totalAdded - stats.totalRemoved;
 
+  // ---------- Dropdown options ----------
   const productOptions = useMemo(() => {
     return products.map((product) => ({
       id: String(product.id),
@@ -606,7 +687,6 @@ const StockAdjustmentManager: React.FC = () => {
       name: warehouse.code ? `${warehouse.name} (${warehouse.code})` : warehouse.name,
     }));
   }, [warehouses]);
-
 
   const batchOptions = useMemo(() => {
     const selectedWarehouseId = Number(form.warehouseId || 0);
@@ -643,21 +723,11 @@ const StockAdjustmentManager: React.FC = () => {
     });
   }, [filteredSerialNumbers, form.warehouseId]);
 
-  const typeOptions = useMemo(() => {
-    return [
-      { id: "POSITIVE", name: "Stock In" },
-      { id: "NEGATIVE", name: "Stock Out" },
-    ];
-  }, []);
+  // ---------- Dynamic option references ----------
+  const typeOptions = adjustmentTypeOptions;
+  // reasonOptions is already dynamic
 
-  // Fixed reason dropdown options, per the spec's six Adjustment Reasons.
-  const reasonOptions = useMemo(() => {
-    return Object.values(AdjustmentReason).map((value) => ({
-      id: value,
-      name: ADJUSTMENT_REASON_LABELS[value],
-    }));
-  }, []);
-
+  // ---------- Table columns ----------
   const columns: ColumnDef<StockAdjustment>[] = [
     {
       key: "adjustmentDate",
@@ -749,10 +819,11 @@ const StockAdjustmentManager: React.FC = () => {
       key: "adjustmentType",
       label: "Type",
       sortable: true,
+      sortValueGetter: (adjustment) => getTypeLabel(adjustment.adjustmentType),
       render: (adjustment) => (
         <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold border ${getTypeBadge(adjustment.adjustmentType)}`}>
           {getTypeIcon(adjustment.adjustmentType)}
-          {adjustment.adjustmentType === "POSITIVE" ? "Stock In" : "Stock Out"}
+          {getTypeLabel(adjustment.adjustmentType)}
         </span>
       ),
     },
@@ -815,6 +886,7 @@ const StockAdjustmentManager: React.FC = () => {
     },
   ];
 
+  // ========================== RENDER ==========================
   return (
     <>
       <PageMeta title="Stock Adjustment" description="Manage inventory stock adjustments" />
@@ -896,13 +968,12 @@ const StockAdjustmentManager: React.FC = () => {
                   value: rows.reduce((sum, a) => sum + (a.adjustmentType === "POSITIVE" ? a.quantity : -a.quantity), 0),
                 },
               ]}
-        
               columns={[
                 { header: "Date", accessor: (row) => new Date(row.adjustmentDate).toLocaleDateString() },
                 { header: "Product", accessor: (row) => getProductDisplayName(row) },
                 { header: "Warehouse", accessor: (row) => row.warehouse?.name || "N/A" },
                 { header: "Batch", accessor: (row) => row.batch?.batchNumber || "N/A" },
-                { header: "Type", accessor: (row) => (row.adjustmentType === "POSITIVE" ? "Stock In" : "Stock Out") },
+                { header: "Type", accessor: (row) => getTypeLabel(row.adjustmentType) },
                 {
                   header: "Quantity",
                   accessor: (row) => `${row.adjustmentType === "POSITIVE" ? "+" : "-"}${row.quantity}`,
@@ -929,7 +1000,7 @@ const StockAdjustmentManager: React.FC = () => {
                   name="filterReason"
                   value={filterReason}
                   onChange={(e) => setFilterReason(e.target.value)}
-                  options={reasonOptions}
+                  options={reasonOptions} // dynamic
                 />
                 <FloatingInput
                   label="From Date"
@@ -983,7 +1054,7 @@ const StockAdjustmentManager: React.FC = () => {
         />
       </div>
 
-      {/* Form Modal */}
+      {/* ---------- Form Modal ---------- */}
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Stock Adjustment" : "Add Stock Adjustment"}
@@ -1065,16 +1136,13 @@ const StockAdjustmentManager: React.FC = () => {
                 options={serialOptions}
                 disabled={!form.batchId}
               />,
-              // Reason is now a fixed dropdown (Physical Stock Count, Damaged
-              // Products, Lost Products, Expired Products, Inventory Audit,
-              // Manual Correction) instead of free text.
               <FloatingSelect
                 key="reason"
                 label="Reason"
                 name="reason"
                 value={form.reason}
                 onChange={handleChange}
-                options={reasonOptions}
+                options={reasonOptions} // dynamic
                 required
               />,
             ],
@@ -1082,7 +1150,7 @@ const StockAdjustmentManager: React.FC = () => {
         ]}
       />
 
-      {/* View Details Modal */}
+      {/* ---------- View Modal ---------- */}
       {showViewModal && viewingAdjustment && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
@@ -1123,7 +1191,7 @@ const StockAdjustmentManager: React.FC = () => {
                           className={`mt-1 inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${getTypeBadge(viewingAdjustment.adjustmentType)}`}
                         >
                           {getTypeIcon(viewingAdjustment.adjustmentType)}
-                          {viewingAdjustment.adjustmentType === "POSITIVE" ? "Stock In" : "Stock Out"}
+                          {getTypeLabel(viewingAdjustment.adjustmentType)}
                         </span>
                       </div>
 
@@ -1241,7 +1309,7 @@ const StockAdjustmentManager: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* ---------- Delete Confirmation Modal ---------- */}
       <DynamicPopup
         isPopupOpen={!!deletingAdjustment}
         setIsPopupOpen={(open: boolean) => {
@@ -1252,7 +1320,7 @@ const StockAdjustmentManager: React.FC = () => {
         innerText="Delete Adjustment"
         subText={
           deletingAdjustment
-            ? `Are you sure you want to delete the ${deletingAdjustment.adjustmentType === "POSITIVE" ? "stock in" : "stock out"} adjustment for "${getProductDisplayName(deletingAdjustment)}" (${deletingAdjustment.quantity} units)? This action cannot be undone.`
+            ? `Are you sure you want to delete the ${getTypeLabel(deletingAdjustment.adjustmentType).toLowerCase()} adjustment for "${getProductDisplayName(deletingAdjustment)}" (${deletingAdjustment.quantity} units)? This action cannot be undone.`
             : "Are you sure you want to delete this adjustment?"
         }
         confirmLabel="Delete"

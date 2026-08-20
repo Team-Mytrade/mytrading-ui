@@ -42,7 +42,6 @@ interface Product {
     code?: string;
 }
 
-// ---------- Nested reference types, matching the actual backend schema ----------
 interface WarehouseRef {
     id: number;
     code?: string;
@@ -52,11 +51,10 @@ interface WarehouseRef {
 
 interface BatchRef {
     id: number;
-    batchNumber: string;
-    manufacturingDate?: string;
-    expiryDate?: string;
-    productId?: number;
-    warehouse?: WarehouseRef;
+    batchNumber: string;        
+    code?: string;
+    name?: string;             
+    locationType?: string;
 }
 
 interface SerialNumberRef {
@@ -70,43 +68,64 @@ interface SerialNumberRef {
     batch?: BatchRef;
 }
 
-
-// ---------- Enums ----------
-// TODO(backend): these are hardcoded until the backend exposes a validation-enum
-// endpoint (e.g. GET /v1/api/inventory/quality-inspections/enums). When that's
-// ready, replace RESULT_OPTIONS / INSPECTION_TYPE_OPTIONS below with data fetched
-// from that endpoint instead of editing this list by hand. Keeping the values
-// centralized here (rather than scattered as inline strings) means that swap is
-// a one-place change.
 type ResultCode = "PASS" | "FAIL" | "HOLD" | "REJECT";
 type InspectionTypeCode = "INCOMING" | "RETURN" | "RANDOM" | "AUDIT";
 
-const RESULT_OPTIONS: { id: ResultCode; name: string }[] = [
+interface EnumOption {
+    id: string;
+    name: string;
+}
+
+const DEFAULT_RESULT_OPTIONS: EnumOption[] = [
     { id: "PASS", name: "Pass" },
     { id: "FAIL", name: "Fail" },
     { id: "HOLD", name: "Hold" },
     { id: "REJECT", name: "Reject" },
 ];
 
-const INSPECTION_TYPE_OPTIONS: { id: InspectionTypeCode; name: string }[] = [
+const DEFAULT_INSPECTION_TYPE_OPTIONS: EnumOption[] = [
     { id: "INCOMING", name: "Incoming" },
     { id: "RETURN", name: "Return" },
     { id: "RANDOM", name: "Random" },
     { id: "AUDIT", name: "Audit" },
 ];
 
-const getResultLabel = (result: string) =>
-    RESULT_OPTIONS.find((r) => r.id === result)?.name || result;
+const toTitleCase = (value: string) =>
+    value
+        .toLowerCase()
+        .split(/[\s_-]+/)
+        .filter(Boolean)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
 
-const getInspectionTypeLabel = (type?: string) =>
-    INSPECTION_TYPE_OPTIONS.find((t) => t.id === type)?.name || type || "N/A";
+const normalizeEnumOptions = (raw: any, fallback: EnumOption[]): EnumOption[] => {
+    const list = Array.isArray(raw) ? raw : raw?.content || raw?.data || raw?.result || [];
+    if (!Array.isArray(list) || list.length === 0) return fallback;
+
+    const options: EnumOption[] = list
+        .map((item: any): EnumOption | null => {
+            if (typeof item === "string") {
+                return { id: item.toUpperCase(), name: toTitleCase(item) };
+            }
+            if (item && typeof item === "object") {
+                const id = item.id ?? item.value ?? item.code ?? item.key ?? item.name;
+                const name = item.name ?? item.label ?? item.description ?? item.value ?? id;
+                if (id == null) return null;
+                return { id: String(id).toUpperCase(), name: String(name ?? id) };
+            }
+            return null;
+        })
+        .filter((option): option is EnumOption => option !== null);
+
+    return options.length > 0 ? options : fallback;
+};
 
 interface QualityInspection {
     id: number;
-    productName?: string;   
+    productName?: string;
     productId?: number;
     inspectionDate: string;
-    inspectorName: string; 
+    inspectorName: string;
     inspector?: string;
     result: ResultCode;
     inspectionType?: InspectionTypeCode;
@@ -117,6 +136,9 @@ interface QualityInspection {
     updatedAt?: string;
     createdDate?: string;
     updatedDate?: string;
+    // If the API returns only an ID, you can add these:
+    // batchId?: number;
+    // serialNumberId?: number;
 }
 
 const API_BASE = "/v1/api/inventory";
@@ -124,6 +146,8 @@ const API_URL = `${API_BASE}/quality-inspections`;
 const BATCHES_URL = `${API_BASE}/batches`;
 const SERIAL_NUMBERS_URL = `${API_BASE}/serial-numbers`;
 const PRODUCTS_API_URL = "/v1/api/purchase/products";
+const RESULT_ENUM_URL = `${API_BASE}/enums?type=RESULT`;
+const INSPECTION_TYPE_ENUM_URL = `${API_BASE}/enums?type=INSPECTION_TYPE`;
 const qualityInspectionApi = axios.create();
 
 qualityInspectionApi.interceptors.request.use((config) => {
@@ -136,10 +160,9 @@ qualityInspectionApi.interceptors.request.use((config) => {
 
 const PAGE_SIZE = 10;
 
-
-const PRODUCT_ROUTE = "/purchase-products"; // <Route path="/purchase-products" element={<Products />} />
-const BATCH_ROUTE = "/batch";               // <Route path="/batch" element={<Batch />} />
-const SERIAL_NUMBER_ROUTE = "/serial-number"; // <Route path="/serial-number" element={<SerialNumber />} />
+const PRODUCT_ROUTE = "/purchase-products";
+const BATCH_ROUTE = "/batch";
+const SERIAL_NUMBER_ROUTE = "/serial-number";
 
 type FormState = {
     productId: number;
@@ -184,6 +207,9 @@ const QualityInspectionManager: React.FC = () => {
     const [batches, setBatches] = useState<BatchRef[]>([]);
     const [serialNumbers, setSerialNumbers] = useState<SerialNumberRef[]>([]);
 
+    const [resultOptions, setResultOptions] = useState<EnumOption[]>(DEFAULT_RESULT_OPTIONS);
+    const [inspectionTypeOptions, setInspectionTypeOptions] = useState<EnumOption[]>(DEFAULT_INSPECTION_TYPE_OPTIONS);
+
     const [formData, setFormData] = useState<FormState>(emptyFormState);
 
     useEffect(() => {
@@ -191,9 +217,17 @@ const QualityInspectionManager: React.FC = () => {
         fetchProducts();
         fetchBatches();
         fetchSerialNumbers();
+        fetchResultOptions();
+        fetchInspectionTypeOptions();
     }, []);
 
-   
+    // ----- Display helpers (with fallbacks) -----
+    const getResultLabel = (result: string) =>
+        resultOptions.find((r) => r.id === result)?.name || result;
+
+    const getInspectionTypeLabel = (type?: string) =>
+        inspectionTypeOptions.find((t) => t.id === type)?.name || type || "N/A";
+
     const getProductDisplayName = (record: QualityInspection) => {
         const product = products.find((p) => p.id === record.productId);
         if (product) return product.productName || product.sku || product.code || `Product #${product.id}`;
@@ -206,9 +240,16 @@ const QualityInspectionManager: React.FC = () => {
         return product?.sku || product?.code || "";
     };
 
-    const getBatchDisplay = (batch?: BatchRef) => batch?.batchNumber || "N/A";
-    const getSerialDisplay = (serialNumber?: SerialNumberRef) => serialNumber?.serial || "N/A";
+    // ✅ Fixed: now falls back to `name` or `code` if `batchNumber` is missing
+    const getBatchDisplay = (batch?: BatchRef) => {
+        if (!batch) return "N/A";
+        return batch.batchNumber || batch.name || batch.code || "N/A";
+    };
 
+    const getSerialDisplay = (serialNumber?: SerialNumberRef) =>
+        serialNumber?.serial || "N/A";
+
+    // ----- Navigation -----
     const goToProduct = (productId?: number) => {
         if (!productId) return;
         navigate(`${PRODUCT_ROUTE}?productId=${productId}`, { state: { productId } });
@@ -228,14 +269,15 @@ const QualityInspectionManager: React.FC = () => {
         });
     };
 
+    // ----- Normalization -----
     const normalizeInspection = (record: any): QualityInspection => {
         const rawResult = String(record?.result || "PASS").toUpperCase();
-        const result: ResultCode = RESULT_OPTIONS.some((r) => r.id === rawResult)
+        const result: ResultCode = DEFAULT_RESULT_OPTIONS.some((r) => r.id === rawResult)
             ? (rawResult as ResultCode)
             : "PASS";
 
         const rawType = record?.inspectionType ? String(record.inspectionType).toUpperCase() : undefined;
-        const inspectionType: InspectionTypeCode | undefined = INSPECTION_TYPE_OPTIONS.some((t) => t.id === rawType)
+        const inspectionType: InspectionTypeCode | undefined = DEFAULT_INSPECTION_TYPE_OPTIONS.some((t) => t.id === rawType)
             ? (rawType as InspectionTypeCode)
             : undefined;
 
@@ -259,12 +301,23 @@ const QualityInspectionManager: React.FC = () => {
         };
     };
 
+    // ----- Data fetching -----
     const fetchRecords = async () => {
         setLoading(true);
         try {
             const response = await qualityInspectionApi.get(API_URL);
             const rows = Array.isArray(response.data) ? response.data : response.data?.content || response.data?.data || [];
-            setRecords(rows.map(normalizeInspection));
+            // Normalize and optionally map batchId -> batch object (if the API returns only IDs)
+            let normalized = rows.map(normalizeInspection);
+            // If your API returns a batchId (not a full object), uncomment this block:
+            // normalized = normalized.map(record => {
+            //     if (!record.batch && (record as any).batchId) {
+            //         const found = batches.find(b => b.id === (record as any).batchId);
+            //         if (found) record.batch = found;
+            //     }
+            //     return record;
+            // });
+            setRecords(normalized);
         } catch (err) {
             console.error("Failed to load quality inspections", err);
             ToasterService.error("Failed to load inspection records");
@@ -310,6 +363,27 @@ const QualityInspectionManager: React.FC = () => {
         }
     };
 
+    const fetchResultOptions = async () => {
+        try {
+            const res = await qualityInspectionApi.get(RESULT_ENUM_URL);
+            setResultOptions(normalizeEnumOptions(res.data, DEFAULT_RESULT_OPTIONS));
+        } catch (err) {
+            console.error("Failed to load result enum options, using defaults", err);
+            setResultOptions(DEFAULT_RESULT_OPTIONS);
+        }
+    };
+
+    const fetchInspectionTypeOptions = async () => {
+        try {
+            const res = await qualityInspectionApi.get(INSPECTION_TYPE_ENUM_URL);
+            setInspectionTypeOptions(normalizeEnumOptions(res.data, DEFAULT_INSPECTION_TYPE_OPTIONS));
+        } catch (err) {
+            console.error("Failed to load inspection type enum options, using defaults", err);
+            setInspectionTypeOptions(DEFAULT_INSPECTION_TYPE_OPTIONS);
+        }
+    };
+
+    // ----- Form payload -----
     const buildPayload = () => {
         const productId = Number(formData.productId) || 0;
         const batchId = Number(formData.batchId) || 0;
@@ -333,6 +407,7 @@ const QualityInspectionManager: React.FC = () => {
         return payload;
     };
 
+    // ----- CRUD handlers -----
     const handleSave = async (e?: React.FormEvent) => {
         e?.preventDefault();
         const payload = buildPayload();
@@ -419,6 +494,7 @@ const QualityInspectionManager: React.FC = () => {
         setFormData(emptyFormState);
     };
 
+    // ----- Filtering & export -----
     const filtered = useMemo(() => {
         return records.filter(r => {
             const matchesSearch = (r.inspectorName || "").toLowerCase().includes(search.toLowerCase()) ||
@@ -429,8 +505,6 @@ const QualityInspectionManager: React.FC = () => {
         });
     }, [records, search, resultFilter, products]);
 
-    // Only the columns a user actually needs to read — no IDs, no nested
-    // batch/serial objects, and dates formatted for display rather than ISO.
     const exportExcel = () => {
         const ws = XLSX.utils.json_to_sheet(filtered.map(r => ({
             'Product': getProductDisplayName(r),
@@ -461,10 +535,10 @@ const QualityInspectionManager: React.FC = () => {
             { header: "Serial Number", accessor: (row: QualityInspection) => getSerialDisplay(row.serialNumber) },
             { header: "Remarks", accessor: (row: QualityInspection) => row.remarks || "-" },
         ],
-        [products]
+        [products, resultOptions, inspectionTypeOptions]
     );
 
-    // Calculate stats from real data
+    // ----- Stats -----
     const totalRecords = records.length;
     const passedCount = records.filter(r => r.result === "PASS").length;
     const failedCount = records.filter(r => r.result === "FAIL").length;
@@ -472,6 +546,7 @@ const QualityInspectionManager: React.FC = () => {
     const rejectCount = records.filter(r => r.result === "REJECT").length;
     const passRate = totalRecords > 0 ? ((passedCount / totalRecords) * 100).toFixed(1) : "0";
 
+    // ----- UI helpers -----
     const getResultBadge = (result: string) => {
         switch (result) {
             case "PASS":
@@ -493,6 +568,7 @@ const QualityInspectionManager: React.FC = () => {
         return <XCircleIcon className="h-3 w-3 mr-1" />;
     };
 
+    // ----- Table columns -----
     const tableColumns: ColumnDef<QualityInspection>[] = [
         {
             key: "product",
@@ -664,6 +740,7 @@ const QualityInspectionManager: React.FC = () => {
         },
     ];
 
+    // ----- Render -----
     return (
         <>
             <PageMeta title="Quality Inspection" description="Manage quality inspection records" />
@@ -776,7 +853,7 @@ const QualityInspectionManager: React.FC = () => {
                                         className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                                     >
                                         <option value="All">All Results</option>
-                                        {RESULT_OPTIONS.map((option) => (
+                                        {resultOptions.map((option) => (
                                             <option key={option.id} value={option.id}>
                                                 {option.name}
                                             </option>
@@ -796,7 +873,6 @@ const QualityInspectionManager: React.FC = () => {
                             </div>
                         </FilterPopover>
 
-                        {/* Refresh Button */}
                         <button
                             onClick={fetchRecords}
                             className="p-2 rounded-lg border -mt-4  border-gray-300 hover:bg-gray-50 transition-colors"
@@ -1014,7 +1090,7 @@ const QualityInspectionManager: React.FC = () => {
                                 name="result"
                                 value={formData.result}
                                 onChange={(e) => setFormData({ ...formData, result: e.target.value as ResultCode })}
-                                options={RESULT_OPTIONS}
+                                options={resultOptions}
                                 includeEmptyOption={false}
                             />,
                             <FloatingSelect
@@ -1023,7 +1099,7 @@ const QualityInspectionManager: React.FC = () => {
                                 name="inspectionType"
                                 value={formData.inspectionType}
                                 onChange={(e) => setFormData({ ...formData, inspectionType: e.target.value as InspectionTypeCode })}
-                                options={INSPECTION_TYPE_OPTIONS}
+                                options={inspectionTypeOptions}
                                 required
                             />,
                             <FloatingSelect
@@ -1034,7 +1110,8 @@ const QualityInspectionManager: React.FC = () => {
                                 onChange={(e) => setFormData({ ...formData, batchId: e.target.value })}
                                 options={batches.map(batch => ({
                                     id: String(batch.id),
-                                    name: batch.batchNumber,
+                                    // ✅ Show batch number (or fallback) in dropdown
+                                    name: batch.batchNumber || batch.name || batch.code || `Batch #${batch.id}`,
                                 }))}
                             />,
                             <FloatingSelect
