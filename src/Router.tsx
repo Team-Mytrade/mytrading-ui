@@ -150,8 +150,10 @@ import NotificationDetailPage from "./pages/Attendance/NotificationDetailPage";
 import AttendancePolicyPage from "./pages/Attendance/AttendancePolicyPage";
 import HolidayCalendarPage from "./pages/Attendance/HolidayCalendarPage";
 import AttendancePunchPage from "./pages/Attendance/AttendancePunchPage";
-import AttendanceRequestsPage from "./pages/Attendance/AttendanceRequestsPage";
 import AttendanceReportsPage from "./pages/Attendance/AttendanceReportsPage";
+import AttendanceRequestsPage from "./pages/Attendance/AttendanceRequestsPage";
+import OnDutyApprovalPage from "./pages/Attendance/OnDutyApprovalPage";
+import AttendanceRegularizationApprovalPage from "./pages/Attendance/AttendanceRegularizationApprovalPage";
 import OvertimeRulePage from "./pages/Attendance/OvertimeRulePage";
 import PayrollComponentPage from "./pages/Attendance/PayrollComponentPage";
 import PayrollRecordPage from "./pages/Attendance/PayrollRecordPage";
@@ -371,8 +373,10 @@ export default function AppRouter() {
           <Route path="/att_attendancePolicy" element={<AttendancePolicyPage />} />
           <Route path="/att_holidayCalendar" element={<HolidayCalendarPage />} />
           <Route path="/att_punch" element={<AttendancePunchPage />} />
-          <Route path="/att_requests" element={<AttendanceRequestsPage />} />
           <Route path="/att_reports" element={<AttendanceReportsPage />} />
+          <Route path="/att_requests" element={<AttendanceRequestsPage />} />
+          <Route path="/att_onDutyApproval" element={<OnDutyApprovalPage />} />
+          <Route path="/att_regularizationApproval" element={<AttendanceRegularizationApprovalPage />} />
           <Route path="/att_timesheetManagement" element={<TimesheetManagementPage />} />
           <Route path="/notifications" element={<NotificationInboxPage />} />
           <Route path="/notifications/:id" element={<NotificationDetailPage />} />

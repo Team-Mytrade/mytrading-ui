@@ -11,6 +11,7 @@ import {
   Calendar,
   UserCircle,
   ChevronDown,
+  CheckSquare,
 } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
 import { AuthContext } from "../context/AuthContext";
@@ -27,6 +28,7 @@ type NavItem = {
   icon: React.ReactNode;
   path?: string;
   subItems?: SubItem[];
+  roles?: string[];
 };
 
 export const navItems: NavItem[] = [
@@ -162,8 +164,6 @@ export const navItems: NavItem[] = [
       { name: "Payroll Engine", path: "/payrollEngine" },
       { name: "IT Declaration", path: "/it-declaration" },
       { name: "Salary Structure", path: "/salaryStructure" },
-      { name: "Leave Requests / Approvals", path: "/leaveRequests"},
-      { name: "Payroll Runs / Payslips", path: "/payrollRuns" },
       { name: "Documents", path: "/employeeDocuments" },
       { name: "Exit Approvals", path: "/exitApprovals" },
       { name: "Exit Management", path: "/exit-management" },
@@ -173,18 +173,34 @@ export const navItems: NavItem[] = [
     icon: <Calendar className="w-5 h-5" />,
     name: "Attendance",
     subItems: [
-      { name: "Leave Policy Master", path: "/att_leavePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
-      { name: "Leave Application & Balances", path: "/att_leaveRequest" },
-      { name: "Attendance & Leave Approvals", path: "/att_attendanceApproval", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
-      { name: "Leave Dashboard & Audits", path: "/att_leaveDashboard" },
+      // 1. Daily Operations & Self-Service
       { name: "Attendance Punch", path: "/att_punch" },
       { name: "Attendance Regularization", path: "/att_timesheetManagement" },
+      { name: "Leave Application & Balances", path: "/att_leaveRequest" },
       { name: "On Duty Requests", path: "/att_requests" },
+
+      // 2. Planning, Shift & Roster Management
       { name: "Shift Roster & Schedule", path: "/att_shiftSchedule", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
       { name: "Shift Master", path: "/att_shift", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
       { name: "Holiday Calendar", path: "/att_holidayCalendar" },
+
+      // 3. Policy Configuration & Admin Setup
       { name: "Attendance Policy", path: "/att_attendancePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
-      { name: "Attendance Reports", path: "/att_reports", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+      { name: "Leave Policy Master", path: "/att_leavePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
+
+      // 4. Dashboards, Reports & Audits
+      { name: "Leave Dashboard & Audits", path: "/att_leaveDashboard" },
+      { name: "Attendance Reports", path: "/att_reports" },
+    ],
+  },
+  {
+    icon: <CheckSquare className="w-5 h-5" />,
+    name: "Approvals",
+    roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"],
+    subItems: [
+      { name: "Regularization Approvals", path: "/att_regularizationApproval" },
+      { name: "Leave Approvals", path: "/att_attendanceApproval" },
+      { name: "On Duty Approvals", path: "/att_onDutyApproval", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
     ],
   },
   {
@@ -547,10 +563,10 @@ const AppSidebar: React.FC = () => {
                       key={subItem.name}
                       to={subItem.path || "#"}
                       className={`
-                        block px-3 py-1.5 text-sm rounded-md transition-all duration-200
+                        block px-3 py-1.5 text-sm rounded-md transition-all duration-200 ease-in-out transform active:scale-95
                         ${isActive(subItem.path || "")
-                          ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
-                          : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800"
+                          ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400 font-semibold shadow-2xs translate-x-0.5 border-l-2 border-cyan-600"
+                          : "text-gray-500 hover:text-gray-900 hover:bg-gray-100/60 hover:translate-x-0.5 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800"
                         }
                       `}
                     >
@@ -647,6 +663,9 @@ const AppSidebar: React.FC = () => {
           <div className="space-y-1">
             {navItems.map((nav, index) => {
               const isAdmin = (userRole === "SUPER_ADMIN" || userRole === "ADMIN" || user?.roles?.includes("SUPER_ADMIN") || user?.roles?.includes("ADMIN")) && user?.userType !== "USER" && user?.userType !== "EMPLOYEE";
+              if (nav.name === "Approvals" && !isAdmin) {
+                return null;
+              }
               if (nav.name === "HRMS" && nav.subItems) {
                 const mappedSubItems = nav.subItems.filter(sub => {
                   if (sub.name === "Exit Approvals" && !isAdmin) {

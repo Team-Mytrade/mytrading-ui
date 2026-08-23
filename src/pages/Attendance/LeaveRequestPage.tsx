@@ -245,6 +245,7 @@ const LeaveRequestPage: React.FC = () => {
       setComments("");
       setLeaveTypeId("");
       loadMyLeaves();
+      loadLeaveBalances(Number(selectedEmployeeId));
     } catch (err: any) {
       const msg = err.response?.data?.message || err.response?.data?.error;
       if (msg && msg.toLowerCase().includes("balance not found")) {

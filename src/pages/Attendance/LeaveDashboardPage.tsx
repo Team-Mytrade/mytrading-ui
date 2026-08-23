@@ -3,13 +3,28 @@ import axios from 'axios';
 import Chart from 'react-apexcharts';
 import { 
   BarChart3, UserCheck, Calendar, Sliders, Users, Layers, ShieldCheck, Clock, 
-  RotateCw, Plus, X, Search, AlertCircle, CheckCircle2, FileSignature, ArrowRight, PieChart
+  RotateCw, Plus, X, Search, AlertCircle, CheckCircle2, FileSignature, ArrowRight, PieChart,
+  Briefcase, FileCheck, ExternalLink
 } from 'lucide-react';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import StatsCard from '../../components/common/Statscard';
 import { ToasterService } from '../../Services/ToasterService';
+
+const safeString = (val: any, fallback = ""): string => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === "string") return val;
+  if (typeof val === "number" || typeof val === "boolean") return String(val);
+  if (typeof val === "object") {
+    if (typeof val.name === "string") return val.name;
+    if (typeof val.fullName === "string") return val.fullName;
+    if (typeof val.title === "string") return val.title;
+    if (typeof val.label === "string") return val.label;
+    if (typeof val.code === "string") return val.code;
+  }
+  return fallback;
+};
 
 const ADJUSTMENT_CANDIDATES = [
   '/leave-adjustments',
@@ -80,8 +95,12 @@ const LeaveDashboardPage: React.FC = () => {
     if (userStr) {
       try {
         const parsed = JSON.parse(userStr);
-        const rawId = parsed.id || parsed.userId || 12;
-        const numId = typeof rawId === 'number' ? rawId : (parseInt(String(rawId).replace(/\D/g, ''), 10) || 12);
+        const rawId = parsed.employeeId || parsed.id || parsed.userId || 12;
+        let numId = typeof rawId === 'number' ? rawId : (parseInt(String(rawId).replace(/\D/g, ''), 10) || 12);
+        // If ID is a timestamp or composite code (e.g. 202607111119), fallback to 12 as valid DB ID
+        if (numId > 100000) {
+          numId = parsed.employeeId ? Number(parsed.employeeId) : 12;
+        }
         return {
           id: numId,
           name: parsed.fullName || parsed.name || parsed.username || "System Admin",
@@ -98,7 +117,7 @@ const LeaveDashboardPage: React.FC = () => {
   }, [currentUser]);
 
   const [activeTab, setActiveTab] = useState<'employee' | 'manager'>('employee');
-  const [activeEmployeeId, setActiveEmployeeId] = useState<number>(currentUser.id || 12);
+  const [activeEmployeeId, setActiveEmployeeId] = useState<number>(currentUser.id > 100000 ? 12 : currentUser.id);
 
   const [employeeMap, setEmployeeMap] = useState<Record<number, string>>({});
 
@@ -119,11 +138,13 @@ const LeaveDashboardPage: React.FC = () => {
           const uName = (currentUser.name || '').toLowerCase();
           const match = empRes.data.find((e: any) => {
             const eName = `${e.firstName || ''} ${e.lastName || ''}`.trim().toLowerCase() || (e.name || '').toLowerCase();
-            return uName && (eName.includes(uName) || uName.includes(eName));
+            return (uName && (eName.includes(uName) || uName.includes(eName))) || Number(e.id) === currentUser.id;
           });
           const selected = match || empRes.data.find((e: any) => Number(e.id) === 12) || empRes.data[0];
           if (selected && selected.id) {
-            setActiveEmployeeId(Number(selected.id));
+            const validId = Number(selected.id);
+            setActiveEmployeeId(validId);
+            setAdjustmentForm(prev => ({ ...prev, employeeId: validId }));
           }
         }
       } catch (e) {}
@@ -165,14 +186,118 @@ const LeaveDashboardPage: React.FC = () => {
     remarks: 'Added 2 additional leaves to compensate comp-offs'
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingQueueCounts, setPendingQueueCounts] = useState({
+    leave: 0,
+    regularization: 0,
+    onDuty: 0
+  });
+
+  const fetchPendingQueueCounts = async () => {
+    const rawList: any[] = [];
+
+    // 1. Fetch live pending leave approvals
+    try {
+      const res = await axios.get('/v1/api/attendance/leave-approvals/pending');
+      if (Array.isArray(res.data)) {
+        res.data.forEach(item => rawList.push({ ...item, _isLeaveEndpoint: true }));
+      }
+    } catch (e) {}
+
+    // 2. Fetch live pending attendance approvals
+    try {
+      const res = await axios.get('/v1/api/attendance/attendance-approvals/pending');
+      if (Array.isArray(res.data)) {
+        res.data.forEach(item => {
+          if (!rawList.some(r => r.id === item.id)) {
+            rawList.push(item);
+          }
+        });
+      }
+    } catch (e) {}
+
+    // 3. Fetch requests fallbacks
+    try {
+      const res = await axios.get('/v1/api/attendance/requests');
+      if (Array.isArray(res.data)) {
+        res.data.forEach(item => {
+          if (!rawList.some(r => r.id === item.id)) {
+            rawList.push(item);
+          }
+        });
+      }
+    } catch (e) {}
+
+    try {
+      const res = await axios.get('/v1/api/attendance/requests/on-duty');
+      if (Array.isArray(res.data)) {
+        res.data.forEach(item => {
+          if (!rawList.some(r => r.id === item.id)) {
+            rawList.push(item);
+          }
+        });
+      }
+    } catch (e) {}
+
+    let leaveCount = 0;
+    let regCount = 0;
+    let dutyCount = 0;
+
+    rawList.forEach((r: any) => {
+      const detail = (Array.isArray(r.requestDetails) && r.requestDetails[0]) ||
+                     (Array.isArray(r.responseDetails) && r.responseDetails[0]) || {};
+
+      const rawStatusStr = safeString(r.approvalStatus || r.status || detail.approvalStatus || detail.status || "PENDING").toUpperCase();
+      if (rawStatusStr !== "PENDING") return;
+
+      const reqTypeStr = safeString(r.leaveType || detail.leaveType || r.requestType || detail.requestType || r.type || '').toUpperCase();
+      const reasonStr = safeString(r.reason || detail.reason || r.remarks || detail.remarks || '').toLowerCase();
+
+      const isOnDuty = reqTypeStr.includes('ON_DUTY') || 
+                       reqTypeStr.includes('ON DUTY') || 
+                       reqTypeStr.includes('DUTY') || 
+                       reqTypeStr.includes('VISIT') || 
+                       reasonStr.includes('duty');
+
+      if (isOnDuty) {
+        dutyCount++;
+        return;
+      }
+
+      const isLeave = r._isLeaveEndpoint || 
+                      reqTypeStr.includes('LEAVE') || 
+                      reqTypeStr.includes('CASUAL') || 
+                      reqTypeStr.includes('SICK') || 
+                      reqTypeStr.includes('EARNED') || 
+                      reqTypeStr.includes('PAID');
+
+      if (isLeave) {
+        leaveCount++;
+        return;
+      }
+
+      // Remaining pending items are attendance regularizations
+      regCount++;
+    });
+
+    setPendingQueueCounts({ leave: leaveCount, regularization: regCount, onDuty: dutyCount });
+  };
+
+  useEffect(() => {
+    fetchPendingQueueCounts();
+  }, []);
 
   // ── Fetch Dashboards & Adjustments ────────────────────────────────────
   const loadData = async (empId: any = activeEmployeeId) => {
     setLoading(true);
+    fetchPendingQueueCounts();
 
-    const numericEmpId = (typeof empId === 'number' && !isNaN(empId)) 
+    let numericEmpId = (typeof empId === 'number' && !isNaN(empId)) 
       ? empId 
       : (parseInt(String(empId).replace(/\D/g, ''), 10) || 12);
+
+    if (numericEmpId > 100000) {
+      numericEmpId = 12;
+    }
 
     // 1. Employee Leave Dashboard & Balances
     for (const base of DASHBOARD_CANDIDATES) {
@@ -215,7 +340,7 @@ const LeaveDashboardPage: React.FC = () => {
     for (const base of ADJUSTMENT_CANDIDATES) {
       try {
         const res = await axios.get(`${base}/${numericEmpId}`, { timeout: 3000 });
-        if (Array.isArray(res.data) && res.data.length > 0) { 
+        if (Array.isArray(res.data)) { 
           const mapped = res.data.map((a: any) => ({
             ...a,
             employeeName: a.employeeName || employeeMap[a.employeeId] || (Number(a.employeeId) === currentUser.id ? currentUser.name : "Roy Hamlin")
@@ -418,45 +543,45 @@ const LeaveDashboardPage: React.FC = () => {
       <PageMeta title="Leave Dashboard & Transactions" description="View leave balances, pending/approved metrics, and transaction audit trails" />
       <PageBreadcrumb pageTitle="Leave Dashboard & Transactions" />
 
-      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
+      <div className="max-w-7xl mx-auto pb-4 space-y-2.5 animate-in fade-in duration-200">
         
-        {/* Clean Light Header Bar */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-cyan-50 border border-cyan-200 flex items-center justify-center font-extrabold text-cyan-800 text-sm shadow-2xs">
+        {/* Header Bar */}
+        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-2.5 px-3.5 flex flex-col md:flex-row items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-cyan-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs border border-cyan-500 shrink-0">
               {currentUser.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2)}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-gray-900">{currentUser.name}</h2>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-50 text-cyan-800 border border-cyan-200/80 font-mono">
+                <h2 className="text-xs font-bold text-gray-900">{currentUser.name}</h2>
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-cyan-50 text-cyan-800 border border-cyan-200">
                   #{activeEmployeeId}
                 </span>
               </div>
-              <p className="text-xs text-gray-500">Employee Leave Dashboard & Real-Time Transaction Logs</p>
+              <p className="text-[11px] text-gray-500">Employee Leave Dashboard & Real-Time Transaction Logs</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
+          <div className="flex items-center gap-2 w-full md:w-auto justify-end">
             {isManagerOrAdmin && (
-              <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+              <div className="flex items-center gap-1 bg-gray-100 p-0.5 rounded-lg">
                 <button
                   type="button"
                   onClick={() => setActiveTab('employee')}
-                  className={`px-3 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 ${
                     activeTab === 'employee' ? 'bg-white text-cyan-800 shadow-2xs' : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  <BarChart3 className="w-3.5 h-3.5" /> My View
+                  <BarChart3 className="w-3 h-3" /> My View
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab('manager')}
-                  className={`px-3 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 ${
                     activeTab === 'manager' ? 'bg-white text-cyan-800 shadow-2xs' : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  <Users className="w-3.5 h-3.5" /> Manager View
+                  <Users className="w-3 h-3" /> Manager View
                 </button>
               </div>
             )}
@@ -464,113 +589,83 @@ const LeaveDashboardPage: React.FC = () => {
             <button
               type="button"
               onClick={() => { window.location.href = '/att_leaveRequest'; }}
-              className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 shrink-0"
+              className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-[11px] font-bold transition-all shadow-2xs flex items-center gap-1 shrink-0"
             >
-              <Plus className="w-3.5 h-3.5" /> Apply Leave
+              <Plus className="w-3 h-3" /> Apply Leave
             </button>
 
             <button
               type="button"
               onClick={() => loadData()}
-              className="p-1.5 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg transition-all"
+              className="p-1 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg transition-all"
               title="Refresh Data"
             >
-              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
+              <RotateCw className={`w-3 h-3 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
             </button>
           </div>
         </div>
 
         {/* ── EMPLOYEE LEAVE DASHBOARD VIEW ── */}
         {activeTab === 'employee' && (
-          <div className="space-y-4">
+          <div className="space-y-2.5">
             
             {/* 1. Three Top Leave Balance Cards with Indicators */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
               
               {/* Casual Leave */}
-              <div className="bg-white rounded-xl shadow-2xs border border-cyan-200/80 p-4 space-y-2 hover:border-cyan-400/80 transition-all">
+              <div className="bg-white rounded-xl shadow-2xs border border-cyan-200/80 p-2 space-y-0.5 hover:border-cyan-400/80 transition-all">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-cyan-800 uppercase tracking-wider">Casual Leave</span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">CL</span>
+                  <span className="text-[10px] font-bold text-cyan-800 uppercase tracking-wider">Casual Leave</span>
+                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">CL</span>
                 </div>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-2xl font-extrabold text-gray-900 font-mono">
+                  <span className="text-lg font-extrabold text-gray-900 font-mono">
                     {employeeDashboard.leaveBalance?.casual ?? 8}
                   </span>
-                  <span className="text-xs font-medium text-gray-500">of 12 days remaining</span>
+                  <span className="text-[10px] font-medium text-gray-500">of 12 days remaining</span>
                 </div>
-                <div className="w-full h-1.5 bg-cyan-50 rounded-full overflow-hidden">
+                <div className="w-full h-1 bg-cyan-50 rounded-full overflow-hidden">
                   <div className="h-full bg-cyan-600 rounded-full" style={{ width: `${((employeeDashboard.leaveBalance?.casual ?? 8) / 12) * 100}%` }} />
                 </div>
               </div>
 
               {/* Sick Leave */}
-              <div className="bg-white rounded-xl shadow-2xs border border-emerald-200/80 p-4 space-y-2 hover:border-emerald-400/80 transition-all">
+              <div className="bg-white rounded-xl shadow-2xs border border-emerald-200/80 p-2 space-y-0.5 hover:border-emerald-400/80 transition-all">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">Sick Leave</span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">SL</span>
+                  <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Sick Leave</span>
+                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">SL</span>
                 </div>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-2xl font-extrabold text-gray-900 font-mono">
+                  <span className="text-lg font-extrabold text-gray-900 font-mono">
                     {employeeDashboard.leaveBalance?.sick ?? 12}
                   </span>
-                  <span className="text-xs font-medium text-gray-500">of 12 days remaining</span>
+                  <span className="text-[10px] font-medium text-gray-500">of 12 days remaining</span>
                 </div>
-                <div className="w-full h-1.5 bg-emerald-50 rounded-full overflow-hidden">
+                <div className="w-full h-1 bg-emerald-50 rounded-full overflow-hidden">
                   <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${((employeeDashboard.leaveBalance?.sick ?? 12) / 12) * 100}%` }} />
                 </div>
               </div>
 
               {/* Earned Leave */}
-              <div className="bg-white rounded-xl shadow-2xs border border-cyan-200/80 p-4 space-y-2 hover:border-cyan-400/80 transition-all">
+              <div className="bg-white rounded-xl shadow-2xs border border-cyan-200/80 p-2 space-y-0.5 hover:border-cyan-400/80 transition-all">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-cyan-800 uppercase tracking-wider">Earned Leave</span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">EL</span>
+                  <span className="text-[10px] font-bold text-cyan-800 uppercase tracking-wider">Earned Leave</span>
+                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">EL</span>
                 </div>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-2xl font-extrabold text-gray-900 font-mono">
+                  <span className="text-lg font-extrabold text-gray-900 font-mono">
                     {employeeDashboard.leaveBalance?.earned ?? 18}
                   </span>
-                  <span className="text-xs font-medium text-gray-500">of 18 days remaining</span>
+                  <span className="text-[10px] font-medium text-gray-500">of 18 days remaining</span>
                 </div>
-                <div className="w-full h-1.5 bg-cyan-50 rounded-full overflow-hidden">
+                <div className="w-full h-1 bg-cyan-50 rounded-full overflow-hidden">
                   <div className="h-full bg-cyan-600 rounded-full" style={{ width: `${((employeeDashboard.leaveBalance?.earned ?? 18) / 18) * 100}%` }} />
                 </div>
               </div>
 
             </div>
 
-            {/* 2. StatsCards Metric Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <StatsCard
-                label="Pending Requests"
-                value={employeeDashboard.requestSummary?.pending ?? 0}
-                gradient="from-amber-500/10 to-amber-500/5"
-                borderColor="border-amber-200"
-                labelColor="text-amber-700"
-              />
-              <StatsCard
-                label="Approved Requests"
-                value={employeeDashboard.requestSummary?.approved ?? 1}
-                gradient="from-emerald-500/10 to-emerald-500/5"
-                borderColor="border-emerald-200"
-                labelColor="text-emerald-700"
-              />
-              <StatsCard
-                label="Rejected Requests"
-                value={employeeDashboard.requestSummary?.rejected ?? 0}
-                gradient="from-rose-500/10 to-rose-500/5"
-                borderColor="border-rose-200"
-                labelColor="text-rose-700"
-              />
-              <StatsCard
-                label="Upcoming Leaves"
-                value={employeeDashboard.requestSummary?.upcomingLeaves ?? 0}
-                gradient="from-cyan-500/10 to-cyan-500/5"
-                borderColor="border-cyan-200"
-                labelColor="text-cyan-700"
-              />
-            </div>
+
 
             {/* 3. Leave Transactions Audit Trail Table */}
             <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 space-y-3">
@@ -681,48 +776,96 @@ const LeaveDashboardPage: React.FC = () => {
 
             </div>
 
-            {/* Unified 2-Column Action Header (Saves vertical space) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Left Column: Pending Approvals Queue Banner */}
-              <div className="bg-white rounded-xl shadow-2xs border border-amber-200/70 p-3.5 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 min-w-0">
+            {/* Multi-Queue Pending Approvals Section */}
+            <div className="bg-white rounded-xl shadow-2xs border border-amber-200/80 p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2.5">
                   <div className="p-2 bg-amber-50 text-amber-700 rounded-lg border border-amber-200 shrink-0">
-                    <Clock className="w-4 h-4" />
+                    <Clock className="w-5 h-5" />
                   </div>
-                  <div className="min-w-0">
-                    <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider truncate">Pending Approvals Queue</h3>
-                    <p className="text-[11px] text-gray-500 truncate">Review & action pending leave requests</p>
+                  <div>
+                    <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Pending Approval Queues</h3>
+                    <p className="text-xs text-gray-500">Review and action pending requests across all 3 attendance approval streams</p>
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => { window.location.href = '/att_attendanceApproval'; }}
-                  className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0 whitespace-nowrap"
-                >
-                  <FileSignature className="w-3.5 h-3.5" /> Approvals ({managerDashboard?.requestSummary?.pending ?? 0})
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAdjustmentModalOpen(true)}
+                    className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Post Adjustment
+                  </button>
+                </div>
               </div>
 
-              {/* Right Column: Leave Adjustments Master Header */}
-              <div className="bg-white rounded-xl shadow-2xs border border-cyan-200/70 p-3.5 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="p-2 bg-cyan-50 text-cyan-700 rounded-lg border border-cyan-200 shrink-0">
-                    <Sliders className="w-4 h-4" />
+              {/* 3 Dedicated Approval Queue Quick Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                
+                {/* Queue 1: Leave Approvals */}
+                <div 
+                  onClick={() => { window.location.href = '/att_attendanceApproval'; }}
+                  className="bg-emerald-50/50 hover:bg-emerald-50 rounded-xl p-3.5 border border-emerald-200/80 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="w-4 h-4 text-emerald-700" />
+                      <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider">Leave Approvals</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-emerald-600 text-white shadow-2xs">
+                      {pendingQueueCounts.leave} Pending
+                    </span>
                   </div>
-                  <div className="min-w-0">
-                    <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider truncate">Leave Adjustments Master</h3>
-                    <p className="text-[11px] text-gray-500 truncate">Admin leave balance adjustments & comp-offs</p>
+                  <p className="text-[11px] text-gray-600">Employee leave applications & balances</p>
+                  <div className="flex items-center gap-1 text-xs font-bold text-emerald-700 group-hover:translate-x-0.5 transition-transform pt-1">
+                    <span>Manage Leave Queue</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setIsAdjustmentModalOpen(true)}
-                  className="px-3 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0 whitespace-nowrap"
+                {/* Queue 2: Regularization Approvals */}
+                <div 
+                  onClick={() => { window.location.href = '/att_regularizationApproval'; }}
+                  className="bg-amber-50/50 hover:bg-amber-50 rounded-xl p-3.5 border border-amber-200/80 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
                 >
-                  <Plus className="w-3.5 h-3.5" /> Post Adjustment
-                </button>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileCheck className="w-4 h-4 text-amber-700" />
+                      <span className="text-xs font-bold text-amber-900 uppercase tracking-wider">Regularization</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-amber-600 text-white shadow-2xs">
+                      {pendingQueueCounts.regularization} Pending
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-600">Punch corrections & missed time logs</p>
+                  <div className="flex items-center gap-1 text-xs font-bold text-amber-700 group-hover:translate-x-0.5 transition-transform pt-1">
+                    <span>Manage Regularization Queue</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+
+                {/* Queue 3: On Duty Approvals */}
+                <div 
+                  onClick={() => { window.location.href = '/att_onDutyApproval'; }}
+                  className="bg-cyan-50/50 hover:bg-cyan-50 rounded-xl p-3.5 border border-cyan-200/80 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="w-4 h-4 text-cyan-700" />
+                      <span className="text-xs font-bold text-cyan-900 uppercase tracking-wider">On Duty Approvals</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-cyan-600 text-white shadow-2xs">
+                      {pendingQueueCounts.onDuty} Pending
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-600">Business trip & client visit applications</p>
+                  <div className="flex items-center gap-1 text-xs font-bold text-cyan-700 group-hover:translate-x-0.5 transition-transform pt-1">
+                    <span>Manage On-Duty Queue</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+
               </div>
             </div>
 
