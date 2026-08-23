@@ -66,6 +66,7 @@ const attendanceModules = [
   { name: "Leave Type", icon: FileText, route: "/att_leaveType", color: "rose" },
   { name: "Overtime", icon: Clock, route: "/att_overtimeRule", color: "amber" },
   { name: "WFH Request", icon: Home, route: "/att_workFromHomeRequests", color: "cyan" },
+  { name: "Attendance Reports", icon: FileText, route: "/att_reports", color: "blue" },
   { name: "Notifications", icon: Bell, route: "/att_notifications", color: "gray" },
 ];
 
