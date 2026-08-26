@@ -554,24 +554,26 @@ const SerialNumberManager: React.FC = () => {
       key: "serial",
       label: "Serial Number",
       sortable: true,
+      headerClassName: "w-[18%] text-left whitespace-nowrap",
+      className: "w-[18%]",
       render: (sn) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50">
             <QrCodeIcon className="h-4 w-4 text-cyan-700" />
           </div>
-          <div>
+          <div className="min-w-0">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 openView(sn);
               }}
-              className="text-sm font-semibold text-cyan-600 hover:text-cyan-700 hover:underline"
-              title="View serial number details"
+              className="block whitespace-nowrap text-sm font-semibold text-cyan-600 hover:text-cyan-700 hover:underline"
+              title={sn.serial || "N/A"}
             >
               {sn.serial || "N/A"}
             </button>
-            <div className="text-xs text-slate-500">ID: {sn.id}</div>
+            <div className="whitespace-nowrap text-xs text-slate-500">ID: {sn.id}</div>
           </div>
         </div>
       ),
