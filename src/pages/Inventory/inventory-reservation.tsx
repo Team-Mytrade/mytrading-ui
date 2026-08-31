@@ -99,10 +99,10 @@ const SALES_ORDER_API_URL = "/v1/api/sales/sales-orders";
 const ENUM_API_URL = "/v1/api/inventory/enums";
 const PAGE_SIZE = 10;
 
-// ✅ User can select these statuses in form (EXPIRED is auto-status)
+//  User can select these statuses in form (EXPIRED is auto-status)
 const USER_SELECTABLE_STATUSES = ["RESERVED", "RELEASED", "CONSUMED", "CANCELLED"];
 
-// ✅ All statuses including EXPIRED (for display/filter)
+//  All statuses including EXPIRED (for display/filter)
 const ALL_STATUSES = ["RESERVED", "RELEASED", "CONSUMED", "CANCELLED", "EXPIRED"];
 
 const emptyForm: InventoryForm = {
@@ -168,7 +168,7 @@ const InventoryReservationManager: React.FC = () => {
   const [actionId, setActionId] = useState<number | null>(null);
   const [actionType, setActionType] = useState<"release" | "consume" | null>(null);
 
-  // ✅ Status options from BE enum API
+  //  Status options from BE enum API
   const [statusOptions, setStatusOptions] = useState<string[]>(USER_SELECTABLE_STATUSES);
   const [enumLoading, setEnumLoading] = useState(false);
 
@@ -178,24 +178,24 @@ const InventoryReservationManager: React.FC = () => {
     fetchDropdowns();
   }, []);
 
-  // ✅ Fetch status from BE enum API
+  // Fetch status from BE enum API
   const fetchEnums = async (): Promise<void> => {
     try {
       setEnumLoading(true);
       const response = await axios.get(`${ENUM_API_URL}?type=RESERVATION_STATUS`, { headers });
       const data = Array.isArray(response.data) ? response.data : [];
 
-      // ✅ Extract codes from response
+      // Extract codes from response
       const codes = data.map((item: any) => {
         if (typeof item === "string") return item;
         return item.code || item;
       }).filter(Boolean) as string[];
 
-      // ✅ Only set USER_SELECTABLE_STATUSES from BE (EXPIRED is auto-status)
+      // Only set USER_SELECTABLE_STATUSES from BE (EXPIRED is auto-status)
       const userSelectable = codes.filter((code) => code !== "EXPIRED");
       setStatusOptions(userSelectable.length > 0 ? userSelectable : USER_SELECTABLE_STATUSES);
 
-      // ✅ Set default form value
+      // Set default form value
       setForm((prev) => ({
         ...prev,
         status: userSelectable.length > 0 ? userSelectable[0] : USER_SELECTABLE_STATUSES[0],
@@ -442,7 +442,7 @@ const InventoryReservationManager: React.FC = () => {
     [reservations]
   );
 
-  // ✅ canDelete includes EXPIRED
+  // canDelete includes EXPIRED
   const canDelete = (status: string) =>
     status === "RESERVED" || status === "CANCELLED" || status === "EXPIRED";
   const canRelease = (status: string) => status === "RESERVED";
@@ -482,7 +482,7 @@ const InventoryReservationManager: React.FC = () => {
     }
   };
 
-  // ✅ Build status filter options (includes EXPIRED)
+  // Build status filter options (includes EXPIRED)
   const statusFilterOptions = useMemo(() => {
     return [
       { label: "All Status", value: "" },

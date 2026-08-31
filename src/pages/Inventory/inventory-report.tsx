@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import axios from "axios";
 import FilterPopover from "../../components/common/filter";
 import {
   CubeIcon,
@@ -22,7 +23,7 @@ import StatsCard from "../../components/common/Statscard";
 import { ListingPdfExportButton } from "../../components/common/export";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 
-// STATIC DATA
+// ============ STATIC FALLBACK DATA ============
 const STATIC_STOCK_DATA = [
   {
     id: 1,
@@ -170,7 +171,22 @@ const STATIC_ADJUSTMENT_DATA = [
   { id: 2, productName: "Table", warehouseName: "Mumbai", adjustmentType: "NEGATIVE", quantity: 2, reason: "Damaged", adjustmentDate: "2026-07-25" },
 ];
 
-// Types
+// ============ API TYPES ============
+type ReportResponse = {
+  stockPerProduct: Record<string, number>;
+  stockPerWarehouse: {
+    warehouse: string;
+    product: string;
+    quantity: number;
+  }[];
+  agedStock: {
+    product: string;
+    receivedDate: string;
+    quantity: number;
+  }[];
+};
+
+// ============ TYPES ============
 type StockItem = {
   id: number;
   productId: number;
@@ -248,7 +264,6 @@ type Adjustment = {
   adjustmentDate: string;
 };
 
-// Enums for Report Types
 type ReportType = 
   | "current" 
   | "warehouse" 
@@ -268,23 +283,108 @@ type ReportType =
   | "fast" 
   | "slow";
 
+// ============ API CONFIG ============
+const API_URL = "/v1/api/inventory/reports";
+
 const InventoryReports: React.FC = () => {
+  const token = localStorage.getItem("accessToken");
+  const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
+
   const [reportType, setReportType] = useState<ReportType>("current");
   const [selectedWarehouse, setSelectedWarehouse] = useState<number | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<number | null>(null);
-  const [stocks] = useState<StockItem[]>(STATIC_STOCK_DATA);
+  
+  //  State for API data
+  const [apiData, setApiData] = useState<ReportResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+
+  // Static fallback data
+  const [stocks, setStocks] = useState<StockItem[]>(STATIC_STOCK_DATA);
   const [products] = useState<Product[]>(STATIC_PRODUCT_DATA);
   const [warehouses] = useState<Warehouse[]>(STATIC_WAREHOUSE_DATA);
   const [batches] = useState<Batch[]>(STATIC_BATCH_DATA);
   const [serials] = useState<Serial[]>(STATIC_SERIAL_DATA);
   const [movements] = useState<Movement[]>(STATIC_MOVEMENT_DATA);
   const [adjustments] = useState<Adjustment[]>(STATIC_ADJUSTMENT_DATA);
-  const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("")
-  // Simulate loading
+
+  // Fetch report data from API
+  const fetchReportData = async () => {
+    try {
+      setLoading(true);
+      
+      const response = await axios.get<ReportResponse>(API_URL, { headers });
+      console.log("Report API Response:", response.data);
+      
+      setApiData(response.data);
+      
+      // Merge API data with static data
+      mergeApiData(response.data);
+      
+    } catch (err) {
+      console.error(" Failed to fetch report data:", err);
+      ToasterService.error("Failed to load report data", "Using fallback data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Merge API data with static data
+  const mergeApiData = (data: ReportResponse) => {
+    let mergedData = [...STATIC_STOCK_DATA];
+
+    // Merge stockPerWarehouse data
+    if (data.stockPerWarehouse && data.stockPerWarehouse.length > 0) {
+      data.stockPerWarehouse.forEach((item, index) => {
+        const existingIndex = mergedData.findIndex(
+          s => s.productName === item.product && s.warehouseName === item.warehouse
+        );
+        
+        if (existingIndex !== -1) {
+          // Update existing with API data
+          mergedData[existingIndex] = {
+            ...mergedData[existingIndex],
+            quantity: item.quantity,
+            available: item.quantity,
+          };
+        } else {
+          // Create new item from API data
+          mergedData.push({
+            id: 100 + index,
+            productId: 100 + index,
+            productName: item.product,
+            productCode: `API-${index}`,
+            warehouseId: 1,
+            warehouseName: item.warehouse,
+            warehouseCode: "API",
+            quantity: item.quantity,
+            reservedQty: 0,
+            minStockLevel: 10,
+            available: item.quantity,
+            type: "API",
+            referenceNo: `API-${index}`,
+            movementDate: new Date().toISOString().split("T")[0],
+            createdDate: new Date().toISOString(),
+            movementCount: 0,
+            lastMovementDate: new Date().toISOString().split("T")[0],
+            price: 0,
+            expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+          });
+        }
+      });
+    }
+
+    setStocks(mergedData);
+  };
+
   useEffect(() => {
+    fetchReportData();
+  }, []);
+
+  useEffect(() => {
+    // Simulate loading when filters change
     setLoading(true);
-    setTimeout(() => setLoading(false), 500);
+    setTimeout(() => setLoading(false), 300);
   }, [reportType, selectedWarehouse, selectedProduct]);
 
   // Helper Functions
@@ -383,7 +483,7 @@ const InventoryReports: React.FC = () => {
 
   const data = getFilteredData();
 
-  //  Stats
+  // Stats
   const stats = useMemo(() => {
     const totalQty = stocks.reduce((sum, s) => sum + s.quantity, 0);
     const lowStock = stocks.filter(s => {
@@ -406,7 +506,7 @@ const InventoryReports: React.FC = () => {
     };
   }, [stocks]);
 
-  //  Columns for different reports
+  // Columns for different reports
   const currentStockColumns: ColumnDef<any>[] = [
     { key: "productName", label: "Product", sortable: true, render: (item) => item.productName },
     { key: "productCode", label: "Code", sortable: true, render: (item) => item.productCode },
@@ -479,7 +579,7 @@ const InventoryReports: React.FC = () => {
     { key: "adjustmentDate", label: "Date", sortable: true, render: (item) => new Date(item.adjustmentDate).toLocaleDateString() },
   ];
 
-  //  Get columns based on report type
+  // Get columns based on report type
   const getColumns = () => {
     switch (reportType) {
       case "movement": return movementColumns;
@@ -491,7 +591,7 @@ const InventoryReports: React.FC = () => {
     }
   };
 
-  //  Get report title
+  // Get report title
   const getReportTitle = () => {
     switch (reportType) {
       case "current": return "Current Stock Report";
@@ -566,7 +666,7 @@ const InventoryReports: React.FC = () => {
             </div>
 
             
-    {/*  Filters + PDF (Below Stats Cards) */}
+    {/* Filters + PDF (Below Stats Cards) */}
 <div className="mb-6  flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
   <div className="flex items-center gap-2">
     {/* Report Type Dropdown */}
@@ -646,7 +746,7 @@ const InventoryReports: React.FC = () => {
   </div>
 </div>
 
-      {/* ✅ Table */}
+      {/* Table */}
       <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
         <ReusableTable
           data={data}

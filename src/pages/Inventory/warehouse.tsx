@@ -23,7 +23,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
-// ✅ Types
+//  Types
 type WarehouseLocationType = string;
 type WarehouseStatus = string;
 
@@ -57,7 +57,7 @@ const API_URL = "/v1/api/inventory/warehouses";
 const ENUM_API_URL = "/v1/api/inventory/enums";
 const PAGE_SIZE = 10;
 
-// ✅ Fallback values
+// Fallback values
 const FALLBACK_LOCATION_TYPES = ["MAIN", "DISTRIBUTION", "TRANSIT", "RETURN_CENTER"];
 const FALLBACK_STATUS = ["ACTIVE", "INACTIVE"];
 
@@ -141,30 +141,23 @@ const WarehousePage: React.FC = () => {
     fetchWarehouses();
   }, []);
 
-  // ✅ Fetch only LOCATION_TYPE and extract codes
+  // Fetch enums from backend
   const fetchEnums = async (): Promise<void> => {
     try {
       setEnumLoading(true);
-      
-      console.log("🔄 Fetching LOCATION_TYPE enum...");
       const locationRes = await axios.get(`${ENUM_API_URL}?type=LOCATION_TYPE`, { headers });
-      console.log("✅ LOCATION_TYPE raw response:", locationRes.data);
       
-      // ✅ Extract codes from objects if they are objects
       let locationCodes: string[] = [];
       const rawData = locationRes.data;
       
       if (Array.isArray(rawData)) {
         if (rawData.length > 0 && typeof rawData[0] === 'object' && rawData[0].code) {
-          // Response is [{code: "MAIN", label: "Main"}, ...]
           locationCodes = rawData.map((item: any) => item.code);
         } else {
-          // Response is ["MAIN", "DISTRIBUTION", ...]
           locationCodes = rawData;
         }
       }
       
-      console.log("✅ Extracted location codes:", locationCodes);
       setLocationTypeOptions(locationCodes.length > 0 ? locationCodes : FALLBACK_LOCATION_TYPES);
       
       setForm((prev) => ({ 
@@ -174,51 +167,68 @@ const WarehousePage: React.FC = () => {
       }));
       
     } catch (error) {
-      console.error("❌ Failed to fetch enums:", error);
+      console.error("Failed to fetch enums:", error);
       setLocationTypeOptions(FALLBACK_LOCATION_TYPES);
     } finally {
       setEnumLoading(false);
     }
   };
 
+  //  Fetch warehouses with code fallback
   const fetchWarehouses = async (): Promise<void> => {
     try {
       setLoading(true);
       
-      console.log("🔄 Fetching warehouses from:", API_URL);
       const response = await axios.get<Warehouse[]>(API_URL, { headers });
       const data = Array.isArray(response.data) ? response.data : [];
-      console.log("📦 Total warehouses received:", data.length);
       
       const enrichedData = await Promise.all(
         data.map(async (warehouse) => {
-          console.log(`🔄 Fetching details for warehouse ID: ${warehouse.id}`);
-          const detailRes = await axios.get(`${API_URL}/${warehouse.id}`, { headers });
-          const fullData = detailRes.data;
-          
-          console.log(`📦 Warehouse ${warehouse.id} - Active field:`, fullData.active);
-          
-          const stockCount = fullData.stockLevels?.reduce(
-            (sum: number, level: any) => sum + (level.quantity || 0), 0
-          ) || 0;
-          
-          // ✅ Use active field from BE
-          const isActive = fullData.active === true;
-          const status = isActive ? "ACTIVE" : "INACTIVE";
-          
-          console.log(`✅ Warehouse ${warehouse.id} - isActive: ${isActive}, status: ${status}`);
-          
-          return {
-            ...fullData,
-            stockCount,
-            status: status,
-          };
+          try {
+            const detailRes = await axios.get(`${API_URL}/${warehouse.id}`, { headers });
+            const fullData = detailRes.data;
+            
+            const stockCount = fullData.stockLevels?.reduce(
+              (sum: number, level: any) => sum + (level.quantity || 0), 0
+            ) || 0;
+            
+            const isActive = fullData.active === true;
+            const status = isActive ? "ACTIVE" : "INACTIVE";
+            
+            // Generate fallback code if backend returns null
+            let code = fullData.code || warehouse.code;
+            if (!code || code === 'null' || code === 'undefined' || code.trim() === '') {
+              code = `WH-${String(warehouse.id).padStart(6, '0')}`;
+            }
+            
+            return {
+              ...fullData,
+              code: code,
+              locationType: fullData.locationType || warehouse.locationType || "MAIN",
+              stockCount,
+              status: status,
+            };
+          } catch (detailError) {
+            // Fallback if detail fetch fails
+            let code = warehouse.code;
+            if (!code || code === 'null' || code === 'undefined' || code.trim() === '') {
+              code = `WH-${String(warehouse.id).padStart(6, '0')}`;
+            }
+            
+            return {
+              ...warehouse,
+              code: code,
+              stockCount: 0,
+              status: warehouse.active ? "ACTIVE" : "INACTIVE",
+              locationType: warehouse.locationType || "MAIN",
+            };
+          }
         })
       );
       
       setWarehouses(enrichedData);
     } catch (error) {
-      console.error("❌ Failed to load warehouses:", error);
+      console.error("Failed to load warehouses:", error);
       setWarehouses([]);
       ToasterService.error("Failed to load warehouses", getErrorMessage(error, "Please try again."));
     } finally {
@@ -255,6 +265,40 @@ const WarehousePage: React.FC = () => {
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
     const { name, value } = e.target;
     setForm((current) => ({ ...current, [name]: value }));
+  };
+
+  //  Handle table inline updates
+  const handleTableUpdate = async (id: number, field: string, value: string) => {
+    const warehouse = warehouses.find(w => w.id === id);
+    if (!warehouse) return;
+
+    // Optimistic update
+    const updatedWarehouse = { 
+      ...warehouse, 
+      [field]: value, 
+      ...(field === 'status' && { active: value === 'ACTIVE' })
+    };
+    
+    setWarehouses(prev => prev.map(w => 
+      w.id === id ? updatedWarehouse : w
+    ));
+
+    try {
+      await axios.put(`${API_URL}/${id}`, {
+        id,
+        name: warehouse.name,
+        locationType: field === 'locationType' ? value : warehouse.locationType,
+        active: field === 'status' ? value === 'ACTIVE' : warehouse.status === 'ACTIVE',
+      }, { headers });
+      
+      ToasterService.success(`${field} updated successfully`);
+      
+      //  Don't refresh - keep local changes
+    } catch (error) {
+      // Revert on error
+      await fetchWarehouses();
+      ToasterService.error(`Failed to update ${field}`, getErrorMessage(error, "Please try again."));
+    }
   };
 
   const buildPayload = () => {
@@ -310,15 +354,23 @@ const WarehousePage: React.FC = () => {
       if (editingId) {
         await axios.put(`${API_URL}/${editingId}`, payload, { headers });
         ToasterService.success("Warehouse updated successfully");
+        
+        //  Update local state with payload values
         setWarehouses((prev) =>
           prev.map((w) => {
             if (w.id === editingId) {
+              let code = w.code;
+              if (!code || code === 'null' || code === 'undefined' || code.trim() === '') {
+                code = `WH-${String(w.id).padStart(6, '0')}`;
+              }
+              
               return {
                 ...w,
                 name: payload.name,
                 locationType: payload.locationType,
                 active: payload.active,
                 status: payload.active ? "ACTIVE" : "INACTIVE",
+                code: code,
               };
             }
             return w;
@@ -327,14 +379,24 @@ const WarehousePage: React.FC = () => {
       } else {
         const response = await axios.post(API_URL, payload, { headers });
         ToasterService.success("Warehouse created successfully");
+        
+        //  Generate code if backend returns null
+        let code = response.data.code;
+        if (!code || code === 'null' || code === 'undefined' || code.trim() === '') {
+          code = `WH-${String(response.data.id).padStart(6, '0')}`;
+        }
+        
         const newWarehouse = {
           ...response.data,
+          code: code,
+          locationType: payload.locationType,
           status: form.status || "ACTIVE",
         };
         setWarehouses((prev) => [newWarehouse, ...prev]);
       }
 
       closeForm();
+      
     } catch (error) {
       ToasterService.error("Failed to save warehouse", getErrorMessage(error, "Please try again."));
     } finally {
@@ -426,14 +488,15 @@ const WarehousePage: React.FC = () => {
       key: "locationType",
       label: "Location Type",
       sortable: true,
-      render: (warehouse) => {
-        const type = warehouse.locationType;
-        return (
-          <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${getLocationTypeColor(type)}`}>
-            {type}
-          </span>
-        );
-      },
+      render: (warehouse) => (
+        <select
+          value={warehouse.locationType}
+          onChange={(e) => handleTableUpdate(warehouse.id, 'locationType', e.target.value)}
+          className={`rounded-lg border w-[150px] px-2.5 py-1 text-xs font-medium ${getLocationTypeColor(warehouse.locationType)}`}
+        >
+          {locationTypeOptions.map(type => <option key={type} value={type}>{type}</option>)}
+        </select>
+      ),
     },
     {
       key: "status",
@@ -442,10 +505,13 @@ const WarehousePage: React.FC = () => {
       render: (warehouse) => {
         const status = warehouse.status || "ACTIVE";
         return (
-          <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusColor(status)}`}>
-            {getStatusIcon(status)}
-            {status}
-          </span>
+          <select
+            value={status}
+            onChange={(e) => handleTableUpdate(warehouse.id, 'status', e.target.value)}
+            className={`rounded-lg border w-[100px] px-2.5 py-1 text-xs font-medium ${getStatusColor(status)}`}
+          >
+            {FALLBACK_STATUS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
         );
       },
     },
@@ -551,7 +617,7 @@ const WarehousePage: React.FC = () => {
           />
         </div>
 
-        <div className=" flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full -mt-8 sm:max-w-md">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
@@ -588,7 +654,6 @@ const WarehousePage: React.FC = () => {
               widthClassName="w-72"
             >
               <div className="space-y-4">
-                {/* Location Type Filter */}
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">Location Type</label>
                   <select
@@ -605,7 +670,6 @@ const WarehousePage: React.FC = () => {
                   </select>
                 </div>
 
-                {/* Status Filter - Hardcoded */}
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">Status</label>
                   <select

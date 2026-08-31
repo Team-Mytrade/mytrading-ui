@@ -265,14 +265,14 @@ const InventoryStockManager: React.FC = () => {
     }
   }, [searchParams]);
 
-  // ✅ Fetch movement types from BE enum API
+  // Fetch movement types from BE enum API
   const fetchMovementTypes = async (): Promise<void> => {
     try {
       setEnumLoading(true);
       const response = await axios.get(`${ENUM_API_URL}?type=MOVEMENT_TYPE`, { headers });
       const data = Array.isArray(response.data) ? response.data : [];
       
-      // ✅ Extract codes from response
+      // Extract codes from response
       const codes = data.map((item: any) => {
         if (typeof item === 'string') return item;
         return item.code || item;
@@ -280,7 +280,7 @@ const InventoryStockManager: React.FC = () => {
       
       setMovementTypeOptions(codes.length > 0 ? codes : FALLBACK_MOVEMENT_TYPES);
       
-      // ✅ Set default form value using extracted codes
+      // Set default form value using extracted codes
       setForm((prev) => ({ 
         ...prev, 
         type: codes.length > 0 ? codes[0] : FALLBACK_MOVEMENT_TYPES[0] 
@@ -464,7 +464,7 @@ const InventoryStockManager: React.FC = () => {
   const handleSubmit = async (e: FormEvent): Promise<void> => {
   e.preventDefault();
 
-  // ✅ Add validations
+  //  Add validations
   if (!form.type || !form.productId || !form.warehouseId) {
     ToasterService.error("Type, Product, and Warehouse are required");
     return;
@@ -474,23 +474,23 @@ const InventoryStockManager: React.FC = () => {
     setSubmitting(true);
     const payload = buildPayload();
 
-    // ✅ Add type annotation
+    // Add type annotation
     let response: { data: InventoryStock };
 
     if (editingId) {
       response = await axios.put<InventoryStock>(`${API_URL}/${editingId}`, payload, { headers });
       ToasterService.success("Inventory stock updated successfully");
       
-      // ✅ CRITICAL: Update local state with response data
+      //  CRITICAL: Update local state with response data
       setStocks((prev) => {
         return prev.map((stock) => {
           if (stock.id === editingId) {
-            // ✅ Get correct warehouse from local list
+            //  Get correct warehouse from local list
             const correctWarehouse = warehouses.find(w => w.id === payload.warehouse?.id);
             
             return {
               ...response.data,
-              // ✅ Force correct warehouse (backend bug workaround)
+              //  Force correct warehouse (backend bug workaround)
               warehouse: correctWarehouse || response.data.warehouse,
             };
           }
@@ -500,7 +500,7 @@ const InventoryStockManager: React.FC = () => {
       
       closeForm();
       
-      // ✅ Refresh in background to ensure consistency
+      //  Refresh in background to ensure consistency
       const warehouseId = searchParams.get('warehouseId');
       if (warehouseId) {
         fetchStockByWarehouse(warehouseId);
@@ -512,12 +512,12 @@ const InventoryStockManager: React.FC = () => {
       response = await axios.post<InventoryStock>(API_URL, payload, { headers });
       ToasterService.success("Inventory stock created successfully");
       
-      // ✅ Add new stock to list
+      //  Add new stock to list
       setStocks((prev) => [response.data, ...prev]);
       
       closeForm();
       
-      // ✅ Refresh in background
+      //  Refresh in background
       const warehouseId = searchParams.get('warehouseId');
       if (warehouseId) {
         fetchStockByWarehouse(warehouseId);
@@ -663,7 +663,7 @@ const InventoryStockManager: React.FC = () => {
     [stocks]
   );
 
-  // ✅ Build filter options from movement types
+  //  Build filter options from movement types
   const typeFilterOptions = useMemo(() => {
     return [
       { label: "All Types", value: "" },
@@ -964,7 +964,7 @@ const InventoryStockManager: React.FC = () => {
               ]}
             />
 
-            {/* ✅ Filter Button with dynamic movement types */}
+            {/*  Filter Button with dynamic movement types */}
             <FilterPopover
               title="Filter Stock"
               buttonLabel="Filters"
