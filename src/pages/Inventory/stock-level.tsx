@@ -628,7 +628,7 @@ const StockLevelsManager: React.FC = () => {
       <PageMeta title="Stock Levels" description="Monitor and manage inventory stock levels" />
       <PageBreadcrumb pageTitle="Stock Levels" />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 py-8 ">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={openCreate} label="Add Stock Movement" />
         </div>
@@ -666,7 +666,7 @@ const StockLevelsManager: React.FC = () => {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="relative w-full sm:max-w-md">
+          <div className="relative w-full sm:max-w-md mt-0.5">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
@@ -758,6 +758,7 @@ const StockLevelsManager: React.FC = () => {
           defaultSortKey="available"
           defaultSortOrder="desc"
           onRowClick={openView}
+          className="md:-mt-4"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <CubeIcon className="mb-3 h-12 w-12 text-gray-400" />

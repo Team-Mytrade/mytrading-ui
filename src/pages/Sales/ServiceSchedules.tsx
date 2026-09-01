@@ -346,19 +346,17 @@ const ServiceSchedules: React.FC = () => {
         </div>
       ),
     },
-    { key: "customerId", label: "Customer", sortable: true, className:" md:pl-20 pl-10", },
+    { key: "customerId", label: "Customer", sortable: true,},
     {
       key: "assignedEmployeeId",
       label: "Employee",
       sortable: true,
-      className:" md:pl-5",
       render: (schedule) => getEmployeeDisplayName(schedule.assignedEmployeeId),
     },
     {
       key: "scheduledDate",
       label: "Date",
       sortable: true,
-      className:" md:pl-5",
       render: (schedule) => schedule.scheduledDate || "--",
     },
     {
@@ -373,7 +371,6 @@ const ServiceSchedules: React.FC = () => {
       key: "status",
       label: "Status",
       sortable: true,
-       className:" md:pl-8 -pl-8",
       render: (schedule) => (
         <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">
           {schedule.status || "N/A"}
@@ -385,7 +382,7 @@ const ServiceSchedules: React.FC = () => {
       label: "Actions",
       sortable: false,
       headerClassName: "text-right",
-      className: "text-right pl-24",
+      className: "text-right",
       render: (schedule) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button

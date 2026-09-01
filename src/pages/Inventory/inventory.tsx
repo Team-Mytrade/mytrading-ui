@@ -98,12 +98,14 @@ type AvailabilityCheck = {
 const API_URL = "/v1/api/inventory/stock";
 const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
 const PRODUCT_API_URL = "/v1/api/purchase/products";
+const ENUM_API_URL = "/v1/api/inventory/enums";
 const PAGE_SIZE = 10;
 
-const movementTypeOptions = ["GRN", "TRANSFER", "RETURN"];
+// ✅ Hardcoded fallback (if enum API fails)
+const FALLBACK_MOVEMENT_TYPES = ["GRN", "TRANSFER", "RETURN"];
 
 const emptyForm: InventoryForm = {
-  type: "GRN",
+  type: "",
   quantity: "0",
   movementDate: new Date().toISOString().split("T")[0],
   referenceNo: "",
@@ -229,6 +231,10 @@ const InventoryStockManager: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [deleteStock, setDeleteStock] = useState<InventoryStock | null>(null);
   
+  // ✅ Movement type options from BE enum API
+  const [movementTypeOptions, setMovementTypeOptions] = useState<string[]>(FALLBACK_MOVEMENT_TYPES);
+  const [enumLoading, setEnumLoading] = useState(false);
+
   // State for availability check
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
   const [availabilityCheck, setAvailabilityCheck] = useState<AvailabilityCheck | null>(null);
@@ -246,6 +252,7 @@ const InventoryStockManager: React.FC = () => {
   useEffect(() => {
     fetchAllStock();
     fetchDropdowns();
+    fetchMovementTypes(); // Fetch movement types from enum API
   }, []);
 
   // Watch for warehouseId in URL and filter stocks
@@ -258,23 +265,50 @@ const InventoryStockManager: React.FC = () => {
     }
   }, [searchParams]);
 
- 
-const fetchAllStock = async (): Promise<void> => {
-  try {
-    setLoading(true);
-    const response = await axios.get<InventoryStock[]>(API_URL, { headers });
-    const data = Array.isArray(response.data) ? response.data : [];
-    setStocks(data);
-    setTypeFilter("");  
-    setStatusFilter(""); 
-  } catch (error) {
-    setStocks([]);
-    ToasterService.error("Failed to load inventory stock", getErrorMessage(error, "Please try again."));
-  } finally {
-    setLoading(false);
-  }
-};
+  // Fetch movement types from BE enum API
+  const fetchMovementTypes = async (): Promise<void> => {
+    try {
+      setEnumLoading(true);
+      const response = await axios.get(`${ENUM_API_URL}?type=MOVEMENT_TYPE`, { headers });
+      const data = Array.isArray(response.data) ? response.data : [];
+      
+      // Extract codes from response
+      const codes = data.map((item: any) => {
+        if (typeof item === 'string') return item;
+        return item.code || item;
+      }).filter(Boolean) as string[];
+      
+      setMovementTypeOptions(codes.length > 0 ? codes : FALLBACK_MOVEMENT_TYPES);
+      
+      // Set default form value using extracted codes
+      setForm((prev) => ({ 
+        ...prev, 
+        type: codes.length > 0 ? codes[0] : FALLBACK_MOVEMENT_TYPES[0] 
+      }));
+      
+    } catch (error) {
+      console.warn('Failed to fetch movement types, using fallback');
+      setMovementTypeOptions(FALLBACK_MOVEMENT_TYPES);
+    } finally {
+      setEnumLoading(false);
+    }
+  };
 
+  const fetchAllStock = async (): Promise<void> => {
+    try {
+      setLoading(true);
+      const response = await axios.get<InventoryStock[]>(API_URL, { headers });
+      const data = Array.isArray(response.data) ? response.data : [];
+      setStocks(data);
+      setTypeFilter("");  
+      setStatusFilter(""); 
+    } catch (error) {
+      setStocks([]);
+      ToasterService.error("Failed to load inventory stock", getErrorMessage(error, "Please try again."));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchStockByWarehouse = async (warehouseId: string): Promise<void> => {
     try {
@@ -295,7 +329,6 @@ const fetchAllStock = async (): Promise<void> => {
     }
   };
 
-  
   const fetchProductStock = async (productId: number): Promise<void> => {
     try {
       setLoading(true);
@@ -315,47 +348,42 @@ const fetchAllStock = async (): Promise<void> => {
     }
   };
 
- const fetchLowStock = async (): Promise<void> => {
-  try {
-    setLoading(true);
-    
-    // Try API first
-    const response = await axios.get(
-      `${API_URL}/low-stock`,
-      { headers }
-    );
-    
-   let data = Array.isArray(response.data) ? response.data : [];
-    
-    //  If API returns empty, use client-side filter
-    if (data.length === 0) {
-      // Fetch all stock first
-      const allStockResponse = await axios.get(API_URL, { headers });
-      const allData = Array.isArray(allStockResponse.data) ? allStockResponse.data : [];
+  const fetchLowStock = async (): Promise<void> => {
+    try {
+      setLoading(true);
       
-      // Filter low stock items client-side
-      data = allData.filter((s: InventoryStock) => {
-        const available = Math.max(0, s.quantity - s.reservedQty);
-        return available > 0 && available <= s.minStockLevel;
-      });
+      const response = await axios.get(
+        `${API_URL}/low-stock`,
+        { headers }
+      );
       
-      ToasterService.info(`Found ${data.length} low stock items (client-side filter)`);
-    } else {
-      ToasterService.success(`Showing ${data.length} low stock items`);
+      let data = Array.isArray(response.data) ? response.data : [];
+      
+      if (data.length === 0) {
+        const allStockResponse = await axios.get(API_URL, { headers });
+        const allData = Array.isArray(allStockResponse.data) ? allStockResponse.data : [];
+        
+        data = allData.filter((s: InventoryStock) => {
+          const available = Math.max(0, s.quantity - s.reservedQty);
+          return available > 0 && available <= s.minStockLevel;
+        });
+        
+        ToasterService.info(`Found ${data.length} low stock items (client-side filter)`);
+      } else {
+        ToasterService.success(`Showing ${data.length} low stock items`);
+      }
+      
+      setStocks(data);
+      setTypeFilter("");
+      setStatusFilter("low");
+    } catch (error) {
+      setStocks([]);
+      ToasterService.error("Failed to load low stock items", getErrorMessage(error, "Please try again."));
+    } finally {
+      setLoading(false);
     }
-    
-    setStocks(data);
-    setTypeFilter("");
-    setStatusFilter("low");
-  } catch (error) {
-    setStocks([]);
-    ToasterService.error("Failed to load low stock items", getErrorMessage(error, "Please try again."));
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-  
   const fetchProductStockSummary = async (productId: number): Promise<InventoryStock[]> => {
     try {
       const response = await axios.get(
@@ -397,7 +425,7 @@ const fetchAllStock = async (): Promise<void> => {
   const openEdit = (stock: InventoryStock): void => {
     setEditingId(stock.id);
     setForm({
-      type: stock.type || "GRN",
+      type: stock.type || movementTypeOptions[0] || "GRN",
       quantity: String(stock.quantity ?? 0),
       movementDate: stock.movementDate || new Date().toISOString().split("T")[0],
       referenceNo: stock.referenceNo || "",
@@ -434,33 +462,76 @@ const fetchAllStock = async (): Promise<void> => {
   };
 
   const handleSubmit = async (e: FormEvent): Promise<void> => {
-    e.preventDefault();
+  e.preventDefault();
 
-    try {
-      setSubmitting(true);
-      const payload = buildPayload();
+  //  Add validations
+  if (!form.type || !form.productId || !form.warehouseId) {
+    ToasterService.error("Type, Product, and Warehouse are required");
+    return;
+  }
 
-      if (editingId) {
-        await axios.put(`${API_URL}/${editingId}`, payload, { headers });
-        ToasterService.success("Inventory stock updated successfully");
-      } else {
-        await axios.post(API_URL, payload, { headers });
-        ToasterService.success("Inventory stock created successfully");
-      }
+  try {
+    setSubmitting(true);
+    const payload = buildPayload();
 
+    // Add type annotation
+    let response: { data: InventoryStock };
+
+    if (editingId) {
+      response = await axios.put<InventoryStock>(`${API_URL}/${editingId}`, payload, { headers });
+      ToasterService.success("Inventory stock updated successfully");
+      
+      //  CRITICAL: Update local state with response data
+      setStocks((prev) => {
+        return prev.map((stock) => {
+          if (stock.id === editingId) {
+            //  Get correct warehouse from local list
+            const correctWarehouse = warehouses.find(w => w.id === payload.warehouse?.id);
+            
+            return {
+              ...response.data,
+              //  Force correct warehouse (backend bug workaround)
+              warehouse: correctWarehouse || response.data.warehouse,
+            };
+          }
+          return stock;
+        });
+      });
+      
       closeForm();
+      
+      //  Refresh in background to ensure consistency
       const warehouseId = searchParams.get('warehouseId');
       if (warehouseId) {
         fetchStockByWarehouse(warehouseId);
       } else {
-        await fetchAllStock();
+        fetchAllStock();
       }
-    } catch (error) {
-      ToasterService.error("Failed to save inventory stock", getErrorMessage(error, "Please try again."));
-    } finally {
-      setSubmitting(false);
+      
+    } else {
+      response = await axios.post<InventoryStock>(API_URL, payload, { headers });
+      ToasterService.success("Inventory stock created successfully");
+      
+      //  Add new stock to list
+      setStocks((prev) => [response.data, ...prev]);
+      
+      closeForm();
+      
+      //  Refresh in background
+      const warehouseId = searchParams.get('warehouseId');
+      if (warehouseId) {
+        fetchStockByWarehouse(warehouseId);
+      } else {
+        fetchAllStock();
+      }
     }
-  };
+  } catch (error) {
+    console.error("❌ Error:", error);
+    ToasterService.error("Failed to save inventory stock", getErrorMessage(error, "Please try again."));
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const confirmDelete = async (): Promise<void> => {
     if (!deleteStock?.id) return;
@@ -492,7 +563,6 @@ const fetchAllStock = async (): Promise<void> => {
     }
   };
 
-  
   const handleAvailabilityCheck = async () => {
     const productId = toNumber(availabilityForm.productId);
     const warehouseId = toNumber(availabilityForm.warehouseId);
@@ -527,7 +597,6 @@ const fetchAllStock = async (): Promise<void> => {
     }
   };
 
- 
   const handleProductSummary = async (productId: number) => {
     const data = await fetchProductStockSummary(productId);
     setProductStockData(data);
@@ -542,41 +611,40 @@ const fetchAllStock = async (): Promise<void> => {
     (sum, s) => sum + (s.quantity - s.reservedQty), 0
   );
 
- const filteredStocks = useMemo(() => {
-  const term = searchableText(search);
+  const filteredStocks = useMemo(() => {
+    const term = searchableText(search);
 
-  return stocks.filter((stock) => {
-    const matchesType = typeFilter === "" || stock.type === typeFilter;
+    return stocks.filter((stock) => {
+      const matchesType = typeFilter === "" || stock.type === typeFilter;
 
-    
-    let matchesStatus = true;
-    if (statusFilter === "low") {
-      // If we're showing low stock, just check if it's actually low
-      const available = Math.max(0, stock.quantity - stock.reservedQty);
-      matchesStatus = available > 0 && available <= stock.minStockLevel;
-    } else if (statusFilter === "out") {
-      const available = Math.max(0, stock.quantity - stock.reservedQty);
-      matchesStatus = available <= 0;
-    } else if (statusFilter === "healthy") {
-      const available = Math.max(0, stock.quantity - stock.reservedQty);
-      matchesStatus = available > stock.minStockLevel;
-    }
+      let matchesStatus = true;
+      if (statusFilter === "low") {
+        const available = Math.max(0, stock.quantity - stock.reservedQty);
+        matchesStatus = available > 0 && available <= stock.minStockLevel;
+      } else if (statusFilter === "out") {
+        const available = Math.max(0, stock.quantity - stock.reservedQty);
+        matchesStatus = available <= 0;
+      } else if (statusFilter === "healthy") {
+        const available = Math.max(0, stock.quantity - stock.reservedQty);
+        matchesStatus = available > stock.minStockLevel;
+      }
 
-    const warehouseName = getWarehouseName(stock.warehouse);
-    const product = products.find(
-      (p) => p.id === stock.productId || p.productId === stock.productId
-    );
-    const productName = product
-      ? normalizeProductLabel(product)
-      : `Product #${stock.productId}`;
+      const warehouseName = getWarehouseName(stock.warehouse);
+      const product = products.find(
+        (p) => p.id === stock.productId || p.productId === stock.productId
+      );
+      const productName = product
+        ? normalizeProductLabel(product)
+        : `Product #${stock.productId}`;
 
-    const searchString = `${stock.id} ${stock.type} ${stock.referenceNo} ${stock.productId} ${productName} ${warehouseName}`.toLowerCase();
-    const matchesSearch = !term || searchString.includes(term);
+      const searchString = `${stock.id} ${stock.type} ${stock.referenceNo} ${stock.productId} ${productName} ${warehouseName}`.toLowerCase();
+      const matchesSearch = !term || searchString.includes(term);
 
-    return matchesType && matchesStatus && matchesSearch;
-  })
-  .map((stock) => getCleanStockData(stock));
-}, [stocks, search, typeFilter, statusFilter, products]);
+      return matchesType && matchesStatus && matchesSearch;
+    })
+    .map((stock) => getCleanStockData(stock));
+  }, [stocks, search, typeFilter, statusFilter, products]);
+
   const stats = useMemo(
     () => ({
       total: stocks.length,
@@ -594,6 +662,17 @@ const fetchAllStock = async (): Promise<void> => {
     }),
     [stocks]
   );
+
+  //  Build filter options from movement types
+  const typeFilterOptions = useMemo(() => {
+    return [
+      { label: "All Types", value: "" },
+      ...movementTypeOptions.map((type) => ({
+        label: type,
+        value: type,
+      })),
+    ];
+  }, [movementTypeOptions]);
 
   const columns: ColumnDef<InventoryStock>[] = [
     {
@@ -619,7 +698,7 @@ const fetchAllStock = async (): Promise<void> => {
       label: "Type",
       sortable: true,
       render: (stock) => (
-        <span className="inline-flex rounded-full border ml-5 border-cyan-200 bg-cyan-50 px-2.5 py-0.5 text-xs font-semibold text-cyan-700">
+        <span className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-0.5 text-xs font-semibold text-cyan-700">
           {stock.type}
         </span>
       ),
@@ -659,7 +738,7 @@ const fetchAllStock = async (): Promise<void> => {
         
         return (
           <button 
-            className="flex items-center gap-2 ml-8 text-sm text-slate-700 hover:text-cyan-600 transition-colors"
+            className="flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 transition-colors"
             onClick={() => {
               if (warehouseId) {
                 navigate(`/warehouse?warehouseId=${warehouseId}`);
@@ -683,7 +762,7 @@ const fetchAllStock = async (): Promise<void> => {
       sortable: true,
       render: (stock) => (
         <button 
-          className="text-sm font-semibold text-slate-800 ml-7 hover:text-cyan-600 hover:underline transition-colors"
+          className="text-sm font-semibold text-slate-800 hover:text-cyan-600 hover:underline transition-colors"
           onClick={() => {
             const warehouseId = typeof stock.warehouse === 'string' 
               ? stock.warehouse 
@@ -746,10 +825,10 @@ const fetchAllStock = async (): Promise<void> => {
       <PageMeta title="Inventory Stock" description="Manage inventory stock" />
       <PageBreadcrumb pageTitle="Inventory Stock" />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
-         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-                  <AddButton onClick={openCreate} label="Add Stock" />
-                </div>
+      <div className="w-full max-w-none px-0 py-8">
+        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+          <AddButton onClick={openCreate} label="Add Stock" />
+        </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -789,7 +868,7 @@ const fetchAllStock = async (): Promise<void> => {
 
         {/* Search and Filters + Buttons */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-md">
+          <div className="relative w-full sm:max-w-md -mt-8">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
@@ -813,8 +892,7 @@ const fetchAllStock = async (): Promise<void> => {
             {/* Check Availability Button */}
             <button
               onClick={() => setShowAvailabilityModal(true)}
-            
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600"
+              className="inline-flex items-center gap-2 -mt-3.5 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600"
               title="Check stock availability for a product in a warehouse"
             >
               <ClipboardDocumentCheckIcon className="h-4 w-4" />
@@ -824,10 +902,9 @@ const fetchAllStock = async (): Promise<void> => {
             {/* Product Summary Button */}
             <button
               onClick={() => {
-                // Show product summary modal with first product selected
                 setShowProductStockModal(true);
               }}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-purple-600"
+              className="inline-flex items-center -mt-3.5 gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-purple-600"
               title="View stock summary for a product across all warehouses"
             >
               <ChartBarIcon className="h-4 w-4" />
@@ -835,30 +912,28 @@ const fetchAllStock = async (): Promise<void> => {
             </button>
 
             {/* Low Stock Filter Button */}
-<button
-  onClick={() => {
-    if (statusFilter === "low") {
-      // If showing low stock, reset to all stock
-      fetchAllStock();
-      setStatusFilter("");
-      setTypeFilter("");
-      ToasterService.info("Showing all stock");
-    } else {
-      // Show low stock
-      fetchLowStock();
-      setStatusFilter("low");
-    }
-  }}
-  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-    statusFilter === "low" 
-      ? 'bg-red-50 text-red-700 border-red-200' 
-      : 'bg-white text-gray-700 border-gray-200 hover:bg-red-50 hover:text-red-600'
-  }`}
-  title="Show low stock items"
->
-  <ExclamationTriangleIcon className="h-4 w-4" />
-  <span className="hidden sm:inline">{statusFilter === "low" ? 'Show All' : 'Low Stock'}</span>
-</button>
+            <button
+              onClick={() => {
+                if (statusFilter === "low") {
+                  fetchAllStock();
+                  setStatusFilter("");
+                  setTypeFilter("");
+                  ToasterService.info("Showing all stock");
+                } else {
+                  fetchLowStock();
+                  setStatusFilter("low");
+                }
+              }}
+              className={`inline-flex items-center -mt-3.5 gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+                statusFilter === "low" 
+                  ? 'bg-red-50 text-red-700 border-red-200' 
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-red-50 hover:text-red-600'
+              }`}
+              title="Show low stock items"
+            >
+              <ExclamationTriangleIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">{statusFilter === "low" ? 'Show All' : 'Low Stock'}</span>
+            </button>
 
             {/* PDF Export Button */}
             <ListingPdfExportButton<InventoryStock>
@@ -889,19 +964,13 @@ const fetchAllStock = async (): Promise<void> => {
               ]}
             />
 
-            {/* Filter Button */}
+            {/*  Filter Button with dynamic movement types */}
             <FilterPopover
               title="Filter Stock"
               buttonLabel="Filters"
               label="Type"
               value={typeFilter}
-              options={[
-                { label: "All Types", value: "" },
-                ...movementTypeOptions.map((type) => ({
-                  label: type,
-                  value: type,
-                })),
-              ]}
+              options={typeFilterOptions}
               onChange={setTypeFilter}
               onReset={() => setTypeFilter("")}
               onApply={() => undefined}
@@ -913,12 +982,13 @@ const fetchAllStock = async (): Promise<void> => {
         <ReusableTable
           data={filteredStocks}
           columns={columns}
-          loading={loading}
+          loading={loading || enumLoading}
           pageSize={PAGE_SIZE}
           defaultSortKey="movementDate"
           defaultSortOrder="desc"
           enableRowDetails={true}
           rowDetailsTitle="Stock Details"
+          className="md:-mt-4"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <CubeIcon className="mb-3 h-12 w-12 text-gray-400" />
