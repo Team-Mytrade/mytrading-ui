@@ -66,12 +66,14 @@ function getCellTitle(value: unknown): string | undefined {
 }
 
 function formatDetailLabel(key: string): string {
+  if (key === 'fromDate') return 'FROM DATE';
+  if (key === 'toDate') return 'TO DATE';
   return key
     .replace(/([A-Z])/g, " $1")
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
-    .replace(/^./, (char) => char.toUpperCase());
+    .toUpperCase();
 }
 
 function formatNestedObject(obj: Record<string, unknown>): React.ReactNode {

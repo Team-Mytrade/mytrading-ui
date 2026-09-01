@@ -144,12 +144,14 @@ const OnDutyApprovalPage: React.FC = () => {
       const reqTypeStr = safeString(r.requestType || detail.requestType || r.type || 'ON_DUTY').toUpperCase();
       const reasonStr = safeString(r.reason || detail.reason || '').toLowerCase();
       
-      // Strict check: Must be an ON_DUTY request
+      // Support all attendance, on-duty, remote work, and regularization approval items
       const isOnDuty = reqTypeStr.includes('ON_DUTY') || 
                        reqTypeStr.includes('ON DUTY') || 
                        reqTypeStr.includes('DUTY') || 
                        reqTypeStr.includes('VISIT') ||
-                       reasonStr.includes('duty');
+                       reqTypeStr.includes('WORK_FROM_HOME') ||
+                       reqTypeStr.includes('REGULARIZATION') ||
+                       reqTypeStr.length > 0;
 
       if (!isOnDuty) return;
 
@@ -180,7 +182,7 @@ const OnDutyApprovalPage: React.FC = () => {
         employeeName: resolvedName,
         department: resolvedDept,
         designation: resolvedDesig,
-        requestType: "ON_DUTY",
+        requestType: reqTypeStr || "ON_DUTY",
         fromDate: safeString(r.fromDate || detail.fromDate || r.startDate || r.shiftDate, "2026-08-10"),
         toDate: safeString(r.toDate || detail.toDate || r.endDate || r.fromDate, "2026-08-10"),
         startHours: safeString(r.startHours || detail.startHours, ""),
@@ -317,18 +319,19 @@ const OnDutyApprovalPage: React.FC = () => {
     },
     {
       key: "fromDate",
-      label: "Date",
+      label: "From Date",
       sortable: true,
-      render: (row) => {
-        const isSingle = !row.toDate || row.fromDate === row.toDate;
-        return (
-          <div className="flex items-center gap-1 font-semibold text-xs text-gray-800 font-mono">
-            <Calendar className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
-            <span>{row.fromDate}</span>
-            {!isSingle && <span className="text-gray-400">→ {row.toDate}</span>}
-          </div>
-        );
-      },
+      render: (row) => (
+        <span className="font-mono font-semibold text-xs text-gray-800">{row.fromDate}</span>
+      ),
+    },
+    {
+      key: "toDate",
+      label: "To Date",
+      sortable: true,
+      render: (row) => (
+        <span className="font-mono font-semibold text-xs text-gray-800">{row.toDate || row.fromDate}</span>
+      ),
     },
     {
       key: "reason",

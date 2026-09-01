@@ -277,7 +277,7 @@ const LeaveRequestPage: React.FC = () => {
     for (let i = firstDay - 1; i >= 0; i--) {
       calendarDays.push(
         <div key={`prev-${i}`} className="flex items-center justify-center">
-          <div className="w-7 h-7 flex items-center justify-center text-gray-300 text-xs">{prevMonthDays - i}</div>
+          <div className="w-6 h-6 flex items-center justify-center text-gray-300 text-[10px]">{prevMonthDays - i}</div>
         </div>
       );
     }
@@ -287,12 +287,12 @@ const LeaveRequestPage: React.FC = () => {
       const isSelected = dateStr >= fromDate && dateStr <= toDate;
 
       calendarDays.push(
-        <div key={`curr-${i}`} className="flex items-center justify-center py-0.5">
+        <div key={`curr-${i}`} className="flex items-center justify-center py-0">
           <button 
             type="button"
-            className={`w-7 h-7 flex items-center justify-center rounded-md text-xs font-medium transition-all ${
+            className={`w-6 h-6 flex items-center justify-center rounded-md text-[11px] font-medium transition-all ${
               isSelected 
-                ? 'bg-cyan-600 text-white shadow-sm font-semibold' 
+                ? 'bg-cyan-600 text-white shadow-xs font-bold' 
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
             onClick={() => {
@@ -318,7 +318,7 @@ const LeaveRequestPage: React.FC = () => {
     for (let i = 1; i <= totalCells - (days + firstDay); i++) {
       calendarDays.push(
         <div key={`next-${i}`} className="flex items-center justify-center">
-          <div className="w-7 h-7 flex items-center justify-center text-gray-300 text-xs">{i}</div>
+          <div className="w-6 h-6 flex items-center justify-center text-gray-300 text-[10px]">{i}</div>
         </div>
       );
     }
@@ -369,9 +369,9 @@ const LeaveRequestPage: React.FC = () => {
       <PageMeta title="Leave Request" description="Submit and track leave applications" />
       <PageBreadcrumb pageTitle="Leave Request" />
 
-      <div className="max-w-5xl mx-auto pb-2 animate-in fade-in duration-200 mt-0.5">
+      <div className="max-w-6xl mx-auto pb-1 animate-in fade-in duration-200 mt-0.5">
         
-        {/* Compact User Banner */}
+        {/* User Banner matching Attendance Regularization Page */}
         <div className="bg-white rounded-lg shadow-2xs border border-gray-200/80 p-2.5 mb-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <div className="w-7.5 h-7.5 rounded-md bg-cyan-600 flex items-center justify-center text-white font-bold text-xs shadow-2xs shrink-0">
@@ -380,7 +380,7 @@ const LeaveRequestPage: React.FC = () => {
             <div>
               <div className="flex items-center gap-1.5">
                 <h2 className="text-xs font-bold text-gray-900">{currentUser.name}</h2>
-                <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200/80">
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200/80 uppercase">
                   {currentUser.role.replace(/_/g, " ")}
                 </span>
               </div>
@@ -397,225 +397,181 @@ const LeaveRequestPage: React.FC = () => {
               <FileText className="w-3 h-3" /> Request History ({myLeaves.length})
             </button>
             <div className="text-left sm:text-right">
-              <span className="text-[9px] text-gray-400 font-medium block">Employee Info</span>
-              <span className="text-[11px] font-mono font-bold text-cyan-700">#{selectedEmployeeId || 12} ({employeeCode || 'TEC-EMP-0001'})</span>
+              <span className="text-[9px] text-gray-400 font-medium block">Employee ID</span>
+              <span className="text-[11px] font-mono font-semibold text-gray-700">#{employeeCode || `EMP-${selectedEmployeeId || 12}`}</span>
             </div>
-          </div>
-        </div>
-
-        {/* Segmented Tab Navigation */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="inline-flex p-1 bg-gray-100/80 rounded-xl gap-1 border border-gray-200/60">
-            <button
-              type="button"
-              onClick={() => setActiveTab('apply')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                activeTab === 'apply'
-                  ? 'bg-white text-cyan-700 shadow-sm font-semibold'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Apply for Leave</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('history')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                activeTab === 'history'
-                  ? 'bg-white text-cyan-700 shadow-sm font-semibold'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5" />
-              <span>My Leave History</span>
-            </button>
           </div>
         </div>
 
         {/* APPLY TAB */}
         {activeTab === 'apply' && (
-          <div className="space-y-3">
-            {/* Live Leave Balance Cards Bar */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="bg-white p-3 rounded-xl border border-cyan-200/80 shadow-2xs flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Casual Leave</span>
-                  <span className="text-base font-extrabold text-cyan-800 font-mono">{getBalanceForType('CASUAL')} <span className="text-xs font-semibold text-cyan-600">days available</span></span>
-                </div>
-                <div className="w-8 h-8 rounded-lg bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-700 font-bold text-xs">CL</div>
-              </div>
-
-              <div className="bg-white p-3 rounded-xl border border-emerald-200/80 shadow-2xs flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Sick Leave</span>
-                  <span className="text-base font-extrabold text-emerald-800 font-mono">{getBalanceForType('SICK')} <span className="text-xs font-semibold text-emerald-600">days available</span></span>
-                </div>
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 font-bold text-xs">SL</div>
-              </div>
-
-              <div className="bg-white p-3 rounded-xl border border-purple-200/80 shadow-2xs flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Earned Leave</span>
-                  <span className="text-base font-extrabold text-purple-800 font-mono">{getBalanceForType('EARNED')} <span className="text-xs font-semibold text-purple-600">days available</span></span>
-                </div>
-                <div className="w-8 h-8 rounded-lg bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-700 font-bold text-xs">EL</div>
-              </div>
-            </div>
-
-            <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-2xs border border-gray-200/80 overflow-hidden">
-              <div className="p-3.5 grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div>
+            <form onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start mb-2">
                 
-                {/* Left Column: Calendar */}
-                <div className="lg:col-span-5 border-b lg:border-b-0 lg:border-r border-gray-100 pb-4 lg:pb-0 lg:pr-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <button type="button" onClick={handlePrevMonth} className="p-1 rounded-md text-gray-500 hover:bg-gray-100 transition-colors">
-                      &lt;
-                    </button>
-                    <h3 className="text-xs font-bold text-gray-800">{monthNames[currentMonth]} {currentYear}</h3>
-                    <button type="button" onClick={handleNextMonth} className="p-1 rounded-md text-gray-500 hover:bg-gray-100 transition-colors">
-                      &gt;
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-7 gap-1 mb-2 border-b border-gray-100 pb-2 text-center text-[11px] font-semibold text-gray-400">
-                    <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
-                  </div>
-
-                  <div className="grid grid-cols-7 gap-1">
-                    {renderCalendar()}
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-500">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded bg-cyan-600" />
-                      <span>Selected Range</span>
+                {/* Left Column: Interactive Calendar matching TimesheetManagementPage */}
+                <div className="lg:col-span-5 bg-white rounded-lg shadow-2xs border border-gray-200/80 p-3 flex flex-col justify-between h-[340px]">
+                  <div>
+                    {/* Month Header */}
+                    <div className="flex items-center justify-between mb-2">
+                      <button type="button" onClick={handlePrevMonth} className="text-emerald-700 hover:text-emerald-900 p-0.5 rounded hover:bg-gray-50">
+                        &lt;
+                      </button>
+                      <h2 className="text-xs font-bold text-gray-800">
+                        {monthNames[currentMonth]} {currentYear}
+                      </h2>
+                      <button type="button" onClick={handleNextMonth} className="text-emerald-700 hover:text-emerald-900 p-0.5 rounded hover:bg-gray-50">
+                        &gt;
+                      </button>
                     </div>
-                    <span>Click dates to set range</span>
+
+                    {/* Weekday Labels */}
+                    <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] font-semibold text-gray-500 mb-1 border-b border-gray-100 pb-0.5">
+                      <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                    </div>
+
+                    {/* Dates Grid */}
+                    <div className="grid grid-cols-7 gap-0.5 max-w-xs mx-auto lg:max-w-none">
+                      {renderCalendar()}
+                    </div>
+                  </div>
+
+                  {/* Bottom Legend matching TimesheetManagementPage */}
+                  <div className="mt-2 pt-2 border-t border-gray-100 space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-gray-500">
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full border border-cyan-600 inline-block"></span> Today</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full border border-rose-500 inline-block"></span> Absent</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full border border-purple-500 inline-block"></span> Half day absent</span>
+                    </div>
+                    <div className="text-[10px] text-gray-400">
+                      Dates marked "Absent": <span className="text-rose-600 font-semibold">None</span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Right Column: Leave Form */}
-                <div className="lg:col-span-7 flex flex-col justify-between space-y-4">
-                  
-                  {/* Leave Type Dropdown */}
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Leave Type *</label>
-                    <select
-                      value={leaveTypeId}
-                      onChange={(e) => setLeaveTypeId(e.target.value ? Number(e.target.value) : "")}
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:bg-white focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all outline-none text-xs font-semibold text-gray-800"
-                      required
+                {/* Right Column: Leave Application Desk */}
+                <div className="lg:col-span-7 bg-white rounded-lg shadow-2xs border border-gray-200/80 p-3.5 flex flex-col justify-between h-[340px] overflow-y-auto">
+                  <div className="space-y-2">
+                    {/* Leave Type Dropdown */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 mb-0.5">Leave Type *</label>
+                      <select
+                        value={leaveTypeId}
+                        onChange={(e) => setLeaveTypeId(e.target.value ? Number(e.target.value) : "")}
+                        className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded-md focus:bg-white focus:ring-1 focus:ring-cyan-500 transition-all outline-none text-xs font-semibold text-gray-800"
+                        required
+                      >
+                        <option value="">-- Select Leave Type --</option>
+                        {leaveTypes.map((lt) => {
+                          const typeKey = lt.name.toLowerCase().includes("casual") ? "CASUAL" : lt.name.toLowerCase().includes("sick") ? "SICK" : "EARNED";
+                          const bal = getBalanceForType(typeKey);
+                          return (
+                            <option key={lt.id} value={lt.id}>
+                              {lt.name} — ({bal} days balance)
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+
+                    {/* Duration Summary */}
+                    <div className="p-1.5 px-2.5 bg-cyan-50/50 rounded-md border border-cyan-100 flex items-center justify-between">
+                      <span className="text-[11px] text-gray-600">
+                        Duration: <strong className="text-gray-900">{fromDate}</strong> to <strong className="text-gray-900">{toDate}</strong>
+                      </span>
+                      <span className="px-2 py-0.2 bg-white text-cyan-700 border border-cyan-200 rounded text-[10px] font-bold shadow-2xs">
+                        {totalDays} {totalDays === 1 ? 'Day' : 'Days'}
+                      </span>
+                    </div>
+
+                    {/* Date Inputs */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-700 mb-0.5">From Date *</label>
+                        <input 
+                          type="date"
+                          value={fromDate}
+                          onChange={(e) => setFromDate(e.target.value)}
+                          className="w-full px-2.5 py-1 bg-gray-50/50 border border-gray-200 rounded-md focus:bg-white focus:ring-1 focus:ring-cyan-500 transition-all outline-none text-xs"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-700 mb-0.5">To Date *</label>
+                        <input 
+                          type="date"
+                          value={toDate}
+                          onChange={(e) => setToDate(e.target.value)}
+                          className="w-full px-2.5 py-1 bg-gray-50/50 border border-gray-200 rounded-md focus:bg-white focus:ring-1 focus:ring-cyan-500 transition-all outline-none text-xs"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    {/* Day Portion Radio Choice */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-700 mb-1">Day Portion</label>
+                      <div className="flex items-center gap-4">
+                        {["Full Day", "First half", "Second half"].map((type) => {
+                          const isHalfDay = type !== "Full Day";
+                          const isDisabled = isHalfDay && fromDate !== toDate;
+                          return (
+                            <label key={type} className={`flex items-center gap-1.5 text-xs ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}>
+                              <input 
+                                type="radio" 
+                                name="dayType" 
+                                value={type}
+                                checked={dayType === type}
+                                onChange={(e) => setDayType(e.target.value)}
+                                className="text-cyan-600 focus:ring-cyan-500"
+                              />
+                              {type}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Comments */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-700 mb-0.5">Reason / Comments</label>
+                      <textarea 
+                        rows={2}
+                        placeholder="Provide details for your leave request..."
+                        value={comments}
+                        onChange={(e) => setComments(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-gray-50/50 border border-gray-200 rounded-md focus:bg-white focus:ring-1 focus:ring-cyan-500 transition-all outline-none text-xs resize-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Footer Actions */}
+                  <div className="pt-2 border-t border-gray-100 flex items-center justify-end gap-2 shrink-0">
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setFromDate("");
+                        setToDate("");
+                        setComments("");
+                      }}
+                      className="px-3 py-1.5 text-[11px] font-semibold text-gray-500 hover:text-gray-800 transition-colors"
                     >
-                      <option value="">-- Select Leave Type --</option>
-                      {leaveTypes.map((lt) => {
-                        const typeKey = lt.name.toLowerCase().includes("casual") ? "CASUAL" : lt.name.toLowerCase().includes("sick") ? "SICK" : "EARNED";
-                        const bal = getBalanceForType(typeKey);
-                        return (
-                          <option key={lt.id} value={lt.id}>
-                            {lt.name} — ({bal} days balance)
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
-
-                {/* Duration Summary */}
-                <div className="p-3 bg-cyan-50/50 rounded-lg border border-cyan-100 flex items-center justify-between">
-                  <span className="text-xs text-gray-600">
-                    Duration: <strong className="text-gray-900">{fromDate}</strong> to <strong className="text-gray-900">{toDate}</strong>
-                  </span>
-                  <span className="px-2.5 py-0.5 bg-white text-cyan-700 border border-cyan-200 rounded-md text-xs font-bold shadow-2xs">
-                    {totalDays} {totalDays === 1 ? 'Day' : 'Days'}
-                  </span>
-                </div>
-
-                {/* Date Inputs */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">From Date *</label>
-                    <input 
-                      type="date"
-                      value={fromDate}
-                      onChange={(e) => setFromDate(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-gray-50/50 border border-gray-200 rounded-md focus:bg-white focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all outline-none text-xs"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">To Date *</label>
-                    <input 
-                      type="date"
-                      value={toDate}
-                      onChange={(e) => setToDate(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-gray-50/50 border border-gray-200 rounded-md focus:bg-white focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all outline-none text-xs"
-                      required
-                    />
+                      Clear Form
+                    </button>
+                    <button 
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-md text-xs font-bold transition-all shadow-xs flex items-center gap-1"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      {isSubmitting ? 'Submitting...' : 'Submit Leave Request'}
+                    </button>
                   </div>
                 </div>
 
-                {/* Day Portion Radio Choice */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Day Portion</label>
-                  <div className="flex items-center gap-4">
-                    {["Full Day", "First half", "Second half"].map((type) => {
-                      const isHalfDay = type !== "Full Day";
-                      const isDisabled = isHalfDay && fromDate !== toDate;
-                      return (
-                        <label key={type} className={`flex items-center gap-1.5 text-xs ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}>
-                          <input 
-                            type="radio" 
-                            name="dayType" 
-                            value={type}
-                            checked={dayType === type}
-                            onChange={(e) => setDayType(e.target.value)}
-                            className="text-cyan-600 focus:ring-cyan-500"
-                          />
-                          {type}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Comments */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Reason / Comments</label>
-                  <textarea 
-                    rows={3}
-                    placeholder="Provide details for your leave request..."
-                    value={comments}
-                    onChange={(e) => setComments(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-50/50 border border-gray-200 rounded-md focus:bg-white focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all outline-none text-xs"
-                  />
-                </div>
               </div>
-            </div>
-
-            {/* Footer Actions */}
-            <div className="bg-gray-50 p-4 border-t border-gray-100 flex items-center justify-end gap-3">
-              <button 
-                type="button"
-                onClick={() => {
-                  setFromDate("");
-                  setToDate("");
-                  setComments("");
-                }}
-                className="text-xs font-semibold text-gray-500 hover:text-gray-800"
-              >
-                Clear Form
-              </button>
-              <button 
-                type="submit"
-                disabled={isSubmitting}
-                className="inline-flex items-center gap-2 px-5 py-2 bg-cyan-600 text-white rounded-lg text-xs font-bold hover:bg-cyan-700 transition-all shadow-sm"
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit Leave Request'}
-              </button>
-            </div>
-          </form>
-        </div>
+            </form>
+          </div>
         )}
 
         {/* HISTORY TAB USING COMMON ReusableTable */}

@@ -4,7 +4,7 @@ import Chart from 'react-apexcharts';
 import { 
   BarChart3, UserCheck, Calendar, Sliders, Users, Layers, ShieldCheck, Clock, 
   RotateCw, Plus, X, Search, AlertCircle, CheckCircle2, FileSignature, ArrowRight, PieChart,
-  Briefcase, FileCheck, ExternalLink
+  Briefcase, FileCheck, ExternalLink, ChevronLeft, ChevronRight, MapPin, User, CalendarDays
 } from 'lucide-react';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
@@ -185,12 +185,143 @@ const LeaveDashboardPage: React.FC = () => {
     adjustmentLeaves: 2,
     remarks: 'Added 2 additional leaves to compensate comp-offs'
   });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingQueueCounts, setPendingQueueCounts] = useState({
     leave: 0,
     regularization: 0,
     onDuty: 0
   });
+
+  // ── Calendar Dashboard State matching Screenshot ───────────────────────
+  const [calendarViewMode, setCalendarViewMode] = useState<'month' | 'week' | 'day'>('month');
+  const [calendarDate, setCalendarDate] = useState(new Date(2026, 7, 1)); // August 2026
+  const [eventsList, setEventsList] = useState([
+    {
+      id: 1,
+      title: "Annual Conference",
+      dateStr: "2026-08-25",
+      time: "05:30 AM",
+      dotColor: "bg-blue-500",
+      badgeBg: "bg-blue-50/90 text-blue-700 border-blue-200/80 hover:bg-blue-100",
+      description: "Annual tech conference with industry leaders",
+      location: "Convention Center",
+      attendees: 150,
+      dayLabel: "Today"
+    },
+    {
+      id: 2,
+      title: "Team Meeting",
+      dateStr: "2026-08-26",
+      time: "05:30 AM",
+      dotColor: "bg-emerald-500",
+      badgeBg: "bg-emerald-50/90 text-emerald-700 border-emerald-200/80 hover:bg-emerald-100",
+      description: "Quarterly team planning session",
+      location: "Meeting Room A",
+      attendees: 12,
+      dayLabel: "Tomorrow"
+    },
+    {
+      id: 3,
+      title: "Workshop Series",
+      dateStr: "2026-08-27",
+      time: "05:30 AM",
+      dotColor: "bg-amber-500",
+      badgeBg: "bg-amber-50/90 text-amber-800 border-amber-200/80 hover:bg-amber-100",
+      description: "3-day workshop on advanced techniques",
+      location: "Training Hall",
+      attendees: 45,
+      dayLabel: "Thu, Aug 27"
+    },
+    {
+      id: 4,
+      title: "Product Launch",
+      dateStr: "2026-08-29",
+      time: "05:30 AM",
+      dotColor: "bg-rose-500",
+      badgeBg: "bg-rose-50/90 text-rose-700 border-rose-200/80 hover:bg-rose-100",
+      description: "Launch of new product line",
+      location: "Main Auditorium",
+      attendees: 200,
+      dayLabel: "Sat, Aug 29"
+    },
+    {
+      id: 5,
+      title: "Client Presentation",
+      dateStr: "2026-08-30",
+      time: "05:30 AM",
+      dotColor: "bg-purple-500",
+      badgeBg: "bg-purple-50/90 text-purple-700 border-purple-200/80 hover:bg-purple-100",
+      description: "Presentation to key enterprise clients",
+      location: "Boardroom B",
+      attendees: 25,
+      dayLabel: "Sun, Aug 30"
+    },
+    {
+      id: 6,
+      title: "Team Outing",
+      dateStr: "2026-08-31",
+      time: "09:00 AM",
+      dotColor: "bg-pink-500",
+      badgeBg: "bg-pink-50/90 text-pink-700 border-pink-200/80 hover:bg-pink-100",
+      description: "Annual team outing & team building activities",
+      location: "Resort & Spa",
+      attendees: 50,
+      dayLabel: "Mon, Aug 31"
+    }
+  ]);
+
+  const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
+  const [newEventForm, setNewEventForm] = useState({
+    title: '',
+    dateStr: '2026-08-25',
+    time: '05:30 AM',
+    description: '',
+    location: '',
+    attendees: 10,
+    type: 'blue'
+  });
+
+  const handleCreateEvent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEventForm.title.trim()) return ToasterService.error("Event title is required!");
+    
+    const colorMap: Record<string, { dotColor: string; badgeBg: string }> = {
+      blue: { dotColor: 'bg-blue-500', badgeBg: 'bg-blue-50/90 text-blue-700 border-blue-200/80' },
+      emerald: { dotColor: 'bg-emerald-500', badgeBg: 'bg-emerald-50/90 text-emerald-700 border-emerald-200/80' },
+      amber: { dotColor: 'bg-amber-500', badgeBg: 'bg-amber-50/90 text-amber-800 border-amber-200/80' },
+      rose: { dotColor: 'bg-rose-500', badgeBg: 'bg-rose-50/90 text-rose-700 border-rose-200/80' },
+      purple: { dotColor: 'bg-purple-500', badgeBg: 'bg-purple-50/90 text-purple-700 border-purple-200/80' },
+    };
+
+    const cfg = colorMap[newEventForm.type] || colorMap.blue;
+
+    const created = {
+      id: Date.now(),
+      title: newEventForm.title.trim(),
+      dateStr: newEventForm.dateStr,
+      time: newEventForm.time,
+      dotColor: cfg.dotColor,
+      badgeBg: cfg.badgeBg,
+      description: newEventForm.description || "Scheduled event",
+      location: newEventForm.location || "Office Location",
+      attendees: Number(newEventForm.attendees) || 1,
+      dayLabel: newEventForm.dateStr === '2026-08-25' ? 'Today' : newEventForm.dateStr
+    };
+
+    setEventsList(prev => [created, ...prev]);
+    ToasterService.success(`Event "${created.title}" added to Calendar!`);
+    setIsAddEventModalOpen(false);
+    setNewEventForm({
+      title: '',
+      dateStr: '2026-08-25',
+      time: '05:30 AM',
+      description: '',
+      location: '',
+      attendees: 10,
+      type: 'blue'
+    });
+  };
 
   const fetchPendingQueueCounts = async () => {
     const rawList: any[] = [];
@@ -667,6 +798,206 @@ const LeaveDashboardPage: React.FC = () => {
 
 
 
+            {/* 2. Interactive Calendar & Upcoming Events Dashboard matching Screenshot */}
+            <div className="bg-white rounded-2xl shadow-2xs border border-gray-200/80 p-4 sm:p-5 space-y-4">
+              
+              {/* Calendar Dashboard Top Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3.5">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-blue-600" />
+                    <span>Calendar</span>
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-0.5">Schedule and manage your events with ease</p>
+                </div>
+
+                <div className="flex items-center gap-3 self-end sm:self-auto flex-wrap">
+                  {/* View Mode Segmented Controls */}
+                  <div className="inline-flex p-1 bg-gray-100/90 rounded-xl border border-gray-200/60 shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => setCalendarViewMode('month')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        calendarViewMode === 'month'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <CalendarDays className="w-3.5 h-3.5" /> Month
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCalendarViewMode('week')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        calendarViewMode === 'week'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <Clock className="w-3.5 h-3.5" /> Week
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCalendarViewMode('day')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        calendarViewMode === 'day'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <User className="w-3.5 h-3.5" /> Day
+                    </button>
+                  </div>
+
+                  {/* Add Event Button */}
+                  <button
+                    type="button"
+                    onClick={() => setIsAddEventModalOpen(true)}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 shrink-0 active:scale-95"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Event</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Grid: Left Calendar Matrix (8 cols) & Right Upcoming Events Panel (4 cols) */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                
+                {/* ── LEFT COLUMN: MONTHLY CALENDAR GRID ────────────────────── */}
+                <div className="lg:col-span-8 border border-gray-200/80 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                  
+                  {/* Days of Week Header */}
+                  <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50/50 py-2.5 text-center text-xs font-semibold text-gray-600">
+                    <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                  </div>
+
+                  {/* Calendar 35-Box Matrix */}
+                  <div className="grid grid-cols-7 divide-x divide-y divide-gray-100 text-xs">
+                    {/* Previous Month Trail Days (July 26-31) */}
+                    {[26, 27, 28, 29, 30, 31].map(d => (
+                      <div key={`prev-${d}`} className="min-h-[85px] sm:min-h-[105px] p-1.5 bg-gray-50/30 text-gray-300 text-right font-medium">
+                        {d}
+                      </div>
+                    ))}
+
+                    {/* August 2026 Days (1-31) */}
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map(dayNum => {
+                      const dayStr = `2026-08-${String(dayNum).padStart(2, '0')}`;
+                      const dayEvents = eventsList.filter(e => e.dateStr === dayStr);
+                      const isToday = dayNum === 25;
+
+                      return (
+                        <div 
+                          key={`aug-${dayNum}`}
+                          className={`min-h-[85px] sm:min-h-[105px] p-1 sm:p-1.5 flex flex-col justify-between transition-all group hover:bg-slate-50/80 ${
+                            isToday ? 'bg-amber-50/50 font-bold' : ''
+                          }`}
+                        >
+                          <div className="text-right">
+                            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold ${
+                              isToday ? 'bg-amber-400 text-gray-900 shadow-2xs font-extrabold' : 'text-gray-700'
+                            }`}>
+                              {dayNum}
+                            </span>
+                          </div>
+
+                          {/* Event Cards inside Calendar Days */}
+                          <div className="space-y-1 mt-1">
+                            {dayEvents.map(evt => (
+                              <div
+                                key={evt.id}
+                                className={`p-1.5 rounded-lg border text-[10px] font-semibold transition-all shadow-2xs cursor-pointer ${evt.badgeBg}`}
+                                title={`${evt.title} - ${evt.time} (${evt.location})`}
+                                onClick={() => ToasterService.info(`${evt.title}: ${evt.description} @ ${evt.location}`)}
+                              >
+                                <div className="flex items-center gap-1">
+                                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${evt.dotColor}`} />
+                                  <span className="font-bold truncate">{evt.title}</span>
+                                </div>
+                                <div className="text-[9px] opacity-80 truncate mt-0.5">
+                                  📍 {evt.location}
+                                </div>
+                                <div className="text-[9px] opacity-75 truncate">
+                                  👥 {evt.attendees} guests
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Next Month Trail Days (September 1-5) */}
+                    {[1, 2, 3, 4, 5].map(d => (
+                      <div key={`next-${d}`} className="min-h-[85px] sm:min-h-[105px] p-1.5 bg-gray-50/30 text-gray-300 text-right font-medium">
+                        {d}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── RIGHT COLUMN: UPCOMING EVENTS LIST ───────────────────── */}
+                <div className="lg:col-span-4 space-y-3">
+                  
+                  {/* Panel Header */}
+                  <div className="bg-white rounded-2xl border border-gray-200/80 p-3.5 shadow-2xs flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-2xs">
+                        <Calendar className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-900">Upcoming Events</h3>
+                        <span className="text-[11px] text-gray-500 font-medium">Total events: <strong className="text-gray-900">{eventsList.length}</strong></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Event Card Items matching user screenshot */}
+                  <div className="space-y-2.5 max-h-[580px] overflow-y-auto pr-1">
+                    {eventsList.map(evt => (
+                      <div
+                        key={evt.id}
+                        className="bg-white rounded-2xl border border-gray-200/80 p-3.5 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group"
+                        onClick={() => ToasterService.info(`${evt.title}: ${evt.description}`)}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${evt.dotColor}`} />
+                            <h4 className="text-xs font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                              {evt.title}
+                            </h4>
+                          </div>
+                          <span className="text-gray-400 group-hover:text-blue-600 transition-colors text-xs font-bold">&gt;</span>
+                        </div>
+
+                        <div className="text-[11px] text-gray-500 font-medium mt-1">
+                          {evt.dayLabel} • {evt.time}
+                        </div>
+
+                        <p className="text-xs text-gray-600 mt-2 line-clamp-2 leading-relaxed">
+                          {evt.description}
+                        </p>
+
+                        <div className="flex items-center gap-3 mt-3 pt-2.5 border-t border-gray-100 text-[11px] text-gray-500 font-medium">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-gray-400" />
+                            {evt.location}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <User className="w-3 h-3 text-gray-400" />
+                            {evt.attendees}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
             {/* 3. Leave Transactions Audit Trail Table */}
             <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 space-y-3">
               <div className="border-b border-gray-100 pb-2.5">
@@ -973,6 +1304,119 @@ const LeaveDashboardPage: React.FC = () => {
                     className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold disabled:opacity-70"
                   >
                     {isSubmitting ? "Processing..." : "Submit Adjustment"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ── ADD EVENT MODAL DIALOG ────────────────────────────────────── */}
+        {isAddEventModalOpen && (
+          <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5" />
+                  <h3 className="text-sm font-bold">Add Calendar Event</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAddEventModalOpen(false)}
+                  className="p-1 rounded-lg text-white/80 hover:bg-white/10"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateEvent} className="p-4 space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Event Title *</label>
+                  <input
+                    type="text"
+                    value={newEventForm.title}
+                    onChange={(e) => setNewEventForm(p => ({ ...p, title: e.target.value }))}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+                    placeholder="e.g. Quarterly Team Planning"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Date *</label>
+                    <input
+                      type="date"
+                      value={newEventForm.dateStr}
+                      onChange={(e) => setNewEventForm(p => ({ ...p, dateStr: e.target.value }))}
+                      className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Time *</label>
+                    <input
+                      type="text"
+                      value={newEventForm.time}
+                      onChange={(e) => setNewEventForm(p => ({ ...p, time: e.target.value }))}
+                      className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+                      placeholder="05:30 AM"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Location</label>
+                    <input
+                      type="text"
+                      value={newEventForm.location}
+                      onChange={(e) => setNewEventForm(p => ({ ...p, location: e.target.value }))}
+                      className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+                      placeholder="e.g. Conference Room B"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Color Tag</label>
+                    <select
+                      value={newEventForm.type}
+                      onChange={(e) => setNewEventForm(p => ({ ...p, type: e.target.value }))}
+                      className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+                    >
+                      <option value="blue">Blue (Conference)</option>
+                      <option value="emerald">Green (Meeting)</option>
+                      <option value="amber">Amber (Workshop)</option>
+                      <option value="rose">Red (Product Launch)</option>
+                      <option value="purple">Purple (Client)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Description / Notes</label>
+                  <textarea
+                    rows={2}
+                    value={newEventForm.description}
+                    onChange={(e) => setNewEventForm(p => ({ ...p, description: e.target.value }))}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none resize-none"
+                    placeholder="Provide details about this event..."
+                  />
+                </div>
+
+                <div className="pt-2 border-t border-gray-100 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddEventModalOpen(false)}
+                    className="px-4 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs"
+                  >
+                    Save Event
                   </button>
                 </div>
               </form>

@@ -184,23 +184,13 @@ export const navItems: NavItem[] = [
       { name: "Shift Master", path: "/att_shift", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
       { name: "Holiday Calendar", path: "/att_holidayCalendar" },
 
-      // 3. Policy Configuration & Admin Setup
+      // 4. Policy Configuration & Admin Setup
       { name: "Attendance Policy", path: "/att_attendancePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
       { name: "Leave Policy Master", path: "/att_leavePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
 
-      // 4. Dashboards, Reports & Audits
+      // 5. Dashboards, Reports & Audits
       { name: "Leave Dashboard & Audits", path: "/att_leaveDashboard" },
       { name: "Attendance Reports", path: "/att_reports" },
-    ],
-  },
-  {
-    icon: <CheckSquare className="w-5 h-5" />,
-    name: "Approvals",
-    roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"],
-    subItems: [
-      { name: "Regularization Approvals", path: "/att_regularizationApproval" },
-      { name: "Leave Approvals", path: "/att_attendanceApproval" },
-      { name: "On Duty Approvals", path: "/att_onDutyApproval", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
     ],
   },
   {
@@ -251,6 +241,7 @@ const AppSidebar: React.FC = () => {
     setSidebarWidth,
     isResizing,
     setIsResizing,
+    toggleMobileSidebar,
   } = useSidebar();
   const location = useLocation();
   const { user } = useContext(AuthContext);
@@ -562,6 +553,7 @@ const AppSidebar: React.FC = () => {
                     <Link
                       key={subItem.name}
                       to={subItem.path || "#"}
+                      onClick={() => isMobileOpen && toggleMobileSidebar()}
                       className={`
                         block px-3 py-1.5 text-sm rounded-md transition-all duration-200 ease-in-out transform active:scale-95
                         ${isActive(subItem.path || "")
@@ -663,9 +655,6 @@ const AppSidebar: React.FC = () => {
           <div className="space-y-1">
             {navItems.map((nav, index) => {
               const isAdmin = (userRole === "SUPER_ADMIN" || userRole === "ADMIN" || user?.roles?.includes("SUPER_ADMIN") || user?.roles?.includes("ADMIN")) && user?.userType !== "USER" && user?.userType !== "EMPLOYEE";
-              if (nav.name === "Approvals" && !isAdmin) {
-                return null;
-              }
               if (nav.name === "HRMS" && nav.subItems) {
                 const mappedSubItems = nav.subItems.filter(sub => {
                   if (sub.name === "Exit Approvals" && !isAdmin) {
