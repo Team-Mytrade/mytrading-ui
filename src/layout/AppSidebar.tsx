@@ -12,6 +12,7 @@ import {
   UserCircle,
   ChevronDown,
   CheckSquare,
+  Briefcase,
 } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
 import { AuthContext } from "../context/AuthContext";
@@ -145,7 +146,7 @@ export const navItems: NavItem[] = [
   },
 
   {
-    icon: <Users className="w-5 h-5" />,
+    icon: <Briefcase className="w-5 h-5" />,
     name: "HRMS",
     subItems: [
       { name: "Department", path: "/employeeDepartments" },
@@ -154,8 +155,8 @@ export const navItems: NavItem[] = [
       { name: "Salary", path: "/employeeSalary" },
       { name: "Payslips", path: "/employeePayslips" },
       { name: "Payroll", path: "/employeePayroll" },
-      { 
-        name: "Reports", 
+      {
+        name: "Reports",
         subItems: [
           { name: "Payroll Summary", path: "/payrollSummary" },
           { name: "Department Summary", path: "/departmentSummary" }
@@ -260,16 +261,15 @@ const AppSidebar: React.FC = () => {
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [openSubmenu, setOpenSubmenu] = useState<number | null>(null);
-  const [subMenuHeight, setSubMenuHeight] = useState<Record<number, number>>({});
-  const subMenuRefs = useRef<Record<number, HTMLDivElement | null>>({});
-  const menuItemRefs = useRef<Record<number, HTMLElement | null>>({});
 
   const [openSubSubmenu, setOpenSubSubmenu] = useState<string | null>(null);
-  const [subSubMenuHeight, setSubSubMenuHeight] = useState<Record<string, number>>({});
-  const subSubMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  // FIX (#3): default role must carry no special privileges. "Admin" previously
+  // meant every user was briefly treated as an admin while the real role loaded,
+  // which could flash role-gated nav items (Exit Approvals, Configurations,
+  // Attendance policy screens, etc.) before permissions were actually known.
   const [userName, setUserName] = useState<string>("User");
-  const [userRole, setUserRole] = useState<string>("Admin");
+  const [userRole, setUserRole] = useState<string>("");
   const [profileImage, setProfileImage] = useState<string>("");
   const [loadingProfile, setLoadingProfile] = useState<boolean>(true);
 
@@ -280,6 +280,23 @@ const AppSidebar: React.FC = () => {
     (path: string) =>
       location.pathname === path || location.pathname.startsWith(`${path}/`),
     [location.pathname]
+  );
+
+  // FIX (#1): a parent nav item ("Inventory", "CRM", ...) is only "active" when the
+  // current route actually matches one of its children (at any depth) — expanding
+  // the submenu no longer counts as "active" on its own.
+  const isParentActive = useCallback(
+    (nav: NavItem) => {
+      if (!nav.subItems) return false;
+      return nav.subItems.some((sub) => {
+        if (sub.path && isActive(sub.path)) return true;
+        if (sub.subItems) {
+          return sub.subItems.some((ss) => ss.path && isActive(ss.path));
+        }
+        return false;
+      });
+    },
+    [isActive]
   );
 
   const getAuthToken = (): string | null => localStorage.getItem("accessToken");
@@ -299,19 +316,19 @@ const AppSidebar: React.FC = () => {
         if (response.ok) {
           const userData = await response.json();
           setUserName(userData.fullName || user?.fullName || "User");
-          setUserRole(userData.role || user?.role || "Admin");
+          setUserRole(userData.role || user?.role || "");
         } else {
           setUserName(user?.fullName || "User");
-          setUserRole(user?.role || "Admin");
+          setUserRole(user?.role || "");
         }
       } else {
         setUserName(user?.fullName || "User");
-        setUserRole(user?.role || "Admin");
+        setUserRole(user?.role || "");
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
       setUserName(user?.fullName || "User");
-      setUserRole(user?.role || "Admin");
+      setUserRole(user?.role || "");
     } finally {
       setLoadingProfile(false);
     }
@@ -388,7 +405,7 @@ const AppSidebar: React.FC = () => {
       fetchUserImage();
     } else {
       setUserName("User");
-      setUserRole("Admin");
+      setUserRole("");
       setProfileImage(generateInitialsImage("User"));
       setLoadingProfile(false);
     }
@@ -467,22 +484,26 @@ const AppSidebar: React.FC = () => {
     const isCollapsed = !isExpanded && !isMobileOpen;
 
     if (nav.subItems) {
+      // FIX (#1): "active" (route match) and "expanded" (submenu open) are now
+      // visually distinct states instead of sharing the same highlight class.
+      const parentActive = isParentActive(nav);
+      const parentExpanded = openSubmenu === index;
+
+      const buttonClass = parentActive
+        ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
+        : parentExpanded || (isCollapsed && tooltipVisible === index)
+        ? "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200";
+
       return (
         <div key={nav.name} className="relative">
           <button
-            ref={(el) => {
-              menuItemRefs.current[index] = el;
-            }}
             onClick={() => handleSubmenuToggle(index)}
             onMouseEnter={(e) => isCollapsed && handleTooltipEnter(index, e)}
             onMouseLeave={handleTooltipLeave}
             className={`
               w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 relative
-              ${
-                openSubmenu === index || (isCollapsed && tooltipVisible === index)
-                  ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-              }
+              ${buttonClass}
               ${isCollapsed ? "justify-center" : ""}
             `}
           >
@@ -493,7 +514,7 @@ const AppSidebar: React.FC = () => {
             {(isExpanded || isMobileOpen) && (
               <ChevronDown
                 className={`w-4 h-4 transition-transform duration-200 ${
-                  openSubmenu === index ? "rotate-180" : ""
+                  parentExpanded ? "rotate-180" : ""
                 }`}
               />
             )}
@@ -501,19 +522,19 @@ const AppSidebar: React.FC = () => {
 
           {(isExpanded || isMobileOpen) && (
             <div
-              ref={(el) => { subMenuRefs.current[index] = el; }}
-              className={`grid transition-all duration-300 ease-in-out ${openSubmenu === index ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+              className={`grid transition-all duration-300 ease-in-out ${parentExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
             >
               <div className="overflow-hidden">
                 <div className="ml-9 pl-2 mt-1 space-y-0.5 border-l border-gray-200 dark:border-gray-700">
                 {nav.subItems.filter(subItem => {
                   if (!subItem.roles) return true;
-                  const currentRole = (user?.role || userRole || "SUPER_ADMIN").toUpperCase().replace(/[\s_]+/g, "");
+                  const currentRole = (user?.role || userRole || "").toUpperCase().replace(/[\s_]+/g, "");
+                  if (!currentRole) return false;
                   return subItem.roles.some(r => r.toUpperCase().replace(/[\s_]+/g, "") === currentRole || currentRole === "SUPERADMIN");
                 }).map((subItem, subIndex) => {
                   const subKey = `${index}-${subIndex}`;
                   const hasSubSubItems = subItem.subItems && subItem.subItems.length > 0;
-                  
+
                   if (hasSubSubItems) {
                     return (
                       <div key={subItem.name} className="relative mt-0.5">
@@ -530,9 +551,8 @@ const AppSidebar: React.FC = () => {
                           <span>{subItem.name}</span>
                           <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openSubSubmenu === subKey ? "rotate-180" : ""}`} />
                         </button>
-                        
+
                         <div
-                          ref={(el) => { subSubMenuRefs.current[subKey] = el; }}
                           className={`grid transition-all duration-300 ease-in-out ${openSubSubmenu === subKey ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
                         >
                           <div className="overflow-hidden">
@@ -586,9 +606,6 @@ const AppSidebar: React.FC = () => {
     if (nav.path) {
       const linkElement = (
         <Link
-          ref={(el) => {
-            menuItemRefs.current[index] = el;
-          }}
           to={nav.path}
           className={`
             flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 relative
@@ -616,6 +633,17 @@ const AppSidebar: React.FC = () => {
   };
 
   const activeTooltipItem = tooltipVisible !== null ? navItems[tooltipVisible] : undefined;
+
+  // FIX (#3): compute admin status only once the real role has loaded, so
+  // role-gated items never briefly render for non-admin users while loading.
+  const isAdmin =
+    !loadingProfile &&
+    (userRole === "SUPER_ADMIN" ||
+      userRole === "ADMIN" ||
+      user?.roles?.includes("SUPER_ADMIN") ||
+      user?.roles?.includes("ADMIN")) &&
+    user?.userType !== "USER" &&
+    user?.userType !== "EMPLOYEE";
 
   return (
     <>
@@ -716,7 +744,7 @@ const AppSidebar: React.FC = () => {
                 <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                   {loadingProfile ? "Loading..." : userName}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{userRole}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{userRole || "—"}</p>
               </div>
             )}
           </Link>

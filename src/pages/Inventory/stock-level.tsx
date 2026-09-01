@@ -28,6 +28,31 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
+/**
+ * =====================================================================================
+ * NOTES ON BACKEND SHAPE (confirmed from the real runtime response, which overrides
+ * the Swagger schema):
+ *
+ * 1. `warehouse` is a FULL NESTED OBJECT on the StockLevel entity:
+ *    { id, createdDate, updatedDate, createdBy, tenantId, code, name, locationType,
+ *      active } — NOT a string. Handled as an object, and only `.name` / `.code` /
+ *    `.id` are ever rendered.
+ *
+ * 2. There is NO nested `product` object in the StockLevel response — only
+ *    `productId`. Product name/SKU are resolved by looking `productId` up in the
+ *    separately-fetched products list (rendered via `product.productName`).
+ *
+ * 3. `createdBy` / `tenantId` static placeholder values have been removed from the
+ *    create payload — the backend/server is responsible for populating these
+ *    (e.g. from the authenticated session), so the client no longer sends them.
+ *
+ * 4. Create stays a POST to /stock-levels. The 5 stock operations
+ *    (add-stock / reserve / release / remove-stock / complete-sale) stay as
+ *    PUT /stock-levels/warehouse/{warehouseId}/product/{productId}/{op}?quantity=X
+ *    — unchanged.
+ * =====================================================================================
+ */
+
 // ---------- Type Definitions ----------
 interface Product {
   id: number;
@@ -39,25 +64,27 @@ interface Warehouse {
   id: number;
   name: string;
   code?: string;
+  locationType?: string;
+  active?: boolean;
+  createdDate?: string;
+  updatedDate?: string;
+  createdBy?: string;
+  tenantId?: string;
 }
 
-// StockLevel can have nested objects or separate IDs
 interface StockLevel {
   id: number;
   quantity: number;
   reserved: number;
   available: number;
-  product?: Product;
-  warehouse?: Warehouse;
   productId?: number;
-  warehouseId?: number;
-  createdAt?: string;
-  updatedAt?: string;
+  warehouse?: Warehouse;
+  createdDate?: string;
+  updatedDate?: string;
+  createdBy?: string;
+  tenantId?: string;
 }
 
-// The 5 supported stock movement operations. Each maps 1:1 to a backend
-// endpoint of the shape:
-//   PUT /stock-levels/warehouse/{warehouseId}/product/{productId}/{action}?quantity={quantity}
 type StockOperation =
   | "add-stock"
   | "reserve"
@@ -76,11 +103,8 @@ const API_URL = "/v1/api/inventory";
 const PRODUCT_URL = "/v1/api/purchase/products";
 const PAGE_SIZE = 10;
 
-// Matches routes confirmed in AppRouter.tsx. Neither takes an :id param, so
-// navigation lands on the list page with the id passed via query string +
-// state, same pattern used across the other inventory screens.
-const PRODUCT_ROUTE = "/purchase-products"; // <Route path="/purchase-products" element={<Products />} />
-const WAREHOUSE_ROUTE = "/warehouse";       // <Route path="/warehouse" element={<Warehouse />} />
+const PRODUCT_ROUTE = "/purchase-products";
+const WAREHOUSE_ROUTE = "/warehouse";
 
 const emptyForm: StockLevelForm = {
   productId: "",
@@ -89,8 +113,6 @@ const emptyForm: StockLevelForm = {
   quantity: "",
 };
 
-// Config for each operation: label shown in the dropdown, success toast copy,
-// and the endpoint segment used to build the request URL.
 const STOCK_OPERATIONS: Record<
   StockOperation,
   { label: string; endpoint: string; successMessage: string }
@@ -151,38 +173,32 @@ function getStockStatus(available: number, quantity: number) {
   return { color: "bg-green-50 text-green-700 border-green-200", label: "Healthy Stock", icon: <CheckBadgeIcon className="h-3 w-3 mr-1" /> };
 }
 
-// ---- ID extractors ----
 function getProductId(stock: StockLevel): number | undefined {
-  return stock.product?.id ?? stock.productId;
+  return stock.productId;
 }
 
 function getWarehouseId(stock: StockLevel): number | undefined {
-  return stock.warehouse?.id ?? stock.warehouseId;
+  return stock.warehouse?.id;
 }
 
-// ---- Name/SKU getters ----
 function getProductName(stock: StockLevel, products: Product[]) {
   const id = getProductId(stock);
-  const product = products.find(p => p.id === id);
+  const product = products.find((p) => p.id === id);
   return product ? product.productName : "N/A";
 }
 
 function getProductSku(stock: StockLevel, products: Product[]) {
   const id = getProductId(stock);
-  const product = products.find(p => p.id === id);
+  const product = products.find((p) => p.id === id);
   return product?.sku || "";
 }
 
-function getWarehouseName(stock: StockLevel, warehouses: Warehouse[]) {
-  const id = getWarehouseId(stock);
-  const warehouse = warehouses.find(w => w.id === id);
-  return warehouse ? warehouse.name : "N/A";
+function getWarehouseName(stock: StockLevel) {
+  return stock.warehouse?.name || "N/A";
 }
 
-function getWarehouseCode(stock: StockLevel, warehouses: Warehouse[]) {
-  const id = getWarehouseId(stock);
-  const warehouse = warehouses.find(w => w.id === id);
-  return warehouse?.code || "";
+function getWarehouseCode(stock: StockLevel) {
+  return stock.warehouse?.code || "";
 }
 
 // ---------- Component ----------
@@ -205,9 +221,6 @@ const StockLevelsManager: React.FC = () => {
   const [deletingStock, setDeletingStock] = useState<StockLevel | null>(null);
   const [viewingStock, setViewingStock] = useState<StockLevel | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
-  // null => "Add Stock Movement" (create) form, which always uses "add-stock"
-  // and hides the Operation Type dropdown. Non-null => "Adjust Stock" (edit)
-  // form for that row, which shows all 5 operation types.
   const [editingStock, setEditingStock] = useState<StockLevel | null>(null);
 
   useEffect(() => {
@@ -252,6 +265,7 @@ const StockLevelsManager: React.FC = () => {
     }
   };
 
+  // ---------- Stock operation handlers ----------
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -259,10 +273,6 @@ const StockLevelsManager: React.FC = () => {
     setForm((current) => ({ ...current, [name]: value } as StockLevelForm));
   };
 
-  // Navigates to the owning submodule's list page. Neither route accepts an
-  // :id param (see PRODUCT_ROUTE/WAREHOUSE_ROUTE notes above), so the id is
-  // passed via query string + state in case the target page reads it to
-  // auto-filter/highlight.
   const goToProduct = (productId?: number) => {
     if (!productId) return;
     navigate(`${PRODUCT_ROUTE}?productId=${productId}`, { state: { productId } });
@@ -275,8 +285,6 @@ const StockLevelsManager: React.FC = () => {
     });
   };
 
-  // Builds the endpoint URL for the selected operation, e.g.:
-  // /v1/api/inventory/stock-levels/warehouse/1/product/2/reserve?quantity=100
   const buildOperationUrl = (
     warehouseId: string,
     productId: string,
@@ -309,20 +317,17 @@ const StockLevelsManager: React.FC = () => {
       return;
     }
 
-    // Create mode always hides the Operation Type dropdown; it creates a
-    // brand-new StockLevel row via POST (handles product/warehouse combos
-    // that have never been stocked before).
-    // Edit mode adjusts an EXISTING row via the PUT action endpoints.
     try {
       setSubmitting(true);
 
       if (!editingStock) {
-        const reserved = 0;
         const payload = {
           id: 0,
+          createdDate: new Date().toISOString(),
+          updatedDate: new Date().toISOString(),
           quantity,
-          reserved,
-          available: quantity - reserved,
+          reserved: 0,
+          available: quantity,
           productId: Number(form.productId),
           warehouse: { id: Number(form.warehouseId) },
         };
@@ -331,12 +336,6 @@ const StockLevelsManager: React.FC = () => {
       } else {
         const operationType = form.operationType;
         const url = buildOperationUrl(form.warehouseId, form.productId, operationType, String(quantity));
-        // Confirmed via Swagger + backend controller source: these are all
-        // @PutMapping endpoints, e.g.
-        //   @PutMapping("/warehouse/{warehouseId}/product/{productId}/add-stock")
-        // No request body — quantity is a @RequestParam (query string).
-        // NOTE: this endpoint expects the StockLevel row to already exist
-        // for this product/warehouse combo — it will not create a new one.
         await axios.put(url, null, { headers });
         ToasterService.success(STOCK_OPERATIONS[operationType].successMessage);
       }
@@ -359,8 +358,6 @@ const StockLevelsManager: React.FC = () => {
     setShowFormModal(true);
   };
 
-  // Pre-fills product/warehouse from the clicked row so the user only has to
-  // pick the operation and quantity to apply against that stock level.
   const openEdit = (stock: StockLevel) => {
     setEditingStock(stock);
     setForm({
@@ -397,6 +394,7 @@ const StockLevelsManager: React.FC = () => {
     }
   };
 
+  // ---------- Filtering and stats ----------
   const filteredStockLevels = useMemo(() => {
     const term = searchableText(search);
 
@@ -415,8 +413,8 @@ const StockLevelsManager: React.FC = () => {
       const haystack = [
         getProductName(stock, products),
         getProductSku(stock, products),
-        getWarehouseName(stock, warehouses),
-        getWarehouseCode(stock, warehouses),
+        getWarehouseName(stock),
+        getWarehouseCode(stock),
         stock.quantity,
         stock.reserved,
         stock.available,
@@ -442,7 +440,7 @@ const StockLevelsManager: React.FC = () => {
       totalStock: stockLevels.reduce((sum, s) => sum + s.quantity, 0),
       totalAvailable: stockLevels.reduce((sum, s) => sum + s.available, 0),
       totalReserved: stockLevels.reduce((sum, s) => sum + s.reserved, 0),
-      lowStockCount: stockLevels.filter(s => {
+      lowStockCount: stockLevels.filter((s) => {
         if (s.quantity === 0) return true;
         const percentage = (s.available / s.quantity) * 100;
         return percentage <= 20;
@@ -473,7 +471,6 @@ const StockLevelsManager: React.FC = () => {
     ];
   }, []);
 
-  // Options shown in the "Operation Type" dropdown of the form.
   const operationTypeOptions = useMemo(() => {
     return (Object.keys(STOCK_OPERATIONS) as StockOperation[]).map((key) => ({
       id: key,
@@ -481,6 +478,7 @@ const StockLevelsManager: React.FC = () => {
     }));
   }, []);
 
+  // ---------- Table columns ----------
   const columns: ColumnDef<StockLevel>[] = [
     {
       key: "product",
@@ -501,7 +499,7 @@ const StockLevelsManager: React.FC = () => {
                   e.stopPropagation();
                   goToProduct(productId);
                 }}
-                 className="text-sm font-semibold text-cyan-600 hover:text-cyan-700 text-left"
+                className="text-sm font-semibold text-cyan-600 hover:text-cyan-700 text-left"
                 title="View product"
               >
                 {getProductName(stock, products)}
@@ -518,10 +516,10 @@ const StockLevelsManager: React.FC = () => {
       key: "warehouse",
       label: "Warehouse",
       sortable: true,
-      sortValueGetter: (stock) => getWarehouseName(stock, warehouses),
+      sortValueGetter: (stock) => getWarehouseName(stock),
       render: (stock) => {
         const warehouseId = getWarehouseId(stock);
-        const warehouseName = getWarehouseName(stock, warehouses);
+        const warehouseName = getWarehouseName(stock);
         return (
           <div className="flex items-center gap-2">
             <BuildingOfficeIcon className="h-4 w-4 text-slate-400" />
@@ -630,7 +628,7 @@ const StockLevelsManager: React.FC = () => {
 
       <div className="w-full max-w-none px-0 py-8 ">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Stock Movement" />
+          <AddButton onClick={openCreate} label="Add Stock" />
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -670,7 +668,7 @@ const StockLevelsManager: React.FC = () => {
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by product, SKU, or warehouse..."
+              placeholder="Search by product, SKU, warehouse..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
@@ -696,7 +694,7 @@ const StockLevelsManager: React.FC = () => {
               disabled={loading}
               columns={[
                 { header: "Product", accessor: (row) => getProductName(row, products) },
-                { header: "Warehouse", accessor: (row) => getWarehouseName(row, warehouses) },
+                { header: "Warehouse", accessor: (row) => getWarehouseName(row) },
                 { header: "Total Qty", accessor: (row) => row.quantity },
                 { header: "Reserved", accessor: (row) => row.reserved },
                 { header: "Available", accessor: (row) => row.available },
@@ -706,6 +704,11 @@ const StockLevelsManager: React.FC = () => {
                 { label: "Total", value: rows.length },
                 { label: "Search", value: search || "None" },
                 { label: "Total Stock", value: rows.reduce((sum, s) => sum + s.quantity, 0) },
+                { label: "Low Stock", value: rows.filter((s) => {
+                  if (s.quantity === 0) return true;
+                  const pct = (s.available / s.quantity) * 100;
+                  return pct <= 20;
+                }).length },
               ]}
             />
             <FilterPopover
@@ -768,17 +771,17 @@ const StockLevelsManager: React.FC = () => {
                 onClick={openCreate}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
               >
-                Record your first stock movement
+                Add your first stock
               </button>
             </div>
           }
         />
       </div>
 
-      {/* Stock Operation Modal (Add Stock / Reserve / Release / Remove Stock / Complete Sale) */}
+      {/* Stock Operation Modal */}
       <PaginatedPopup
         isOpen={showFormModal}
-        title={editingStock ? "Adjust Stock" : "Add Stock Movement"}
+        title={editingStock ? "Adjust Stock" : "Add Stock"}
         subtitle={
           editingStock
             ? "Choose an operation and quantity to apply to this stock level"
@@ -824,7 +827,6 @@ const StockLevelsManager: React.FC = () => {
             label: "Operation",
             fields: editingStock
               ? [
-                  // Edit mode: full 5-way operation picker
                   <FloatingSelect
                     key="operationType"
                     label="Operation Type"
@@ -857,7 +859,6 @@ const StockLevelsManager: React.FC = () => {
                   </p>,
                 ]
               : [
-                  // Create mode: no Operation Type dropdown — always add-stock
                   <FloatingInput
                     key="quantity"
                     label="Quantity"
@@ -875,8 +876,7 @@ const StockLevelsManager: React.FC = () => {
         ]}
       />
 
-      {/* View Details Modal — structured grid instead of a plain-text subText
-          (subText collapses \n line breaks into one run-on paragraph). */}
+      {/* View Details Modal */}
       {showViewModal && viewingStock && (() => {
         const status = getStockStatus(viewingStock.available, viewingStock.quantity);
         const utilization =
@@ -885,8 +885,8 @@ const StockLevelsManager: React.FC = () => {
             : "0%";
         const productId = getProductId(viewingStock);
         const warehouseId = getWarehouseId(viewingStock);
-        const warehouseName = getWarehouseName(viewingStock, warehouses);
-        const warehouseCode = getWarehouseCode(viewingStock, warehouses);
+        const warehouseName = getWarehouseName(viewingStock);
+        const warehouseCode = getWarehouseCode(viewingStock);
         const sku = getProductSku(viewingStock, products);
         const isLowStock = status.label === "Low Stock";
 
@@ -973,11 +973,11 @@ const StockLevelsManager: React.FC = () => {
                           <p className="text-xs text-gray-500">Utilization</p>
                           <p className="text-sm text-gray-700">{utilization}</p>
                         </div>
-                        {viewingStock.updatedAt && (
+                        {viewingStock.updatedDate && (
                           <div>
                             <p className="text-xs text-gray-500">Last Updated</p>
                             <p className="text-sm text-gray-600">
-                              {new Date(viewingStock.updatedAt).toLocaleString()}
+                              {new Date(viewingStock.updatedDate).toLocaleString()}
                             </p>
                           </div>
                         )}
@@ -1036,7 +1036,7 @@ const StockLevelsManager: React.FC = () => {
         innerText="Delete Stock Level"
         subText={
           deletingStock
-            ? `Are you sure you want to delete the stock level for "${getProductName(deletingStock, products)}" at "${getWarehouseName(deletingStock, warehouses)}"? This action cannot be undone.`
+            ? `Are you sure you want to delete the stock level for "${getProductName(deletingStock, products)}" at "${getWarehouseName(deletingStock)}"? This action cannot be undone.`
             : "Are you sure you want to delete this stock level?"
         }
         confirmLabel="Delete"

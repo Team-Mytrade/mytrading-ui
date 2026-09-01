@@ -18,6 +18,68 @@ type SearchResult = {
   parent?: string;
 };
 
+// Shared icon-button style so every icon action in the header has the same footprint
+const ICON_BUTTON_CLASS =
+  "flex items-center justify-center w-10 h-10 text-gray-500 transition-colors rounded-lg hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800";
+
+const IconButton = ({
+  onClick,
+  label,
+  children,
+}: {
+  onClick: () => void;
+  label: string;
+  children: React.ReactNode;
+}) => (
+  <button onClick={onClick} aria-label={label} title={label} className={ICON_BUTTON_CLASS}>
+    {children}
+  </button>
+);
+
+const SearchBar = ({
+  className = "",
+  inputRef,
+}: {
+  className?: string;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
+}) => {
+  const isMac =
+    typeof navigator !== "undefined" && /Mac/i.test(navigator.platform);
+
+  return (
+    <div className={`relative ${className}`}>
+      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+        <svg
+          className="w-5 h-5 text-gray-500 dark:text-gray-400"
+          fill="none"
+          viewBox="0 0 20 20"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            fillRule="evenodd"
+            clipRule="evenodd"
+            d="M9.375 16.708a7.333 7.333 0 1 0 0-14.667 7.333 7.333 0 0 0 0 14.667Zm7.815-1.358 2.94 2.94a.833.833 0 0 1-1.179 1.178l-2.94-2.94a9.167 9.167 0 1 1 1.18-1.18Z"
+            fill="currentColor"
+          />
+        </svg>
+      </div>
+
+      <input
+        ref={inputRef}
+        type="text"
+        placeholder="Search or type command..."
+        className="w-full h-10 pl-10 pr-16 text-sm bg-white border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-colors"
+      />
+
+      <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+        <kbd className="inline-flex items-center justify-center h-5 w-auto px-2 py-1 text-xs font-medium text-gray-500 bg-gray-100 border border-gray-300 rounded dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600">
+          {isMac ? "⌘K" : "Ctrl K"}
+        </kbd>
+      </div>
+    </div>
+  );
+};
+
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -30,6 +92,7 @@ const AppHeader: React.FC = () => {
   const navigate = useNavigate();
 
   const isMac = typeof navigator !== "undefined" && /Mac/i.test(navigator.platform);
+  // True whenever the sidebar is "open" in either mode (mobile drawer or desktop expanded)
   const isSidebarOpen = isMobileOpen || isExpanded;
 
   const handleToggle = () => {
@@ -456,7 +519,6 @@ const AppHeader: React.FC = () => {
                 />
               </svg>
             </button>
-
             <div
               className={`${
                 isApplicationMenuOpen ? "flex" : "hidden"
@@ -495,21 +557,11 @@ const AppHeader: React.FC = () => {
                 >
                   {isFullscreen ? (
                     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                      <path
-                        fillRule="evenodd"
-                        clipRule="evenodd"
-                        d="M9 3H3v6h2V5h4V3zm6 0h6v6h-2V5h-4V3zm-8 18H3v-6h2v4h4v2zm8 0h6v-6h-2v4h-4v2z"
-                        fill="currentColor"
-                      />
+                      <path fillRule="evenodd" clipRule="evenodd" d="M9 3H3v6h2V5h4V3zm6 0h6v6h-2V5h-4V3zm-8 18H3v-6h2v4h4v2zm8 0h6v-6h-2v4h-4v2z" fill="currentColor" />
                     </svg>
                   ) : (
                     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                      <path
-                        fillRule="evenodd"
-                        clipRule="evenodd"
-                        d="M8 3H3v5h2V5h3V3zm8 0h5v5h-2V5h-3V3zM8 21H3v-5h2v3h3v2zm8 0h5v-5h-2v3h-3v2z"
-                        fill="currentColor"
-                      />
+                      <path fillRule="evenodd" clipRule="evenodd" d="M8 3H3v5h2V5h3V3zm8 0h5v5h-2V5h-3V3zM8 21H3v-5h2v3h3v2zm8 0h5v-5h-2v3h-3v2z" fill="currentColor" />
                     </svg>
                   )}
                 </button>
@@ -517,7 +569,7 @@ const AppHeader: React.FC = () => {
                 <ThemeToggleButton />
                 <NotificationDropdown />
 
-                <div className="hidden lg:block h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
+                <div className="hidden lg:block h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1" />
 
                 <UserDropdown />
               </div>
