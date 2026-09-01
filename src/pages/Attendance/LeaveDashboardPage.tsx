@@ -4,7 +4,8 @@ import Chart from 'react-apexcharts';
 import { 
   BarChart3, UserCheck, Calendar, Sliders, Users, Layers, ShieldCheck, Clock, 
   RotateCw, Plus, X, Search, AlertCircle, CheckCircle2, FileSignature, ArrowRight, PieChart,
-  Briefcase, FileCheck, ExternalLink, ChevronLeft, ChevronRight, MapPin, User, CalendarDays
+  Briefcase, FileCheck, ExternalLink, ChevronLeft, ChevronRight, MapPin, User, CalendarDays,
+  Sparkles, Gift, Palmtree
 } from 'lucide-react';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
@@ -118,6 +119,7 @@ const LeaveDashboardPage: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'employee' | 'manager'>('employee');
   const [activeEmployeeId, setActiveEmployeeId] = useState<number>(currentUser.id > 100000 ? 12 : currentUser.id);
+  const [employeeCode, setEmployeeCode] = useState<string>(currentUser.code || `ADM-EMP-${String(currentUser.id > 100000 ? 12 : currentUser.id).padStart(4, '0')}`);
 
   const [employeeMap, setEmployeeMap] = useState<Record<number, string>>({});
 
@@ -135,15 +137,35 @@ const LeaveDashboardPage: React.FC = () => {
           });
           setEmployeeMap(map);
 
-          const uName = (currentUser.name || '').toLowerCase();
-          const match = empRes.data.find((e: any) => {
-            const eName = `${e.firstName || ''} ${e.lastName || ''}`.trim().toLowerCase() || (e.name || '').toLowerCase();
-            return (uName && (eName.includes(uName) || uName.includes(eName))) || Number(e.id) === currentUser.id;
+          const uName = (currentUser.name || '').toLowerCase().trim();
+          const uEmail = (currentUser.email || '').toLowerCase().trim();
+
+          // 1. Primary Match: Match by Name or Email
+          let match = empRes.data.find((e: any) => {
+            const firstName = (e.firstName || '').toLowerCase().trim();
+            const lastName = (e.lastName || '').toLowerCase().trim();
+            const fullName = `${firstName} ${lastName}`.trim() || (e.name || '').toLowerCase().trim();
+            const email = (e.email || '').toLowerCase().trim();
+
+            if (!uName || uName === 'system admin') return false;
+            return (
+              fullName === uName || 
+              fullName.includes(uName) || 
+              uName.includes(fullName) ||
+              (uEmail && email && email === uEmail)
+            );
           });
-          const selected = match || empRes.data.find((e: any) => Number(e.id) === 12) || empRes.data[0];
+
+          // 2. Secondary Match: Fallback by ID if name search yields no match
+          if (!match && currentUser.id > 0) {
+            match = empRes.data.find((e: any) => Number(e.id) === currentUser.id);
+          }
+
+          const selected = match || empRes.data[0];
           if (selected && selected.id) {
             const validId = Number(selected.id);
             setActiveEmployeeId(validId);
+            setEmployeeCode(selected.employeeCode || `EMP-${validId}`);
             setAdjustmentForm(prev => ({ ...prev, employeeId: validId }));
           }
         }
@@ -187,6 +209,12 @@ const LeaveDashboardPage: React.FC = () => {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const [pendingQueueCounts, setPendingQueueCounts] = useState({
     leave: 0,
     regularization: 0,
@@ -195,86 +223,16 @@ const LeaveDashboardPage: React.FC = () => {
 
   // ── Calendar Dashboard State matching Screenshot ───────────────────────
   const [calendarViewMode, setCalendarViewMode] = useState<'month' | 'week' | 'day'>('month');
-  const [calendarDate, setCalendarDate] = useState(new Date(2026, 7, 1)); // August 2026
-  const [eventsList, setEventsList] = useState([
-    {
-      id: 1,
-      title: "Annual Conference",
-      dateStr: "2026-08-25",
-      time: "05:30 AM",
-      dotColor: "bg-blue-500",
-      badgeBg: "bg-blue-50/90 text-blue-700 border-blue-200/80 hover:bg-blue-100",
-      description: "Annual tech conference with industry leaders",
-      location: "Convention Center",
-      attendees: 150,
-      dayLabel: "Today"
-    },
-    {
-      id: 2,
-      title: "Team Meeting",
-      dateStr: "2026-08-26",
-      time: "05:30 AM",
-      dotColor: "bg-emerald-500",
-      badgeBg: "bg-emerald-50/90 text-emerald-700 border-emerald-200/80 hover:bg-emerald-100",
-      description: "Quarterly team planning session",
-      location: "Meeting Room A",
-      attendees: 12,
-      dayLabel: "Tomorrow"
-    },
-    {
-      id: 3,
-      title: "Workshop Series",
-      dateStr: "2026-08-27",
-      time: "05:30 AM",
-      dotColor: "bg-amber-500",
-      badgeBg: "bg-amber-50/90 text-amber-800 border-amber-200/80 hover:bg-amber-100",
-      description: "3-day workshop on advanced techniques",
-      location: "Training Hall",
-      attendees: 45,
-      dayLabel: "Thu, Aug 27"
-    },
-    {
-      id: 4,
-      title: "Product Launch",
-      dateStr: "2026-08-29",
-      time: "05:30 AM",
-      dotColor: "bg-rose-500",
-      badgeBg: "bg-rose-50/90 text-rose-700 border-rose-200/80 hover:bg-rose-100",
-      description: "Launch of new product line",
-      location: "Main Auditorium",
-      attendees: 200,
-      dayLabel: "Sat, Aug 29"
-    },
-    {
-      id: 5,
-      title: "Client Presentation",
-      dateStr: "2026-08-30",
-      time: "05:30 AM",
-      dotColor: "bg-purple-500",
-      badgeBg: "bg-purple-50/90 text-purple-700 border-purple-200/80 hover:bg-purple-100",
-      description: "Presentation to key enterprise clients",
-      location: "Boardroom B",
-      attendees: 25,
-      dayLabel: "Sun, Aug 30"
-    },
-    {
-      id: 6,
-      title: "Team Outing",
-      dateStr: "2026-08-31",
-      time: "09:00 AM",
-      dotColor: "bg-pink-500",
-      badgeBg: "bg-pink-50/90 text-pink-700 border-pink-200/80 hover:bg-pink-100",
-      description: "Annual team outing & team building activities",
-      location: "Resort & Spa",
-      attendees: 50,
-      dayLabel: "Mon, Aug 31"
-    }
-  ]);
+  const [calendarDate, setCalendarDate] = useState(new Date(2026, 7, 27)); // August 27, 2026 Today
+  const [eventCategoryFilter, setEventCategoryFilter] = useState<'ALL' | 'LEAVE' | 'HOLIDAY' | 'MEETING'>('ALL');
+  const [showOnlyUpcoming, setShowOnlyUpcoming] = useState(true);
+  const [selectedEventDetails, setSelectedEventDetails] = useState<any | null>(null);
+  const [eventsList, setEventsList] = useState<any[]>([]);
 
   const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
   const [newEventForm, setNewEventForm] = useState({
     title: '',
-    dateStr: '2026-08-25',
+    dateStr: '2026-08-27',
     time: '05:30 AM',
     description: '',
     location: '',
@@ -309,7 +267,15 @@ const LeaveDashboardPage: React.FC = () => {
       dayLabel: newEventForm.dateStr === '2026-08-25' ? 'Today' : newEventForm.dateStr
     };
 
-    setEventsList(prev => [created, ...prev]);
+    setEventsList(prev => {
+      const updated = [created, ...prev];
+      try {
+        const customOnly = updated.filter(e => typeof e.id === 'number');
+        localStorage.setItem('custom_calendar_events', JSON.stringify(customOnly));
+      } catch (err) {}
+      return updated;
+    });
+
     ToasterService.success(`Event "${created.title}" added to Calendar!`);
     setIsAddEventModalOpen(false);
     setNewEventForm({
@@ -550,6 +516,85 @@ const LeaveDashboardPage: React.FC = () => {
       }
     } catch (e) {}
 
+    // 6. Live Calendar Events & Official Holidays Fetching
+    try {
+      const liveEvents: any[] = [];
+
+      // Fetch Live Leave Requests
+      try {
+        const leaveRes = await axios.get(`/v1/api/attendance/leave-requests/employee/${numericEmpId}`, { timeout: 3000 });
+        if (Array.isArray(leaveRes.data) && leaveRes.data.length > 0) {
+          leaveRes.data.forEach((r: any, idx: number) => {
+            const startStr = r.fromDate || r.startDate || '2026-08-25';
+            const status = String(r.status || r.approvalStatus || 'APPROVED').toUpperCase();
+            const lType = String(r.leaveType || 'CASUAL').toUpperCase();
+            
+            const colorCfg = lType.includes('SICK') 
+              ? { dotColor: 'bg-emerald-500', badgeBg: 'bg-emerald-50/90 text-emerald-700 border-emerald-200/80 hover:bg-emerald-100' }
+              : lType.includes('EARNED') 
+              ? { dotColor: 'bg-purple-500', badgeBg: 'bg-purple-50/90 text-purple-700 border-purple-200/80 hover:bg-purple-100' }
+              : { dotColor: 'bg-blue-500', badgeBg: 'bg-blue-50/90 text-blue-700 border-blue-200/80 hover:bg-blue-100' };
+
+            liveEvents.push({
+              id: `leave-${r.id || idx}`,
+              title: `${r.leaveType || 'Leave'} (${status})`,
+              dateStr: String(startStr).split('T')[0],
+              time: `${r.totalDays || 1} Day(s)`,
+              dotColor: colorCfg.dotColor,
+              badgeBg: colorCfg.badgeBg,
+              description: r.reason || `Leave request for ${r.totalDays || 1} day(s)`,
+              location: 'Employee Leave',
+              attendees: 1,
+              dayLabel: String(startStr).split('T')[0]
+            });
+          });
+        }
+      } catch (e) {}
+
+      // Fetch Live Holidays
+      try {
+        const holRes = await axios.get('/v1/api/attendance/holiday-calendars/1/holidays', { timeout: 3000 });
+        if (Array.isArray(holRes.data) && holRes.data.length > 0) {
+          holRes.data.forEach((h: any, idx: number) => {
+            if (h.holidayDate) {
+              const hDate = String(h.holidayDate).split('T')[0];
+              liveEvents.push({
+                id: `holiday-${h.id || idx}`,
+                title: h.holidayName || 'Company Holiday',
+                dateStr: hDate,
+                time: 'Official Holiday',
+                dotColor: 'bg-rose-500',
+                badgeBg: 'bg-rose-50/90 text-rose-700 border-rose-200/80 hover:bg-rose-100',
+                description: h.description || 'Mandatory Organization Holiday',
+                location: 'Company Wide',
+                attendees: 50,
+                dayLabel: hDate
+              });
+            }
+          });
+        }
+      } catch (e) {}
+
+      // Load stored custom events from localStorage
+      let localCustom: any[] = [];
+      try {
+        const stored = localStorage.getItem('custom_calendar_events');
+        if (stored) localCustom = JSON.parse(stored);
+      } catch (err) {}
+
+      setEventsList(prev => {
+        const userCustomEvents = localCustom.length > 0 ? localCustom : prev.filter(e => typeof e.id === 'number');
+        const combined = [...liveEvents, ...userCustomEvents];
+        const seen = new Set<string>();
+        return combined.filter(e => {
+          const key = `${e.title}_${e.dateStr}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      });
+    } catch (e) {}
+
     setLoading(false);
   };
 
@@ -670,7 +715,7 @@ const LeaveDashboardPage: React.FC = () => {
   ];
 
   return (
-    <>
+    <div className="w-full space-y-2">
       <PageMeta title="Leave Dashboard & Transactions" description="View leave balances, pending/approved metrics, and transaction audit trails" />
       <PageBreadcrumb pageTitle="Leave Dashboard & Transactions" />
 
@@ -686,7 +731,7 @@ const LeaveDashboardPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <h2 className="text-xs font-bold text-gray-900">{currentUser.name}</h2>
                 <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-cyan-50 text-cyan-800 border border-cyan-200">
-                  #{activeEmployeeId}
+                  #{employeeCode}
                 </span>
               </div>
               <p className="text-[11px] text-gray-500">Employee Leave Dashboard & Real-Time Transaction Logs</p>
@@ -694,28 +739,6 @@ const LeaveDashboardPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-            {isManagerOrAdmin && (
-              <div className="flex items-center gap-1 bg-gray-100 p-0.5 rounded-lg">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('employee')}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 ${
-                    activeTab === 'employee' ? 'bg-white text-cyan-800 shadow-2xs' : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <BarChart3 className="w-3 h-3" /> My View
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('manager')}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 ${
-                    activeTab === 'manager' ? 'bg-white text-cyan-800 shadow-2xs' : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <Users className="w-3 h-3" /> Manager View
-                </button>
-              </div>
-            )}
 
             <button
               type="button"
@@ -740,112 +763,54 @@ const LeaveDashboardPage: React.FC = () => {
         {activeTab === 'employee' && (
           <div className="space-y-2.5">
             
-            {/* 1. Three Top Leave Balance Cards with Indicators */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-              
-              {/* Casual Leave */}
-              <div className="bg-white rounded-xl shadow-2xs border border-cyan-200/80 p-2 space-y-0.5 hover:border-cyan-400/80 transition-all">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-cyan-800 uppercase tracking-wider">Casual Leave</span>
-                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">CL</span>
-                </div>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-lg font-extrabold text-gray-900 font-mono">
-                    {employeeDashboard.leaveBalance?.casual ?? 8}
-                  </span>
-                  <span className="text-[10px] font-medium text-gray-500">of 12 days remaining</span>
-                </div>
-                <div className="w-full h-1 bg-cyan-50 rounded-full overflow-hidden">
-                  <div className="h-full bg-cyan-600 rounded-full" style={{ width: `${((employeeDashboard.leaveBalance?.casual ?? 8) / 12) * 100}%` }} />
-                </div>
-              </div>
-
-              {/* Sick Leave */}
-              <div className="bg-white rounded-xl shadow-2xs border border-emerald-200/80 p-2 space-y-0.5 hover:border-emerald-400/80 transition-all">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Sick Leave</span>
-                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">SL</span>
-                </div>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-lg font-extrabold text-gray-900 font-mono">
-                    {employeeDashboard.leaveBalance?.sick ?? 12}
-                  </span>
-                  <span className="text-[10px] font-medium text-gray-500">of 12 days remaining</span>
-                </div>
-                <div className="w-full h-1 bg-emerald-50 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${((employeeDashboard.leaveBalance?.sick ?? 12) / 12) * 100}%` }} />
-                </div>
-              </div>
-
-              {/* Earned Leave */}
-              <div className="bg-white rounded-xl shadow-2xs border border-cyan-200/80 p-2 space-y-0.5 hover:border-cyan-400/80 transition-all">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-cyan-800 uppercase tracking-wider">Earned Leave</span>
-                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">EL</span>
-                </div>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-lg font-extrabold text-gray-900 font-mono">
-                    {employeeDashboard.leaveBalance?.earned ?? 18}
-                  </span>
-                  <span className="text-[10px] font-medium text-gray-500">of 18 days remaining</span>
-                </div>
-                <div className="w-full h-1 bg-cyan-50 rounded-full overflow-hidden">
-                  <div className="h-full bg-cyan-600 rounded-full" style={{ width: `${((employeeDashboard.leaveBalance?.earned ?? 18) / 18) * 100}%` }} />
-                </div>
-              </div>
-
-            </div>
-
-
-
-            {/* 2. Interactive Calendar & Upcoming Events Dashboard matching Screenshot */}
-            <div className="bg-white rounded-2xl shadow-2xs border border-gray-200/80 p-4 sm:p-5 space-y-4">
+            {/* 2. Compact Interactive Calendar & Upcoming Events Dashboard */}
+            <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-3 sm:p-3.5 space-y-2.5">
               
               {/* Calendar Dashboard Top Bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-2.5">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-blue-600" />
+                  <h2 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-cyan-600" />
                     <span>Calendar</span>
                   </h2>
-                  <p className="text-xs text-gray-500 mt-0.5">Schedule and manage your events with ease</p>
+                  <p className="text-[11px] text-gray-500">Schedule and manage your events with ease</p>
                 </div>
 
-                <div className="flex items-center gap-3 self-end sm:self-auto flex-wrap">
+                <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
                   {/* View Mode Segmented Controls */}
-                  <div className="inline-flex p-1 bg-gray-100/90 rounded-xl border border-gray-200/60 shadow-2xs">
+                  <div className="inline-flex p-0.5 bg-gray-100/90 rounded-lg border border-gray-200/60 shadow-2xs">
                     <button
                       type="button"
                       onClick={() => setCalendarViewMode('month')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
                         calendarViewMode === 'month'
-                          ? 'bg-white text-gray-900 shadow-sm'
+                          ? 'bg-white text-gray-900 shadow-2xs'
                           : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
-                      <CalendarDays className="w-3.5 h-3.5" /> Month
+                      <CalendarDays className="w-3 h-3" /> Month
                     </button>
                     <button
                       type="button"
                       onClick={() => setCalendarViewMode('week')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
                         calendarViewMode === 'week'
-                          ? 'bg-white text-gray-900 shadow-sm'
+                          ? 'bg-white text-gray-900 shadow-2xs'
                           : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
-                      <Clock className="w-3.5 h-3.5" /> Week
+                      <Clock className="w-3 h-3" /> Week
                     </button>
                     <button
                       type="button"
                       onClick={() => setCalendarViewMode('day')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
                         calendarViewMode === 'day'
-                          ? 'bg-white text-gray-900 shadow-sm'
+                          ? 'bg-white text-gray-900 shadow-2xs'
                           : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
-                      <User className="w-3.5 h-3.5" /> Day
+                      <User className="w-3 h-3" /> Day
                     </button>
                   </div>
 
@@ -853,87 +818,457 @@ const LeaveDashboardPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsAddEventModalOpen(true)}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 shrink-0 active:scale-95"
+                    className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center gap-1 shrink-0 active:scale-95"
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-3.5 h-3.5" />
                     <span>Add Event</span>
                   </button>
                 </div>
               </div>
 
+              {/* Filter Pills & Color Legend */}
+              <div className="flex flex-wrap items-center justify-between gap-2 bg-gray-50/70 p-2 rounded-lg border border-gray-200/60">
+                <div className="flex items-center gap-1 flex-wrap text-xs">
+                  <span className="font-bold text-gray-500 mr-1 text-[10px] tracking-wider">FILTER:</span>
+                  <button
+                    type="button"
+                    onClick={() => setEventCategoryFilter('ALL')}
+                    className={`px-2 py-0.5 rounded font-bold text-[10px] transition-all ${
+                      eventCategoryFilter === 'ALL' ? 'bg-cyan-700 text-white shadow-2xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    All Events ({eventsList.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEventCategoryFilter('LEAVE')}
+                    className={`px-2 py-0.5 rounded font-bold text-[10px] transition-all flex items-center gap-1 ${
+                      eventCategoryFilter === 'LEAVE' ? 'bg-cyan-700 text-white shadow-2xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Briefcase className="w-3 h-3" /> My Leaves
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEventCategoryFilter('HOLIDAY')}
+                    className={`px-2 py-0.5 rounded font-bold text-[10px] transition-all flex items-center gap-1 ${
+                      eventCategoryFilter === 'HOLIDAY' ? 'bg-rose-600 text-white shadow-2xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Gift className="w-3 h-3" /> Holidays
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEventCategoryFilter('MEETING')}
+                    className={`px-2 py-0.5 rounded font-bold text-[10px] transition-all flex items-center gap-1 ${
+                      eventCategoryFilter === 'MEETING' ? 'bg-purple-600 text-white shadow-2xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Users className="w-3 h-3" /> Meetings
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2.5 text-[9px] font-bold text-gray-500">
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Leave</span>
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Holiday</span>
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Meeting</span>
+                </div>
+              </div>
+
               {/* Main Grid: Left Calendar Matrix (8 cols) & Right Upcoming Events Panel (4 cols) */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
                 
                 {/* ── LEFT COLUMN: MONTHLY CALENDAR GRID ────────────────────── */}
-                <div className="lg:col-span-8 border border-gray-200/80 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                <div className="lg:col-span-8 border border-gray-200/80 rounded-xl overflow-hidden bg-white shadow-2xs">
                   
-                  {/* Days of Week Header */}
-                  <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50/50 py-2.5 text-center text-xs font-semibold text-gray-600">
-                    <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
-                  </div>
+                  {/* Month Navigation & Day Headers */}
+                  {(() => {
+                    const currYear = calendarDate.getFullYear();
+                    const currMonth = calendarDate.getMonth();
+                    const monthHeaderTitle = calendarDate.toLocaleString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
+                    
+                    const daysInCurrentMonth = new Date(currYear, currMonth + 1, 0).getDate();
+                    const firstDayIndex = new Date(currYear, currMonth, 1).getDay();
+                    const prevMonthLastDate = new Date(currYear, currMonth, 0).getDate();
 
-                  {/* Calendar 35-Box Matrix */}
-                  <div className="grid grid-cols-7 divide-x divide-y divide-gray-100 text-xs">
-                    {/* Previous Month Trail Days (July 26-31) */}
-                    {[26, 27, 28, 29, 30, 31].map(d => (
-                      <div key={`prev-${d}`} className="min-h-[85px] sm:min-h-[105px] p-1.5 bg-gray-50/30 text-gray-300 text-right font-medium">
-                        {d}
-                      </div>
-                    ))}
+                    const prevTrailDays = Array.from({ length: firstDayIndex }, (_, i) => prevMonthLastDate - firstDayIndex + 1 + i);
+                    const currentMonthDays = Array.from({ length: daysInCurrentMonth }, (_, i) => i + 1);
+                    const totalFilled = prevTrailDays.length + currentMonthDays.length;
+                    const nextTrailLength = (7 - (totalFilled % 7)) % 7;
+                    const nextTrailDays = Array.from({ length: nextTrailLength }, (_, i) => i + 1);
 
-                    {/* August 2026 Days (1-31) */}
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map(dayNum => {
-                      const dayStr = `2026-08-${String(dayNum).padStart(2, '0')}`;
-                      const dayEvents = eventsList.filter(e => e.dateStr === dayStr);
-                      const isToday = dayNum === 25;
+                    const today = new Date();
 
-                      return (
-                        <div 
-                          key={`aug-${dayNum}`}
-                          className={`min-h-[85px] sm:min-h-[105px] p-1 sm:p-1.5 flex flex-col justify-between transition-all group hover:bg-slate-50/80 ${
-                            isToday ? 'bg-amber-50/50 font-bold' : ''
-                          }`}
-                        >
-                          <div className="text-right">
-                            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold ${
-                              isToday ? 'bg-amber-400 text-gray-900 shadow-2xs font-extrabold' : 'text-gray-700'
-                            }`}>
-                              {dayNum}
-                            </span>
-                          </div>
+                    return (
+                      <>
+                        <div className="flex items-center justify-between px-3 py-1.5 bg-gray-50/80 border-b border-gray-200">
+                          <button
+                            type="button"
+                            onClick={() => setCalendarDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+                            className="p-1 rounded text-gray-600 hover:bg-gray-200/60 transition-colors text-[11px] font-bold flex items-center gap-0.5"
+                          >
+                            <ChevronLeft className="w-3.5 h-3.5" /> Prev
+                          </button>
+                          <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
+                            {monthHeaderTitle}
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={() => setCalendarDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+                            className="p-1 rounded text-gray-600 hover:bg-gray-200/60 transition-colors text-[11px] font-bold flex items-center gap-0.5"
+                          >
+                            Next <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
 
-                          {/* Event Cards inside Calendar Days */}
-                          <div className="space-y-1 mt-1">
-                            {dayEvents.map(evt => (
-                              <div
-                                key={evt.id}
-                                className={`p-1.5 rounded-lg border text-[10px] font-semibold transition-all shadow-2xs cursor-pointer ${evt.badgeBg}`}
-                                title={`${evt.title} - ${evt.time} (${evt.location})`}
-                                onClick={() => ToasterService.info(`${evt.title}: ${evt.description} @ ${evt.location}`)}
-                              >
-                                <div className="flex items-center gap-1">
-                                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${evt.dotColor}`} />
-                                  <span className="font-bold truncate">{evt.title}</span>
+                        {/* ── MODE 1: MONTH VIEW ──────────────────────────────────────── */}
+                        {calendarViewMode === 'month' && (
+                          <>
+                            {/* Days of Week Header */}
+                            <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50/40 py-1.5 text-center text-[11px] font-bold text-gray-600">
+                              <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                            </div>
+
+                            {/* Calendar Grid Matrix */}
+                            <div className="grid grid-cols-7 divide-x divide-y divide-gray-100 text-xs">
+                              {/* Previous Month Trail Days */}
+                              {prevTrailDays.map(d => (
+                                <div key={`prev-${d}`} className="min-h-[46px] sm:min-h-[54px] p-1 bg-gray-50/30 text-gray-300 text-right font-medium text-[10px]">
+                                  {d}
                                 </div>
-                                <div className="text-[9px] opacity-80 truncate mt-0.5">
-                                  📍 {evt.location}
+                              ))}
+
+                              {/* Current Month Days */}
+                              {currentMonthDays.map(dayNum => {
+                                const dayStr = `${currYear}-${String(currMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+                                const dayEvents = eventsList.filter(e => e.dateStr === dayStr);
+                                const isToday = today.getFullYear() === currYear && today.getMonth() === currMonth && today.getDate() === dayNum;
+
+                                return (
+                                  <div 
+                                    key={`day-${dayNum}`}
+                                    onClick={() => {
+                                      setNewEventForm(p => ({ ...p, dateStr: dayStr }));
+                                      setIsAddEventModalOpen(true);
+                                    }}
+                                    className={`min-h-[46px] sm:min-h-[54px] p-1 flex flex-col justify-between transition-all group hover:bg-cyan-50/30 cursor-pointer ${
+                                      isToday ? 'bg-amber-50/70 font-bold' : ''
+                                    }`}
+                                  >
+                                    <div className="text-right">
+                                      <span className={`inline-flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full text-[10px] sm:text-[11px] font-semibold ${
+                                        isToday ? 'bg-amber-400 text-gray-900 shadow-2xs font-extrabold' : 'text-gray-700'
+                                      }`}>
+                                        {dayNum}
+                                      </span>
+                                    </div>
+
+                                    {/* Event Cards inside Calendar Days (max 2 visible + N more) */}
+                                    <div className="space-y-0.5 mt-0.5">
+                                      {dayEvents.slice(0, 2).map(evt => (
+                                        <div
+                                          key={evt.id}
+                                          className={`py-0.5 px-1 rounded border text-[9px] font-bold transition-all shadow-2xs cursor-pointer ${evt.badgeBg}`}
+                                          title={`${evt.title} - ${evt.time} (${evt.location})`}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedEventDetails(evt);
+                                          }}
+                                        >
+                                          <div className="flex items-center gap-1">
+                                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${evt.dotColor}`} />
+                                            <span className="font-bold truncate">{evt.title}</span>
+                                          </div>
+                                        </div>
+                                      ))}
+
+                                      {dayEvents.length > 2 && (
+                                        <div className="text-[8px] font-bold text-gray-500 bg-gray-100 px-1 py-0.2 rounded text-center">
+                                          +{dayEvents.length - 2} more
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+
+                              {/* Next Month Trail Days */}
+                              {nextTrailDays.map(d => (
+                                <div key={`next-${d}`} className="min-h-[46px] sm:min-h-[54px] p-1 bg-gray-50/30 text-gray-300 text-right font-medium text-[10px]">
+                                  {d}
                                 </div>
-                                <div className="text-[9px] opacity-75 truncate">
-                                  👥 {evt.attendees} guests
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
+
+                  {/* ── MODE 2: WEEK VIEW ────────────────────────────────────────── */}
+                  {calendarViewMode === 'week' && (() => {
+                    const startOfWeek = new Date(calendarDate);
+                    startOfWeek.setDate(calendarDate.getDate() - calendarDate.getDay());
+
+                    const endOfWeek = new Date(startOfWeek);
+                    endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+                    const weekHeaderTitle = `Current Week: ${startOfWeek.toLocaleString('en-US', { month: 'short', day: 'numeric' })} – ${endOfWeek.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
+                    const today = new Date();
+
+                    const dynamicWeekDays = Array.from({ length: 7 }, (_, i) => {
+                      const d = new Date(startOfWeek);
+                      d.setDate(startOfWeek.getDate() + i);
+
+                      const currYear = d.getFullYear();
+                      const currMonth = d.getMonth();
+                      const currDay = d.getDate();
+
+                      const dayStr = `${currYear}-${String(currMonth + 1).padStart(2, '0')}-${String(currDay).padStart(2, '0')}`;
+                      const isToday = today.getFullYear() === currYear && today.getMonth() === currMonth && today.getDate() === currDay;
+
+                      return {
+                        dayName: d.toLocaleString('en-US', { weekday: 'short' }),
+                        dayNum: currDay,
+                        dateStr: dayStr,
+                        isToday: isToday
+                      };
+                    });
+
+                    return (
+                      <div className="p-3 space-y-3">
+                        <div className="bg-blue-50/60 p-2.5 rounded-xl border border-blue-200/80 flex items-center justify-between text-xs text-blue-900 font-bold">
+                          <span>{weekHeaderTitle}</span>
+                          <span className="text-[11px] font-normal text-blue-700">7 Days Schedule</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-7 gap-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+                          {dynamicWeekDays.map(col => {
+                            const colEvents = eventsList.filter(e => e.dateStr === col.dateStr);
+
+                          return (
+                            <div 
+                              key={col.dateStr}
+                              onClick={() => {
+                                setNewEventForm(p => ({ ...p, dateStr: col.dateStr }));
+                                setIsAddEventModalOpen(true);
+                              }}
+                              className={`p-2 rounded-xl border transition-all cursor-pointer min-h-[260px] flex flex-col justify-between ${
+                                col.isToday ? 'bg-amber-50/70 border-amber-300' : 'bg-gray-50/40 border-gray-200/60 hover:bg-blue-50/30'
+                              }`}
+                            >
+                              <div>
+                                <div className="flex items-center justify-between border-b border-gray-200/60 pb-1.5 mb-2">
+                                  <span className="text-xs font-bold text-gray-700">{col.dayName}</span>
+                                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                    col.isToday ? 'bg-amber-400 text-gray-900 shadow-2xs' : 'bg-gray-200 text-gray-800'
+                                  }`}>
+                                    {col.dayNum}
+                                  </span>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                  {colEvents.map(evt => (
+                                    <div 
+                                      key={evt.id} 
+                                      className={`p-2 rounded-lg border text-xs font-semibold shadow-2xs ${evt.badgeBg}`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedEventDetails(evt);
+                                      }}
+                                    >
+                                      <div className="flex items-center gap-1.5">
+                                        <span className={`w-2 h-2 rounded-full shrink-0 ${evt.dotColor}`} />
+                                        <span className="font-bold truncate text-[11px]">{evt.title}</span>
+                                      </div>
+                                      <div className="text-[10px] opacity-80 mt-1">⏰ {evt.time}</div>
+                                      <div className="text-[10px] opacity-75 truncate">📍 {evt.location}</div>
+                                    </div>
+                                  ))}
+
+                                  {colEvents.length === 0 && (
+                                    <div className="text-[10px] text-gray-400 text-center py-6 italic">No Events</div>
+                                  )}
                                 </div>
                               </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
 
-                    {/* Next Month Trail Days (September 1-5) */}
-                    {[1, 2, 3, 4, 5].map(d => (
-                      <div key={`next-${d}`} className="min-h-[85px] sm:min-h-[105px] p-1.5 bg-gray-50/30 text-gray-300 text-right font-medium">
-                        {d}
+                              <button
+                                type="button"
+                                className="w-full mt-2 py-1 text-[10px] font-bold text-blue-600 hover:bg-blue-100/60 rounded border border-blue-200 text-center transition-colors"
+                              >
+                                + Add Event
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
+                    </div>
+                  );
+                })()}
+
+                  {/* ── MODE 3: DAY VIEW ─────────────────────────────────────────── */}
+                  {calendarViewMode === 'day' && (() => {
+                    const selectedDayStr = `${calendarDate.getFullYear()}-${String(calendarDate.getMonth() + 1).padStart(2, '0')}-${String(calendarDate.getDate()).padStart(2, '0')}`;
+                    const formattedDayTitle = calendarDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                    const dayEventsForDate = eventsList.filter(e => e.dateStr === selectedDayStr);
+
+                    return (
+                      <div className="p-4 space-y-3">
+                        <div className="bg-amber-50 p-3 rounded-xl border border-amber-200/80 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-5 h-5 text-amber-700" />
+                            <div>
+                              <h4 className="text-xs font-bold text-amber-900">Schedule — {formattedDayTitle}</h4>
+                              <span className="text-[11px] text-amber-700 font-medium">Single Day Schedule View ({dayEventsForDate.length} events)</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewEventForm(p => ({ ...p, dateStr: selectedDayStr }));
+                              setIsAddEventModalOpen(true);
+                            }}
+                            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-2xs flex items-center gap-1"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Add Schedule Event
+                          </button>
+                        </div>
+
+                        {/* All-Day Events / Approved Leaves Banner for Selected Date */}
+                        {dayEventsForDate.length > 0 && (
+                          <div className="space-y-1.5 pb-1">
+                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Events & Leaves for {formattedDayTitle}</span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {dayEventsForDate.map(evt => (
+                                <div
+                                  key={evt.id}
+                                  onClick={() => setSelectedEventDetails(evt)}
+                                  className={`p-2.5 rounded-xl border text-xs font-bold ${evt.badgeBg} flex items-center justify-between shadow-2xs cursor-pointer hover:shadow-sm transition-all`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className={`w-2.5 h-2.5 rounded-full ${evt.dotColor}`} />
+                                    <div>
+                                      <div>{evt.title}</div>
+                                      <div className="text-[10px] font-normal opacity-80 mt-0.5">{evt.description} • 📍 {evt.location}</div>
+                                    </div>
+                                  </div>
+                                  <span className="px-2 py-0.5 bg-white text-cyan-800 rounded border border-cyan-200 text-[10px] font-mono">{evt.time}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Hourly Schedule Table */}
+                        <div className="border border-gray-200/80 rounded-xl overflow-hidden divide-y divide-gray-100 bg-white">
+                          {[
+                            { time: '08:00 AM', label: 'Morning Standup' },
+                            { time: '09:00 AM', label: 'Team Sync & Check-In' },
+                            { time: '10:00 AM', label: 'Conference / Strategy' },
+                            { time: '11:30 AM', label: 'Product Architecture Review' },
+                            { time: '01:00 PM', label: 'Lunch Break' },
+                            { time: '02:30 PM', label: 'Client Strategy Session' },
+                            { time: '04:00 PM', label: 'Code Review & Sprint Planning' },
+                            { time: '05:30 PM', label: 'Day Wrap-Up' }
+                          ].map((slot, idx) => {
+                            const timeSlotPrefix = slot.time.split(' ')[0]; // e.g. "08:00"
+                            const matchedEvt = dayEventsForDate.find(e => 
+                              e.time && (e.time.includes(timeSlotPrefix) || e.time.toLowerCase().includes(slot.time.toLowerCase()))
+                            );
+
+                            return (
+                              <div key={idx} className="p-3 flex items-start gap-4 hover:bg-gray-50/80 transition-colors">
+                                <span className="w-20 text-xs font-bold text-gray-500 font-mono shrink-0 pt-0.5">{slot.time}</span>
+                                <div className="flex-1">
+                                  {matchedEvt ? (
+                                    <div 
+                                      onClick={() => setSelectedEventDetails(matchedEvt)}
+                                      className={`p-2.5 rounded-xl border text-xs font-bold ${matchedEvt.badgeBg} flex items-center justify-between shadow-2xs cursor-pointer hover:shadow-sm transition-all`}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span className={`w-2.5 h-2.5 rounded-full ${matchedEvt.dotColor}`} />
+                                        <div>
+                                          <div>{matchedEvt.title}</div>
+                                          <div className="text-[10px] font-normal opacity-80 mt-0.5">{matchedEvt.description} • 📍 {matchedEvt.location}</div>
+                                        </div>
+                                      </div>
+                                      <span className="px-2 py-0.5 bg-white text-blue-700 rounded border border-blue-200 text-[10px] font-mono">Scheduled</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-gray-600 font-medium">{slot.label}</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* ── LEAVE BALANCES WIDGET BELOW CALENDAR MATRIX ─────────────── */}
+                  <div className="p-3 bg-slate-50/80 border-t border-gray-200/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Palmtree className="w-3.5 h-3.5 text-cyan-600" />
+                        <h4 className="text-[11px] font-bold text-gray-900 uppercase tracking-wider">Leave Quota Balances</h4>
+                      </div>
+                      <span className="text-[10px] text-gray-500 font-medium font-mono">Current Quotas (FY 2026)</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {/* Casual Leave */}
+                      <div className="bg-white rounded-xl p-2.5 border border-cyan-200/80 shadow-2xs space-y-1 hover:border-cyan-400 transition-all">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-cyan-800 uppercase tracking-wider">Casual Leave</span>
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-cyan-50 text-cyan-700 border border-cyan-200">CL</span>
+                        </div>
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-base font-extrabold text-gray-900 font-mono">
+                            {employeeDashboard.leaveBalance?.casual ?? 5}
+                          </span>
+                          <span className="text-[10px] text-gray-500 font-medium">of 12 days remaining</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-cyan-50 rounded-full overflow-hidden">
+                          <div className="h-full bg-cyan-600 rounded-full" style={{ width: `${((employeeDashboard.leaveBalance?.casual ?? 5) / 12) * 100}%` }} />
+                        </div>
+                      </div>
+
+                      {/* Sick Leave */}
+                      <div className="bg-white rounded-xl p-2.5 border border-emerald-200/80 shadow-2xs space-y-1 hover:border-emerald-400 transition-all">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Sick Leave</span>
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">SL</span>
+                        </div>
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-base font-extrabold text-gray-900 font-mono">
+                            {employeeDashboard.leaveBalance?.sick ?? 12}
+                          </span>
+                          <span className="text-[10px] text-gray-500 font-medium">of 12 days remaining</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-emerald-50 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${((employeeDashboard.leaveBalance?.sick ?? 12) / 12) * 100}%` }} />
+                        </div>
+                      </div>
+
+                      {/* Earned Leave */}
+                      <div className="bg-white rounded-xl p-2.5 border border-indigo-200/80 shadow-2xs space-y-1 hover:border-indigo-400 transition-all">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider">Earned Leave</span>
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200">EL</span>
+                        </div>
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-base font-extrabold text-gray-900 font-mono">
+                            {employeeDashboard.leaveBalance?.earned ?? 16}
+                          </span>
+                          <span className="text-[10px] text-gray-500 font-medium">of 18 days remaining</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-indigo-50 rounded-full overflow-hidden">
+                          <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${((employeeDashboard.leaveBalance?.earned ?? 16) / 18) * 100}%` }} />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -948,73 +1283,91 @@ const LeaveDashboardPage: React.FC = () => {
                       </div>
                       <div>
                         <h3 className="text-sm font-bold text-gray-900">Upcoming Events</h3>
-                        <span className="text-[11px] text-gray-500 font-medium">Total events: <strong className="text-gray-900">{eventsList.length}</strong></span>
+                        <span className="text-[11px] text-gray-500 font-medium">Filtered count: <strong className="text-gray-900">{eventsList.length}</strong></span>
                       </div>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowOnlyUpcoming(!showOnlyUpcoming)}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors ${
+                        showOnlyUpcoming ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-100 text-gray-700 border-gray-200'
+                      }`}
+                    >
+                      {showOnlyUpcoming ? 'Upcoming Only' : 'Show All'}
+                    </button>
                   </div>
 
-                  {/* Event Card Items matching user screenshot */}
-                  <div className="space-y-2.5 max-h-[580px] overflow-y-auto pr-1">
-                    {eventsList.map(evt => (
-                      <div
-                        key={evt.id}
-                        className="bg-white rounded-2xl border border-gray-200/80 p-3.5 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group"
-                        onClick={() => ToasterService.info(`${evt.title}: ${evt.description}`)}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${evt.dotColor}`} />
-                            <h4 className="text-xs font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                              {evt.title}
-                            </h4>
+                  {/* Clean Chronologically Sorted Upcoming Event Cards */}
+                  <div className="space-y-2 max-h-[440px] overflow-y-auto pr-1">
+                    {useMemo(() => {
+                      const todayStr = '2026-08-25';
+                      let list = [...eventsList];
+                      
+                      // Filter category
+                      if (eventCategoryFilter === 'LEAVE') {
+                        list = list.filter(e => String(e.id).includes('leave') || e.location?.includes('Leave'));
+                      } else if (eventCategoryFilter === 'HOLIDAY') {
+                        list = list.filter(e => String(e.id).includes('holiday') || e.location?.includes('Company'));
+                      } else if (eventCategoryFilter === 'MEETING') {
+                        list = list.filter(e => !String(e.id).includes('holiday') && !String(e.id).includes('leave'));
+                      }
+
+                      // Filter upcoming vs past
+                      if (showOnlyUpcoming) {
+                        list = list.filter(e => e.dateStr >= todayStr);
+                      }
+
+                      // Sort by dateStr ascending
+                      return list.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+                    }, [eventsList, eventCategoryFilter, showOnlyUpcoming]).map(evt => {
+                      const isHoliday = evt.location?.includes('Company') || String(evt.id).includes('holiday');
+                      const isLeave = evt.location?.includes('Leave') || String(evt.id).includes('leave');
+
+                      return (
+                        <div
+                          key={evt.id}
+                          className="bg-white rounded-xl border border-gray-200/80 p-2.5 hover:shadow-md hover:border-cyan-300 transition-all cursor-pointer group"
+                          onClick={() => setSelectedEventDetails(evt)}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`w-2 h-2 rounded-full shrink-0 ${evt.dotColor}`} />
+                              <h4 className="text-[11px] font-bold text-gray-900 group-hover:text-cyan-600 transition-colors">
+                                {evt.title}
+                              </h4>
+                            </div>
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-gray-100 text-gray-600 border border-gray-200 shrink-0">
+                              {isHoliday ? '🎉 Holiday' : isLeave ? '🏖️ Leave' : '📅 Event'}
+                            </span>
                           </div>
-                          <span className="text-gray-400 group-hover:text-blue-600 transition-colors text-xs font-bold">&gt;</span>
-                        </div>
 
-                        <div className="text-[11px] text-gray-500 font-medium mt-1">
-                          {evt.dayLabel} • {evt.time}
-                        </div>
+                          <div className="text-[10px] text-gray-500 font-medium mt-0.5">
+                            {evt.dateStr} • {evt.time}
+                          </div>
 
-                        <p className="text-xs text-gray-600 mt-2 line-clamp-2 leading-relaxed">
-                          {evt.description}
-                        </p>
+                          <p className="text-[11px] text-gray-600 mt-1 line-clamp-1 leading-relaxed">
+                            {evt.description}
+                          </p>
 
-                        <div className="flex items-center gap-3 mt-3 pt-2.5 border-t border-gray-100 text-[11px] text-gray-500 font-medium">
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3 text-gray-400" />
-                            {evt.location}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <User className="w-3 h-3 text-gray-400" />
-                            {evt.attendees}
-                          </span>
+                          <div className="flex items-center gap-2.5 mt-2 pt-1.5 border-t border-gray-100 text-[10px] text-gray-500 font-medium">
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3 text-gray-400" />
+                              {evt.location}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <User className="w-3 h-3 text-gray-400" />
+                              {evt.attendees} {evt.attendees === 1 ? 'person' : 'guests'}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                 </div>
 
               </div>
-            </div>
-
-            {/* 3. Leave Transactions Audit Trail Table */}
-            <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 space-y-3">
-              <div className="border-b border-gray-100 pb-2.5">
-                <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Leave Transactions & Audit Trail</h3>
-                <p className="text-xs text-gray-500">Audit log of all leave applications, balance movements, and deductions</p>
-              </div>
-
-              <ReusableTable
-                data={transactions}
-                columns={transactionColumns}
-                loading={loading}
-                searchable={true}
-                searchPlaceholder="Search audit trail by transaction ID, category, or remarks..."
-                pageSize={5}
-                defaultSortKey="id"
-                defaultSortOrder="desc"
-              />
             </div>
           </div>
         )}
@@ -1036,40 +1389,44 @@ const LeaveDashboardPage: React.FC = () => {
                 </div>
 
                 <div className="pt-2">
-                  <Chart
-                    type="donut"
-                    height={230}
-                    series={[
-                      managerDashboard?.requestSummary?.pending ?? 3,
-                      managerDashboard?.requestSummary?.approved ?? 1,
-                      (managerDashboard?.requestSummary?.rejected ?? 0) + (managerDashboard?.requestSummary?.cancelled ?? 0),
-                      managerDashboard?.employeesOnLeaveToday ?? 0
-                    ]}
-                    options={{
-                      chart: { type: 'donut', fontFamily: 'inherit' },
-                      labels: ['Pending', 'Approved', 'Rejected', 'On Leave Today'],
-                      colors: ['#f59e0b', '#10b981', '#f43f5e', '#06b6d4'],
-                      legend: { position: 'bottom', fontSize: '11px', fontWeight: 600 },
-                      dataLabels: { enabled: true, formatter: (val: number) => `${Math.round(val)}%` },
-                      plotOptions: {
-                        pie: {
-                          donut: {
-                            size: '68%',
-                            labels: {
-                              show: true,
-                              total: {
+                  {isMounted ? (
+                    <Chart
+                      type="donut"
+                      height={230}
+                      series={[
+                        managerDashboard?.requestSummary?.pending ?? 3,
+                        managerDashboard?.requestSummary?.approved ?? 1,
+                        (managerDashboard?.requestSummary?.rejected ?? 0) + (managerDashboard?.requestSummary?.cancelled ?? 0),
+                        managerDashboard?.employeesOnLeaveToday ?? 0
+                      ]}
+                      options={{
+                        chart: { type: 'donut', fontFamily: 'inherit' },
+                        labels: ['Pending', 'Approved', 'Rejected', 'On Leave Today'],
+                        colors: ['#f59e0b', '#10b981', '#f43f5e', '#06b6d4'],
+                        legend: { position: 'bottom', fontSize: '11px', fontWeight: 600 },
+                        dataLabels: { enabled: true, formatter: (val: number) => `${Math.round(val)}%` },
+                        plotOptions: {
+                          pie: {
+                            donut: {
+                              size: '68%',
+                              labels: {
                                 show: true,
-                                label: 'Total Requests',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                color: '#64748b'
+                                total: {
+                                  show: true,
+                                  label: 'Total Requests',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  color: '#64748b'
+                                }
                               }
                             }
                           }
                         }
-                      }
-                    }}
-                  />
+                      }}
+                    />
+                  ) : (
+                    <div className="h-[230px] flex items-center justify-center text-xs text-gray-400 font-medium">Loading distribution...</div>
+                  )}
                 </div>
               </div>
 
@@ -1084,24 +1441,28 @@ const LeaveDashboardPage: React.FC = () => {
                 </div>
 
                 <div className="pt-2">
-                  <Chart
-                    type="bar"
-                    height={230}
-                    series={[
-                      { name: 'Casual Leave', data: [4, 6, 3, 5, 2, 8] },
-                      { name: 'Sick Leave', data: [2, 3, 1, 4, 1, 3] },
-                      { name: 'Earned Leave', data: [1, 2, 4, 3, 5, 4] }
-                    ]}
-                    options={{
-                      chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'inherit' },
-                      colors: ['#06b6d4', '#10b981', '#6366f1'],
-                      plotOptions: { bar: { borderRadius: 4, columnWidth: '45%' } },
-                      xaxis: { categories: ['Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'], labels: { style: { fontSize: '11px', fontWeight: 600 } } },
-                      legend: { position: 'top', horizontalAlign: 'right', fontSize: '11px', fontWeight: 600 },
-                      grid: { borderColor: '#f1f5f9' },
-                      dataLabels: { enabled: false }
-                    }}
-                  />
+                  {isMounted ? (
+                    <Chart
+                      type="bar"
+                      height={230}
+                      series={[
+                        { name: 'Casual Leave', data: [4, 6, 3, 5, 2, 8] },
+                        { name: 'Sick Leave', data: [2, 3, 1, 4, 1, 3] },
+                        { name: 'Earned Leave', data: [1, 2, 4, 3, 5, 4] }
+                      ]}
+                      options={{
+                        chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'inherit' },
+                        colors: ['#06b6d4', '#10b981', '#6366f1'],
+                        plotOptions: { bar: { borderRadius: 4, columnWidth: '45%' } },
+                        xaxis: { categories: ['Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'], labels: { style: { fontSize: '11px', fontWeight: 600 } } },
+                        legend: { position: 'top', horizontalAlign: 'right', fontSize: '11px', fontWeight: 600 },
+                        grid: { borderColor: '#f1f5f9' },
+                        dataLabels: { enabled: false }
+                      }}
+                    />
+                  ) : (
+                    <div className="h-[230px] flex items-center justify-center text-xs text-gray-400 font-medium">Loading trends...</div>
+                  )}
                 </div>
               </div>
 
@@ -1203,19 +1564,7 @@ const LeaveDashboardPage: React.FC = () => {
             {/* Adjustment Log Table */}
             <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4">
               <ReusableTable
-                data={adjustments.length > 0 ? adjustments : [
-                  {
-                    id: 1,
-                    employeeId: activeEmployeeId,
-                    leaveType: 'CASUAL',
-                    adjustmentLeaves: 2,
-                    balanceBefore: 10,
-                    balanceAfter: 12,
-                    remarks: 'Added 2 additional leaves to compensate comp-offs',
-                    adjustedDate: '2026-08-07',
-                    adjustedBy: 'SUP-ADMIN-20260707-D58A42'
-                  }
-                ]}
+                data={adjustments}
                 columns={adjustmentColumns}
                 loading={loading}
                 searchable={true}
@@ -1313,76 +1662,76 @@ const LeaveDashboardPage: React.FC = () => {
 
         {/* ── ADD EVENT MODAL DIALOG ────────────────────────────────────── */}
         {isAddEventModalOpen && (
-          <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-              <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-between">
+          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="p-4 bg-cyan-600 text-white flex items-center justify-between border-b border-cyan-700 shadow-xs">
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5" />
-                  <h3 className="text-sm font-bold">Add Calendar Event</h3>
+                  <Calendar className="w-5 h-5 text-white" />
+                  <h3 className="text-sm font-extrabold text-white tracking-wide">Add Calendar Event</h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsAddEventModalOpen(false)}
-                  className="p-1 rounded-lg text-white/80 hover:bg-white/10"
+                  className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-4.5 h-4.5" />
                 </button>
               </div>
 
-              <form onSubmit={handleCreateEvent} className="p-4 space-y-3">
+              <form onSubmit={handleCreateEvent} className="p-5 space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Event Title *</label>
+                  <label className="block text-xs font-bold text-slate-900 mb-1">Event Title *</label>
                   <input
                     type="text"
                     value={newEventForm.title}
                     onChange={(e) => setNewEventForm(p => ({ ...p, title: e.target.value }))}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:border-cyan-600 focus:ring-2 focus:ring-cyan-500/20 outline-none placeholder:text-slate-400 transition-all"
                     placeholder="e.g. Quarterly Team Planning"
                     required
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Date *</label>
+                    <label className="block text-xs font-bold text-slate-900 mb-1">Date *</label>
                     <input
                       type="date"
                       value={newEventForm.dateStr}
                       onChange={(e) => setNewEventForm(p => ({ ...p, dateStr: e.target.value }))}
-                      className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:border-cyan-600 focus:ring-2 focus:ring-cyan-500/20 outline-none font-mono transition-all"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Time *</label>
+                    <label className="block text-xs font-bold text-slate-900 mb-1">Time *</label>
                     <input
                       type="text"
                       value={newEventForm.time}
                       onChange={(e) => setNewEventForm(p => ({ ...p, time: e.target.value }))}
-                      className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:border-cyan-600 focus:ring-2 focus:ring-cyan-500/20 outline-none font-mono placeholder:text-slate-400 transition-all"
                       placeholder="05:30 AM"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Location</label>
+                    <label className="block text-xs font-bold text-slate-900 mb-1">Location</label>
                     <input
                       type="text"
                       value={newEventForm.location}
                       onChange={(e) => setNewEventForm(p => ({ ...p, location: e.target.value }))}
-                      className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:border-cyan-600 focus:ring-2 focus:ring-cyan-500/20 outline-none placeholder:text-slate-400 transition-all"
                       placeholder="e.g. Conference Room B"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Color Tag</label>
+                    <label className="block text-xs font-bold text-slate-900 mb-1">Color Tag</label>
                     <select
                       value={newEventForm.type}
                       onChange={(e) => setNewEventForm(p => ({ ...p, type: e.target.value }))}
-                      className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:border-cyan-600 focus:ring-2 focus:ring-cyan-500/20 outline-none transition-all cursor-pointer"
                     >
                       <option value="blue">Blue (Conference)</option>
                       <option value="emerald">Green (Meeting)</option>
@@ -1394,27 +1743,27 @@ const LeaveDashboardPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Description / Notes</label>
+                  <label className="block text-xs font-bold text-slate-900 mb-1">Description / Notes</label>
                   <textarea
-                    rows={2}
+                    rows={3}
                     value={newEventForm.description}
                     onChange={(e) => setNewEventForm(p => ({ ...p, description: e.target.value }))}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none resize-none"
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:border-cyan-600 focus:ring-2 focus:ring-cyan-500/20 outline-none resize-none placeholder:text-slate-400 transition-all"
                     placeholder="Provide details about this event..."
                   />
                 </div>
 
-                <div className="pt-2 border-t border-gray-100 flex items-center justify-end gap-2">
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
                   <button
                     type="button"
                     onClick={() => setIsAddEventModalOpen(false)}
-                    className="px-4 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                    className="px-4 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs"
+                    className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all active:scale-95"
                   >
                     Save Event
                   </button>
@@ -1424,8 +1773,187 @@ const LeaveDashboardPage: React.FC = () => {
           </div>
         )}
 
+        {/* ── EVENT DETAILS POPUP MODAL (PROJECT CYAN BRANDING THEME) ────── */}
+        {selectedEventDetails && (
+          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+              
+              {/* Modal Header matching Project Brand Cyan Palette */}
+              <div className="p-4 bg-cyan-600 text-white flex items-center justify-between border-b border-cyan-700 shadow-xs">
+                <div className="flex items-center gap-2.5">
+                  <span className={`w-3 h-3 rounded-full ${selectedEventDetails.dotColor || 'bg-white'} shrink-0`} />
+                  <h3 className="text-sm font-extrabold text-white tracking-wide truncate max-w-[280px]">
+                    {selectedEventDetails.title}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedEventDetails(null)}
+                  className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-4.5 h-4.5" />
+                </button>
+              </div>
+
+              {/* Modal Body with High Contrast & Context-Specific Labels */}
+              <div className="p-5 space-y-4">
+                {(() => {
+                  const isHoliday = selectedEventDetails.location?.includes('Company') || String(selectedEventDetails.id).includes('holiday');
+                  const isLeave = selectedEventDetails.location?.includes('Leave') || String(selectedEventDetails.id).includes('leave');
+
+                  if (isLeave) {
+                    return (
+                      <>
+                        <div className="flex items-center justify-between text-xs border-b border-gray-100 pb-3">
+                          <span className="text-gray-600 font-semibold">Application Category:</span>
+                          <span className="font-bold text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200 text-[11px] flex items-center gap-1">
+                            <Briefcase className="w-3 h-3 text-cyan-600" /> {selectedEventDetails.title}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs border-b border-gray-100 pb-3">
+                          <span className="text-gray-600 font-semibold">Leave Date & Duration:</span>
+                          <span className="font-bold text-gray-900 font-mono bg-gray-100 px-2 py-0.5 rounded text-[11px]">
+                            {selectedEventDetails.dateStr} ({selectedEventDetails.time})
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs border-b border-gray-100 pb-3">
+                          <span className="text-gray-600 font-semibold">Applicant:</span>
+                          <span className="font-bold text-gray-900 flex items-center gap-1">
+                            <User className="w-3.5 h-3.5 text-cyan-600" />
+                            {currentUser.name} (#{activeEmployeeId})
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="block text-xs font-bold text-gray-800 mb-1.5">Reason / Remarks:</span>
+                          <div className="text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-200/80 leading-relaxed font-medium">
+                            {selectedEventDetails.description || "Personal Leave Application"}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  }
+
+                  if (isHoliday) {
+                    return (
+                      <>
+                        <div className="flex items-center justify-between text-xs border-b border-gray-100 pb-3">
+                          <span className="text-gray-600 font-semibold">Holiday Title:</span>
+                          <span className="font-bold text-rose-800 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 text-[11px] flex items-center gap-1">
+                            <Gift className="w-3 h-3 text-rose-600" /> {selectedEventDetails.title}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs border-b border-gray-100 pb-3">
+                          <span className="text-gray-600 font-semibold">Holiday Date:</span>
+                          <span className="font-bold text-gray-900 font-mono bg-gray-100 px-2 py-0.5 rounded text-[11px]">
+                            {selectedEventDetails.dateStr}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs border-b border-gray-100 pb-3">
+                          <span className="text-gray-600 font-semibold">Applicability:</span>
+                          <span className="font-bold text-rose-700 flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-rose-600" />
+                            Organization-Wide Official Holiday
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="block text-xs font-bold text-gray-800 mb-1.5">Holiday Description:</span>
+                          <div className="text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-200/80 leading-relaxed font-medium">
+                            {selectedEventDetails.description || "Mandatory Organization Holiday"}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  }
+
+                  // Default: Scheduled Meeting / Conference / Workshop
+                  return (
+                    <>
+                      <div className="flex items-center justify-between text-xs border-b border-gray-100 pb-3">
+                        <span className="text-gray-600 font-semibold">Scheduled Date:</span>
+                        <span className="font-bold text-gray-900 font-mono bg-gray-100 px-2 py-0.5 rounded text-[11px]">
+                          {selectedEventDetails.dateStr} • {selectedEventDetails.time}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs border-b border-gray-100 pb-3">
+                        <span className="text-gray-600 font-semibold">Location / Venue:</span>
+                        <span className="font-bold text-cyan-800 flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-cyan-600" />
+                          {selectedEventDetails.location}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs border-b border-gray-100 pb-3">
+                        <span className="text-gray-600 font-semibold">Attendees / Capacity:</span>
+                        <span className="font-bold text-gray-900 flex items-center gap-1">
+                          <User className="w-3.5 h-3.5 text-gray-500" />
+                          {selectedEventDetails.attendees} Guest(s)
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="block text-xs font-bold text-gray-800 mb-1.5">Agenda & Notes:</span>
+                        <div className="text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-200/80 leading-relaxed font-medium">
+                          {selectedEventDetails.description || "No specific notes provided for this meeting."}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+
+                {/* Footer Action Buttons matching Project Cyan Theme */}
+                <div className="pt-2 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cleanDate = (selectedEventDetails.dateStr || '2026-08-25').replace(/\D/g, '');
+                      const icsContent = 
+                        `BEGIN:VCALENDAR\n` +
+                        `VERSION:2.0\n` +
+                        `PRODID:-//MyTrading//LeaveCalendar//EN\n` +
+                        `BEGIN:VEVENT\n` +
+                        `SUMMARY:${selectedEventDetails.title}\n` +
+                        `DESCRIPTION:${selectedEventDetails.description || selectedEventDetails.title}\n` +
+                        `LOCATION:${selectedEventDetails.location || 'Office'}\n` +
+                        `DTSTART:${cleanDate}T090000Z\n` +
+                        `DTEND:${cleanDate}T170000Z\n` +
+                        `END:VEVENT\n` +
+                        `END:VCALENDAR`;
+
+                      const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+                      const link = document.createElement('a');
+                      link.href = window.URL.createObjectURL(blob);
+                      link.setAttribute('download', `${selectedEventDetails.title.replace(/\s+/g, '_')}.ics`);
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      ToasterService.success(`Downloaded ${selectedEventDetails.title}.ics invite!`);
+                    }}
+                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 active:scale-95"
+                  >
+                    <span>Sync to Calendar (.ics)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEventDetails(null)}
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-bold transition-all border border-gray-200"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
-    </>
+    </div>
   );
 };
 

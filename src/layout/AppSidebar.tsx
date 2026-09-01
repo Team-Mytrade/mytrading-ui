@@ -173,23 +173,27 @@ export const navItems: NavItem[] = [
     icon: <Calendar className="w-5 h-5" />,
     name: "Attendance",
     subItems: [
-      // 1. Daily Operations & Self-Service
-      { name: "Attendance Punch", path: "/att_punch" },
-      { name: "Attendance Regularization", path: "/att_timesheetManagement" },
-      { name: "Leave Application & Balances", path: "/att_leaveRequest" },
-      { name: "On Duty Requests", path: "/att_requests" },
-
-      // 2. Planning, Shift & Roster Management
-      { name: "Shift Roster & Schedule", path: "/att_shiftSchedule", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
-      { name: "Shift Master", path: "/att_shift", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
+      // 1. Dashboards & Calendars
+      { name: "My Leave Calendar", path: "/att_leaveDashboard" },
+      { name: "Manager Leave Dashboard", path: "/att_leaveManagerDashboard", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+      { name: "Attendance Tracking", path: "/att_attendanceTracking" },
       { name: "Holiday Calendar", path: "/att_holidayCalendar" },
 
-      // 4. Policy Configuration & Admin Setup
+      // 2. Employee Requests & Punch
+      { name: "Attendance Punch", path: "/att_punch" },
+      { name: "Leave Requests", path: "/att_leaveRequest" },
+      { name: "Attendance Regularization", path: "/att_timesheetManagement" },
+      { name: "On-Duty Requests", path: "/att_requests" },
+
+      // 3. Shift & Roster Management
+      { name: "Shift Roster & Schedule", path: "/att_shiftSchedule", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+      { name: "Shift Master", path: "/att_shift", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
+
+      // 4. Policy & Configuration
       { name: "Attendance Policy", path: "/att_attendancePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
       { name: "Leave Policy Master", path: "/att_leavePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
 
-      // 5. Dashboards, Reports & Audits
-      { name: "Leave Dashboard & Audits", path: "/att_leaveDashboard" },
+      // 5. Reports
       { name: "Attendance Reports", path: "/att_reports" },
     ],
   },

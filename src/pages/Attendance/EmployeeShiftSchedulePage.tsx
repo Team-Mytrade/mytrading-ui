@@ -479,6 +479,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
                     type="date"
                     value={form.effectiveFrom}
                     onChange={(e) => setForm(p => ({ ...p, effectiveFrom: e.target.value }))}
+                    onClick={(e) => e.currentTarget.showPicker?.()}
                     className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                     required
                   />
@@ -490,6 +491,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
                     type="date"
                     value={form.effectiveTo}
                     onChange={(e) => setForm(p => ({ ...p, effectiveTo: e.target.value }))}
+                    onClick={(e) => e.currentTarget.showPicker?.()}
                     className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                     required
                   />

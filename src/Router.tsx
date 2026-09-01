@@ -144,6 +144,7 @@ import LeaveRequestPage from "./pages/Attendance/LeaveRequestPage";
 import LeaveTypePage from "./pages/Attendance/LeaveTypePage";
 import LeavePolicyPage from "./pages/Attendance/LeavePolicyPage";
 import LeaveDashboardPage from "./pages/Attendance/LeaveDashboardPage";
+import LeaveManagerDashboardPage from "./pages/Attendance/LeaveManagerDashboardPage";
 import NotificationPage from "./pages/Attendance/NotificationPage";
 import NotificationInboxPage from "./pages/Attendance/NotificationInboxPage";
 import NotificationDetailPage from "./pages/Attendance/NotificationDetailPage";
@@ -151,6 +152,7 @@ import AttendancePolicyPage from "./pages/Attendance/AttendancePolicyPage";
 import HolidayCalendarPage from "./pages/Attendance/HolidayCalendarPage";
 import AttendancePunchPage from "./pages/Attendance/AttendancePunchPage";
 import AttendanceReportsPage from "./pages/Attendance/AttendanceReportsPage";
+import AttendanceTrackingPage from "./pages/Attendance/AttendanceTrackingPage";
 import AttendanceRequestsPage from "./pages/Attendance/AttendanceRequestsPage";
 import OnDutyApprovalPage from "./pages/Attendance/OnDutyApprovalPage";
 import AttendanceRegularizationApprovalPage from "./pages/Attendance/AttendanceRegularizationApprovalPage";
@@ -361,6 +363,8 @@ export default function AppRouter() {
           <Route path="/att_leaveRequest" element={<LeaveRequestPage />} />
           <Route path="/att_leavePolicy" element={<LeavePolicyPage />} />
           <Route path="/att_leaveDashboard" element={<LeaveDashboardPage />} />
+          <Route path="/att_leaveManagerDashboard" element={<LeaveManagerDashboardPage />} />
+          <Route path="/att_attendanceTracking" element={<AttendanceTrackingPage />} />
           <Route path="/att_overtimeEntry" element={<OverTimeEntryPage />} />
           <Route path="/att_leaveType" element={<LeaveTypePage />} />
           <Route path="/att_overtimeRule" element={<OvertimeRulePage />} />

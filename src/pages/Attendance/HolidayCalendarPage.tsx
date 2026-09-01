@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { 
-  CalendarDays, Plus, Trash2, Eye, Edit, RotateCw, X, Calendar
+  CalendarDays, Plus, Trash2, Eye, Edit, RotateCw, X, Calendar, Copy, Download, Sparkles, Filter, CheckCircle2, XCircle, FileSpreadsheet, Layers
 } from 'lucide-react';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
@@ -40,6 +40,10 @@ const HolidayCalendarPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
+  // Filters
+  const [yearFilter, setYearFilter] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+
   // Modals
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState<boolean>(false);
   const [editingCalendar, setEditingCalendar] = useState<HolidayCalendarModel | null>(null);
@@ -48,6 +52,7 @@ const HolidayCalendarPage: React.FC = () => {
   const [activeCalendarForHolidays, setActiveCalendarForHolidays] = useState<HolidayCalendarModel | null>(null);
   
   const [viewingCalendarDetails, setViewingCalendarDetails] = useState<HolidayCalendarModel | null>(null);
+  const [inspectedHolidays, setInspectedHolidays] = useState<HolidayItem[]>([]);
 
   // Calendar Master Form State
   const [calendarForm, setCalendarForm] = useState<{
@@ -92,6 +97,24 @@ const HolidayCalendarPage: React.FC = () => {
     fetchCalendars();
   }, []);
 
+  // Filtered Calendars List
+  const filteredCalendars = useMemo(() => {
+    return calendars.filter(cal => {
+      const matchesYear = yearFilter === 'ALL' || String(cal.calendarYear) === yearFilter;
+      const matchesStatus = statusFilter === 'ALL' || (statusFilter === 'ACTIVE' ? cal.active !== false : cal.active === false);
+      return matchesYear && matchesStatus;
+    });
+  }, [calendars, yearFilter, statusFilter]);
+
+  // Available Years for filter pills
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    calendars.forEach(c => { if (c.calendarYear) years.add(String(c.calendarYear)); });
+    years.add('2026');
+    years.add('2027');
+    return Array.from(years).sort().reverse();
+  }, [calendars]);
+
   // ── API Error Handler Helper ────────────────────────────────────────────
   const handleApiError = (err: any, defaultMsg: string) => {
     const backendMsg = err.response?.data?.message || err.response?.data?.error || err.response?.data?.detail;
@@ -102,9 +125,105 @@ const HolidayCalendarPage: React.FC = () => {
     }
   };
 
+  // ── Toggle Calendar Active / Inactive State ─────────────────────────────
+  const handleToggleCalendarActive = async (cal: HolidayCalendarModel) => {
+    if (!cal.id) return;
+    const newStatus = !(cal.active !== false);
+    try {
+      await axios.put(`${BASE_CALENDAR_URL}/${cal.id}`, {
+        ...cal,
+        active: newStatus
+      });
+      ToasterService.success(`Calendar '${cal.calendarCode}' set to ${newStatus ? 'Active' : 'Inactive'}!`);
+      setCalendars(prev => prev.map(c => c.id === cal.id ? { ...c, active: newStatus } : c));
+    } catch (err: any) {
+      handleApiError(err, "Failed to update calendar status.");
+    }
+  };
+
+  // ── One-Click Duplicate Calendar for Next Year ────────────────────────────
+  const handleDuplicateCalendar = async (cal: HolidayCalendarModel) => {
+    if (!cal.id) return;
+    const nextYear = (cal.calendarYear || 2026) + 1;
+    const codeBase = cal.calendarCode.includes('_') ? cal.calendarCode.substring(0, cal.calendarCode.lastIndexOf('_')) : cal.calendarCode;
+    const newCode = `${codeBase}_${nextYear}`;
+
+    try {
+      setIsSubmitting(true);
+      // 1. Fetch child holidays of existing calendar
+      let childHolidays: HolidayItem[] = [];
+      try {
+        const holRes = await axios.get(`${BASE_CALENDAR_URL}/${cal.id}/holidays`);
+        if (Array.isArray(holRes.data)) childHolidays = holRes.data;
+      } catch (e) {}
+
+      // 2. Create new calendar for next year
+      const createPayload = {
+        calendarCode: newCode,
+        calendarName: `${cal.calendarName.replace(String(cal.calendarYear), '')} ${nextYear}`.trim(),
+        description: cal.description || "Holidays",
+        calendarYear: nextYear,
+        active: true
+      };
+
+      const res = await axios.post(BASE_CALENDAR_URL, createPayload);
+      const newCal = res.data;
+
+      // 3. Post holidays for new calendar if available
+      if (newCal?.id && childHolidays.length > 0) {
+        const clonedHolidays = childHolidays.map(h => {
+          const origDate = new Date(h.holidayDate);
+          const newDateStr = !isNaN(origDate.getTime()) 
+            ? `${nextYear}-${String(origDate.getMonth() + 1).padStart(2, '0')}-${String(origDate.getDate()).padStart(2, '0')}`
+            : `${nextYear}-01-01`;
+          return {
+            holidayCalendarId: newCal.id,
+            holidayDate: newDateStr,
+            holidayName: h.holidayName,
+            holidayType: h.holidayType || "NATIONAL",
+            optionalHoliday: Boolean(h.optionalHoliday),
+            description: h.description || "Holiday",
+            active: true
+          };
+        });
+
+        await axios.post(`${BASE_CALENDAR_URL}/${newCal.id}/holidays`, {
+          replaceExisting: true,
+          validateDuplicates: false,
+          holidays: clonedHolidays
+        });
+      }
+
+      ToasterService.success(`Calendar duplicated for ${nextYear} as '${newCode}'!`);
+      fetchCalendars();
+    } catch (err: any) {
+      handleApiError(err, "Failed to duplicate calendar.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ── Export Noticeboard CSV File ──────────────────────────────────────────
+  const handleExportCSV = () => {
+    if (calendars.length === 0) return ToasterService.error("No holiday calendars available to export.");
+    
+    let csv = "Calendar Code,Calendar Name,Year,Status,Description\n";
+    calendars.forEach(c => {
+      csv += `"${c.calendarCode}","${c.calendarName}",${c.calendarYear},"${c.active !== false ? 'Active' : 'Inactive'}","${c.description || ''}"\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Holiday_Calendars_Noticeboard_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    ToasterService.success("Holiday Noticeboard exported to CSV!");
+  };
+
   // ── API 2 & 3: CREATE / UPDATE CALENDAR MASTER ──────────────────────────
-  // Create Endpoint: POST /v1/api/attendance/holiday-calendars
-  // Update Endpoint: PUT /v1/api/attendance/holiday-calendars/{id}
   const handleCalendarSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -116,7 +235,6 @@ const HolidayCalendarPage: React.FC = () => {
     setIsSubmitting(true);
     try {
       if (editingCalendar?.id) {
-        // PUT Update existing calendar
         const updatePayload = {
           id: editingCalendar.id,
           calendarCode: calendarForm.calendarCode.trim(),
@@ -129,7 +247,6 @@ const HolidayCalendarPage: React.FC = () => {
         await axios.put(`${BASE_CALENDAR_URL}/${editingCalendar.id}`, updatePayload);
         ToasterService.success("Holiday Calendar updated successfully!");
       } else {
-        // POST Create new calendar
         const createPayload = {
           calendarCode: calendarForm.calendarCode.trim(),
           calendarName: calendarForm.calendarName.trim(),
@@ -152,25 +269,45 @@ const HolidayCalendarPage: React.FC = () => {
     }
   };
 
-  // ── API 4: GET BY CALENDAR ID ───────────────────────────────────────────
-  // Endpoint: GET /v1/api/attendance/holiday-calendars/{id}
+  // ── API 4: GET BY CALENDAR ID & INSPECT HOLIDAYS ─────────────────────────
   const handleInspectCalendar = async (cal: HolidayCalendarModel) => {
     if (!cal.id) return;
+    setViewingCalendarDetails(cal);
+    setInspectedHolidays([]);
+
     try {
-      const res = await axios.get(`${BASE_CALENDAR_URL}/${cal.id}`);
-      setViewingCalendarDetails(res.data || cal);
+      const res = await axios.get(`${BASE_CALENDAR_URL}/${cal.id}/holidays`);
+      if (Array.isArray(res.data)) {
+        setInspectedHolidays(res.data);
+      }
     } catch (err: any) {
-      setViewingCalendarDetails(cal);
+      setInspectedHolidays(cal.holidays || []);
+    }
+  };
+
+  // ── Auto-load holidays helper ──────────────────────────────────────────
+  const loadHolidaysForSelectedCalendar = async (calId: number) => {
+    const cal = calendars.find(c => c.id === calId);
+    if (cal) setActiveCalendarForHolidays(cal);
+
+    try {
+      const res = await axios.get(`${BASE_CALENDAR_URL}/${calId}/holidays`);
+      if (Array.isArray(res.data)) {
+        setHolidaysList(res.data);
+      } else {
+        setHolidaysList(cal?.holidays || []);
+      }
+    } catch (e) {
+      setHolidaysList(cal?.holidays || []);
     }
   };
 
   // ── API 5: GET ALL HOLIDAYS BY CALENDAR ID ──────────────────────────────
-  // Endpoint: GET /v1/api/attendance/holiday-calendars/{calendarId}/holidays
   const openManageHolidaysModal = async (cal: HolidayCalendarModel) => {
     if (!cal.id) return;
     setActiveCalendarForHolidays(cal);
     setLoading(true);
-    setReplaceExisting(true); // Default to replaceExisting = true so removals reflect in DB
+    setReplaceExisting(true);
 
     try {
       const res = await axios.get(`${BASE_CALENDAR_URL}/${cal.id}/holidays`);
@@ -189,7 +326,6 @@ const HolidayCalendarPage: React.FC = () => {
   };
 
   // ── API 6: BULK HOLIDAYS CREATE ─────────────────────────────────────────
-  // Endpoint: POST /v1/api/attendance/holiday-calendars/{calendarId}/holidays
   const handleBulkCreateHolidays = async () => {
     if (!activeCalendarForHolidays?.id) return;
 
@@ -204,7 +340,6 @@ const HolidayCalendarPage: React.FC = () => {
       const existingItems = validHolidays.filter(h => h.id);
       const newItems = validHolidays.filter(h => !h.id);
 
-      // 1. Update existing items using PUT /v1/api/attendance/holiday-calendars/{calendarId}/holidays/{holidayId}
       for (const hItem of existingItems) {
         try {
           const putPayload = {
@@ -226,7 +361,6 @@ const HolidayCalendarPage: React.FC = () => {
         }
       }
 
-      // 2. Post new items using POST /v1/api/attendance/holiday-calendars/{calendarId}/holidays
       if (newItems.length > 0) {
         const bulkPayload = {
           replaceExisting: Boolean(replaceExisting),
@@ -252,33 +386,6 @@ const HolidayCalendarPage: React.FC = () => {
       handleApiError(err, "Failed to save holidays.");
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  // ── API 7: UPDATE SINGLE HOLIDAY ────────────────────────────────────────
-  // Endpoint: PUT /v1/api/attendance/holiday-calendars/{calendarId}/holidays/{holidayId}
-  const handleUpdateSingleHoliday = async (hItem: HolidayItem) => {
-    if (!activeCalendarForHolidays?.id || !hItem.id) return;
-
-    try {
-      const singlePayload = {
-        id: hItem.id,
-        holidayCalendarId: activeCalendarForHolidays.id,
-        holidayDate: hItem.holidayDate,
-        holidayName: hItem.holidayName.trim(),
-        holidayType: hItem.holidayType || "NATIONAL",
-        description: hItem.description || "Holiday for celebration",
-        optionalHoliday: Boolean(hItem.optionalHoliday),
-        active: hItem.active !== false
-      };
-
-      await axios.put(
-        `${BASE_CALENDAR_URL}/${activeCalendarForHolidays.id}/holidays/${hItem.id}`,
-        singlePayload
-      );
-      ToasterService.success(`Holiday '${hItem.holidayName}' updated!`);
-    } catch (err: any) {
-      handleApiError(err, "Failed to update single holiday.");
     }
   };
 
@@ -347,7 +454,7 @@ const HolidayCalendarPage: React.FC = () => {
     setHolidaysList(prev => [
       ...prev,
       {
-        holidayDate: '',
+        holidayDate: selectedDateStr || '2026-08-27',
         holidayName: '',
         holidayType: 'NATIONAL',
         optionalHoliday: false,
@@ -406,11 +513,16 @@ const HolidayCalendarPage: React.FC = () => {
       label: 'Status',
       sortable: true,
       render: (row) => (
-        <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap ${
-          row.active !== false ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
-        }`}>
+        <button
+          type="button"
+          onClick={() => handleToggleCalendarActive(row)}
+          className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shadow-2xs ${
+            row.active !== false ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+          }`}
+          title="Click to toggle Active / Inactive"
+        >
           {row.active !== false ? 'Active' : 'Inactive'}
-        </span>
+        </button>
       )
     },
     {
@@ -422,7 +534,7 @@ const HolidayCalendarPage: React.FC = () => {
             type="button"
             onClick={() => handleInspectCalendar(row)}
             className="p-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-gray-600 transition-colors"
-            title="Inspect Calendar"
+            title="Inspect Calendar & Holiday List"
           >
             <Eye className="w-3.5 h-3.5" />
           </button>
@@ -433,6 +545,14 @@ const HolidayCalendarPage: React.FC = () => {
             title="Manage Holidays List"
           >
             <CalendarDays className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDuplicateCalendar(row)}
+            className="p-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg text-amber-700 transition-colors"
+            title="Duplicate Calendar for Next Year"
+          >
+            <Copy className="w-3.5 h-3.5" />
           </button>
           <button
             type="button"
@@ -455,6 +575,120 @@ const HolidayCalendarPage: React.FC = () => {
     }
   ];
 
+  // Selected Date & Mini Calendar Month State
+  const [miniCalendarDate, setMiniCalendarDate] = useState<Date>(new Date(2026, 7, 1)); // August 2026
+  const [selectedDateStr, setSelectedDateStr] = useState<string>('2026-08-27');
+  const [selectedCalendarCodeId, setSelectedCalendarCodeId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'manager' | 'table'>('manager');
+
+  // User Profile
+  const currentUser = useMemo(() => {
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      try {
+        const parsed = JSON.parse(userStr);
+        return {
+          name: parsed.fullName || parsed.name || parsed.username || "Roy Hamlin",
+          role: parsed.role || parsed.roles?.[0] || "SUPER_ADMIN",
+          email: parsed.email || parsed.username || "roy.hamlin@mytrading.com",
+          code: parsed.employeeCode || "#ADM-EMP-0067"
+        };
+      } catch (e) {}
+    }
+    return { name: "Roy Hamlin", role: "SUPER_ADMIN", email: "roy.hamlin@mytrading.com", code: "#ADM-EMP-0067" };
+  }, []);
+
+  // Sync selectedCalendarCodeId when calendars load & auto-fetch holidays
+  useEffect(() => {
+    if (calendars.length > 0 && !selectedCalendarCodeId) {
+      const firstId = calendars[0].id || null;
+      setSelectedCalendarCodeId(firstId);
+      if (firstId) loadHolidaysForSelectedCalendar(firstId);
+    }
+  }, [calendars]);
+
+  // Selected calendar details for manager tab
+  const activeSelectedCalendar = useMemo(() => {
+    return calendars.find(c => c.id === selectedCalendarCodeId) || calendars[0] || null;
+  }, [calendars, selectedCalendarCodeId]);
+
+  // Mini Calendar Month Navigation
+  const handlePrevMonth = () => {
+    setMiniCalendarDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setMiniCalendarDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  };
+
+  // Render Mini Calendar Cells
+  const renderMiniCalendar = () => {
+    const year = miniCalendarDate.getFullYear();
+    const month = miniCalendarDate.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const prevMonthDays = new Date(year, month, 0).getDate();
+
+    const cells = [];
+
+    // Prev Month Padding
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+      cells.push(
+        <div key={`prev-${i}`} className="flex items-center justify-center py-1">
+          <span className="text-[10px] text-gray-300 font-mono">{prevMonthDays - i}</span>
+        </div>
+      );
+    }
+
+    // Current Month Days
+    const todayStr = '2026-08-27';
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const isToday = dateStr === todayStr;
+      const isSelected = dateStr === selectedDateStr;
+
+      // Check if day has holidays
+      const dayHolidays = holidaysList.filter(h => h.holidayDate === dateStr);
+      const hasNational = dayHolidays.some(h => (h.holidayType || '').toUpperCase() === 'NATIONAL');
+      const hasFestival = dayHolidays.some(h => (h.holidayType || '').toUpperCase() === 'FESTIVAL');
+
+      cells.push(
+        <div key={`curr-${day}`} className="flex flex-col items-center justify-center py-1 relative">
+          <button
+            type="button"
+            onClick={() => setSelectedDateStr(dateStr)}
+            className={`w-7 h-7 rounded-lg text-xs font-bold transition-all flex items-center justify-center relative ${
+              isSelected
+                ? 'bg-cyan-600 text-white shadow-xs'
+                : isToday
+                ? 'bg-cyan-50 text-cyan-800 border border-cyan-300 font-extrabold'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            {day}
+            {(hasNational || hasFestival) && !isSelected && (
+              <span className={`w-1.5 h-1.5 rounded-full absolute bottom-0.5 ${hasNational ? 'bg-rose-500' : 'bg-amber-500'}`} />
+            )}
+          </button>
+        </div>
+      );
+    }
+
+    // Next Month Fill
+    const totalCells = Math.ceil((daysInMonth + firstDayIndex) / 7) * 7;
+    for (let i = 1; i <= totalCells - (daysInMonth + firstDayIndex); i++) {
+      cells.push(
+        <div key={`next-${i}`} className="flex items-center justify-center py-1">
+          <span className="text-[10px] text-gray-300 font-mono">{i}</span>
+        </div>
+      );
+    }
+
+    return cells;
+  };
+
+  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
   return (
     <>
       <PageMeta
@@ -463,52 +697,370 @@ const HolidayCalendarPage: React.FC = () => {
       />
       <PageBreadcrumb pageTitle="Holiday Calendar Master" />
 
-      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
+      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-3">
         
-        {/* Header Bar */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-cyan-50 text-cyan-700 rounded-lg border border-cyan-200">
-              <CalendarDays className="w-5 h-5" />
+        {/* User Profile Banner matching Leave Request UI */}
+        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-cyan-600 flex items-center justify-center text-white font-bold text-sm shadow-xs shrink-0">
+              {currentUser.name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Holiday Calendar Master</h2>
-              <p className="text-xs text-gray-500">Manage regional holiday schedules and festival calendar dates</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-gray-900">{currentUser.name}</h2>
+                <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 uppercase">
+                  {currentUser.role.replace(/_/g, " ")}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500">{currentUser.email}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+            <button
+              type="button"
+              onClick={() => setActiveTab(activeTab === 'table' ? 'manager' : 'table')}
+              className="px-3 py-1.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 rounded-lg border border-cyan-200 text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              {activeTab === 'table' ? 'Switch to Split Calendar View' : `Master Records (${calendars.length})`}
+            </button>
             <button
               type="button"
               onClick={openCreateCalendarModal}
-              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0"
+              className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
             >
-              <Plus className="w-4 h-4" /> Create Holiday Calendar
+              <Plus className="w-4 h-4" /> Create Calendar
             </button>
-            <button
-              type="button"
-              onClick={fetchCalendars}
-              className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg transition-all"
-              title="Refresh List"
-            >
-              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
-            </button>
+            <div className="text-right hidden sm:block border-l border-gray-200 pl-3 ml-1">
+              <span className="text-[9px] text-gray-400 font-medium block">Employee ID</span>
+              <span className="text-xs font-mono font-bold text-gray-700">{currentUser.code}</span>
+            </div>
           </div>
         </div>
 
-        {/* Master Table */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4">
-          <ReusableTable
-            data={calendars}
-            columns={columns}
-            loading={loading}
-            searchable={true}
-            searchPlaceholder="Search by calendar code or calendar name..."
-            pageSize={5}
-            defaultSortKey="calendarName"
-            defaultSortOrder="asc"
-          />
-        </div>
+        {/* ── MODE 1: SPLIT CALENDAR & MANAGER VIEW ────────────────────── */}
+        {activeTab === 'manager' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
+            
+            {/* LEFT COLUMN: Mini Calendar Widget */}
+            <div className="lg:col-span-5 bg-white rounded-xl shadow-2xs border border-gray-200/80 p-3.5 flex flex-col justify-between min-h-[380px]">
+              <div>
+                {/* Month Header */}
+                <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
+                  <button 
+                    type="button" 
+                    onClick={handlePrevMonth}
+                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors font-bold text-sm"
+                  >
+                    &lt;
+                  </button>
+                  <div className="text-center">
+                    <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
+                      {monthNames[miniCalendarDate.getMonth()]} {miniCalendarDate.getFullYear()}
+                    </h3>
+                    <span className="text-[10px] text-gray-400 font-mono">Select date to inspect</span>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={handleNextMonth}
+                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors font-bold text-sm"
+                  >
+                    &gt;
+                  </button>
+                </div>
+
+                {/* Weekday Headers */}
+                <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-gray-500 mb-1">
+                  <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                </div>
+
+                {/* Days Matrix */}
+                <div className="grid grid-cols-7 gap-1 max-w-xs mx-auto lg:max-w-none">
+                  {renderMiniCalendar()}
+                </div>
+              </div>
+
+              {/* Bottom Legend & Selected Date Holiday Inspector */}
+              <div className="mt-3 pt-2.5 border-t border-gray-100 space-y-2">
+                <div className="flex items-center justify-between text-[10px] text-gray-600 font-medium">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-cyan-600" /> Selected
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-rose-500" /> National
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" /> Festival
+                  </span>
+                </div>
+
+                {/* Selected Date Preview */}
+                <div className="bg-cyan-50/70 p-2.5 rounded-lg border border-cyan-200/80 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-cyan-800 font-bold uppercase block">Selected Date</span>
+                    <span className="text-xs font-mono font-bold text-cyan-900">{selectedDateStr}</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-cyan-700 bg-white px-2 py-0.5 rounded border border-cyan-200">
+                    {holidaysList.filter(h => h.holidayDate === selectedDateStr).length} Holidays
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN: Quick Holiday Master & Manager */}
+            <div className="lg:col-span-7 bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 space-y-4">
+              
+              {/* Select Calendar Dropdown */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Select Holiday Calendar Master *</label>
+                <select
+                  value={selectedCalendarCodeId || ''}
+                  onChange={(e) => {
+                    const id = Number(e.target.value);
+                    setSelectedCalendarCodeId(id);
+                    if (id) loadHolidaysForSelectedCalendar(id);
+                  }}
+                  className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
+                >
+                  {calendars.map(cal => (
+                    <option key={cal.id} value={cal.id}>
+                      {cal.calendarName} ({cal.calendarCode}) — Year {cal.calendarYear}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Active Calendar Details Card */}
+              {activeSelectedCalendar && (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
+                        {activeSelectedCalendar.calendarCode}
+                      </span>
+                      <h4 className="text-xs font-bold text-gray-900">{activeSelectedCalendar.calendarName}</h4>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openManageHolidaysModal(activeSelectedCalendar)}
+                      className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-[11px] font-bold shadow-2xs flex items-center gap-1"
+                    >
+                      <Edit className="w-3 h-3" /> Edit Holidays
+                    </button>
+                  </div>
+
+                  <p className="text-[11px] text-gray-500">{activeSelectedCalendar.description || 'Holidays schedule for employees'}</p>
+                </div>
+              )}
+
+              {/* Holidays List Preview & Quick Add */}
+              <div className="space-y-2 pt-1 border-t border-gray-100">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                      Holidays Schedule ({holidaysList.length})
+                    </h4>
+                    {selectedDateStr && (
+                      <span className="px-2 py-0.5 bg-cyan-50 text-cyan-800 border border-cyan-200 rounded text-[10px] font-mono font-bold">
+                        Selected: {selectedDateStr}
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={addHolidayRow}
+                    className="px-2.5 py-1 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Holiday for {selectedDateStr || 'Today'}
+                  </button>
+                </div>
+
+                <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                  {holidaysList.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-gray-500 italic bg-slate-50 rounded-lg border border-dashed border-slate-200 space-y-2">
+                      <p>No holidays configured for this calendar on <span className="font-mono font-bold text-cyan-700">{selectedDateStr}</span>.</p>
+                      <button
+                        type="button"
+                        onClick={addHolidayRow}
+                        className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-xs font-bold inline-flex items-center gap-1 shadow-2xs"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Create Holiday on {selectedDateStr}
+                      </button>
+                    </div>
+                  ) : (
+                    holidaysList.map((h, idx) => {
+                      const isMatchSelected = h.holidayDate === selectedDateStr;
+
+                      return (
+                        <div 
+                          key={idx} 
+                          onClick={() => {
+                            if (h.holidayDate) {
+                              setSelectedDateStr(h.holidayDate);
+                              const d = new Date(h.holidayDate);
+                              if (!isNaN(d.getTime())) setMiniCalendarDate(d);
+                            }
+                          }}
+                          className={`p-2 rounded-lg border transition-all flex flex-col sm:flex-row items-center gap-2 ${
+                            isMatchSelected 
+                              ? 'bg-cyan-50/80 border-cyan-400 ring-2 ring-cyan-400/20 shadow-2xs' 
+                              : 'bg-gray-50 border-gray-200 hover:bg-gray-100/80'
+                          }`}
+                        >
+                          <input
+                            type="text"
+                            value={h.holidayName}
+                            onChange={(e) => handleHolidayFieldChange(idx, 'holidayName', e.target.value)}
+                            placeholder="Holiday Name (e.g. Independence Day)"
+                            className="w-full sm:flex-1 py-1 px-2 bg-white border border-gray-200 rounded text-xs font-semibold text-gray-800 focus:ring-1 focus:ring-cyan-500"
+                          />
+                          <input
+                            type="date"
+                            value={h.holidayDate}
+                            onChange={(e) => {
+                              handleHolidayFieldChange(idx, 'holidayDate', e.target.value);
+                              if (e.target.value) {
+                                setSelectedDateStr(e.target.value);
+                                const d = new Date(e.target.value);
+                                if (!isNaN(d.getTime())) setMiniCalendarDate(d);
+                              }
+                            }}
+                            className="w-full sm:w-36 py-1 px-2 bg-white border border-gray-200 rounded text-xs font-mono text-gray-800 focus:ring-1 focus:ring-cyan-500"
+                          />
+                          <select
+                            value={h.holidayType}
+                            onChange={(e) => handleHolidayFieldChange(idx, 'holidayType', e.target.value)}
+                            className="w-full sm:w-28 py-1 px-2 bg-white border border-gray-200 rounded text-xs font-bold text-gray-800"
+                          >
+                            <option value="NATIONAL">NATIONAL</option>
+                            <option value="STATE">STATE</option>
+                            <option value="FESTIVAL">FESTIVAL</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSingleHoliday(idx, h);
+                            }}
+                            className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded shrink-0"
+                            title="Delete Holiday"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {holidaysList.length > 0 && (
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleBulkCreateHolidays}
+                      disabled={isSubmitting}
+                      className="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold rounded-lg shadow-2xs disabled:opacity-70"
+                    >
+                      {isSubmitting ? "Saving..." : "Save Holidays Schedule"}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* ── MODE 2: FULL WIDTH MASTER RECORDS TABLE ──────────────────── */}
+        {activeTab === 'table' && (
+          <div className="space-y-3">
+            {/* Year & Status Filter Pills */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-gray-200/80 shadow-2xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                  <Filter className="w-3.5 h-3.5 text-cyan-600" /> Year:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setYearFilter('ALL')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    yearFilter === 'ALL' ? 'bg-cyan-600 text-white shadow-2xs' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  All Years
+                </button>
+                {availableYears.map(yr => (
+                  <button
+                    key={yr}
+                    type="button"
+                    onClick={() => setYearFilter(yr)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      yearFilter === yr ? 'bg-cyan-600 text-white shadow-2xs' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    FY {yr}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Status:</span>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('ALL')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    statusFilter === 'ALL' ? 'bg-slate-700 text-white' : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('ACTIVE')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    statusFilter === 'ACTIVE' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  Active Only
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('INACTIVE')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    statusFilter === 'INACTIVE' ? 'bg-rose-600 text-white' : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  Inactive
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportCSV}
+                  className="px-3.5 py-1.5 bg-cyan-50 text-cyan-800 border border-cyan-200 hover:bg-cyan-100 rounded-lg text-xs font-bold shadow-2xs flex items-center gap-1.5 ml-2"
+                >
+                  <Download className="w-3.5 h-3.5" /> Export Noticeboard
+                </button>
+              </div>
+            </div>
+
+            {/* Master Table - Full 100% Width */}
+            <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4">
+              <ReusableTable
+                data={filteredCalendars}
+                columns={columns}
+                loading={loading}
+                searchable={true}
+                searchPlaceholder="Search by calendar code or calendar name..."
+                pageSize={10}
+                defaultSortKey="calendarName"
+                defaultSortOrder="asc"
+              />
+            </div>
+          </div>
+        )}
 
       </div>
 
@@ -755,22 +1307,73 @@ const HolidayCalendarPage: React.FC = () => {
               </button>
             </div>
 
-            <div className="space-y-2 text-xs">
-              <div className="p-2.5 bg-slate-50 rounded border border-slate-200/80">
-                <span className="text-slate-500 block font-semibold text-[11px]">Description:</span>
-                <span className="font-bold text-slate-800">{viewingCalendarDetails.description || 'Holidays'}</span>
+            <div className="space-y-3 text-xs">
+              <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200/80">
+                <div>
+                  <span className="text-slate-500 block font-semibold text-[10px] uppercase">Description:</span>
+                  <span className="font-bold text-slate-800">{viewingCalendarDetails.description || 'Holidays'}</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${viewingCalendarDetails.active !== false ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                  {viewingCalendarDetails.active !== false ? 'Active' : 'Inactive'}
+                </span>
               </div>
-              <div className="p-2.5 bg-slate-50 rounded border border-slate-200/80">
-                <span className="text-slate-500 block font-semibold text-[11px]">Active Status:</span>
-                <span className="font-bold text-emerald-700">{viewingCalendarDetails.active !== false ? 'Active' : 'Inactive'}</span>
+
+              {/* Inspected Child Holidays List */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                  Holidays Included ({inspectedHolidays.length}):
+                </span>
+                
+                <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
+                  {inspectedHolidays.length === 0 ? (
+                    <div className="p-3 text-center text-slate-400 italic bg-slate-50 rounded border border-dashed border-slate-200">
+                      No holiday items registered for this calendar. Click Manage Holidays to add.
+                    </div>
+                  ) : (
+                    inspectedHolidays.map((h, idx) => {
+                      const isNational = (h.holidayType || '').toUpperCase() === 'NATIONAL';
+                      const isFestival = (h.holidayType || '').toUpperCase() === 'FESTIVAL';
+
+                      return (
+                        <div key={idx} className="p-2 bg-slate-50 hover:bg-slate-100/80 rounded-lg border border-slate-200 flex items-center justify-between transition-colors">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-cyan-600 shrink-0" />
+                            <div>
+                              <span className="font-bold text-slate-900 block text-xs">{h.holidayName}</span>
+                              <span className="text-[10px] text-slate-500 font-mono">{h.holidayDate}</span>
+                            </div>
+                          </div>
+
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold font-mono ${
+                            isNational ? 'bg-rose-50 text-rose-700 border border-rose-200' : isFestival ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-cyan-50 text-cyan-800 border border-cyan-200'
+                          }`}>
+                            {h.holidayType || 'HOLIDAY'}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-gray-100 flex items-center justify-end">
+            <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  const target = viewingCalendarDetails;
+                  setViewingCalendarDetails(null);
+                  openManageHolidaysModal(target);
+                }}
+                className="px-3 py-1.5 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 rounded-lg text-xs font-bold border border-cyan-200 transition-colors flex items-center gap-1"
+              >
+                <Edit className="w-3.5 h-3.5" /> Manage Holiday List
+              </button>
+
               <button
                 type="button"
                 onClick={() => setViewingCalendarDetails(null)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold"
+                className="px-4 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold transition-colors"
               >
                 Close
               </button>
