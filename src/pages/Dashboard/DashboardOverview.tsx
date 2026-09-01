@@ -51,7 +51,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                       {a.title}
                     </p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {a.type} on {a.date} at {a.time}
+                      {a.type} on {a.date}
                     </p>
                   </div>
                   <span className="text-sm text-gray-400 dark:text-gray-500 whitespace-nowrap">

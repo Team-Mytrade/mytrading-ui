@@ -181,20 +181,23 @@ function getWarehouseValue(warehouse?: Warehouse | string | null) {
 
 function getWarehouseId(warehouse: Warehouse | string | null | undefined, warehouses: Warehouse[]) {
   if (!warehouse) return "";
-  if (typeof warehouse !== "string") return String(warehouse.id || "");
-  return String(warehouses.find((item) => item.code === warehouse || item.name === warehouse)?.id || "");
+  if (typeof warehouse !== "string") return warehouse.id != null ? String(warehouse.id) : "";
+  const match = warehouses.find((item) => item.code === warehouse || item.name === warehouse);
+  return match?.id != null ? String(match.id) : "";
 }
 
 function getBatchId(batch: Batch | string | null | undefined, batches: Batch[]) {
   if (!batch) return "";
-  if (typeof batch !== "string") return String(batch.id || "");
-  return String(batches.find((item) => item.batchNumber === batch)?.id || "");
+  if (typeof batch !== "string") return batch.id != null ? String(batch.id) : "";
+  const match = batches.find((item) => item.batchNumber === batch);
+  return match?.id != null ? String(match.id) : "";
 }
 
 function getSerialId(serialNumber: SerialNumber | string | null | undefined, serialNumbers: SerialNumber[]) {
   if (!serialNumber) return "";
-  if (typeof serialNumber !== "string") return String(serialNumber.id || "");
-  return String(serialNumbers.find((item) => item.serial === serialNumber)?.id || "");
+  if (typeof serialNumber !== "string") return serialNumber.id != null ? String(serialNumber.id) : "";
+  const match = serialNumbers.find((item) => item.serial === serialNumber);
+  return match?.id != null ? String(match.id) : "";
 }
 
 // ======================== HELPER: ENUM NORMALIZATION ========================
@@ -244,6 +247,7 @@ const StockMovementsManager: React.FC = () => {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [serialNumbers, setSerialNumbers] = useState<SerialNumber[]>([]);
   const [movementTypeOptions, setMovementTypeOptions] = useState<EnumOption[]>([]);
+  const [lookupsLoaded, setLookupsLoaded] = useState(false);
   const [form, setForm] = useState<MovementForm>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
@@ -294,6 +298,8 @@ const StockMovementsManager: React.FC = () => {
       setSerialNumbers(Array.isArray(serialsRes.data) ? serialsRes.data : (serialsRes.data as any)?.content || (serialsRes.data as any)?.data || []);
     } catch (error) {
       ToasterService.error("Failed to load lookup data", getErrorMessage(error, "Please try again."));
+    } finally {
+      setLookupsLoaded(true);
     }
   };
 
@@ -421,6 +427,13 @@ const StockMovementsManager: React.FC = () => {
   };
 
   const openEdit = (movement: StockMovement) => {
+    if (!lookupsLoaded) {
+      ToasterService.error(
+        "Reference data still loading",
+        "Please wait a moment for warehouses, batches, and serial numbers to finish loading, then try again."
+      );
+      return;
+    }
     setEditingId(movement.id);
     setForm({
       movementDate: movement.movementDate || emptyForm.movementDate,
@@ -542,10 +555,13 @@ const StockMovementsManager: React.FC = () => {
   // ---------- Dropdown options ----------
   // Product dropdown shows productName only (no code appended).
   const productOptions = useMemo(() => {
-    return products.map((product) => ({
-      id: String(product.id || product.productId || 0),
-      name: getProductName(product) || `Product #${product.id}`,
-    }));
+    return products.map((product) => {
+      const id = product.id ?? product.productId;
+      return {
+        id: id != null ? String(id) : "",
+        name: getProductName(product) || `Product #${id ?? "?"}`,
+      };
+    });
   }, [products]);
 
   const warehouseOptions = useMemo(() => {
@@ -688,8 +704,9 @@ const StockMovementsManager: React.FC = () => {
           <button
             type="button"
             onClick={() => openEdit(movement)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit"
+            disabled={!lookupsLoaded}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+            title={lookupsLoaded ? "Edit" : "Loading reference data..."}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>
@@ -710,18 +727,21 @@ const StockMovementsManager: React.FC = () => {
   return (
     <>
       <PageMeta title="Stock Movements" description="Track and manage inventory stock movements" />
-      <PageBreadcrumb pageTitle="Stock Movements" />
 
-      <div className="w-full max-w-none px-0 py-8 ">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Stock Movement" />
-        </div>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <PageBreadcrumb pageTitle="Stock Movements" />
+        <AddButton onClick={openCreate} label="Add Stock Movement" />
+      </div>
 
+      <div className="w-full max-w-none px-0 py-8 space-y-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
             label="Total Movements"
             value={stats.total}
-            icon={<ArrowsRightLeftIcon />}
+            gradient="from-slate-50 to-gray-50"
+            borderColor="border-slate-100"
+            labelColor="text-slate-600"
+            icon={<ArrowsRightLeftIcon className="h-5 w-5" />}
           />
           <StatsCard
             label="Total Quantity"
@@ -729,7 +749,7 @@ const StockMovementsManager: React.FC = () => {
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
-            icon={<CubeIcon />}
+            icon={<CubeIcon className="h-5 w-5" />}
           />
           <StatsCard
             label="Transfers"
@@ -737,7 +757,7 @@ const StockMovementsManager: React.FC = () => {
             gradient="from-blue-50 to-indigo-50"
             borderColor="border-blue-100"
             labelColor="text-blue-600"
-            icon={<ArrowRightIcon />}
+            icon={<ArrowRightIcon className="h-5 w-5" />}
           />
           <StatsCard
             label="Products Moved"
@@ -745,12 +765,12 @@ const StockMovementsManager: React.FC = () => {
             gradient="from-orange-50 to-yellow-50"
             borderColor="border-orange-100"
             labelColor="text-orange-600"
-            icon={<ClipboardDocumentListIcon />}
+            icon={<ClipboardDocumentListIcon className="h-5 w-5" />}
           />
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="relative w-full sm:max-w-md md:mt-1">
+          <div className="relative w-full sm:max-w-md">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
@@ -837,7 +857,6 @@ const StockMovementsManager: React.FC = () => {
           defaultSortKey="movementDate"
           defaultSortOrder="desc"
           onRowClick={openView}
-          className="md:-mt-4"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <ArrowsRightLeftIcon className="mb-3 h-12 w-12 text-gray-400" />

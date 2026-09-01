@@ -26,23 +26,25 @@ const RecentInteractions: React.FC = () => {
   ];
 
   return (
-    <div className="bg-white shadow rounded p-6">
-      <h2 className="text-xl font-bold mb-4">🕒 Recent Interactions</h2>
-      <div className="divide-y">
-        {interactions.map(({ id, type, contact, subject, date }) => (
-          <div key={id} className="flex items-start justify-between py-3">
-            <div className="flex items-start gap-3">
-              <div className="text-2xl">{typeIcons[type]}</div>
-              <div>
-                <p className="font-medium">{subject}</p>
-                <p className="text-sm text-gray-500">{type} with <span className="font-medium">{contact}</span></p>
-              </div>
-            </div>
-            <div className="text-sm text-gray-400">{date}</div>
+    <div className="bg-white dark:bg-gray-900 shadow rounded p-6">
+  <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">🕒 Recent Interactions</h2>
+  <div className="divide-y divide-gray-200 dark:divide-gray-700">
+    {interactions.map(({ id, type, contact, subject, date }) => (
+      <div key={id} className="flex items-start justify-between py-3">
+        <div className="flex items-start gap-3">
+          <div className="text-2xl">{typeIcons[type]}</div>
+          <div>
+            <p className="font-medium text-gray-900 dark:text-gray-100">{subject}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {type} with <span className="font-medium text-gray-700 dark:text-gray-300">{contact}</span>
+            </p>
           </div>
-        ))}
+        </div>
+        <div className="text-sm text-gray-400 dark:text-gray-500 whitespace-nowrap">{date}</div>
       </div>
-    </div>
+    ))}
+  </div>
+</div>
   );
 };
 
