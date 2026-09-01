@@ -1,0 +1,325 @@
+.quotation-preview-sheet {
+  width: min(100%, 820px);
+  margin: 0 auto;
+  background:
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.12), transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid #d9e6f2;
+  border-radius: 28px;
+  box-shadow: 0 28px 90px rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+  overflow: hidden;
+}
+
+.quotation-preview-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px 32px;
+  background: linear-gradient(135deg, #0f172a 0%, #0f766e 55%, #06b6d4 100%);
+  color: #f8fafc;
+}
+
+.quotation-preview-kicker,
+.quotation-preview-label {
+  display: inline-block;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.quotation-preview-hero h1 {
+  margin: 8px 0 6px;
+  font-size: clamp(28px, 4vw, 38px);
+  line-height: 1;
+  font-weight: 800;
+}
+
+.quotation-preview-hero p {
+  margin: 0;
+  max-width: 480px;
+  color: rgba(248, 250, 252, 0.85);
+}
+
+.quotation-preview-badge-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.quotation-preview-badge,
+.quotation-preview-status {
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.quotation-preview-badge {
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.quotation-preview-status {
+  background: #ecfeff;
+  color: #155e75;
+}
+
+.quotation-preview-top-grid,
+.quotation-preview-address-grid,
+.quotation-preview-summary-grid {
+  display: grid;
+  gap: 18px;
+  padding: 24px 32px 0;
+}
+
+.quotation-preview-top-grid,
+.quotation-preview-summary-grid {
+  grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.9fr);
+}
+
+.quotation-preview-address-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.quotation-preview-panel {
+  border: 1px solid #dbe7f3;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 22px;
+}
+
+.quotation-preview-brand-name,
+.quotation-preview-panel h3 {
+  margin: 10px 0 8px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.quotation-preview-panel p {
+  margin: 0 0 6px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.quotation-preview-meta-stack {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.quotation-preview-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.quotation-preview-info-grid strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 15px;
+}
+
+.quotation-preview-table-wrap {
+  padding: 24px 32px 0;
+}
+
+.quotation-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+  border: 1px solid #dbe7f3;
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.quotation-preview-table thead {
+  background: #eff8ff;
+}
+
+.quotation-preview-table th,
+.quotation-preview-table td {
+  padding: 16px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  vertical-align: top;
+  font-size: 13px;
+}
+
+.quotation-preview-table th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #475569;
+}
+
+.quotation-preview-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.quotation-preview-table td strong,
+.quotation-preview-table td span,
+.quotation-preview-table td em {
+  display: block;
+}
+
+.quotation-preview-table td strong {
+  margin-bottom: 4px;
+  color: #0f172a;
+}
+
+.quotation-preview-table td span,
+.quotation-preview-table td em {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.quotation-preview-table td em {
+  margin-top: 4px;
+  font-style: normal;
+}
+
+.quotation-preview-empty {
+  text-align: center;
+  color: #64748b;
+}
+
+.quotation-preview-notes {
+  display: grid;
+  gap: 18px;
+}
+
+.quotation-preview-notes h3 {
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.quotation-preview-notes ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #475569;
+}
+
+.quotation-preview-summary-card {
+  background: linear-gradient(180deg, #f8fdff 0%, #ecfeff 100%);
+}
+
+.quotation-preview-total-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid #cfe9ef;
+  color: #334155;
+}
+
+.quotation-preview-total-row strong {
+  color: #0f172a;
+}
+
+.quotation-preview-grand-total {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.quotation-preview-summary-foot {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.quotation-preview-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 32px 32px;
+}
+
+.quotation-preview-footer p {
+  margin: 10px 0 0;
+  max-width: 520px;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.quotation-preview-signoff {
+  min-width: 220px;
+  align-self: flex-end;
+  border-top: 1px solid #94a3b8;
+  padding-top: 14px;
+  text-align: center;
+  color: #334155;
+}
+
+.quotation-preview-signoff span,
+.quotation-preview-signoff strong {
+  display: block;
+}
+
+.quotation-preview-signoff strong {
+  margin-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .quotation-preview-top-grid,
+  .quotation-preview-address-grid,
+  .quotation-preview-summary-grid,
+  .quotation-preview-footer {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .quotation-preview-hero {
+    flex-direction: column;
+  }
+
+  .quotation-preview-badge-block {
+    align-items: flex-start;
+  }
+
+  .quotation-preview-info-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .quotation-preview-hero,
+  .quotation-preview-top-grid,
+  .quotation-preview-address-grid,
+  .quotation-preview-table-wrap,
+  .quotation-preview-summary-grid,
+  .quotation-preview-footer {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .quotation-preview-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .quotation-preview-table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  .quotation-preview-sheet {
+    width: 100%;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: #ffffff;
+  }
+}

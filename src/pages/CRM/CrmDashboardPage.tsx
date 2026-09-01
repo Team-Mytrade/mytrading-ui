@@ -79,34 +79,44 @@ type ColorKey = "blue" | "emerald" | "orange" | "purple" | "pink" | "teal" | "in
 type TrendKey = "up" | "down";
 
 const colorClasses: Record<ColorKey, string> = {
-  blue: "bg-blue-50 text-blue-600 group-hover:bg-blue-100",
-  emerald: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100",
-  orange: "bg-orange-50 text-orange-600 group-hover:bg-orange-100",
-  purple: "bg-purple-50 text-purple-600 group-hover:bg-purple-100",
-  pink: "bg-pink-50 text-pink-600 group-hover:bg-pink-100",
-  teal: "bg-teal-50 text-teal-600 group-hover:bg-teal-100",
-  indigo: "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100",
-  rose: "bg-rose-50 text-rose-600 group-hover:bg-rose-100",
-  green: "bg-green-50 text-green-600 group-hover:bg-green-100",
-  yellow: "bg-yellow-50 text-yellow-600 group-hover:bg-yellow-100",
+  blue: "bg-blue-50 text-blue-600 group-hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:group-hover:bg-blue-900/50",
+  emerald: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:group-hover:bg-emerald-900/50",
+  orange: "bg-orange-50 text-orange-600 group-hover:bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400 dark:group-hover:bg-orange-900/50",
+  purple: "bg-purple-50 text-purple-600 group-hover:bg-purple-100 dark:bg-purple-900/30 dark:text-purple-400 dark:group-hover:bg-purple-900/50",
+  pink: "bg-pink-50 text-pink-600 group-hover:bg-pink-100 dark:bg-pink-900/30 dark:text-pink-400 dark:group-hover:bg-pink-900/50",
+  teal: "bg-teal-50 text-teal-600 group-hover:bg-teal-100 dark:bg-teal-900/30 dark:text-teal-400 dark:group-hover:bg-teal-900/50",
+  indigo: "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:group-hover:bg-indigo-900/50",
+  rose: "bg-rose-50 text-rose-600 group-hover:bg-rose-100 dark:bg-rose-900/30 dark:text-rose-400 dark:group-hover:bg-rose-900/50",
+  green: "bg-green-50 text-green-600 group-hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 dark:group-hover:bg-green-900/50",
+  yellow: "bg-yellow-50 text-yellow-600 group-hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400 dark:group-hover:bg-yellow-900/50",
 };
 
 const kpiColorClasses: Record<ColorKey, string> = {
-  blue: "bg-blue-100 text-blue-600",
-  emerald: "bg-emerald-100 text-emerald-600",
-  orange: "bg-orange-100 text-orange-600",
-  purple: "bg-purple-100 text-purple-600",
-  pink: "bg-pink-100 text-pink-600",
-  teal: "bg-teal-100 text-teal-600",
-  indigo: "bg-indigo-100 text-indigo-600",
-  rose: "bg-rose-100 text-rose-600",
-  green: "bg-green-100 text-green-600",
-  yellow: "bg-yellow-100 text-yellow-600",
+  blue: "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400",
+  emerald: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400",
+  orange: "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400",
+  purple: "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400",
+  pink: "bg-pink-100 text-pink-600 dark:bg-pink-900/40 dark:text-pink-400",
+  teal: "bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-400",
+  indigo: "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400",
+  rose: "bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400",
+  green: "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400",
+  yellow: "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/40 dark:text-yellow-400",
 };
 
 const trendColors: Record<TrendKey, string> = {
-  up: "text-emerald-600 bg-emerald-50",
-  down: "text-red-600 bg-red-50",
+  up: "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30",
+  down: "text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/30",
+};
+
+// Pipeline column heading colors — kept as a static lookup so Tailwind's
+// JIT compiler can see the full class names at build time (dynamic
+// `text-${color}-600` strings are invisible to the compiler and get purged).
+const pipelineHeadingClasses: Record<string, string> = {
+  blue: "text-blue-600 dark:text-blue-400",
+  yellow: "text-yellow-600 dark:text-yellow-400",
+  orange: "text-orange-600 dark:text-orange-400",
+  green: "text-green-600 dark:text-green-400",
 };
 
 const CrmDashboardPage: React.FC = () => {
@@ -119,7 +129,7 @@ const CrmDashboardPage: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* Navigation Modules Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-8 min-w-0">
           {crmModules.map((module) => {
             const Icon = module.icon;
             const colorClass = colorClasses[module.color as ColorKey];
@@ -127,30 +137,54 @@ const CrmDashboardPage: React.FC = () => {
               <button
                 key={module.name}
                 onClick={() => navigate(module.route)}
-                className="group flex flex-col items-center p-4 rounded-xl border border-gray-100 bg-white hover:shadow-md transition-all duration-200 hover:-translate-y-0.5"
+                className="group flex flex-col items-center p-4 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5"
               >
                 <div className={`p-2.5 rounded-lg ${colorClass} transition-colors duration-200`}>
                   <Icon className="h-5 w-5" />
                 </div>
-                <h4 className="mt-2 text-sm font-semibold text-gray-900 group-hover:text-cyan-600 transition-colors">
+                <h4 className="mt-2 text-sm font-semibold text-gray-900 dark:text-white group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
                   {module.name}
                 </h4>
-                <p className="text-xs text-gray-500 mt-0.5">{module.count}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{module.count}</p>
               </button>
             );
           })}
         </div>
 
-      
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {kpiItems.map((kpi) => {
+            const Icon = kpi.icon;
+            const TrendIcon = kpi.trend === "up" ? ArrowUpRight : ArrowDownRight;
+            return (
+              <div
+                key={kpi.label}
+                className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5"
+              >
+                <div className="flex items-center justify-between">
+                  <div className={`p-2.5 rounded-lg ${kpiColorClasses[kpi.color as ColorKey]}`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <span className={`inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-xs font-medium ${trendColors[kpi.trend]}`}>
+                    <TrendIcon className="h-3 w-3" />
+                    {kpi.change}
+                  </span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-3">{kpi.value}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{kpi.label}</p>
+              </div>
+            );
+          })}
+        </div>
 
         {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 min-w-0">
           {/* Lead Trend Chart */}
-          <div className="bg-white rounded-xl border border-gray-100 p-5">
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 min-w-0">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-sm font-semibold text-gray-900">Lead Trend</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Monthly lead generation</p>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Lead Trend</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Monthly lead generation</p>
               </div>
               <UserPlus className="h-5 w-5 text-emerald-500" />
             </div>
@@ -185,11 +219,11 @@ const CrmDashboardPage: React.FC = () => {
           </div>
 
           {/* Deal Performance Chart */}
-          <div className="bg-white rounded-xl border border-gray-100 p-5">
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 min-w-0">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-sm font-semibold text-gray-900">Deal Performance</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Deal distribution by value</p>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Deal Performance</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Deal distribution by value</p>
               </div>
               <DollarSign className="h-5 w-5 text-emerald-500" />
             </div>
@@ -219,29 +253,29 @@ const CrmDashboardPage: React.FC = () => {
         {/* Top Customers & Recent Activities */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Top Customers Table */}
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-900">Top Customers</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Highest value customers</p>
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Top Customers</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Highest value customers</p>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-100">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
+                <thead className="bg-gray-50 dark:bg-gray-800">
                   <tr>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deals</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Growth</th>
+                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
+                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Deals</th>
+                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Revenue</th>
+                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Growth</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                   {topCustomers.map((customer) => (
-                    <tr key={customer.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-5 py-3 text-sm font-medium text-gray-900">{customer.name}</td>
-                      <td className="px-5 py-3 text-sm text-gray-600">{customer.deals}</td>
-                      <td className="px-5 py-3 text-sm text-gray-600">{customer.revenue}</td>
+                    <tr key={customer.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                      <td className="px-5 py-3 text-sm font-medium text-gray-900 dark:text-white">{customer.name}</td>
+                      <td className="px-5 py-3 text-sm text-gray-600 dark:text-gray-300">{customer.deals}</td>
+                      <td className="px-5 py-3 text-sm text-gray-600 dark:text-gray-300">{customer.revenue}</td>
                       <td className="px-5 py-3">
-                        <span className={`inline-flex items-center gap-1 text-xs font-medium ${customer.growth.startsWith("+") ? "text-emerald-600" : "text-red-600"}`}>
+                        <span className={`inline-flex items-center gap-1 text-xs font-medium ${customer.growth.startsWith("+") ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                           {customer.growth}
                         </span>
                       </td>
@@ -253,22 +287,22 @@ const CrmDashboardPage: React.FC = () => {
           </div>
 
           {/* Recent Activities */}
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-900">Recent Activities</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Latest user actions</p>
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Recent Activities</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Latest user actions</p>
             </div>
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {recentActivities.map((activity) => (
-                <div key={activity.id} className="px-5 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors">
-                  <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-medium text-cyan-700">{activity.avatar}</span>
+                <div key={activity.id} className="px-5 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                  <div className="h-8 w-8 rounded-full bg-cyan-100 dark:bg-cyan-900/40 flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs font-medium text-cyan-700 dark:text-cyan-400">{activity.avatar}</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900">
+                    <p className="text-sm text-gray-900 dark:text-gray-100">
                       <span className="font-medium">{activity.user}</span> {activity.action}
                     </p>
-                    <p className="text-xs text-gray-400 mt-0.5">{activity.time}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{activity.time}</p>
                   </div>
                 </div>
               ))}
@@ -277,19 +311,19 @@ const CrmDashboardPage: React.FC = () => {
         </div>
 
         {/* CRM Pipeline */}
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900">CRM Pipeline</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Sales pipeline stages</p>
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">CRM Pipeline</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Sales pipeline stages</p>
           </div>
           <div className="p-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {crmPipelineColumns.map((column) => (
-                <div key={column.name} className="bg-gray-50 rounded-lg p-4">
-                  <h4 className={`text-sm font-semibold mb-3 text-${column.color}-600`}>{column.name}</h4>
+                <div key={column.name} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                  <h4 className={`text-sm font-semibold mb-3 ${pipelineHeadingClasses[column.color]}`}>{column.name}</h4>
                   <div className="space-y-2">
                     {column.tasks.map((task, idx) => (
-                      <div key={idx} className="bg-white rounded-lg p-2.5 text-xs text-gray-700 shadow-sm border border-gray-100">
+                      <div key={idx} className="bg-white dark:bg-gray-900 rounded-lg p-2.5 text-xs text-gray-700 dark:text-gray-300 shadow-sm border border-gray-100 dark:border-gray-800">
                         {task}
                       </div>
                     ))}

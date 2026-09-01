@@ -42,46 +42,68 @@ interface Product {
     code?: string;
 }
 
-// ---------- Nested reference types, matching the actual backend schema ----------
-interface WarehouseRef {
-    id: number;
-    code?: string;
+type ResultCode = "PASS" | "FAIL" | "HOLD" | "REJECT";
+type InspectionTypeCode = "INCOMING" | "RETURN" | "RANDOM" | "AUDIT";
+
+interface EnumOption {
+    id: string;
     name: string;
-    locationType?: string;
 }
 
-interface BatchRef {
-    id: number;
-    batchNumber: string;
-    manufacturingDate?: string;
-    expiryDate?: string;
-    productId?: number;
-    warehouse?: WarehouseRef;
-}
+const DEFAULT_RESULT_OPTIONS: EnumOption[] = [
+    { id: "PASS", name: "Pass" },
+    { id: "FAIL", name: "Fail" },
+    { id: "HOLD", name: "Hold" },
+    { id: "REJECT", name: "Reject" },
+];
 
-interface SerialNumberRef {
-    id: number;
-    serial: string;
-    warrantyStart?: string;
-    warrantyEnd?: string;
-    productId?: number;
-    productNumber?: string;
-    warehouse?: WarehouseRef;
-    batch?: BatchRef;
-}
+const DEFAULT_INSPECTION_TYPE_OPTIONS: EnumOption[] = [
+    { id: "INCOMING", name: "Incoming" },
+    { id: "RETURN", name: "Return" },
+    { id: "RANDOM", name: "Random" },
+    { id: "AUDIT", name: "Audit" },
+];
 
+const toTitleCase = (value: string) =>
+    value
+        .toLowerCase()
+        .split(/[\s_-]+/)
+        .filter(Boolean)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+
+const normalizeEnumOptions = (raw: any, fallback: EnumOption[]): EnumOption[] => {
+    const list = Array.isArray(raw) ? raw : raw?.content || raw?.data || raw?.result || [];
+    if (!Array.isArray(list) || list.length === 0) return fallback;
+
+    const options: EnumOption[] = list
+        .map((item: any): EnumOption | null => {
+            if (typeof item === "string") {
+                return { id: item.toUpperCase(), name: toTitleCase(item) };
+            }
+            if (item && typeof item === "object") {
+                const id = item.id ?? item.value ?? item.code ?? item.key ?? item.name;
+                const name = item.name ?? item.label ?? item.description ?? item.value ?? id;
+                if (id == null) return null;
+                return { id: String(id).toUpperCase(), name: String(name ?? id) };
+            }
+            return null;
+        })
+        .filter((option): option is EnumOption => option !== null);
+
+    return options.length > 0 ? options : fallback;
+};
 
 interface QualityInspection {
     id: number;
-    productName?: string;   
+    productName?: string;
     productId?: number;
     inspectionDate: string;
-    inspectorName: string; 
+    inspectorName: string;
     inspector?: string;
-    result: "Pass" | "Fail" | "PASS" | "FAIL";
+    result: ResultCode;
+    inspectionType?: InspectionTypeCode;
     remarks?: string;
-    batch?: BatchRef;
-    serialNumber?: SerialNumberRef;
     createdAt?: string;
     updatedAt?: string;
     createdDate?: string;
@@ -90,9 +112,9 @@ interface QualityInspection {
 
 const API_BASE = "/v1/api/inventory";
 const API_URL = `${API_BASE}/quality-inspections`;
-const BATCHES_URL = `${API_BASE}/batches`;
-const SERIAL_NUMBERS_URL = `${API_BASE}/serial-numbers`;
 const PRODUCTS_API_URL = "/v1/api/purchase/products";
+const RESULT_ENUM_URL = `${API_BASE}/enums?type=RESULT`;
+const INSPECTION_TYPE_ENUM_URL = `${API_BASE}/enums?type=INSPECTION_TYPE`;
 const qualityInspectionApi = axios.create();
 
 qualityInspectionApi.interceptors.request.use((config) => {
@@ -105,20 +127,16 @@ qualityInspectionApi.interceptors.request.use((config) => {
 
 const PAGE_SIZE = 10;
 
-
-const PRODUCT_ROUTE = "/purchase-products"; // <Route path="/purchase-products" element={<Products />} />
-const BATCH_ROUTE = "/batch";               // <Route path="/batch" element={<Batch />} />
-const SERIAL_NUMBER_ROUTE = "/serial-number"; // <Route path="/serial-number" element={<SerialNumber />} />
+const PRODUCT_ROUTE = "/purchase-products";
 
 type FormState = {
     productId: number;
     inspectionDate: string;
     inspectorName: string;
     inspector: string;
-    result: "Pass" | "Fail";
+    result: ResultCode;
+    inspectionType: InspectionTypeCode | "";
     remarks: string;
-    batchId: string;
-    serialNumberId: string;
 };
 
 const emptyFormState: FormState = {
@@ -126,10 +144,9 @@ const emptyFormState: FormState = {
     inspectionDate: new Date().toISOString().split("T")[0],
     inspectorName: "",
     inspector: "",
-    result: "Pass",
+    result: "PASS",
+    inspectionType: "",
     remarks: "",
-    batchId: "",
-    serialNumberId: "",
 };
 
 const QualityInspectionManager: React.FC = () => {
@@ -141,26 +158,33 @@ const QualityInspectionManager: React.FC = () => {
     const [showForm, setShowForm] = useState(false);
     const [formMode, setFormMode] = useState<"add" | "edit">("add");
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [resultFilter, setResultFilter] = useState<"All" | "Pass" | "Fail">("All");
+    const [resultFilter, setResultFilter] = useState<"All" | ResultCode>("All");
     const [viewModalOpen, setViewModalOpen] = useState(false);
     const [selectedRecord, setSelectedRecord] = useState<QualityInspection | null>(null);
     const [deletingRecord, setDeletingRecord] = useState<QualityInspection | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
     const [products, setProducts] = useState<Product[]>([]);
-    const [batches, setBatches] = useState<BatchRef[]>([]);
-    const [serialNumbers, setSerialNumbers] = useState<SerialNumberRef[]>([]);
+
+    const [resultOptions, setResultOptions] = useState<EnumOption[]>(DEFAULT_RESULT_OPTIONS);
+    const [inspectionTypeOptions, setInspectionTypeOptions] = useState<EnumOption[]>(DEFAULT_INSPECTION_TYPE_OPTIONS);
 
     const [formData, setFormData] = useState<FormState>(emptyFormState);
 
     useEffect(() => {
         fetchRecords();
         fetchProducts();
-        fetchBatches();
-        fetchSerialNumbers();
+        fetchResultOptions();
+        fetchInspectionTypeOptions();
     }, []);
 
-   
+    // ----- Display helpers (with fallbacks) -----
+    const getResultLabel = (result: string) =>
+        resultOptions.find((r) => r.id === result)?.name || result;
+
+    const getInspectionTypeLabel = (type?: string) =>
+        inspectionTypeOptions.find((t) => t.id === type)?.name || type || "N/A";
+
     const getProductDisplayName = (record: QualityInspection) => {
         const product = products.find((p) => p.id === record.productId);
         if (product) return product.productName || product.sku || product.code || `Product #${product.id}`;
@@ -173,30 +197,23 @@ const QualityInspectionManager: React.FC = () => {
         return product?.sku || product?.code || "";
     };
 
-    const getBatchDisplay = (batch?: BatchRef) => batch?.batchNumber || "N/A";
-    const getSerialDisplay = (serialNumber?: SerialNumberRef) => serialNumber?.serial || "N/A";
-
+    // ----- Navigation -----
     const goToProduct = (productId?: number) => {
         if (!productId) return;
         navigate(`${PRODUCT_ROUTE}?productId=${productId}`, { state: { productId } });
     };
 
-    const goToBatch = (batch?: BatchRef) => {
-        if (!batch?.id) return;
-        navigate(`${BATCH_ROUTE}?batchId=${batch.id}`, {
-            state: { batchId: batch.id, batchNumber: batch.batchNumber },
-        });
-    };
-
-    const goToSerialNumber = (serialNumber?: SerialNumberRef) => {
-        if (!serialNumber?.id) return;
-        navigate(`${SERIAL_NUMBER_ROUTE}?serialNumberId=${serialNumber.id}`, {
-            state: { serialNumberId: serialNumber.id, serial: serialNumber.serial },
-        });
-    };
-
+    // ----- Normalization -----
     const normalizeInspection = (record: any): QualityInspection => {
-        const result = record?.result === "PASS" ? "Pass" : record?.result === "FAIL" ? "Fail" : record?.result || "Pass";
+        const rawResult = String(record?.result || "PASS").toUpperCase();
+        const result: ResultCode = DEFAULT_RESULT_OPTIONS.some((r) => r.id === rawResult)
+            ? (rawResult as ResultCode)
+            : "PASS";
+
+        const rawType = record?.inspectionType ? String(record.inspectionType).toUpperCase() : undefined;
+        const inspectionType: InspectionTypeCode | undefined = DEFAULT_INSPECTION_TYPE_OPTIONS.some((t) => t.id === rawType)
+            ? (rawType as InspectionTypeCode)
+            : undefined;
 
         return {
             ...record,
@@ -207,9 +224,8 @@ const QualityInspectionManager: React.FC = () => {
             inspectorName: record?.inspectorName || record?.inspector || "",
             inspector: record?.inspector || record?.inspectorName || "",
             result,
+            inspectionType,
             remarks: record?.remarks || "",
-            batch: record?.batch || undefined,
-            serialNumber: record?.serialNumber || undefined,
             createdAt: record?.createdAt || record?.createdDate,
             updatedAt: record?.updatedAt || record?.updatedDate,
             createdDate: record?.createdDate,
@@ -217,12 +233,14 @@ const QualityInspectionManager: React.FC = () => {
         };
     };
 
+    // ----- Data fetching -----
     const fetchRecords = async () => {
         setLoading(true);
         try {
             const response = await qualityInspectionApi.get(API_URL);
             const rows = Array.isArray(response.data) ? response.data : response.data?.content || response.data?.data || [];
-            setRecords(rows.map(normalizeInspection));
+            const normalized = rows.map(normalizeInspection);
+            setRecords(normalized);
         } catch (err) {
             console.error("Failed to load quality inspections", err);
             ToasterService.error("Failed to load inspection records");
@@ -244,43 +262,37 @@ const QualityInspectionManager: React.FC = () => {
         }
     };
 
-    const fetchBatches = async () => {
+    const fetchResultOptions = async () => {
         try {
-            const res = await qualityInspectionApi.get(BATCHES_URL);
-            const rows = Array.isArray(res.data) ? res.data : res.data?.content || res.data?.data || [];
-            setBatches(rows);
+            const res = await qualityInspectionApi.get(RESULT_ENUM_URL);
+            setResultOptions(normalizeEnumOptions(res.data, DEFAULT_RESULT_OPTIONS));
         } catch (err) {
-            console.error("Failed to load batches", err);
-            ToasterService.error("Failed to load batches");
-            setBatches([]);
+            console.error("Failed to load result enum options, using defaults", err);
+            setResultOptions(DEFAULT_RESULT_OPTIONS);
         }
     };
 
-    const fetchSerialNumbers = async () => {
+    const fetchInspectionTypeOptions = async () => {
         try {
-            const res = await qualityInspectionApi.get(SERIAL_NUMBERS_URL);
-            const rows = Array.isArray(res.data) ? res.data : res.data?.content || res.data?.data || [];
-            setSerialNumbers(rows);
+            const res = await qualityInspectionApi.get(INSPECTION_TYPE_ENUM_URL);
+            setInspectionTypeOptions(normalizeEnumOptions(res.data, DEFAULT_INSPECTION_TYPE_OPTIONS));
         } catch (err) {
-            console.error("Failed to load serial numbers", err);
-            ToasterService.error("Failed to load serial numbers");
-            setSerialNumbers([]);
+            console.error("Failed to load inspection type enum options, using defaults", err);
+            setInspectionTypeOptions(DEFAULT_INSPECTION_TYPE_OPTIONS);
         }
     };
 
+    // ----- Form payload -----
     const buildPayload = () => {
         const productId = Number(formData.productId) || 0;
-        const batchId = Number(formData.batchId) || 0;
-        const serialNumberId = Number(formData.serialNumberId) || 0;
 
         const payload: Record<string, any> = {
             inspectionDate: formData.inspectionDate,
             inspector: formData.inspectorName || formData.inspector || "",
             result: String(formData.result).toUpperCase(),
+            inspectionType: formData.inspectionType || null,
             remarks: formData.remarks || "",
             productId,
-            batch: batchId ? { id: batchId } : null,
-            serialNumber: serialNumberId ? { id: serialNumberId } : null,
         };
 
         if (editingId) {
@@ -290,6 +302,7 @@ const QualityInspectionManager: React.FC = () => {
         return payload;
     };
 
+    // ----- CRUD handlers -----
     const handleSave = async (e?: React.FormEvent) => {
         e?.preventDefault();
         const payload = buildPayload();
@@ -325,10 +338,9 @@ const QualityInspectionManager: React.FC = () => {
             inspectionDate: record.inspectionDate.split('T')[0],
             inspectorName: record.inspectorName,
             inspector: record.inspector || record.inspectorName,
-            result: (record.result === "PASS" ? "Pass" : record.result === "FAIL" ? "Fail" : record.result) as "Pass" | "Fail",
+            result: record.result,
+            inspectionType: record.inspectionType || "",
             remarks: record.remarks || "",
-            batchId: record.batch?.id ? String(record.batch.id) : "",
-            serialNumberId: record.serialNumber?.id ? String(record.serialNumber.id) : "",
         });
         setFormMode("edit");
         setShowForm(true);
@@ -375,6 +387,7 @@ const QualityInspectionManager: React.FC = () => {
         setFormData(emptyFormState);
     };
 
+    // ----- Filtering & export -----
     const filtered = useMemo(() => {
         return records.filter(r => {
             const matchesSearch = (r.inspectorName || "").toLowerCase().includes(search.toLowerCase()) ||
@@ -385,16 +398,13 @@ const QualityInspectionManager: React.FC = () => {
         });
     }, [records, search, resultFilter, products]);
 
-    // Only the columns a user actually needs to read — no IDs, no nested
-    // batch/serial objects, and dates formatted for display rather than ISO.
     const exportExcel = () => {
         const ws = XLSX.utils.json_to_sheet(filtered.map(r => ({
             'Product': getProductDisplayName(r),
             'Inspector': r.inspectorName,
             'Inspection Date': new Date(r.inspectionDate).toLocaleDateString(),
-            'Result': r.result,
-            'Batch': getBatchDisplay(r.batch),
-            'Serial Number': getSerialDisplay(r.serialNumber),
+            'Inspection Type': getInspectionTypeLabel(r.inspectionType),
+            'Result': getResultLabel(r.result),
             'Remarks': r.remarks || "-",
         })));
         const wb = XLSX.utils.book_new();
@@ -410,41 +420,51 @@ const QualityInspectionManager: React.FC = () => {
                 header: "Inspection Date",
                 accessor: (row: QualityInspection) => new Date(row.inspectionDate).toLocaleDateString(),
             },
-            { header: "Result", key: "result" as const },
-            { header: "Batch", accessor: (row: QualityInspection) => getBatchDisplay(row.batch) },
-            { header: "Serial Number", accessor: (row: QualityInspection) => getSerialDisplay(row.serialNumber) },
+            { header: "Inspection Type", accessor: (row: QualityInspection) => getInspectionTypeLabel(row.inspectionType) },
+            { header: "Result", accessor: (row: QualityInspection) => getResultLabel(row.result) },
             { header: "Remarks", accessor: (row: QualityInspection) => row.remarks || "-" },
         ],
-        [products]
+        [products, resultOptions, inspectionTypeOptions]
     );
 
-    // Calculate stats from real data
+    // ----- Stats -----
     const totalRecords = records.length;
-    const passedCount = records.filter(r => r.result === "Pass").length;
-    const failedCount = records.filter(r => r.result === "Fail").length;
+    const passedCount = records.filter(r => r.result === "PASS").length;
+    const failedCount = records.filter(r => r.result === "FAIL").length;
+    const holdCount = records.filter(r => r.result === "HOLD").length;
+    const rejectCount = records.filter(r => r.result === "REJECT").length;
     const passRate = totalRecords > 0 ? ((passedCount / totalRecords) * 100).toFixed(1) : "0";
 
+    // ----- UI helpers -----
     const getResultBadge = (result: string) => {
-        if (result === "Pass") {
-            return "bg-green-100 text-green-800 border-green-200";
+        switch (result) {
+            case "PASS":
+                return "bg-green-100 text-green-800 border-green-200";
+            case "HOLD":
+                return "bg-amber-100 text-amber-800 border-amber-200";
+            case "REJECT":
+                return "bg-orange-100 text-orange-800 border-orange-200";
+            case "FAIL":
+            default:
+                return "bg-red-100 text-red-800 border-red-200";
         }
-        return "bg-red-100 text-red-800 border-red-200";
     };
 
     const getResultIcon = (result: string) => {
-        if (result === "Pass") {
+        if (result === "PASS") {
             return <CheckCircleIcon className="h-3 w-3 mr-1" />;
         }
         return <XCircleIcon className="h-3 w-3 mr-1" />;
     };
 
+    // ----- Table columns -----
     const tableColumns: ColumnDef<QualityInspection>[] = [
         {
             key: "product",
             label: "Product",
             sortable: true,
-            headerClassName: "w-[24%] text-left",
-            className: "w-[24%]",
+            headerClassName: "w-[28%] text-left",
+            className: "w-[28%]",
             sortValueGetter: (record) => getProductDisplayName(record),
             render: (record) => {
                 const sku = getProductSku(record);
@@ -477,8 +497,8 @@ const QualityInspectionManager: React.FC = () => {
             key: "inspectorName",
             label: "Inspector",
             sortable: true,
-            headerClassName: "w-[16%] text-left",
-            className: "w-[16%]",
+            headerClassName: "w-[14%] text-left",
+            className: "w-[14%]",
             render: (record) => (
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                     <UserIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
@@ -490,8 +510,8 @@ const QualityInspectionManager: React.FC = () => {
             key: "inspectionDate",
             label: "Inspection Date",
             sortable: true,
-            headerClassName: "w-[14%] text-left",
-            className: "w-[14%]",
+            headerClassName: "w-[18%] text-left",
+            className: "w-[18%]",
             sortValueGetter: (record) => new Date(record.inspectionDate).getTime(),
             render: (record) => (
                 <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -501,72 +521,35 @@ const QualityInspectionManager: React.FC = () => {
             ),
         },
         {
-            key: "batch",
-            label: "Batch",
-            sortable: true,
-            headerClassName: "w-[12%] text-left",
-            className: "w-[12%]",
-            sortValueGetter: (record) => getBatchDisplay(record.batch),
-            render: (record) =>
-                record.batch?.id ? (
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            goToBatch(record.batch);
-                        }}
-                        className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
-                        title="View batch"
-                    >
-                        {getBatchDisplay(record.batch)}
-                    </button>
-                ) : (
-                    <span className="text-sm text-slate-600">N/A</span>
-                ),
-        },
-        {
-            key: "serialNumber",
-            label: "Serial Number",
-            sortable: true,
-            headerClassName: "w-[12%] text-left",
-            className: "w-[12%]",
-            sortValueGetter: (record) => getSerialDisplay(record.serialNumber),
-            render: (record) =>
-                record.serialNumber?.id ? (
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            goToSerialNumber(record.serialNumber);
-                        }}
-                        className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
-                        title="View serial number"
-                    >
-                        {getSerialDisplay(record.serialNumber)}
-                    </button>
-                ) : (
-                    <span className="text-sm text-slate-600">N/A</span>
-                ),
-        },
-        {
             key: "result",
             label: "Result",
             sortable: true,
-            headerClassName: "w-[10%] text-left",
-            className: "w-[10%]",
+            headerClassName: "w-[14%] text-left",
+            className: "w-[14%]",
             render: (record) => (
                 <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full border ${getResultBadge(record.result)}`}>
                     {getResultIcon(record.result)}
-                    {record.result}
+                    {getResultLabel(record.result)}
                 </span>
+            ),
+        },
+        {
+            key: "inspectionType",
+            label: "Inspection Type",
+            sortable: true,
+            headerClassName: "w-[14%] text-left",
+            className: "w-[14%]",
+            sortValueGetter: (record) => getInspectionTypeLabel(record.inspectionType),
+            render: (record) => (
+                <span className="text-sm text-slate-600">{getInspectionTypeLabel(record.inspectionType)}</span>
             ),
         },
         {
             key: "actions",
             label: "Actions",
             sortable: false,
-            headerClassName: "w-[6%] text-right pr-4",
-            className: "w-[6%] text-right",
+            headerClassName: "w-[12%] text-right pr-4",
+            className: "w-[12%] text-right",
             render: (record) => (
                 <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
                     <button
@@ -598,6 +581,7 @@ const QualityInspectionManager: React.FC = () => {
         },
     ];
 
+    // ----- Render -----
     return (
         <>
             <PageMeta title="Quality Inspection" description="Manage quality inspection records" />
@@ -607,6 +591,7 @@ const QualityInspectionManager: React.FC = () => {
                 <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
                     <AddButton
                         label="Add Inspection"
+                        className="-mt-4"
                         onClick={() => {
                             setFormMode("add");
                             setEditingId(null);
@@ -647,7 +632,7 @@ const QualityInspectionManager: React.FC = () => {
                 {/* Toolbar */}
                 <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex-1 max-w-md">
-                        <div className="relative">
+                        <div className="relative md:-mt-4">
                             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input
                                 type="search"
@@ -679,7 +664,7 @@ const QualityInspectionManager: React.FC = () => {
 
                         <button
                             onClick={exportExcel}
-                            className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                            className="p-2 rounded-lg -mt-4 border border-gray-300 hover:bg-gray-50 transition-colors"
                             disabled={records.length === 0}
                             title="Export Excel"
                         >
@@ -688,7 +673,7 @@ const QualityInspectionManager: React.FC = () => {
 
                         <button
                             onClick={() => window.print()}
-                            className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                            className="p-2 rounded-lg border -mt-4  border-gray-300 hover:bg-gray-50 transition-colors"
                             disabled={records.length === 0}
                             title="Print"
                         >
@@ -710,8 +695,11 @@ const QualityInspectionManager: React.FC = () => {
                                         className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                                     >
                                         <option value="All">All Results</option>
-                                        <option value="Pass">Pass</option>
-                                        <option value="Fail">Fail</option>
+                                        {resultOptions.map((option) => (
+                                            <option key={option.id} value={option.id}>
+                                                {option.name}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
                                 {resultFilter !== "All" && (
@@ -727,10 +715,9 @@ const QualityInspectionManager: React.FC = () => {
                             </div>
                         </FilterPopover>
 
-                        {/* Refresh Button */}
                         <button
                             onClick={fetchRecords}
-                            className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                            className="p-2 rounded-lg border -mt-4  border-gray-300 hover:bg-gray-50 transition-colors"
                             title="Refresh"
                         >
                             <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -805,36 +792,12 @@ const QualityInspectionManager: React.FC = () => {
                                                         <p className="text-xs text-gray-500">Result</p>
                                                         <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full mt-1 ${getResultBadge(selectedRecord.result)}`}>
                                                             {getResultIcon(selectedRecord.result)}
-                                                            {selectedRecord.result}
+                                                            {getResultLabel(selectedRecord.result)}
                                                         </span>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Batch</p>
-                                                        {selectedRecord.batch?.id ? (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => goToBatch(selectedRecord.batch)}
-                                                                className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
-                                                            >
-                                                                {getBatchDisplay(selectedRecord.batch)}
-                                                            </button>
-                                                        ) : (
-                                                            <p className="text-sm text-gray-700">N/A</p>
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs text-gray-500">Serial Number</p>
-                                                        {selectedRecord.serialNumber?.id ? (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => goToSerialNumber(selectedRecord.serialNumber)}
-                                                                className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
-                                                            >
-                                                                {getSerialDisplay(selectedRecord.serialNumber)}
-                                                            </button>
-                                                        ) : (
-                                                            <p className="text-sm text-gray-700">N/A</p>
-                                                        )}
+                                                        <p className="text-xs text-gray-500">Inspection Type</p>
+                                                        <p className="text-sm text-gray-700">{getInspectionTypeLabel(selectedRecord.inspectionType)}</p>
                                                     </div>
                                                     {selectedRecord.remarks && (
                                                         <div className="col-span-2">
@@ -851,10 +814,10 @@ const QualityInspectionManager: React.FC = () => {
                                                 </div>
                                             </div>
 
-                                            {selectedRecord.result === "Fail" && (
+                                            {(selectedRecord.result === "FAIL" || selectedRecord.result === "REJECT") && (
                                                 <div className="p-4 bg-red-50 rounded-lg border border-red-200">
                                                     <p className="text-sm text-red-800">
-                                                        <strong>Failed Inspection:</strong> This product did not meet quality standards.
+                                                        <strong>{selectedRecord.result === "REJECT" ? "Rejected Inspection:" : "Failed Inspection:"}</strong> This product did not meet quality standards.
                                                         {selectedRecord.remarks && ` Reason: ${selectedRecord.remarks}`}
                                                     </p>
                                                 </div>
@@ -940,34 +903,18 @@ const QualityInspectionManager: React.FC = () => {
                                 label="Result"
                                 name="result"
                                 value={formData.result}
-                                onChange={(e) => setFormData({ ...formData, result: e.target.value as "Pass" | "Fail" })}
-                                options={[
-                                    { id: "Pass", name: "Pass" },
-                                    { id: "Fail", name: "Fail" },
-                                ]}
+                                onChange={(e) => setFormData({ ...formData, result: e.target.value as ResultCode })}
+                                options={resultOptions}
                                 includeEmptyOption={false}
                             />,
                             <FloatingSelect
-                                key="batchId"
-                                label="Batch (optional)"
-                                name="batchId"
-                                value={formData.batchId}
-                                onChange={(e) => setFormData({ ...formData, batchId: e.target.value })}
-                                options={batches.map(batch => ({
-                                    id: String(batch.id),
-                                    name: batch.batchNumber,
-                                }))}
-                            />,
-                            <FloatingSelect
-                                key="serialNumberId"
-                                label="Serial Number (optional)"
-                                name="serialNumberId"
-                                value={formData.serialNumberId}
-                                onChange={(e) => setFormData({ ...formData, serialNumberId: e.target.value })}
-                                options={serialNumbers.map(sn => ({
-                                    id: String(sn.id),
-                                    name: sn.serial,
-                                }))}
+                                key="inspectionType"
+                                label="Inspection Type"
+                                name="inspectionType"
+                                value={formData.inspectionType}
+                                onChange={(e) => setFormData({ ...formData, inspectionType: e.target.value as InspectionTypeCode })}
+                                options={inspectionTypeOptions}
+                                required
                             />,
                         ],
                     },
@@ -1011,4 +958,4 @@ const QualityInspectionManager: React.FC = () => {
     );
 };
 
-export default QualityInspectionManager;                
+export default QualityInspectionManager;

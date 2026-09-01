@@ -29,6 +29,13 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
+// ======================== ENUM TYPE ========================
+interface EnumOption {
+  id: string;
+  name: string;
+}
+
+// ======================== DATA MODELS ========================
 type Product = {
   id: number;
   productId?: number;
@@ -61,54 +68,6 @@ type SerialNumber = {
   warehouse?: string;
   batch?: Batch | string;
 };
-
-// Fixed set of movement types per the Inventory Module spec's
-// "Stock Movement Types" list (8 total). Previously only 4 were supported
-// (GRN, ISSUE, TRANSFER, RETURN) — RETURN didn't distinguish customer vs
-// supplier, and Stock Adjustment / Damage / Stock Correction were missing
-// entirely as movement-type options.
-enum MovementType {
-  PURCHASE_RECEIPT = "PURCHASE_RECEIPT",
-  SALES_ISSUE = "SALES_ISSUE",
-  WAREHOUSE_TRANSFER = "WAREHOUSE_TRANSFER",
-  CUSTOMER_RETURN = "CUSTOMER_RETURN",
-  SUPPLIER_RETURN = "SUPPLIER_RETURN",
-  STOCK_ADJUSTMENT = "STOCK_ADJUSTMENT",
-  DAMAGE = "DAMAGE",
-  STOCK_CORRECTION = "STOCK_CORRECTION",
-}
-
-const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
-  [MovementType.PURCHASE_RECEIPT]: "Purchase Receipt",
-  [MovementType.SALES_ISSUE]: "Sales Issue",
-  [MovementType.WAREHOUSE_TRANSFER]: "Warehouse Transfer",
-  [MovementType.CUSTOMER_RETURN]: "Customer Return",
-  [MovementType.SUPPLIER_RETURN]: "Supplier Return",
-  [MovementType.STOCK_ADJUSTMENT]: "Stock Adjustment",
-  [MovementType.DAMAGE]: "Damage",
-  [MovementType.STOCK_CORRECTION]: "Stock Correction",
-};
-
-// Legacy codes some existing records may still carry (e.g. "GRN", "ISSUE",
-// "TRANSFER", "RETURN") are mapped onto the new spec-aligned types so old
-// data still displays a sensible label instead of the raw code.
-const LEGACY_MOVEMENT_TYPE_MAP: Record<string, MovementType> = {
-  GRN: MovementType.PURCHASE_RECEIPT,
-  ISSUE: MovementType.SALES_ISSUE,
-  TRANSFER: MovementType.WAREHOUSE_TRANSFER,
-  RETURN: MovementType.CUSTOMER_RETURN,
-};
-
-function normalizeMovementType(type?: string | null): MovementType | string {
-  if (!type) return "";
-  if ((Object.values(MovementType) as string[]).includes(type)) return type as MovementType;
-  return LEGACY_MOVEMENT_TYPE_MAP[type] || type;
-}
-
-function getMovementTypeLabel(type?: string | null) {
-  const normalized = normalizeMovementType(type);
-  return MOVEMENT_TYPE_LABELS[normalized as MovementType] || String(type || "-");
-}
 
 type StockMovement = {
   id: number;
@@ -143,17 +102,19 @@ type MovementForm = {
 };
 
 const API_URL = "/v1/api/inventory/stock-movements";
+const ENUMS_API_URL = "/v1/api/inventory/enums";
 const PRODUCTS_API_URL = "/v1/api/purchase/products";
 const WAREHOUSES_API_URL = "/v1/api/inventory/warehouses";
 const BATCHES_API_URL = "/v1/api/inventory/batches";
 const SERIALS_API_URL = "/v1/api/inventory/serial-numbers";
 const PAGE_SIZE = 10;
+const MOVEMENT_TYPE_ENUM = "MOVEMENT_TYPE";
 
 const PRODUCT_ROUTE = "/purchase-products";
 
 const emptyForm: MovementForm = {
   movementDate: new Date().toISOString().split("T")[0],
-  movementType: MovementType.PURCHASE_RECEIPT,
+  movementType: "",
   quantity: "",
   fromLocation: "",
   toLocation: "",
@@ -163,6 +124,28 @@ const emptyForm: MovementForm = {
   batchId: "",
   serialNumberId: "",
 };
+
+// Deterministic color per movement type string, so badges stay visually distinct
+// without needing to know the type set in advance (no hardcoded value list).
+const BADGE_PALETTE = [
+  "bg-green-50 text-green-700 border-green-200",
+  "bg-red-50 text-red-700 border-red-200",
+  "bg-blue-50 text-blue-700 border-blue-200",
+  "bg-amber-50 text-amber-700 border-amber-200",
+  "bg-purple-50 text-purple-700 border-purple-200",
+  "bg-rose-50 text-rose-700 border-rose-200",
+  "bg-teal-50 text-teal-700 border-teal-200",
+  "bg-indigo-50 text-indigo-700 border-indigo-200",
+];
+
+function getMovementTypeBadge(type?: string | null) {
+  if (!type) return "bg-slate-50 text-slate-700 border-slate-200";
+  let hash = 0;
+  for (let i = 0; i < type.length; i++) {
+    hash = (hash * 31 + type.charCodeAt(i)) >>> 0;
+  }
+  return BADGE_PALETTE[hash % BADGE_PALETTE.length];
+}
 
 function toNumber(value: string | number | undefined | null) {
   return Number(value || 0);
@@ -182,11 +165,12 @@ function searchableText(value: unknown) {
   return String(value).toLowerCase().trim();
 }
 
-function getProductLabel(product?: Product) {
+// Product is now shown as productName only, everywhere (table, dropdowns, view modal).
+// No code suffix, no fabricated "Product #id" label swapped in silently for display —
+// falls back to N/A when there's genuinely no name.
+function getProductName(product?: Product | null): string {
   if (!product) return "";
-  const name = product.productName || product.name || `Product #${product.id}`;
-  const code = product.productCode || product.code;
-  return code ? `${name} (${code})` : name;
+  return product.productName || product.name || "";
 }
 
 function getWarehouseValue(warehouse?: Warehouse | string | null) {
@@ -197,45 +181,61 @@ function getWarehouseValue(warehouse?: Warehouse | string | null) {
 
 function getWarehouseId(warehouse: Warehouse | string | null | undefined, warehouses: Warehouse[]) {
   if (!warehouse) return "";
-  if (typeof warehouse !== "string") return String(warehouse.id || "");
-  return String(warehouses.find((item) => item.code === warehouse || item.name === warehouse)?.id || "");
+  if (typeof warehouse !== "string") return warehouse.id != null ? String(warehouse.id) : "";
+  const match = warehouses.find((item) => item.code === warehouse || item.name === warehouse);
+  return match?.id != null ? String(match.id) : "";
 }
 
 function getBatchId(batch: Batch | string | null | undefined, batches: Batch[]) {
   if (!batch) return "";
-  if (typeof batch !== "string") return String(batch.id || "");
-  return String(batches.find((item) => item.batchNumber === batch)?.id || "");
+  if (typeof batch !== "string") return batch.id != null ? String(batch.id) : "";
+  const match = batches.find((item) => item.batchNumber === batch);
+  return match?.id != null ? String(match.id) : "";
 }
 
 function getSerialId(serialNumber: SerialNumber | string | null | undefined, serialNumbers: SerialNumber[]) {
   if (!serialNumber) return "";
-  if (typeof serialNumber !== "string") return String(serialNumber.id || "");
-  return String(serialNumbers.find((item) => item.serial === serialNumber)?.id || "");
+  if (typeof serialNumber !== "string") return serialNumber.id != null ? String(serialNumber.id) : "";
+  const match = serialNumbers.find((item) => item.serial === serialNumber);
+  return match?.id != null ? String(match.id) : "";
 }
 
-function getMovementTypeBadge(type: string) {
-  const normalized = normalizeMovementType(type);
-  switch (normalized) {
-    case MovementType.PURCHASE_RECEIPT:
-      return "bg-green-50 text-green-700 border-green-200";
-    case MovementType.SALES_ISSUE:
-      return "bg-red-50 text-red-700 border-red-200";
-    case MovementType.WAREHOUSE_TRANSFER:
-      return "bg-blue-50 text-blue-700 border-blue-200";
-    case MovementType.CUSTOMER_RETURN:
-    case MovementType.SUPPLIER_RETURN:
-      return "bg-amber-50 text-amber-700 border-amber-200";
-    case MovementType.STOCK_ADJUSTMENT:
-      return "bg-purple-50 text-purple-700 border-purple-200";
-    case MovementType.DAMAGE:
-      return "bg-rose-50 text-rose-700 border-rose-200";
-    case MovementType.STOCK_CORRECTION:
-      return "bg-teal-50 text-teal-700 border-teal-200";
-    default:
-      return "bg-slate-50 text-slate-700 border-slate-200";
-  }
+// ======================== HELPER: ENUM NORMALIZATION ========================
+// IDs are kept exactly as the API returns them — no .toUpperCase() transform.
+// (Previously this forced ids to uppercase, which silently broke label lookup,
+// filtering, and edit-prefill whenever the backend returned a movementType
+// string that wasn't already all-caps.)
+function normalizeEnumOptions(raw: any): EnumOption[] {
+  const list = Array.isArray(raw) ? raw : raw?.content || raw?.data || raw?.result || [];
+  if (!Array.isArray(list)) return [];
+
+  return list
+    .map((item: any): EnumOption | null => {
+      if (typeof item === "string") {
+        return { id: item, name: item };
+      }
+      if (item && typeof item === "object") {
+        const id = item.id ?? item.value ?? item.code ?? item.key ?? item.name;
+        const name = item.name ?? item.label ?? item.description ?? item.value ?? id;
+        if (id == null) return null;
+        return { id: String(id), name: String(name ?? id) };
+      }
+      return null;
+    })
+    .filter((option): option is EnumOption => option !== null);
 }
 
+// Label lookup resolves purely against whatever the enum endpoint returned.
+// If a movement's movementType isn't in that list (stale data, endpoint not
+// loaded yet, id casing differs, etc.) it falls back to showing the raw value
+// rather than a hardcoded/translated label.
+function getMovementTypeLabel(type: string | undefined | null, options: EnumOption[]) {
+  if (!type) return "-";
+  const match = options.find((option) => option.id === type);
+  return match?.name || type;
+}
+
+// ======================== MAIN COMPONENT ========================
 const StockMovementsManager: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
@@ -246,6 +246,8 @@ const StockMovementsManager: React.FC = () => {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [serialNumbers, setSerialNumbers] = useState<SerialNumber[]>([]);
+  const [movementTypeOptions, setMovementTypeOptions] = useState<EnumOption[]>([]);
+  const [lookupsLoaded, setLookupsLoaded] = useState(false);
   const [form, setForm] = useState<MovementForm>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
@@ -258,9 +260,11 @@ const StockMovementsManager: React.FC = () => {
   const [viewingMovement, setViewingMovement] = useState<StockMovement | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
 
+  // ---------- Data fetching ----------
   useEffect(() => {
     fetchStockMovements();
     fetchLookups();
+    fetchMovementTypeOptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -294,9 +298,37 @@ const StockMovementsManager: React.FC = () => {
       setSerialNumbers(Array.isArray(serialsRes.data) ? serialsRes.data : (serialsRes.data as any)?.content || (serialsRes.data as any)?.data || []);
     } catch (error) {
       ToasterService.error("Failed to load lookup data", getErrorMessage(error, "Please try again."));
+    } finally {
+      setLookupsLoaded(true);
     }
   };
 
+  // Movement type options come exclusively from the backend enum endpoint.
+  // No hardcoded value list, no legacy code translation, no case transform.
+  const fetchMovementTypeOptions = async () => {
+    try {
+      const res = await axios.get(ENUMS_API_URL, {
+        headers,
+        params: { type: MOVEMENT_TYPE_ENUM },
+      });
+      const options = normalizeEnumOptions(res.data);
+      if (options.length === 0) {
+        ToasterService.error(
+          "Movement Type options unavailable",
+          "No values returned for MOVEMENT_TYPE enum."
+        );
+      }
+      setMovementTypeOptions(options);
+    } catch (error) {
+      ToasterService.error(
+        "Failed to load Movement Type options",
+        getErrorMessage(error, "Please try again.")
+      );
+      setMovementTypeOptions([]);
+    }
+  };
+
+  // ---------- Form handlers ----------
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -395,10 +427,17 @@ const StockMovementsManager: React.FC = () => {
   };
 
   const openEdit = (movement: StockMovement) => {
+    if (!lookupsLoaded) {
+      ToasterService.error(
+        "Reference data still loading",
+        "Please wait a moment for warehouses, batches, and serial numbers to finish loading, then try again."
+      );
+      return;
+    }
     setEditingId(movement.id);
     setForm({
       movementDate: movement.movementDate || emptyForm.movementDate,
-      movementType: normalizeMovementType(movement.movementType) || MovementType.PURCHASE_RECEIPT,
+      movementType: movement.movementType || "",
       quantity: String(movement.quantity || 0),
       fromLocation: movement.fromLocation || "",
       toLocation: movement.toLocation || "",
@@ -436,22 +475,25 @@ const StockMovementsManager: React.FC = () => {
     }
   };
 
+  // ---------- Filtering ----------
   const filteredStockMovements = useMemo(() => {
     const term = searchableText(search);
 
     return stockMovements.filter((movement) => {
-      if (filterMovementType && normalizeMovementType(movement.movementType) !== filterMovementType) return false;
+      if (filterMovementType && movement.movementType !== filterMovementType) return false;
       if (filterProductId && String(movement.productId || movement.product?.id || "") !== filterProductId) return false;
 
       if (!term) return true;
 
-      const productName = getProductLabel(products.find((item) => item.id === movement.productId || item.productId === movement.productId) || movement.product);
+      const productName = getProductName(
+        products.find((item) => item.id === movement.productId || item.productId === movement.productId) || movement.product
+      );
       const warehouseName = getWarehouseValue(movement.warehouse);
       const batchLabel = typeof movement.batch === "string" ? movement.batch : movement.batch?.batchNumber || "";
       const serialLabel = typeof movement.serialNumber === "string" ? movement.serialNumber : movement.serialNumber?.serial || "";
 
       const haystack = [
-        getMovementTypeLabel(movement.movementType),
+        getMovementTypeLabel(movement.movementType, movementTypeOptions),
         movement.fromLocation,
         movement.toLocation,
         movement.reference,
@@ -468,24 +510,20 @@ const StockMovementsManager: React.FC = () => {
 
       return haystack.includes(term);
     });
-  }, [stockMovements, search, filterMovementType, filterProductId, products]);
+  }, [stockMovements, search, filterMovementType, filterProductId, products, movementTypeOptions]);
 
   const resetFilters = () => {
     setFilterMovementType("");
     setFilterProductId("");
   };
 
+  // Product is displayed as productName, falling back to N/A only when
+  // there is genuinely no matching product/name — no fabricated "Product #id" text.
   const getProductDisplayName = (movement: StockMovement) => {
     const productId = movement.productId ?? movement.product?.id;
     const product = products.find((p) => p.id === productId || p.productId === productId);
-    if (product) {
-      return product.productName || product.name || `Product #${product.id}`;
-    }
-    return (
-      movement.product?.productName ||
-      movement.product?.name ||
-      (productId ? `Product #${productId}` : "N/A")
-    );
+    const name = getProductName(product) || getProductName(movement.product);
+    return name || "N/A";
   };
 
   const goToProduct = (productId?: number) => {
@@ -493,22 +531,37 @@ const StockMovementsManager: React.FC = () => {
     navigate(`${PRODUCT_ROUTE}?productId=${productId}`, { state: { productId } });
   };
 
-  const stats = useMemo(
-    () => ({
+  const stats = useMemo(() => {
+    // "Transfers" no longer keys off a hardcoded id like "WAREHOUSE_TRANSFER".
+    // It matches whichever enum option's returned name/id contains "transfer"
+    // (case-insensitive). This is a heuristic, not a guarantee — if the
+    // backend doesn't use the word "transfer" anywhere in that enum entry,
+    // this stat will read 0. There's no way to know the "transfer" semantic
+    // purely from an id/name pair without the backend flagging it explicitly.
+    const transferOptionIds = new Set(
+      movementTypeOptions
+        .filter((option) => /transfer/i.test(option.name) || /transfer/i.test(option.id))
+        .map((option) => option.id)
+    );
+
+    return {
       total: stockMovements.length,
       totalQuantity: stockMovements.reduce((sum, sm) => sum + (Number(sm.quantity) || 0), 0),
-      transfers: stockMovements.filter((sm) => normalizeMovementType(sm.movementType) === MovementType.WAREHOUSE_TRANSFER).length,
+      transfers: stockMovements.filter((sm) => transferOptionIds.has(sm.movementType)).length,
       uniqueProducts: new Set(stockMovements.map((sm) => sm.productId || sm.product?.id).filter(Boolean)).size,
-    }),
-    [stockMovements]
-  );
+    };
+  }, [stockMovements, movementTypeOptions]);
 
-  // Prepare options for selects
+  // ---------- Dropdown options ----------
+  // Product dropdown shows productName only (no code appended).
   const productOptions = useMemo(() => {
-    return products.map((product) => ({
-      id: String(product.id || product.productId || 0),
-      name: getProductLabel(product),
-    }));
+    return products.map((product) => {
+      const id = product.id ?? product.productId;
+      return {
+        id: id != null ? String(id) : "",
+        name: getProductName(product) || `Product #${id ?? "?"}`,
+      };
+    });
   }, [products]);
 
   const warehouseOptions = useMemo(() => {
@@ -538,14 +591,7 @@ const StockMovementsManager: React.FC = () => {
       }));
   }, [serialNumbers, form.productId]);
 
-  // Fixed movement-type dropdown options, matching all 8 spec-defined types.
-  const movementTypeOptions = useMemo(() => {
-    return Object.values(MovementType).map((type) => ({
-      id: type,
-      name: MOVEMENT_TYPE_LABELS[type],
-    }));
-  }, []);
-
+  // ---------- Table columns ----------
   const columns: ColumnDef<StockMovement>[] = [
     {
       key: "movementDate",
@@ -565,11 +611,11 @@ const StockMovementsManager: React.FC = () => {
       key: "movementType",
       label: "Type",
       sortable: true,
-      sortValueGetter: (movement) => getMovementTypeLabel(movement.movementType),
+      sortValueGetter: (movement) => getMovementTypeLabel(movement.movementType, movementTypeOptions),
       render: (movement) => (
         <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${getMovementTypeBadge(movement.movementType)}`}>
           <ArrowsRightLeftIcon className="h-3.5 w-3.5 opacity-80" />
-          {getMovementTypeLabel(movement.movementType)}
+          {getMovementTypeLabel(movement.movementType, movementTypeOptions)}
         </span>
       ),
     },
@@ -658,8 +704,9 @@ const StockMovementsManager: React.FC = () => {
           <button
             type="button"
             onClick={() => openEdit(movement)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit"
+            disabled={!lookupsLoaded}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+            title={lookupsLoaded ? "Edit" : "Loading reference data..."}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>
@@ -676,21 +723,25 @@ const StockMovementsManager: React.FC = () => {
     },
   ];
 
+  // ======================== RENDER ========================
   return (
     <>
       <PageMeta title="Stock Movements" description="Track and manage inventory stock movements" />
-      <PageBreadcrumb pageTitle="Stock Movements" />
+
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <PageBreadcrumb pageTitle="Stock Movements" />
+        <AddButton onClick={openCreate} label="Add Stock Movement" />
+      </div>
 
       <div className="w-full max-w-none px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Stock Movement" />
-        </div>
-
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
             label="Total Movements"
             value={stats.total}
-            icon={<ArrowsRightLeftIcon />}
+            gradient="from-slate-50 to-gray-50"
+            borderColor="border-slate-100"
+            labelColor="text-slate-600"
+            icon={<ArrowsRightLeftIcon className="h-5 w-5" />}
           />
           <StatsCard
             label="Total Quantity"
@@ -698,7 +749,7 @@ const StockMovementsManager: React.FC = () => {
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
-            icon={<CubeIcon />}
+            icon={<CubeIcon className="h-5 w-5" />}
           />
           <StatsCard
             label="Transfers"
@@ -706,7 +757,7 @@ const StockMovementsManager: React.FC = () => {
             gradient="from-blue-50 to-indigo-50"
             borderColor="border-blue-100"
             labelColor="text-blue-600"
-            icon={<ArrowRightIcon />}
+            icon={<ArrowRightIcon className="h-5 w-5" />}
           />
           <StatsCard
             label="Products Moved"
@@ -714,7 +765,7 @@ const StockMovementsManager: React.FC = () => {
             gradient="from-orange-50 to-yellow-50"
             borderColor="border-orange-100"
             labelColor="text-orange-600"
-            icon={<ClipboardDocumentListIcon />}
+            icon={<ClipboardDocumentListIcon className="h-5 w-5" />}
           />
         </div>
 
@@ -755,7 +806,7 @@ const StockMovementsManager: React.FC = () => {
               ]}
               columns={[
                 { header: "Date", accessor: (row) => new Date(row.movementDate).toLocaleDateString() },
-                { header: "Type", accessor: (row) => getMovementTypeLabel(row.movementType) },
+                { header: "Type", accessor: (row) => getMovementTypeLabel(row.movementType, movementTypeOptions) },
                 { header: "Product", accessor: (row) => getProductDisplayName(row) },
                 { header: "Quantity", accessor: (row) => String(row.quantity) },
                 { header: "From", accessor: (row) => row.fromLocation || "N/A" },
@@ -970,7 +1021,7 @@ const StockMovementsManager: React.FC = () => {
                         <span
                           className={`mt-1 inline-flex items-center rounded-full border px-2 py-1 text-xs font-medium ${getMovementTypeBadge(viewingMovement.movementType)}`}
                         >
-                          {getMovementTypeLabel(viewingMovement.movementType)}
+                          {getMovementTypeLabel(viewingMovement.movementType, movementTypeOptions)}
                         </span>
                       </div>
 
