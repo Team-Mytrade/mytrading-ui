@@ -208,7 +208,8 @@ export const navItems: NavItem[] = [
     name: "Profile",
     subItems: [
       { name: "My Profile", path: "/profile" },
-      { name: "Configurations", path: "/role_config" },
+      { name: "Create User", path: "/role_config" },
+      { name: "Role", path: "/rolesPermissions" },
     ],
   },
 ];
@@ -677,7 +678,7 @@ const AppSidebar: React.FC = () => {
               }
               if (nav.name === "Profile" && nav.subItems) {
                 const mappedSubItems = nav.subItems.filter(sub => {
-                  if (sub.name === "Configurations" && !isAdmin) {
+                  if ((sub.name === "Create User" || sub.name === "Role") && !isAdmin) {
                     return false;
                   }
                   return true;

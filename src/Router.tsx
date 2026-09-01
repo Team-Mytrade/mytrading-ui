@@ -132,7 +132,7 @@ import CustomFieldsManager from "./pages/Settings/CustomFieldsManager";
 import EmailSmsSettings from "./pages/Settings/EmailSmsSettings";
 import ImportExportPage from "./pages/Settings/ImportExportPage";
 import IntegrationsPage from "./pages/Settings/IntegrationsPage";
-import RolesPermissionsPage from "./pages/Settings/RolesPermissionsPage";
+import RoleConfiguration from "./pages/Role/role";
 import Alert from "./pages/Notification/Alerts";
 import UserPreferences from "./pages/Notification/UserPreferences";
 import AuthLayout from "./pages/AuthPages/AuthPageLayout";
@@ -433,7 +433,7 @@ export default function AppRouter() {
           <Route path="/emailSMS" element={<EmailSmsSettings />} />
           <Route path="/importExport" element={<ImportExportPage />} />
           <Route path="/integrations" element={<IntegrationsPage />} />
-          <Route path="/rolesPermissions" element={<RolesPermissionsPage />} />
+          <Route path="/rolesPermissions" element={<RoleConfiguration />} />
 
           <Route path="/user_dashboard" element={<UserDashboard />} />
 
