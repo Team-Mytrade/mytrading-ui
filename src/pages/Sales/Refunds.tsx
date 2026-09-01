@@ -382,13 +382,12 @@ const Refunds: React.FC = () => {
       key: "amount",
       label: "Amount",
       sortable: true,
-      render: (refund) => <span className="font-semibold text-slate-900 md:ml-12">{money(refund.amount)}</span>,
+      render: (refund) => <span className="font-semibold text-slate-900">{money(refund.amount)}</span>,
     },
     {
       key: "refundDate",
       label: "Refund Date",
       sortable: true,
-      className: "md:pl-10",
       render: (refund) => refund.refundDate ? new Date(refund.refundDate).toLocaleString() : "--",
     },
     {
@@ -404,7 +403,7 @@ const Refunds: React.FC = () => {
           }}
           onClick={(e) => e.stopPropagation()}
           disabled={statusUpdatingId === refund.id}
-          className="h-9 md:w-[112px] w-[100px] -ml-5 rounded-xl border border-cyan-200 bg-cyan-50 px-3 text-sm font-medium text-cyan-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-9 w-[112px] rounded-xl border border-cyan-200 bg-cyan-50 px-3 text-sm font-medium text-cyan-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {statusOptions.map((status) => (
             <option key={status} value={status}>
@@ -414,7 +413,7 @@ const Refunds: React.FC = () => {
         </select>
       ),
     },
-    { key: "paymentMethod", label: "Payment Method", sortable: true, className:"md:pl-16 pl-2" },
+    { key: "paymentMethod", label: "Payment Method", sortable: true, },
     {
       key: "actions",
       label: "Actions",

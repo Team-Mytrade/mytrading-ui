@@ -34,25 +34,18 @@ const SalesSummary: React.FC = () => {
     winRate: 0,
   });
 
-
-
-
-// useEffect(() => {
-//   const fetchSummary = async () => {
-//     try {
-//       const res = await axios.get<Summary>('/api/sales/summary');
-//       setSummary(res.data);
-//     } catch (error) {
-//       console.error('Failed to fetch sales summary', error);
-//     }
-//   };
-
-//   fetchSummary();
-// }, []);
-
-
   useEffect(() => {
-    // Simulated API data
+    // TODO: replace mock data with real API call once /api/sales/summary is ready:
+    // const fetchSummary = async () => {
+    //   try {
+    //     const res = await axios.get<Summary>('/api/sales/summary');
+    //     setSummary(res.data);
+    //   } catch (error) {
+    //     console.error('Failed to fetch sales summary', error);
+    //   }
+    // };
+    // fetchSummary();
+
     const mockDeals: Deal[] = [
       { id: 1, value: 10000, status: 'Won' },
       { id: 2, value: 8000, status: 'Lost' },
@@ -66,7 +59,11 @@ const SalesSummary: React.FC = () => {
     const open = mockDeals.filter((d) => d.status === 'Open');
 
     const totalRevenue = won.reduce((sum, d) => sum + d.value, 0);
-    const averageDealSize = won.length > 0 ? totalRevenue / won.length : 0;
+
+    // Average deal size across ALL deals, not just won ones
+    const allDealsTotal = mockDeals.reduce((sum, d) => sum + d.value, 0);
+    const averageDealSize = totalDeals > 0 ? allDealsTotal / totalDeals : 0;
+
     const winRate = totalDeals > 0 ? (won.length / totalDeals) * 100 : 0;
 
     setSummary({
@@ -79,8 +76,9 @@ const SalesSummary: React.FC = () => {
       winRate,
     });
   }, []);
- return (
-    <div className="rounded-lg border border-stroke bg-white px-6 py-5 shadow-sm dark:border-gray-700 dark:bg-boxdark">
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white px-6 py-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
         Sales Summary
       </h2>

@@ -394,7 +394,7 @@ const Tasks: React.FC = () => {
       label: "Type",
       sortable: true,
       render: (activity) => (
-        <div className="flex items-center gap-1.5 text-sm text-gray-600 -ml-4">
+        <div className="flex items-center gap-1.5 text-sm text-gray-600">
           {getTypeIcon(activity.activityType)}
           <span>{activity.activityType || "N/A"}</span>
         </div>
@@ -410,7 +410,7 @@ const Tasks: React.FC = () => {
             value={activity.status || "PENDING"}
             onChange={(event) => handleInlineStatusChange(activity, event.target.value)}
             disabled={statusUpdatingId === activity.id}
-            className={`lg:w-[112px] w-[93px] -ml-2 rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${getStatusBadgeColor(activity.status)} ${
+            className={`w-[112px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${getStatusBadgeColor(activity.status)} ${
               statusUpdatingId === activity.id ? "cursor-not-allowed opacity-70" : "cursor-pointer"
             }`}
           >
@@ -425,7 +425,7 @@ const Tasks: React.FC = () => {
       label: "Scheduled",
       sortable: true,
       render: (activity) => (
-        <div className="flex items-center text-xs text-gray-600 md:ml-8">
+        <div className="flex items-center text-xs text-gray-600">
           <CalendarIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
           {activity.scheduledTime ? (
             new Date(activity.scheduledTime).toLocaleDateString("en-US", { year: "numeric", month: "numeric", day: "numeric" })
@@ -440,7 +440,7 @@ const Tasks: React.FC = () => {
       label: "Assigned To",
       sortable: true,
       render: (activity) => (
-        <div className="flex items-center gap-1.5 text-sm text-gray-600 ml-8">
+        <div className="flex items-center gap-1.5 text-sm text-gray-600">
           <UserIcon className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
           <span className="truncate max-w-[100px]">{activity.assignedTo || "Unassigned"}</span>
         </div>

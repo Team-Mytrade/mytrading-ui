@@ -406,7 +406,7 @@ const Interactions: React.FC = () => {
         {/* Toolbar */}
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
+            <div className="relative md:-mt-4">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"

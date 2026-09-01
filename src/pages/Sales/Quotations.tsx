@@ -6,9 +6,11 @@ import {
   BanknotesIcon,
   CalendarDaysIcon,
   DocumentTextIcon,
+  EyeIcon,
   MagnifyingGlassIcon,
   PlusIcon,
   PencilSquareIcon,
+  PrinterIcon,
   TrashIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
@@ -30,6 +32,9 @@ import {
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import QuotationPreviewTemplate, {
+  SellerProfile,
+} from "../../components/quotation/QuotationPreviewTemplate";
 
 type Address = {
   id: number;
@@ -254,6 +259,40 @@ function getStoredTenantId() {
   }
 }
 
+function getSellerProfile(): SellerProfile {
+  try {
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+    const companyName = user?.companyName || user?.tenantName || "Your Company";
+    const legalName = user?.legalName || companyName;
+    const addressLines = [
+      user?.addressLine1,
+      user?.addressLine2,
+      [user?.city, user?.state].filter(Boolean).join(", "),
+      [user?.country, user?.postalCode].filter(Boolean).join(" - "),
+    ]
+      .map((line) => String(line || "").trim())
+      .filter(Boolean);
+
+    return {
+      companyName,
+      legalName,
+      contactEmail: user?.email || "sales@company.com",
+      contactPhone: user?.phone || "+91 00000 00000",
+      gstin: user?.gstin || user?.taxId || "--",
+      addressLines: addressLines.length > 0 ? addressLines : ["Business address not configured"],
+    };
+  } catch {
+    return {
+      companyName: "Your Company",
+      legalName: "Your Company",
+      contactEmail: "sales@company.com",
+      contactPhone: "+91 00000 00000",
+      gstin: "--",
+      addressLines: ["Business address not configured"],
+    };
+  }
+}
+
 const today = new Date().toISOString().split("T")[0];
 
 const emptyForm: QuotationForm = {
@@ -457,6 +496,8 @@ const Quotations: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [lookupId, setLookupId] = useState("");
   const [deleteQuotation, setDeleteQuotation] = useState<Quotation | null>(null);
+  const [previewQuotation, setPreviewQuotation] = useState<Quotation | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     fetchQuotations();
@@ -469,9 +510,11 @@ const Quotations: React.FC = () => {
 
   const selectedCustomer = customers.find((customer) => String(customer.id) === form.customerId);
   const selectedSalesPerson = salesPersons.find((person) => String(person.id) === form.salesPersonId);
+  const previewCustomer = customers.find((customer) => Number(customer.id) === Number(previewQuotation?.customerId));
   const activeCategories = productCategories.filter((category) => category.active !== false);
   const leafCategories = activeCategories.filter((category) => category.parentId != null);
   const selectedCategory = productCategories.find((category) => String(category.id) === form.itemCategoryId);
+  const sellerProfile = useMemo(() => getSellerProfile(), []);
   const filteredProducts = products.filter((product) => {
     if (form.itemType !== "PRODUCT") return false;
     if (!form.itemCategoryId) return true;
@@ -921,6 +964,22 @@ const Quotations: React.FC = () => {
     }
   };
 
+  const openPreview = async (quotation: Quotation) => {
+    try {
+      setPreviewLoading(true);
+      const res = await axios.get<Quotation>(`${API_URL}/${quotation.id}`, { headers });
+      setPreviewQuotation(res.data);
+    } catch (error) {
+      ToasterService.error("Failed to load quotation preview", getErrorMessage(error, "Please try again."));
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const closePreview = () => {
+    setPreviewQuotation(null);
+  };
+
   const closeForm = () => {
     setShowFormModal(false);
     setEditingId(null);
@@ -1112,6 +1171,14 @@ const Quotations: React.FC = () => {
       className: "text-right",
       render: (quotation) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => openPreview(quotation)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600"
+            title="Preview quotation"
+          >
+            <EyeIcon className="h-4 w-4" />
+          </button>
           <button
             type="button"
             onClick={() => openEdit(quotation)}
@@ -1835,6 +1902,58 @@ const Quotations: React.FC = () => {
         onCancel={() => setDeleteQuotation(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
       />
+
+      {(previewQuotation || previewLoading) &&
+        createPortal(
+          <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-950/70 p-4 backdrop-blur-sm print:static print:bg-white print:p-0">
+            <div className="mx-auto flex min-h-full w-full max-w-6xl items-start justify-center py-6 print:max-w-none print:py-0">
+              <div className="w-full rounded-[32px] bg-slate-100 p-3 shadow-2xl print:rounded-none print:bg-white print:p-0 print:shadow-none sm:p-5">
+                <div className="mb-4 flex flex-col gap-3 rounded-[28px] bg-white/90 p-4 shadow-sm print:hidden sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">Quotation Template Preview</h3>
+                    <p className="text-sm text-slate-500">
+                      Individual quotation layout inspired by a retail invoice, ready to print or share.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => window.print()}
+                      disabled={!previewQuotation}
+                      className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <PrinterIcon className="h-4 w-4" />
+                      Print
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closePreview}
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                    >
+                      <XMarkIcon className="h-4 w-4" />
+                      Close
+                    </button>
+                  </div>
+                </div>
+
+                {previewLoading && (
+                  <div className="rounded-[28px] bg-white px-6 py-16 text-center text-sm font-medium text-slate-500">
+                    Loading quotation preview...
+                  </div>
+                )}
+
+                {previewQuotation && (
+                  <QuotationPreviewTemplate
+                    quotation={previewQuotation}
+                    customer={previewCustomer}
+                    sellerProfile={sellerProfile}
+                  />
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </>
   );
 };
