@@ -12,6 +12,7 @@ import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import StatsCard from '../../components/common/Statscard';
 import { ToasterService } from '../../Services/ToasterService';
+import { useNavigate } from 'react-router-dom';
 
 const safeString = (val: any, fallback = ""): string => {
   if (val === null || val === undefined) return fallback;
@@ -91,6 +92,7 @@ export interface EmployeeDashboardModel {
 }
 
 const LeaveDashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const currentUser = useMemo(() => {
     const userStr = localStorage.getItem("user");
     if (userStr) {
@@ -1485,7 +1487,7 @@ const LeaveDashboardPage: React.FC = () => {
                 
                 {/* Queue 1: Leave Approvals */}
                 <div 
-                  onClick={() => { window.location.href = '/att_attendanceApproval'; }}
+                  onClick={() => navigate('/att_attendanceApproval')}
                   className="bg-emerald-50/50 hover:bg-emerald-50 rounded-xl p-3.5 border border-emerald-200/80 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
                 >
                   <div className="flex items-center justify-between">
@@ -1506,7 +1508,7 @@ const LeaveDashboardPage: React.FC = () => {
 
                 {/* Queue 2: Regularization Approvals */}
                 <div 
-                  onClick={() => { window.location.href = '/att_regularizationApproval'; }}
+                  onClick={() => navigate('/att_regularizationApproval')}
                   className="bg-amber-50/50 hover:bg-amber-50 rounded-xl p-3.5 border border-amber-200/80 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
                 >
                   <div className="flex items-center justify-between">
@@ -1527,7 +1529,7 @@ const LeaveDashboardPage: React.FC = () => {
 
                 {/* Queue 3: On Duty Approvals */}
                 <div 
-                  onClick={() => { window.location.href = '/att_onDutyApproval'; }}
+                  onClick={() => navigate('/att_onDutyApproval')}
                   className="bg-cyan-50/50 hover:bg-cyan-50 rounded-xl p-3.5 border border-cyan-200/80 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
                 >
                   <div className="flex items-center justify-between">

@@ -104,6 +104,13 @@ const OnDutyApprovalPage: React.FC = () => {
   const [selectedRequest, setSelectedRequest] = useState<OnDutyApprovalRequest | null>(null);
   const [isSubmittingAction, setIsSubmittingAction] = useState(false);
 
+  const [overallCounts, setOverallCounts] = useState({
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    total: 0
+  });
+
   const currentUser = useMemo(() => {
     try {
       const userStr = localStorage.getItem("user");
@@ -119,106 +126,127 @@ const OnDutyApprovalPage: React.FC = () => {
     return { id: 12, name: "System Admin", role: "SUPER_ADMIN" };
   }, []);
 
-  // ── Fetch Live On-Duty Approvals (Lazy-loaded per active tab) ───────────────────────────
+  // ── Normalize helper ───────────────────────────────────────────────────────
+  const normalizeItem = (r: any, defaultStatus: ApprovalStatus): OnDutyApprovalRequest | null => {
+    const detail = (Array.isArray(r.requestDetails) && r.requestDetails[0]) ||
+                   (Array.isArray(r.responseDetails) && r.responseDetails[0]) || {};
+
+    const reqTypeStr = safeString(r.requestType || detail.requestType || r.type || 'ON_DUTY').toUpperCase();
+    const reasonStr = safeString(r.reason || detail.reason || '').toLowerCase();
+    
+    // Strictly filter for on-duty / client visit / business travel requests
+    const isOnDuty = reqTypeStr.includes('ON_DUTY') || 
+                     reqTypeStr.includes('ON DUTY') || 
+                     reqTypeStr.includes('DUTY') || 
+                     reqTypeStr.includes('VISIT') ||
+                     reasonStr.includes('on duty') ||
+                     reasonStr.includes('client visit');
+
+    if (!isOnDuty) return null;
+
+    const rawEmpId = r.employeeId || r.requestedById || detail.employeeId;
+    const empId = typeof rawEmpId === 'object' ? (rawEmpId?.id || currentUser.id) : (rawEmpId || currentUser.id);
+
+    const rawName = r.employeeName || r.requestedByName || detail.employeeName || detail.requestedByName || r.employee || detail.employee;
+    const resolvedName = safeString(rawName, `Employee #${empId}`);
+
+    const rawCode = r.employeeCode || detail.employeeCode;
+    const resolvedCode = safeString(rawCode, `EMP-${String(empId).padStart(4, '0')}`);
+
+    const rawDept = r.department || detail.department;
+    const resolvedDept = safeString(rawDept, "Operations");
+
+    const rawDesig = r.designation || detail.designation;
+    const resolvedDesig = safeString(rawDesig, "Staff");
+
+    const rawStatusStr = safeString(r.approvalStatus || r.status || detail.approvalStatus || detail.status || defaultStatus).toUpperCase();
+    const statusVal: ApprovalStatus = (rawStatusStr === "APPROVED" || rawStatusStr === "REJECTED") ? rawStatusStr as ApprovalStatus : "PENDING";
+
+    const reqId = typeof r.id === 'object' ? (r.id?.id || 1) : (r.id || 1);
+
+    return {
+      id: Number(reqId) || 1,
+      employeeId: Number(empId) || 12,
+      employeeCode: resolvedCode,
+      employeeName: resolvedName,
+      department: resolvedDept,
+      designation: resolvedDesig,
+      requestType: reqTypeStr || "ON_DUTY",
+      fromDate: safeString(r.fromDate || detail.fromDate || r.startDate || r.shiftDate, new Date().toISOString().slice(0, 10)),
+      toDate: safeString(r.toDate || detail.toDate || r.endDate || r.fromDate, new Date().toISOString().slice(0, 10)),
+      startHours: safeString(r.startHours || detail.startHours, ""),
+      startMinutes: safeString(r.startMinutes || detail.startMinutes, ""),
+      endHours: safeString(r.endHours || detail.endHours, ""),
+      endMinutes: safeString(r.endMinutes || detail.endMinutes, ""),
+      projectTaskId: safeString(r.projectTaskId || detail.projectTaskId, "—"),
+      projectTaskName: safeString(r.projectTaskName || detail.projectTaskName || r.projectTask || detail.projectTask, "Attendance Task"),
+      clientName: safeString(r.clientName || detail.clientName || r.client || detail.client, "Acme Corp"),
+      visitLocation: safeString(r.visitLocation || detail.visitLocation || r.location || detail.location, "HQ Branch"),
+      purpose: safeString(r.purpose || detail.purpose || r.reason || detail.reason, "Client Visit"),
+      reason: safeString(r.reason || detail.reason || r.remarks || detail.remarks, "Business Visit"),
+      comments: safeString(r.comments || detail.comments, ""),
+      status: statusVal,
+      requestedAt: safeString(r.requestedAt || r.createdDate, "—"),
+      actionedAt: (r.actionedAt || r.actionDate) ? safeString(r.actionedAt || r.actionDate) : null,
+      approverName: safeString(r.approverName || r.actionedBy, "Manager"),
+      approverRemarks: (r.approverRemarks || r.remarks || detail.remarks) ? safeString(r.approverRemarks || r.remarks || detail.remarks) : null
+    };
+  };
+
+  // ── Fetch Live On-Duty Approvals (Lazy-loaded per active tab + count summary) ───
   const loadOnDutyRequests = async (tab: ActiveTab) => {
     setLoading(true);
-    const rawList: any[] = [];
 
-    // Fetch live attendance approvals ONLY for the currently active tab endpoint
     try {
-      const res = await axios.get<any[]>(`${ATTENDANCE_APPROVAL_API}/${tab}`);
-      if (Array.isArray(res.data)) {
-        res.data.forEach(item => rawList.push({ ...item, _fetchStatus: tab.toUpperCase() }));
+      const [tabRes, allPending, allApproved, allRejected] = await Promise.allSettled([
+        axios.get<any[]>(`${ATTENDANCE_APPROVAL_API}/${tab}`),
+        axios.get<any[]>(`${ATTENDANCE_APPROVAL_API}/pending`),
+        axios.get<any[]>(`${ATTENDANCE_APPROVAL_API}/approved`),
+        axios.get<any[]>(`${ATTENDANCE_APPROVAL_API}/rejected`)
+      ]);
+
+      if (tabRes.status === 'fulfilled' && Array.isArray(tabRes.value.data)) {
+        const list: OnDutyApprovalRequest[] = [];
+        tabRes.value.data.forEach(r => {
+          const item = normalizeItem(r, tab.toUpperCase() as ApprovalStatus);
+          if (item) list.push(item);
+        });
+        setRequests(list);
+      } else {
+        setRequests([]);
       }
+
+      const countOnDuty = (res: PromiseSettledResult<any>) => {
+        if (res.status === 'fulfilled' && Array.isArray(res.value.data)) {
+          return res.value.data.filter((r: any) => {
+            const reqTypeStr = safeString(r.requestType || r.requestDetails?.[0]?.requestType || r.type || '').toUpperCase();
+            const reasonStr = safeString(r.reason || r.requestDetails?.[0]?.reason || '').toLowerCase();
+            return reqTypeStr.includes('DUTY') || reqTypeStr.includes('VISIT') || reasonStr.includes('on duty') || reasonStr.includes('client visit');
+          }).length;
+        }
+        return 0;
+      };
+
+      const pendingCount = countOnDuty(allPending);
+      const approvedCount = countOnDuty(allApproved);
+      const rejectedCount = countOnDuty(allRejected);
+      setOverallCounts({
+        pending: pendingCount,
+        approved: approvedCount,
+        rejected: rejectedCount,
+        total: pendingCount + approvedCount + rejectedCount
+      });
     } catch (e) {
       console.warn("Failed to fetch on-duty approvals:", e);
+      setRequests([]);
+    } finally {
+      setLoading(false);
     }
-
-    // Filter strictly for ON_DUTY / ON DUTY / BUSINESS_VISIT
-    const normalized: OnDutyApprovalRequest[] = [];
-
-    rawList.forEach((r: any) => {
-      const detail = (Array.isArray(r.requestDetails) && r.requestDetails[0]) ||
-                     (Array.isArray(r.responseDetails) && r.responseDetails[0]) || {};
-
-      const reqTypeStr = safeString(r.requestType || detail.requestType || r.type || 'ON_DUTY').toUpperCase();
-      const reasonStr = safeString(r.reason || detail.reason || '').toLowerCase();
-      
-      // Support all attendance, on-duty, remote work, and regularization approval items
-      const isOnDuty = reqTypeStr.includes('ON_DUTY') || 
-                       reqTypeStr.includes('ON DUTY') || 
-                       reqTypeStr.includes('DUTY') || 
-                       reqTypeStr.includes('VISIT') ||
-                       reqTypeStr.includes('WORK_FROM_HOME') ||
-                       reqTypeStr.includes('REGULARIZATION') ||
-                       reqTypeStr.length > 0;
-
-      if (!isOnDuty) return;
-
-      const rawEmpId = r.employeeId || r.requestedById || detail.employeeId;
-      const empId = typeof rawEmpId === 'object' ? (rawEmpId?.id || currentUser.id) : (rawEmpId || currentUser.id);
-
-      const rawName = r.employeeName || r.requestedByName || detail.employeeName || detail.requestedByName || r.employee || detail.employee;
-      const resolvedName = safeString(rawName, "Tara Joseph");
-
-      const rawCode = r.employeeCode || detail.employeeCode;
-      const resolvedCode = safeString(rawCode, `ADM-EMP-${String(empId).padStart(4, '0')}`);
-
-      const rawDept = r.department || detail.department;
-      const resolvedDept = safeString(rawDept, "Administration");
-
-      const rawDesig = r.designation || detail.designation;
-      const resolvedDesig = safeString(rawDesig, "Staff Specialist");
-
-      const rawStatusStr = safeString(r.approvalStatus || r.status || detail.approvalStatus || detail.status || r._fetchStatus || tab.toUpperCase()).toUpperCase();
-      const statusVal: ApprovalStatus = (rawStatusStr === "APPROVED" || rawStatusStr === "REJECTED") ? rawStatusStr as ApprovalStatus : "PENDING";
-
-      const reqId = typeof r.id === 'object' ? (r.id?.id || 1) : (r.id || 1);
-
-      normalized.push({
-        id: Number(reqId) || 1,
-        employeeId: Number(empId) || 12,
-        employeeCode: resolvedCode,
-        employeeName: resolvedName,
-        department: resolvedDept,
-        designation: resolvedDesig,
-        requestType: reqTypeStr || "ON_DUTY",
-        fromDate: safeString(r.fromDate || detail.fromDate || r.startDate || r.shiftDate, "2026-08-10"),
-        toDate: safeString(r.toDate || detail.toDate || r.endDate || r.fromDate, "2026-08-10"),
-        startHours: safeString(r.startHours || detail.startHours, ""),
-        startMinutes: safeString(r.startMinutes || detail.startMinutes, ""),
-        endHours: safeString(r.endHours || detail.endHours, ""),
-        endMinutes: safeString(r.endMinutes || detail.endMinutes, ""),
-        projectTaskId: safeString(r.projectTaskId || detail.projectTaskId, "—"),
-        projectTaskName: safeString(r.projectTaskName || detail.projectTaskName || r.projectTask || detail.projectTask, "Attendance Task"),
-        clientName: safeString(r.clientName || detail.clientName || r.client || detail.client, "Acme Corp"),
-        visitLocation: safeString(r.visitLocation || detail.visitLocation || r.location || detail.location, "HQ Branch"),
-        purpose: safeString(r.purpose || detail.purpose || r.reason || detail.reason, "Client Visit"),
-        reason: safeString(r.reason || detail.reason || r.remarks || detail.remarks, "Business Visit"),
-        comments: safeString(r.comments || detail.comments, ""),
-        status: statusVal,
-        requestedAt: safeString(r.requestedAt || r.createdDate, "—"),
-        actionedAt: (r.actionedAt || r.actionDate) ? safeString(r.actionedAt || r.actionDate) : null,
-        approverName: safeString(r.approverName || r.actionedBy, "Manager"),
-        approverRemarks: (r.approverRemarks || r.remarks || detail.remarks) ? safeString(r.approverRemarks || r.remarks || detail.remarks) : null
-      });
-    });
-
-    setRequests(normalized);
-    setLoading(false);
   };
 
   useEffect(() => {
     loadOnDutyRequests(activeTab);
   }, [activeTab]);
-
-  // ── Live Metric Stats ──────────────────────────────────────────────────────
-  const stats = useMemo(() => {
-    const pending = requests.filter(r => r.status === "PENDING").length;
-    const approved = requests.filter(r => r.status === "APPROVED").length;
-    const rejected = requests.filter(r => r.status === "REJECTED").length;
-    return { pending, approved, rejected, total: requests.length };
-  }, [requests]);
 
   // ── Action Dialog Triggers (Live API Call) ─────────────────────────────────
   const openActionDialog = (req: OnDutyApprovalRequest, type: "APPROVE" | "REJECT") => {
@@ -427,28 +455,28 @@ const OnDutyApprovalPage: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <StatsCard
             label="Pending Requests"
-            value={stats.pending}
+            value={overallCounts.pending}
             gradient="from-amber-500/10 to-amber-500/5"
             borderColor="border-amber-200"
             labelColor="text-amber-700"
           />
           <StatsCard
             label="Approved Requests"
-            value={stats.approved}
+            value={overallCounts.approved}
             gradient="from-emerald-500/10 to-emerald-500/5"
             borderColor="border-emerald-200"
             labelColor="text-emerald-700"
           />
           <StatsCard
             label="Rejected Requests"
-            value={stats.rejected}
+            value={overallCounts.rejected}
             gradient="from-rose-500/10 to-rose-500/5"
             borderColor="border-rose-200"
             labelColor="text-rose-700"
           />
           <StatsCard
             label="Total On-Duty Logs"
-            value={stats.total}
+            value={overallCounts.total}
             gradient="from-cyan-500/10 to-cyan-500/5"
             borderColor="border-cyan-200"
             labelColor="text-cyan-700"

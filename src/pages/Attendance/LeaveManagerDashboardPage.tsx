@@ -10,6 +10,7 @@ import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import StatsCard from '../../components/common/Statscard';
+import { useNavigate } from 'react-router-dom';
 import { ToasterService } from '../../Services/ToasterService';
 import { AuthContext } from '../../context/AuthContext';
 
@@ -51,6 +52,7 @@ const MANAGER_DASHBOARD_CANDIDATES = [
 ];
 
 const LeaveManagerDashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useContext(AuthContext);
 
   const currentUser = useMemo(() => {
@@ -163,17 +165,36 @@ const LeaveManagerDashboardPage: React.FC = () => {
 
     // 2. Pending Approval Counts
     try {
-      const [lRes, aRes] = await Promise.allSettled([
+      const [lRes, rRes, aRes] = await Promise.allSettled([
         axios.get('/v1/api/attendance/leave-approvals/pending', { timeout: 3000 }),
+        axios.get('/v1/api/attendance/regularization/pending', { timeout: 3000 }),
         axios.get('/v1/api/attendance/attendance-approvals/pending', { timeout: 3000 })
       ]);
 
-      let leaveCount = 4;
-      let regCount = 2;
-      if (lRes.status === 'fulfilled' && Array.isArray(lRes.value.data)) leaveCount = lRes.value.data.length;
-      if (aRes.status === 'fulfilled' && Array.isArray(aRes.value.data)) regCount = aRes.value.data.length;
+      let leaveCount = 0;
+      let regCount = 0;
+      let onDutyCount = 0;
 
-      setPendingQueueCounts({ leave: leaveCount, regularization: regCount, onDuty: 1 });
+      if (lRes.status === 'fulfilled' && Array.isArray(lRes.value.data)) {
+        leaveCount = lRes.value.data.length;
+      }
+      if (rRes.status === 'fulfilled' && Array.isArray(rRes.value.data)) {
+        regCount = rRes.value.data.length;
+      }
+      if (aRes.status === 'fulfilled' && Array.isArray(aRes.value.data)) {
+        onDutyCount = aRes.value.data.filter((item: any) => {
+          const t = (item.requestType || item.type || item.requestDetails?.[0]?.requestType || '').toUpperCase();
+          return t.includes('DUTY') || t.includes('VISIT');
+        }).length;
+        if (regCount === 0) {
+          regCount = aRes.value.data.filter((item: any) => {
+            const t = (item.requestType || item.type || item.requestDetails?.[0]?.requestType || '').toUpperCase();
+            return t.includes('REGULARIZATION');
+          }).length;
+        }
+      }
+
+      setPendingQueueCounts({ leave: leaveCount, regularization: regCount, onDuty: onDutyCount });
     } catch (e) {}
 
     // 3. Adjustments List API Call
@@ -495,7 +516,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
           
           {/* Queue 1: Leave Approvals */}
           <div 
-            onClick={() => { window.location.href = '/att_attendanceApproval'; }}
+            onClick={() => navigate('/att_attendanceApproval')}
             className="bg-emerald-50/50 hover:bg-emerald-50 rounded-xl p-3.5 border border-emerald-200/80 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
           >
             <div className="flex items-center justify-between">
@@ -516,7 +537,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
 
           {/* Queue 2: Regularization Approvals */}
           <div 
-            onClick={() => { window.location.href = '/att_regularizationApproval'; }}
+            onClick={() => navigate('/att_regularizationApproval')}
             className="bg-amber-50/50 hover:bg-amber-50 rounded-xl p-3.5 border border-amber-200/80 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
           >
             <div className="flex items-center justify-between">
@@ -537,7 +558,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
 
           {/* Queue 3: On Duty Approvals */}
           <div 
-            onClick={() => { window.location.href = '/att_onDutyApproval'; }}
+            onClick={() => navigate('/att_onDutyApproval')}
             className="bg-cyan-50/50 hover:bg-cyan-50 rounded-xl p-3.5 border border-cyan-200/80 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
           >
             <div className="flex items-center justify-between">

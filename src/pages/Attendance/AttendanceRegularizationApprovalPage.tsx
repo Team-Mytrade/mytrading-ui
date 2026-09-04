@@ -51,36 +51,40 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
   const [actionType, setActionType] = useState<'approve' | 'reject' | 'cancel' | 'view' | null>(null);
   const [actionRemarks, setActionRemarks] = useState('');
 
-  // New Regularization Form Modal
-  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
-  const [applyForm, setApplyForm] = useState({
-    attendanceDate: new Date().toISOString().slice(0, 10),
-    inTime: `${new Date().toISOString().slice(0, 10)}T09:00:00.000Z`,
-    outTime: `${new Date().toISOString().slice(0, 10)}T18:00:00.000Z`,
-    reason: 'On Site visit and not able to swipe in and out',
-    employeedId: currentUser.id || 12,
-    attendanceMode: 'ON_DUTY'
-  });
-
   // ── Error Helper ───────────────────────────────────────────────────────
   const handleApiError = (err: any, defaultMsg: string) => {
     const backendMsg = err.response?.data?.message || err.response?.data?.error || err.response?.data?.detail;
     ToasterService.error(backendMsg ? String(backendMsg) : defaultMsg);
   };
 
-  // ── API 1: GET ALL PENDING REGULARIZATIONS ──────────────────────────────
-  // Endpoint: GET /v1/api/attendance/regularization/pending
-  const fetchPendingRegularizations = async () => {
+  // ── API 1: GET REGULARIZATIONS (BY ACTIVE TAB) ──────────────────────────
+  const fetchRegularizations = async (tab: 'pending' | 'approved' | 'rejected') => {
     setLoading(true);
     try {
-      const res = await axios.get(`${REGULARIZATION_BASE_URL}/pending`);
-      if (Array.isArray(res.data)) {
-        setRequests(res.data);
+      // 1. Try tab-specific endpoint
+      let res = await axios.get(`${REGULARIZATION_BASE_URL}/${tab}`).catch(() => null);
+
+      // 2. If tab-specific endpoint failed or wasn't array, try base endpoint
+      if (!res || !Array.isArray(res.data)) {
+        res = await axios.get(REGULARIZATION_BASE_URL).catch(() => null);
+      }
+
+      if (res && Array.isArray(res.data)) {
+        const filtered = res.data.filter((item: any) => {
+          const s = (item.status || 'PENDING').toUpperCase();
+          return s === tab.toUpperCase();
+        });
+
+        if (tab === 'pending' && filtered.length === 0 && res.data.length > 0 && !res.data[0].status) {
+          setRequests(res.data);
+        } else {
+          setRequests(filtered);
+        }
       } else {
         setRequests([]);
       }
     } catch (err: any) {
-      console.warn("Failed to fetch pending regularizations:", err);
+      console.warn(`Failed to fetch ${tab} regularizations:`, err);
       setRequests([]);
     } finally {
       setLoading(false);
@@ -88,7 +92,7 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchPendingRegularizations();
+    fetchRegularizations(activeTab);
   }, [activeTab]);
 
   // ── API 2, 3, 4: APPROVE / REJECT / CANCEL REGULARIZATION ───────────────
@@ -117,40 +121,9 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
       setActionType(null);
       setSelectedRequest(null);
       setActionRemarks('');
-      fetchPendingRegularizations();
+      fetchRegularizations(activeTab);
     } catch (err: any) {
       handleApiError(err, `Failed to process ${actionType} action.`);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // ── API 5: POST CREATE REGULARIZATION REQUEST ───────────────────────────
-  // Endpoint: POST /v1/api/attendance/regularization
-  const handleCreateRegularization = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!applyForm.attendanceDate || !applyForm.reason.trim()) {
-      ToasterService.error("Please provide attendance date and reason.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const payload = {
-        attendanceDate: applyForm.attendanceDate,
-        inTime: applyForm.inTime.includes('T') ? applyForm.inTime : `${applyForm.attendanceDate}T${applyForm.inTime}:00.000Z`,
-        outTime: applyForm.outTime.includes('T') ? applyForm.outTime : `${applyForm.attendanceDate}T${applyForm.outTime}:00.000Z`,
-        reason: applyForm.reason.trim(),
-        employeedId: Number(applyForm.employeedId) || currentUser.id || 12,
-        attendanceMode: applyForm.attendanceMode || "ON_DUTY"
-      };
-
-      await axios.post(REGULARIZATION_BASE_URL, payload);
-      ToasterService.success("Attendance Regularization request submitted successfully!");
-      setIsApplyModalOpen(false);
-      fetchPendingRegularizations();
-    } catch (err: any) {
-      handleApiError(err, "Failed to submit regularization request.");
     } finally {
       setIsSubmitting(false);
     }
@@ -261,32 +234,36 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
             <Eye className="w-3.5 h-3.5" />
           </button>
           
-          <button
-            type="button"
-            onClick={() => openActionModal(row, 'approve')}
-            className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded text-emerald-700 text-xs font-bold transition-colors flex items-center gap-1"
-            title="Approve Request"
-          >
-            <Check className="w-3.5 h-3.5" /> Approve
-          </button>
-          
-          <button
-            type="button"
-            onClick={() => openActionModal(row, 'reject')}
-            className="px-2 py-1 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded text-rose-700 text-xs font-bold transition-colors flex items-center gap-1"
-            title="Reject Request"
-          >
-            <X className="w-3.5 h-3.5" /> Reject
-          </button>
+          {activeTab === 'pending' && (
+            <>
+              <button
+                type="button"
+                onClick={() => openActionModal(row, 'approve')}
+                className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded text-emerald-700 text-xs font-bold transition-colors flex items-center gap-1"
+                title="Approve Request"
+              >
+                <Check className="w-3.5 h-3.5" /> Approve
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => openActionModal(row, 'reject')}
+                className="px-2 py-1 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded text-rose-700 text-xs font-bold transition-colors flex items-center gap-1"
+                title="Reject Request"
+              >
+                <X className="w-3.5 h-3.5" /> Reject
+              </button>
 
-          <button
-            type="button"
-            onClick={() => openActionModal(row, 'cancel')}
-            className="p-1.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg text-gray-600 transition-colors"
-            title="Cancel Request"
-          >
-            <Ban className="w-3.5 h-3.5" />
-          </button>
+              <button
+                type="button"
+                onClick={() => openActionModal(row, 'cancel')}
+                className="p-1.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg text-gray-600 transition-colors"
+                title="Cancel Request"
+              >
+                <Ban className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
         </div>
       )
     }
@@ -307,28 +284,37 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
             </div>
             <div>
               <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Attendance Regularization Desk</h2>
-              <p className="text-xs text-gray-500">Submit and approve missed punch regularizations</p>
+              <p className="text-xs text-gray-500">Review and approve employee missed punch regularizations</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setIsApplyModalOpen(true)}
-              className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
-            >
-              <Plus className="w-4 h-4" /> Apply Regularization
-            </button>
-
-            <button
-              type="button"
-              onClick={fetchPendingRegularizations}
+              onClick={() => fetchRegularizations(activeTab)}
               className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg transition-all"
               title="Refresh Queue"
             >
               <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
             </button>
           </div>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="flex items-center gap-2 border-b border-gray-200/80 pb-2">
+          {(['pending', 'approved', 'rejected'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all duration-200 ease-in-out transform active:scale-95 ${
+                activeTab === tab 
+                  ? 'bg-cyan-600 text-white shadow-xs scale-102' 
+                  : 'bg-white text-gray-600 hover:bg-gray-100/80 border border-gray-200/80 hover:text-gray-900'
+              }`}
+            >
+              {tab} Regularizations
+            </button>
+          ))}
         </div>
 
         {/* Regularization Data Table */}
@@ -347,127 +333,7 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
 
       </div>
 
-      {/* ── MODAL 1: APPLY NEW REGULARIZATION ────────────────────────────── */}
-      {isApplyModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <Plus className="w-5 h-5 text-cyan-600" />
-                <h3 className="text-sm font-bold text-gray-900 uppercase">
-                  Apply Attendance Regularization
-                </h3>
-              </div>
-              <button type="button" onClick={() => setIsApplyModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateRegularization} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Employee ID *</label>
-                <input
-                  type="number"
-                  value={applyForm.employeedId}
-                  onChange={(e) => setApplyForm(p => ({ ...p, employeedId: Number(e.target.value) }))}
-                  className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Attendance Date *</label>
-                <input
-                  type="date"
-                  value={applyForm.attendanceDate}
-                  onChange={(e) => {
-                    const date = e.target.value;
-                    setApplyForm(p => ({
-                      ...p,
-                      attendanceDate: date,
-                      inTime: `${date}T09:21:07.273Z`,
-                      outTime: `${date}T19:21:07.273Z`
-                    }));
-                  }}
-                  onClick={(e) => e.currentTarget.showPicker?.()}
-                  className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">In Time *</label>
-                  <input
-                    type="text"
-                    value={applyForm.inTime}
-                    onChange={(e) => setApplyForm(p => ({ ...p, inTime: e.target.value }))}
-                    className="w-full py-1.5 px-2 bg-gray-50 border border-gray-200 rounded text-xs font-mono font-bold text-gray-800 focus:bg-white"
-                    placeholder="2026-08-24T09:21:07.273Z"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Out Time *</label>
-                  <input
-                    type="text"
-                    value={applyForm.outTime}
-                    onChange={(e) => setApplyForm(p => ({ ...p, outTime: e.target.value }))}
-                    className="w-full py-1.5 px-2 bg-gray-50 border border-gray-200 rounded text-xs font-mono font-bold text-gray-800 focus:bg-white"
-                    placeholder="2026-08-24T19:21:07.273Z"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Attendance Mode *</label>
-                <select
-                  value={applyForm.attendanceMode}
-                  onChange={(e) => setApplyForm(p => ({ ...p, attendanceMode: e.target.value }))}
-                  className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-bold text-gray-800"
-                >
-                  <option value="ON_DUTY">ON_DUTY</option>
-                  <option value="MISSED_PUNCH">MISSED_PUNCH</option>
-                  <option value="WFH">WFH</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Reason *</label>
-                <textarea
-                  rows={3}
-                  value={applyForm.reason}
-                  onChange={(e) => setApplyForm(p => ({ ...p, reason: e.target.value }))}
-                  placeholder="On Site visit and not able to swipe in and out"
-                  className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none resize-none"
-                  required
-                />
-              </div>
-
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsApplyModalOpen(false)}
-                  className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold disabled:opacity-70"
-                >
-                  {isSubmitting ? "Submitting..." : "Submit Request"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── MODAL 2: ACTION (APPROVE / REJECT / CANCEL / VIEW) ───────────── */}
+      {/* ── MODAL: ACTION (APPROVE / REJECT / CANCEL / VIEW) ───────────── */}
       {selectedRequest && actionType && (
         <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="bg-white rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 space-y-4">

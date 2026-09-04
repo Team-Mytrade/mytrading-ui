@@ -184,8 +184,8 @@ const AttendanceApprovalRequestPage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <div>
-          <span className="font-bold text-xs text-gray-900 block">{row.employeeName || `Employee #${row.employeeId || 'N/A'}`}</span>
-          <span className="text-[10px] text-gray-500 font-mono">ID: #{row.employeeId || '12'}</span>
+          <span className="font-bold text-xs text-gray-900 block">{row.employeeName || (row.employeeId ? `Employee #${row.employeeId}` : 'Employee')}</span>
+          <span className="text-[10px] text-gray-500 font-mono">{row.employeeId ? `ID: #${row.employeeId}` : '—'}</span>
         </div>
       )
     },
@@ -343,11 +343,11 @@ const AttendanceApprovalRequestPage: React.FC = () => {
                 <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200/80">
                   <div>
                     <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">EMPLOYEE NAME</span>
-                    <span className="font-bold text-slate-900">{selectedRequest.employeeName || 'Roy Hamlin'}</span>
+                    <span className="font-bold text-slate-900">{selectedRequest.employeeName || (selectedRequest.employeeId ? `Employee #${selectedRequest.employeeId}` : 'Employee')}</span>
                   </div>
                   <div>
                     <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">EMPLOYEE ID</span>
-                    <span className="font-bold font-mono text-cyan-800">#EMP-{selectedRequest.employeeId || '71'}</span>
+                    <span className="font-bold font-mono text-cyan-800">{selectedRequest.employeeId ? `#EMP-${selectedRequest.employeeId}` : '—'}</span>
                   </div>
                   <div>
                     <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">REQUEST TYPE</span>
