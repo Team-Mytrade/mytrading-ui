@@ -38,6 +38,8 @@ import FilterPopover from "../../components/common/filter";
 import PaginatedPopup from "../../components/common/unpopup";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import StatsCard from "../../components/common/Statscard";
+import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ArrowCircleDownRounded, Image } from "@mui/icons-material";
 
 interface EmployeeDocument {
@@ -275,6 +277,92 @@ const EmployeeDocumentsPage: React.FC = () => {
         return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
     };
 
+    const columns: ColumnDef<EmployeeDocument>[] = [
+        {
+            key: "documentType",
+            label: "Document Type",
+            sortable: true,
+            render: (row) => (
+                <div className="flex items-center gap-2.5">
+                    {getFileIcon(row.fileType)}
+                    <span className="font-semibold text-gray-900 text-xs">{row.documentType}</span>
+                </div>
+            )
+        },
+        {
+            key: "fileName",
+            label: "File Name",
+            sortable: true,
+            render: (row) => <span className="text-xs text-gray-700 font-mono truncate max-w-[220px] block">{row.fileName}</span>
+        },
+        {
+            key: "fileSize",
+            label: "File Size",
+            sortable: true,
+            render: (row) => <span className="text-xs text-gray-600">{formatFileSize(row.fileSize)}</span>
+        },
+        {
+            key: "verified",
+            label: "Status",
+            sortable: true,
+            render: (row) => row.verified ? (
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                    <CheckCircleIcon className="h-3 w-3 mr-1 shrink-0" />
+                    Verified
+                </span>
+            ) : (
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                    <ClockIcon className="h-3 w-3 mr-1 shrink-0" />
+                    Pending
+                </span>
+            )
+        },
+        {
+            key: "uploadedAt",
+            label: "Uploaded Date",
+            sortable: true,
+            render: (row) => <span className="text-xs text-gray-500">{row.uploadedAt ? new Date(row.uploadedAt).toLocaleDateString() : "-"}</span>
+        },
+        {
+            key: "actions",
+            label: "Actions",
+            headerClassName: "text-right w-40",
+            className: "text-right w-40",
+            render: (row) => (
+                <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    <button
+                        onClick={() => { setSelectedDocument(row); setViewModalOpen(true); }}
+                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-1 rounded-md transition-colors"
+                        title="View Details"
+                    >
+                        <EyeIcon className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                        onClick={() => handlePreview(row)}
+                        className="text-cyan-600 hover:text-cyan-900 bg-cyan-50 hover:bg-cyan-100 p-1 rounded-md transition-colors"
+                        title="Preview"
+                    >
+                        <EyeIcon className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                        onClick={() => handleDownload(row)}
+                        className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 p-1 rounded-md transition-colors"
+                        title="Download"
+                    >
+                        <ArrowCircleDownRounded className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                        onClick={() => handleDelete(row.id, row.fileName)}
+                        className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 p-1 rounded-md transition-colors"
+                        title="Delete"
+                    >
+                        <TrashIcon className="h-3.5 w-3.5" />
+                    </button>
+                </div>
+            )
+        }
+    ];
+
     return (
         <>
             <PageMeta title="Employee Documents" description="Manage employee documents and credentials" />
@@ -286,57 +374,49 @@ const EmployeeDocumentsPage: React.FC = () => {
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <p className="text-sm text-gray-500">Employee ID</p>
-                            <h2 className="text-2xl font-bold text-gray-900">EMP-{employeeIdNum.toString().padStart(3, '0')}</h2>
+                            <h2 className="text-2xl font-bold text-gray-900">
+                                {!employeeId || isNaN(Number(employeeId)) ? "All Employees" : `EMP-${Number(employeeId).toString().padStart(3, '0')}`}
+                            </h2>
                         </div>
-                        <div className="flex gap-4">
+                        <div className="flex items-center gap-3">
                             <button
+                                type="button"
                                 onClick={() => setIsUploadOpen(true)}
-                                className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center gap-2"
+                                className="inline-flex items-center justify-center h-10 px-5 text-sm font-semibold !text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg border border-transparent shadow-sm transition-all duration-200 focus:outline-none gap-2"
                             >
-                                <ArrowUpIcon className="h-5 w-5" />
-                                Upload Document
+                                <ArrowUpIcon className="h-4 w-4 !text-white shrink-0" />
+                                <span className="!text-white whitespace-nowrap">Upload Document</span>
                             </button>
                         </div>
                     </div>
                 </div>
 
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600">Total Documents</p>
-                                <p className="text-2xl font-semibold text-gray-900">{totalDocuments}</p>
-                            </div>
-                            <div className="p-3 bg-blue-100 rounded-full">
-                                <DocumentTextIcon className="h-6 w-6 text-blue-600" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600">Verified</p>
-                                <p className="text-2xl font-semibold text-green-600">{verifiedCount}</p>
-                            </div>
-                            <div className="p-3 bg-green-100 rounded-full">
-                                <ShieldCheckIcon className="h-6 w-6 text-green-600" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600">Pending Verification</p>
-                                <p className="text-2xl font-semibold text-yellow-600">{pendingCount}</p>
-                            </div>
-                            <div className="p-3 bg-yellow-100 rounded-full">
-                                <ClockIcon className="h-6 w-6 text-yellow-600" />
-                            </div>
-                        </div>
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                    <StatsCard
+                        label="Total Documents"
+                        value={totalDocuments}
+                        gradient="from-cyan-50 to-blue-50"
+                        borderColor="border-cyan-100"
+                        labelColor="text-cyan-600"
+                        icon={<DocumentTextIcon className="h-6 w-6" />}
+                    />
+                    <StatsCard
+                        label="Verified"
+                        value={verifiedCount}
+                        gradient="from-green-50 to-emerald-50"
+                        borderColor="border-green-100"
+                        labelColor="text-green-600"
+                        icon={<ShieldCheckIcon className="h-6 w-6" />}
+                    />
+                    <StatsCard
+                        label="Pending Verification"
+                        value={pendingCount}
+                        gradient="from-amber-50 to-yellow-50"
+                        borderColor="border-amber-100"
+                        labelColor="text-amber-600"
+                        icon={<ClockIcon className="h-6 w-6" />}
+                    />
                 </div>
 
                 {/* Toolbar */}
@@ -445,210 +525,22 @@ const EmployeeDocumentsPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Documents Grid */}
+                {/* Documents Table */}
                 {!isUploadOpen && (
-                    <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
-                        {loading ? (
-                            <div className="flex justify-center items-center py-20">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div>
-                                <span className="ml-3 text-gray-500">Loading documents...</span>
-                            </div>
-                        ) : paginated.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
-                                {paginated.map(doc => (
-                                    <div
-                                        key={doc.id}
-                                        className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow group"
-                                    >
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div className="p-3 bg-gray-50 rounded-lg">
-                                                {getFileIcon(doc.fileType)}
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <Menu as="div" className="relative inline-block text-left">
-                                                    <Menu.Button className="p-1 rounded-full hover:bg-gray-100 transition-colors">
-                                                        <EllipsisVerticalIcon className="h-5 w-5 text-gray-400" />
-                                                    </Menu.Button>
-                                                    <Menu.Items className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50">
-                                                        <Menu.Item>
-                                                            {({ active }) => (
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setSelectedDocument(doc);
-                                                                        setViewModalOpen(true);
-                                                                    }}
-                                                                    className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                                                >
-                                                                    <EyeIcon className="h-4 w-4 text-blue-600" />
-                                                                    View Details
-                                                                </button>
-                                                            )}
-                                                        </Menu.Item>
-                                                        <Menu.Item>
-                                                            {({ active }) => (
-                                                                <button
-                                                                    onClick={() => handlePreview(doc)}
-                                                                    className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                                                >
-                                                                    <EyeIcon className="h-4 w-4 text-cyan-600" />
-                                                                    Preview
-                                                                </button>
-                                                            )}
-                                                        </Menu.Item>
-                                                        <Menu.Item>
-                                                            {({ active }) => (
-                                                                <button
-                                                                    onClick={() => handleDownload(doc)}
-                                                                    className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                                                >
-                                                                    <ArrowCircleDownRounded className="h-4 w-4 text-green-600" />
-                                                                    Download
-                                                                </button>
-                                                            )}
-                                                        </Menu.Item>
-                                                        <Menu.Item>
-                                                            {({ active }) => (
-                                                                <button
-                                                                    onClick={() => handleDelete(doc.id, doc.fileName)}
-                                                                    className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-red-600`}
-                                                                >
-                                                                    <TrashIcon className="h-4 w-4" />
-                                                                    Delete
-                                                                </button>
-                                                            )}
-                                                        </Menu.Item>
-                                                    </Menu.Items>
-                                                </Menu>
-                                            </div>
-                                        </div>
-
-                                        <div className="mb-3">
-                                            <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${doc.verified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                {doc.verified ? <CheckCircleIcon className="h-3 w-3 mr-1" /> : <ClockIcon className="h-3 w-3 mr-1" />}
-                                                {doc.verified ? 'Verified' : 'Pending'}
-                                            </span>
-                                        </div>
-
-                                        <h4 className="text-sm font-semibold text-gray-900 mb-1">{doc.documentType}</h4>
-                                        <p className="text-xs text-gray-500 truncate mb-2">{doc.fileName}</p>
-                                        <p className="text-xs text-gray-400">{formatFileSize(doc.fileSize)}</p>
-
-                                        <div className="mt-4 pt-4 border-t border-gray-100 flex gap-2">
-                                            <button
-                                                onClick={() => handlePreview(doc)}
-                                                className="flex-1 px-3 py-2 text-xs font-medium text-gray-600 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center gap-1"
-                                            >
-                                                <EyeIcon className="h-3 w-3" />
-                                                Preview
-                                            </button>
-                                            <button
-                                                onClick={() => handleDownload(doc)}
-                                                className="flex-1 px-3 py-2 text-xs font-medium text-gray-600 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center gap-1"
-                                            >
-                                                <ArrowCircleDownRounded className="h-3 w-3" />
-                                                Download
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center py-20">
-                                <DocumentTextIcon className="h-16 w-16 text-gray-300 mb-4" />
+                    <ReusableTable
+                        data={filtered}
+                        columns={columns}
+                        loading={loading}
+                        searchable={false}
+                        pageSize={10}
+                        emptyState={
+                            <div className="flex flex-col items-center">
+                                <DocumentTextIcon className="h-12 w-12 text-gray-400 mb-3" />
                                 <p className="text-gray-500 text-sm mb-2">No documents found</p>
                                 <p className="text-gray-400 text-xs">Click "Upload Document" to add one</p>
                             </div>
-                        )}
-
-                        {/* Pagination */}
-                        {totalPages > 0 && (
-                            <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                                <div className="flex-1 flex justify-between sm:hidden">
-                                    <button
-                                        onClick={() => setPage(Math.max(1, page - 1))}
-                                        disabled={page === 1}
-                                        className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        Previous
-                                    </button>
-                                    <button
-                                        onClick={() => setPage(Math.min(totalPages, page + 1))}
-                                        disabled={page === totalPages}
-                                        className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        Next
-                                    </button>
-                                </div>
-                                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                                    <div>
-                                        <p className="text-sm text-gray-700">
-                                            Showing <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> to{' '}
-                                            <span className="font-medium">
-                                                {Math.min(page * PAGE_SIZE, filtered.length)}
-                                            </span>{' '}
-                                            of <span className="font-medium">{filtered.length}</span> results
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                                            <button
-                                                onClick={() => setPage(1)}
-                                                disabled={page === 1}
-                                                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                First
-                                            </button>
-                                            <button
-                                                onClick={() => setPage(Math.max(1, page - 1))}
-                                                disabled={page === 1}
-                                                className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                Previous
-                                            </button>
-                                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                                let pageNum: number;
-                                                if (totalPages <= 5) {
-                                                    pageNum = i + 1;
-                                                } else if (page <= 3) {
-                                                    pageNum = i + 1;
-                                                } else if (page >= totalPages - 2) {
-                                                    pageNum = totalPages - 4 + i;
-                                                } else {
-                                                    pageNum = page - 2 + i;
-                                                }
-                                                return (
-                                                    <button
-                                                        key={pageNum}
-                                                        onClick={() => setPage(pageNum)}
-                                                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page === pageNum
-                                                                ? "z-10 bg-cyan-50 border-cyan-500 text-cyan-600"
-                                                                : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                                                            }`}
-                                                    >
-                                                        {pageNum}
-                                                    </button>
-                                                );
-                                            })}
-                                            <button
-                                                onClick={() => setPage(Math.min(totalPages, page + 1))}
-                                                disabled={page === totalPages}
-                                                className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                Next
-                                            </button>
-                                            <button
-                                                onClick={() => setPage(totalPages)}
-                                                disabled={page === totalPages}
-                                                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                Last
-                                            </button>
-                                        </nav>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                        }
+                    />
                 )}
 
                 {/* Upload Modal */}

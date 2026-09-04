@@ -168,13 +168,36 @@ const AttendancePunchPage: React.FC = () => {
       );
     } catch (err: any) {
       console.error(err);
-      let errMsg = err.response?.data?.error || err.response?.data?.message || err.response?.data?.detail || err.message || 'Failed to record attendance.';
-      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
-        errMsg = 'Server connection timed out. Please check backend service state.';
-      } else if (err.message === 'Network Error') {
-        errMsg = 'Network error connecting to API server.';
+      let rawMsg = err.response?.data?.error || err.response?.data?.message || err.response?.data?.detail || err.message || 'Failed to record attendance.';
+      
+      if (typeof rawMsg === 'object') {
+        rawMsg = JSON.stringify(rawMsg);
       }
-      ToasterService.error(String(errMsg));
+      
+      let friendlyMsg = String(rawMsg);
+
+      // Clean raw Feign/Spring Exception strings (e.g., "[400] during [GET] ... [{'error':'Employee not found with ID: 85'}]")
+      if (friendlyMsg.includes('Employee not found with ID')) {
+        const match = friendlyMsg.match(/Employee not found with ID:?\s*(\d+)?/i);
+        const empId = match && match[1] ? match[1] : (formData.employeeId || '');
+        friendlyMsg = `Employee not found with ID: ${empId}`;
+      } else if (friendlyMsg.includes('during [') && friendlyMsg.includes('] to [')) {
+        // Extract embedded error message if present
+        const jsonMatch = friendlyMsg.match(/\{"error":"([^"]+)"\}/) || friendlyMsg.match(/\{'error':'([^']+)'\}/);
+        if (jsonMatch && jsonMatch[1]) {
+          friendlyMsg = jsonMatch[1];
+        } else {
+          friendlyMsg = 'Unable to complete attendance punch. Please check the employee details.';
+        }
+      }
+
+      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        friendlyMsg = 'Server connection timed out. Please check backend service state.';
+      } else if (err.message === 'Network Error') {
+        friendlyMsg = 'Network error connecting to API server.';
+      }
+
+      ToasterService.error(friendlyMsg);
     } finally {
       setIsSubmitting(false);
     }

@@ -96,10 +96,13 @@ const SalaryStructurePage: React.FC = () => {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        setForm(prev => ({ 
-            ...prev, 
-            [name]: name === 'employeeId' || name === 'effectiveFrom' ? value : Number(value) 
-        }));
+        if (name === 'employeeId' || name === 'effectiveFrom') {
+            setForm(prev => ({ ...prev, [name]: value }));
+        } else {
+            const raw = String(value).replace(/^0+(?=\d)/, "");
+            const num = raw === "" ? 0 : Number(raw);
+            setForm(prev => ({ ...prev, [name]: isNaN(num) ? 0 : num }));
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -529,8 +532,9 @@ const SalaryStructurePage: React.FC = () => {
                                                         <input
                                                             type="number"
                                                             name="basic"
-                                                            value={form.basic}
+                                                            value={form.basic === 0 ? "" : form.basic}
                                                             onChange={handleChange}
+                                                            placeholder="0"
                                                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                                                             required
                                                         />
@@ -540,8 +544,9 @@ const SalaryStructurePage: React.FC = () => {
                                                         <input
                                                             type="number"
                                                             name="hra"
-                                                            value={form.hra}
+                                                            value={form.hra === 0 ? "" : form.hra}
                                                             onChange={handleChange}
+                                                            placeholder="0"
                                                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                                                         />
                                                     </div>
@@ -552,8 +557,9 @@ const SalaryStructurePage: React.FC = () => {
                                                         <input
                                                             type="number"
                                                             name="allowances"
-                                                            value={form.allowances}
+                                                            value={form.allowances === 0 ? "" : form.allowances}
                                                             onChange={handleChange}
+                                                            placeholder="0"
                                                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                                                         />
                                                     </div>
@@ -562,8 +568,9 @@ const SalaryStructurePage: React.FC = () => {
                                                         <input
                                                             type="number"
                                                             name="deductions"
-                                                            value={form.deductions}
+                                                            value={form.deductions === 0 ? "" : form.deductions}
                                                             onChange={handleChange}
+                                                            placeholder="0"
                                                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                                                         />
                                                     </div>

@@ -154,7 +154,6 @@ export const navItems: NavItem[] = [
       { name: "Records", path: "/employeeRecords" },
       { name: "Salary", path: "/employeeSalary" },
       { name: "Payslips", path: "/employeePayslips" },
-      { name: "Payroll", path: "/employeePayroll" },
       {
         name: "Reports",
         subItems: [
@@ -176,6 +175,7 @@ export const navItems: NavItem[] = [
     subItems: [
       // 1. Dashboards & Calendars
       { name: "My Leave Calendar", path: "/att_leaveDashboard" },
+      { name: "Employee Self Service", path: "/att_selfService" },
       { name: "Manager Leave Dashboard", path: "/att_leaveManagerDashboard", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
       { name: "Attendance Tracking", path: "/att_attendanceTracking" },
       { name: "Holiday Calendar", path: "/att_holidayCalendar" },

@@ -273,7 +273,7 @@ const SalesDashboard: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
                 <YAxis stroke="#9ca3af" fontSize={12} />
-                <Tooltip formatter={(value: number) => money(value)} />
+                <Tooltip formatter={(value: any) => money(Number(value) || 0)} />
                 <Area type="monotone" dataKey="sales" stroke="#06b6d4" strokeWidth={2} fill="url(#salesGradient)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -293,7 +293,7 @@ const SalesDashboard: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
                   <XAxis type="number" hide />
                   <YAxis type="category" dataKey="name" stroke="#9ca3af" fontSize={12} width={110} />
-                  <Tooltip formatter={(value: number) => [value, "Rank score"]} />
+                  <Tooltip formatter={(value: any) => [value, "Rank score"]} />
                   <Bar dataKey="rank" radius={[0, 4, 4, 0]} barSize={22}>
                     {productData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
