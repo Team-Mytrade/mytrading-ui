@@ -346,7 +346,7 @@ const ServiceSchedules: React.FC = () => {
         </div>
       ),
     },
-    { key: "customerId", label: "Customer", sortable: true,},
+    { key: "customerId", label: "Customer", sortable: true },
     {
       key: "assignedEmployeeId",
       label: "Employee",
@@ -363,9 +363,11 @@ const ServiceSchedules: React.FC = () => {
       key: "startTime",
       label: "Time",
       sortable: false,
-      render: (schedule) => <div className="-ml-4 md:ml-2">
-        {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)},
+      render: (schedule) => (
+        <div className="-ml-4 md:ml-2">
+          {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
         </div>
+      ),
     },
     {
       key: "status",
@@ -452,73 +454,93 @@ const ServiceSchedules: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <ListingPdfExportButton
-              title="Service Schedules"
-              subtitle="Filtered service schedule listing"
-              reportLabel="Sales Report"
-              data={filteredSchedules}
-              fileName="Service_Schedules"
-              disabled={loading}
-              metadata={(rows, rangeLabel) => [
-                { label: "Total", value: rows.length },
-                { label: "Range", value: rangeLabel },
-                { label: "Status", value: nextStatus || "All" },
-                { label: "Search", value: search || "None" },
-              ]}
-            />
+        <ListingPdfExportButton
+  title="Service Schedules"
+  subtitle="Filtered service schedule listing"
+  reportLabel="Sales Report"
+  data={filteredSchedules}
+  dateAccessor={(schedule) => schedule.scheduledDate}
+  columns={[
+    { key: "scheduleNo", header: "Schedule No" },
+    { key: "serviceOrderId", header: "Service Order" },
+    { key: "customerId", header: "Customer" },
+    {
+      key: "assignedEmployeeId",
+      header: "Employee",
+      accessor: (schedule) => getEmployeeDisplayName(schedule.assignedEmployeeId),
+    },
+    { key: "scheduledDate", header: "Date" },
+    {
+      key: "startTime",
+      header: "Time",
+      accessor: (schedule) => `${formatTime(schedule.startTime)} - ${formatTime(schedule.endTime)}`,
+    },
+    { key: "status", header: "Status" },
+    { key: "remarks", header: "Remarks" },
+  ]}
+  fileName="Service_Schedules"
+  disabled={loading}
+  metadata={(rows, rangeLabel) => [
+    { label: "Total", value: rows.length },
+    { label: "Range", value: rangeLabel },
+    { label: "Status", value: nextStatus || "All" },
+    { label: "Search", value: search || "None" },
+  ]}
+/>
+            
             <FilterPopover title="Filter Schedules" buttonLabel="Filters" widthClassName="w-[20rem] sm:w-[22rem]" showFooter={false}>
-            <div className="space-y-3">
-              <FloatingSelect
-                label="Employee"
-                value={employeeLookupId}
-                onChange={(e) => setEmployeeLookupId(e.target.value)}
-                emptyOptionLabel=""
-                options={employeeOptions}
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <FloatingInput
-                  label="Status Schedule ID"
-                  type="number"
-                  value={statusScheduleId}
-                  onChange={(e) => setStatusScheduleId(e.target.value)}
-                />
+              <div className="space-y-3">
                 <FloatingSelect
-                  label="Status"
-                  value={nextStatus}
-                  onChange={(e) => setNextStatus(e.target.value)}
-                  includeEmptyOption={false}
-                  options={statusOptions.map((status) => ({ id: status, name: status }))}
+                  label="Employee"
+                  value={employeeLookupId}
+                  onChange={(e) => setEmployeeLookupId(e.target.value)}
+                  emptyOptionLabel=""
+                  options={employeeOptions}
                 />
+                <div className="grid grid-cols-2 gap-2">
+                  <FloatingInput
+                    label="Status Schedule ID"
+                    type="number"
+                    value={statusScheduleId}
+                    onChange={(e) => setStatusScheduleId(e.target.value)}
+                  />
+                  <FloatingSelect
+                    label="Status"
+                    value={nextStatus}
+                    onChange={(e) => setNextStatus(e.target.value)}
+                    includeEmptyOption={false}
+                    options={statusOptions.map((status) => ({ id: status, name: status }))}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmployeeLookupId("");
+                      setStatusScheduleId("");
+                      setNextStatus("PENDING");
+                      void fetchSchedules();
+                    }}
+                    className="h-10 rounded-lg bg-gray-100 px-3 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fetchByEmployee}
+                    className="h-10 rounded-lg bg-cyan-600 px-3 text-sm font-medium text-white hover:bg-cyan-700"
+                  >
+                    Employee
+                  </button>
+                  <button
+                    type="button"
+                    onClick={updateStatus}
+                    className="h-10 rounded-lg bg-green-600 px-3 text-sm font-medium text-white hover:bg-green-700"
+                  >
+                    Update
+                  </button>
+                </div>
               </div>
-              <div className="grid grid-cols-3 gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmployeeLookupId("");
-                    setStatusScheduleId("");
-                    setNextStatus("PENDING");
-                    void fetchSchedules();
-                  }}
-                  className="h-10 rounded-lg bg-gray-100 px-3 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                >
-                  Reset
-                </button>
-                <button
-                  type="button"
-                  onClick={fetchByEmployee}
-                  className="h-10 rounded-lg bg-cyan-600 px-3 text-sm font-medium text-white hover:bg-cyan-700"
-                >
-                  Employee
-                </button>
-                <button
-                  type="button"
-                  onClick={updateStatus}
-                  className="h-10 rounded-lg bg-green-600 px-3 text-sm font-medium text-white hover:bg-green-700"
-                >
-                  Update
-                </button>
-              </div>
-            </div>
             </FilterPopover>
           </div>
         </div>
@@ -557,23 +579,85 @@ const ServiceSchedules: React.FC = () => {
               </div>
 
               <form onSubmit={handleSubmit} className="p-5">
+                {/* Grid with two columns on medium screens and up, each field takes full width of its column */}
                 <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
-                  <FloatingInput label="Service Order ID" name="serviceOrderId" type="number" value={form.serviceOrderId} onChange={handleChange} required />
-                  <FloatingInput label="Customer ID" name="customerId" type="number" value={form.customerId} onChange={handleChange} required />
-                  <FloatingSelect
-                    label="Assigned Employee"
-                    name="assignedEmployeeId"
-                    value={form.assignedEmployeeId}
-                    onChange={handleChange}
-                    emptyOptionLabel="Select employee"
-                    options={employeeOptions}
-                    required
-                  />
-                  <FloatingDatePicker label="Scheduled Date" name="scheduledDate" value={form.scheduledDate} onChange={handleChange} required />
-                  <FloatingInput label="Start Time" name="startTime" type="time" value={form.startTime} onChange={handleChange} required />
-                  <FloatingInput label="End Time" name="endTime" type="time" value={form.endTime} onChange={handleChange} required />
+                  <div className="w-full">
+                    <FloatingInput
+                      label="Service Order ID"
+                      name="serviceOrderId"
+                      type="number"
+                      value={form.serviceOrderId}
+                      onChange={handleChange}
+                      required
+                    />
+                    <p className="mt-1 text-xs text-gray-400">
+                      Enter the numeric ID of an existing service order.
+                    </p>
+                  </div>
+                  <div className="w-full">
+                    <FloatingInput
+                      label="Customer ID"
+                      name="customerId"
+                      type="number"
+                      value={form.customerId}
+                      onChange={handleChange}
+                      required
+                    />
+                    <p className="mt-1 text-xs text-gray-400">
+                      Enter the numeric ID of the customer linked to this service order.
+                    </p>
+                  </div>
+                  <div className="w-full">
+                    <FloatingSelect
+                      label="Assigned Employee"
+                      name="assignedEmployeeId"
+                      value={form.assignedEmployeeId}
+                      onChange={handleChange}
+                      emptyOptionLabel="Select employee"
+                      options={employeeOptions}
+                      required
+                    />
+                  </div>
+                  <div className="w-full">
+                    <FloatingDatePicker
+                      label="Scheduled Date"
+                      name="scheduledDate"
+                      value={form.scheduledDate}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                  <div className="w-full">
+                    <FloatingInput
+                      label="Start Time"
+                      name="startTime"
+                      type="time"
+                      value={form.startTime}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                  <div className="w-full">
+                    <FloatingInput
+                      label="End Time"
+                      name="endTime"
+                      type="time"
+                      value={form.endTime}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
                 </div>
-                <FloatingTextarea label="Remarks" name="remarks" value={form.remarks} onChange={handleChange} rows={3} />
+                {/* Remarks spans full width */}
+                <div className="mt-4 w-full">
+                  <FloatingTextarea
+                    label="Remarks"
+                    name="remarks"
+                    value={form.remarks}
+                    onChange={handleChange}
+                    rows={3}
+                  />
+                </div>
 
                 <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
                   <button type="button" onClick={closeForm} className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200">

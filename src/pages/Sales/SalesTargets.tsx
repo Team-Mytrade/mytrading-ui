@@ -49,7 +49,7 @@ type Period = {
 type SalesTarget = {
   id: number;
   salesPersonId: number;
-  salesPersonName: string;
+  // salesPersonName: string;
   salesPersonCode: string;
   targetType: TargetType | string;
   targetAmount: number;
@@ -72,7 +72,7 @@ type SalesPersonOption = {
 
 type TargetForm = {
   salesPersonId: string;
-  salesPersonName: string;
+  // salesPersonName: string;
   salesPersonCode: string;
   targetType: TargetType;
   targetAmount: string;
@@ -116,7 +116,7 @@ const monthNames = [
 
 const emptyForm: TargetForm = {
   salesPersonId: "",
-  salesPersonName: "",
+  // salesPersonName: "",
   salesPersonCode: "",
   targetType: "REVENUE",
   targetAmount: "",
@@ -235,7 +235,6 @@ const SalesTargets: React.FC = () => {
   useEffect(() => {
     fetchAllTargets(true);
     fetchSalesPersons();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const upsertTarget = (target: SalesTarget) => {
@@ -361,7 +360,7 @@ const SalesTargets: React.FC = () => {
       const next = { ...current, [name]: value };
       if (name === "salesPersonId") {
         const person = salesPersons.find((item) => String(item.id) === value);
-        next.salesPersonName = person?.name || "";
+        // next.salesPersonName = person?.name || "";
         next.salesPersonCode = person?.code || "";
       }
       if (name === "targetYear" || name === "targetMonth") {
@@ -383,7 +382,7 @@ const SalesTargets: React.FC = () => {
     return {
       id: editingId || 0,
       salesPersonId: Number(form.salesPersonId),
-      salesPersonName: form.salesPersonName,
+      // salesPersonName: form.salesPersonName,
       salesPersonCode: form.salesPersonCode,
       targetType: form.targetType,
       targetAmount: Number(form.targetAmount || 0),
@@ -434,7 +433,7 @@ const SalesTargets: React.FC = () => {
     return {
       id: target.id,
       salesPersonId: Number(target.salesPersonId),
-      salesPersonName: target.salesPersonName || person?.name || "",
+      // salesPersonName: target.salesPersonName || person?.name || "",
       salesPersonCode: target.salesPersonCode || person?.code || "",
       targetType: targetTypeOptions.includes(target.targetType as TargetType)
         ? (target.targetType as TargetType)
@@ -477,7 +476,7 @@ const SalesTargets: React.FC = () => {
     setEditingId(target.id);
     setForm({
       salesPersonId: String(target.salesPersonId || ""),
-      salesPersonName: target.salesPersonName || "",
+      // salesPersonName: target.salesPersonName || "",
       salesPersonCode: target.salesPersonCode || "",
       targetType: targetTypeOptions.includes(target.targetType as TargetType)
         ? (target.targetType as TargetType)
@@ -586,7 +585,7 @@ const SalesTargets: React.FC = () => {
       const term = searchableText(search);
 
       const haystack = [
-        target.salesPersonName,
+        // target.salesPersonName,
         target.salesPersonCode,
         person?.name,
         person?.code,
@@ -630,7 +629,7 @@ const SalesTargets: React.FC = () => {
       sortable: true,
       render: (target) => {
         const person = salesPersons.find((item) => Number(item.id) === Number(target.salesPersonId));
-        const name = target.salesPersonName || person?.name || `Person #${target.salesPersonId}`;
+        const name =  `Person #${target.salesPersonId}`;
         const code = target.salesPersonCode || person?.code || "";
 
         return (
@@ -813,19 +812,48 @@ const SalesTargets: React.FC = () => {
 
           <div className="flex items-center gap-2">
             <ListingPdfExportButton
-              title="Sales Targets"
-              subtitle="Filtered sales target listing"
-              reportLabel="Sales Report"
-              data={filteredTargets}
-              fileName="Sales_Targets"
-              disabled={loading}
-              metadata={(rows, rangeLabel) => [
-                { label: "Total", value: rows.length },
-                { label: "Range", value: rangeLabel },
-                { label: "Status", value: statusFilter || "All" },
-                { label: "Search", value: search || "None" },
-              ]}
-            />
+  title="Sales Targets"
+  subtitle="Filtered sales target listing"
+  reportLabel="Sales Report"
+  data={filteredTargets}
+  dateAccessor={(target) => target.startDate}
+  columns={[
+    {
+      key: "salesPersonName",
+      header: "Sales Person",
+      accessor: (target) => {
+        const person = salesPersons.find((item) => Number(item.id) === Number(target.salesPersonId));
+        return person?.name || `Person #${target.salesPersonId}`;
+      },
+    },
+    { key: "targetType", header: "Type" },
+    { key: "targetAmount", header: "Target", align: "right" },
+    { key: "achievedAmount", header: "Achieved", align: "right" },
+    {
+      key: "targetMonth",
+      header: "Period",
+      accessor: (target) => {
+        const month = target.targetMonth || getPeriodMonth(target.period) || 1;
+        const year = target.targetYear || getPeriodYear(target.period) || "";
+        return `${monthNames[month - 1]} ${year}`.trim();
+      },
+    },
+    {
+      key: "status",
+      header: "Status",
+      accessor: (target) => toFriendlyStatus(String(target.status)),
+    },
+    { key: "remarks", header: "Remarks" },
+  ]}
+  fileName="Sales_Targets"
+  disabled={loading}
+  metadata={(rows, rangeLabel) => [
+    { label: "Total", value: rows.length },
+    { label: "Range", value: rangeLabel },
+    { label: "Status", value: statusFilter || "All" },
+    { label: "Search", value: search || "None" },
+  ]}
+/>
             <FilterPopover
               title="Filter Sales Targets"
               buttonLabel="Filters"
@@ -934,13 +962,6 @@ const SalesTargets: React.FC = () => {
                   name: person.name || `Person #${person.id}`,
                 }))}
                 required
-              />,
-              <FloatingInput
-                label="Sales Person Name"
-                name="salesPersonName"
-                value={form.salesPersonName}
-                onChange={handleChange}
-                readOnly
               />,
               <FloatingSelect
                 label="Target Type"

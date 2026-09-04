@@ -1139,7 +1139,10 @@ const Quotations: React.FC = () => {
       key: "salesPerson",
       label: "Sales Person",
       sortable: true,
-      render: (quotation) => quotation.salesPerson?.name || `#${quotation.salesPerson?.id || "--"}`,
+      render: (quotation) => {
+        const person = salesPersons.find(sp => sp.id === quotation.salesPerson?.id);
+        return person?.name || quotation.salesPerson?.name || `#${quotation.salesPerson?.id || "--"}`;
+      },
     },
     {
       key: "quoteDate",
@@ -1645,27 +1648,27 @@ const Quotations: React.FC = () => {
               widthClassName="w-[320px]"
               onReset={() => setStatusFilter("")}
             >
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">Status</label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
-                >
-                  <option value="">All statuses</option>
-                  {statusOptions.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">Status</label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+                  >
+                    <option value="">All statuses</option>
+                    {statusOptions.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="rounded-lg border border-dashed border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-700">
-                Filters apply live
+                <div className="rounded-lg border border-dashed border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-700">
+                  Filters apply live
+                </div>
               </div>
-            </div>
             </FilterPopover>
           </div>
         </div>

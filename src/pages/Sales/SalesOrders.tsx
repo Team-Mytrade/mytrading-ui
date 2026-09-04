@@ -409,7 +409,7 @@ function buildAddress(form: OrderForm, type: "BILLING" | "SHIPPING"): Address {
     customerId: toNumber(form.customerId),
     customerName: "",
     customerCode: "",
-    type: "BILLING",
+    type,
     addressLine1: form[`${prefix}AddressLine1` as keyof OrderForm] as string,
     addressLine2: "",
     street: "",
@@ -995,19 +995,48 @@ const SalesOrders: React.FC = () => {
             )}
           </div>
 
-          <ListingPdfExportButton
-            title="Sales Orders"
-            subtitle="Filtered sales order listing"
-            reportLabel="Sales Report"
-            data={filteredOrders}
-            fileName="Sales_Orders"
-            disabled={loading}
-            metadata={(rows, rangeLabel) => [
-              { label: "Total", value: rows.length },
-              { label: "Range", value: rangeLabel },
-              { label: "Search", value: search || "None" },
-            ]}
-          />
+         <ListingPdfExportButton
+  title="Sales Orders"
+  subtitle="Filtered sales order listing"
+  reportLabel="Sales Report"
+  data={filteredOrders}
+  columns={[
+    { key: "orderNumber", header: "Order Number" },
+    { key: "quotationType", header: "Type" },
+    { key: "orderDate", header: "Order Date" },
+    { key: "status", header: "Status" },
+    { key: "quotationNumber", header: "Quotation No" },
+    { key: "customerId", header: "Customer" },
+    {
+      key: "billingAddress",
+      header: "Billing Address",
+      accessor: (order) =>
+        [order.billingAddress?.addressLine1, order.billingAddress?.city, order.billingAddress?.state]
+          .filter(Boolean)
+          .join(", "),
+    },
+    {
+      key: "shippingAddress",
+      header: "Shipping Address",
+      accessor: (order) =>
+        [order.shippingAddress?.addressLine1, order.shippingAddress?.city, order.shippingAddress?.state]
+          .filter(Boolean)
+          .join(", "),
+    },
+    { key: "subTotal", header: "Sub Total", align: "right" },
+    { key: "taxAmount", header: "Tax", align: "right" },
+    { key: "grandTotal", header: "Grand Total", align: "right" },
+    { key: "paid", header: "Paid" },
+    { key: "dueDate", header: "Due Date" },
+  ]}
+  fileName="Sales_Orders"
+  disabled={loading}
+  metadata={(rows, rangeLabel) => [
+    { label: "Total", value: rows.length },
+    { label: "Range", value: rangeLabel },
+    { label: "Search", value: search || "None" },
+  ]}
+/>
         </div>
 
         <ReusableTable
