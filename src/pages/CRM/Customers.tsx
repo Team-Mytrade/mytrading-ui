@@ -351,6 +351,7 @@ const Customers: React.FC = () => {
           <div onClick={(event) => event.stopPropagation()}>
             <select
               value={customer.status}
+              onClick={(e) => e.stopPropagation()}
               onChange={(event) => handleStatusChange(customer, event.target.value as CustomerStatus)}
               disabled={statusUpdatingId === customer.id}
               className={`w-[116px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
@@ -371,8 +372,8 @@ const Customers: React.FC = () => {
       key: "addresses",
       label: "Addresses",
       sortable: false,
-      headerClassName: "w-[15%] text-left",
-      className: "w-[15%]",
+      headerClassName: "w-[13%] text-left",
+      className: "w-[13%]",
       render: (customer) => (
         <div className="flex items-center gap-1">
           <MapPinIcon className="h-3.5 w-3.5 text-slate-400" />
@@ -386,10 +387,10 @@ const Customers: React.FC = () => {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "w-[10%] md:w-[15%] lg:w-[12%] text-right pr-4",
-       className: "w-[10%] text-right",
+      headerClassName: "w-[10%] md:w-[12%] lg:w-[12%] text-right pr-4",
+       className: "w-[12%] text-right",
       render: (customer) => (
-        <div className="flex items-center md:ml-auto ml-32 justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={() => handleViewCustomer(customer)}
@@ -446,11 +447,11 @@ const Customers: React.FC = () => {
       <PageMeta title="Customers" description="Manage your Customers" />
       <PageBreadcrumb pageTitle="Customers" />
 
-      <div className="min-w-0 w-full max-w-full px-0 py-8 space-y-6">
+      <div className="min-w-0 w-full max-w-full px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={handleAddCustomer} label="Add Customer" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="mb-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
             label="Total Customers"
             value={customers.length}
@@ -482,8 +483,8 @@ const Customers: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md md:-mt-3">
+        <div className="mb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="w-full sm:flex-1 sm:max-w-md">
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
@@ -496,13 +497,13 @@ const Customers: React.FC = () => {
             </div>
           </div>
 
-          <div className="relative flex w-full items-center justify-end gap-3 sm:w-auto">
+          <div className="relative flex w-full items-center justify-end gap-3 sm:w-auto mt-2 -my-2">
             <button
               type="button"
               onClick={() => setShowFilters(!showFilters)}
-              className={`rounded-lg border px-3 py-2 flex items-center gap-2 transition-colors h-[40px] ${showFilters ? "bg-cyan-50 border-cyan-300 text-cyan-700" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}
+              className={`rounded-lg border px-3 py-2 flex bg-cyan-50 border-cyan-200 text-cyan-700 hover:bg-cyan-200 items-center gap-2 transition-colors h-[40px] ${showFilters ? "bg-cyan-50 border-cyan-300 text-cyan-700" : "border-cyan-100 text-gray-700 hover:bg-gray-50"}`}
             >
-              <FunnelIcon className={`h-5 w-5 ${showFilters ? "text-cyan-600" : "text-gray-600"}`} />
+              <FunnelIcon className={`h-5 w-5 ${showFilters ? "text-cyan-600" : "text-cyan-600"}`} />
               <span className="text-sm font-medium">Filters</span>
             </button>
                                

@@ -449,8 +449,8 @@ const KeyContacts: React.FC = () => {
       key: "fullName",
       label: "Contact Name",
       sortable: true,
-      headerClassName: "w-[24%] text-left",
-      className: "w-[24%]",
+      headerClassName: "w-[23%] text-left",
+      className: "w-[23%]",
       render: (contact) => (
         <div className="flex min-w-0 items-center">
           <div className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-100">
@@ -475,11 +475,11 @@ const KeyContacts: React.FC = () => {
       key: "email",
       label: "Email",
       sortable: true,
-      headerClassName: "w-[22%] text-left",
-      className: "w-[22%]",
+      headerClassName: "w-[21%] text-left",
+      className: "w-[21%]",
       render: (contact) => (
         <div className="space-y-1">
-          <div className="flex items-center text-xs text-gray-600">
+          <div className="flex items-center text-sm text-gray-600">
             <EnvelopeIcon className="h-3 w-3 mr-1 text-gray-400 shrink-0" />
             <a href={`mailto:${contact.email}`} onClick={(e) => e.stopPropagation()} className="max-w-[120px] truncate hover:text-cyan-600 sm:max-w-[150px]" title={contact.email}>
               {contact.email || "-"}
@@ -492,10 +492,10 @@ const KeyContacts: React.FC = () => {
       key: "phone",
       label: "Phone",
       sortable: true,
-      headerClassName: "w-[16%] text-left",
-      className: "w-[16%]",
+      headerClassName: "w-[15%] text-left",
+      className: "w-[15%]",
       render: (contact) => (
-        <div className="flex min-w-0 items-center text-xs text-gray-600">
+        <div className="flex min-w-0 items-center text-sm text-gray-600">
           <PhoneIcon className="h-3 w-3 mr-1 shrink-0 text-gray-400" />
           <a href={`tel:${contact.phone}`} onClick={(e) => e.stopPropagation()} className="max-w-[105px] truncate hover:text-gray-900" title={contact.phone}>
             {contact.phone || "—"}
@@ -507,22 +507,24 @@ const KeyContacts: React.FC = () => {
       key: "role",
       label: "Role",
       sortable: true,
-      headerClassName: "w-[16%] text-",
+      headerClassName: "w-[16%]",
       className: "w-[16%]",
       render: (contact) =>
         contact.role ? (
           <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap rounded-full border ${contact.role === Role.DECISION_MAKER ? "bg-purple-50 text-purple-700 border-purple-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>
             {contact.role.replace("_", " ")}
           </span>
-        ) : (
-          <span className="text-xs text-gray-400 italic">No role</span>
-        ),
+      ) : (
+  <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full border border-gray-200 bg-gray-50 text-gray-500">
+    No role
+  </span>
+)
     },
     {
       key: "customer",
       label: "Company",
-      headerClassName: "w-[14%] text-left",
-      className: "w-[14%]",
+      headerClassName: "w-[15%]",
+      className: "w-[15%]",
       render: (contact) =>
         contact.customer ? (
           <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-gray-700">
@@ -538,17 +540,17 @@ const KeyContacts: React.FC = () => {
     {
       key: "actions",
       label: "Actions",
-      headerClassName: "w-[8%] !text-right pr-3",
-      className: "w-[8%] text-right",
+      headerClassName: "w-[10%] !text-right pr-3",
+      className: "w-[10%] text-right",
       render: (contact) => (
-        <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={() => {
               setEditContact(contact);
               setShowEditModal(true);
             }}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+            className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
             title="Edit Contact"
           >
             <PencilSquareIcon className="h-4 w-4" />
@@ -561,7 +563,7 @@ const KeyContacts: React.FC = () => {
                 setActiveContactId(contact.id);
                 setShowAssignModal(true);
               }}
-              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
+              className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
               title="Add Customer"
             >
               <UserPlusIcon className="h-4 w-4" />
@@ -570,7 +572,7 @@ const KeyContacts: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate(`/customer-management/${contact.customer?.id}`)}
-              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
+              className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
               title="View Customer"
             >
               <UsersIcon className="h-4 w-4" />
@@ -595,11 +597,11 @@ const KeyContacts: React.FC = () => {
       <PageMeta title="Contact Persons" description="Manage your contact persons" />
       <PageBreadcrumb pageTitle="Contact Persons" />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={() => setShowAddModal(true)} label="Add Contact Person" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className=" grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
             label="Total Contacts"
             value={totalContacts}
@@ -631,9 +633,9 @@ const KeyContacts: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative md:-mt-4">
+        <div className=" flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="mb-1 w-full sm:flex-1 sm:max-w-md">
+            <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
@@ -645,7 +647,7 @@ const KeyContacts: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex w-full items-center justify-end gap-3 sm:w-auto">
+          <div className="-mb-1 my-2 flex w-full items-center justify-end gap-3 sm:w-auto">
             <FilterPopover
               title="Filter Contacts"
               buttonLabel="Filters"

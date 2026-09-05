@@ -554,15 +554,19 @@ export default function Products() {
         key={reloadKey}
         config={{
           ...productConfig,
-          renderHeaderActions: () => (
-            <button
-              type="button"
-              onClick={() => navigate("/product-categories")}
-              className="inline-flex items-center rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100"
-            >
-              + npm run devCategory
-            </button>
-          ),
+         
+          //this added
+          renderSearchExtras: () => (
+            <div>
+          <button
+            type="button"
+            onClick={() => navigate("/product-categories")}
+            className="inline-flex items-center mt-2 -my-6 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100"
+          >
+            + Category
+          </button>
+          </div>
+        ),
         }}
       />
 

@@ -42,13 +42,14 @@ export const navItems: NavItem[] = [
     icon: <Users className="w-5 h-5" />,
     name: "CRM",
     subItems: [
-      { name: "Segments", path: "/customer-segment" },
       { name: "Customers", path: "/customer-management" },
       { name: "Key Contacts", path: "/contactPerson" },
       { name: "Leads", path: "/leads" },
       { name: "Deals", path: "/opportunities" },
       { name: "Interactions", path: "/communication-history" },
       { name: "Tasks", path: "/activities" },
+      { name: "Segments", path: "/customer-segment" },
+
     ],
   },
 
