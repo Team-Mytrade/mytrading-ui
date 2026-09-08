@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import jsPDF from "jspdf";
@@ -357,9 +357,9 @@ const EmployeeRecordsPage: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                    <StatsCard label="Total Employees" value={employees.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<UserGroupIcon className="h-6 w-6" />} />
+                    <StatsCard label="Total Employees" value={safeEmployees.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<UserGroupIcon className="h-6 w-6" />} />
                     <StatsCard label="Active Employees" value={activeEmployees} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
-                    <StatsCard label="Departments" value={departments.length} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BuildingOfficeIcon className="h-6 w-6" />} />
+                    <StatsCard label="Departments" value={(Array.isArray(departments) ? departments : []).length} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BuildingOfficeIcon className="h-6 w-6" />} />
                     <StatsCard
                         label="Onboarded (30d)"
                         value={safeEmployees.filter(e => {
@@ -444,7 +444,7 @@ const EmployeeRecordsPage: React.FC = () => {
                             onChange={(val) => setSelectedDept(val)}
                             options={[
                                 { label: "All Departments", value: "" },
-                                ...departments.map(d => ({ label: d.name, value: d.name }))
+                                ...(Array.isArray(departments) ? departments : []).map(d => ({ label: d.name, value: d.name }))
                             ]}
                             onReset={() => setSelectedDept("")}
                             showFooter={true}
