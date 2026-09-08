@@ -115,7 +115,7 @@ const Interactions: React.FC = () => {
       const customer = customers.find((c) => c.id === customerId);
       const lead = leads.find((l) => l.id === leadId);
       const matchesSearch = [entry.subject, entry.notes, entry.type, contact?.fullName, getCustomerLabel(customer), lead?.name]
-        .filter(Boolean).some((text) => text?.toLowerCase().includes(term));
+        .filter(Boolean).some((text) => String(text??"").toLowerCase().includes(term));
       const matchesType = selectedType ? entry.type === selectedType : true;
       return matchesSearch && matchesType;
     });
@@ -254,7 +254,7 @@ const Interactions: React.FC = () => {
       label: "Date & Time",
       sortable: true,
       render: (entry) => (
-        <div className="flex items-center text-xs text-gray-600 truncate max-w-[80px]" title={formatDate(entry.communicationTime)}>
+        <div className="flex max-w-[170px] items-center text-xs text-gray-600 truncate" title={formatDate(entry.communicationTime)}>
           <CalendarIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
           <span className="truncate">{formatDate(entry.communicationTime)}</span>
         </div>
@@ -265,9 +265,9 @@ const Interactions: React.FC = () => {
       label: "Type",
       sortable: true,
       render: (entry) => (
-        <div className="flex items-center gap-1.5">
+        <div className=" flex items-center gap-1.5">
           {getTypeIcon(entry.type)}
-          <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getTypeBadgeColor(entry.type)}`}>
+          <span className={`inline-flex max-w-[100px] items-center px-2 py-1 text-xs font-medium rounded-full ${getTypeBadgeColor(entry.type)}`}>
             {entry.type}
           </span>
         </div>
@@ -279,8 +279,8 @@ const Interactions: React.FC = () => {
       sortable: true,
       render: (entry) => (
         <>
-          <div className="text-sm font-medium text-gray-900 truncate max-w-[120px]" title={entry.subject}>{entry.subject}</div>
-          {entry.notes && <div className="text-xs text-gray-500 truncate max-w-[120px] mt-0.5" title={entry.notes}>{entry.notes}</div>}
+          <div className="text-sm  font-medium text-gray-900" title={entry.subject}>{entry.subject}</div>
+          {entry.notes && <div className="text-xs text-gray-500 truncate mt-0.5 max-w-[220px]" title={entry.notes}>{entry.notes}</div>}
         </>
       ),
     },
@@ -291,7 +291,7 @@ const Interactions: React.FC = () => {
       render: (entry) => (
         <div className="flex items-center text-xs text-gray-600">
           <UserIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
-          <span className="truncate max-w-[100px]">{getContactName(entry)}</span>
+          <span className="truncate max-w-[150px]">{getContactName(entry)}</span>
         </div>
       ),
     },
@@ -302,7 +302,7 @@ const Interactions: React.FC = () => {
       render: (entry) => (
         <div className="flex items-center text-xs text-gray-600">
           <BuildingOfficeIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
-          <span className="truncate max-w-[100px]">{getCustomerName(entry)}</span>
+          <span className="truncate max-w-[150px]">{getCustomerName(entry)}</span>
         </div>
       ),
     },
@@ -313,7 +313,7 @@ const Interactions: React.FC = () => {
       render: (entry) => (
         <div className="flex items-center text-xs text-gray-600">
           <UsersIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
-          <span className="truncate max-w-[100px]">{getLeadName(entry)}</span>
+          <span className="truncate max-w-[150px]">{getLeadName(entry)}</span>
         </div>
       ),
     },
@@ -321,10 +321,10 @@ const Interactions: React.FC = () => {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "text-center",
-      className: "text-center",
+      headerClassName: "text-right",
+      className: "text-right",
       render: (entry) => (
-        <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="max-w-[120px] flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button type="button" onClick={() => handleEdit(entry)}
             className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600" title="Edit">
             <PencilSquareIcon className="h-4 w-4" />
@@ -360,7 +360,7 @@ const Interactions: React.FC = () => {
       <PageMeta title="Communication History" description="Manage your communication history" />
       <PageBreadcrumb pageTitle="Communication History" />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton
             onClick={() => {
@@ -404,9 +404,9 @@ const Interactions: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className=" mt-2 mb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative md:-mt-4">
+            <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
@@ -418,7 +418,7 @@ const Interactions: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex w-full items-center justify-end gap-3 sm:w-auto">
+          <div className="md:-mb-4 flex w-full items-center justify-end gap-3 sm:w-auto">
             <FilterPopover
               title="Filter Communications"
               buttonLabel="Filters"

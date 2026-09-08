@@ -374,10 +374,10 @@ export default function Deals() {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "text-center",
-      className: "text-center",
+      headerClassName: "text-right",
+      className: "text-right",
       render: (o) => (
-        <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button type="button" onClick={() => { setForm(o); setShowForm(true); }}
             className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600" title="Edit">
             <PencilSquareIcon className="h-4 w-4" />
@@ -421,7 +421,7 @@ export default function Deals() {
       <PageMeta title="Deals" description="Manage your sales opportunities" />
       <PageBreadcrumb pageTitle="Deals" />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={() => { setForm({ status: "ACTIVE", stage: "PROSPECTING" }); setShowForm(true); }} label="Add Opportunity" />
         </div>
@@ -458,8 +458,8 @@ export default function Deals() {
           />
         </div>
 
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md md:-mt-4">
+        <div className=" mt-2 mb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="w-full sm:flex-1 sm:max-w-md">
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
@@ -472,7 +472,7 @@ export default function Deals() {
             </div>
           </div>
 
-          <div className="flex w-full items-center justify-end gap-3 sm:w-auto">
+          <div className="-mb-4 flex w-full items-center justify-end gap-3 sm:w-auto">
             <FilterPopover
               title="Filter Opportunities"
               buttonLabel="Filters"

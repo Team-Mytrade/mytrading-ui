@@ -124,7 +124,7 @@ const Segments: React.FC = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [segments, location.search, editingId]);
+  }, [segments, location.search]);
 
   useEffect(() => {
     if (!showFormModal) {
@@ -352,8 +352,8 @@ const Segments: React.FC = () => {
       key: "name",
       label: "Segment Name",
       sortable: true,
-      headerClassName: "w-[28%] text-left",
-      className: "w-[28%]",
+      headerClassName: "w-[25%] text-left",
+      className: "w-[25%]",
       render: (segment) => (
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
@@ -371,10 +371,10 @@ const Segments: React.FC = () => {
       key: "description",
       label: "Description",
       sortable: true,
-      headerClassName: "w-[32%] text-left",
-      className: "w-[32%]",
+      headerClassName: "w-[40%] text-left",
+      className: "w-[40%]",
       render: (segment) => (
-        <div className="flex items-center gap-2 text-sm text-slate-600 my-3">
+        <div className="flex items-center gap-1.5 text-sm text-slate-600">
           <DocumentTextIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
           <span className="truncate font-medium text-slate-600 " title={segment.description}>
             {segment.description || <span className="text-slate-400 italic">No description provided</span>}
@@ -386,11 +386,11 @@ const Segments: React.FC = () => {
       key: "customers",
       label: "Customers",
       sortable: true,
-      headerClassName: "w-[20%] text-center",
-      className: "w-[20%] text-center",
+      headerClassName: "w-[15%] text-center",
+      className: "w-[15%] text-center",
       sortValueGetter: (segment) => getCustomerCount(segment),
       render: (segment) => (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 -ml-5 text-xs font-semibold rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/40">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/40">
           <UserGroupIcon className="h-3.5 w-3.5 text-cyan-600 opacity-80" />
           {getCustomerCount(segment)} customers
         </span>
@@ -403,12 +403,12 @@ const Segments: React.FC = () => {
       headerClassName: "w-[20%] text-right pr-4",
       className: "w-[20%] text-right",
       render: (segment) => (
-        <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={() => navigate(`/crm-view/segments/${segment.id}`, { state: { from: "segments" } })}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
-            title="View Details"
+            className="rounded-lg p-2 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
+            title="View Segment"
           >
             <EyeIcon className="h-4 w-4" />
           </button>
@@ -416,7 +416,7 @@ const Segments: React.FC = () => {
           <button
             type="button"
             onClick={() => handleEdit(segment)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-2 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
             title="Edit Segment"
           >
             <PencilSquareIcon className="h-4 w-4" />
@@ -426,7 +426,7 @@ const Segments: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate(`/customer-management/${segment.id}`)}
-              className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-indigo-50 hover:text-indigo-600"
+              className="rounded-lg p-2 text-slate-400 transition-all hover:bg-indigo-50 hover:text-indigo-600"
               title="View Customers"
             >
               <UsersIcon className="h-4 w-4" />
@@ -435,8 +435,8 @@ const Segments: React.FC = () => {
             <button
               type="button"
               onClick={() => openCustomerModal(segment.id)}
-              className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-emerald-50 hover:text-emerald-600"
-              title="Add Customers"
+              className="rounded-lg p-2 text-slate-400 transition-all hover:bg-emerald-50 hover:text-emerald-600"
+              title="Manage Customers"
             >
               <UserPlusIcon className="h-4 w-4" />
             </button>
@@ -460,11 +460,11 @@ const Segments: React.FC = () => {
       <PageMeta title="Customer Segments" description="Manage your segments" />
       <PageBreadcrumb pageTitle="Segments" />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={openCreateSegment} label="Add Segment" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="mb-2 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
             label="Total Segments"
             value={stats.totalSegments}
@@ -496,9 +496,9 @@ const Segments: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative md:-mt-4">
+        <div className=" flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="mb-2 w-full sm:flex-1 sm:max-w-md">
+            <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
@@ -518,7 +518,7 @@ const Segments: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
+          <div className="flex -mb-1 h-full w-full items-center justify-end gap-3 sm:w-auto">
             <FilterPopover
               title="Filter Segments"
               buttonLabel="Filters"
@@ -546,7 +546,7 @@ const Segments: React.FC = () => {
           onRowClick={(segment) => navigate(`/crm-view/segments/${segment.id}`, { state: { from: "segments" } })}
           loading={isLoading}
           emptyState={
-            <div className="flex flex-col items-center justify-center py-12">
+            <div className="flex flex-col items-center justify-center">
               <TagIcon className="h-12 w-12 text-gray-400 mb-3" />
               <p className="text-gray-500 text-sm mb-2">No segments found</p>
               {search || activeFilter !== "ALL" ? (

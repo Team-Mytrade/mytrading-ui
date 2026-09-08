@@ -442,7 +442,7 @@ const Tasks: React.FC = () => {
       render: (activity) => (
         <div className="flex items-center gap-1.5 text-sm text-gray-600">
           <UserIcon className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-          <span className="truncate max-w-[100px]">{activity.assignedTo || "Unassigned"}</span>
+          <span className="truncate ">{activity.assignedTo || "Unassigned"}</span>
         </div>
       ),
     },
@@ -455,19 +455,19 @@ const Tasks: React.FC = () => {
           {activity.lead && (
             <div className="flex items-center gap-1 text-xs text-gray-600">
               <UsersIcon className="h-3 w-3 text-gray-400 flex-shrink-0" />
-              <span className="truncate max-w-[100px]">Lead: {activity.lead.name}</span>
+              <span className="truncate">Lead: {activity.lead.name}</span>
             </div>
           )}
           {activity.customer && (
             <div className="flex items-center gap-1 text-xs text-gray-600">
               <BuildingOfficeIcon className="h-3 w-3 text-gray-400 flex-shrink-0" />
-              <span className="truncate max-w-[100px]">Customer: {getCustomerLabel(activity.customer)}</span>
+              <span className="truncate ">Customer: {getCustomerLabel(activity.customer)}</span>
             </div>
           )}
           {activity.contact && (
             <div className="flex items-center gap-1 text-xs text-gray-600">
               <UserIcon className="h-3 w-3 text-gray-400 flex-shrink-0" />
-              <span className="truncate max-w-[100px]">Contact: {activity.contact.fullName}</span>
+              <span className="truncate">Contact: {activity.contact.fullName}</span>
             </div>
           )}
           {!activity.lead && !activity.customer && !activity.contact && (
@@ -480,8 +480,8 @@ const Tasks: React.FC = () => {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "text-center",
-      className: "text-center",
+      headerClassName: "text-right",
+      className: "text-right",
       render: (activity) => (
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button type="button" onClick={() => handleEdit(activity)}
@@ -502,7 +502,7 @@ const Tasks: React.FC = () => {
       <PageMeta title="Activities" description="Manage your activities" />
       <PageBreadcrumb pageTitle="Activities" />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 ">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton
             onClick={() => {
@@ -547,8 +547,8 @@ const Tasks: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex-1 max-w-md md:-mt-4">
+        <div className="mt-2 mb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="w-full flex-1 max-w-md ">
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
@@ -561,7 +561,7 @@ const Tasks: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="-mb-3 flex items-center gap-3">
             <FilterPopover
               title="Filter Activities"
               buttonLabel="Filters"

@@ -48,6 +48,8 @@ export const navItems: NavItem[] = [
       { name: "Deals", path: "/opportunities" },
       { name: "Interactions", path: "/communication-history" },
       { name: "Tasks", path: "/activities" },
+      { name: "Segments", path: "/customer-segment" },
+
     ],
   },
 
