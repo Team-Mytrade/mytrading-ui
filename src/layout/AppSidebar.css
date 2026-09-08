@@ -1,0 +1,60 @@
+/* Two-level ERP navigation: an always-visible icon rail with a focused module panel. */
+.app-sidebar.app-sidebar.bg-white { --active: #5140e7; --active-soft: #f0efff; --panel: #fff; --ink: #1d2637; --muted: #748097; background: #fff; border: 0; box-shadow: 12px 0 30px rgba(28, 39, 69, .10); overflow: visible; }
+.app-sidebar__rail { position: absolute; inset: 0 auto 0 0; z-index: 2; display: flex; width: 60px; flex-direction: column; align-items: center; background: #fff; border-right: 1px solid #e9edf3; }
+.app-sidebar__rail-brand { display: grid; width: 100%; height: 64px; place-items: center; border-bottom: 1px solid #e9edf3; }
+.app-sidebar__rail-brand img { max-width: 30px; max-height: 30px; object-fit: contain; }
+.app-sidebar__rail-items { display: flex; width: 100%; flex-direction: column; align-items: center; gap: 9px; padding-top: 17px; }
+.app-sidebar__rail-button { display: grid; width: 37px; height: 37px; place-items: center; color: #59667b; border: 1px solid transparent; border-radius: 8px; background: #f5f7fa; transition: background .18s ease, transform .18s ease, box-shadow .18s ease; }
+.app-sidebar__rail-button:hover { color: #353f51; background: #ebeff5; transform: translateY(-1px); }
+.app-sidebar__rail-button.is-active { color: #fff; background: var(--active); box-shadow: 0 6px 14px rgba(71, 57, 207, .42); }
+.app-sidebar__rail-button svg { width: 17px; height: 17px; }
+.app-sidebar__collapse { position: absolute; z-index: 60; top: 31px; right: -14px; display: grid; width: 30px; height: 36px; place-items: center; color: #5d6980; border: 1px solid #e2e7ee; border-radius: 8px; background: #fff; box-shadow: 3px 2px 8px rgba(15, 23, 42, .09); transition: color .16s ease, border-color .16s ease, background .16s ease; }
+.app-sidebar__collapse:hover { color: #5140e7; border-color: #cac4ff; background: #f5f3ff; }
+
+/* The detailed panel starts after the permanent icon rail. */
+.app-sidebar--expanded > .app-sidebar__brand, .app-sidebar--expanded > .app-sidebar__navigation, .app-sidebar--expanded > .app-sidebar__profile { margin-left: 60px; }
+.app-sidebar--collapsed > .app-sidebar__brand, .app-sidebar--collapsed > .app-sidebar__navigation, .app-sidebar--collapsed > .app-sidebar__profile, .app-sidebar--collapsed > .app-sidebar__rail + *, .app-sidebar--collapsed > .absolute { display: none; }
+.app-sidebar .app-sidebar__brand { min-height: 64px; padding: 0 23px; border-color: #e9edf3; background: #fff; }
+.app-sidebar__brand-link { min-width: 0; }
+.app-sidebar__brand img { max-height: 29px; object-fit: contain; }
+.app-sidebar__navigation { background: #fff; scrollbar-width: thin; scrollbar-color: #cbd3df transparent; }
+.app-sidebar__navigation::-webkit-scrollbar { width: 5px; }
+.app-sidebar__navigation::-webkit-scrollbar-thumb { background: #cbd3df; border-radius: 999px; }
+
+/* Module rows are text-first because their icon is already represented in the rail. */
+.app-sidebar__menu .app-sidebar__menu-icon { display: none; }
+.app-sidebar__menu > .relative > button { display: none; }
+.app-sidebar__menu > .relative > button, .app-sidebar__menu > div > a { min-height: 39px; color: #48556b; border: 1px solid transparent; font-weight: 500; }
+.app-sidebar__menu > .relative > button > div { width: 100%; }
+.app-sidebar__menu > .relative > button:hover, .app-sidebar__menu > div > a:hover { color: #292f43; background: #eff1f6; }
+.app-sidebar__menu > .relative > button.bg-cyan-50, .app-sidebar__menu > div > a.bg-cyan-50 { color: var(--active); border-color: #e2dfff; background: var(--active-soft); box-shadow: none; }
+.app-sidebar__menu .text-gray-500 { color: var(--muted); }
+.app-sidebar__menu .hover\:bg-gray-50:hover, .app-sidebar__menu .hover\:bg-gray-100\/60:hover { color: #293148; background: #fff; }
+.app-sidebar__menu .bg-gray-100 { color: #292f43; background: #eceff4; }
+.app-sidebar__menu .border-cyan-600 { border-color: var(--active); }
+.app-sidebar__menu .text-cyan-600 { color: var(--active); }
+.app-sidebar .app-sidebar__profile { border-color: #e7eaf0; background: #fff; }
+.app-sidebar__profile a:hover { background: #f3f5f8; }
+.app-sidebar__profile .text-gray-900 { color: var(--ink); }
+.app-sidebar__profile .text-gray-500 { color: var(--muted); }
+.app-sidebar__rail-tooltip { position: fixed; z-index: 110; padding: 7px 10px; color: #fff; border-radius: 7px; background: #1f2937; box-shadow: 0 8px 18px rgba(15, 23, 42, .18); font-size: 12px; font-weight: 600; pointer-events: none; transform: translateY(-50%); white-space: nowrap; }
+.app-sidebar__rail-tooltip::before { position: absolute; top: 50%; left: -4px; width: 8px; height: 8px; background: #1f2937; content: ""; transform: translateY(-50%) rotate(45deg); }
+.dark .app-sidebar.app-sidebar.bg-white { --panel: #151c29; --ink: #f2f5fa; --muted: #9aa7ba; background: #151c29; box-shadow: 12px 0 30px rgba(0, 0, 0, .28); }
+.dark .app-sidebar__rail { background: #0e1420; border-color: #273142; }
+.dark .app-sidebar__rail-brand { border-color: #273142; }
+.dark .app-sidebar__rail-button { color: #acb8cb; background: #1b2535; }
+.dark .app-sidebar__rail-button:hover { color: #fff; background: #273347; }
+.dark .app-sidebar__rail-button.is-active { color: #fff; background: #5140e7; }
+.dark .app-sidebar__collapse { color: #aeb9cb; border-color: #344054; background: #1b2535; box-shadow: none; }
+.dark .app-sidebar__collapse:hover { color: #fff; border-color: #6155df; background: #29255c; }
+.dark .app-sidebar .app-sidebar__brand, .dark .app-sidebar__navigation, .dark .app-sidebar .app-sidebar__profile { background: #151c29; border-color: #2a3547; }
+.dark .app-sidebar__menu > .relative > button, .dark .app-sidebar__menu > div > a { color: #c2cbd9; }
+.dark .app-sidebar__menu > .relative > button:hover, .dark .app-sidebar__menu > div > a:hover { color: #fff; background: #202a3a; }
+.dark .app-sidebar__menu > .relative > button.bg-cyan-50, .dark .app-sidebar__menu > div > a.bg-cyan-50 { color: #c4c0ff; border-color: rgba(133, 120, 255, .36); background: rgba(81, 64, 231, .22); }
+.dark .app-sidebar__menu .text-gray-500, .dark .app-sidebar__profile .text-gray-500 { color: #9aa7ba; }
+.dark .app-sidebar__menu .bg-gray-100 { color: #fff; background: #202a3a; }
+.dark .app-sidebar__menu .hover\:bg-gray-50:hover, .dark .app-sidebar__menu .hover\:bg-gray-100\/60:hover { color: #fff; background: #202a3a; }
+.dark .app-sidebar__profile a:hover { background: #202a3a; }
+.dark .app-sidebar__profile .text-gray-900 { color: #f2f5fa; }
+.dark .app-sidebar__rail-tooltip, .dark .app-sidebar__rail-tooltip::before { background: #303c50; }
+@media (max-width: 1023px) { .app-sidebar.bg-white { box-shadow: 18px 0 45px rgba(17, 24, 39, .26); } }

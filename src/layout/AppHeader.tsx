@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router";
-import { useSidebar } from "../context/SidebarContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
@@ -86,23 +85,11 @@ const AppHeader: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  const { isMobileOpen, isExpanded, toggleSidebar, toggleMobileSidebar } = useSidebar();
   const inputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   const isMac = typeof navigator !== "undefined" && /Mac/i.test(navigator.platform);
-  // True whenever the sidebar is "open" in either mode (mobile drawer or desktop expanded)
-  const isSidebarOpen = isMobileOpen || isExpanded;
-
-  const handleToggle = () => {
-    if (window.innerWidth >= 1024) {
-      toggleSidebar();
-    } else {
-      toggleMobileSidebar();
-    }
-  };
-
   const toggleApplicationMenu = () => {
     setApplicationMenuOpen(!isApplicationMenuOpen);
   };
@@ -343,29 +330,6 @@ const AppHeader: React.FC = () => {
       <header className="sticky top-0 z-20 w-full bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-800">
         <div className="flex items-center justify-between h-14 px-4 lg:px-6">
           <div className="flex items-center flex-1 gap-4">
-            {/* Sidebar Toggle */}
-            <button
-              className="flex items-center justify-center w-10 h-10 text-gray-500 transition-colors rounded-lg hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-              onClick={handleToggle}
-              aria-label="Toggle Sidebar"
-            >
-              <svg
-                className={`w-5 h-5 transition-transform duration-200 ${
-                  isSidebarOpen ? "" : "rotate-180"
-                }`}
-                viewBox="0 0 24 24"
-                fill="none"
-              >
-                <path
-                  d="M15 6L9 12L15 18"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-
             {/* Logo - Mobile */}
             <Link to="/" className="lg:hidden">
               <img
