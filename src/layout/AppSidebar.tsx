@@ -43,12 +43,25 @@ export const navItems: NavItem[] = [
     name: "CRM",
     subItems: [
       { name: "Segments", path: "/customer-segment" },
-      { name: "Customers", path: "/customer-management" },
       { name: "Key Contacts", path: "/contactPerson" },
       { name: "Leads", path: "/leads" },
       { name: "Deals", path: "/opportunities" },
       { name: "Interactions", path: "/communication-history" },
       { name: "Tasks", path: "/activities" },
+    ],
+  },
+
+  {
+    icon: <Package className="w-5 h-5" />,
+    name: "Common",
+    subItems: [
+      { name: "Customers", path: "/customer-management" },
+      { name: "Vendors", path: "/vendors" },
+      { name: "Invoice Vendors", path: "/invoiceVendors" },
+      { name: "Product Categories", path: "/product-categories" },
+      { name: "Products", path: "/purchase-products" },
+      { name: "Tax Types", path: "/taxTypes" },
+      { name: "Tax Details", path: "/taxDetails" },
     ],
   },
 
@@ -90,10 +103,7 @@ export const navItems: NavItem[] = [
     icon: <FileText className="w-5 h-5" />,
     name: "Purchase",
     subItems: [
-      { name: "Vendors", path: "/vendors" },
       { name: "Terms and Conditions", path: "/terms-and-conditions" },
-      { name: "Product Categories", path: "/product-categories" },
-      { name: "Products", path: "/purchase-products" },
       { name: "Purchase Requisitions", path: "/purchase-requisitions" },
       { name: "Requisition Line Items", path: "/requisition-line-items" },
       { name: "Purchase Orders", path: "/purchase-orders" },
@@ -109,9 +119,6 @@ export const navItems: NavItem[] = [
     icon: <CreditCard className="w-5 h-5" />,
     name: "Invoice",
     subItems: [
-      { name: "Vendors", path: "/invoiceVendors" },
-      { name: "Tax Types", path: "/taxTypes" },
-      { name: "Tax Details", path: "/taxDetails" },
       { name: "Purchase Invoices", path: "/purchaseInvoices" },
       { name: "Payment Terms", path: "/paymentTerms" },
       { name: "Journal Entries", path: "/journalEntries" },
