@@ -163,7 +163,6 @@ export const navItems: NavItem[] = [
       { name: "Records", path: "/employeeRecords" },
       { name: "Salary", path: "/employeeSalary" },
       { name: "Payslips", path: "/employeePayslips" },
-      { name: "Payroll", path: "/employeePayroll" },
       {
         name: "Reports",
         subItems: [
@@ -185,6 +184,7 @@ export const navItems: NavItem[] = [
     subItems: [
       // 1. Dashboards & Calendars
       { name: "My Leave Calendar", path: "/att_leaveDashboard" },
+      { name: "Employee Self Service", path: "/att_selfService" },
       { name: "Manager Leave Dashboard", path: "/att_leaveManagerDashboard", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
       { name: "Attendance Tracking", path: "/att_attendanceTracking" },
       { name: "Holiday Calendar", path: "/att_holidayCalendar" },
@@ -203,7 +203,12 @@ export const navItems: NavItem[] = [
       { name: "Attendance Policy", path: "/att_attendancePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
       { name: "Leave Policy Master", path: "/att_leavePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
 
-      // 5. Reports
+      // 5. Approvals Desk
+      { name: "Leave Approvals", path: "/att_attendanceApproval", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+      { name: "Regularization Approvals", path: "/att_regularizationApproval", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+      { name: "On-Duty Approvals", path: "/att_onDutyApproval", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+
+      // 6. Reports
       { name: "Attendance Reports", path: "/att_reports" },
     ],
   },

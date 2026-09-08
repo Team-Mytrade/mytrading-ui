@@ -5,13 +5,14 @@ import {
   BarChart3, UserCheck, Calendar, Sliders, Users, Layers, ShieldCheck, Clock, 
   RotateCw, Plus, X, Search, AlertCircle, CheckCircle2, FileSignature, ArrowRight, PieChart,
   Briefcase, FileCheck, ExternalLink, ChevronLeft, ChevronRight, MapPin, User, CalendarDays,
-  Sparkles, Gift, Palmtree
+  Sparkles, Gift, Palmtree, Filter
 } from 'lucide-react';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import StatsCard from '../../components/common/Statscard';
 import { ToasterService } from '../../Services/ToasterService';
+import { useNavigate } from 'react-router-dom';
 
 const safeString = (val: any, fallback = ""): string => {
   if (val === null || val === undefined) return fallback;
@@ -91,6 +92,7 @@ export interface EmployeeDashboardModel {
 }
 
 const LeaveDashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const currentUser = useMemo(() => {
     const userStr = localStorage.getItem("user");
     if (userStr) {
@@ -105,11 +107,13 @@ const LeaveDashboardPage: React.FC = () => {
         return {
           id: numId,
           name: parsed.fullName || parsed.name || parsed.username || "System Admin",
-          role: parsed.role || parsed.roles?.[0] || "SUPER_ADMIN"
+          role: parsed.role || parsed.roles?.[0] || "SUPER_ADMIN",
+          code: parsed.code || parsed.employeeCode,
+          email: parsed.email
         };
       } catch (e) {}
     }
-    return { id: 12, name: "System Admin", role: "SUPER_ADMIN" };
+    return { id: 12, name: "System Admin", role: "SUPER_ADMIN", code: undefined, email: undefined };
   }, []);
 
   const isManagerOrAdmin = useMemo(() => {
@@ -223,7 +227,7 @@ const LeaveDashboardPage: React.FC = () => {
 
   // ── Calendar Dashboard State matching Screenshot ───────────────────────
   const [calendarViewMode, setCalendarViewMode] = useState<'month' | 'week' | 'day'>('month');
-  const [calendarDate, setCalendarDate] = useState(new Date(2026, 7, 27)); // August 27, 2026 Today
+  const [calendarDate, setCalendarDate] = useState(new Date()); // Automatically shifts to current date
   const [eventCategoryFilter, setEventCategoryFilter] = useState<'ALL' | 'LEAVE' | 'HOLIDAY' | 'MEETING'>('ALL');
   const [showOnlyUpcoming, setShowOnlyUpcoming] = useState(true);
   const [selectedEventDetails, setSelectedEventDetails] = useState<any | null>(null);
@@ -232,7 +236,7 @@ const LeaveDashboardPage: React.FC = () => {
   const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
   const [newEventForm, setNewEventForm] = useState({
     title: '',
-    dateStr: '2026-08-27',
+    dateStr: new Date().toISOString().split('T')[0],
     time: '05:30 AM',
     description: '',
     location: '',
@@ -875,6 +879,52 @@ const LeaveDashboardPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* ── TOP ULTRA-COMPACT LEAVE QUOTA BALANCES STRIP ─────────────────── */}
+              <div className="bg-white rounded-xl border border-gray-200/80 p-2 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-1.5 shrink-0 px-1">
+                  <Palmtree className="w-3.5 h-3.5 text-cyan-600" />
+                  <span className="text-[11px] font-extrabold text-gray-900 uppercase tracking-wider">Leave Quotas:</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full flex-1">
+                  {/* Casual Leave */}
+                  <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-cyan-50/60 border border-cyan-200/60 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-1 py-0.2 rounded text-[9px] font-extrabold bg-cyan-100 text-cyan-800 border border-cyan-200">CL</span>
+                      <span className="font-semibold text-cyan-950 text-[11px]">Casual Leave</span>
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="font-bold text-gray-900 font-mono text-xs">{employeeDashboard.leaveBalance?.casual ?? 5}</span>
+                      <span className="text-[10px] text-gray-500 font-normal">/ 12 days</span>
+                    </div>
+                  </div>
+
+                  {/* Sick Leave */}
+                  <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-emerald-50/60 border border-emerald-200/60 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-1 py-0.2 rounded text-[9px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">SL</span>
+                      <span className="font-semibold text-emerald-950 text-[11px]">Sick Leave</span>
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="font-bold text-gray-900 font-mono text-xs">{employeeDashboard.leaveBalance?.sick ?? 12}</span>
+                      <span className="text-[10px] text-gray-500 font-normal">/ 12 days</span>
+                    </div>
+                  </div>
+
+                  {/* Earned Leave */}
+                  <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-indigo-50/60 border border-indigo-200/60 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-1 py-0.2 rounded text-[9px] font-extrabold bg-indigo-100 text-indigo-800 border border-indigo-200">EL</span>
+                      <span className="font-semibold text-indigo-950 text-[11px]">Earned Leave</span>
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="font-bold text-gray-900 font-mono text-xs">{employeeDashboard.leaveBalance?.earned ?? 16}</span>
+                      <span className="text-[10px] text-gray-500 font-normal">/ 18 days</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Main Grid: Left Calendar Matrix (8 cols) & Right Upcoming Events Panel (4 cols) */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
                 
@@ -1206,95 +1256,35 @@ const LeaveDashboardPage: React.FC = () => {
                       </div>
                     );
                   })()}
-
-                  {/* ── LEAVE BALANCES WIDGET BELOW CALENDAR MATRIX ─────────────── */}
-                  <div className="p-3 bg-slate-50/80 border-t border-gray-200/80 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <Palmtree className="w-3.5 h-3.5 text-cyan-600" />
-                        <h4 className="text-[11px] font-bold text-gray-900 uppercase tracking-wider">Leave Quota Balances</h4>
-                      </div>
-                      <span className="text-[10px] text-gray-500 font-medium font-mono">Current Quotas (FY 2026)</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {/* Casual Leave */}
-                      <div className="bg-white rounded-xl p-2.5 border border-cyan-200/80 shadow-2xs space-y-1 hover:border-cyan-400 transition-all">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold text-cyan-800 uppercase tracking-wider">Casual Leave</span>
-                          <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-cyan-50 text-cyan-700 border border-cyan-200">CL</span>
-                        </div>
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-base font-extrabold text-gray-900 font-mono">
-                            {employeeDashboard.leaveBalance?.casual ?? 5}
-                          </span>
-                          <span className="text-[10px] text-gray-500 font-medium">of 12 days remaining</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-cyan-50 rounded-full overflow-hidden">
-                          <div className="h-full bg-cyan-600 rounded-full" style={{ width: `${((employeeDashboard.leaveBalance?.casual ?? 5) / 12) * 100}%` }} />
-                        </div>
-                      </div>
-
-                      {/* Sick Leave */}
-                      <div className="bg-white rounded-xl p-2.5 border border-emerald-200/80 shadow-2xs space-y-1 hover:border-emerald-400 transition-all">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Sick Leave</span>
-                          <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">SL</span>
-                        </div>
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-base font-extrabold text-gray-900 font-mono">
-                            {employeeDashboard.leaveBalance?.sick ?? 12}
-                          </span>
-                          <span className="text-[10px] text-gray-500 font-medium">of 12 days remaining</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-emerald-50 rounded-full overflow-hidden">
-                          <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${((employeeDashboard.leaveBalance?.sick ?? 12) / 12) * 100}%` }} />
-                        </div>
-                      </div>
-
-                      {/* Earned Leave */}
-                      <div className="bg-white rounded-xl p-2.5 border border-indigo-200/80 shadow-2xs space-y-1 hover:border-indigo-400 transition-all">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider">Earned Leave</span>
-                          <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200">EL</span>
-                        </div>
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-base font-extrabold text-gray-900 font-mono">
-                            {employeeDashboard.leaveBalance?.earned ?? 16}
-                          </span>
-                          <span className="text-[10px] text-gray-500 font-medium">of 18 days remaining</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-indigo-50 rounded-full overflow-hidden">
-                          <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${((employeeDashboard.leaveBalance?.earned ?? 16) / 18) * 100}%` }} />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
                 </div>
 
                 {/* ── RIGHT COLUMN: UPCOMING EVENTS LIST ───────────────────── */}
                 <div className="lg:col-span-4 space-y-3">
                   
                   {/* Panel Header */}
-                  <div className="bg-white rounded-2xl border border-gray-200/80 p-3.5 shadow-2xs flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-2xs">
-                        <Calendar className="w-5 h-5" />
+                  <div className="bg-white rounded-2xl border border-gray-200/80 p-3 shadow-2xs flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-600 shadow-2xs shrink-0">
+                        <Calendar className="w-4 h-4" />
                       </div>
-                      <div>
-                        <h3 className="text-sm font-bold text-gray-900">Upcoming Events</h3>
-                        <span className="text-[11px] text-gray-500 font-medium">Filtered count: <strong className="text-gray-900">{eventsList.length}</strong></span>
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-bold text-gray-900 whitespace-nowrap truncate">Upcoming Events</h3>
+                        <span className="text-[11px] text-gray-500 font-medium block truncate">Count: <strong className="text-gray-900">{eventsList.length}</strong></span>
                       </div>
                     </div>
 
                     <button
                       type="button"
                       onClick={() => setShowOnlyUpcoming(!showOnlyUpcoming)}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors ${
-                        showOnlyUpcoming ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-100 text-gray-700 border-gray-200'
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all duration-150 focus:outline-none shrink-0 cursor-pointer ${
+                        showOnlyUpcoming
+                          ? 'bg-cyan-50 text-cyan-700 border-cyan-200 hover:bg-cyan-100'
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
                       }`}
+                      title={showOnlyUpcoming ? "Click to show all events" : "Click to show upcoming events only"}
                     >
-                      {showOnlyUpcoming ? 'Upcoming Only' : 'Show All'}
+                      <Filter className={`w-3 h-3 shrink-0 ${showOnlyUpcoming ? 'text-cyan-600' : 'text-gray-500'}`} />
+                      <span>{showOnlyUpcoming ? "Upcoming" : "All"}</span>
                     </button>
                   </div>
 
@@ -1497,7 +1487,7 @@ const LeaveDashboardPage: React.FC = () => {
                 
                 {/* Queue 1: Leave Approvals */}
                 <div 
-                  onClick={() => { window.location.href = '/att_attendanceApproval'; }}
+                  onClick={() => navigate('/att_attendanceApproval')}
                   className="bg-emerald-50/50 hover:bg-emerald-50 rounded-xl p-3.5 border border-emerald-200/80 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
                 >
                   <div className="flex items-center justify-between">
@@ -1518,7 +1508,7 @@ const LeaveDashboardPage: React.FC = () => {
 
                 {/* Queue 2: Regularization Approvals */}
                 <div 
-                  onClick={() => { window.location.href = '/att_regularizationApproval'; }}
+                  onClick={() => navigate('/att_regularizationApproval')}
                   className="bg-amber-50/50 hover:bg-amber-50 rounded-xl p-3.5 border border-amber-200/80 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
                 >
                   <div className="flex items-center justify-between">
@@ -1539,7 +1529,7 @@ const LeaveDashboardPage: React.FC = () => {
 
                 {/* Queue 3: On Duty Approvals */}
                 <div 
-                  onClick={() => { window.location.href = '/att_onDutyApproval'; }}
+                  onClick={() => navigate('/att_onDutyApproval')}
                   className="bg-cyan-50/50 hover:bg-cyan-50 rounded-xl p-3.5 border border-cyan-200/80 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
                 >
                   <div className="flex items-center justify-between">
@@ -1638,7 +1628,6 @@ const LeaveDashboardPage: React.FC = () => {
                     required
                   />
                 </div>
-
                 <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
                   <button
                     type="button"
@@ -1662,9 +1651,9 @@ const LeaveDashboardPage: React.FC = () => {
 
         {/* ── ADD EVENT MODAL DIALOG ────────────────────────────────────── */}
         {isAddEventModalOpen && (
-          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-              <div className="p-4 bg-cyan-600 text-white flex items-center justify-between border-b border-cyan-700 shadow-xs">
+          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto pt-6 sm:pt-4">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-lg max-h-[90vh] overflow-y-auto my-auto animate-in zoom-in-95 duration-200">
+              <div className="p-4 bg-cyan-600 text-white flex items-center justify-between border-b border-cyan-700 shadow-xs sticky top-0 z-10">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-white" />
                   <h3 className="text-sm font-extrabold text-white tracking-wide">Add Calendar Event</h3>
@@ -1678,7 +1667,7 @@ const LeaveDashboardPage: React.FC = () => {
                 </button>
               </div>
 
-              <form onSubmit={handleCreateEvent} className="p-5 space-y-4">
+              <form onSubmit={handleCreateEvent} className="p-4 sm:p-5 space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-900 mb-1">Event Title *</label>
                   <input
@@ -1691,14 +1680,16 @@ const LeaveDashboardPage: React.FC = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-slate-900 mb-1">Date *</label>
                     <input
                       type="date"
                       value={newEventForm.dateStr}
                       onChange={(e) => setNewEventForm(p => ({ ...p, dateStr: e.target.value }))}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:border-cyan-600 focus:ring-2 focus:ring-cyan-500/20 outline-none font-mono transition-all"
+                      onClick={(e) => { try { e.currentTarget.showPicker(); } catch (err) {} }}
+                      style={{ colorScheme: 'light' }}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:border-cyan-600 focus:ring-2 focus:ring-cyan-500/20 outline-none font-mono transition-all cursor-pointer"
                       required
                     />
                   </div>
@@ -1715,7 +1706,7 @@ const LeaveDashboardPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-slate-900 mb-1">Location</label>
                     <input
@@ -1753,11 +1744,11 @@ const LeaveDashboardPage: React.FC = () => {
                   />
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <div className="pt-3 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
                   <button
                     type="button"
                     onClick={() => setIsAddEventModalOpen(false)}
-                    className="px-4 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors"
+                    className="w-full sm:w-auto px-4 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors"
                   >
                     Cancel
                   </button>

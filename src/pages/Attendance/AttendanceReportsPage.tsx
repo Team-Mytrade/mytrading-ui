@@ -56,10 +56,26 @@ interface DailyAttendanceRecord {
   employeeName?: string;
   department?: string;
   date?: string;
+  attendanceDate?: string;
   checkIn?: string;
+  checkInTime?: string;
+  punchIn?: string;
+  punchInTime?: string;
+  inTime?: string;
+  timeIn?: string;
   checkOut?: string;
+  checkOutTime?: string;
+  punchOut?: string;
+  punchOutTime?: string;
+  outTime?: string;
+  timeOut?: string;
   status?: string;
   workHours?: string | number;
+  workingHours?: string | number;
+  workedHours?: string | number;
+  workedMinutes?: string | number;
+  totalHours?: string | number;
+  duration?: string | number;
   location?: string;
 }
 
@@ -142,6 +158,7 @@ const AttendanceReportsPage: React.FC = () => {
     try {
       const res = await axios.get(API_ENDPOINTS.dailyReport, {
         params: {
+          attendanceDate: dateFilter,
           date: dateFilter,
           department: departmentFilter !== 'ALL' ? departmentFilter : undefined
         }
@@ -183,6 +200,9 @@ const AttendanceReportsPage: React.FC = () => {
     try {
       const res = await axios.get(API_ENDPOINTS.lateArrivalsReport, {
         params: {
+          fromDate: dateFilter,
+          toDate: dateFilter,
+          attendanceDate: dateFilter,
           date: dateFilter,
           month: monthFilter,
           year: new Date().getFullYear()
@@ -204,6 +224,9 @@ const AttendanceReportsPage: React.FC = () => {
     try {
       const res = await axios.get(API_ENDPOINTS.missingPunchReport, {
         params: {
+          fromDate: dateFilter,
+          toDate: dateFilter,
+          attendanceDate: dateFilter,
           date: dateFilter,
           month: monthFilter,
           year: new Date().getFullYear()
@@ -250,18 +273,71 @@ const AttendanceReportsPage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <div>
-          <span className="font-bold text-xs text-gray-900 block">{row.employeeName || 'Roy Hamlin'}</span>
-          <span className="text-[10px] text-gray-400 font-mono">{row.department || 'Engineering'}</span>
+          <span className="font-bold text-xs text-gray-900 block">{row.employeeName || '--'}</span>
+          {row.department && <span className="text-[10px] text-gray-400 font-mono">{row.department}</span>}
         </div>
       )
     },
-    { key: 'date', label: 'Date', sortable: true },
-    { key: 'checkIn', label: 'Check In', sortable: true },
-    { key: 'checkOut', label: 'Check Out', sortable: true },
-    { key: 'workHours', label: 'Work Hours', sortable: true },
+    { 
+      key: 'date', 
+      label: 'Date', 
+      sortable: true,
+      render: (row) => {
+        const d = row.date || row.attendanceDate || dateFilter;
+        return d ? String(d).split('T')[0] : '--';
+      }
+    },
+    { 
+      key: 'checkIn', 
+      label: 'CHECK IN', 
+      sortable: true,
+      render: (row) => {
+        const raw = row.checkIn || row.checkInTime || row.punchIn || row.punchInTime || row.inTime || row.timeIn;
+        if (!raw) return '--';
+        const str = String(raw);
+        if (str.includes('T')) {
+          const timePart = str.split('T')[1]?.split('.')[0];
+          return timePart || str;
+        }
+        return str;
+      }
+    },
+    { 
+      key: 'checkOut', 
+      label: 'CHECK OUT', 
+      sortable: true,
+      render: (row) => {
+        const raw = row.checkOut || row.checkOutTime || row.punchOut || row.punchOutTime || row.outTime || row.timeOut;
+        if (!raw) return '--';
+        const str = String(raw);
+        if (str.includes('T')) {
+          const timePart = str.split('T')[1]?.split('.')[0];
+          return timePart || str;
+        }
+        return str;
+      }
+    },
+    { 
+      key: 'workHours', 
+      label: 'WORK HOURS', 
+      sortable: true,
+      render: (row) => {
+        const directHours = row.workHours || row.workingHours || row.workedHours || row.totalHours || row.duration;
+        if (directHours) return String(directHours);
+
+        if (row.workedMinutes !== undefined && row.workedMinutes !== null) {
+          const mins = Number(row.workedMinutes);
+          if (isNaN(mins)) return String(row.workedMinutes);
+          if (mins < 60) return `${mins} mins`;
+          const hrs = (mins / 60).toFixed(2);
+          return `${hrs} hrs (${mins}m)`;
+        }
+        return '--';
+      }
+    },
     {
       key: 'status',
-      label: 'Status',
+      label: 'STATUS',
       sortable: true,
       render: (row) => {
         const st = (row.status || 'PRESENT').toUpperCase();
@@ -280,7 +356,17 @@ const AttendanceReportsPage: React.FC = () => {
       sortable: true,
       render: (row) => <span className="font-mono text-xs font-bold text-slate-700">#{row.employeeId || row.id || '-'}</span>
     },
-    { key: 'employeeName', label: 'Employee', sortable: true },
+    {
+      key: 'employeeName',
+      label: 'Employee',
+      sortable: true,
+      render: (row) => (
+        <div>
+          <span className="font-bold text-xs text-gray-900 block">{row.employeeName || '--'}</span>
+          {row.department && <span className="text-[10px] text-gray-400 font-mono">{row.department}</span>}
+        </div>
+      )
+    },
     { key: 'workingDays', label: 'Working Days' },
     { key: 'daysPresent', label: 'Present' },
     { key: 'daysAbsent', label: 'Absent' },
@@ -292,7 +378,7 @@ const AttendanceReportsPage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <span className="font-bold text-xs text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
-          {row.attendancePercentage ?? 100}%
+          {row.attendancePercentage !== undefined && row.attendancePercentage !== null ? `${row.attendancePercentage}%` : '--'}
         </span>
       )
     }
@@ -315,7 +401,7 @@ const AttendanceReportsPage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <span className="font-bold text-xs text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-          {row.delayMinutes || 15} mins late
+          {row.delayMinutes !== undefined && row.delayMinutes !== null ? `${row.delayMinutes} mins late` : '--'}
         </span>
       )
     }

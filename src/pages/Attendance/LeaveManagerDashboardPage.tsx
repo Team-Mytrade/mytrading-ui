@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import Chart from 'react-apexcharts';
 import { 
@@ -10,6 +10,7 @@ import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import StatsCard from '../../components/common/Statscard';
+import { useNavigate } from 'react-router-dom';
 import { ToasterService } from '../../Services/ToasterService';
 import { AuthContext } from '../../context/AuthContext';
 
@@ -41,26 +42,40 @@ interface AdjustmentModel {
 }
 
 const ADJUSTMENT_CANDIDATES = [
-  '/leave-adjustments',
-  '/v1/api/attendance/leave-adjustments'
+  '/v1/api/attendance/leave-adjustments',
+  '/leave-adjustments'
 ];
 
 const MANAGER_DASHBOARD_CANDIDATES = [
   '/v1/api/attendance/manager-leave-dashboard',
-  '/leave-dashboard/manager',
-  '/v1/api/attendance/leave-dashboard/manager'
+  '/leave-dashboard/manager'
 ];
 
 const LeaveManagerDashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useContext(AuthContext);
 
-  const currentUser = {
-    id: user?.id || 12,
-    name: user?.name || user?.username || 'Roy Hamlin',
-    role: user?.role || 'SUPER_ADMIN'
-  };
+  const currentUser = useMemo(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const parsed = JSON.parse(userStr);
+        const rawId = parsed.employeeId || parsed.id || parsed.userId;
+        return {
+          id: rawId ? Number(rawId) : 0,
+          name: parsed.fullName || parsed.name || parsed.username || 'User',
+          role: parsed.role || parsed.roles?.[0] || ''
+        };
+      } catch (e) {}
+    }
+    return {
+      id: (user as any)?.id ? Number((user as any).id) : 0,
+      name: (user as any)?.fullName || (user as any)?.name || (user as any)?.username || 'User',
+      role: (user as any)?.role || ''
+    };
+  }, [user]);
 
-  const [activeEmployeeId, setActiveEmployeeId] = useState<number>(currentUser.id > 100000 ? 12 : currentUser.id);
+  const [activeEmployeeId, setActiveEmployeeId] = useState<number>(0);
   const [employeeMap, setEmployeeMap] = useState<Record<number, string>>({});
   const [isMounted, setIsMounted] = useState(false);
 
@@ -116,26 +131,26 @@ const LeaveManagerDashboardPage: React.FC = () => {
           });
           setEmployeeMap(map);
 
-          const uName = (currentUser.name || '').toLowerCase();
+          const uName = (currentUser.name || '').toLowerCase().trim();
           const match = empRes.data.find((e: any) => {
             const eName = `${e.firstName || ''} ${e.lastName || ''}`.trim().toLowerCase() || (e.name || '').toLowerCase();
-            return (uName && (eName.includes(uName) || uName.includes(eName))) || Number(e.id) === currentUser.id;
+            return (uName && (eName.includes(uName) || uName.includes(eName))) || (currentUser.id > 0 && Number(e.id) === currentUser.id);
           });
-          const selected = match || empRes.data.find((e: any) => Number(e.id) === 12) || empRes.data[0];
+          const selected = match || empRes.data[0];
           if (selected && selected.id) {
             const validId = Number(selected.id);
-            setActiveEmployeeId(validId);
+            setActiveEmployeeId(prev => prev === validId ? prev : validId);
             setAdjustmentForm(prev => ({ ...prev, employeeId: validId }));
           }
         }
       } catch (e) {}
     };
     resolveUserEmployeeId();
-  }, [currentUser]);
+  }, [currentUser.id, currentUser.name]);
 
   const loadData = async () => {
     setLoading(true);
-    const numericEmpId = activeEmployeeId || 12;
+    const numericEmpId = activeEmployeeId || currentUser.id || 1;
 
     // 1. Manager Dashboard API Call
     for (const base of MANAGER_DASHBOARD_CANDIDATES) {
@@ -150,17 +165,36 @@ const LeaveManagerDashboardPage: React.FC = () => {
 
     // 2. Pending Approval Counts
     try {
-      const [lRes, aRes] = await Promise.allSettled([
+      const [lRes, rRes, aRes] = await Promise.allSettled([
         axios.get('/v1/api/attendance/leave-approvals/pending', { timeout: 3000 }),
+        axios.get('/v1/api/attendance/regularization/pending', { timeout: 3000 }),
         axios.get('/v1/api/attendance/attendance-approvals/pending', { timeout: 3000 })
       ]);
 
-      let leaveCount = 4;
-      let regCount = 2;
-      if (lRes.status === 'fulfilled' && Array.isArray(lRes.value.data)) leaveCount = lRes.value.data.length;
-      if (aRes.status === 'fulfilled' && Array.isArray(aRes.value.data)) regCount = aRes.value.data.length;
+      let leaveCount = 0;
+      let regCount = 0;
+      let onDutyCount = 0;
 
-      setPendingQueueCounts({ leave: leaveCount, regularization: regCount, onDuty: 1 });
+      if (lRes.status === 'fulfilled' && Array.isArray(lRes.value.data)) {
+        leaveCount = lRes.value.data.length;
+      }
+      if (rRes.status === 'fulfilled' && Array.isArray(rRes.value.data)) {
+        regCount = rRes.value.data.length;
+      }
+      if (aRes.status === 'fulfilled' && Array.isArray(aRes.value.data)) {
+        onDutyCount = aRes.value.data.filter((item: any) => {
+          const t = (item.requestType || item.type || item.requestDetails?.[0]?.requestType || '').toUpperCase();
+          return t.includes('DUTY') || t.includes('VISIT');
+        }).length;
+        if (regCount === 0) {
+          regCount = aRes.value.data.filter((item: any) => {
+            const t = (item.requestType || item.type || item.requestDetails?.[0]?.requestType || '').toUpperCase();
+            return t.includes('REGULARIZATION');
+          }).length;
+        }
+      }
+
+      setPendingQueueCounts({ leave: leaveCount, regularization: regCount, onDuty: onDutyCount });
     } catch (e) {}
 
     // 3. Adjustments List API Call
@@ -237,39 +271,64 @@ const LeaveManagerDashboardPage: React.FC = () => {
 
   // Columns for Adjustments Table
   const adjustmentColumns: ColumnDef<AdjustmentModel>[] = [
-    { key: 'adjustedDate', label: 'Date', sortable: true, render: (row) => <span className="font-mono text-xs text-gray-600 whitespace-nowrap">{row.adjustedDate || new Date().toISOString().split('T')[0]}</span> },
-    { key: 'employeeName', label: 'Employee', sortable: true, render: (row) => {
-        const empName = row.employeeName || employeeMap[row.employeeId] || (row.employeeId === currentUser?.id ? currentUser?.name : 'Roy Hamlin');
+    {
+      key: 'adjustedDate', label: 'Date', sortable: true,
+      render: (row) => {
+        const raw = row.adjustedDate || '';
+        const d = raw ? new Date(raw) : new Date();
+        const formatted = isNaN(d.getTime())
+          ? raw
+          : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        return <span className="text-xs text-gray-600 whitespace-nowrap">{formatted}</span>;
+      }
+    },
+    {
+      key: 'employeeName', label: 'Employee', sortable: true,
+      render: (row) => {
+        const empName = row.employeeName || employeeMap[row.employeeId] || (row.employeeId === currentUser?.id ? currentUser?.name : `Employee #${row.employeeId}`);
         return (
           <div className="flex flex-col whitespace-nowrap">
-            <span className="font-bold text-gray-900 text-xs">{empName}</span>
-            <span className="text-[10px] text-gray-500 font-mono">Emp ID: #{row.employeeId}</span>
+            <span className="font-semibold text-gray-900 text-xs">{empName}</span>
+            <span className="text-[10px] text-gray-400 font-mono">#{row.employeeId}</span>
           </div>
         );
-      } 
+      }
     },
-    { key: 'leaveType', label: 'Category', sortable: true, render: (row) => (
-        <span className="px-2 py-0.5 rounded text-[11px] font-extrabold font-mono bg-cyan-50 text-cyan-800 border border-cyan-200/80 whitespace-nowrap">
+    {
+      key: 'leaveType', label: 'Category', sortable: true,
+      render: (row) => (
+        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 whitespace-nowrap">
           {row.leaveType}
         </span>
-      ) 
+      )
     },
-    { key: 'balanceBefore', label: 'Before', sortable: true, render: (row) => <span className="text-gray-500 font-mono text-xs whitespace-nowrap">{row.balanceBefore ?? 10}d</span> },
-    { key: 'adjustmentLeaves', label: 'Adjustment', sortable: true, render: (row) => (
-        <span className={`px-2 py-0.5 rounded text-[11px] font-extrabold font-mono border whitespace-nowrap ${
-          row.adjustmentLeaves >= 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
+    {
+      key: 'adjustmentLeaves', label: 'Change', sortable: true,
+      render: (row) => (
+        <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border whitespace-nowrap ${
+          row.adjustmentLeaves >= 0
+            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            : 'bg-rose-50 text-rose-700 border-rose-200'
         }`}>
           {row.adjustmentLeaves >= 0 ? `+${row.adjustmentLeaves}d` : `${row.adjustmentLeaves}d`}
         </span>
-      ) 
+      )
     },
-    { key: 'balanceAfter', label: 'After', sortable: true, render: (row) => <span className="font-extrabold text-gray-900 font-mono text-xs whitespace-nowrap">{row.balanceAfter ?? (10 + row.adjustmentLeaves)}d</span> },
-    { key: 'remarks', label: 'Remarks', render: (row) => <span className="text-xs text-gray-600 truncate max-w-[140px] block" title={row.remarks}>{row.remarks}</span> },
-    { key: 'adjustedBy', label: 'By', render: (row) => (
-        <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-gray-100 text-gray-700 border border-gray-200/80 truncate max-w-[90px] inline-block" title={row.adjustedBy || 'ADMIN'}>
-          {row.adjustedBy ? (row.adjustedBy.includes('-') ? row.adjustedBy.split('-').slice(0, 2).join('-') : row.adjustedBy) : 'ADMIN'}
+    {
+      key: 'balanceAfter', label: 'New Balance', sortable: true,
+      render: (row) => (
+        <span className="font-bold text-gray-900 font-mono text-xs whitespace-nowrap">
+          {row.balanceAfter ?? (10 + row.adjustmentLeaves)}d
         </span>
-      ) 
+      )
+    },
+    {
+      key: 'remarks', label: 'Remarks',
+      render: (row) => (
+        <span className="text-xs text-gray-500 truncate max-w-[180px] block" title={row.remarks}>
+          {row.remarks || '—'}
+        </span>
+      )
     }
   ];
 
@@ -302,14 +361,6 @@ const LeaveManagerDashboardPage: React.FC = () => {
         <div className="flex items-center gap-2.5">
           <button
             type="button"
-            onClick={() => setIsAdjustmentModalOpen(true)}
-            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Post Leave Adjustment</span>
-          </button>
-          <button
-            type="button"
             onClick={loadData}
             className="p-2 border border-gray-200 hover:bg-gray-100 rounded-xl text-gray-600 transition-colors shadow-2xs"
             title="Refresh Data"
@@ -322,36 +373,24 @@ const LeaveManagerDashboardPage: React.FC = () => {
       {/* Manager Summary Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
-          title="Total Team Staff"
+          label="Total Team Staff"
           value={String(managerDashboard?.totalEmployees ?? 18)}
-          subtext="Active Employees"
           icon={<Users className="w-5 h-5 text-cyan-700" />}
-          badgeText="Team Size"
-          badgeColor="cyan"
         />
         <StatsCard
-          title="Pending Approvals"
+          label="Pending Approvals"
           value={String(pendingQueueCounts.leave + pendingQueueCounts.regularization + pendingQueueCounts.onDuty)}
-          subtext="Across 3 Queues"
           icon={<Clock className="w-5 h-5 text-amber-600" />}
-          badgeText="Action Required"
-          badgeColor="amber"
         />
         <StatsCard
-          title="On Leave Today"
+          label="On Leave Today"
           value={String(managerDashboard?.employeesOnLeaveToday ?? 2)}
-          subtext="Approved Absences"
           icon={<Briefcase className="w-5 h-5 text-emerald-600" />}
-          badgeText="Out of Office"
-          badgeColor="emerald"
         />
         <StatsCard
-          title="Upcoming Leaves (Week)"
+          label="Upcoming Leaves (Week)"
           value={String(managerDashboard?.upcomingLeavesThisWeek ?? 5)}
-          subtext="Scheduled Next 7 Days"
           icon={<Calendar className="w-5 h-5 text-purple-600" />}
-          badgeText="Scheduled"
-          badgeColor="purple"
         />
       </div>
 
@@ -477,7 +516,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
           
           {/* Queue 1: Leave Approvals */}
           <div 
-            onClick={() => { window.location.href = '/att_attendanceApproval'; }}
+            onClick={() => navigate('/att_attendanceApproval')}
             className="bg-emerald-50/50 hover:bg-emerald-50 rounded-xl p-3.5 border border-emerald-200/80 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
           >
             <div className="flex items-center justify-between">
@@ -498,7 +537,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
 
           {/* Queue 2: Regularization Approvals */}
           <div 
-            onClick={() => { window.location.href = '/att_regularizationApproval'; }}
+            onClick={() => navigate('/att_regularizationApproval')}
             className="bg-amber-50/50 hover:bg-amber-50 rounded-xl p-3.5 border border-amber-200/80 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
           >
             <div className="flex items-center justify-between">
@@ -519,7 +558,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
 
           {/* Queue 3: On Duty Approvals */}
           <div 
-            onClick={() => { window.location.href = '/att_onDutyApproval'; }}
+            onClick={() => navigate('/att_onDutyApproval')}
             className="bg-cyan-50/50 hover:bg-cyan-50 rounded-xl p-3.5 border border-cyan-200/80 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
           >
             <div className="flex items-center justify-between">
@@ -566,27 +605,27 @@ const LeaveManagerDashboardPage: React.FC = () => {
       {isAdjustmentModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 bg-cyan-600 text-white flex items-center justify-between">
-              <h3 className="text-sm font-bold flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                <span>Post Leave Adjustment</span>
+            <div className="p-4 bg-cyan-600 !text-white flex items-center justify-between">
+              <h3 className="text-sm font-bold flex items-center gap-2 !text-white text-white">
+                <Plus className="w-4 h-4 !text-white text-white" />
+                <span className="!text-white text-white">Post Leave Adjustment</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setIsAdjustmentModalOpen(false)}
-                className="p-1 rounded-lg text-white/80 hover:bg-white/10"
+                className="p-1 rounded-lg !text-white hover:bg-white/15 transition-colors"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4 !text-white text-white" />
               </button>
             </div>
 
-            <form onSubmit={handlePostAdjustment} className="p-4 space-y-3.5">
+            <form onSubmit={handlePostAdjustment} className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Target Employee</label>
+                <label className="block text-sm font-semibold text-gray-800 mb-1.5">Target Employee</label>
                 <select
                   value={adjustmentForm.employeeId}
                   onChange={(e) => setAdjustmentForm(p => ({ ...p, employeeId: Number(e.target.value) }))}
-                  className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-cyan-500 outline-none"
                 >
                   {Object.entries(employeeMap).map(([id, name]) => (
                     <option key={id} value={id}>{name} (#{id})</option>
@@ -597,13 +636,13 @@ const LeaveManagerDashboardPage: React.FC = () => {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Leave Category</label>
+                  <label className="block text-sm font-semibold text-gray-800 mb-1.5">Leave Category</label>
                   <select
                     value={adjustmentForm.leaveType}
                     onChange={(e) => setAdjustmentForm(p => ({ ...p, leaveType: e.target.value as any }))}
-                    className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-cyan-500 outline-none"
                   >
                     <option value="CASUAL">Casual Leave</option>
                     <option value="SICK">Sick Leave</option>
@@ -611,42 +650,42 @@ const LeaveManagerDashboardPage: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Days (+ or -)</label>
+                  <label className="block text-sm font-semibold text-gray-800 mb-1.5">Days (+ or -)</label>
                   <input
                     type="number"
                     step="0.5"
                     value={adjustmentForm.adjustmentLeaves}
                     onChange={(e) => setAdjustmentForm(p => ({ ...p, adjustmentLeaves: Number(e.target.value) }))}
-                    className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-mono font-bold focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-mono font-bold text-gray-900 focus:bg-white focus:ring-2 focus:ring-cyan-500 outline-none"
                     placeholder="e.g. 2 or -1"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Adjustment Reason / Remarks</label>
+                <label className="block text-sm font-semibold text-gray-800 mb-1.5">Adjustment Reason / Remarks</label>
                 <textarea
-                  rows={2}
+                  rows={3}
                   value={adjustmentForm.remarks}
                   onChange={(e) => setAdjustmentForm(p => ({ ...p, remarks: e.target.value }))}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none resize-none"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:bg-white focus:ring-2 focus:ring-cyan-500 outline-none resize-none"
                   placeholder="Explain why this leave quota is being adjusted..."
                   required
                 />
               </div>
 
-              <div className="pt-2 border-t border-gray-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsAdjustmentModalOpen(false)}
-                  className="px-4 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                  className="px-4 py-2 border border-gray-300 rounded-xl text-sm font-semibold text-gray-800 hover:bg-gray-100 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-bold shadow-xs disabled:opacity-50"
+                  className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-sm font-bold shadow-xs disabled:opacity-50 transition-colors"
                 >
                   {isSubmitting ? 'Posting...' : 'Confirm Adjustment'}
                 </button>

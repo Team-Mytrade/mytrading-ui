@@ -161,6 +161,7 @@ import PayrollComponentPage from "./pages/Attendance/PayrollComponentPage";
 import PayrollRecordPage from "./pages/Attendance/PayrollRecordPage";
 import RemoteAttendanceLogPage from "./pages/Attendance/RemoteAttendanceLogPage";
 import ShiftPage from "./pages/Attendance/ShiftPage";
+import EmployeeSelfServicePage from "./pages/Attendance/EmployeeSelfServicePage";
 import WorkFromHomeRequestPage from "./pages/Attendance/WorkFromHomeRequestPage";
 import OverTimeEntryPage from "./pages/Attendance/OverTimeEntryPage";
 import AttendanceViolationPage from "./pages/Attendance/AttendanceViolationPage";
@@ -363,6 +364,7 @@ export default function AppRouter() {
           <Route path="/att_leaveRequest" element={<LeaveRequestPage />} />
           <Route path="/att_leavePolicy" element={<LeavePolicyPage />} />
           <Route path="/att_leaveDashboard" element={<LeaveDashboardPage />} />
+          <Route path="/att_selfService" element={<EmployeeSelfServicePage />} />
           <Route path="/att_leaveManagerDashboard" element={<LeaveManagerDashboardPage />} />
           <Route path="/att_attendanceTracking" element={<AttendanceTrackingPage />} />
           <Route path="/att_overtimeEntry" element={<OverTimeEntryPage />} />

@@ -623,7 +623,7 @@ const AttendanceTrackingPage: React.FC = () => {
         <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 flex flex-col md:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-cyan-600 text-white flex items-center justify-center font-extrabold text-sm shadow-2xs border border-cyan-500 shrink-0">
-              {currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+              {currentUser.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2)}
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">

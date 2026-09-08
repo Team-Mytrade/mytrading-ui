@@ -697,7 +697,7 @@ const HolidayCalendarPage: React.FC = () => {
       />
       <PageBreadcrumb pageTitle="Holiday Calendar Master" />
 
-      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-3">
+      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-3 px-2 sm:px-4">
         
         {/* User Profile Banner matching Leave Request UI */}
         <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -716,21 +716,24 @@ const HolidayCalendarPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-start sm:justify-end flex-wrap">
             <button
               type="button"
               onClick={() => setActiveTab(activeTab === 'table' ? 'manager' : 'table')}
               className="px-3 py-1.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 rounded-lg border border-cyan-200 text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
-              {activeTab === 'table' ? 'Switch to Split Calendar View' : `Master Records (${calendars.length})`}
+              <span className="hidden sm:inline">{activeTab === 'table' ? 'Split Calendar View' : `Master Records (${calendars.length})`}</span>
+              <span className="sm:hidden">{activeTab === 'table' ? 'Calendar View' : `Records (${calendars.length})`}</span>
             </button>
             <button
               type="button"
               onClick={openCreateCalendarModal}
               className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
             >
-              <Plus className="w-4 h-4" /> Create Calendar
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Create Calendar</span>
+              <span className="sm:hidden">Create</span>
             </button>
             <div className="text-right hidden sm:block border-l border-gray-200 pl-3 ml-1">
               <span className="text-[9px] text-gray-400 font-medium block">Employee ID</span>
@@ -868,13 +871,15 @@ const HolidayCalendarPage: React.FC = () => {
                     )}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={addHolidayRow}
-                    className="px-2.5 py-1 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Add Holiday for {selectedDateStr || 'Today'}
-                  </button>
+                  {holidaysList.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={addHolidayRow}
+                      className="px-2.5 py-1 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Holiday for {selectedDateStr || 'Today'}
+                    </button>
+                  )}
                 </div>
 
                 <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
@@ -903,52 +908,66 @@ const HolidayCalendarPage: React.FC = () => {
                               if (!isNaN(d.getTime())) setMiniCalendarDate(d);
                             }
                           }}
-                          className={`p-2 rounded-lg border transition-all flex flex-col sm:flex-row items-center gap-2 ${
+                          className={`p-2.5 rounded-xl border transition-all space-y-2 ${
                             isMatchSelected 
                               ? 'bg-cyan-50/80 border-cyan-400 ring-2 ring-cyan-400/20 shadow-2xs' 
                               : 'bg-gray-50 border-gray-200 hover:bg-gray-100/80'
                           }`}
                         >
-                          <input
-                            type="text"
-                            value={h.holidayName}
-                            onChange={(e) => handleHolidayFieldChange(idx, 'holidayName', e.target.value)}
-                            placeholder="Holiday Name (e.g. Independence Day)"
-                            className="w-full sm:flex-1 py-1 px-2 bg-white border border-gray-200 rounded text-xs font-semibold text-gray-800 focus:ring-1 focus:ring-cyan-500"
-                          />
-                          <input
-                            type="date"
-                            value={h.holidayDate}
-                            onChange={(e) => {
-                              handleHolidayFieldChange(idx, 'holidayDate', e.target.value);
-                              if (e.target.value) {
-                                setSelectedDateStr(e.target.value);
-                                const d = new Date(e.target.value);
-                                if (!isNaN(d.getTime())) setMiniCalendarDate(d);
-                              }
-                            }}
-                            className="w-full sm:w-36 py-1 px-2 bg-white border border-gray-200 rounded text-xs font-mono text-gray-800 focus:ring-1 focus:ring-cyan-500"
-                          />
-                          <select
-                            value={h.holidayType}
-                            onChange={(e) => handleHolidayFieldChange(idx, 'holidayType', e.target.value)}
-                            className="w-full sm:w-28 py-1 px-2 bg-white border border-gray-200 rounded text-xs font-bold text-gray-800"
-                          >
-                            <option value="NATIONAL">NATIONAL</option>
-                            <option value="STATE">STATE</option>
-                            <option value="FESTIVAL">FESTIVAL</option>
-                          </select>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteSingleHoliday(idx, h);
-                            }}
-                            className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded shrink-0"
-                            title="Delete Holiday"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {/* Row 1: Name + Date */}
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={h.holidayName}
+                              onChange={(e) => handleHolidayFieldChange(idx, 'holidayName', e.target.value)}
+                              placeholder="Holiday Name (e.g. Independence Day)"
+                              className="flex-1 h-9 px-3 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 focus:ring-1 focus:ring-cyan-500 outline-none min-w-0"
+                            />
+                            <div className="w-36 sm:w-44 h-9 relative flex items-center shrink-0">
+                              <input
+                                type="date"
+                                value={h.holidayDate}
+                                onClick={(e) => {
+                                  try {
+                                    e.currentTarget.showPicker();
+                                  } catch {}
+                                }}
+                                onChange={(e) => {
+                                  handleHolidayFieldChange(idx, 'holidayDate', e.target.value);
+                                  if (e.target.value) {
+                                    setSelectedDateStr(e.target.value);
+                                    const d = new Date(e.target.value);
+                                    if (!isNaN(d.getTime())) setMiniCalendarDate(d);
+                                  }
+                                }}
+                                className="w-full h-9 pl-3 pr-8 bg-white border border-gray-300 rounded-lg text-xs font-mono text-gray-800 focus:ring-1 focus:ring-cyan-500 cursor-pointer outline-none"
+                              />
+                              <Calendar className="w-4 h-4 text-gray-400 absolute right-2.5 pointer-events-none" />
+                            </div>
+                          </div>
+                          {/* Row 2: Type + Delete */}
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={h.holidayType}
+                              onChange={(e) => handleHolidayFieldChange(idx, 'holidayType', e.target.value)}
+                              className="flex-1 h-9 pl-2.5 pr-8 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-800 cursor-pointer outline-none focus:ring-1 focus:ring-cyan-500"
+                            >
+                              <option value="NATIONAL">NATIONAL</option>
+                              <option value="STATE">STATE</option>
+                              <option value="FESTIVAL">FESTIVAL</option>
+                            </select>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteSingleHoliday(idx, h);
+                              }}
+                              className="h-9 w-9 flex items-center justify-center text-rose-500 hover:text-rose-700 bg-white hover:bg-rose-50 border border-gray-300 hover:border-rose-200 rounded-lg shrink-0 transition-colors shadow-2xs"
+                              title="Delete Holiday"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       );
                     })
@@ -1006,7 +1025,7 @@ const HolidayCalendarPage: React.FC = () => {
                 ))}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Status:</span>
                 <button
                   type="button"
@@ -1039,7 +1058,7 @@ const HolidayCalendarPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleExportCSV}
-                  className="px-3.5 py-1.5 bg-cyan-50 text-cyan-800 border border-cyan-200 hover:bg-cyan-100 rounded-lg text-xs font-bold shadow-2xs flex items-center gap-1.5 ml-2"
+                  className="px-3.5 py-1.5 bg-cyan-50 text-cyan-800 border border-cyan-200 hover:bg-cyan-100 rounded-lg text-xs font-bold shadow-2xs flex items-center gap-1.5 sm:ml-2"
                 >
                   <Download className="w-3.5 h-3.5" /> Export Noticeboard
                 </button>
@@ -1066,8 +1085,8 @@ const HolidayCalendarPage: React.FC = () => {
 
       {/* ── MODAL 1: CREATE / EDIT CALENDAR MASTER ───────────────────────── */}
       {isCalendarModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-lg w-full p-5 shadow-2xl border border-gray-100 space-y-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-gray-100 space-y-4 my-4 sm:my-0 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <CalendarDays className="w-5 h-5 text-cyan-600" />
@@ -1164,8 +1183,8 @@ const HolidayCalendarPage: React.FC = () => {
 
       {/* ── MODAL 2: MANAGE HOLIDAYS FOR CALENDAR ─────────────────────────── */}
       {isHolidayManageModalOpen && activeCalendarForHolidays && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-3xl w-full p-5 shadow-2xl border border-gray-100 space-y-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl max-w-3xl w-full p-4 sm:p-5 shadow-2xl border border-gray-100 space-y-4 my-4 sm:my-0 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div>
                 <h3 className="text-sm font-bold text-gray-900 uppercase">
@@ -1219,46 +1238,48 @@ const HolidayCalendarPage: React.FC = () => {
                 </div>
               ) : (
                 holidaysList.map((h, idx) => (
-                  <div key={idx} className="flex flex-col sm:flex-row items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="flex-1 w-full">
+                  <div key={idx} className="p-2.5 bg-gray-50 rounded-xl border border-gray-200 space-y-2">
+                    {/* Row 1: Name + Date */}
+                    <div className="flex items-center gap-2">
                       <input
                         type="text"
                         value={h.holidayName}
                         onChange={(e) => handleHolidayFieldChange(idx, 'holidayName', e.target.value)}
                         placeholder="Holiday Name (e.g. New Year)"
-                        className="w-full py-1.5 px-2.5 bg-white border border-gray-200 rounded text-xs font-semibold text-gray-800"
+                        className="flex-1 h-9 px-3 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 focus:ring-1 focus:ring-cyan-500 outline-none min-w-0"
                         required
                       />
+                      <div className="w-36 sm:w-44 h-9 relative flex items-center shrink-0">
+                        <input
+                          type="date"
+                          value={h.holidayDate}
+                          onClick={(e) => {
+                            try {
+                              e.currentTarget.showPicker();
+                            } catch {}
+                          }}
+                          onChange={(e) => handleHolidayFieldChange(idx, 'holidayDate', e.target.value)}
+                          className="w-full h-9 pl-3 pr-8 bg-white border border-gray-300 rounded-lg text-xs font-mono text-gray-800 focus:outline-none focus:ring-1 focus:ring-cyan-500 cursor-pointer"
+                          required
+                        />
+                        <Calendar className="w-4 h-4 text-gray-400 absolute right-2.5 pointer-events-none" />
+                      </div>
                     </div>
-
-                    <div className="w-full sm:w-44 relative">
-                      <input
-                        type="date"
-                        value={h.holidayDate}
-                        onChange={(e) => handleHolidayFieldChange(idx, 'holidayDate', e.target.value)}
-                        className="w-full py-1.5 pl-3 pr-8 bg-white border border-gray-300 rounded text-xs font-mono text-gray-800 focus:outline-none focus:ring-1 focus:ring-cyan-500 cursor-pointer"
-                        required
-                      />
-                      <Calendar className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    </div>
-
-                    <div className="w-full sm:w-32">
+                    {/* Row 2: Type + Delete */}
+                    <div className="flex items-center gap-2">
                       <select
                         value={h.holidayType}
                         onChange={(e) => handleHolidayFieldChange(idx, 'holidayType', e.target.value)}
-                        className="w-full py-1.5 px-2 bg-white border border-gray-200 rounded text-xs font-bold text-gray-800"
+                        className="flex-1 h-9 pl-2.5 pr-8 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-800 cursor-pointer outline-none focus:ring-1 focus:ring-cyan-500"
                       >
                         <option value="NATIONAL">NATIONAL</option>
                         <option value="STATE">STATE</option>
                         <option value="FESTIVAL">FESTIVAL</option>
                       </select>
-                    </div>
-
-                    <div className="flex items-center gap-1 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleDeleteSingleHoliday(idx, h)}
-                        className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded transition-colors"
+                        className="h-9 w-9 flex items-center justify-center text-rose-500 hover:text-rose-700 bg-white hover:bg-rose-50 border border-gray-300 hover:border-rose-200 rounded-lg shrink-0 transition-colors shadow-2xs"
                         title="Remove Holiday"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -1292,8 +1313,8 @@ const HolidayCalendarPage: React.FC = () => {
 
       {/* ── MODAL 3: VIEW / INSPECT CALENDAR DETAILS ─────────────────────── */}
       {viewingCalendarDetails && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 space-y-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl max-w-md w-full p-4 sm:p-5 shadow-2xl border border-gray-100 space-y-4 my-4 sm:my-0 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <CalendarDays className="w-5 h-5 text-cyan-600" />

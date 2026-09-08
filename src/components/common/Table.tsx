@@ -76,80 +76,137 @@ function formatDetailLabel(key: string): string {
     .toUpperCase();
 }
 
-function formatNestedObject(obj: Record<string, unknown>): React.ReactNode {
-  const entries = Object.entries(obj).filter(([_, v]) => v !== null && typeof v !== "function");
-  if (entries.length === 0) return <span className="text-gray-400">Empty</span>;
-
-  return (
-    <span className="inline-flex flex-wrap gap-x-2 gap-y-1 mt-0.5">
-      {entries.map(([k, v]) => {
-        let displayVal = "";
-        if (typeof v === "boolean") {
-          displayVal = v ? "Yes" : "No";
-        } else if (typeof v === "number") {
-          displayVal = v.toLocaleString();
-        } else if (typeof v === "object" && v !== null) {
-          displayVal = JSON.stringify(v);
-        } else {
-          displayVal = String(v);
-        }
-        return (
-          <span key={k} className="inline-flex items-center px-1.5 py-0.5 rounded bg-white text-[10px] text-gray-600 border border-gray-200 shadow-sm dark:bg-gray-900 dark:text-gray-400 dark:border-gray-800">
-            <span className="font-semibold text-gray-500 mr-1 dark:text-gray-400">{formatDetailLabel(k)}:</span>
-            <span className="font-bold text-cyan-600 dark:text-cyan-400">{displayVal}</span>
-          </span>
-        );
-      })}
-    </span>
-  );
+function formatPrimitiveValue(v: unknown): string {
+  if (v == null || v === "") return "--";
+  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (typeof v === "number") return v.toLocaleString();
+  const str = String(v);
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(str)) {
+    try {
+      const d = new Date(str);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleString(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return str;
 }
 
-function renderDetailValue(value: unknown): React.ReactNode {
+function isAddressObject(rec: Record<string, unknown>): boolean {
+  const keys = Object.keys(rec).map((k) => k.toLowerCase());
+  return keys.some((k) => k.includes("street") || k.includes("city") || k.includes("pincode") || k.includes("postal") || k.includes("zip"));
+}
+
+function formatAddressObject(rec: Record<string, unknown>): string {
+  const line1 = String(rec.addressLine1 || rec.street || rec.line1 || rec.address || "");
+  const line2 = String(rec.addressLine2 || rec.line2 || "");
+  const city = String(rec.city || rec.district || "");
+  const state = String(rec.state || rec.province || "");
+  const pin = String(rec.pincode || rec.postalCode || rec.zipCode || rec.zip || "");
+  const country = String(rec.country || "");
+
+  const parts = [line1, line2, city, state, pin, country].filter(Boolean);
+  return parts.join(", ");
+}
+
+function formatPluralLabel(keyName: string, count: number): string {
+  if (!keyName) return `${count} ${count === 1 ? "item" : "items"}`;
+  const clean = keyName.replace(/([A-Z])/g, " $1").replace(/[_-]+/g, " ").trim().toLowerCase();
+  if (clean.endsWith("s") && clean.length > 2) {
+    const singular = clean.slice(0, -1);
+    return `${count} ${count === 1 ? singular : clean}`;
+  }
+  return `${count} ${count === 1 ? clean : clean + "s"}`;
+}
+
+function getItemTitle(keyName: string, itemObj: Record<string, unknown> | null, idx: number): string {
+  if (itemObj) {
+    const firstName = String(itemObj.firstName || "");
+    const lastName = String(itemObj.lastName || "");
+    const fullName = `${firstName} ${lastName}`.trim();
+    const name = String(
+      itemObj.name ||
+      itemObj.employeeName ||
+      fullName ||
+      itemObj.title ||
+      itemObj.label ||
+      itemObj.code ||
+      ""
+    ).trim();
+    if (name) return name;
+  }
+
+  if (!keyName) return `Item #${idx + 1}`;
+  const clean = keyName.replace(/([A-Z])/g, " $1").replace(/[_-]+/g, " ").trim().toLowerCase();
+  let singular = clean;
+  if (singular.endsWith("s") && singular.length > 2) {
+    singular = singular.slice(0, -1);
+  }
+  const cap = singular.charAt(0).toUpperCase() + singular.slice(1);
+  return `${cap} #${idx + 1}`;
+}
+
+function renderDetailValue(value: unknown, depth = 0, fieldName = ""): React.ReactNode {
   if (React.isValidElement(value)) return value;
   if (value == null || value === "") return <span className="text-gray-400">--</span>;
   if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (typeof value === "number") return value.toLocaleString();
+  if (typeof value === "string") return formatPrimitiveValue(value);
+
+  if (depth > 6) return <span className="text-xs text-gray-500 font-mono">{JSON.stringify(value)}</span>;
+
   if (Array.isArray(value)) {
     if (value.length === 0) return <span className="text-gray-400">--</span>;
-    // Array of primitives
-    if (value.every((v) => typeof v === "string" || typeof v === "number")) {
-      return value.join(", ");
+
+    if (value.every((v) => typeof v === "string" || typeof v === "number" || typeof v === "boolean")) {
+      return (
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {value.map((v, i) => (
+            <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700">
+              {formatPrimitiveValue(v)}
+            </span>
+          ))}
+        </div>
+      );
     }
-    // Array of objects — show as compact list
+
     return (
-      <div className="space-y-1">
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-50 text-cyan-700 border border-cyan-100 mb-1">
-          {value.length} {value.length === 1 ? "item" : "items"}
-        </span>
-        <div className="max-h-40 overflow-auto space-y-1">
+      <div className="space-y-3 w-full">
+        {depth === 0 && (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-cyan-50 text-cyan-700 border border-cyan-100 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800/50 capitalize">
+            {formatPluralLabel(fieldName, value.length)}
+          </span>
+        )}
+        <div className="max-h-[380px] overflow-y-auto overflow-x-hidden space-y-3 pr-1">
           {value.map((item, idx) => {
-            const nameField = typeof item === "object" && item !== null
-              ? (item as Record<string, unknown>).name ??
-                (item as Record<string, unknown>).employeeName ??
-                (item as Record<string, unknown>).firstName ??
-                (item as Record<string, unknown>).label ??
-                (item as Record<string, unknown>).title ??
-                null
-              : null;
-            if (typeof item === "object" && item !== null) {
-              const rec = item as Record<string, unknown>;
-              return (
-                <div key={idx} className="rounded-lg border border-gray-200/80 bg-white p-2.5 space-y-1 text-xs dark:border-gray-700 dark:bg-gray-800">
-                  {Object.entries(rec).map(([k, v]) => {
-                    if (v === null || v === undefined || v === "" || typeof v === "function") return null;
-                    return (
-                      <div key={k} className="flex items-center justify-between text-xs py-0.5 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
-                        <span className="font-semibold text-gray-500 uppercase text-[10px] tracking-wider">{formatDetailLabel(k)}:</span>
-                        <span className="font-medium text-gray-900 dark:text-gray-100">{String(v)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            }
+            const itemObj = typeof item === "object" && item !== null ? (item as Record<string, unknown>) : null;
+            const title = getItemTitle(fieldName, itemObj, idx);
+
             return (
-              <div key={idx} className="rounded-md border border-gray-100 bg-white px-2.5 py-1.5 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
-                <span className="font-medium">{String(item)}</span>
+              <div
+                key={idx}
+                className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm space-y-2 dark:border-gray-700 dark:bg-gray-900"
+              >
+                {itemObj && (
+                  <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-800">
+                    <span className="text-xs font-semibold text-cyan-600 dark:text-cyan-400">
+                      {title}
+                    </span>
+                    <span className="text-[10px] font-mono text-gray-400">
+                      #{idx + 1}
+                    </span>
+                  </div>
+                )}
+                {renderDetailValue(item, depth + 1, fieldName)}
               </div>
             );
           })}
@@ -157,42 +214,67 @@ function renderDetailValue(value: unknown): React.ReactNode {
       </div>
     );
   }
+
   if (typeof value === "object") {
-    if (value === null) return <span className="text-gray-400">--</span>;
-
     const rec = value as Record<string, unknown>;
-    const firstName = String(rec.firstName || "");
-    const lastName = String(rec.lastName || "");
-    const fullName = String(rec.name || rec.employeeName || `${firstName} ${lastName}`.trim() || "");
-    const code = String(rec.employeeCode || rec.code || "");
-    const email = String(rec.officialEmail || rec.email || rec.personalEmail || "");
 
-    if (fullName || code || email) {
-      return (
-        <div className="flex flex-col space-y-1">
-          {fullName && <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{fullName}</span>}
-          {code && <span className="text-xs text-gray-500 dark:text-gray-400">ID: {code}</span>}
-          {email && <span className="text-xs text-cyan-600 dark:text-cyan-400">{email}</span>}
-        </div>
-      );
+    if (isAddressObject(rec)) {
+      const addrStr = formatAddressObject(rec);
+      if (addrStr) {
+        return (
+          <div className="py-1.5 px-3 rounded-lg bg-emerald-50/70 border border-emerald-100 text-xs font-medium text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800/50 dark:text-emerald-300">
+            {addrStr}
+          </div>
+        );
+      }
     }
 
+    const entries = Object.entries(rec).filter(
+      ([_, v]) => v !== null && v !== undefined && v !== "" && typeof v !== "function"
+    );
+
+    if (entries.length === 0) return <span className="text-gray-400">--</span>;
+
+    const scalars = entries.filter(([_, v]) => typeof v !== "object" || v === null);
+    const complex = entries.filter(([_, v]) => typeof v === "object" && v !== null);
+
     return (
-      <div className="max-h-40 overflow-auto space-y-2 bg-gray-50 p-3 rounded-lg border border-gray-100 dark:bg-gray-800 dark:border-gray-700">
-        {Object.entries(rec).map(([k, v]) => {
-          if (v === null || typeof v === "function") return null;
-          const isObj = typeof v === "object" && v !== null;
-          return (
-            <div key={k} className={`text-xs text-gray-700 dark:text-gray-300 ${isObj ? 'flex flex-col gap-1 py-1' : 'flex items-center'}`}>
-              <span className="font-semibold text-gray-500 mr-1">{formatDetailLabel(k)}:</span>
-              <span>{isObj ? formatNestedObject(v as Record<string, unknown>) : String(v)}</span>
-            </div>
-          );
-        })}
+      <div className="space-y-3 w-full">
+        {scalars.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+            {scalars.map(([k, v]) => (
+              <div
+                key={k}
+                className="flex flex-col sm:flex-row sm:items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80 border border-gray-100 dark:bg-gray-800/50 dark:border-gray-800 text-xs gap-1.5"
+              >
+                <span className="font-semibold text-gray-500 uppercase text-[10px] tracking-wider break-words pr-2">
+                  {formatDetailLabel(k)}
+                </span>
+                <span className="font-semibold text-cyan-700 dark:text-cyan-400 break-words sm:text-right shrink-0">
+                  {typeof v === "number" ? `₹${v.toLocaleString()}` : formatPrimitiveValue(v)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {complex.length > 0 && (
+          <div className="space-y-2.5 pt-1">
+            {complex.map(([k, v]) => (
+              <div key={k} className="rounded-lg border border-gray-100 bg-gray-50/40 p-2.5 space-y-1.5 dark:border-gray-800 dark:bg-gray-800/30">
+                <span className="font-semibold text-gray-500 uppercase text-[10px] tracking-wider block">
+                  {formatDetailLabel(k)}
+                </span>
+                <div>{renderDetailValue(v, depth + 1, k)}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
-  return String(value);
+
+  return formatPrimitiveValue(value);
 }
 
 function getDetailEntries<T>(row: T, columns: ColumnDef<T>[]) {
@@ -639,16 +721,24 @@ export function ReusableTable<T extends { id?: number | string }>({
 
               <div className="max-h-[70vh] overflow-y-auto p-5">
                 <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {getDetailEntries(selectedRow, columns).map((entry) => (
-                    <div key={entry.key} className="rounded-lg border border-gray-100 bg-gray-50/60 p-3 dark:border-gray-800 dark:bg-gray-800/40">
-                      <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        {entry.label}
-                      </dt>
-                      <dd className="mt-1 break-words text-sm text-gray-900 dark:text-gray-100">
-                        {renderDetailValue(entry.value)}
-                      </dd>
-                    </div>
-                  ))}
+                  {getDetailEntries(selectedRow, columns).map((entry) => {
+                    const isComplex = typeof entry.value === "object" && entry.value !== null;
+                    return (
+                      <div
+                        key={entry.key}
+                        className={`rounded-xl border border-gray-200/80 bg-gray-50/50 p-4 dark:border-gray-800 dark:bg-gray-800/40 ${
+                          isComplex ? "sm:col-span-2 col-span-1" : "col-span-1"
+                        }`}
+                      >
+                        <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1 flex items-center justify-between">
+                          <span>{entry.label}</span>
+                        </dt>
+                        <dd className="break-words text-sm text-gray-900 dark:text-gray-100 mt-1">
+                          {renderDetailValue(entry.value, 0, entry.key)}
+                        </dd>
+                      </div>
+                    );
+                  })}
                 </dl>
               </div>
             </div>
