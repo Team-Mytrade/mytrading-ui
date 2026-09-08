@@ -48,7 +48,7 @@ type SalesChannelType =
 
 type ChannelForm = {
   tenantId: string;
-  name: string;
+  channelName: string;
   channelType: SalesChannelType;
   contactInfo: string;
 };
@@ -77,7 +77,7 @@ function getStoredTenantId() {
 
 const emptyForm: ChannelForm = {
   tenantId: getStoredTenantId(),
-  name: "",
+  channelName: "",
   channelType: "DIRECT",
   contactInfo: "",
 };
@@ -176,7 +176,7 @@ const SalesChannels: React.FC = () => {
   const buildPayload = () => ({
     id: editingId || 0,
     tenantId: form.tenantId.trim(),
-    name: form.name.trim(),
+    name: form.channelName.trim(),
     channelType: form.channelType,
     contactInfo: form.contactInfo.trim(),
   });
@@ -184,7 +184,7 @@ const SalesChannels: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!form.name.trim() || !form.channelType) {
+    if (!form.channelName.trim() || !form.channelType) {
       ToasterService.error("Required fields missing", "Name and channel type are required.");
       return;
     }
@@ -220,7 +220,7 @@ const SalesChannels: React.FC = () => {
     setEditingId(channel.id);
     setForm({
       tenantId: channel.tenantId || getStoredTenantId(),
-      name: channel.name || "",
+      channelName: channel.name || "",
       channelType: channelTypeOptions.includes(channel.channelType as SalesChannelType)
         ? (channel.channelType as SalesChannelType)
         : "DIRECT",
@@ -401,19 +401,40 @@ const SalesChannels: React.FC = () => {
 
           <div className="flex items-center gap-2">
             <ListingPdfExportButton
-              title="Sales Channels"
-              subtitle="Filtered sales channel listing"
-              reportLabel="Sales Report"
-              data={filteredChannels}
-              fileName="Sales_Channels"
-              disabled={loading}
-              metadata={(rows, rangeLabel) => [
-                { label: "Total", value: rows.length },
-                { label: "Range", value: rangeLabel },
-                { label: "Type", value: typeFilter || "All" },
-                { label: "Search", value: search || "None" },
-              ]}
-            />
+  title="Sales Channels"
+  subtitle="Filtered sales channel listing"
+  reportLabel="Sales Report"
+  data={filteredChannels}
+  dateAccessor={(channel) => channel.createdDate}
+  columns={[
+    { key: "name", header: "Channel Name" },
+    {
+      key: "channelType",
+      header: "Type",
+      accessor: (channel) => friendlyChannelType(channel.channelType),
+    },
+    { key: "contactInfo", header: "Contact Info" },
+    { key: "tenantId", header: "Tenant" },
+    {
+      key: "createdDate",
+      header: "Created Date",
+      accessor: (channel) =>
+        channel.createdDate ? new Date(channel.createdDate).toLocaleString() : "-",
+    },
+    {
+      key: "createdBy",
+      header: "Created By",
+    },
+  ]}
+  fileName="Sales_Channels"
+  disabled={loading}
+  metadata={(rows, rangeLabel) => [
+    { label: "Total", value: rows.length },
+    { label: "Range", value: rangeLabel },
+    { label: "Type", value: typeFilter || "All" },
+    { label: "Search", value: search || "None" },
+  ]}
+/>
             <FilterPopover
               title="Filter Sales Channels"
               buttonLabel="Filters"
@@ -459,7 +480,7 @@ const SalesChannels: React.FC = () => {
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}
-          defaultSortKey="name"
+          defaultSortKey="channelName"
           defaultSortOrder="asc"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
@@ -491,7 +512,8 @@ const SalesChannels: React.FC = () => {
 
               <form onSubmit={handleSubmit} className="p-5">
                 <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
-                  <FloatingInput label="Name" name="name" value={form.name} onChange={handleChange} required />
+                  {/* Changed label from "ChannelName" to "Channel Name" */}
+                  <FloatingInput label="Channel Name" name="Channel Name" value={form.channelName} onChange={handleChange} required />
                   <FloatingSelect
                     label="Channel Type"
                     name="channelType"

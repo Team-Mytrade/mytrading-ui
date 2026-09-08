@@ -54,6 +54,23 @@ type SalesPersonOption = {
   employeeId?: number | null;
 };
 
+// Sales order option returned by /v1/api/sales/sales-orders/schedule/orders
+type SalesOrderOption = {
+  id: number;
+  orderNo?: string;
+  soNumber?: string;
+  orderNumber?: string;
+  customerId?: number;
+};
+
+// Customer option returned by /v1/api/sales/quotations/getCustomers
+type CustomerOption = {
+  id: number;
+  name?: string;
+  customerName?: string;
+  companyName?: string;
+};
+
 type ScheduleForm = {
   serviceOrderId: string;
   customerId: string;
@@ -65,6 +82,8 @@ type ScheduleForm = {
 };
 
 const API_URL = "/v1/api/sales/service-schedules";
+const SALES_ORDERS_URL = "/v1/api/sales/sales-orders/schedule/orders";
+const CUSTOMERS_URL = "/v1/api/sales/quotations/getCustomers";
 const PAGE_SIZE = 10;
 const statusOptions = ["PENDING", "ASSIGNED", "ACCEPTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 
@@ -117,6 +136,8 @@ const ServiceSchedules: React.FC = () => {
 
   const [schedules, setSchedules] = useState<ServiceSchedule[]>([]);
   const [salesPersons, setSalesPersons] = useState<SalesPersonOption[]>([]);
+  const [salesOrders, setSalesOrders] = useState<SalesOrderOption[]>([]);
+  const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [form, setForm] = useState<ScheduleForm>(emptyForm);
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -130,6 +151,8 @@ const ServiceSchedules: React.FC = () => {
   useEffect(() => {
     fetchSchedules();
     fetchSalesPersons();
+    fetchSalesOrders();
+    fetchCustomers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -165,6 +188,24 @@ const ServiceSchedules: React.FC = () => {
     }
   };
 
+  const fetchSalesOrders = async () => {
+    try {
+      const res = await axios.get<SalesOrderOption[]>(SALES_ORDERS_URL, { headers });
+      setSalesOrders(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      ToasterService.error("Failed to load sales orders", getErrorMessage(error, "Please try again."));
+    }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      const res = await axios.get<CustomerOption[]>(CUSTOMERS_URL, { headers });
+      setCustomers(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      ToasterService.error("Failed to load customers", getErrorMessage(error, "Please try again."));
+    }
+  };
+
   const fetchByEmployee = async () => {
     if (!employeeLookupId) {
       ToasterService.error("Employee ID is required");
@@ -194,7 +235,7 @@ const ServiceSchedules: React.FC = () => {
   const buildPayload = () => ({
     serviceOrderId: Number(form.serviceOrderId),
     customerId: Number(form.customerId),
-    assignedEmployeeId: Number(form.assignedEmployeeId),
+    assignedEmployeeId: Number(form.assignedEmployeeId) || 0,
     scheduledDate: form.scheduledDate,
     startTime: requestTime(form.startTime),
     endTime: requestTime(form.endTime),
@@ -204,8 +245,8 @@ const ServiceSchedules: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!isPositiveNumber(form.serviceOrderId) || !isPositiveNumber(form.customerId) || !isPositiveNumber(form.assignedEmployeeId)) {
-      ToasterService.error("Required fields missing", "Service order, customer, and employee are required.");
+    if (!isPositiveNumber(form.serviceOrderId) || !isPositiveNumber(form.customerId)) {
+      ToasterService.error("Required fields missing", "Service order and customer are required.");
       return;
     }
     if (!form.scheduledDate || !form.startTime || !form.endTime) {
@@ -329,6 +370,20 @@ const ServiceSchedules: React.FC = () => {
     }))
     .filter((item) => Number(item.id) > 0);
 
+  const salesOrderOptions = salesOrders
+    .map((order) => ({
+      id: String(order.id),
+      name: order.orderNo || order.soNumber || order.orderNumber || `Order #${order.id}`,
+    }))
+    .filter((item) => Number(item.id) > 0);
+
+  const customerOptions = customers
+    .map((customer) => ({
+      id: String(customer.id),
+      name: customer.name || customer.customerName || customer.companyName || `Customer #${customer.id}`,
+    }))
+    .filter((item) => Number(item.id) > 0);
+
   const getEmployeeDisplayName = (employeeId: number) => {
     const person = salesPersons.find((item) => Number(item.employeeId || item.id) === Number(employeeId));
     return person?.name || `Employee #${employeeId}`;
@@ -346,7 +401,7 @@ const ServiceSchedules: React.FC = () => {
         </div>
       ),
     },
-    { key: "customerId", label: "Customer", sortable: true,},
+    { key: "customerId", label: "Customer", sortable: true },
     {
       key: "assignedEmployeeId",
       label: "Employee",
@@ -363,9 +418,11 @@ const ServiceSchedules: React.FC = () => {
       key: "startTime",
       label: "Time",
       sortable: false,
-      render: (schedule) => <div className="-ml-4 md:ml-2">
-        {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)},
+      render: (schedule) => (
+        <div className="-ml-4 md:ml-2">
+          {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
         </div>
+      ),
     },
     {
       key: "status",
@@ -452,73 +509,93 @@ const ServiceSchedules: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <ListingPdfExportButton
-              title="Service Schedules"
-              subtitle="Filtered service schedule listing"
-              reportLabel="Sales Report"
-              data={filteredSchedules}
-              fileName="Service_Schedules"
-              disabled={loading}
-              metadata={(rows, rangeLabel) => [
-                { label: "Total", value: rows.length },
-                { label: "Range", value: rangeLabel },
-                { label: "Status", value: nextStatus || "All" },
-                { label: "Search", value: search || "None" },
-              ]}
-            />
+        <ListingPdfExportButton
+  title="Service Schedules"
+  subtitle="Filtered service schedule listing"
+  reportLabel="Sales Report"
+  data={filteredSchedules}
+  dateAccessor={(schedule) => schedule.scheduledDate}
+  columns={[
+    { key: "scheduleNo", header: "Schedule No" },
+    { key: "serviceOrderId", header: "Service Order" },
+    { key: "customerId", header: "Customer" },
+    {
+      key: "assignedEmployeeId",
+      header: "Employee",
+      accessor: (schedule) => getEmployeeDisplayName(schedule.assignedEmployeeId),
+    },
+    { key: "scheduledDate", header: "Date" },
+    {
+      key: "startTime",
+      header: "Time",
+      accessor: (schedule) => `${formatTime(schedule.startTime)} - ${formatTime(schedule.endTime)}`,
+    },
+    { key: "status", header: "Status" },
+    { key: "remarks", header: "Remarks" },
+  ]}
+  fileName="Service_Schedules"
+  disabled={loading}
+  metadata={(rows, rangeLabel) => [
+    { label: "Total", value: rows.length },
+    { label: "Range", value: rangeLabel },
+    { label: "Status", value: nextStatus || "All" },
+    { label: "Search", value: search || "None" },
+  ]}
+/>
+            
             <FilterPopover title="Filter Schedules" buttonLabel="Filters" widthClassName="w-[20rem] sm:w-[22rem]" showFooter={false}>
-            <div className="space-y-3">
-              <FloatingSelect
-                label="Employee"
-                value={employeeLookupId}
-                onChange={(e) => setEmployeeLookupId(e.target.value)}
-                emptyOptionLabel=""
-                options={employeeOptions}
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <FloatingInput
-                  label="Status Schedule ID"
-                  type="number"
-                  value={statusScheduleId}
-                  onChange={(e) => setStatusScheduleId(e.target.value)}
-                />
+              <div className="space-y-3">
                 <FloatingSelect
-                  label="Status"
-                  value={nextStatus}
-                  onChange={(e) => setNextStatus(e.target.value)}
-                  includeEmptyOption={false}
-                  options={statusOptions.map((status) => ({ id: status, name: status }))}
+                  label="Employee"
+                  value={employeeLookupId}
+                  onChange={(e) => setEmployeeLookupId(e.target.value)}
+                  emptyOptionLabel=""
+                  options={employeeOptions}
                 />
+                <div className="grid grid-cols-2 gap-2">
+                  <FloatingInput
+                    label="Status Schedule ID"
+                    type="number"
+                    value={statusScheduleId}
+                    onChange={(e) => setStatusScheduleId(e.target.value)}
+                  />
+                  <FloatingSelect
+                    label="Status"
+                    value={nextStatus}
+                    onChange={(e) => setNextStatus(e.target.value)}
+                    includeEmptyOption={false}
+                    options={statusOptions.map((status) => ({ id: status, name: status }))}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmployeeLookupId("");
+                      setStatusScheduleId("");
+                      setNextStatus("PENDING");
+                      void fetchSchedules();
+                    }}
+                    className="h-10 rounded-lg bg-gray-100 px-3 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fetchByEmployee}
+                    className="h-10 rounded-lg bg-cyan-600 px-3 text-sm font-medium text-white hover:bg-cyan-700"
+                  >
+                    Employee
+                  </button>
+                  <button
+                    type="button"
+                    onClick={updateStatus}
+                    className="h-10 rounded-lg bg-green-600 px-3 text-sm font-medium text-white hover:bg-green-700"
+                  >
+                    Update
+                  </button>
+                </div>
               </div>
-              <div className="grid grid-cols-3 gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmployeeLookupId("");
-                    setStatusScheduleId("");
-                    setNextStatus("PENDING");
-                    void fetchSchedules();
-                  }}
-                  className="h-10 rounded-lg bg-gray-100 px-3 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                >
-                  Reset
-                </button>
-                <button
-                  type="button"
-                  onClick={fetchByEmployee}
-                  className="h-10 rounded-lg bg-cyan-600 px-3 text-sm font-medium text-white hover:bg-cyan-700"
-                >
-                  Employee
-                </button>
-                <button
-                  type="button"
-                  onClick={updateStatus}
-                  className="h-10 rounded-lg bg-green-600 px-3 text-sm font-medium text-white hover:bg-green-700"
-                >
-                  Update
-                </button>
-              </div>
-            </div>
             </FilterPopover>
           </div>
         </div>
@@ -549,7 +626,7 @@ const ServiceSchedules: React.FC = () => {
               <div className="flex items-center justify-between border-b border-gray-100 p-5">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">Create Service Schedule</h3>
-                  <p className="mt-0.5 text-xs text-gray-500">Enter schedule details from the API schema</p>
+                  <p className="mt-0.5 text-xs text-gray-500">Select a sales order and customer, then set the schedule</p>
                 </div>
                 <button type="button" onClick={closeForm} className="text-gray-400 hover:text-gray-600">
                   <XMarkIcon className="h-5 w-5" />
@@ -557,23 +634,70 @@ const ServiceSchedules: React.FC = () => {
               </div>
 
               <form onSubmit={handleSubmit} className="p-5">
+                {/* Clean 2-column grid: order & customer up top, date spans full width, then start/end time */}
                 <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
-                  <FloatingInput label="Service Order ID" name="serviceOrderId" type="number" value={form.serviceOrderId} onChange={handleChange} required />
-                  <FloatingInput label="Customer ID" name="customerId" type="number" value={form.customerId} onChange={handleChange} required />
-                  <FloatingSelect
-                    label="Assigned Employee"
-                    name="assignedEmployeeId"
-                    value={form.assignedEmployeeId}
-                    onChange={handleChange}
-                    emptyOptionLabel="Select employee"
-                    options={employeeOptions}
-                    required
-                  />
-                  <FloatingDatePicker label="Scheduled Date" name="scheduledDate" value={form.scheduledDate} onChange={handleChange} required />
-                  <FloatingInput label="Start Time" name="startTime" type="time" value={form.startTime} onChange={handleChange} required />
-                  <FloatingInput label="End Time" name="endTime" type="time" value={form.endTime} onChange={handleChange} required />
+                  <div className="w-full">
+                    <FloatingSelect
+                      label="Service Order"
+                      name="serviceOrderId"
+                      value={form.serviceOrderId}
+                      onChange={handleChange}
+                      // emptyOptionLabel="Select service order"
+                      options={salesOrderOptions}
+                      required
+                    />
+                  </div>
+                  <div className="w-full">
+                    <FloatingSelect
+                      label="Customer"
+                      name="customerId"
+                      value={form.customerId}
+                      onChange={handleChange}
+                      // emptyOptionLabel="Select customer"
+                      options={customerOptions}
+                      required
+                    />
+                  </div>
+                  <div className="w-full md:col-span-2">
+                    <FloatingDatePicker
+                      label="Scheduled Date"
+                      name="scheduledDate"
+                      value={form.scheduledDate}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                  <div className="w-full">
+                    <FloatingInput
+                      label="Start Time"
+                      name="startTime"
+                      type="time"
+                      value={form.startTime}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                  <div className="w-full">
+                    <FloatingInput
+                      label="End Time"
+                      name="endTime"
+                      type="time"
+                      value={form.endTime}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
                 </div>
-                <FloatingTextarea label="Remarks" name="remarks" value={form.remarks} onChange={handleChange} rows={3} />
+                {/* Remarks spans full width */}
+                <div className="mt-4 w-full">
+                  <FloatingTextarea
+                    label="Remarks"
+                    name="remarks"
+                    value={form.remarks}
+                    onChange={handleChange}
+                    rows={3}
+                  />
+                </div>
 
                 <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
                   <button type="button" onClick={closeForm} className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200">

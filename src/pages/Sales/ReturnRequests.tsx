@@ -422,9 +422,9 @@ const ReturnRequests: React.FC = () => {
         current.map((item) =>
           Number(item.id) === returnRequestId
             ? {
-                ...item,
-                refund,
-              }
+              ...item,
+              refund,
+            }
             : item
         )
       );
@@ -511,7 +511,7 @@ const ReturnRequests: React.FC = () => {
       key: "reason",
       label: "Reason",
       sortable: true,
-      render: (item) =><div className="rounded-full text-center bg-cyan-50 py-1 text-xs font-semibold text-cyan-700"><span >{toFriendlyLabel(item.reason)}</span></div> ,
+      render: (item) => <div className="rounded-full text-center bg-cyan-50 py-1 text-xs font-semibold text-cyan-700"><span >{toFriendlyLabel(item.reason)}</span></div>,
     },
     {
       key: "status",
@@ -621,94 +621,122 @@ const ReturnRequests: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <ListingPdfExportButton
-              title="Return Requests"
-              subtitle="Filtered return request listing"
-              reportLabel="Sales Report"
-              data={filtered}
-              fileName="Return_Requests"
-              disabled={loading}
-              metadata={(rows, rangeLabel) => [
-                { label: "Total", value: rows.length },
-                { label: "Range", value: rangeLabel },
-                { label: "Payment", value: paymentMethodFilter || "All" },
-                { label: "Search", value: search || "None" },
-              ]}
-            />
+
+           <ListingPdfExportButton
+  title="Return Requests"
+  subtitle="Filtered return request listing"
+  reportLabel="Sales Report"
+  data={filtered}
+  includeSerialNumber={false}
+  dateAccessor={(row) => row.requestDate}
+  columns={[
+    {
+      key: "requestDate",
+      header: "Request Date",
+      accessor: (row) => (row.requestDate ? new Date(row.requestDate).toLocaleDateString() : "-"),
+    },
+    { key: "status", header: "Status" },
+    { key: "reason", header: "Reason" },
+    { key: "salesOrderId", header: "Sales Order Id" },
+    { key: "remarks", header: "Remarks" },
+    {
+      key: "items",
+      header: "Items",
+      accessor: (row) =>
+        Array.isArray(row.items)
+          ? row.items.map((item: any) => item.productName || item.description).filter(Boolean).join(", ")
+          : "-",
+    },
+    {
+      key: "refund",
+      header: "Refund",
+      accessor: (row) =>
+        row.refund ? `${row.refund.amount ?? ""} ${row.refund.status ?? ""}`.trim() || "-" : "-",
+    },
+  ]}
+  fileName="Return_Requests"
+  disabled={loading}
+  metadata={(rows, rangeLabel) => [
+    { label: "Total", value: rows.length },
+    { label: "Range", value: rangeLabel },
+    { label: "Payment", value: paymentMethodFilter || "All" },
+    { label: "Search", value: search || "None" },
+  ]}
+/>
             <FilterPopover title="Refund Tools" buttonLabel="Filters" widthClassName="w-[20rem] sm:w-[22rem]" showFooter={false}>
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">Return Request ID</label>
-                <input
-                  type="number"
-                  value={requestIdFilter}
-                  onChange={(e) => setRequestIdFilter(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">Payment Method</label>
-                  <select
-                    value={paymentMethodFilter}
-                    onChange={(e) => setPaymentMethodFilter(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                  >
-                    <option value="">Any method</option>
-                    {paymentMethodOptions.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">Refund Amount</label>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">Return Request ID</label>
                   <input
                     type="number"
-                    name="amount"
-                    value={refundForm.amount}
-                    onChange={handleRefundChange}
+                    value={requestIdFilter}
+                    onChange={(e) => setRequestIdFilter(e.target.value)}
                     className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   />
                 </div>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">Refund Date</label>
-                <input
-                  type="date"
-                  value={refundDateFilter}
-                  onChange={(e) => setRefundDateFilter(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                />
-              </div>
-              <div className="flex items-center justify-between gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRequestIdFilter("");
-                    setPaymentMethodFilter("");
-                    setRefundDateFilter("");
-                    setRefundForm(emptyRefundForm);
-                  }}
-                  className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                >
-                  Reset
-                </button>
-                <div className="flex items-center gap-2">
-                  <div className="rounded-lg border border-dashed border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-medium text-cyan-700">
-                    Filters apply live
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-700">Payment Method</label>
+                    <select
+                      value={paymentMethodFilter}
+                      onChange={(e) => setPaymentMethodFilter(e.target.value)}
+                      className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                    >
+                      <option value="">Any method</option>
+                      {paymentMethodOptions.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
                   </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-700">Refund Amount</label>
+                    <input
+                      type="number"
+                      name="amount"
+                      value={refundForm.amount}
+                      onChange={handleRefundChange}
+                      className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">Refund Date</label>
+                  <input
+                    type="date"
+                    value={refundDateFilter}
+                    onChange={(e) => setRefundDateFilter(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2 pt-1">
                   <button
                     type="button"
-                    onClick={createRefund}
-                    className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                    onClick={() => {
+                      setRequestIdFilter("");
+                      setPaymentMethodFilter("");
+                      setRefundDateFilter("");
+                      setRefundForm(emptyRefundForm);
+                    }}
+                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
                   >
-                    Create Refund
+                    Reset
                   </button>
+                  <div className="flex items-center gap-2">
+                    <div className="rounded-lg border border-dashed border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-medium text-cyan-700">
+                      Filters apply live
+                    </div>
+                    <button
+                      type="button"
+                      onClick={createRefund}
+                      className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                    >
+                      Create Refund
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
             </FilterPopover>
           </div>
         </div>
