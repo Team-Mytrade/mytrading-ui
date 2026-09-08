@@ -18,6 +18,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import FilterPopover from "../../components/common/filter";
 import { FloatingInput } from "../../components/inputfeild/FloatingInput";
 import { FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import { toFilterOptions, toSelectOptions, useInvoiceEnum } from "./invoiceEnums";
 
 interface Invoice {
   id: number;
@@ -36,17 +37,7 @@ interface Invoice {
 const API_URL = "/v1/api/invoice/invoices";
 const PAGE_SIZE = 10;
 
-const STATUS_OPTIONS = [
-  { id: "PAID", name: "PAID" },
-  { id: "UNPAID", name: "UNPAID" },
-  { id: "OVERDUE", name: "OVERDUE" },
-  { id: "PARTIALLY_PAID", name: "PARTIALLY_PAID" },
-  { id: "CANCELLED", name: "CANCELLED" },
-  { id: "DRAFT", name: "DRAFT" },
-  { id: "SENT", name: "SENT" },
-  { id: "VOID", name: "VOID" },
-  { id: "OTHER", name: "OTHER" },
-];
+const INVOICE_STATUS_FALLBACK = ["PAID", "UNPAID", "OVERDUE", "PARTIALLY_PAID", "CANCELLED", "DRAFT", "SENT", "VOID", "OTHER"];
 
 const statusTones: Record<string, string> = {
   PAID: "bg-emerald-50 text-emerald-700 border-emerald-200/40",
@@ -74,6 +65,7 @@ const Invoices: React.FC = () => {
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
   const [submitting, setSubmitting] = useState(false);
+  const invoiceStatuses = useInvoiceEnum("INVOICE_STATUS", INVOICE_STATUS_FALLBACK);
 
   useEffect(() => {
     fetchInvoices();
@@ -170,11 +162,7 @@ const Invoices: React.FC = () => {
         String(invoice.customerId || "").toLowerCase().includes(term);
 
       let matchesFilter = true;
-      if (activeFilter === "PAID") {
-        matchesFilter = invoice.status === "PAID";
-      } else if (activeFilter === "OVERDUE") {
-        matchesFilter = invoice.status === "OVERDUE";
-      }
+      if (activeFilter !== "ALL") matchesFilter = invoice.status === activeFilter;
 
       return matchesSearch && matchesFilter;
     });
@@ -376,8 +364,7 @@ const Invoices: React.FC = () => {
               value={activeFilter}
               options={[
                 { label: "All Invoices", value: "ALL" },
-                { label: "Paid", value: "PAID" },
-                { label: "Overdue", value: "OVERDUE" },
+                ...toFilterOptions(invoiceStatuses),
               ]}
               onChange={setActiveFilter}
               onReset={() => setActiveFilter("ALL")}
@@ -457,7 +444,7 @@ const Invoices: React.FC = () => {
                   label="Status"
                   name="status"
                   value={form.status || ""}
-                  options={STATUS_OPTIONS}
+                  options={toSelectOptions(invoiceStatuses)}
                   onChange={handleChange}
                 />,
                 <FloatingInput

@@ -7,9 +7,6 @@ import {
   MagnifyingGlassIcon,
   XMarkIcon,
   DocumentTextIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  XCircleIcon,
 } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -20,6 +17,7 @@ import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import FilterPopover from "../../components/common/filter";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import { toSelectOptions, useInvoiceEnum } from "./invoiceEnums";
 
 interface PurchaseInvoice {
   id: number;
@@ -33,10 +31,26 @@ interface PurchaseInvoice {
   notes?: string;
 }
 
+/**
+ * Fields accepted when creating or updating a purchase invoice.
+ * Server-maintained fields (id, createdDate, updatedDate, createdBy, tenantId)
+ * are deliberately excluded and must be assigned by the API.
+ */
+interface PurchaseInvoicePayload {
+  invoiceNumber: string;
+  invoiceDate?: string;
+  dueDate?: string;
+  totalAmount: number;
+  purchaseInvoiceStatus: string;
+  currency: string;
+  referenceNumber?: string;
+  notes?: string;
+}
+
 const API_URL = "/v1/api/invoice/purchase-invoices";
 const PAGE_SIZE = 10;
 
-const STATUSES = ["OPEN", "PARTIALLY_PAID", "PAID", "CANCELLED", "OVERDUE", "DRAFT", "VOID", "RETURNED", "APPROVED", "REJECTED", "PENDING", "COMPLETED", "FAILED", "REFUNDED", "CHARGEBACK", "WRITE_OFF", "OTHER"];
+const PURCHASE_INVOICE_STATUS_FALLBACK = ["OPEN", "PARTIALLY_PAID", "PAID", "CANCELLED", "OVERDUE", "DRAFT", "VOID", "RETURNED", "APPROVED", "REJECTED", "PENDING", "COMPLETED", "FAILED", "REFUNDED", "CHARGEBACK", "WRITE_OFF", "OTHER"];
 
 const statusTone = (status?: string) => {
   switch (status) {
@@ -72,6 +86,7 @@ const PurchaseInvoices: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
+  const purchaseInvoiceStatuses = useInvoiceEnum("PURCHASE_INVOICE_STATUS", PURCHASE_INVOICE_STATUS_FALLBACK);
 
   useEffect(() => {
     fetchPurchaseInvoices();
@@ -101,12 +116,30 @@ const PurchaseInvoices: React.FC = () => {
       ToasterService.error("Invoice number is required");
       return;
     }
+
+    const totalAmount = Number(form.totalAmount ?? 0);
+    if (!Number.isFinite(totalAmount) || totalAmount < 0) {
+      ToasterService.error("Total amount must be a valid non-negative number");
+      return;
+    }
+
+    const payload: PurchaseInvoicePayload = {
+      invoiceNumber: form.invoiceNumber.trim(),
+      invoiceDate: form.invoiceDate || undefined,
+      dueDate: form.dueDate || undefined,
+      totalAmount,
+      purchaseInvoiceStatus: form.purchaseInvoiceStatus || "OPEN",
+      currency: form.currency?.trim() || "INR",
+      referenceNumber: form.referenceNumber?.trim() || undefined,
+      notes: form.notes?.trim() || undefined,
+    };
+
     setSubmitting(true);
     try {
       const res =
         editingId !== null
           ? await axios.put(`${API_URL}/${editingId}`, form, { headers })
-          : await axios.post(API_URL, form, { headers });
+          : await axios.post<PurchaseInvoice>(API_URL, payload, { headers });
       if (res.status === 200 || res.status === 201) {
         ToasterService.success(editingId !== null ? "Purchase invoice updated successfully!" : "Purchase invoice added successfully!");
         setShowFormModal(false);
@@ -130,7 +163,7 @@ const PurchaseInvoices: React.FC = () => {
 
   const openCreate = () => {
     setShowFormModal(true);
-    setForm({ currency: "INR" });
+    setForm({ currency: "INR", purchaseInvoiceStatus: "OPEN", totalAmount: 0 });
     setEditingId(null);
   };
 
@@ -444,13 +477,28 @@ const PurchaseInvoices: React.FC = () => {
                   name="purchaseInvoiceStatus"
                   value={form.purchaseInvoiceStatus || ""}
                   onChange={(e) => setForm({ ...form, purchaseInvoiceStatus: e.target.value })}
-                  options={STATUSES.map((s) => ({ id: s, name: s }))}
+                  options={toSelectOptions(purchaseInvoiceStatuses)}
+                />,
+                <FloatingInput
+                  key="currency"
+                  label="Currency"
+                  name="currency"
+                  value={form.currency || ""}
+                  onChange={handleChange}
+                  required
                 />,
                 <FloatingInput
                   key="referenceNumber"
                   label="Reference Number"
                   name="referenceNumber"
                   value={form.referenceNumber || ""}
+                  onChange={handleChange}
+                />,
+                <FloatingInput
+                  key="notes"
+                  label="Notes"
+                  name="notes"
+                  value={form.notes || ""}
                   onChange={handleChange}
                 />,
               ],
