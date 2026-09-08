@@ -54,6 +54,23 @@ type SalesPersonOption = {
   employeeId?: number | null;
 };
 
+// Sales order option returned by /v1/api/sales/sales-orders/schedule/orders
+type SalesOrderOption = {
+  id: number;
+  orderNo?: string;
+  soNumber?: string;
+  orderNumber?: string;
+  customerId?: number;
+};
+
+// Customer option returned by /v1/api/sales/quotations/getCustomers
+type CustomerOption = {
+  id: number;
+  name?: string;
+  customerName?: string;
+  companyName?: string;
+};
+
 type ScheduleForm = {
   serviceOrderId: string;
   customerId: string;
@@ -65,6 +82,8 @@ type ScheduleForm = {
 };
 
 const API_URL = "/v1/api/sales/service-schedules";
+const SALES_ORDERS_URL = "/v1/api/sales/sales-orders/schedule/orders";
+const CUSTOMERS_URL = "/v1/api/sales/quotations/getCustomers";
 const PAGE_SIZE = 10;
 const statusOptions = ["PENDING", "ASSIGNED", "ACCEPTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 
@@ -117,6 +136,8 @@ const ServiceSchedules: React.FC = () => {
 
   const [schedules, setSchedules] = useState<ServiceSchedule[]>([]);
   const [salesPersons, setSalesPersons] = useState<SalesPersonOption[]>([]);
+  const [salesOrders, setSalesOrders] = useState<SalesOrderOption[]>([]);
+  const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [form, setForm] = useState<ScheduleForm>(emptyForm);
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -130,6 +151,8 @@ const ServiceSchedules: React.FC = () => {
   useEffect(() => {
     fetchSchedules();
     fetchSalesPersons();
+    fetchSalesOrders();
+    fetchCustomers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -165,6 +188,24 @@ const ServiceSchedules: React.FC = () => {
     }
   };
 
+  const fetchSalesOrders = async () => {
+    try {
+      const res = await axios.get<SalesOrderOption[]>(SALES_ORDERS_URL, { headers });
+      setSalesOrders(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      ToasterService.error("Failed to load sales orders", getErrorMessage(error, "Please try again."));
+    }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      const res = await axios.get<CustomerOption[]>(CUSTOMERS_URL, { headers });
+      setCustomers(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      ToasterService.error("Failed to load customers", getErrorMessage(error, "Please try again."));
+    }
+  };
+
   const fetchByEmployee = async () => {
     if (!employeeLookupId) {
       ToasterService.error("Employee ID is required");
@@ -194,7 +235,7 @@ const ServiceSchedules: React.FC = () => {
   const buildPayload = () => ({
     serviceOrderId: Number(form.serviceOrderId),
     customerId: Number(form.customerId),
-    assignedEmployeeId: Number(form.assignedEmployeeId),
+    assignedEmployeeId: Number(form.assignedEmployeeId) || 0,
     scheduledDate: form.scheduledDate,
     startTime: requestTime(form.startTime),
     endTime: requestTime(form.endTime),
@@ -204,8 +245,8 @@ const ServiceSchedules: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!isPositiveNumber(form.serviceOrderId) || !isPositiveNumber(form.customerId) || !isPositiveNumber(form.assignedEmployeeId)) {
-      ToasterService.error("Required fields missing", "Service order, customer, and employee are required.");
+    if (!isPositiveNumber(form.serviceOrderId) || !isPositiveNumber(form.customerId)) {
+      ToasterService.error("Required fields missing", "Service order and customer are required.");
       return;
     }
     if (!form.scheduledDate || !form.startTime || !form.endTime) {
@@ -326,6 +367,20 @@ const ServiceSchedules: React.FC = () => {
     .map((person) => ({
       id: String(person.employeeId || person.id),
       name: person.name || `Person #${person.id}`,
+    }))
+    .filter((item) => Number(item.id) > 0);
+
+  const salesOrderOptions = salesOrders
+    .map((order) => ({
+      id: String(order.id),
+      name: order.orderNo || order.soNumber || order.orderNumber || `Order #${order.id}`,
+    }))
+    .filter((item) => Number(item.id) > 0);
+
+  const customerOptions = customers
+    .map((customer) => ({
+      id: String(customer.id),
+      name: customer.name || customer.customerName || customer.companyName || `Customer #${customer.id}`,
     }))
     .filter((item) => Number(item.id) > 0);
 
@@ -571,7 +626,7 @@ const ServiceSchedules: React.FC = () => {
               <div className="flex items-center justify-between border-b border-gray-100 p-5">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">Create Service Schedule</h3>
-                  <p className="mt-0.5 text-xs text-gray-500">Enter schedule details from the API schema</p>
+                  <p className="mt-0.5 text-xs text-gray-500">Select a sales order and customer, then set the schedule</p>
                 </div>
                 <button type="button" onClick={closeForm} className="text-gray-400 hover:text-gray-600">
                   <XMarkIcon className="h-5 w-5" />
@@ -579,46 +634,31 @@ const ServiceSchedules: React.FC = () => {
               </div>
 
               <form onSubmit={handleSubmit} className="p-5">
-                {/* Grid with two columns on medium screens and up, each field takes full width of its column */}
+                {/* Clean 2-column grid: order & customer up top, date spans full width, then start/end time */}
                 <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
                   <div className="w-full">
-                    <FloatingInput
-                      label="Service Order ID"
+                    <FloatingSelect
+                      label="Service Order"
                       name="serviceOrderId"
-                      type="number"
                       value={form.serviceOrderId}
                       onChange={handleChange}
+                      // emptyOptionLabel="Select service order"
+                      options={salesOrderOptions}
                       required
                     />
-                    <p className="mt-1 text-xs text-gray-400">
-                      Enter the numeric ID of an existing service order.
-                    </p>
-                  </div>
-                  <div className="w-full">
-                    <FloatingInput
-                      label="Customer ID"
-                      name="customerId"
-                      type="number"
-                      value={form.customerId}
-                      onChange={handleChange}
-                      required
-                    />
-                    <p className="mt-1 text-xs text-gray-400">
-                      Enter the numeric ID of the customer linked to this service order.
-                    </p>
                   </div>
                   <div className="w-full">
                     <FloatingSelect
-                      label="Assigned Employee"
-                      name="assignedEmployeeId"
-                      value={form.assignedEmployeeId}
+                      label="Customer"
+                      name="customerId"
+                      value={form.customerId}
                       onChange={handleChange}
-                      emptyOptionLabel="Select employee"
-                      options={employeeOptions}
+                      // emptyOptionLabel="Select customer"
+                      options={customerOptions}
                       required
                     />
                   </div>
-                  <div className="w-full">
+                  <div className="w-full md:col-span-2">
                     <FloatingDatePicker
                       label="Scheduled Date"
                       name="scheduledDate"

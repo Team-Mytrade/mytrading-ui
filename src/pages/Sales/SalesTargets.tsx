@@ -9,6 +9,7 @@ import {
   PencilSquareIcon,
   PresentationChartLineIcon,
   TrashIcon,
+  TrophyIcon,
   UserIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
@@ -49,7 +50,7 @@ type Period = {
 type SalesTarget = {
   id: number;
   salesPersonId: number;
-  // salesPersonName: string;
+  salesPersonName?: string;
   salesPersonCode: string;
   targetType: TargetType | string;
   targetAmount: number;
@@ -72,7 +73,7 @@ type SalesPersonOption = {
 
 type TargetForm = {
   salesPersonId: string;
-  // salesPersonName: string;
+  salesPersonName: string;
   salesPersonCode: string;
   targetType: TargetType;
   targetAmount: string;
@@ -116,7 +117,7 @@ const monthNames = [
 
 const emptyForm: TargetForm = {
   salesPersonId: "",
-  // salesPersonName: "",
+  salesPersonName: "",
   salesPersonCode: "",
   targetType: "REVENUE",
   targetAmount: "",
@@ -138,19 +139,6 @@ function getMonthRange() {
   return { start, end };
 }
 
-function isLeapYear(year: number) {
-  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-}
-
-function buildPeriod(year: number, month: number): Period {
-  return {
-    year,
-    month: monthNames[Math.max(0, Math.min(11, month - 1))],
-    monthValue: month,
-    leapYear: isLeapYear(year),
-  };
-}
-
 function formatPeriod(year: number, month: number) {
   return `${year}-${String(month).padStart(2, "0")}`;
 }
@@ -165,6 +153,23 @@ function getPeriodMonth(period?: Period | string) {
   if (!period) return undefined;
   if (typeof period === "string") return Number(period.split("-")[1]);
   return period.monthValue;
+}
+
+// The API's `period` object/string duplicates the information already carried
+// in `targetYear`/`targetMonth`. Keeping both around causes duplicate/confusing
+// entries in any generic "show all fields" UI (e.g. a Row Details view). This
+// normalizer folds `period` into `targetYear`/`targetMonth` (only filling gaps)
+// and then drops the raw `period` field entirely, so every SalesTarget object
+// that lives in state has exactly one source of truth for its period.
+function normalizeTarget(target: SalesTarget): SalesTarget {
+  const targetYear = target.targetYear || getPeriodYear(target.period) || 0;
+  const targetMonth = target.targetMonth || getPeriodMonth(target.period) || 0;
+  const { period, ...rest } = target;
+  return { ...rest, targetYear, targetMonth };
+}
+
+function normalizeTargets(list: SalesTarget[]): SalesTarget[] {
+  return list.map(normalizeTarget);
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -238,10 +243,11 @@ const SalesTargets: React.FC = () => {
   }, []);
 
   const upsertTarget = (target: SalesTarget) => {
+    const normalized = normalizeTarget(target);
     setTargets((current) => {
-      const exists = current.some((item) => item.id === target.id);
-      if (exists) return current.map((item) => (item.id === target.id ? target : item));
-      return [target, ...current];
+      const exists = current.some((item) => item.id === normalized.id);
+      if (exists) return current.map((item) => (item.id === normalized.id ? normalized : item));
+      return [normalized, ...current];
     });
   };
 
@@ -249,7 +255,7 @@ const SalesTargets: React.FC = () => {
     try {
       setLoading(true);
       const res = await axios.get<SalesTarget[]>(`${API_URL}/getAll`, { headers });
-      const data = Array.isArray(res.data) ? res.data : [];
+      const data = normalizeTargets(Array.isArray(res.data) ? res.data : []);
       setTargets(data);
       if (!silent) {
         data.length ? ToasterService.success("Sales targets loaded") : ToasterService.noData("No sales targets found");
@@ -274,7 +280,7 @@ const SalesTargets: React.FC = () => {
         headers,
         params: { start, end },
       });
-      const data = Array.isArray(res.data) ? res.data : [];
+      const data = normalizeTargets(Array.isArray(res.data) ? res.data : []);
       setTargets(data);
       if (!silent) {
         data.length ? ToasterService.success("Sales targets loaded") : ToasterService.noData("No sales targets found");
@@ -305,7 +311,7 @@ const SalesTargets: React.FC = () => {
     try {
       setLoading(true);
       const res = await axios.get<SalesTarget>(`${API_URL}/${lookupId}`, { headers });
-      setTargets([res.data]);
+      setTargets([normalizeTarget(res.data)]);
       ToasterService.success("Sales target loaded");
     } catch (error) {
       ToasterService.error("Failed to load target", getErrorMessage(error, "Please try again."));
@@ -314,18 +320,20 @@ const SalesTargets: React.FC = () => {
     }
   };
 
-  const fetchByStatus = async () => {
-    if (!statusFilter) {
+  const fetchByStatus = async (status: TargetStatus | "" = statusFilter, silent = false) => {
+    if (!status) {
       ToasterService.error("Status is required");
       return;
     }
 
     try {
       setLoading(true);
-      const res = await axios.get<SalesTarget[]>(`${API_URL}/status/${statusFilter}`, { headers });
-      const data = Array.isArray(res.data) ? res.data : [];
+      const res = await axios.get<SalesTarget[]>(`${API_URL}/status/${status}`, { headers });
+      const data = normalizeTargets(Array.isArray(res.data) ? res.data : []);
       setTargets(data);
-      data.length ? ToasterService.success("Sales targets loaded") : ToasterService.noData("No sales targets found");
+      if (!silent) {
+        data.length ? ToasterService.success("Sales targets loaded") : ToasterService.noData("No sales targets found");
+      }
     } catch (error) {
       ToasterService.error("Failed to load targets by status", getErrorMessage(error, "Please try again."));
     } finally {
@@ -333,18 +341,20 @@ const SalesTargets: React.FC = () => {
     }
   };
 
-  const fetchBySalesPerson = async () => {
-    if (!salesPersonFilter) {
+  const fetchBySalesPerson = async (salesPersonId: string = salesPersonFilter, silent = false) => {
+    if (!salesPersonId) {
       ToasterService.error("Sales person ID is required");
       return;
     }
 
     try {
       setLoading(true);
-      const res = await axios.get<SalesTarget[]>(`${API_URL}/salesperson/${salesPersonFilter}`, { headers });
-      const data = Array.isArray(res.data) ? res.data : [];
+      const res = await axios.get<SalesTarget[]>(`${API_URL}/salesperson/${salesPersonId}`, { headers });
+      const data = normalizeTargets(Array.isArray(res.data) ? res.data : []);
       setTargets(data);
-      data.length ? ToasterService.success("Sales targets loaded") : ToasterService.noData("No sales targets found");
+      if (!silent) {
+        data.length ? ToasterService.success("Sales targets loaded") : ToasterService.noData("No sales targets found");
+      }
     } catch (error) {
       ToasterService.error("Failed to load salesperson targets", getErrorMessage(error, "Please try again."));
     } finally {
@@ -360,7 +370,7 @@ const SalesTargets: React.FC = () => {
       const next = { ...current, [name]: value };
       if (name === "salesPersonId") {
         const person = salesPersons.find((item) => String(item.id) === value);
-        // next.salesPersonName = person?.name || "";
+        next.salesPersonName = person?.name || "";
         next.salesPersonCode = person?.code || "";
       }
       if (name === "targetYear" || name === "targetMonth") {
@@ -382,7 +392,7 @@ const SalesTargets: React.FC = () => {
     return {
       id: editingId || 0,
       salesPersonId: Number(form.salesPersonId),
-      // salesPersonName: form.salesPersonName,
+      salesPersonName: form.salesPersonName,
       salesPersonCode: form.salesPersonCode,
       targetType: form.targetType,
       targetAmount: Number(form.targetAmount || 0),
@@ -433,7 +443,7 @@ const SalesTargets: React.FC = () => {
     return {
       id: target.id,
       salesPersonId: Number(target.salesPersonId),
-      // salesPersonName: target.salesPersonName || person?.name || "",
+      salesPersonName: target.salesPersonName || person?.name || "",
       salesPersonCode: target.salesPersonCode || person?.code || "",
       targetType: targetTypeOptions.includes(target.targetType as TargetType)
         ? (target.targetType as TargetType)
@@ -476,7 +486,10 @@ const SalesTargets: React.FC = () => {
     setEditingId(target.id);
     setForm({
       salesPersonId: String(target.salesPersonId || ""),
-      // salesPersonName: target.salesPersonName || "",
+      salesPersonName:
+        target.salesPersonName ||
+        salesPersons.find((item) => Number(item.id) === Number(target.salesPersonId))?.name ||
+        "",
       salesPersonCode: target.salesPersonCode || "",
       targetType: targetTypeOptions.includes(target.targetType as TargetType)
         ? (target.targetType as TargetType)
@@ -534,7 +547,7 @@ const SalesTargets: React.FC = () => {
       } as any);
 
       const achievedTarget: SalesTarget = {
-        ...patchResponse.data,
+        ...normalizeTarget(patchResponse.data),
         achievedAmount: Number(patchResponse.data.achievedAmount || target.targetAmount || 0),
         status: "COMPLETED",
       };
@@ -585,7 +598,7 @@ const SalesTargets: React.FC = () => {
       const term = searchableText(search);
 
       const haystack = [
-        // target.salesPersonName,
+        target.salesPersonName,
         target.salesPersonCode,
         person?.name,
         person?.code,
@@ -629,7 +642,7 @@ const SalesTargets: React.FC = () => {
       sortable: true,
       render: (target) => {
         const person = salesPersons.find((item) => Number(item.id) === Number(target.salesPersonId));
-        const name =  `Person #${target.salesPersonId}`;
+        const name = target.salesPersonName || person?.name || `Person #${target.salesPersonId}`;
         const code = target.salesPersonCode || person?.code || "";
 
         return (
@@ -723,7 +736,7 @@ const SalesTargets: React.FC = () => {
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-70"
             title="Mark achieved"
           >
-            <PresentationChartLineIcon className="h-4 w-4" />
+            <TrophyIcon className="h-4 w-4" />
           </button>
           <button
             type="button"
@@ -823,7 +836,7 @@ const SalesTargets: React.FC = () => {
       header: "Sales Person",
       accessor: (target) => {
         const person = salesPersons.find((item) => Number(item.id) === Number(target.salesPersonId));
-        return person?.name || `Person #${target.salesPersonId}`;
+        return target.salesPersonName || person?.name || `Person #${target.salesPersonId}`;
       },
     },
     { key: "targetType", header: "Type" },
@@ -866,7 +879,15 @@ const SalesTargets: React.FC = () => {
                   <label className="mb-1 block text-xs font-medium text-gray-700">Status</label>
                   <select
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as TargetStatus | "")}
+                    onChange={(e) => {
+                      const value = e.target.value as TargetStatus | "";
+                      setStatusFilter(value);
+                      if (value) {
+                        void fetchByStatus(value, true);
+                      } else {
+                        void fetchAllTargets(true);
+                      }
+                    }}
                     className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   >
                     <option value="">Any status</option>
@@ -877,7 +898,29 @@ const SalesTargets: React.FC = () => {
                     ))}
                   </select>
                 </div>
-                <div />
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">Sales Person</label>
+                  <select
+                    value={salesPersonFilter}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setSalesPersonFilter(value);
+                      if (value) {
+                        void fetchBySalesPerson(value, true);
+                      } else {
+                        void fetchAllTargets(true);
+                      }
+                    }}
+                    className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                  >
+                    <option value="">Any sales person</option>
+                    {salesPersons.map((person) => (
+                      <option key={person.id} value={String(person.id)}>
+                        {person.name || `Person #${person.id}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <FloatingDateRangePicker
@@ -885,8 +928,15 @@ const SalesTargets: React.FC = () => {
                 startDate={toDateValue(rangeStart)}
                 endDate={toDateValue(rangeEnd)}
                 onChange={([start, end]) => {
-                  setRangeStart(toInputDateValue(start));
-                  setRangeEnd(toInputDateValue(end));
+                  const startValue = toInputDateValue(start);
+                  const endValue = toInputDateValue(end);
+                  setRangeStart(startValue);
+                  setRangeEnd(endValue);
+                  if (startValue && endValue) {
+                    void fetchByRange(startValue, endValue, true);
+                  } else if (!startValue && !endValue) {
+                    void fetchAllTargets(true);
+                  }
                 }}
                 placeholder=""
               />
@@ -987,43 +1037,47 @@ const SalesTargets: React.FC = () => {
                 value={form.achievedAmount}
                 onChange={handleChange}
               />,
-              <FloatingInput
-                label="Target Year"
-                name="targetYear"
-                type="number"
-                value={form.targetYear}
-                onChange={handleChange}
-                required
-              />,
+              <div className="md:col-span-2 grid grid-cols-1 gap-4 sm:grid-cols-4">
+                <FloatingInput
+                  label="Target Year"
+                  name="targetYear"
+                  type="number"
+                  value={form.targetYear}
+                  onChange={handleChange}
+                  required
+                />
+                <FloatingInput
+                  label="Target Month"
+                  name="targetMonth"
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={form.targetMonth}
+                  onChange={handleChange}
+                  required
+                />
+                <div className="sm:col-span-2">
+                  <FloatingDateRangePicker
+                    label="Target Date Range"
+                    startDate={selectedStartDate}
+                    endDate={selectedEndDate}
+                    onChange={([start, end]) => {
+                      setForm((current) => ({
+                        ...current,
+                        startDate: toInputDateValue(start),
+                        endDate: toInputDateValue(end),
+                      }));
+                    }}
+                    minDate={rangeMinDate}
+                    maxDate={rangeMaxDate}
+                  />
+                </div>
+              </div>,
             ],
           },
           {
-            label: "Schedule & Status",
+            label: "Status & Remarks",
             fields: [
-              <FloatingInput
-                label="Target Month"
-                name="targetMonth"
-                type="number"
-                min={1}
-                max={12}
-                value={form.targetMonth}
-                onChange={handleChange}
-                required
-              />,
-              <FloatingDateRangePicker
-                label="Target Date Range"
-                startDate={selectedStartDate}
-                endDate={selectedEndDate}
-                onChange={([start, end]) => {
-                  setForm((current) => ({
-                    ...current,
-                    startDate: toInputDateValue(start),
-                    endDate: toInputDateValue(end),
-                  }));
-                }}
-                minDate={rangeMinDate}
-                maxDate={rangeMaxDate}
-              />,
               <FloatingSelect
                 label="Status"
                 name="status"
@@ -1033,11 +1087,6 @@ const SalesTargets: React.FC = () => {
                 includeEmptyOption={false}
                 required
               />,
-            ],
-          },
-          {
-            label: "Remarks",
-            fields: [
               <div className="md:col-span-2">
                 <FloatingTextarea
                   label="Remarks"
