@@ -34,6 +34,7 @@ type NavItem = {
   roles?: string[];
 };
 
+
 export const navItems: NavItem[] = [
   {
     icon: <LayoutDashboard className="w-5 h-5" />,
@@ -262,6 +263,7 @@ const AppSidebar: React.FC = () => {
     isResizing,
     setIsResizing,
     toggleSidebar,
+    expandSidebar,
     toggleMobileSidebar,
   } = useSidebar();
   const location = useLocation();
@@ -486,8 +488,10 @@ const AppSidebar: React.FC = () => {
       navigate(nav.path);
       return;
     }
-    if (!isExpanded && !isMobileOpen) {
-      toggleSidebar();
+    if (window.innerWidth < 1024 && !isMobileOpen) {
+      toggleMobileSidebar();
+    } else if (!isExpanded) {
+      expandSidebar();
     }
     setOpenSubmenu(index);
   };

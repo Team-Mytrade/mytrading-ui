@@ -327,7 +327,7 @@ const AppHeader: React.FC = () => {
 
   return (
     <>
-      <header className="sticky top-0 z-20 w-full bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-800">
+      <header className="sticky top-0 z-20 w-full bg-white border-b border-gray-200 dark:bg-[#171717] dark:border-[#292929]">
         <div className="flex items-center justify-between h-14 px-4 lg:px-6">
           <div className="flex items-center flex-1 gap-4">
             {/* Logo - Mobile */}
@@ -486,7 +486,7 @@ const AppHeader: React.FC = () => {
             <div
               className={`${
                 isApplicationMenuOpen ? "flex" : "hidden"
-              } lg:flex flex-col lg:flex-row items-stretch lg:items-center gap-3 lg:gap-4 absolute lg:static top-16 left-0 right-0 bg-white dark:bg-gray-900 shadow-lg lg:shadow-none border-t lg:border-t-0 border-gray-200 dark:border-gray-800 p-4 lg:p-0`}
+              } lg:flex flex-col lg:flex-row items-stretch lg:items-center gap-3 lg:gap-4 absolute lg:static top-16 left-0 right-0 bg-white dark:bg-[#171717] shadow-lg lg:shadow-none border-t lg:border-t-0 border-gray-200 dark:border-[#292929] p-4 lg:p-0`}
             >
               {/* Mobile Search */}
               <div className="w-full mb-2 lg:hidden">

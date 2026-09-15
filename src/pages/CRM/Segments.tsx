@@ -23,11 +23,12 @@ import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import DynamicPopup from "../../components/common/Popup";
-import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import FilterPopover from "../../components/common/filter";
 import { FloatingInput, FloatingTextarea } from "../../components/inputfeild/FloatingInput";
+import StatsCard from "../../components/common/Statscard";
+import "./Deals.css";
 
 interface Customer {
   id: number;
@@ -95,7 +96,6 @@ const Segments: React.FC = () => {
   const [segmentToDelete, setSegmentToDelete] = useState<CustomerSegment | null>(null);
   const [activeSegmentId, setActiveSegmentId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
   const token = localStorage.getItem("accessToken");
   const tenantId = getTenantId();
@@ -322,11 +322,6 @@ const Segments: React.FC = () => {
 
   const filteredSegments = useMemo(() => {
     return segments.filter((segment) => {
-      const term = search.toLowerCase();
-      const matchesSearch =
-        (segment.name || "").toLowerCase().includes(term) ||
-        (segment.description || "").toLowerCase().includes(term);
-
       let matchesFilter = true;
       if (activeFilter === "ACTIVE") {
         matchesFilter = getCustomerCount(segment) > 0;
@@ -334,9 +329,9 @@ const Segments: React.FC = () => {
         matchesFilter = getCustomerCount(segment) === 0;
       }
 
-      return matchesSearch && matchesFilter;
+      return matchesFilter;
     });
-  }, [segments, search, activeFilter]);
+  }, [segments, activeFilter]);
 
   const stats = useMemo(
     () => ({
@@ -458,82 +453,14 @@ const Segments: React.FC = () => {
   return (
     <>
       <PageMeta title="Customer Segments" description="Manage your segments" />
-      <PageBreadcrumb pageTitle="Segments" />
+      <PageBreadcrumb pageTitle="Segments" className="crm-report-breadcrumb" actions={<><FilterPopover title="Filter Segments" buttonLabel="Segment Status" label="Filter by Status" value={activeFilter} options={[{ label: "All Segments", value: "ALL" }, { label: "Active (Has Customers)", value: "ACTIVE" }, { label: "Inactive (No Customers)", value: "INACTIVE" }]} onChange={setActiveFilter} onReset={() => setActiveFilter("ALL")} onApply={() => undefined} /><AddButton onClick={openCreateSegment} label="Add Segment" /></>} />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreateSegment} label="Add Segment" />
-        </div>
-        <div className="mb-2 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatsCard
-            label="Total Segments"
-            value={stats.totalSegments}
-            gradient="from-cyan-50 to-blue-50"
-            borderColor="border-cyan-100"
-            labelColor="text-cyan-600"
-          />
-          <StatsCard
-            label="Active Segments"
-            value={stats.activeSegments}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-          />
-          <StatsCard
-            label="Total Customers"
-            value={stats.totalCustomers}
-            gradient="from-purple-50 to-pink-50"
-            borderColor="border-purple-100"
-            labelColor="text-purple-600"
-          />
-          <StatsCard
-            label="Filtered"
-            value={filteredSegments.length}
-            gradient="from-orange-50 to-yellow-50"
-            borderColor="border-orange-100"
-            labelColor="text-orange-600"
-          />
-        </div>
-
-        {/* Toolbar */}
-        <div className=" flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="mb-2 w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search segments by name or description..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); }}
-                className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-              {search && (
-                <button
-                  onClick={() => { setSearch(""); }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex -mb-1 h-full w-full items-center justify-end gap-3 sm:w-auto">
-            <FilterPopover
-              title="Filter Segments"
-              buttonLabel="Filters"
-              label="Filter by Status"
-              value={activeFilter}
-              options={[
-                { label: "All Segments", value: "ALL" },
-                { label: "Active (Has Customers)", value: "ACTIVE" },
-                { label: "Inactive (No Customers)", value: "INACTIVE" },
-              ]}
-              onChange={setActiveFilter}
-              onReset={() => setActiveFilter("ALL")}
-              onApply={() => undefined}
-            />
-          </div>
+      <div className="crm-report-page w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
+        <div className="mb-[17px] grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+          <StatsCard label="Total Segments" value={stats.totalSegments} />
+          <StatsCard label="Active Segments" value={stats.activeSegments} />
+          <StatsCard label="Total Customers" value={stats.totalCustomers} />
+          <StatsCard label="Filtered" value={filteredSegments.length} />
         </div>
 
         {/* Table */}
@@ -543,14 +470,15 @@ const Segments: React.FC = () => {
           pageSize={PAGE_SIZE}
           defaultSortKey="name"
           defaultSortOrder="asc"
-          onRowClick={(segment) => navigate(`/crm-view/segments/${segment.id}`, { state: { from: "segments" } })}
+          rowDetailsTitle={(segment) => segment.name || "Segment details"}
+          rowDetailsSubtitle="Customer segment details"
           loading={isLoading}
           emptyState={
             <div className="flex flex-col items-center justify-center">
               <TagIcon className="h-12 w-12 text-gray-400 mb-3" />
               <p className="text-gray-500 text-sm mb-2">No segments found</p>
-              {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
+              {activeFilter !== "ALL" ? (
+                <p className="text-gray-400 text-xs">Try adjusting your filters</p>
               ) : (
                 <button
                   type="button"

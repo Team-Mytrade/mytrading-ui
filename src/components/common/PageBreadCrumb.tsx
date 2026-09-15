@@ -1,4 +1,4 @@
-import { CircleDot, ChevronRight, FolderClosed, ArrowLeft } from "lucide-react";
+import { CircleDot, ChevronRight, FolderClosed, ArrowLeft, House } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { navItems } from "../../layout/AppSidebar";
 import { AddButton } from "./AddButton";
@@ -17,6 +17,7 @@ interface BreadcrumbProps {
   titleClassName?: string;
   breadcrumbClassName?: string;
   inlineBreadcrumb?: boolean;
+  actions?: React.ReactNode;
 }
 
 type Crumb = { label: string; current?: boolean };
@@ -34,6 +35,7 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
   titleClassName = "",
   breadcrumbClassName = "",
   inlineBreadcrumb = true,
+  actions,
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -69,7 +71,9 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
           <nav className={`page-breadcrumb__trail ${breadcrumbClassName}`.trim()} aria-label="Breadcrumb">
             <ol>
               <li>
-                <Link to="/" className="page-breadcrumb__link"><FolderClosed size={17} />Home</Link>
+                <Link to="/" className="page-breadcrumb__home" aria-label="Go to dashboard" title="Go to dashboard">
+                  <House size={17} />
+                </Link>
               </li>
               {trail.map((crumb) => (
                 <li key={`${crumb.label}-${crumb.current ? "current" : "parent"}`}>
@@ -83,7 +87,11 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
             </ol>
           </nav>
         </div>
-        {showAddButton && <AddButton onClick={onAddClick} label={addButtonLabel} className={`h-9 ${addButtonClassName}`.trim()} />}
+        {(actions || showAddButton) && (
+          <div className="page-breadcrumb__actions">
+            {actions || <AddButton onClick={onAddClick} label={addButtonLabel} className={`h-9 ${addButtonClassName}`.trim()} />}
+          </div>
+        )}
       </div>
     </div>
   );

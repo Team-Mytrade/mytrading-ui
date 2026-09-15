@@ -1,4 +1,4 @@
-import { useEffect, useState, ChangeEvent, FormEvent } from "react";
+import { useEffect, useRef, useState, ChangeEvent, FormEvent } from "react";
 import axios from "axios";
 import {
   PencilSquareIcon,
@@ -12,16 +12,17 @@ import {
   TagIcon,
   BuildingOfficeIcon,
 } from "@heroicons/react/24/outline";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import { ToasterService } from "../../Services/ToasterService";
 import DynamicPopup from "../../components/common/Popup";
 import { FloatingInput, FloatingSelect1 as FloatingSelect, FloatingDatePicker } from "../../components/inputfeild/FloatingInput";
-import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import FilterPopover from "../../components/common/filter";
+import StatsCard from "../../components/common/Statscard";
+import "./Deals.css";
 
 const API_URL = "/v1/api/crm/deals";
 const PAGE_SIZE = 10;
@@ -35,11 +36,6 @@ const stageOptions = [
 
 const normalizeStage = (stage?: string) =>
   stage ? stage.trim().toUpperCase().replace(/\s+/g, "_") : "PROSPECTING";
-
-const getStageLabel = (stage?: string) => {
-  const normalized = normalizeStage(stage);
-  return stageOptions.find((option) => option.id === normalized)?.name || stage || "-";
-};
 
 interface Opportunity {
   id: number;
@@ -68,6 +64,7 @@ interface Customer {
 }
 
 export default function Deals() {
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -276,10 +273,6 @@ export default function Deals() {
     }
   };
 
-  const handleRowClick = (opportunity: Opportunity) => {
-    navigate(`/crm-view/opportunities/${opportunity.id}`, { state: { from: "opportunities" } });
-  };
-
   const tableColumns: ColumnDef<Opportunity>[] = [
     {
       key: "dealName",
@@ -419,43 +412,20 @@ export default function Deals() {
   return (
     <>
       <PageMeta title="Deals" description="Manage your sales opportunities" />
-      <PageBreadcrumb pageTitle="Deals" />
+      <PageBreadcrumb
+        pageTitle="Deals"
+        className="crm-report-breadcrumb"
+        actions={<><FilterPopover title="Filter Opportunities" buttonLabel="Deal Status" label="Filter by Status" value={activeFilter} options={[{ label: "All Opportunities", value: "ALL" }, { label: "Active", value: "ACTIVE" }, { label: "Inactive", value: "INACTIVE" }]} onChange={setActiveFilter} onReset={() => setActiveFilter("ALL")} onApply={() => undefined} /><AddButton onClick={() => { setForm({ status: "ACTIVE", stage: "PROSPECTING" }); setShowForm(true); }} label="Add Opportunity" /></>}
+      />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={() => { setForm({ status: "ACTIVE", stage: "PROSPECTING" }); setShowForm(true); }} label="Add Opportunity" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatsCard
-            label="Total Opportunities"
-            value={opportunities.length}
-            gradient="from-cyan-50 to-blue-50"
-            borderColor="border-cyan-100"
-            labelColor="text-cyan-600"
-          />
-          <StatsCard
-            label="Active"
-            value={opportunities.filter((o) => o.status === "ACTIVE").length}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-          />
-          <StatsCard
-            label="Total Value"
-            value={formatCurrency(opportunities.reduce((acc, o) => acc + (o.amount || 0), 0))}
-            gradient="from-purple-50 to-pink-50"
-            borderColor="border-purple-100"
-            labelColor="text-purple-600"
-          />
-          <StatsCard
-            label="Avg. Deal Size"
-            value={opportunities.length > 0
-              ? formatCurrency(opportunities.reduce((acc, o) => acc + (o.amount || 0), 0) / opportunities.length)
-              : formatCurrency(0)}
-            gradient="from-orange-50 to-yellow-50"
-            borderColor="border-orange-100"
-            labelColor="text-orange-600"
-          />
+      <div className="crm-report-page w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
+        <div className="mb-[17px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+            <StatsCard label="Total Deals" value={opportunities.length} />
+            <StatsCard label="Active Deals" value={opportunities.filter((o) => o.status === "ACTIVE").length} />
+            <StatsCard label="Total Value" value={formatCurrency(opportunities.reduce((acc, o) => acc + (o.amount || 0), 0))} />
+            <StatsCard label="Average Deal Size" value={opportunities.length ? formatCurrency(opportunities.reduce((acc, o) => acc + (o.amount || 0), 0) / opportunities.length) : formatCurrency(0)} />
+          </div>
         </div>
 
         <div className=" mt-2 mb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -463,6 +433,7 @@ export default function Deals() {
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
+                ref={searchInputRef}
                 type="text"
                 placeholder="Search opportunities by name, stage, or status..."
                 value={search}
@@ -472,22 +443,6 @@ export default function Deals() {
             </div>
           </div>
 
-          <div className="-mb-4 flex w-full items-center justify-end gap-3 sm:w-auto">
-            <FilterPopover
-              title="Filter Opportunities"
-              buttonLabel="Filters"
-              label="Filter by Status"
-              value={activeFilter}
-              options={[
-                { label: "All Opportunities", value: "ALL" },
-                { label: "Active", value: "ACTIVE" },
-                { label: "Inactive", value: "INACTIVE" },
-              ]}
-              onChange={setActiveFilter}
-              onReset={() => setActiveFilter("ALL")}
-              onApply={() => undefined}
-            />
-          </div>
         </div>
 
         <ReusableTable<Opportunity>
@@ -496,7 +451,8 @@ export default function Deals() {
           pageSize={PAGE_SIZE}
           defaultSortKey="dealName"
           defaultSortOrder="asc"
-          onRowClick={handleRowClick}
+          rowDetailsTitle={(opportunity) => opportunity.dealName || "Deal details"}
+          rowDetailsSubtitle="Opportunity details"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <TagIcon className="h-12 w-12 text-gray-400 mb-3" />
@@ -515,7 +471,6 @@ export default function Deals() {
             </div>
           }
         />
-
         {showForm && (
           <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl mx-auto overflow-y-auto max-h-[90vh]">
