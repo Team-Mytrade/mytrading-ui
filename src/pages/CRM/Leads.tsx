@@ -344,7 +344,7 @@ const Leads: React.FC = () => {
       label: "Email",
       sortable: true,
       render: (lead) => (
-        <div className="flex items-center text-xs text-gray-600 truncate max-w-[100px]" title={lead.email}>
+        <div className="flex items-center text-sm text-gray-600 truncate " title={lead.email}>
           <EnvelopeIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
           <span className="truncate">{lead.email || "-"}</span>
         </div>
@@ -355,8 +355,8 @@ const Leads: React.FC = () => {
       label: "Phone",
       sortable: true,
       render: (lead) => (
-        <div className="flex items-center text-xs text-gray-600">
-          <PhoneIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
+        <div className="flex items-center text-sm text-gray-600">
+          <PhoneIcon className="h-3 w-3 mr-1 truncate whitespace-nowrap text-gray-400 flex-shrink-0" />
           {lead.phone || "-"}
         </div>
       ),
@@ -387,10 +387,10 @@ const Leads: React.FC = () => {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "text-center",
-      className: "text-center",
+      headerClassName: "text-right",
+      className: "text-right",
       render: (lead) => (
-        <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={() => openAssignModal(lead.id)}
@@ -448,7 +448,7 @@ const Leads: React.FC = () => {
       <PageMeta title="Leads" description="Manage your sales leads" />
       <PageBreadcrumb pageTitle="Leads" />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton
             onClick={() => {
@@ -491,9 +491,9 @@ const Leads: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex-1 max-w-md">
-            <div className="relative md:-mt-4">
+        <div className="my-1 mb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className=" flex-1 max-w-md">
+            <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
@@ -507,7 +507,7 @@ const Leads: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 -mt-0.5">
+          <div className="flex items-center gap-3 -mb-2">
             <FilterPopover
               title="Filter Leads"
               buttonLabel="Filters"

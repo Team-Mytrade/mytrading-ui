@@ -45,13 +45,15 @@ const getTenantId = (): string | null => {
 // Global Axios Request Interceptor to dynamically attach token
 axios.interceptors.request.use(
   (config) => {
+    const isAuthEndpoint = config.url?.includes('/v1/api/auth/');
     const token = localStorage.getItem('accessToken');
-    if (token) {
+    if (token && !isAuthEndpoint) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
     
-    // Skip for auth endpoints
-    const isAuthEndpoint = config.url?.includes('/signin');
+    // Authentication failures are handled by the sign-in/sign-up forms, not
+    // by the global expired-session modal.
+    (config as any).skipSessionExpiredHandling = isAuthEndpoint;
     
     if (!isAuthEndpoint) {
       const tenantId = getTenantId();

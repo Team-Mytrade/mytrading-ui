@@ -409,7 +409,7 @@ function buildAddress(form: OrderForm, type: "BILLING" | "SHIPPING"): Address {
     customerId: toNumber(form.customerId),
     customerName: "",
     customerCode: "",
-    type: "BILLING",
+    type,
     addressLine1: form[`${prefix}AddressLine1` as keyof OrderForm] as string,
     addressLine2: "",
     street: "",
@@ -485,6 +485,54 @@ const SalesOrders: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Auto-calculate order-level Sub Total, Discount, Discount %, Tax Amount and
+  // Grand Total directly from the line item's own fields, so the Totals tab
+  // always matches what buildItem() actually computes and sends in the payload.
+  useEffect(() => {
+    const quantity = toNumber(form.itemQuantity);
+    const unitPrice = toNumber(form.itemUnitPrice);
+    const discountAmount = toNumber(form.itemDiscountAmount);
+    const additionalDiscount = toNumber(form.itemAdditionalDiscount);
+    const taxRate = toNumber(form.itemTaxRate);
+
+    const subTotal = quantity * unitPrice;
+    const taxableAmount = Math.max(0, subTotal - discountAmount - additionalDiscount);
+    const taxAmount = Number(((taxableAmount * taxRate) / 100).toFixed(2));
+    const grandTotal = Number((taxableAmount + taxAmount).toFixed(2));
+    const discountPercentage =
+      subTotal > 0 ? Number((((discountAmount + additionalDiscount) / subTotal) * 100).toFixed(2)) : 0;
+
+    setForm((current) => {
+      const nextSubTotal = String(subTotal);
+      const nextDiscountAmount = String(discountAmount);
+      const nextAdditionalDiscount = String(additionalDiscount);
+      const nextTaxAmount = String(taxAmount);
+      const nextGrandTotal = String(grandTotal);
+      const nextDiscountPercentage = String(discountPercentage);
+
+      if (
+        current.subTotal === nextSubTotal &&
+        current.discountAmount === nextDiscountAmount &&
+        current.additionalDiscount === nextAdditionalDiscount &&
+        current.taxAmount === nextTaxAmount &&
+        current.grandTotal === nextGrandTotal &&
+        current.discountPercentage === nextDiscountPercentage
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        subTotal: nextSubTotal,
+        discountAmount: nextDiscountAmount,
+        additionalDiscount: nextAdditionalDiscount,
+        taxAmount: nextTaxAmount,
+        grandTotal: nextGrandTotal,
+        discountPercentage: nextDiscountPercentage,
+      };
+    });
+  }, [form.itemQuantity, form.itemUnitPrice, form.itemDiscountAmount, form.itemAdditionalDiscount, form.itemTaxRate]);
+
   const upsertOrder = (order: SalesOrder) => {
     setOrders((current) => {
       const exists = current.some((item) => item.id === order.id);
@@ -509,32 +557,47 @@ const SalesOrders: React.FC = () => {
   };
 
   const fetchDropdowns = async () => {
-    try {
-      const [personsRes, channelsRes, quotationsRes, customersRes, productsRes] = await Promise.allSettled([
-        axios.get<SalesPersonOption[]>("/v1/api/sales/sales-persons", { headers }),
-        axios.get<SalesChannelOption[]>("/v1/api/sales/channels", { headers }),
-        axios.get<QuotationOption[]>("/v1/api/sales/quotations", { headers }),
-        axios.get<CustomerOption[]>("/v1/api/crm/customers", { headers }),
-        axios.get<ProductOption[]>("/v1/api/purchase/products", { headers }),
-      ]);
+    const [personsRes, channelsRes, quotationsRes, customersRes, productsRes] = await Promise.allSettled([
+      axios.get<SalesPersonOption[]>("/v1/api/sales/sales-persons", { headers }),
+      axios.get<SalesChannelOption[]>("/v1/api/sales/channels", { headers }),
+      axios.get<QuotationOption[]>("/v1/api/sales/quotations", { headers }),
+      axios.get<CustomerOption[]>("/v1/api/crm/customers", { headers }),
+      axios.get<ProductOption[]>("/v1/api/purchase/products", { headers }),
+    ]);
 
-      if (personsRes.status === "fulfilled") {
-        setSalesPersons(Array.isArray(personsRes.value.data) ? personsRes.value.data : []);
-      }
-      if (channelsRes.status === "fulfilled") {
-        setSalesChannels(Array.isArray(channelsRes.value.data) ? channelsRes.value.data : []);
-      }
-      if (quotationsRes.status === "fulfilled") {
-        setQuotations(Array.isArray(quotationsRes.value.data) ? quotationsRes.value.data : []);
-      }
-      if (customersRes.status === "fulfilled") {
-        setCustomers(Array.isArray(customersRes.value.data) ? customersRes.value.data : []);
-      }
-      if (productsRes.status === "fulfilled") {
-        setProducts(Array.isArray(productsRes.value.data) ? productsRes.value.data : []);
-      }
-    } catch (error) {
-      ToasterService.error("Failed to load dropdown data", getErrorMessage(error, "Please try again."));
+    if (personsRes.status === "fulfilled") {
+      setSalesPersons(Array.isArray(personsRes.value.data) ? personsRes.value.data : []);
+    } else {
+      console.error("Failed to load sales persons:", personsRes.reason);
+      ToasterService.error("Failed to load sales persons", getErrorMessage(personsRes.reason, "Please try again."));
+    }
+
+    if (channelsRes.status === "fulfilled") {
+      setSalesChannels(Array.isArray(channelsRes.value.data) ? channelsRes.value.data : []);
+    } else {
+      console.error("Failed to load sales channels:", channelsRes.reason);
+      ToasterService.error("Failed to load sales channels", getErrorMessage(channelsRes.reason, "Please try again."));
+    }
+
+    if (quotationsRes.status === "fulfilled") {
+      setQuotations(Array.isArray(quotationsRes.value.data) ? quotationsRes.value.data : []);
+    } else {
+      console.error("Failed to load quotations:", quotationsRes.reason);
+      ToasterService.error("Failed to load quotations", getErrorMessage(quotationsRes.reason, "Please try again."));
+    }
+
+    if (customersRes.status === "fulfilled") {
+      setCustomers(Array.isArray(customersRes.value.data) ? customersRes.value.data : []);
+    } else {
+      console.error("Failed to load customers:", customersRes.reason);
+      ToasterService.error("Failed to load customers", getErrorMessage(customersRes.reason, "Please try again."));
+    }
+
+    if (productsRes.status === "fulfilled") {
+      setProducts(Array.isArray(productsRes.value.data) ? productsRes.value.data : []);
+    } else {
+      console.error("Failed to load products:", productsRes.reason);
+      ToasterService.error("Failed to load products", getErrorMessage(productsRes.reason, "Please try again."));
     }
   };
 
@@ -553,7 +616,15 @@ const SalesOrders: React.FC = () => {
           next.quotationVersionNo = String(quotation.versionNo ?? quotation.quotationVersionNo ?? 0);
           next.quotationDate = quotation.quoteDate || quotation.quotationDate || "";
           next.quotationValidUntil = quotation.validUntil || quotation.quotationValidUntil || "";
-          next.customerId = String(quotation.customerId ?? quotation.customer?.id ?? next.customerId);
+
+          const quotationCustomerId = quotation.customerId ?? quotation.customer?.id;
+          if (quotationCustomerId !== undefined && String(quotationCustomerId) !== current.customerId && current.customerId) {
+            ToasterService.error(
+              "Customer changed",
+              `This quotation belongs to a different customer (#${quotationCustomerId}). Customer has been updated to match.`
+            );
+          }
+          next.customerId = String(quotationCustomerId ?? next.customerId);
           next.email = quotation.email || quotation.customer?.email || next.email;
           next.subject = quotation.subject || next.subject;
           next.grandTotal = String(quotation.grandTotal ?? quotation.totalAmount ?? next.grandTotal);
@@ -578,6 +649,11 @@ const SalesOrders: React.FC = () => {
         }
       }
 
+      if (name === "itemType" && value !== "SERVICE") {
+        next.itemServiceItemId = "0";
+      }
+
+
       if (name === "customerId") {
         const customer = customers.find((item) => String(item.id) === value);
         if (customer) {
@@ -589,10 +665,22 @@ const SalesOrders: React.FC = () => {
       if (name === "itemProductId") {
         const product = products.find((item) => String(item.id) === value);
         if (product) {
+          const newUnitPrice = product.sellingPrice;
+          if (
+            newUnitPrice !== undefined &&
+            current.itemProductId &&
+            current.itemProductId !== value &&
+            String(newUnitPrice) !== current.itemUnitPrice
+          ) {
+            ToasterService.success(
+              "Unit price updated",
+              `Price set to ${money(newUnitPrice)} based on ${product.productName || product.productCode || "the selected product"}'s master price. Review before submitting.`
+            );
+          }
           next.itemProductCode = product.productCode || "";
           next.itemProductName = product.productName || "";
           next.itemUom = product.uom || next.itemUom;
-          next.itemUnitPrice = String(product.sellingPrice ?? next.itemUnitPrice);
+          next.itemUnitPrice = String(newUnitPrice ?? next.itemUnitPrice);
         } else if (!value) {
           next.itemProductCode = "";
           next.itemProductName = "";
@@ -877,8 +965,34 @@ const SalesOrders: React.FC = () => {
         </div>
       ),
     },
-    { key: "customerId", label: "Customer", sortable: true },
-    { key: "salesChannelId", label: "Channel", sortable: true },
+    {
+      key: "customerId",
+      label: "Customer",
+      sortable: true,
+      render: (order) => {
+        const customer = customers.find((item) => Number(item.id) === Number(order.customerId));
+        return (
+          <span className="text-sm text-slate-700">
+            {customer ? customerOptionLabel(customer) : order.customerId ? `Customer #${order.customerId}` : "--"}
+          </span>
+        );
+      },
+    },
+    {
+      key: "salesChannelId",
+      label: "Channel",
+      sortable: true,
+      render: (order) => {
+        const channel = salesChannels.find(
+          (item) => Number(getSalesChannelId(item)) === Number(order.salesChannelId)
+        );
+        return (
+          <span className="text-sm text-slate-700">
+            {channel?.name || (order.salesChannelId ? `Channel #${order.salesChannelId}` : "--")}
+          </span>
+        );
+      },
+    },
     {
       key: "orderDate",
       label: "Order Date",
@@ -995,19 +1109,48 @@ const SalesOrders: React.FC = () => {
             )}
           </div>
 
-          <ListingPdfExportButton
-            title="Sales Orders"
-            subtitle="Filtered sales order listing"
-            reportLabel="Sales Report"
-            data={filteredOrders}
-            fileName="Sales_Orders"
-            disabled={loading}
-            metadata={(rows, rangeLabel) => [
-              { label: "Total", value: rows.length },
-              { label: "Range", value: rangeLabel },
-              { label: "Search", value: search || "None" },
-            ]}
-          />
+         <ListingPdfExportButton
+  title="Sales Orders"
+  subtitle="Filtered sales order listing"
+  reportLabel="Sales Report"
+  data={filteredOrders}
+  columns={[
+    { key: "orderNumber", header: "Order Number" },
+    { key: "quotationType", header: "Type" },
+    { key: "orderDate", header: "Order Date" },
+    { key: "status", header: "Status" },
+    { key: "quotationNumber", header: "Quotation No" },
+    { key: "customerId", header: "Customer" },
+    {
+      key: "billingAddress",
+      header: "Billing Address",
+      accessor: (order) =>
+        [order.billingAddress?.addressLine1, order.billingAddress?.city, order.billingAddress?.state]
+          .filter(Boolean)
+          .join(", "),
+    },
+    {
+      key: "shippingAddress",
+      header: "Shipping Address",
+      accessor: (order) =>
+        [order.shippingAddress?.addressLine1, order.shippingAddress?.city, order.shippingAddress?.state]
+          .filter(Boolean)
+          .join(", "),
+    },
+    { key: "subTotal", header: "Sub Total", align: "right" },
+    { key: "taxAmount", header: "Tax", align: "right" },
+    { key: "grandTotal", header: "Grand Total", align: "right" },
+    { key: "paid", header: "Paid" },
+    { key: "dueDate", header: "Due Date" },
+  ]}
+  fileName="Sales_Orders"
+  disabled={loading}
+  metadata={(rows, rangeLabel) => [
+    { label: "Total", value: rows.length },
+    { label: "Range", value: rangeLabel },
+    { label: "Search", value: search || "None" },
+  ]}
+/>
         </div>
 
         <ReusableTable
@@ -1042,7 +1185,17 @@ const SalesOrders: React.FC = () => {
           {
             label: "Order Info",
             fields: [
-              <FloatingInput label="Order Number" name="orderNumber" value={form.orderNumber} onChange={handleChange} />,
+              ...(editingId
+                ? [
+                    <FloatingInput
+                      label="Order Number"
+                      name="orderNumber"
+                      value={form.orderNumber}
+                      onChange={handleChange}
+                      disabled
+                    />,
+                  ]
+                : []),
               <FloatingSelect
                 label="Quotation Type"
                 name="quotationType"
@@ -1146,7 +1299,6 @@ const SalesOrders: React.FC = () => {
                   })
                   .filter((quotation) => Number(quotation.id) > 0)}
               />,
-              <FloatingInput label="Quotation Number" name="quotationNumber" value={form.quotationNumber} onChange={handleChange} />,
               <FloatingInput label="Quotation Version" name="quotationVersionNo" type="number" value={form.quotationVersionNo} onChange={handleChange} />,
               <FloatingDateRangePicker
                 label="Quotation Date Range"
@@ -1177,65 +1329,9 @@ const SalesOrders: React.FC = () => {
             ],
           },
           {
-            label: "Payment",
-            fields: [
-              <FloatingInput label="Payment Terms" name="paymentTerms" value={form.paymentTerms} onChange={handleChange} />,
-              <FloatingInput label="Credit Days" name="creditDays" type="number" value={form.creditDays} onChange={handleChange} />,
-              <FloatingSelect
-                label="Paid"
-                name="paid"
-                value={form.paid}
-                onChange={handleChange}
-                includeEmptyOption={false}
-                options={[
-                  { id: "true", name: "Yes" },
-                  { id: "false", name: "No" },
-                ]}
-              />,
-            ],
-          },
-          {
-            label: "Totals",
-            fields: [
-              <FloatingInput label="Sub Total" name="subTotal" type="number" value={form.subTotal} onChange={handleChange} />,
-              <FloatingInput label="Discount Amount" name="discountAmount" type="number" value={form.discountAmount} onChange={handleChange} />,
-              <FloatingInput label="Additional Discount" name="additionalDiscount" type="number" value={form.additionalDiscount} onChange={handleChange} />,
-              <FloatingInput label="Discount %" name="discountPercentage" type="number" value={form.discountPercentage} onChange={handleChange} />,
-              <FloatingInput label="Tax Amount" name="taxAmount" type="number" value={form.taxAmount} onChange={handleChange} />,
-              <FloatingInput label="Grand Total" name="grandTotal" type="number" value={form.grandTotal} onChange={handleChange} />,
-            ],
-          },
-          {
-            label: "Settlement",
-            fields: [
-              <FloatingInput label="Paid Amount" name="paidAmount" type="number" value={form.paidAmount} onChange={handleChange} />,
-              <FloatingInput label="Balance Amount" name="balanceAmount" type="number" value={form.balanceAmount} onChange={handleChange} />,
-            ],
-          },
-          {
-            label: "Addresses",
-            fields: [
-              <FloatingInput label="Billing Address" name="billingAddressLine1" value={form.billingAddressLine1} onChange={handleChange} />,
-              <FloatingInput label="Shipping Address" name="shippingAddressLine1" value={form.shippingAddressLine1} onChange={handleChange} />,
-              <FloatingInput label="Billing City" name="billingCity" value={form.billingCity} onChange={handleChange} />,
-              <FloatingInput label="Shipping City" name="shippingCity" value={form.shippingCity} onChange={handleChange} />,
-              <FloatingInput label="Billing State" name="billingState" value={form.billingState} onChange={handleChange} />,
-              <FloatingInput label="Shipping State" name="shippingState" value={form.shippingState} onChange={handleChange} />,
-            ],
-          },
-          {
-            label: "Address More",
-            fields: [
-              <FloatingInput label="Billing Country" name="billingCountry" value={form.billingCountry} onChange={handleChange} />,
-              <FloatingInput label="Shipping Country" name="shippingCountry" value={form.shippingCountry} onChange={handleChange} />,
-              <FloatingInput label="Billing Postal Code" name="billingPostalCode" value={form.billingPostalCode} onChange={handleChange} />,
-              <FloatingInput label="Shipping Postal Code" name="shippingPostalCode" value={form.shippingPostalCode} onChange={handleChange} />,
-            ],
-          },
-          {
             label: "Order Item",
             fields: [
-              <FloatingInput label="Quotation Item ID" name="itemQuotationItemId" type="number" value={form.itemQuotationItemId} onChange={handleChange} />,
+              <FloatingInput label="Order Item Number" name="itemQuotationItemId" type="number" value={form.itemQuotationItemId} onChange={handleChange} />,
               <FloatingSelect
                 label="Item Type"
                 name="itemType"
@@ -1247,7 +1343,14 @@ const SalesOrders: React.FC = () => {
                   { id: "SERVICE", name: "SERVICE" },
                 ]}
               />,
-              <FloatingInput label="Service Item ID" name="itemServiceItemId" type="number" value={form.itemServiceItemId} onChange={handleChange} />,
+              <FloatingInput
+                label="Service Number"
+                name="itemServiceItemId"
+                type="number"
+                value={form.itemServiceItemId}
+                onChange={handleChange}
+                disabled={form.itemType !== "SERVICE"}
+              />,
               <FloatingSelect
                 label="Product Name"
                 name="itemProductId"
@@ -1282,6 +1385,104 @@ const SalesOrders: React.FC = () => {
               <FloatingInput label="Tax Rate" name="itemTaxRate" type="number" value={form.itemTaxRate} onChange={handleChange} />,
               <FloatingInput label="Tax Code" name="itemTaxCode" value={form.itemTaxCode} onChange={handleChange} />,
               <FloatingInput label="Item Remarks" name="itemRemarks" value={form.itemRemarks} onChange={handleChange} />,
+            ],
+          },
+          {
+            label: "Totals",
+            fields: [
+              <FloatingInput
+                label="Sub Total"
+                name="subTotal"
+                type="number"
+                value={form.subTotal}
+                onChange={handleChange}
+                disabled
+              />,
+              <FloatingInput
+                label="Discount Amount"
+                name="discountAmount"
+                type="number"
+                value={form.discountAmount}
+                onChange={handleChange}
+                disabled
+              />,
+              <FloatingInput
+                label="Additional Discount"
+                name="additionalDiscount"
+                type="number"
+                value={form.additionalDiscount}
+                onChange={handleChange}
+                disabled
+              />,
+              <FloatingInput
+                label="Discount %"
+                name="discountPercentage"
+                type="number"
+                value={form.discountPercentage}
+                onChange={handleChange}
+                disabled
+              />,
+              <FloatingInput
+                label="Tax Amount"
+                name="taxAmount"
+                type="number"
+                value={form.taxAmount}
+                onChange={handleChange}
+                disabled
+              />,
+              <FloatingInput
+                label="Grand Total"
+                name="grandTotal"
+                type="number"
+                value={form.grandTotal}
+                onChange={handleChange}
+                disabled
+              />,
+            ],
+          },
+          {
+            label: "Payment",
+            fields: [
+              <FloatingInput label="Payment Terms" name="paymentTerms" value={form.paymentTerms} onChange={handleChange} />,
+              <FloatingInput label="Credit Days" name="creditDays" type="number" value={form.creditDays} onChange={handleChange} />,
+              <FloatingSelect
+                label="Paid"
+                name="paid"
+                value={form.paid}
+                onChange={handleChange}
+                includeEmptyOption={false}
+                options={[
+                  { id: "true", name: "Yes" },
+                  { id: "false", name: "No" },
+                ]}
+              />,
+            ],
+          },
+          {
+            label: "Settlement",
+            fields: [
+              <FloatingInput label="Paid Amount" name="paidAmount" type="number" value={form.paidAmount} onChange={handleChange} />,
+              <FloatingInput label="Balance Amount" name="balanceAmount" type="number" value={form.balanceAmount} onChange={handleChange} />,
+            ],
+          },
+          {
+            label: "Addresses",
+            fields: [
+              <FloatingInput label="Billing Address" name="billingAddressLine1" value={form.billingAddressLine1} onChange={handleChange} />,
+              <FloatingInput label="Shipping Address" name="shippingAddressLine1" value={form.shippingAddressLine1} onChange={handleChange} />,
+              <FloatingInput label="Billing City" name="billingCity" value={form.billingCity} onChange={handleChange} />,
+              <FloatingInput label="Shipping City" name="shippingCity" value={form.shippingCity} onChange={handleChange} />,
+              <FloatingInput label="Billing State" name="billingState" value={form.billingState} onChange={handleChange} />,
+              <FloatingInput label="Shipping State" name="shippingState" value={form.shippingState} onChange={handleChange} />,
+            ],
+          },
+          {
+            label: "Address More",
+            fields: [
+              <FloatingInput label="Billing Country" name="billingCountry" value={form.billingCountry} onChange={handleChange} />,
+              <FloatingInput label="Shipping Country" name="shippingCountry" value={form.shippingCountry} onChange={handleChange} />,
+              <FloatingInput label="Billing Postal Code" name="billingPostalCode" value={form.billingPostalCode} onChange={handleChange} />,
+              <FloatingInput label="Shipping Postal Code" name="shippingPostalCode" value={form.shippingPostalCode} onChange={handleChange} />,
             ],
           },
           {

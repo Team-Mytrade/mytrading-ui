@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import React, { useEffect, useState, useRef } from "react";
+=======
+import React, { useEffect, useRef, useState } from "react";
+>>>>>>> c453c5ce0b6432ea06448100cc741b8d8f5579f3
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import jsPDF from "jspdf";
@@ -83,7 +87,7 @@ const EmployeeRecordsPage: React.FC = () => {
         }
     };
 
-    
+
     const fetchDepartments = async () => {
         try {
             const res = await axios.get(`${DEPARTMENT_API_URL}/listAll`);
@@ -94,64 +98,64 @@ const EmployeeRecordsPage: React.FC = () => {
         }
     };
 
-  const exportEmployees = async () => {
-    setLoading(true);
-    try {
-        const response = await axios.get(`${EMPLOYEE_API_URL}/export`, {
-            responseType: 'blob' // Important: tells axios to treat response as blob
-        });
-        
-        // Create a blob from the response data
-        const contentType = response.headers['content-type'];
-        const blob = new Blob([response.data], { 
-            type: typeof contentType === "string" ? contentType : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        });
-        
-        // Create download link
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        
-        // Extract filename from Content-Disposition header if available
-        const contentDisposition = response.headers['content-disposition'];
-        let filename = `Employee_Records_${new Date().toISOString().split('T')[0]}.xlsx`;
-        
-        if (typeof contentDisposition === "string") {
-            const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-            if (filenameMatch && filenameMatch[1]) {
-                filename = filenameMatch[1].replace(/['"]/g, '');
+    const exportEmployees = async () => {
+        setLoading(true);
+        try {
+            const response = await axios.get(`${EMPLOYEE_API_URL}/export`, {
+                responseType: 'blob' // Important: tells axios to treat response as blob
+            });
+
+            // Create a blob from the response data
+            const contentType = response.headers['content-type'];
+            const blob = new Blob([response.data], {
+                type: typeof contentType === "string" ? contentType : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+
+            // Extract filename from Content-Disposition header if available
+            const contentDisposition = response.headers['content-disposition'];
+            let filename = `Employee_Records_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+            if (typeof contentDisposition === "string") {
+                const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                if (filenameMatch && filenameMatch[1]) {
+                    filename = filenameMatch[1].replace(/['"]/g, '');
+                }
             }
-        }
-        
-        link.setAttribute('download', filename);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        
-        // Clean up the blob URL
-        window.URL.revokeObjectURL(url);
-        
-        ToasterService.success('Employee records exported successfully');
-        setShowExportMenu(false);
-    } catch (err: any) {
-        console.error("Error exporting employees:", err);
-        
-        // Try to parse error response if it's a blob
-        if (err.response && err.response.data instanceof Blob) {
-            const errorText = await err.response.data.text();
-            try {
-                const errorJson = JSON.parse(errorText);
-                ToasterService.error(errorJson.message || "Export failed");
-            } catch {
-                ToasterService.error("Export failed. Please try again.");
+
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            // Clean up the blob URL
+            window.URL.revokeObjectURL(url);
+
+            ToasterService.success('Employee records exported successfully');
+            setShowExportMenu(false);
+        } catch (err: any) {
+            console.error("Error exporting employees:", err);
+
+            // Try to parse error response if it's a blob
+            if (err.response && err.response.data instanceof Blob) {
+                const errorText = await err.response.data.text();
+                try {
+                    const errorJson = JSON.parse(errorText);
+                    ToasterService.error(errorJson.message || "Export failed");
+                } catch {
+                    ToasterService.error("Export failed. Please try again.");
+                }
+            } else {
+                ToasterService.error(err.response?.data?.message || "Failed to export employees");
             }
-        } else {
-            ToasterService.error(err.response?.data?.message || "Failed to export employees");
+        } finally {
+            setLoading(false);
         }
-    } finally {
-        setLoading(false);
-    }
-};
+    };
 
     useEffect(() => {
         fetchEmployees();
@@ -216,7 +220,7 @@ const EmployeeRecordsPage: React.FC = () => {
     };
 
     const safeEmployees = Array.isArray(employees) ? employees : [];
-    
+
     const filtered = safeEmployees.filter(e => {
         const fullName = `${e.firstName ?? ""} ${e.lastName ?? ""}`.toLowerCase();
         const employeeCode = String(e.employeeCode ?? "").toLowerCase();
