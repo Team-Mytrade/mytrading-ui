@@ -23,11 +23,12 @@ import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import DynamicPopup from "../../components/common/Popup";
-import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import FilterPopover from "../../components/common/filter";
 import { FloatingInput, FloatingTextarea } from "../../components/inputfeild/FloatingInput";
+import StatsCard from "../../components/common/Statscard";
+import "./Deals.css";
 
 interface Customer {
   id: number;
@@ -95,7 +96,6 @@ const Segments: React.FC = () => {
   const [segmentToDelete, setSegmentToDelete] = useState<CustomerSegment | null>(null);
   const [activeSegmentId, setActiveSegmentId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
   const token = localStorage.getItem("accessToken");
   const tenantId = getTenantId();
@@ -124,7 +124,7 @@ const Segments: React.FC = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [segments, location.search, editingId]);
+  }, [segments, location.search]);
 
   useEffect(() => {
     if (!showFormModal) {
@@ -322,11 +322,6 @@ const Segments: React.FC = () => {
 
   const filteredSegments = useMemo(() => {
     return segments.filter((segment) => {
-      const term = search.toLowerCase();
-      const matchesSearch =
-        (segment.name || "").toLowerCase().includes(term) ||
-        (segment.description || "").toLowerCase().includes(term);
-
       let matchesFilter = true;
       if (activeFilter === "ACTIVE") {
         matchesFilter = getCustomerCount(segment) > 0;
@@ -334,9 +329,9 @@ const Segments: React.FC = () => {
         matchesFilter = getCustomerCount(segment) === 0;
       }
 
-      return matchesSearch && matchesFilter;
+      return matchesFilter;
     });
-  }, [segments, search, activeFilter]);
+  }, [segments, activeFilter]);
 
   const stats = useMemo(
     () => ({
@@ -352,8 +347,8 @@ const Segments: React.FC = () => {
       key: "name",
       label: "Segment Name",
       sortable: true,
-      headerClassName: "w-[28%] text-left",
-      className: "w-[28%]",
+      headerClassName: "w-[25%] text-left",
+      className: "w-[25%]",
       render: (segment) => (
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
@@ -371,10 +366,10 @@ const Segments: React.FC = () => {
       key: "description",
       label: "Description",
       sortable: true,
-      headerClassName: "w-[32%] text-left",
-      className: "w-[32%]",
+      headerClassName: "w-[40%] text-left",
+      className: "w-[40%]",
       render: (segment) => (
-        <div className="flex items-center gap-2 text-sm text-slate-600 my-3">
+        <div className="flex items-center gap-1.5 text-sm text-slate-600">
           <DocumentTextIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
           <span className="truncate font-medium text-slate-600 " title={segment.description}>
             {segment.description || <span className="text-slate-400 italic">No description provided</span>}
@@ -386,11 +381,11 @@ const Segments: React.FC = () => {
       key: "customers",
       label: "Customers",
       sortable: true,
-      headerClassName: "w-[20%] text-center",
-      className: "w-[20%] text-center",
+      headerClassName: "w-[15%] text-center",
+      className: "w-[15%] text-center",
       sortValueGetter: (segment) => getCustomerCount(segment),
       render: (segment) => (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 -ml-5 text-xs font-semibold rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/40">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/40">
           <UserGroupIcon className="h-3.5 w-3.5 text-cyan-600 opacity-80" />
           {getCustomerCount(segment)} customers
         </span>
@@ -403,12 +398,12 @@ const Segments: React.FC = () => {
       headerClassName: "w-[20%] text-right pr-4",
       className: "w-[20%] text-right",
       render: (segment) => (
-        <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={() => navigate(`/crm-view/segments/${segment.id}`, { state: { from: "segments" } })}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
-            title="View Details"
+            className="rounded-lg p-2 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
+            title="View Segment"
           >
             <EyeIcon className="h-4 w-4" />
           </button>
@@ -416,7 +411,7 @@ const Segments: React.FC = () => {
           <button
             type="button"
             onClick={() => handleEdit(segment)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-2 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
             title="Edit Segment"
           >
             <PencilSquareIcon className="h-4 w-4" />
@@ -426,7 +421,7 @@ const Segments: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate(`/customer-management/${segment.id}`)}
-              className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-indigo-50 hover:text-indigo-600"
+              className="rounded-lg p-2 text-slate-400 transition-all hover:bg-indigo-50 hover:text-indigo-600"
               title="View Customers"
             >
               <UsersIcon className="h-4 w-4" />
@@ -435,8 +430,8 @@ const Segments: React.FC = () => {
             <button
               type="button"
               onClick={() => openCustomerModal(segment.id)}
-              className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-emerald-50 hover:text-emerald-600"
-              title="Add Customers"
+              className="rounded-lg p-2 text-slate-400 transition-all hover:bg-emerald-50 hover:text-emerald-600"
+              title="Manage Customers"
             >
               <UserPlusIcon className="h-4 w-4" />
             </button>
@@ -458,82 +453,14 @@ const Segments: React.FC = () => {
   return (
     <>
       <PageMeta title="Customer Segments" description="Manage your segments" />
-      <PageBreadcrumb pageTitle="Segments" />
+      <PageBreadcrumb pageTitle="Segments" className="crm-report-breadcrumb" actions={<><FilterPopover title="Filter Segments" buttonLabel="Segment Status" label="Filter by Status" value={activeFilter} options={[{ label: "All Segments", value: "ALL" }, { label: "Active (Has Customers)", value: "ACTIVE" }, { label: "Inactive (No Customers)", value: "INACTIVE" }]} onChange={setActiveFilter} onReset={() => setActiveFilter("ALL")} onApply={() => undefined} /><AddButton onClick={openCreateSegment} label="Add Segment" /></>} />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreateSegment} label="Add Segment" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatsCard
-            label="Total Segments"
-            value={stats.totalSegments}
-            gradient="from-cyan-50 to-blue-50"
-            borderColor="border-cyan-100"
-            labelColor="text-cyan-600"
-          />
-          <StatsCard
-            label="Active Segments"
-            value={stats.activeSegments}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-          />
-          <StatsCard
-            label="Total Customers"
-            value={stats.totalCustomers}
-            gradient="from-purple-50 to-pink-50"
-            borderColor="border-purple-100"
-            labelColor="text-purple-600"
-          />
-          <StatsCard
-            label="Filtered"
-            value={filteredSegments.length}
-            gradient="from-orange-50 to-yellow-50"
-            borderColor="border-orange-100"
-            labelColor="text-orange-600"
-          />
-        </div>
-
-        {/* Toolbar */}
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative md:-mt-4">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search segments by name or description..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); }}
-                className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-              {search && (
-                <button
-                  onClick={() => { setSearch(""); }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
-            <FilterPopover
-              title="Filter Segments"
-              buttonLabel="Filters"
-              label="Filter by Status"
-              value={activeFilter}
-              options={[
-                { label: "All Segments", value: "ALL" },
-                { label: "Active (Has Customers)", value: "ACTIVE" },
-                { label: "Inactive (No Customers)", value: "INACTIVE" },
-              ]}
-              onChange={setActiveFilter}
-              onReset={() => setActiveFilter("ALL")}
-              onApply={() => undefined}
-            />
-          </div>
+      <div className="crm-report-page w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
+        <div className="mb-[17px] grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+          <StatsCard label="Total Segments" value={stats.totalSegments} />
+          <StatsCard label="Active Segments" value={stats.activeSegments} />
+          <StatsCard label="Total Customers" value={stats.totalCustomers} />
+          <StatsCard label="Filtered" value={filteredSegments.length} />
         </div>
 
         {/* Table */}
@@ -543,14 +470,15 @@ const Segments: React.FC = () => {
           pageSize={PAGE_SIZE}
           defaultSortKey="name"
           defaultSortOrder="asc"
-          onRowClick={(segment) => navigate(`/crm-view/segments/${segment.id}`, { state: { from: "segments" } })}
+          rowDetailsTitle={(segment) => segment.name || "Segment details"}
+          rowDetailsSubtitle="Customer segment details"
           loading={isLoading}
           emptyState={
-            <div className="flex flex-col items-center justify-center py-12">
+            <div className="flex flex-col items-center justify-center">
               <TagIcon className="h-12 w-12 text-gray-400 mb-3" />
               <p className="text-gray-500 text-sm mb-2">No segments found</p>
-              {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
+              {activeFilter !== "ALL" ? (
+                <p className="text-gray-400 text-xs">Try adjusting your filters</p>
               ) : (
                 <button
                   type="button"

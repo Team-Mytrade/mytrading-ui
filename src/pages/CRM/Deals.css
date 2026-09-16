@@ -1,0 +1,41 @@
+.crm-report-breadcrumb {
+  background: #e7e9ee;
+}
+.crm-report-page {
+  box-sizing: border-box;
+  height: calc(100vh - 112px);
+  min-height: 0;
+  overflow: hidden;
+  padding: 12px 12px 20px !important;
+  background: #e7e9ee;
+}
+.dark .crm-report-page {
+  background: #1f1f1f;
+}
+.dark .crm-report-breadcrumb {
+  background: #1f1f1f;
+}
+.dark .crm-report-breadcrumb .page-breadcrumb__back {
+  color: #c2ccda;
+}
+.dark .crm-report-breadcrumb .page-breadcrumb__link {
+  color: #b7c2d2;
+}
+.dark .crm-report-breadcrumb .page-breadcrumb__link svg,
+.dark .crm-report-breadcrumb .page-breadcrumb__separator {
+  color: #718096;
+}
+.dark .crm-report-breadcrumb .page-breadcrumb__current {
+  color: #f3f6fa;
+}
+.dark .crm-report-breadcrumb .page-breadcrumb__current svg {
+  color: #aeb9c9;
+}
+@media (max-width: 700px) {
+  .crm-report-page {
+    height: auto;
+    min-height: calc(100vh - 112px);
+    overflow: visible;
+    padding-top: 18px !important;
+  }
+}

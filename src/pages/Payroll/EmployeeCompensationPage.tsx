@@ -101,7 +101,9 @@ const EmployeeCompensationPage: React.FC = () => {
         if (field === "name") {
             updatedComponents[index].name = value as string;
         } else {
-            updatedComponents[index].percentage = Number(value);
+            const raw = String(value).replace(/^0+(?=\d)/, "");
+            const num = raw === "" ? 0 : Math.max(0, Math.min(100, Number(raw)));
+            updatedComponents[index].percentage = isNaN(num) ? 0 : num;
         }
         setFormData({ ...formData, components: updatedComponents });
     };
@@ -541,7 +543,7 @@ const EmployeeCompensationPage: React.FC = () => {
                                                     <td className="px-4 py-2">
                                                         <input
                                                             type="number"
-                                                            value={comp.percentage}
+                                                            value={comp.percentage === 0 ? "" : comp.percentage}
                                                             onChange={(e) => handleComponentChange(idx, "percentage", e.target.value)}
                                                             placeholder="0"
                                                             min="0"
@@ -605,7 +607,7 @@ const EmployeeCompensationPage: React.FC = () => {
                                                     </label>
                                                     <input
                                                         type="number"
-                                                        value={comp.percentage}
+                                                        value={comp.percentage === 0 ? "" : comp.percentage}
                                                         onChange={(e) => handleComponentChange(idx, "percentage", e.target.value)}
                                                         placeholder="0"
                                                         min="0"
@@ -626,8 +628,8 @@ const EmployeeCompensationPage: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Toggle Switch Section */}
-                            <div className="mb-6 p-4 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-lg border border-cyan-200">
+                            {/* Toggle Switch Section - Commented out until backend processing for default component is supported */}
+                            {/* <div className="mb-6 p-4 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-lg border border-cyan-200">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <InformationCircleIcon className="h-5 w-5 text-cyan-600" />
@@ -652,22 +654,24 @@ const EmployeeCompensationPage: React.FC = () => {
                                         />
                                     </button>
                                 </div>
-                            </div>
+                            </div> */}
 
                             {/* Form Actions */}
-                            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
+                            <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
                                 <button
+                                    type="button"
                                     onClick={resetForm}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                                    className="inline-flex items-center justify-center h-10 px-5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 border border-transparent transition-all duration-200 focus:outline-none"
                                 >
                                     Cancel
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={handleSubmit}
-                                    className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center justify-center gap-2"
+                                    className="inline-flex items-center justify-center h-10 px-5 text-sm font-semibold !text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg border border-transparent shadow-sm transition-all duration-200 focus:outline-none gap-2"
                                 >
-                                    <CheckIcon className="h-4 w-4" />
-                                    {editingRole ? "Update" : "Save"} Configuration
+                                    <CheckIcon className="w-4 h-4 !text-white shrink-0" />
+                                    <span className="!text-white whitespace-nowrap">{editingRole ? "Update" : "Save"} Configuration</span>
                                 </button>
                             </div>
                         </div>
@@ -689,8 +693,17 @@ const EmployeeCompensationPage: React.FC = () => {
 
                 {/* Disclaimer Modal */}
                 {showDisclaimerModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-                        <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto">
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
+                        onClick={() => {
+                            setShowDisclaimerModal(false);
+                            setPendingSubmit(null);
+                        }}
+                    >
+                        <div
+                            className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto"
+                            onClick={(e) => e.stopPropagation()}
+                        >
                             <div className="flex items-center justify-between p-5 border-b border-gray-100">
                                 <div className="flex items-center gap-2">
                                     <InformationCircleIcon className="h-6 w-6 text-amber-600" />
@@ -736,17 +749,19 @@ const EmployeeCompensationPage: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+                                <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
                                     <button
+                                        type="button"
                                         onClick={() => {
                                             setShowDisclaimerModal(false);
                                             setPendingSubmit(null);
                                         }}
-                                        className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                                        className="inline-flex items-center justify-center h-10 px-5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 border border-transparent transition-all duration-200 focus:outline-none"
                                     >
                                         Cancel
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={() => {
                                             setShowDisclaimerModal(false);
                                             if (pendingSubmit) {
@@ -754,10 +769,10 @@ const EmployeeCompensationPage: React.FC = () => {
                                                 setPendingSubmit(null);
                                             }
                                         }}
-                                        className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center gap-2"
+                                        className="inline-flex items-center justify-center h-10 px-5 text-sm font-semibold !text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg border border-transparent shadow-sm transition-all duration-200 focus:outline-none gap-2"
                                     >
-                                        <CheckIcon className="h-4 w-4" />
-                                        I Understand, Proceed
+                                        <CheckIcon className="w-4 h-4 !text-white shrink-0" />
+                                        <span className="!text-white whitespace-nowrap">I Understand, Proceed</span>
                                     </button>
                                 </div>
                             </div>

@@ -412,17 +412,39 @@ const ServiceScheduleNotify: React.FC = () => {
 
           <div className="flex items-center gap-2 mt-6">
             <ListingPdfExportButton
-              title="Service Schedule Notify"
-              subtitle="Filtered user notification listing"
-              reportLabel="Sales Report"
-              data={filteredUsers}
-              fileName="Service_Schedule_Notify"
-              metadata={(rows, rangeLabel) => [
-                { label: "Total", value: rows.length },
-                { label: "Range", value: rangeLabel },
-                { label: "Search", value: search || "None" },
-              ]}
-            />
+  title="Service Schedule Notify"
+  subtitle="Filtered user notification listing"
+  reportLabel="Sales Report"
+  data={filteredUsers}
+  columns={[
+    {
+      key: "username",
+      header: "User",
+      accessor: (user) => getEmployeeName(user),
+    },
+    { key: "userId", header: "User ID" },
+    { key: "email", header: "Email" },
+    { key: "employeeId", header: "Employee ID" },
+    { key: "employeeCode", header: "Employee Code" },
+    {
+      key: "role",
+      header: "Role",
+      accessor: (user) => user.role || user.userType || "-",
+    },
+    { key: "tenantId", header: "Tenant" },
+    {
+      key: "active",
+      header: "Status",
+      accessor: (user) => (user.active ? "Active" : "Inactive"),
+    },
+  ]}
+  fileName="Service_Schedule_Notify"
+  metadata={(rows, rangeLabel) => [
+    { label: "Total", value: rows.length },
+    { label: "Range", value: rangeLabel },
+    { label: "Search", value: search || "None" },
+  ]}
+/>
             <FilterPopover
               title="Schedule Actions"
               buttonLabel="Filters"

@@ -26,7 +26,7 @@ import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
 import "react-toastify/dist/ReactToastify.css";
-import Customers from "./pages/CRM/Customers";
+import Customers from "./pages/common/Customers";
 import Deals from "./pages/CRM/Deals";
 import KeyContacts from "./pages/CRM/KeyContacts";
 import Segments from "./pages/CRM/Segments";
@@ -53,9 +53,9 @@ import StockAdjustment from "./pages/Inventory/stock-adjustment";
 import PurchaseRequisitions from "./pages/Purchase/PurchaseRequisitions";
 import RequisitionLineItems from "./pages/Purchase/RequisitionLineItems";
 import PurchaseOrders from "./pages/Purchase/PurchaseOrders";
-import Vendors from "./pages/Purchase/Vendors";
-import Products from "./pages/Purchase/Products";
-import ProductCategories from "./pages/Purchase/ProductCategories";
+import Vendors from "./pages/common/PurchaseVendors";
+import Products from "./pages/common/Products";
+import ProductCategories from "./pages/common/ProductCategories";
 import TermsAndConditions from "./pages/Purchase/TermsAndConditions";
 import Deliveries from "./pages/Purchase/Deliveries";
 import ApprovalStatus from "./pages/Purchase/ApprovalStatus";
@@ -144,6 +144,7 @@ import LeaveRequestPage from "./pages/Attendance/LeaveRequestPage";
 import LeaveTypePage from "./pages/Attendance/LeaveTypePage";
 import LeavePolicyPage from "./pages/Attendance/LeavePolicyPage";
 import LeaveDashboardPage from "./pages/Attendance/LeaveDashboardPage";
+import LeaveManagerDashboardPage from "./pages/Attendance/LeaveManagerDashboardPage";
 import NotificationPage from "./pages/Attendance/NotificationPage";
 import NotificationInboxPage from "./pages/Attendance/NotificationInboxPage";
 import NotificationDetailPage from "./pages/Attendance/NotificationDetailPage";
@@ -151,6 +152,7 @@ import AttendancePolicyPage from "./pages/Attendance/AttendancePolicyPage";
 import HolidayCalendarPage from "./pages/Attendance/HolidayCalendarPage";
 import AttendancePunchPage from "./pages/Attendance/AttendancePunchPage";
 import AttendanceReportsPage from "./pages/Attendance/AttendanceReportsPage";
+import AttendanceTrackingPage from "./pages/Attendance/AttendanceTrackingPage";
 import AttendanceRequestsPage from "./pages/Attendance/AttendanceRequestsPage";
 import OnDutyApprovalPage from "./pages/Attendance/OnDutyApprovalPage";
 import AttendanceRegularizationApprovalPage from "./pages/Attendance/AttendanceRegularizationApprovalPage";
@@ -159,6 +161,7 @@ import PayrollComponentPage from "./pages/Attendance/PayrollComponentPage";
 import PayrollRecordPage from "./pages/Attendance/PayrollRecordPage";
 import RemoteAttendanceLogPage from "./pages/Attendance/RemoteAttendanceLogPage";
 import ShiftPage from "./pages/Attendance/ShiftPage";
+import EmployeeSelfServicePage from "./pages/Attendance/EmployeeSelfServicePage";
 import WorkFromHomeRequestPage from "./pages/Attendance/WorkFromHomeRequestPage";
 import OverTimeEntryPage from "./pages/Attendance/OverTimeEntryPage";
 import AttendanceViolationPage from "./pages/Attendance/AttendanceViolationPage";
@@ -179,7 +182,7 @@ import Batch from "./pages/Inventory/batch";
 import EmployeeCompensationPage from "./pages/Payroll/EmployeeCompensationPage";
 import EmployeeDepartmentsPage from "./pages/Payroll/EmployeeDepartments";
 import EmployeeSalaryPage from "./pages/Payroll/EmployeeSalaryPage";
-import CustomerFormPage from "./pages/CRM/CustomerFormPage";
+import CustomerFormPage from "./pages/common/CustomerFormPage";
 import ShipmentPage from "./pages/Delivery/Shipment";
 import DeliveryDispatch from "./pages/Delivery/DeliveryNote";
 // import DeliveryOrderPage from "./pages/Delivery/DeliveryOrderPage";
@@ -187,9 +190,9 @@ import CustomerAddressPage from "./pages/Delivery/CustomerAddress";
 import DeliveryNote from "./pages/Delivery/DeliveryNote";
 import GoodsIssuePage from "./pages/Delivery/GoodsIssue";
 import Schedule from "./pages/Delivery/Schedule";
-import VendorsInvoice from "./pages/Invoice/Vendors";
-import TaxTypesInvoice from "./pages/Invoice/TaxTypes";
-import TaxDetailsInvoice from "./pages/Invoice/TaxDetails";
+import VendorsInvoice from "./pages/common/CustomerVendors";
+import TaxTypesInvoice from "./pages/common/TaxTypes";
+import TaxDetailsInvoice from "./pages/common/TaxDetails";
 import PurchaseInvoices from "./pages/Invoice/PurchaseInvoices";
 import PaymentTermsInvoice from "./pages/Invoice/PaymentTerms";
 import JournalEntries from "./pages/Invoice/JournalEntries";
@@ -361,6 +364,9 @@ export default function AppRouter() {
           <Route path="/att_leaveRequest" element={<LeaveRequestPage />} />
           <Route path="/att_leavePolicy" element={<LeavePolicyPage />} />
           <Route path="/att_leaveDashboard" element={<LeaveDashboardPage />} />
+          <Route path="/att_selfService" element={<EmployeeSelfServicePage />} />
+          <Route path="/att_leaveManagerDashboard" element={<LeaveManagerDashboardPage />} />
+          <Route path="/att_attendanceTracking" element={<AttendanceTrackingPage />} />
           <Route path="/att_overtimeEntry" element={<OverTimeEntryPage />} />
           <Route path="/att_leaveType" element={<LeaveTypePage />} />
           <Route path="/att_overtimeRule" element={<OvertimeRulePage />} />

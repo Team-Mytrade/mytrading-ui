@@ -1,0 +1,78 @@
+/* Shared data-table dark theme: neutral charcoal surfaces with restrained blue emphasis. */
+.dark .common-data-table {
+  border-color: #303030 !important;
+  background: #191919 !important;
+}
+
+.dark .common-data-table thead { background: #222 !important; }
+
+.dark .common-data-table tbody,
+.dark .common-data-table .bg-white { background: #191919 !important; }
+
+.dark .common-data-table tr { border-color: #303030 !important; }
+.dark .common-data-table tbody tr:hover { background: #242424 !important; }
+.dark .common-data-table th { color: #e5e7eb !important; }
+
+.dark .common-data-table td,
+.dark .common-data-table .text-gray-700 { color: #cbd5e1 !important; }
+
+.dark .common-data-table .text-gray-500,
+.dark .common-data-table .text-gray-400 { color: #94a3b8 !important; }
+
+.dark .common-data-table button.bg-white,
+.dark .common-data-table .bg-gray-50 {
+  background: #222 !important;
+  border-color: #343434 !important;
+}
+
+.dark .common-data-table button.bg-white:hover,
+.dark .common-data-table .hover\:bg-gray-50:hover { background: #2a2a2a !important; }
+
+.dark .common-data-table .border-cyan-500 { border-color: #3d73dd !important; }
+
+.dark .common-data-table .text-cyan-600,
+.dark .common-data-table .text-cyan-700 { color: #6f9cf0 !important; }
+
+.common-data-table__filters th { background: #f8fafc; }
+.common-data-table__filters input,
+.common-data-table__filters select {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  border: 1px solid #d7dee9;
+  border-radius: 5px;
+  padding: 0 8px;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 500;
+  outline: none;
+  background: #fff;
+}
+.common-data-table__filters input:focus,
+.common-data-table__filters select:focus { border-color: #3d73dd; box-shadow: 0 0 0 2px rgb(61 115 221 / 12%); }
+.dark .common-data-table__filters th { background: #222 !important; }
+.dark .common-data-table__filters input,
+.dark .common-data-table__filters select { border-color: #3a3a3a; color: #d6deea; background: #191919; }
+
+.common-data-table__column-picker {
+  position: absolute;
+  top: 40px;
+  right: 8px;
+  z-index: 20;
+  width: 210px;
+  max-height: 290px;
+  overflow-y: auto;
+  border: 1px solid #d7dee9;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+  box-shadow: 0 12px 26px rgb(15 23 42 / 14%);
+}
+.common-data-table__column-picker p { margin: 2px 4px 7px; color: #334155; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.common-data-table__column-picker label { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px; border-radius: 5px; color: #475569; font-size: 12px; cursor: pointer; }
+.common-data-table__column-picker label:hover { background: #f1f5f9; }
+.common-data-table__column-picker input { width: 14px; height: 14px; accent-color: #3d73dd; }
+.dark .common-data-table__column-picker { border-color: #3a3a3a; background: #191919; }
+.dark .common-data-table__column-picker p,
+.dark .common-data-table__column-picker label { color: #d6deea; }
+.dark .common-data-table__column-picker label:hover { background: #252525; }

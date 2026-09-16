@@ -479,19 +479,35 @@ const Refunds: React.FC = () => {
 
           <div className="flex items-center gap-2 -mt-0.5">
             <ListingPdfExportButton
-              title="Refunds"
-              subtitle="Filtered refund listing"
-              reportLabel="Sales Report"
-              data={filteredRefunds}
-              fileName="Refunds"
-              disabled={loading}
-              metadata={(rows, rangeLabel) => [
-                { label: "Total", value: rows.length },
-                { label: "Range", value: rangeLabel },
-                { label: "Status", value: statusFilter || "All" },
-                { label: "Search", value: search || "None" },
-              ]}
-            />
+  title="Refunds"
+  subtitle="Filtered refund listing"
+  reportLabel="Sales Report"
+  data={filteredRefunds}
+  dateAccessor={(refund) => refund.refundDate}
+  columns={[
+    {
+      key: "returnRequestId",
+      header: "Return Request",
+      accessor: (refund) => `Return #${refund.returnRequestId}`,
+    },
+    { key: "amount", header: "Amount", align: "right" },
+    {
+      key: "refundDate",
+      header: "Refund Date",
+      accessor: (refund) => (refund.refundDate ? new Date(refund.refundDate).toLocaleString() : "-"),
+    },
+    { key: "status", header: "Status" },
+    { key: "paymentMethod", header: "Payment Method" },
+  ]}
+  fileName="Refunds"
+  disabled={loading}
+  metadata={(rows, rangeLabel) => [
+    { label: "Total", value: rows.length },
+    { label: "Range", value: rangeLabel },
+    { label: "Status", value: statusFilter || "All" },
+    { label: "Search", value: search || "None" },
+  ]}
+/>
             <FilterPopover title="Filter Refunds" buttonLabel="Filters" widthClassName="w-[20rem] sm:w-[22rem]" showFooter={false}>
             <div className="space-y-3">
               <FloatingSelect
