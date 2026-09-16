@@ -361,7 +361,7 @@ const Interactions: React.FC = () => {
       <PageBreadcrumb pageTitle="Communication History" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+        <div className="mb-6  mx-4 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton
             onClick={() => {
               setEditingId(null);
@@ -371,8 +371,8 @@ const Interactions: React.FC = () => {
             label="New Communication"
           />
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="py-4 px-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-[17px]">
           <StatsCard
             label="Total Communications"
             value={entries.length}
@@ -404,40 +404,7 @@ const Interactions: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className=" mt-2 mb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by subject, notes, contact, customer or lead..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); }}
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <div className="md:-mb-4 flex w-full items-center justify-end gap-3 sm:w-auto">
-            <FilterPopover
-              title="Filter Communications"
-              buttonLabel="Filters"
-              label="Communication Type"
-              value={selectedType}
-              options={[
-                { label: "All Types", value: "" },
-                { label: "Email", value: "EMAIL" },
-                { label: "Call", value: "CALL" },
-                { label: "Meeting", value: "MEETING" },
-                { label: "Other", value: "OTHER" },
-              ]}
-              onChange={setSelectedType}
-              onReset={() => setSelectedType("")}
-              onApply={() => undefined}
-            />
-          </div>
-        </div>
-
+  
         {/* Table */}
         <ReusableTable<CommunicationEntry>
           data={filteredEntries}
@@ -461,7 +428,7 @@ const Interactions: React.FC = () => {
             </div>
           }
         />
-
+        </div>
         {/* Add/Edit Modal */}
         {showFormModal && (
           <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">

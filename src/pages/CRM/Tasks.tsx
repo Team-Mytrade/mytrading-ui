@@ -503,7 +503,7 @@ const Tasks: React.FC = () => {
       <PageBreadcrumb pageTitle="Activities" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 ">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+        <div className="mb-6 mx-4 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton
             onClick={() => {
               setForm({});
@@ -515,7 +515,8 @@ const Tasks: React.FC = () => {
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="py-4 px-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4  mb-[17px]">
           <StatsCard
             label="Total Activities"
             value={activities.length}
@@ -547,72 +548,7 @@ const Tasks: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="mt-2 mb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full flex-1 max-w-md ">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by title, description, type, or assignee..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <div className="-mb-3 flex items-center gap-3">
-            <FilterPopover
-              title="Filter Activities"
-              buttonLabel="Filters"
-              widthClassName="w-[20rem] sm:w-[22rem]"
-              showFooter={false}
-            >
-              <div className="space-y-3">
-                <FloatingSelect
-                  label="Activity Type"
-                  name="activityType"
-                  value={selectedType}
-                  onChange={(e) => setSelectedType(e.target.value)}
-                  options={[
-                    { id: "", name: "All Types" },
-                    { id: "CALL", name: "Call" },
-                    { id: "MEETING", name: "Meeting" },
-                    { id: "EMAIL", name: "Email" },
-                    { id: "OTHER", name: "Other" },
-                  ]}
-                />
-                <FloatingSelect
-                  label="Status"
-                  name="status"
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                  options={[
-                    { id: "", name: "All Statuses" },
-                    { id: "PENDING", name: "Pending" },
-                    { id: "COMPLETED", name: "Completed" },
-                  ]}
-                />
-                <div className="flex items-center justify-between gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedType("");
-                      setSelectedStatus("");
-                    }}
-                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                  >
-                    Reset
-                  </button>
-                  <div className="rounded-lg border border-dashed border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-medium text-cyan-700">
-                    Filters apply live
-                  </div>
-                </div>
-              </div>
-            </FilterPopover>
-          </div>
-        </div>
-
+        
         {/* Table */}
         <ReusableTable
           data={filteredActivities}
@@ -636,6 +572,7 @@ const Tasks: React.FC = () => {
             </div>
           }
         />
+        </div>
 
         {/* View Activity Modal */}
         {showViewModal && selectedActivity && (

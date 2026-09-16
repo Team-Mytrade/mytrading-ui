@@ -704,14 +704,15 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       <PageBreadcrumb className="mr-4" pageTitle={config.title} />
 
       <div className="w-full max-w-none px-0 py-8">
-        <div className="flex justify-start sm:justify-end lg:-mt-[134px]">
+        <div className="flex justify-start sm:justify-end lg:-mt-[134px] mx-3">
           <div className="flex flex-wrap items-center gap-3">
             {config.renderHeaderActions?.()}
             {config.allowCreate !== false && <AddButton label={`Add ${config.title}`} onClick={openCreate} />}
           </div>
         </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+           
+        <div className="py-5 px-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-[17px]">
           <StatsCard label="Total Records" value={rows.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
           <StatsCard label="Active Records" value={activeCount || "--"} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
           <StatsCard
@@ -724,8 +725,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           />
         </div>
 
-        <div className="my-3 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-md">
+        {/* <div className="my-3 flex flex-col sm:flex-row sm:items-center sm:justify-between"> */}
+          {/* <div className="relative w-full sm:max-w-md">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
@@ -743,9 +744,9 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
                 <XMarkIcon className="h-4 w-4" />
               </button>
             )}
-          </div>
+          </div> */}
 
- <div className="flex items-center gap-2">
+ {/* <div className="flex items-center gap-2">
     {config.renderSearchExtras?.()}
 
           {supportsActiveFilter ? (
@@ -769,8 +770,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           ) : (
     <div className="md:h-5 md:w-5 md:my-1 lg:h-5 lg:w-5 lg:my-1"></div>
   )}
-        </div>
-</div>
+        </div> */}
+        {/* </div> */}
       <div className="">
         <ReusableTable<PurchaseRecord>
           data={filteredRows}
@@ -781,6 +782,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           rowDetailsTitle={`${config.title} Details`}
         />
         </div>
+      </div>
       </div>
 
       <PaginatedPopup

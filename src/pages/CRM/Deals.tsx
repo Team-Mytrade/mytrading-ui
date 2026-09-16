@@ -415,7 +415,8 @@ export default function Deals() {
       <PageBreadcrumb
         pageTitle="Deals"
         className="crm-report-breadcrumb"
-        actions={<><FilterPopover title="Filter Opportunities" buttonLabel="Deal Status" label="Filter by Status" value={activeFilter} options={[{ label: "All Opportunities", value: "ALL" }, { label: "Active", value: "ACTIVE" }, { label: "Inactive", value: "INACTIVE" }]} onChange={setActiveFilter} onReset={() => setActiveFilter("ALL")} onApply={() => undefined} /><AddButton onClick={() => { setForm({ status: "ACTIVE", stage: "PROSPECTING" }); setShowForm(true); }} label="Add Opportunity" /></>}
+        actions={<>
+        <AddButton onClick={() => { setForm({ status: "ACTIVE", stage: "PROSPECTING" }); setShowForm(true); }} label="Add Opportunity" /></>}
       />
 
       <div className="crm-report-page w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
@@ -426,23 +427,6 @@ export default function Deals() {
             <StatsCard label="Total Value" value={formatCurrency(opportunities.reduce((acc, o) => acc + (o.amount || 0), 0))} />
             <StatsCard label="Average Deal Size" value={opportunities.length ? formatCurrency(opportunities.reduce((acc, o) => acc + (o.amount || 0), 0) / opportunities.length) : formatCurrency(0)} />
           </div>
-        </div>
-
-        <div className=" mt-2 mb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search opportunities by name, stage, or status..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
         </div>
 
         <ReusableTable<Opportunity>
@@ -471,6 +455,7 @@ export default function Deals() {
             </div>
           }
         />
+
         {showForm && (
           <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl mx-auto overflow-y-auto max-h-[90vh]">

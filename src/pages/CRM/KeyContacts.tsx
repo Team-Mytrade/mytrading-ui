@@ -598,10 +598,11 @@ const KeyContacts: React.FC = () => {
       <PageBreadcrumb pageTitle="Contact Persons" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+        <div className="mb-6 mx-4 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={() => setShowAddModal(true)} label="Add Contact Person" />
         </div>
-        <div className=" grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="py-4 px-3">
+        <div className=" grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-[17px]">
           <StatsCard
             label="Total Contacts"
             value={totalContacts}
@@ -632,39 +633,6 @@ const KeyContacts: React.FC = () => {
           />
         </div>
 
-        {/* Toolbar */}
-        <div className=" flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="mb-1 w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search contacts by name, email, or phone..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <div className="-mb-1 my-2 flex w-full items-center justify-end gap-3 sm:w-auto">
-            <FilterPopover
-              title="Filter Contacts"
-              buttonLabel="Filters"
-              label="Filter by Role"
-              value={activeFilter}
-              options={[
-                { label: "All Contacts", value: "ALL" },
-                { label: "Linked to Customer", value: "WITH_CUSTOMER" },
-                { label: "Decision Makers", value: "DECISION_MAKER" },
-                { label: "Influencers", value: "INFLUENCER" },
-              ]}
-              onChange={setActiveFilter}
-              onReset={() => setActiveFilter("ALL")}
-              onApply={() => undefined}
-            />
-          </div>
-        </div>
 
         {/* Table */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-visible shadow-sm">
@@ -695,6 +663,7 @@ const KeyContacts: React.FC = () => {
                 </div>
               }
             />
+        </div>
         </div>
 
         {/* Add Contact Modal */}
