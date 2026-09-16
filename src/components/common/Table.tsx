@@ -30,6 +30,10 @@ export interface ColumnDef<T> {
   filterOptions?: { label: string; value: string }[];
   /** Derives the value used by the column filter when the cell renders nested data. */
   filterValueGetter?: (row: T) => string | number | null | undefined;
+  /** Overrides how this column's value is displayed in the read-only Row Details drawer. Falls back to the column's normal value/render when omitted. Use this instead of `render` when the table cell needs an interactive control (e.g. a status select) but the drawer just needs a plain formatted value. */
+  detailValue?: (row: T) => React.ReactNode;
+  /** Set true to omit this column entirely from the Row Details drawer — e.g. it duplicates another field already shown there. */
+  hideInDetails?: boolean;
 }
 
 export interface ReusableTableProps<T extends { id?: number | string }> {
@@ -48,6 +52,8 @@ export interface ReusableTableProps<T extends { id?: number | string }> {
   rowDetailsTitle?: string | ((row: T) => string);
   /** Optional supporting text shown beneath the drawer heading. */
   rowDetailsSubtitle?: string;
+  /** Extra raw field keys (not backed by a column) to hide from the Row Details drawer, e.g. internal ids like "id". */
+  excludeDetailKeys?: string[];
   loading?: boolean;
   emptyState?: React.ReactNode;
   className?: string;
@@ -344,7 +350,11 @@ function renderDetailValue(
   return formatPrimitiveValue(value);
 }
 
-function getDetailEntries<T>(row: T, columns: ColumnDef<T>[]) {
+function getDetailEntries<T>(
+  row: T,
+  columns: ColumnDef<T>[],
+  excludeDetailKeys: string[] = [],
+) {
   const record = row as Record<string, unknown>;
   const orderedKeys = [
     ...columns.map((column) => column.key),
@@ -356,14 +366,24 @@ function getDetailEntries<T>(row: T, columns: ColumnDef<T>[]) {
   return orderedKeys
     .filter((key, index, arr) => arr.indexOf(key) === index)
     .filter((key) => key !== "actions" && typeof record[key] !== "function")
+    .filter((key) => !excludeDetailKeys.includes(key))
+    .filter((key) => {
+      const column = columns.find((item) => item.key === key);
+      return !column?.hideInDetails;
+    })
     .map((key) => {
       const column = columns.find((item) => item.key === key);
-      let val = record[key];
-      if ((val === undefined || val === null || val === "") && column) {
-        if (column.sortValueGetter) {
-          val = column.sortValueGetter(row) as any;
-        } else if (column.render) {
-          val = column.render(row, record[column.key]) as any;
+      let val: unknown;
+      if (column?.detailValue) {
+        val = column.detailValue(row) as any;
+      } else {
+        val = record[key];
+        if ((val === undefined || val === null || val === "") && column) {
+          if (column.sortValueGetter) {
+            val = column.sortValueGetter(row) as any;
+          } else if (column.render) {
+            val = column.render(row, record[column.key]) as any;
+          }
         }
       }
       return {
@@ -473,6 +493,7 @@ export function ReusableTable<T extends { id?: number | string }>({
   enableRowDetails = true,
   rowDetailsTitle = "Row Details",
   rowDetailsSubtitle = "Read-only record details",
+  excludeDetailKeys = [],
   loading = false,
   emptyState,
   className = "",
@@ -709,7 +730,7 @@ export function ReusableTable<T extends { id?: number | string }>({
       : rowDetailsTitle
     : "Row Details";
   const selectedDetailEntries = selectedRow
-    ? getDetailEntries(selectedRow, columns)
+    ? getDetailEntries(selectedRow, columns, excludeDetailKeys)
     : [];
   const summaryEntries = selectedDetailEntries
     .filter((entry) => isDashboardHighlight(entry.value))

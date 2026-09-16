@@ -4,18 +4,14 @@ import {
   BanknotesIcon,
   CalendarDaysIcon,
   CheckCircleIcon,
-  MagnifyingGlassIcon,
   PencilSquareIcon,
   ShoppingCartIcon,
   TrashIcon,
-  UserIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import { ListingPdfExportButton } from "../../components/common/export";
 import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
@@ -360,11 +356,6 @@ function toInputDateValue(date: Date | null) {
   return `${year}-${month}-${day}`;
 }
 
-function searchableText(value: unknown) {
-  if (value === null || value === undefined) return "";
-  return String(value).toLowerCase().trim();
-}
-
 function isPositiveNumber(value: string) {
   return Number.isFinite(Number(value)) && Number(value) > 0;
 }
@@ -471,7 +462,6 @@ const SalesOrders: React.FC = () => {
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [search, setSearch] = useState("");
   const [deleteOrder, setDeleteOrder] = useState<SalesOrder | null>(null);
   const [salesPersons, setSalesPersons] = useState<SalesPersonOption[]>([]);
   const [salesChannels, setSalesChannels] = useState<SalesChannelOption[]>([]);
@@ -485,9 +475,6 @@ const SalesOrders: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-calculate order-level Sub Total, Discount, Discount %, Tax Amount and
-  // Grand Total directly from the line item's own fields, so the Totals tab
-  // always matches what buildItem() actually computes and sends in the payload.
   useEffect(() => {
     const quantity = toNumber(form.itemQuantity);
     const unitPrice = toNumber(form.itemUnitPrice);
@@ -618,7 +605,11 @@ const SalesOrders: React.FC = () => {
           next.quotationValidUntil = quotation.validUntil || quotation.quotationValidUntil || "";
 
           const quotationCustomerId = quotation.customerId ?? quotation.customer?.id;
-          if (quotationCustomerId !== undefined && String(quotationCustomerId) !== current.customerId && current.customerId) {
+          if (
+            quotationCustomerId !== undefined &&
+            String(quotationCustomerId) !== current.customerId &&
+            current.customerId
+          ) {
             ToasterService.error(
               "Customer changed",
               `This quotation belongs to a different customer (#${quotationCustomerId}). Customer has been updated to match.`
@@ -653,7 +644,6 @@ const SalesOrders: React.FC = () => {
         next.itemServiceItemId = "0";
       }
 
-
       if (name === "customerId") {
         const customer = customers.find((item) => String(item.id) === value);
         if (customer) {
@@ -674,7 +664,9 @@ const SalesOrders: React.FC = () => {
           ) {
             ToasterService.success(
               "Unit price updated",
-              `Price set to ${money(newUnitPrice)} based on ${product.productName || product.productCode || "the selected product"}'s master price. Review before submitting.`
+              `Price set to ${money(newUnitPrice)} based on ${
+                product.productName || product.productCode || "the selected product"
+              }'s master price. Review before submitting.`
             );
           }
           next.itemProductCode = product.productCode || "";
@@ -750,7 +742,9 @@ const SalesOrders: React.FC = () => {
     if (missingReferences.length > 0) {
       ToasterService.error(
         "Valid referenced IDs required",
-        `${missingReferences.join(", ")} ${missingReferences.length === 1 ? "is" : "are"} missing. Select from the dropdowns or enter a valid ID.`
+        `${missingReferences.join(", ")} ${
+          missingReferences.length === 1 ? "is" : "are"
+        } missing. Select from the dropdowns or enter a valid ID.`
       );
       return;
     }
@@ -765,7 +759,11 @@ const SalesOrders: React.FC = () => {
       );
       return;
     }
-    if (!isPercent(form.discountPercentage) || !isPercent(form.itemDiscountPercentage) || !isPercent(form.itemTaxRate)) {
+    if (
+      !isPercent(form.discountPercentage) ||
+      !isPercent(form.itemDiscountPercentage) ||
+      !isPercent(form.itemTaxRate)
+    ) {
       ToasterService.error("Invalid percentage", "Discount and tax percentages must be between 0 and 100.");
       return;
     }
@@ -889,66 +887,12 @@ const SalesOrders: React.FC = () => {
     }
   };
 
-  const filteredOrders = useMemo(() => {
-    const term = searchableText(search);
-    if (!term) return orders;
-
-    return orders.filter((order) => {
-      const customer = customers.find((item) => Number(item.id) === Number(order.customerId));
-      const salesPerson = salesPersons.find(
-        (item) => Number(getSalesPersonId(item)) === Number(order.salesPersonId)
-      );
-      const salesChannel = salesChannels.find(
-        (item) => Number(getSalesChannelId(item)) === Number(order.salesChannelId)
-      );
-
-      const haystack = [
-        order.orderNumber,
-        order.status,
-        order.quotationNumber,
-        order.subject,
-        order.email,
-        order.currencyCode,
-        order.orderDate,
-        order.quotationDate,
-        order.quotationValidUntil,
-        order.dueDate,
-        order.customerId,
-        customer?.customerName,
-        customer?.tradeName,
-        customer?.email,
-        order.salesChannelId,
-        salesChannel?.name,
-        salesChannel?.channelType,
-        order.salesPersonId,
-        salesPerson?.name,
-        salesPerson?.code,
-        order.grandTotal,
-        order.subTotal,
-        order.taxAmount,
-        order.paidAmount,
-        order.balanceAmount,
-        order.remarks,
-        order.internalNotes,
-        order.customerNotes,
-        order.termsAndConditions,
-        order.id,
-        order.paid ? "paid yes true" : "paid no false",
-      ]
-        .map(searchableText)
-        .filter(Boolean)
-        .join(" ");
-
-      return haystack.includes(term);
-    });
-  }, [customers, orders, salesChannels, salesPersons, search]);
-
   const stats = useMemo(
     () => ({
       total: orders.length,
       draft: orders.filter((order) => order.status === "DRAFT").length,
       paid: orders.filter((order) => order.paid).length,
-      grandTotal: orders.reduce((sum, order) => sum + Number(order.grandTotal || 0), 0),
+      unpaid: orders.filter((order) => !order.paid).length,
     }),
     [orders]
   );
@@ -960,7 +904,9 @@ const SalesOrders: React.FC = () => {
       sortable: true,
       render: (order) => (
         <div>
-          <div className="text-sm font-semibold text-slate-900">{order.orderNumber || `Order #${order.id}`}</div>
+          <div className="text-sm font-semibold text-slate-900">
+            {order.orderNumber || `Order #${order.id}`}
+          </div>
           <div className="text-xs text-slate-500">{order.subject || order.quotationNumber || "No subject"}</div>
         </div>
       ),
@@ -973,7 +919,11 @@ const SalesOrders: React.FC = () => {
         const customer = customers.find((item) => Number(item.id) === Number(order.customerId));
         return (
           <span className="text-sm text-slate-700">
-            {customer ? customerOptionLabel(customer) : order.customerId ? `Customer #${order.customerId}` : "--"}
+            {customer
+              ? customerOptionLabel(customer)
+              : order.customerId
+              ? `Customer #${order.customerId}`
+              : "--"}
           </span>
         );
       },
@@ -1053,13 +1003,12 @@ const SalesOrders: React.FC = () => {
   return (
     <>
       <PageMeta title="Sales Orders" description="Manage sales orders" />
-      <PageBreadcrumb pageTitle="Sales Orders" />
+      <PageBreadcrumb
+        pageTitle="Sales Orders"
+        actions={<AddButton onClick={openCreate} label="Add Sales Order" />}
+      />
 
       <div className="w-full max-w-none px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Sales Order" />
-        </div>
-
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Orders" value={stats.total} icon={<ShoppingCartIcon />} />
           <StatsCard
@@ -1079,8 +1028,8 @@ const SalesOrders: React.FC = () => {
             icon={<CheckCircleIcon />}
           />
           <StatsCard
-            label="Grand Total"
-            value={money(stats.grandTotal)}
+            label="Unpaid"
+            value={stats.unpaid}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
             labelColor="text-purple-600"
@@ -1088,73 +1037,8 @@ const SalesOrders: React.FC = () => {
           />
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between md:pb-0.5">
-          <div className="relative w-full sm:max-w-md md:-mt-4">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search sales orders..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-         <ListingPdfExportButton
-  title="Sales Orders"
-  subtitle="Filtered sales order listing"
-  reportLabel="Sales Report"
-  data={filteredOrders}
-  columns={[
-    { key: "orderNumber", header: "Order Number" },
-    { key: "quotationType", header: "Type" },
-    { key: "orderDate", header: "Order Date" },
-    { key: "status", header: "Status" },
-    { key: "quotationNumber", header: "Quotation No" },
-    { key: "customerId", header: "Customer" },
-    {
-      key: "billingAddress",
-      header: "Billing Address",
-      accessor: (order) =>
-        [order.billingAddress?.addressLine1, order.billingAddress?.city, order.billingAddress?.state]
-          .filter(Boolean)
-          .join(", "),
-    },
-    {
-      key: "shippingAddress",
-      header: "Shipping Address",
-      accessor: (order) =>
-        [order.shippingAddress?.addressLine1, order.shippingAddress?.city, order.shippingAddress?.state]
-          .filter(Boolean)
-          .join(", "),
-    },
-    { key: "subTotal", header: "Sub Total", align: "right" },
-    { key: "taxAmount", header: "Tax", align: "right" },
-    { key: "grandTotal", header: "Grand Total", align: "right" },
-    { key: "paid", header: "Paid" },
-    { key: "dueDate", header: "Due Date" },
-  ]}
-  fileName="Sales_Orders"
-  disabled={loading}
-  metadata={(rows, rangeLabel) => [
-    { label: "Total", value: rows.length },
-    { label: "Range", value: rangeLabel },
-    { label: "Search", value: search || "None" },
-  ]}
-/>
-        </div>
-
         <ReusableTable
-          data={filteredOrders}
+          data={orders}
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}
@@ -1164,7 +1048,11 @@ const SalesOrders: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               <ShoppingCartIcon className="mb-3 h-12 w-12 text-gray-400" />
               <p className="mb-2 text-sm text-gray-500">No sales orders found</p>
-              <button type="button" onClick={openCreate} className="text-xs font-medium text-cyan-600 hover:text-cyan-700">
+              <button
+                type="button"
+                onClick={openCreate}
+                className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
+              >
                 Create your first sales order
               </button>
             </div>
@@ -1188,6 +1076,7 @@ const SalesOrders: React.FC = () => {
               ...(editingId
                 ? [
                     <FloatingInput
+                      key="orderNumber"
                       label="Order Number"
                       name="orderNumber"
                       value={form.orderNumber}
@@ -1197,6 +1086,7 @@ const SalesOrders: React.FC = () => {
                   ]
                 : []),
               <FloatingSelect
+                key="quotationType"
                 label="Quotation Type"
                 name="quotationType"
                 value={form.quotationType}
@@ -1205,6 +1095,7 @@ const SalesOrders: React.FC = () => {
                 options={quotationTypeOptions.map((item) => ({ id: item, name: item }))}
               />,
               <FloatingDateRangePicker
+                key="orderDate"
                 label="Order Date"
                 startDate={toDateValue(form.orderDate)}
                 endDate={toDateValue(form.orderDate)}
@@ -1219,6 +1110,7 @@ const SalesOrders: React.FC = () => {
                 singleSelection
               />,
               <FloatingSelect
+                key="status"
                 label="Status"
                 name="status"
                 value={form.status}
@@ -1227,6 +1119,7 @@ const SalesOrders: React.FC = () => {
                 options={statusOptions.map((item) => ({ id: item, name: item }))}
               />,
               <FloatingSelect
+                key="customerId"
                 label="Customer"
                 name="customerId"
                 value={form.customerId}
@@ -1239,6 +1132,7 @@ const SalesOrders: React.FC = () => {
                 required
               />,
               <FloatingSelect
+                key="salesChannelId"
                 label="Sales Channel"
                 name="salesChannelId"
                 value={form.salesChannelId}
@@ -1249,7 +1143,9 @@ const SalesOrders: React.FC = () => {
                     const id = getSalesChannelId(channel);
                     return {
                       id: String(id),
-                      name: `${channel.name || `Channel #${id}`}${channel.channelType ? ` (${channel.channelType})` : ""}`,
+                      name: `${channel.name || `Channel #${id}`}${
+                        channel.channelType ? ` (${channel.channelType})` : ""
+                      }`,
                     };
                   })
                   .filter((channel) => Number(channel.id) > 0)}
@@ -1260,6 +1156,7 @@ const SalesOrders: React.FC = () => {
             label: "Order Details",
             fields: [
               <FloatingSelect
+                key="salesPersonId"
                 label="Sales Person"
                 name="salesPersonId"
                 value={form.salesPersonId}
@@ -1275,15 +1172,35 @@ const SalesOrders: React.FC = () => {
                   })
                   .filter((person) => Number(person.id) > 0)}
               />,
-              <FloatingInput label="Subject" name="subject" value={form.subject} onChange={handleChange} />,
-              <FloatingInput label="Email" name="email" type="email" value={form.email} onChange={handleChange} />,
-              <FloatingInput label="Currency Code" name="currencyCode" value={form.currencyCode} onChange={handleChange} />,
+              <FloatingInput
+                key="subject"
+                label="Subject"
+                name="subject"
+                value={form.subject}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="email"
+                label="Email"
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="currencyCode"
+                label="Currency Code"
+                name="currencyCode"
+                value={form.currencyCode}
+                onChange={handleChange}
+              />,
             ],
           },
           {
             label: "Quotation",
             fields: [
               <FloatingSelect
+                key="quotationId"
                 label="Quotation"
                 name="quotationId"
                 value={form.quotationId}
@@ -1299,8 +1216,16 @@ const SalesOrders: React.FC = () => {
                   })
                   .filter((quotation) => Number(quotation.id) > 0)}
               />,
-              <FloatingInput label="Quotation Version" name="quotationVersionNo" type="number" value={form.quotationVersionNo} onChange={handleChange} />,
+              <FloatingInput
+                key="quotationVersionNo"
+                label="Quotation Version"
+                name="quotationVersionNo"
+                type="number"
+                value={form.quotationVersionNo}
+                onChange={handleChange}
+              />,
               <FloatingDateRangePicker
+                key="quotationDates"
                 label="Quotation Date Range"
                 startDate={toDateValue(form.quotationDate)}
                 endDate={toDateValue(form.quotationValidUntil)}
@@ -1314,6 +1239,7 @@ const SalesOrders: React.FC = () => {
                 placeholder=""
               />,
               <FloatingDateRangePicker
+                key="dueDate"
                 label="Due Date"
                 startDate={toDateValue(form.dueDate)}
                 endDate={toDateValue(form.dueDate)}
@@ -1331,8 +1257,16 @@ const SalesOrders: React.FC = () => {
           {
             label: "Order Item",
             fields: [
-              <FloatingInput label="Order Item Number" name="itemQuotationItemId" type="number" value={form.itemQuotationItemId} onChange={handleChange} />,
+              <FloatingInput
+                key="itemQuotationItemId"
+                label="Order Item Number"
+                name="itemQuotationItemId"
+                type="number"
+                value={form.itemQuotationItemId}
+                onChange={handleChange}
+              />,
               <FloatingSelect
+                key="itemType"
                 label="Item Type"
                 name="itemType"
                 value={form.itemType}
@@ -1344,6 +1278,7 @@ const SalesOrders: React.FC = () => {
                 ]}
               />,
               <FloatingInput
+                key="itemServiceItemId"
                 label="Service Number"
                 name="itemServiceItemId"
                 type="number"
@@ -1352,6 +1287,7 @@ const SalesOrders: React.FC = () => {
                 disabled={form.itemType !== "SERVICE"}
               />,
               <FloatingSelect
+                key="itemProductId"
                 label="Product Name"
                 name="itemProductId"
                 value={form.itemProductId}
@@ -1370,27 +1306,96 @@ const SalesOrders: React.FC = () => {
           {
             label: "Item Details",
             fields: [
-              <FloatingInput label="Description" name="itemDescription" value={form.itemDescription} onChange={handleChange} />,
-              <FloatingInput label="UOM" name="itemUom" value={form.itemUom} onChange={handleChange} />,
-              <FloatingInput label="Quantity" name="itemQuantity" type="number" value={form.itemQuantity} onChange={handleChange} required />,
-              <FloatingInput label="Unit Price" name="itemUnitPrice" type="number" value={form.itemUnitPrice} onChange={handleChange} required />,
-              <FloatingInput label="Item Discount %" name="itemDiscountPercentage" type="number" value={form.itemDiscountPercentage} onChange={handleChange} />,
-              <FloatingInput label="Item Discount Amount" name="itemDiscountAmount" type="number" value={form.itemDiscountAmount} onChange={handleChange} />,
+              <FloatingInput
+                key="itemDescription"
+                label="Description"
+                name="itemDescription"
+                value={form.itemDescription}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="itemUom"
+                label="UOM"
+                name="itemUom"
+                value={form.itemUom}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="itemQuantity"
+                label="Quantity"
+                name="itemQuantity"
+                type="number"
+                value={form.itemQuantity}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingInput
+                key="itemUnitPrice"
+                label="Unit Price"
+                name="itemUnitPrice"
+                type="number"
+                value={form.itemUnitPrice}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingInput
+                key="itemDiscountPercentage"
+                label="Item Discount %"
+                name="itemDiscountPercentage"
+                type="number"
+                value={form.itemDiscountPercentage}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="itemDiscountAmount"
+                label="Item Discount Amount"
+                name="itemDiscountAmount"
+                type="number"
+                value={form.itemDiscountAmount}
+                onChange={handleChange}
+              />,
             ],
           },
           {
             label: "Item Pricing",
             fields: [
-              <FloatingInput label="Item Additional Discount" name="itemAdditionalDiscount" type="number" value={form.itemAdditionalDiscount} onChange={handleChange} />,
-              <FloatingInput label="Tax Rate" name="itemTaxRate" type="number" value={form.itemTaxRate} onChange={handleChange} />,
-              <FloatingInput label="Tax Code" name="itemTaxCode" value={form.itemTaxCode} onChange={handleChange} />,
-              <FloatingInput label="Item Remarks" name="itemRemarks" value={form.itemRemarks} onChange={handleChange} />,
+              <FloatingInput
+                key="itemAdditionalDiscount"
+                label="Item Additional Discount"
+                name="itemAdditionalDiscount"
+                type="number"
+                value={form.itemAdditionalDiscount}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="itemTaxRate"
+                label="Tax Rate"
+                name="itemTaxRate"
+                type="number"
+                value={form.itemTaxRate}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="itemTaxCode"
+                label="Tax Code"
+                name="itemTaxCode"
+                value={form.itemTaxCode}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="itemRemarks"
+                label="Item Remarks"
+                name="itemRemarks"
+                value={form.itemRemarks}
+                onChange={handleChange}
+              />,
             ],
           },
           {
             label: "Totals",
             fields: [
               <FloatingInput
+                key="subTotal"
                 label="Sub Total"
                 name="subTotal"
                 type="number"
@@ -1399,6 +1404,7 @@ const SalesOrders: React.FC = () => {
                 disabled
               />,
               <FloatingInput
+                key="discountAmount"
                 label="Discount Amount"
                 name="discountAmount"
                 type="number"
@@ -1407,6 +1413,7 @@ const SalesOrders: React.FC = () => {
                 disabled
               />,
               <FloatingInput
+                key="additionalDiscount"
                 label="Additional Discount"
                 name="additionalDiscount"
                 type="number"
@@ -1415,6 +1422,7 @@ const SalesOrders: React.FC = () => {
                 disabled
               />,
               <FloatingInput
+                key="discountPercentage"
                 label="Discount %"
                 name="discountPercentage"
                 type="number"
@@ -1423,6 +1431,7 @@ const SalesOrders: React.FC = () => {
                 disabled
               />,
               <FloatingInput
+                key="taxAmount"
                 label="Tax Amount"
                 name="taxAmount"
                 type="number"
@@ -1431,6 +1440,7 @@ const SalesOrders: React.FC = () => {
                 disabled
               />,
               <FloatingInput
+                key="grandTotal"
                 label="Grand Total"
                 name="grandTotal"
                 type="number"
@@ -1443,9 +1453,23 @@ const SalesOrders: React.FC = () => {
           {
             label: "Payment",
             fields: [
-              <FloatingInput label="Payment Terms" name="paymentTerms" value={form.paymentTerms} onChange={handleChange} />,
-              <FloatingInput label="Credit Days" name="creditDays" type="number" value={form.creditDays} onChange={handleChange} />,
+              <FloatingInput
+                key="paymentTerms"
+                label="Payment Terms"
+                name="paymentTerms"
+                value={form.paymentTerms}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="creditDays"
+                label="Credit Days"
+                name="creditDays"
+                type="number"
+                value={form.creditDays}
+                onChange={handleChange}
+              />,
               <FloatingSelect
+                key="paid"
                 label="Paid"
                 name="paid"
                 value={form.paid}
@@ -1461,37 +1485,139 @@ const SalesOrders: React.FC = () => {
           {
             label: "Settlement",
             fields: [
-              <FloatingInput label="Paid Amount" name="paidAmount" type="number" value={form.paidAmount} onChange={handleChange} />,
-              <FloatingInput label="Balance Amount" name="balanceAmount" type="number" value={form.balanceAmount} onChange={handleChange} />,
+              <FloatingInput
+                key="paidAmount"
+                label="Paid Amount"
+                name="paidAmount"
+                type="number"
+                value={form.paidAmount}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="balanceAmount"
+                label="Balance Amount"
+                name="balanceAmount"
+                type="number"
+                value={form.balanceAmount}
+                onChange={handleChange}
+              />,
             ],
           },
           {
             label: "Addresses",
             fields: [
-              <FloatingInput label="Billing Address" name="billingAddressLine1" value={form.billingAddressLine1} onChange={handleChange} />,
-              <FloatingInput label="Shipping Address" name="shippingAddressLine1" value={form.shippingAddressLine1} onChange={handleChange} />,
-              <FloatingInput label="Billing City" name="billingCity" value={form.billingCity} onChange={handleChange} />,
-              <FloatingInput label="Shipping City" name="shippingCity" value={form.shippingCity} onChange={handleChange} />,
-              <FloatingInput label="Billing State" name="billingState" value={form.billingState} onChange={handleChange} />,
-              <FloatingInput label="Shipping State" name="shippingState" value={form.shippingState} onChange={handleChange} />,
+              <FloatingInput
+                key="billingAddressLine1"
+                label="Billing Address"
+                name="billingAddressLine1"
+                value={form.billingAddressLine1}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="shippingAddressLine1"
+                label="Shipping Address"
+                name="shippingAddressLine1"
+                value={form.shippingAddressLine1}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="billingCity"
+                label="Billing City"
+                name="billingCity"
+                value={form.billingCity}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="shippingCity"
+                label="Shipping City"
+                name="shippingCity"
+                value={form.shippingCity}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="billingState"
+                label="Billing State"
+                name="billingState"
+                value={form.billingState}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="shippingState"
+                label="Shipping State"
+                name="shippingState"
+                value={form.shippingState}
+                onChange={handleChange}
+              />,
             ],
           },
           {
             label: "Address More",
             fields: [
-              <FloatingInput label="Billing Country" name="billingCountry" value={form.billingCountry} onChange={handleChange} />,
-              <FloatingInput label="Shipping Country" name="shippingCountry" value={form.shippingCountry} onChange={handleChange} />,
-              <FloatingInput label="Billing Postal Code" name="billingPostalCode" value={form.billingPostalCode} onChange={handleChange} />,
-              <FloatingInput label="Shipping Postal Code" name="shippingPostalCode" value={form.shippingPostalCode} onChange={handleChange} />,
+              <FloatingInput
+                key="billingCountry"
+                label="Billing Country"
+                name="billingCountry"
+                value={form.billingCountry}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="shippingCountry"
+                label="Shipping Country"
+                name="shippingCountry"
+                value={form.shippingCountry}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="billingPostalCode"
+                label="Billing Postal Code"
+                name="billingPostalCode"
+                value={form.billingPostalCode}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="shippingPostalCode"
+                label="Shipping Postal Code"
+                name="shippingPostalCode"
+                value={form.shippingPostalCode}
+                onChange={handleChange}
+              />,
             ],
           },
           {
             label: "Notes",
             fields: [
-              <FloatingTextarea label="Remarks" name="remarks" value={form.remarks} onChange={handleChange} rows={3} />,
-              <FloatingTextarea label="Terms and Conditions" name="termsAndConditions" value={form.termsAndConditions} onChange={handleChange} rows={3} />,
-              <FloatingTextarea label="Internal Notes" name="internalNotes" value={form.internalNotes} onChange={handleChange} rows={3} />,
-              <FloatingTextarea label="Customer Notes" name="customerNotes" value={form.customerNotes} onChange={handleChange} rows={3} />,
+              <FloatingTextarea
+                key="remarks"
+                label="Remarks"
+                name="remarks"
+                value={form.remarks}
+                onChange={handleChange}
+                rows={3}
+              />,
+              <FloatingTextarea
+                key="termsAndConditions"
+                label="Terms and Conditions"
+                name="termsAndConditions"
+                value={form.termsAndConditions}
+                onChange={handleChange}
+                rows={3}
+              />,
+              <FloatingTextarea
+                key="internalNotes"
+                label="Internal Notes"
+                name="internalNotes"
+                value={form.internalNotes}
+                onChange={handleChange}
+                rows={3}
+              />,
+              <FloatingTextarea
+                key="customerNotes"
+                label="Customer Notes"
+                name="customerNotes"
+                value={form.customerNotes}
+                onChange={handleChange}
+                rows={3}
+              />,
             ],
           },
         ]}
