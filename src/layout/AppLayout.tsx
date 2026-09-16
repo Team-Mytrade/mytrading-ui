@@ -1,5 +1,5 @@
 import { SidebarProvider, useSidebar } from "../context/SidebarContext";
-import { Outlet, useLocation } from "react-router";
+import { Outlet } from "react-router";
 import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
@@ -12,9 +12,7 @@ import { useState, useEffect } from "react";
 
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, sidebarWidth, isResizing } = useSidebar();
-  const location = useLocation();
   const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
-  const isScrollablePage = location.pathname === "/";
 
   useEffect(() => {
     const handleResize = () => {
@@ -26,7 +24,7 @@ const LayoutContent: React.FC = () => {
 
   return (
 
-    <div className="h-screen overflow-hidden bg-[#e7e9ee] dark:bg-[#1f1f1f] lg:flex">
+    <div className="min-h-screen lg:flex">
       <div>
         <AppSidebar />
         <Backdrop />
@@ -40,12 +38,10 @@ const LayoutContent: React.FC = () => {
             ? `calc(100% - ${(isExpanded || isHovered ? `${sidebarWidth}px` : "60px")})`
             : "100%",
         }}
-        className={`flex h-screen min-w-0 flex-col overflow-hidden ${isResizing ? "transition-none" : "transition-all duration-300 ease-in-out"}`}
+        className={`min-w-0 ${isResizing ? "transition-none" : "transition-all duration-300 ease-in-out"}`}
       >
-        <div className="shrink-0">
-          <AppHeader />
-        </div>
-        <div className={`app-content-tight min-h-0 flex-1 w-full px-2 py-[3px] md:px-3 md:py-[3px] ${isScrollablePage ? "overflow-x-hidden overflow-y-auto overscroll-contain" : "overflow-hidden"}`}>
+        <AppHeader />
+        <div className="app-content-tight w-full px-2 py-[3px] md:px-3 md:py-[3px]">
           <Outlet />
         </div>
       </div>

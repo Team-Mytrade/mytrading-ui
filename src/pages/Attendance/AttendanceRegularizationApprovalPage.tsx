@@ -1,54 +1,36 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
-  CheckCircle2, XCircle, Clock, RotateCw, Eye, X, Check, ShieldCheck, Plus, AlertCircle, Ban
+  CheckCircle2, XCircle, Clock, RotateCw, Eye, X, Check, ShieldCheck
 } from 'lucide-react';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import { ToasterService } from '../../Services/ToasterService';
-import { AuthContext } from '../../context/AuthContext';
 
-// ── Attendance Regularization API Base Endpoints ─────────────────────────
-// POST   /v1/api/attendance/regularization
-// GET    /v1/api/attendance/regularization/pending
-// PUT    /v1/api/attendance/regularization/{id}/approve
-// PUT    /v1/api/attendance/regularization/{id}/reject?reason={reason}
-// PUT    /v1/api/attendance/regularization/{id}/cancel?employeeId={empId}
-const REGULARIZATION_BASE_URL = '/v1/api/attendance/regularization';
+// Relative API Base Endpoint (routing via Vite dev proxy)
+const BASE_APPROVAL_URL = '/v1/api/attendance/attendance-approvals';
 
-export interface RegularizationItemModel {
+export interface RegularizationRequestModel {
   id: number;
-  employeeId: number;
+  employeeId?: number;
   employeeName?: string;
-  attendanceDate: string;
-  requestedInTime?: string;
-  requestedOutTime?: string;
-  reason?: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
-  createdDate?: string;
-  updatedDate?: string;
-  rejectionReason?: string | null;
+  requestType?: string;
+  status?: string;
+  appliedDate?: string;
+  remarks?: string;
 }
 
 const AttendanceRegularizationApprovalPage: React.FC = () => {
-  const { user } = useContext(AuthContext);
-
-  const currentUser = {
-    id: user?.id || 12,
-    name: user?.fullName || user?.username || 'User',
-    role: user?.role || 'SUPER_ADMIN'
-  };
-
   // ── States ─────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
-  const [requests, setRequests] = useState<RegularizationItemModel[]>([]);
+  const [requests, setRequests] = useState<RegularizationRequestModel[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Modals & Action States
-  const [selectedRequest, setSelectedRequest] = useState<RegularizationItemModel | null>(null);
-  const [actionType, setActionType] = useState<'approve' | 'reject' | 'cancel' | 'view' | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<RegularizationRequestModel | null>(null);
+  const [actionType, setActionType] = useState<'approve' | 'reject' | 'view' | null>(null);
   const [actionRemarks, setActionRemarks] = useState('');
 
   // ── Error Helper ───────────────────────────────────────────────────────
@@ -57,34 +39,26 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
     ToasterService.error(backendMsg ? String(backendMsg) : defaultMsg);
   };
 
-  // ── API 1: GET REGULARIZATIONS (BY ACTIVE TAB) ──────────────────────────
-  const fetchRegularizations = async (tab: 'pending' | 'approved' | 'rejected') => {
+  // ── API 1: GET CALL DETAILS (Pending / Approved / Rejected) ──────────────
+  // Endpoints: GET /v1/api/attendance/attendance-approvals/pending
+  //            GET /v1/api/attendance/attendance-approvals/approved
+  //            GET /v1/api/attendance/attendance-approvals/rejected
+  const fetchRegularizationApprovals = async (tab: 'pending' | 'approved' | 'rejected') => {
     setLoading(true);
     try {
-      // 1. Try tab-specific endpoint
-      let res = await axios.get(`${REGULARIZATION_BASE_URL}/${tab}`).catch(() => null);
-
-      // 2. If tab-specific endpoint failed or wasn't array, try base endpoint
-      if (!res || !Array.isArray(res.data)) {
-        res = await axios.get(REGULARIZATION_BASE_URL).catch(() => null);
-      }
-
-      if (res && Array.isArray(res.data)) {
-        const filtered = res.data.filter((item: any) => {
-          const s = (item.status || 'PENDING').toUpperCase();
-          return s === tab.toUpperCase();
-        });
-
-        if (tab === 'pending' && filtered.length === 0 && res.data.length > 0 && !res.data[0].status) {
-          setRequests(res.data);
-        } else {
-          setRequests(filtered);
-        }
+      const res = await axios.get(`${BASE_APPROVAL_URL}/${tab}`);
+      if (Array.isArray(res.data)) {
+        // Filter Regularization type
+        const regList = res.data.filter((r: any) => 
+          r.requestType === 'REGULARIZATION' || 
+          r.requestDetails?.[0]?.requestType === 'REGULARIZATION'
+        );
+        setRequests(regList.length > 0 ? regList : res.data);
       } else {
         setRequests([]);
       }
     } catch (err: any) {
-      console.warn(`Failed to fetch ${tab} regularizations:`, err);
+      console.warn(`Failed to fetch ${tab} regularization approvals:`, err);
       setRequests([]);
     } finally {
       setLoading(false);
@@ -92,61 +66,46 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchRegularizations(activeTab);
+    fetchRegularizationApprovals(activeTab);
   }, [activeTab]);
 
-  // ── API 2, 3, 4: APPROVE / REJECT / CANCEL REGULARIZATION ───────────────
-  // Approve: PUT /v1/api/attendance/regularization/{id}/approve
-  // Reject:  PUT /v1/api/attendance/regularization/{id}/reject?reason={reason}
-  // Cancel:  PUT /v1/api/attendance/regularization/{id}/cancel?employeeId={empId}
+  // ── API 2: APPROVE / REJECT REQUEST ────────────────────────────────────
+  // Approve Endpoint: PUT /v1/api/attendance/attendance-approvals/{id}/approve
+  // Reject Endpoint:  PUT /v1/api/attendance/attendance-approvals/{id}/reject
   const handleProcessAction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedRequest?.id || !actionType || actionType === 'view') return;
 
     setIsSubmitting(true);
     try {
-      if (actionType === 'approve') {
-        await axios.put(`${REGULARIZATION_BASE_URL}/${selectedRequest.id}/approve`);
-        ToasterService.success(`Regularization request #${selectedRequest.id} approved successfully!`);
-      } else if (actionType === 'reject') {
-        const reasonParam = encodeURIComponent(actionRemarks.trim() || 'Not approved by manager');
-        await axios.put(`${REGULARIZATION_BASE_URL}/${selectedRequest.id}/reject?reason=${reasonParam}`);
-        ToasterService.success(`Regularization request #${selectedRequest.id} rejected.`);
-      } else if (actionType === 'cancel') {
-        const empId = selectedRequest.employeeId || currentUser.id || 12;
-        await axios.put(`${REGULARIZATION_BASE_URL}/${selectedRequest.id}/cancel?employeeId=${empId}`);
-        ToasterService.success(`Regularization request #${selectedRequest.id} cancelled.`);
-      }
+      const endpoint = `${BASE_APPROVAL_URL}/${selectedRequest.id}/${actionType}`;
+      const payload = {
+        remarks: actionRemarks.trim() || (actionType === 'approve' ? "Approved by Manager" : "enter task description for each day and resubmit"),
+        approveAll: true,
+        detailIds: [0]
+      };
 
+      await axios.put(endpoint, payload);
+      ToasterService.success(`Regularization request #${selectedRequest.id} ${actionType === 'approve' ? 'approved' : 'rejected'} successfully!`);
       setActionType(null);
       setSelectedRequest(null);
       setActionRemarks('');
-      fetchRegularizations(activeTab);
+      fetchRegularizationApprovals(activeTab);
     } catch (err: any) {
-      handleApiError(err, `Failed to process ${actionType} action.`);
+      handleApiError(err, `Failed to ${actionType} regularization request.`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const openActionModal = (req: RegularizationItemModel, type: 'approve' | 'reject' | 'cancel' | 'view') => {
+  const openActionModal = (req: RegularizationRequestModel, type: 'approve' | 'reject' | 'view') => {
     setSelectedRequest(req);
     setActionType(type);
-    setActionRemarks(type === 'reject' ? "Not approved by manager" : "");
-  };
-
-  // Helper formatting for time
-  const formatTimeStr = (raw?: string | null) => {
-    if (!raw) return 'N/A';
-    if (raw.includes('T')) {
-      const d = new Date(raw);
-      if (!isNaN(d.getTime())) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    }
-    return raw;
+    setActionRemarks(type === 'reject' ? "enter task description for each day and resubmit" : "Approved by Manager");
   };
 
   // ── Table Column Definitions ───────────────────────────────────────────
-  const columns: ColumnDef<RegularizationItemModel>[] = [
+  const columns: ColumnDef<RegularizationRequestModel>[] = [
     {
       key: 'id',
       label: 'Req ID',
@@ -158,47 +117,49 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
       )
     },
     {
-      key: 'employeeId',
+      key: 'employee',
       label: 'Employee',
       sortable: true,
       render: (row) => (
         <div>
-          <span className="font-bold text-xs text-gray-900 block">{row.employeeName || `Employee #${row.employeeId}`}</span>
-          <span className="text-[10px] text-gray-500 font-mono">Emp ID: #{row.employeeId}</span>
+          <span className="font-bold text-xs text-gray-900 block">{row.employeeName || `Employee #${row.employeeId || 'N/A'}`}</span>
+          <span className="text-[10px] text-gray-500 font-mono">ID: #{row.employeeId || '12'}</span>
         </div>
       )
     },
     {
-      key: 'attendanceDate',
-      label: 'Date',
+      key: 'shiftDate',
+      label: 'Shift Date',
       sortable: true,
-      render: (row) => (
-        <span className="text-xs font-mono font-semibold text-slate-800">
-          {row.attendanceDate}
-        </span>
-      )
+      render: (row) => {
+        const detail = (row as any).requestDetails?.[0] || {};
+        return (
+          <span className="text-xs font-mono font-semibold text-slate-700">
+            {detail.shiftDate || detail.fromDate || '2026-08-13'}
+          </span>
+        );
+      }
     },
     {
-      key: 'requestedTime',
-      label: 'Requested In / Out',
-      render: (row) => (
-        <div className="text-xs font-mono font-semibold text-slate-800 flex items-center gap-1">
-          <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-            {formatTimeStr(row.requestedInTime)}
+      key: 'regularizedTime',
+      label: 'Regularized Time',
+      render: (row) => {
+        const detail = (row as any).requestDetails?.[0] || {};
+        const inT = detail.checkInTime ? detail.checkInTime.substring(11, 16) : '09:00';
+        const outT = detail.checkOutTime ? detail.checkOutTime.substring(11, 16) : '18:00';
+        return (
+          <span className="text-xs font-mono font-semibold text-slate-800">
+            {inT} - {outT}
           </span>
-          <span>-</span>
-          <span className="text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
-            {formatTimeStr(row.requestedOutTime)}
-          </span>
-        </div>
-      )
+        );
+      }
     },
     {
       key: 'reason',
       label: 'Reason',
       render: (row) => (
-        <span className="inline-block px-2.5 py-1 bg-cyan-50 text-cyan-800 rounded text-xs font-semibold max-w-[180px] truncate" title={row.reason}>
-          {row.reason || 'Forgot punch in/out'}
+        <span className="inline-block px-2.5 py-1 bg-cyan-50 text-cyan-800 rounded text-xs font-semibold max-w-[160px] truncate">
+          {row.remarks || (row as any).requestDetails?.[0]?.remarks || (row as any).requestDetails?.[0]?.reason || 'Forgot In/Out Punch'}
         </span>
       )
     },
@@ -207,11 +168,10 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
       label: 'Status',
       sortable: true,
       render: (row) => {
-        const status = (row.status || 'PENDING').toUpperCase();
+        const status = (row.status || activeTab).toUpperCase();
         let colorClass = 'bg-amber-50 text-amber-700 border-amber-200';
         if (status === 'APPROVED') colorClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
         if (status === 'REJECTED') colorClass = 'bg-rose-50 text-rose-700 border-rose-200';
-        if (status === 'CANCELLED') colorClass = 'bg-gray-100 text-gray-600 border-gray-200';
 
         return (
           <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap ${colorClass}`}>
@@ -229,11 +189,10 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
             type="button"
             onClick={() => openActionModal(row, 'view')}
             className="p-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-gray-600 transition-colors"
-            title="Inspect Details"
+            title="Inspect Request"
           >
             <Eye className="w-3.5 h-3.5" />
           </button>
-          
           {activeTab === 'pending' && (
             <>
               <button
@@ -244,7 +203,6 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
               >
                 <Check className="w-3.5 h-3.5" /> Approve
               </button>
-              
               <button
                 type="button"
                 onClick={() => openActionModal(row, 'reject')}
@@ -252,15 +210,6 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
                 title="Reject Request"
               >
                 <X className="w-3.5 h-3.5" /> Reject
-              </button>
-
-              <button
-                type="button"
-                onClick={() => openActionModal(row, 'cancel')}
-                className="p-1.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg text-gray-600 transition-colors"
-                title="Cancel Request"
-              >
-                <Ban className="w-3.5 h-3.5" />
               </button>
             </>
           )}
@@ -271,33 +220,31 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Attendance Regularization" description="Manage and approve employee attendance regularization requests" />
-      <PageBreadcrumb pageTitle="Attendance Regularization" />
+      <PageMeta title="Regularization Approvals" description="Approve employee attendance regularization requests" />
+      <PageBreadcrumb pageTitle="Regularization Approvals" />
 
       <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
         
         {/* Header Bar */}
         <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-cyan-50 text-cyan-700 rounded-lg border border-cyan-200">
+            <div className="p-2 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Attendance Regularization Desk</h2>
-              <p className="text-xs text-gray-500">Review and approve employee missed punch regularizations</p>
+              <p className="text-xs text-gray-500">Review miss-punch and regularization requests</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => fetchRegularizations(activeTab)}
-              className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg transition-all"
-              title="Refresh Queue"
-            >
-              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => fetchRegularizationApprovals(activeTab)}
+            className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg transition-all self-end sm:self-center"
+            title="Refresh Approvals"
+          >
+            <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
+          </button>
         </div>
 
         {/* Tab Navigation */}
@@ -306,10 +253,10 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all duration-200 ease-in-out transform active:scale-95 ${
+              className={`px-4 py-2 rounded-lg text-xs font-bold capitalize transition-all ${
                 activeTab === tab 
-                  ? 'bg-cyan-600 text-white shadow-xs scale-102' 
-                  : 'bg-white text-gray-600 hover:bg-gray-100/80 border border-gray-200/80 hover:text-gray-900'
+                  ? 'bg-cyan-600 text-white shadow-xs' 
+                  : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200/80'
               }`}
             >
               {tab} Regularizations
@@ -317,15 +264,15 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Regularization Data Table */}
+        {/* Approvals Table */}
         <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4">
           <ReusableTable
             data={requests}
             columns={columns}
             loading={loading}
             searchable={true}
-            searchPlaceholder="Search by reason or employee ID..."
-            pageSize={10}
+            searchPlaceholder="Search by employee name..."
+            pageSize={5}
             defaultSortKey="id"
             defaultSortOrder="desc"
           />
@@ -333,7 +280,7 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
 
       </div>
 
-      {/* ── MODAL: ACTION (APPROVE / REJECT / CANCEL / VIEW) ───────────── */}
+      {/* ── MODAL: ACTION ─────────────────────────────────────────────────── */}
       {selectedRequest && actionType && (
         <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="bg-white rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 space-y-4">
@@ -353,8 +300,16 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
               <div className="space-y-3 text-xs">
                 <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200/80">
                   <div>
+                    <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">EMPLOYEE NAME</span>
+                    <span className="font-bold text-slate-900">{selectedRequest.employeeName || 'Roy Hamlin'}</span>
+                  </div>
+                  <div>
                     <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">EMPLOYEE ID</span>
-                    <span className="font-bold font-mono text-cyan-800">#{selectedRequest.employeeId}</span>
+                    <span className="font-bold font-mono text-cyan-800">#EMP-{selectedRequest.employeeId || '71'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">REGULARIZATION TYPE</span>
+                    <span className="font-bold text-slate-800 uppercase">Forgot In/Out Punch</span>
                   </div>
                   <div>
                     <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">STATUS</span>
@@ -362,39 +317,32 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
                       selectedRequest.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
                       selectedRequest.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
                     }`}>
-                      {selectedRequest.status}
+                      {selectedRequest.status || activeTab.toUpperCase()}
                     </span>
                   </div>
                 </div>
 
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-2 font-mono">
                   <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
-                    <span className="text-slate-500 font-sans font-medium">Attendance Date:</span>
-                    <span className="font-bold text-slate-800">{selectedRequest.attendanceDate}</span>
+                    <span className="text-slate-500 font-sans font-medium">Regularization Date:</span>
+                    <span className="font-bold text-slate-800">{selectedRequest.appliedDate || '2026-08-13'}</span>
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
-                    <span className="text-slate-500 font-sans font-medium">Requested Check-In:</span>
-                    <span className="font-bold text-emerald-700">{formatTimeStr(selectedRequest.requestedInTime)}</span>
+                    <span className="text-slate-500 font-sans font-medium">Requested Check-In/Out:</span>
+                    <span className="font-bold text-emerald-700">09:00 AM - 06:00 PM</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500 font-sans font-medium">Requested Check-Out:</span>
-                    <span className="font-bold text-rose-700">{formatTimeStr(selectedRequest.requestedOutTime)}</span>
+                    <span className="text-slate-500 font-sans font-medium">Total Duration:</span>
+                    <span className="font-bold text-cyan-800">9.0 Hours</span>
                   </div>
                 </div>
 
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
                   <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">REASON / REMARKS</span>
                   <p className="font-semibold text-slate-800 leading-relaxed">
-                    {selectedRequest.reason || 'Forgot punch in/out due to on site visit.'}
+                    {selectedRequest.remarks || 'Forgot to punch in/out due to client site visit.'}
                   </p>
                 </div>
-
-                {selectedRequest.rejectionReason && (
-                  <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 space-y-1">
-                    <span className="text-rose-500 font-semibold block text-[10px] uppercase tracking-wider">REJECTION REASON</span>
-                    <p className="font-semibold text-rose-800">{selectedRequest.rejectionReason}</p>
-                  </div>
-                )}
 
                 <div className="pt-3 border-t border-gray-100 flex items-center justify-end">
                   <button
@@ -408,31 +356,17 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
               </div>
             ) : (
               <form onSubmit={handleProcessAction} className="space-y-3">
-                {actionType === 'reject' && (
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Rejection Reason *</label>
-                    <textarea
-                      rows={3}
-                      value={actionRemarks}
-                      onChange={(e) => setActionRemarks(e.target.value)}
-                      className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none resize-none"
-                      placeholder="e.g. Not approved by manager"
-                      required
-                    />
-                  </div>
-                )}
-
-                {actionType === 'approve' && (
-                  <p className="text-xs text-gray-600">
-                    Are you sure you want to approve regularization request <b>#{selectedRequest.id}</b> for date <b>{selectedRequest.attendanceDate}</b>?
-                  </p>
-                )}
-
-                {actionType === 'cancel' && (
-                  <p className="text-xs text-rose-600 font-medium">
-                    Are you sure you want to cancel regularization request <b>#{selectedRequest.id}</b>?
-                  </p>
-                )}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Approval Remarks</label>
+                  <textarea
+                    rows={3}
+                    value={actionRemarks}
+                    onChange={(e) => setActionRemarks(e.target.value)}
+                    className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none resize-none"
+                    placeholder="Enter regularization remarks..."
+                    required
+                  />
+                </div>
 
                 <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
                   <button
@@ -446,11 +380,10 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
                     type="submit"
                     disabled={isSubmitting}
                     className={`px-5 py-2 text-white rounded-lg text-xs font-bold disabled:opacity-70 ${
-                      actionType === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 
-                      actionType === 'reject' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-slate-700 hover:bg-slate-800'
+                      actionType === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
                     }`}
                   >
-                    {isSubmitting ? "Processing..." : `Confirm ${actionType.toUpperCase()}`}
+                    {isSubmitting ? "Processing..." : (actionType === 'approve' ? "Confirm Approve" : "Confirm Reject")}
                   </button>
                 </div>
               </form>

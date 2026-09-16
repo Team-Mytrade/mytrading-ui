@@ -389,39 +389,18 @@ const EmployeeShiftSchedulePage: React.FC = () => {
           {/* Active Current Shift Card */}
           <div className="md:col-span-2 bg-white p-4 rounded-xl shadow-2xs border border-gray-200/80 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl border ${currentShiftInfo ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                {currentShiftInfo ? <CheckCircle2 className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
+              <div className="p-2 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-200">
+                <CheckCircle2 className="w-5 h-5" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Active Current Shift</span>
-                  {currentShiftInfo ? (
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase">Active</span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold uppercase">Unassigned / Out of Shift</span>
-                  )}
-                </div>
-                <h3 className="text-sm font-bold text-slate-900 mt-0.5">
+                <span className="text-[11px] font-bold text-slate-500 uppercase block">Active Current Shift</span>
+                <h3 className="text-xs font-bold text-slate-900">
                   {currentShiftInfo ? (currentShiftInfo.shiftName || `Shift #${currentShiftInfo.shiftId}`) : 'No active shift assigned'}
                 </h3>
                 {currentShiftInfo && (
-                  <div className="flex items-center gap-3 mt-1 text-[11px] font-mono">
-                    {currentShiftInfo.shiftCode && (
-                      <span className="px-1.5 py-0.5 bg-cyan-50 text-cyan-800 border border-cyan-200 rounded text-[10px] font-bold">
-                        Code: {currentShiftInfo.shiftCode}
-                      </span>
-                    )}
-                    {currentShiftInfo.startTime && (
-                      <span className="text-cyan-700 font-semibold">
-                        Timings: {currentShiftInfo.startTime} - {currentShiftInfo.endTime}
-                      </span>
-                    )}
-                    {currentShiftInfo.effectiveTo && (
-                      <span className="text-slate-500">
-                        Effective till: <span className="font-bold text-slate-700">{currentShiftInfo.effectiveTo}</span>
-                      </span>
-                    )}
-                  </div>
+                  <p className="text-[11px] font-mono text-cyan-700">
+                    {currentShiftInfo.startTime ? `${currentShiftInfo.startTime} - ${currentShiftInfo.endTime}` : ''}
+                  </p>
                 )}
               </div>
             </div>
@@ -500,7 +479,6 @@ const EmployeeShiftSchedulePage: React.FC = () => {
                     type="date"
                     value={form.effectiveFrom}
                     onChange={(e) => setForm(p => ({ ...p, effectiveFrom: e.target.value }))}
-                    onClick={(e) => e.currentTarget.showPicker?.()}
                     className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                     required
                   />
@@ -512,7 +490,6 @@ const EmployeeShiftSchedulePage: React.FC = () => {
                     type="date"
                     value={form.effectiveTo}
                     onChange={(e) => setForm(p => ({ ...p, effectiveTo: e.target.value }))}
-                    onClick={(e) => e.currentTarget.showPicker?.()}
                     className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                     required
                   />

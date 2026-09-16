@@ -4,12 +4,14 @@ import {
   CheckCircleIcon,
   MagnifyingGlassIcon,
   PencilSquareIcon,
+  TrashIcon,
   UserGroupIcon,
   UserIcon,
   XCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
+import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import { ListingPdfExportButton } from "../../components/common/export";
@@ -113,6 +115,7 @@ const SalesPersons: React.FC = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [lookupId, setLookupId] = useState("");
+  const [deletePerson, setDeletePerson] = useState<SalesPerson | null>(null);
 
   useEffect(() => {
     fetchSalesPersons();
@@ -171,20 +174,12 @@ const SalesPersons: React.FC = () => {
       if (name === "userId") {
         const user = users.find((item) => item.userId === value);
         const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
-        // Name always mirrors the linked user once one is selected — see the
-        // disabled state on the Name field below. Clearing the User selection
-        // (value === "") leaves the last-known name in place so it can be
-        // edited freely as a standalone sales person.
-        if (value) {
-          next.name = fullName || user?.username || next.name;
-        }
+        next.name = fullName || user?.username || next.name;
         next.code = getUserSalesCode(user) || next.code;
         next.email = user?.email || next.email;
         next.employeeId = user?.employeeId ? String(user.employeeId) : "";
         next.active = String(user?.active ?? true);
-        // Region is a sales-territory assignment, not a location or org
-        // attribute — it's intentionally left as a manual field and is never
-        // auto-filled from the linked User's department/city/etc.
+        next.region = user?.department || next.region;
       }
       if (name === "employeeId") {
         const user = users.find((item) => String(item.employeeId || "") === value);
@@ -194,7 +189,7 @@ const SalesPersons: React.FC = () => {
         next.code = getUserSalesCode(user) || next.code;
         next.email = user?.email || next.email;
         next.active = String(user?.active ?? true);
-        // Region is intentionally left manual — see note above.
+        next.region = user?.department || next.region;
       }
       return next;
     });
@@ -241,26 +236,6 @@ const SalesPersons: React.FC = () => {
     }
     if (form.employeeId.trim() && toNullableNumber(form.employeeId) === null) {
       ToasterService.error("Invalid employee ID", "Employee ID must be a number.");
-      return;
-    }
-
-    const normalizedEmail = searchableText(form.email);
-    const normalizedUserId = form.userId.trim();
-    const duplicate = salesPersons.find((person) => {
-      if (person.id === editingId) return false;
-      const sameUser = normalizedUserId && getResolvedUserId(person) === normalizedUserId;
-      const sameEmail = normalizedEmail && searchableText(person.email) === normalizedEmail;
-      return sameUser || sameEmail;
-    });
-    if (duplicate) {
-      const reason =
-        normalizedUserId && getResolvedUserId(duplicate) === normalizedUserId
-          ? "that User is already linked to"
-          : "that email is already used by";
-      ToasterService.error(
-        "Duplicate sales person",
-        `${reason} "${duplicate.name || `sales person #${duplicate.id}`}". Choose a different user/email or edit the existing record.`
-      );
       return;
     }
 
@@ -406,14 +381,26 @@ const SalesPersons: React.FC = () => {
     }
   };
 
-  // Note: there is no DELETE endpoint for sales persons in the API — the
-  // "Delete" action has been removed. Use the Active/Inactive status toggle
-  // instead, since past Sales Orders still reference salesPersonId and a
-  // hard delete would orphan that history anyway.
+  const confirmDelete = async () => {
+    if (!deletePerson) return;
+
+    try {
+      await axios.delete(`${API_URL}/${deletePerson.id}`, {
+        headers,
+        skipSessionExpiredHandling: true,
+      } as any);
+      setSalesPersons((current) => current.filter((item) => item.id !== deletePerson.id));
+      ToasterService.success("Sales person deleted");
+    } catch (error) {
+      ToasterService.error("Failed to delete sales person", getErrorMessage(error, "Please try again."));
+    } finally {
+      setDeletePerson(null);
+    }
+  };
 
   const filteredSalesPersons = useMemo(() => {
     const term = searchableText(search);
-
+    
     return salesPersons.filter((person) => {
       const matchesStatus =
         statusFilter === ""
@@ -520,6 +507,14 @@ const SalesPersons: React.FC = () => {
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeletePerson(person)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            title="Delete"
+          >
+            <TrashIcon className="h-4 w-4" />
           </button>
         </div>
       ),
@@ -677,7 +672,6 @@ const SalesPersons: React.FC = () => {
                 name="name"
                 value={form.name}
                 onChange={handleChange}
-                disabled={!!form.userId}
                 required
               />,
               <FloatingInput
@@ -714,6 +708,26 @@ const SalesPersons: React.FC = () => {
               }]
             : []),
         ]}
+      />
+
+      <DynamicPopup
+        isPopupOpen={!!deletePerson}
+        setIsPopupOpen={(open) => {
+          if (!open) setDeletePerson(null);
+        }}
+        icon={<TrashIcon className="h-6 w-6 text-red-600" />}
+        iconBg="bg-red-100"
+        innerText="Delete Sales Person"
+        subText={
+          deletePerson
+            ? `Are you sure you want to delete ${deletePerson.name || `sales person #${deletePerson.id}`}?`
+            : "Are you sure you want to delete this sales person?"
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeletePerson(null)}
+        confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
       />
     </>
   );
