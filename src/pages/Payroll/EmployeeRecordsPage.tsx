@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 import React, { useEffect, useState, useRef } from "react";
-=======
-import React, { useEffect, useRef, useState } from "react";
->>>>>>> c453c5ce0b6432ea06448100cc741b8d8f5579f3
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import jsPDF from "jspdf";
