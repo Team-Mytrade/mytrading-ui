@@ -30,7 +30,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { Menu, Transition } from "@headlessui/react";
 import { Fragment } from "react";
-import { useSearchParams, useLocation } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
@@ -110,22 +110,6 @@ const PayrollPage: React.FC = () => {
         content: () => printRef.current!,
         documentTitle: "Salary Records",
     });
-
-    const exportMenuRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
-                setShowExportMenu(false);
-            }
-        };
-        if (showExportMenu) {
-            document.addEventListener("mousedown", handleClickOutside);
-        }
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, [showExportMenu]);
 
     useEffect(() => {
         fetchAll();
@@ -502,22 +486,14 @@ const PayrollPage: React.FC = () => {
         }
     ];
 
-    const location = useLocation();
-    const isPayslipsView = location.pathname.includes("employeePayslips");
-
-    const metaTitle = isPayslipsView ? "Employee Payslips" : "Payroll Management";
-    const metaDescription = isPayslipsView ? "View, preview, and download employee payslips" : "Process and monitor employee salaries";
-    const breadcrumbTitle = isPayslipsView ? "Employee Payslips" : "Salary Records";
-    const actionButtonLabel = isPayslipsView ? "Process Payroll" : "Process Payroll";
-
     return (
         <>
-            <PageMeta title={metaTitle} description={metaDescription} />
-            <PageBreadcrumb pageTitle={breadcrumbTitle} />
+            <PageMeta title="Payroll Management" description="Process and monitor employee salaries" />
+            <PageBreadcrumb pageTitle="Salary Records" />
 
             <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
                 <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-                    <AddButton label={actionButtonLabel} onClick={() => setIsProcessModalOpen(true)} />
+                    <AddButton label="Generate Payslips" onClick={() => setIsProcessModalOpen(true)} />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -553,36 +529,26 @@ const PayrollPage: React.FC = () => {
 
                     <div className="flex items-center gap-3">
                         {/* Export Menu */}
-                        <div ref={exportMenuRef} className="relative flex h-10 items-center">
+                        <div className="relative flex h-10 items-center">
                             <button
-                                type="button"
                                 onClick={() => setShowExportMenu(!showExportMenu)}
-                                className="h-10 w-10 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center focus:outline-none"
+                                className="h-10 w-10 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
                                 disabled={salaries.length === 0}
-                                title="Export options"
                             >
                                 <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
                             </button>
 
                             {showExportMenu && (
-                                <div className="absolute right-0 top-12 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50 py-1">
+                                <div className="absolute right-0 mt-1 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50">
                                     <button
-                                        type="button"
-                                        onClick={() => {
-                                            setShowExportMenu(false);
-                                            exportPDF();
-                                        }}
+                                        onClick={exportPDF}
                                         className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
                                     >
                                         <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
                                         Export PDF
                                     </button>
                                     <button
-                                        type="button"
-                                        onClick={() => {
-                                            setShowExportMenu(false);
-                                            exportExcel();
-                                        }}
+                                        onClick={exportExcel}
                                         className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
                                     >
                                         <TableCellsIcon className="h-4 w-4 text-green-600" />

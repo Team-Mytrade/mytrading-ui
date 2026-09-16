@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import jsPDF from "jspdf";
@@ -53,21 +53,6 @@ const EmployeeRecordsPage: React.FC = () => {
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [loading, setLoading] = useState(false);
     const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
-    const exportMenuRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
-                setShowExportMenu(false);
-            }
-        };
-        if (showExportMenu) {
-            document.addEventListener("mousedown", handleClickOutside);
-        }
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, [showExportMenu]);
 
     const fetchEmployees = async () => {
         setLoading(true);
@@ -392,45 +377,35 @@ const EmployeeRecordsPage: React.FC = () => {
 
                     <div className="flex items-center gap-3">
                         {/* Export Menu */}
-                        <div ref={exportMenuRef} className="relative inline-flex items-center">
+                        <div className="relative flex h-10 items-center">
                             <button
-                                type="button"
                                 onClick={() => setShowExportMenu(!showExportMenu)}
-                                className="h-10 w-10 border border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 rounded-lg transition-colors inline-flex items-center justify-center focus:outline-none shrink-0"
-                                title="Export"
+                                className="h-10 w-10 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
                             >
-                                <DocumentArrowDownIcon className="h-4 w-4 text-cyan-700" />
+                                <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
                             </button>
 
                             {showExportMenu && (
-                                <div className="absolute right-0 top-12 w-40 bg-white shadow-lg rounded-md border border-gray-200 z-50 py-1">
+                                <div className="absolute right-0 mt-1 w-40 bg-white shadow-lg rounded-md border border-gray-200 z-50">
                                     <button
-                                        type="button"
-                                        onClick={() => {
-                                            setShowExportMenu(false);
-                                            exportPDF();
-                                        }}
+                                        onClick={exportPDF}
                                         className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
                                     >
                                         <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
                                         PDF
                                     </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setShowExportMenu(false);
-                                            exportEmployees();
-                                        }}
-                                        disabled={loading}
-                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {loading ? (
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
-                                        ) : (
-                                            <TableCellsIcon className="h-4 w-4 text-green-600" />
-                                        )}
-                                        {loading ? 'Exporting...' : 'Export Excel'}
-                                    </button>
+                                       <button
+            onClick={exportEmployees}
+            disabled={loading}
+            className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+            {loading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+            ) : (
+                <TableCellsIcon className="h-4 w-4 text-green-600" />
+            )}
+            {loading ? 'Exporting...' : 'Export Excel'}
+        </button>
                                 </div>
                             )}
                         </div>

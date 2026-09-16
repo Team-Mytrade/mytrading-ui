@@ -66,8 +66,8 @@ body {
   color: var(--dark-teal);
 }
 
-.auth-wrapper .form-control,
-.auth-wrapper select {
+.form-control,
+select {
   width: 100%;
   padding: 10px;
   border: 1px solid var(--soft-teal);
@@ -78,8 +78,8 @@ body {
   height: 40px;
 }
 
-.auth-wrapper .form-control:focus,
-.auth-wrapper select:focus {
+.form-control:focus,
+select:focus {
   border-color: var(--teal);
   box-shadow: 0 0 5px rgba(0, 128, 128, 0.5);
 }
@@ -104,8 +104,7 @@ body {
 }
 
 /* Checkbox group */
-.auth-wrapper .checkbox-group,
-.auth-wrapper .flex.items-center.gap-2 {
+.checkbox-group, .flex.items-center.gap-2 {
   margin-bottom: 20px;
   font-size: 14px;
   color: var(--dark-teal);

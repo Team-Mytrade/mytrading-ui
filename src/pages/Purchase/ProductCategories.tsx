@@ -2,7 +2,7 @@ import PurchaseResourcePage, {
   PurchaseResourceConfig,
   SelectOption,
   toNumberOrZero,
-} from "../Purchase/PurchaseResourcePage";
+} from "./PurchaseResourcePage";
 
 const CATEGORIES = "/v1/api/purchase/product-categories";
 

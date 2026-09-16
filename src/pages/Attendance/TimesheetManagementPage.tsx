@@ -9,8 +9,6 @@ const REQUESTS_URL = '/v1/api/attendance/requests';
 
 interface DateRequestCardState {
   dateStr: string;
-  fromDate: string;
-  toDate: string;
   reasonType: 'FORGOT_IN' | 'FORGOT_OUT' | 'BOTH';
   startHours: string;
   startMinutes: string;
@@ -189,8 +187,6 @@ const TimesheetManagementPage: React.FC = () => {
       setFirstClickDate(dayStr);
       setSelectedCards([{
         dateStr: dayStr,
-        fromDate: dayStr,
-        toDate: dayStr,
         reasonType: 'BOTH',
         startHours: '09',
         startMinutes: '00',
@@ -200,25 +196,15 @@ const TimesheetManagementPage: React.FC = () => {
     } else {
       // Step 2: Second click creates range from firstClickDate to dayStr
       const dates = getDatesInRange(firstClickDate, dayStr);
-      const rangeStart = dates[0];
-      const rangeEnd = dates[dates.length - 1];
       
       const cardMap = new Map(selectedCards.map(c => [c.dateStr, c]));
-      const newCards = dates.map(d => {
-        const existing = cardMap.get(d);
-        if (existing) {
-          return { ...existing, fromDate: rangeStart, toDate: rangeEnd };
-        }
-        return {
-          dateStr: d,
-          fromDate: rangeStart,
-          toDate: rangeEnd,
-          reasonType: 'BOTH' as const,
-          startHours: '09',
-          startMinutes: '00',
-          endHours: '18',
-          endMinutes: '00'
-        };
+      const newCards = dates.map(d => cardMap.get(d) || {
+        dateStr: d,
+        reasonType: 'BOTH' as const,
+        startHours: '09',
+        startMinutes: '00',
+        endHours: '18',
+        endMinutes: '00'
       });
 
       setSelectedCards(newCards);
@@ -230,8 +216,6 @@ const TimesheetManagementPage: React.FC = () => {
     setFirstClickDate(null);
     setSelectedCards([{
       dateStr: dayStr,
-      fromDate: dayStr,
-      toDate: dayStr,
       reasonType: 'BOTH',
       startHours: '09',
       startMinutes: '00',
@@ -345,8 +329,8 @@ const TimesheetManagementPage: React.FC = () => {
         const reasonStr = card.reasonType === 'BOTH' ? 'Forgot In/Out Punch' : card.reasonType === 'FORGOT_IN' ? 'Forgot In Punch' : 'Forgot Out Punch';
 
         return {
-          fromDate: toIso(card.fromDate),
-          toDate: toIso(card.toDate),
+          fromDate: isoDate,
+          toDate: isoDate,
           shiftDate: isoDate,
           checkInTime: `${isoDate}T${startTime}`,
           checkOutTime: `${isoDate}T${endTime}`,
@@ -595,15 +579,12 @@ const TimesheetManagementPage: React.FC = () => {
                               <div className="relative">
                                 <input
                                   type="date"
-                                  value={toIso(card.fromDate)}
-                                  onClick={(e) => {
-                                    try { e.currentTarget.showPicker(); } catch {}
-                                  }}
+                                  value={toIso(card.dateStr)}
                                   onChange={(e) => {
                                     const parts = e.target.value.split('-');
                                     if (parts.length === 3) {
                                       const formatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                                      updateCardState(card.dateStr, 'fromDate', formatted);
+                                      updateCardState(card.dateStr, 'dateStr', formatted);
                                     }
                                   }}
                                   className="w-full h-6.5 pl-2 pr-6 py-0 bg-white border border-gray-200 rounded text-[11px] font-medium text-gray-800 outline-none focus:ring-1 focus:ring-cyan-500 transition-all cursor-pointer"
@@ -619,15 +600,12 @@ const TimesheetManagementPage: React.FC = () => {
                               <div className="relative">
                                 <input
                                   type="date"
-                                  value={toIso(card.toDate)}
-                                  onClick={(e) => {
-                                    try { e.currentTarget.showPicker(); } catch {}
-                                  }}
+                                  value={toIso(card.dateStr)}
                                   onChange={(e) => {
                                     const parts = e.target.value.split('-');
                                     if (parts.length === 3) {
                                       const formatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                                      updateCardState(card.dateStr, 'toDate', formatted);
+                                      updateCardState(card.dateStr, 'dateStr', formatted);
                                     }
                                   }}
                                   className="w-full h-6.5 pl-2 pr-6 py-0 bg-white border border-gray-200 rounded text-[11px] font-medium text-gray-800 outline-none focus:ring-1 focus:ring-cyan-500 transition-all cursor-pointer"
