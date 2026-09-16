@@ -45,7 +45,6 @@ import {
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import MyPayslipsTab from "./MyPayslipsTab";
-import { ToasterService } from "../../Services/ToasterService";
 
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 
@@ -132,15 +131,15 @@ const EmployeeViewPage: React.FC = () => {
     pan: false,
   });
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    personal: false,
-    employment: false,
-    permanentAddress: false,
-    currentAddress: false,
-    banking: false,
-    compliance: false,
-    salary: false,
-    earnings: false,
-    benefits: false,
+    personal: true,
+    employment: true,
+    permanentAddress: true,
+    currentAddress: true,
+    banking: true,
+    compliance: true,
+    salary: true,
+    earnings: true,
+    benefits: true,
   });
 
   useEffect(() => {
@@ -171,13 +170,9 @@ const EmployeeViewPage: React.FC = () => {
   };
 
   const handleCopy = async (text: string, label: string) => {
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      ToasterService.success(`${label} copied to clipboard!`);
-    } catch {
-      ToasterService.error("Failed to copy to clipboard");
-    }
+    await navigator.clipboard.writeText(text);
+    // You can add a toast notification here
+    console.log(`${label} copied to clipboard!`);
   };
 
   const formatDate = (dateStr: string) => {
@@ -265,50 +260,31 @@ const EmployeeViewPage: React.FC = () => {
     onToggleSensitive?: (field: 'account' | 'aadhaar' | 'pan') => void;
   }
 
-  const formatValue = (val: string | undefined | null) => {
-    if (!val) return "N/A";
-    if (val === "MALE") return "Male";
-    if (val === "FEMALE") return "Female";
-    return val;
-  };
-
   const InfoRow = ({ label, value, copyable = false, sensitive = false, sensitiveField, onToggleSensitive }: InfoRowProps) => (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between py-3 border-b border-gray-100 last:border-0 gap-2 hover:bg-slate-50/50 px-2 rounded-lg transition-colors">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between py-3 border-b border-gray-100 last:border-0 gap-2">
       <span className="text-sm text-gray-500 font-medium">{label}</span>
       <div className="flex items-center gap-2">
         {sensitive && onToggleSensitive && sensitiveField ? (
           <>
-            <span className="text-sm text-gray-900 font-semibold">{maskValue(String(value), showSensitive[sensitiveField], 4)}</span>
+            <span className="text-sm text-gray-900 font-medium">{maskValue(String(value), showSensitive[sensitiveField], 4)}</span>
             <button
-              type="button"
               onClick={() => onToggleSensitive(sensitiveField)}
-              className="p-1 text-gray-400 hover:text-cyan-600 transition rounded hover:bg-gray-100"
-              title={showSensitive[sensitiveField] ? "Hide" : "Show"}
+              className="p-1 text-gray-400 hover:text-cyan-600 transition rounded"
             >
-              {showSensitive[sensitiveField] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {showSensitive[sensitiveField] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             </button>
             {copyable && (
-              <button
-                type="button"
-                onClick={() => handleCopy(String(value), label)}
-                className="p-1 text-gray-400 hover:text-cyan-600 transition rounded hover:bg-gray-100"
-                title="Copy to clipboard"
-              >
-                <Copy className="w-4 h-4" />
+              <button onClick={() => handleCopy(String(value), label)} className="p-1 text-gray-400 hover:text-cyan-600 transition rounded">
+                <Copy className="w-3.5 h-3.5" />
               </button>
             )}
           </>
         ) : (
           <>
-            <span className="text-sm text-gray-900 font-semibold">{formatValue(value)}</span>
+            <span className="text-sm text-gray-900 font-medium">{value || "N/A"}</span>
             {copyable && value && (
-              <button
-                type="button"
-                onClick={() => handleCopy(value, label)}
-                className="p-1 text-gray-400 hover:text-cyan-600 transition rounded hover:bg-gray-100"
-                title="Copy to clipboard"
-              >
-                <Copy className="w-4 h-4" />
+              <button onClick={() => handleCopy(value, label)} className="p-1 text-gray-400 hover:text-cyan-600 transition rounded">
+                <Copy className="w-3.5 h-3.5" />
               </button>
             )}
           </>
@@ -344,14 +320,12 @@ const EmployeeViewPage: React.FC = () => {
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <button
-                type="button"
                 onClick={() => navigate("/employeeRecords")}
-                className="h-10 w-10 border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-xl inline-flex items-center justify-center text-gray-600 transition-colors shadow-2xs shrink-0"
-                title="Back to Employee Records"
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white text-2xl font-bold shadow-md shadow-cyan-500/20 shrink-0">
+              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
                 {employee.firstName.charAt(0)}{employee.lastName.charAt(0)}
               </div>
               <div>
@@ -359,8 +333,8 @@ const EmployeeViewPage: React.FC = () => {
                   {employee.firstName} {employee.lastName}
                 </h1>
                 <div className="flex flex-wrap items-center gap-2 mt-1">
-                  <span className="text-sm font-medium text-gray-500">{employee.employeeCode}</span>
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${employee.active
+                  <span className="text-sm text-gray-500">{employee.employeeCode}</span>
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${employee.active
                     ? "bg-green-100 text-green-700"
                     : "bg-red-100 text-red-700"
                     }`}>
@@ -370,25 +344,30 @@ const EmployeeViewPage: React.FC = () => {
                 </div>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap gap-3">
               <button
-                type="button"
-                onClick={() => navigate(`/addEmployee?editId=${employee.id}`)}
-                className="h-10 px-4 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 !text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-200 focus:outline-none shrink-0"
+                onClick={() => navigate(`/employeeRecords?editId=${employee.id}`)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition"
               >
-                <Edit className="w-4 h-4 !text-white shrink-0" />
-                <span className="!text-white whitespace-nowrap">Edit Employee</span>
+                <Edit className="w-4 h-4" />
+                Edit Employee
               </button>
               <button
-                type="button"
                 onClick={() => {/* Handle status toggle */ }}
-                className={`h-10 px-4 inline-flex items-center justify-center gap-2 text-sm font-medium rounded-xl transition-all duration-200 focus:outline-none border shrink-0 ${employee.active
-                  ? "bg-red-50 text-red-600 hover:bg-red-100 border-red-200"
-                  : "bg-green-50 text-green-600 hover:bg-green-100 border-green-200"
+                className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition ${employee.active
+                  ? "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"
+                  : "bg-green-50 text-green-600 hover:bg-green-100 border border-green-200"
                   }`}
               >
-                {employee.active ? <UserX className="w-4 h-4 shrink-0" /> : <UserCheck className="w-4 h-4 shrink-0" />}
-                <span className="whitespace-nowrap">{employee.active ? "Deactivate" : "Activate"}</span>
+                {employee.active ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                {employee.active ? "Deactivate" : "Activate"}
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition"
+              >
+                <Printer className="w-4 h-4" />
+                Print
               </button>
             </div>
           </div>
@@ -531,7 +510,7 @@ const EmployeeViewPage: React.FC = () => {
                       </div>
                       <div className="space-y-3">
                         <InfoRow label="IFSC Code" value={employee.ifscCode} copyable />
-                        <InfoRow label="Branch" value={(employee as any).bankBranch || (employee as any).branch || employee.location} />
+                        <InfoRow label="Branch" value="Main" />
                       </div>
                     </div>
                   </motion.div>
@@ -667,10 +646,10 @@ const EmployeeViewPage: React.FC = () => {
           </div>
         </div>
 
-        {/* My Payslips Section - Commented out */}
-        {/* <div className="mt-8">
+        {/* My Payslips Section */}
+        <div className="mt-8">
           <MyPayslipsTab employeeId={employee.id} />
-        </div> */}
+        </div>
 
         {/* Navigation Cards - Quick Links */}
         <div className="mt-8">

@@ -88,16 +88,16 @@ const ProductMenuCard: React.FC = () => {
   ];
 
   const colorStyles = {
-    blue: "bg-blue-50 text-blue-600 group-hover:bg-blue-100 dark:bg-blue-500/15 dark:text-blue-300 dark:group-hover:bg-blue-500/20",
-    emerald: "bg-blue-50 text-blue-600 group-hover:bg-blue-100 dark:bg-blue-500/15 dark:text-blue-300 dark:group-hover:bg-blue-500/20",
-    purple: "bg-blue-50 text-blue-600 group-hover:bg-blue-100 dark:bg-blue-500/15 dark:text-blue-300 dark:group-hover:bg-blue-500/20",
-    orange: "bg-blue-50 text-blue-600 group-hover:bg-blue-100 dark:bg-blue-500/15 dark:text-blue-300 dark:group-hover:bg-blue-500/20",
-    cyan: "bg-blue-50 text-blue-600 group-hover:bg-blue-100 dark:bg-blue-500/15 dark:text-blue-300 dark:group-hover:bg-blue-500/20",
-    pink: "bg-blue-50 text-blue-600 group-hover:bg-blue-100 dark:bg-blue-500/15 dark:text-blue-300 dark:group-hover:bg-blue-500/20",
-    indigo: "bg-blue-50 text-blue-600 group-hover:bg-blue-100 dark:bg-blue-500/15 dark:text-blue-300 dark:group-hover:bg-blue-500/20",
-    teal: "bg-blue-50 text-blue-600 group-hover:bg-blue-100 dark:bg-blue-500/15 dark:text-blue-300 dark:group-hover:bg-blue-500/20",
-    rose: "bg-blue-50 text-blue-600 group-hover:bg-blue-100 dark:bg-blue-500/15 dark:text-blue-300 dark:group-hover:bg-blue-500/20",
-    gray: "bg-blue-50 text-blue-600 group-hover:bg-blue-100 dark:bg-blue-500/15 dark:text-blue-300 dark:group-hover:bg-blue-500/20",
+    blue: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:group-hover:bg-cyan-500/20",
+    emerald: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:group-hover:bg-cyan-500/20",
+    purple: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:group-hover:bg-cyan-500/20",
+    orange: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:group-hover:bg-cyan-500/20",
+    cyan: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:group-hover:bg-cyan-500/20",
+    pink: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:group-hover:bg-cyan-500/20",
+    indigo: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:group-hover:bg-cyan-500/20",
+    teal: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:group-hover:bg-cyan-500/20",
+    rose: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:group-hover:bg-cyan-500/20",
+    gray: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:group-hover:bg-cyan-500/20",
   };
 
   return (
@@ -121,7 +121,7 @@ const ProductMenuCard: React.FC = () => {
               <div className={`p-2.5 rounded-lg ${colorStyles[item.color as keyof typeof colorStyles]} transition-colors duration-200`}>
                 <Icon className="h-5 w-5" />
               </div>
-              <h3 className="mt-3 text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+              <h3 className="mt-3 text-sm font-semibold text-gray-900 group-hover:text-cyan-600 transition-colors">
                 {item.title}
               </h3>
               <p className="text-xs text-gray-500 text-center mt-1 line-clamp-2">

@@ -1,13 +1,12 @@
 import React from "react";
 import {
-  ArrowPathIcon,
-  ChartBarIcon,
-  FunnelIcon,
-  ListBulletIcon,
-  MagnifyingGlassIcon,
-  ShareIcon,
+  BanknotesIcon,
+  BuildingOffice2Icon,
+  CheckCircleIcon,
+  ClockIcon,
+  DocumentTextIcon,
+  XCircleIcon,
 } from "@heroicons/react/24/outline";
-import "./Statscard.css";
 
 interface StatsCardProps {
   label: string;
@@ -19,111 +18,139 @@ interface StatsCardProps {
   collapsed?: boolean;
 }
 
-interface StatsCardActionsProps {
-  onListView?: () => void;
-  onShare?: () => void;
-  onSearch?: () => void;
-  onFilter?: () => void;
-  onRefresh?: () => void;
-  filterControl?: React.ReactNode;
-}
-
 const getTone = (classes: string) => {
-  const value = classes.toLowerCase();
-  if (value.includes("green") || value.includes("emerald")) return "success";
-  if (value.includes("yellow") || value.includes("amber") || value.includes("orange")) return "warning";
-  if (value.includes("red") || value.includes("rose") || value.includes("pink")) return "danger";
-  if (value.includes("purple") || value.includes("indigo")) return "purple";
-  if (value.includes("cyan") || value.includes("blue")) return "info";
-  return "neutral";
+  const tone = classes.toLowerCase();
+
+  if (tone.includes("green") || tone.includes("emerald")) {
+    return {
+      badge: "bg-green-100",
+      iconColor: "text-green-600",
+      Icon: CheckCircleIcon,
+    };
+  }
+
+  if (tone.includes("yellow") || tone.includes("amber") || tone.includes("orange")) {
+    return {
+      badge: "bg-yellow-100",
+      iconColor: "text-yellow-600",
+      Icon: ClockIcon,
+    };
+  }
+
+  if (tone.includes("red") || tone.includes("rose") || tone.includes("pink")) {
+    return {
+      badge: "bg-red-100",
+      iconColor: "text-red-600",
+      Icon: XCircleIcon,
+    };
+  }
+
+  if (tone.includes("purple") || tone.includes("indigo")) {
+    return {
+      badge: "bg-purple-100",
+      iconColor: "text-purple-600",
+      Icon: BuildingOffice2Icon,
+    };
+  }
+
+  if (tone.includes("cyan") || tone.includes("blue")) {
+    return {
+      badge: "bg-cyan-100",
+      iconColor: "text-cyan-600",
+      Icon: DocumentTextIcon,
+    };
+  }
+
+  return {
+    badge: "bg-gray-100",
+    iconColor: "text-gray-600",
+    Icon: BanknotesIcon,
+  };
 };
+
+/* Original Implementation (Commented out):
+const StatsCard: React.FC<StatsCardProps> = ({
+  label,
+  value,
+  gradient = "from-gray-50 to-gray-100",
+  borderColor = "border-gray-200",
+  labelColor = "text-gray-600",
+  icon,
+  collapsed = false,
+}) => {
+  const tone = getTone(`${gradient} ${borderColor} ${labelColor}`);
+  const FallbackIcon = tone.Icon;
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition-shadow duration-300 hover:shadow-md">
+      <div
+        className={`transition-all duration-300 ease-in-out ${
+          collapsed ? "max-h-0 opacity-0 py-0" : "max-h-48 opacity-100"
+        }`}
+      >
+        <div className="flex items-center justify-between gap-4 p-4">
+          <div className="min-w-0">
+            <p className="text-sm text-gray-600">{label}</p>
+            <p className={`mt-1 text-2xl font-semibold leading-none ${labelColor}`}>{value}</p>
+          </div>
+
+          <div className={`flex shrink-0 rounded-full p-3 ${tone.badge}`}>
+            {icon ? (
+              <div className={tone.iconColor}>{icon}</div>
+            ) : (
+              <FallbackIcon className={`h-6 w-6 ${tone.iconColor}`} />
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+*/
 
 const StatsCard: React.FC<StatsCardProps> = ({
   label,
   value,
-  gradient: _gradient = "from-gray-50 to-gray-100",
-  borderColor: _borderColor = "border-gray-200",
-  labelColor: _labelColor = "text-gray-600",
+  gradient = "from-gray-50 to-gray-100",
+  borderColor = "border-gray-200",
+  labelColor = "text-gray-600",
   icon,
   collapsed = false,
 }) => {
-  const tone = getTone(`${_gradient} ${_borderColor} ${_labelColor}`);
+  const tone = getTone(`${gradient} ${borderColor} ${labelColor}`);
+  const FallbackIcon = tone.Icon;
 
   return (
-    <div className={`stats-card stats-card--${tone}`}>
+    <div className="my-[3px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:shadow-md dark:border-gray-800 dark:bg-white/[0.03]">
       <div
-        className={`stats-card__content ${collapsed ? "stats-card__content--collapsed" : ""}`}
+        className={`transition-all duration-300 ease-in-out ${
+          collapsed ? "max-h-0 opacity-0 py-0" : "max-h-48 opacity-100"
+        }`}
       >
-        <div className="stats-card__metric">
-          <span className="stats-card__icon" aria-hidden="true">
-            {icon || <ChartBarIcon />}
-          </span>
-          <p className="stats-card__label">{label}</p>
-          <p className="stats-card__value">{value}</p>
+        <div className="flex min-h-14 items-center justify-between gap-3 px-3 py-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tone.badge}`}>
+              {icon ? (
+                <div className={`h-5 w-5 flex items-center justify-center [&>svg]:h-5 [&>svg]:w-5 ${tone.iconColor}`}>{icon}</div>
+              ) : (
+                <FallbackIcon className={`h-5 w-5 ${tone.iconColor}`} />
+              )}
+            </div>
+
+            <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">
+              {label}
+            </p>
+          </div>
+
+          <p className={`text-xl font-bold leading-none shrink-0 ${labelColor}`}>
+            {value}
+          </p>
         </div>
       </div>
-      <StatsCardActions />
     </div>
   );
 };
 
 export default StatsCard;
-
-/** Compact actions displayed at the end of a reusable stats-card row. */
-export const StatsCardActions: React.FC<StatsCardActionsProps> = ({
-  onListView,
-  onShare,
-  onSearch,
-  onFilter,
-  onRefresh,
-  filterControl,
-}) => {
-  const [showQuickSearch, setShowQuickSearch] = React.useState(false);
-  const [quickSearch, setQuickSearch] = React.useState("");
-  const toggleColumns = () => {
-    const anchor = [...document.querySelectorAll<HTMLElement>("[data-table-tool='columns']")]
-      .find((button) => button.offsetParent !== null);
-    const rect = anchor?.getBoundingClientRect();
-    window.dispatchEvent(new CustomEvent("reusable-table:toggle-columns", { detail: rect ? { left: rect.left, bottom: rect.bottom } : undefined }));
-  };
-  const toggleColumnFilters = () => window.dispatchEvent(new Event("reusable-table:toggle-column-filters"));
-  const toggleQuickSearch = () => {
-    setShowQuickSearch((current) => {
-      if (current) {
-        setQuickSearch("");
-        window.dispatchEvent(new CustomEvent("reusable-table:quick-search", { detail: "" }));
-      }
-      return !current;
-    });
-  };
-  const handleQuickSearch = (value: string) => {
-    setQuickSearch(value);
-    window.dispatchEvent(new CustomEvent("reusable-table:quick-search", { detail: value }));
-  };
-  const actions = [
-    { label: "Choose columns", icon: ListBulletIcon, onClick: onListView ?? toggleColumns },
-    { label: "Share", icon: ShareIcon, onClick: onShare },
-    { label: "Search", icon: MagnifyingGlassIcon, onClick: onSearch ?? toggleQuickSearch },
-    { label: "Filter", icon: FunnelIcon, onClick: onFilter ?? toggleColumnFilters },
-    { label: "Refresh", icon: ArrowPathIcon, onClick: onRefresh },
-  ];
-
-  return (
-    <div className="stats-card-actions" aria-label="List tools">
-      {actions.map(({ label, icon: Icon, onClick }) => (
-        <React.Fragment key={label}>
-          {label === "Search" && showQuickSearch && (
-            <input className="stats-card-actions__search" type="search" value={quickSearch} onChange={(event) => handleQuickSearch(event.target.value)} placeholder="Search table..." aria-label="Search table" autoFocus />
-          )}
-          {label === "Filter" && filterControl ? filterControl : (
-            <button type="button" className="stats-card-actions__button" data-table-tool={label === "Choose columns" ? "columns" : undefined} onClick={onClick} title={label} aria-label={label}>
-              <Icon />
-            </button>
-          )}
-        </React.Fragment>
-      ))}
-    </div>
-  );
-};
 
 

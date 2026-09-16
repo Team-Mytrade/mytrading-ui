@@ -306,9 +306,9 @@ export const restoreSessionExpiredDraft = (
 
 export const isSessionExpiredResponse = (
   status?: number,
-  message?: unknown
+  message?: string | null
 ) => {
-  const normalizedMessage = String(message ?? "").toLowerCase();
+  const normalizedMessage = (message || "").toLowerCase();
 
   return (
     status === 401 ||

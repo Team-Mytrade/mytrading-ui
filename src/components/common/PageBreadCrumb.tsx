@@ -1,8 +1,6 @@
-import { CircleDot, ChevronRight, FolderClosed, ArrowLeft, House } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { navItems } from "../../layout/AppSidebar";
 import { AddButton } from "./AddButton";
-import "./PageBreadCrumb.css";
 
 interface BreadcrumbProps {
   pageTitle: string;
@@ -17,10 +15,7 @@ interface BreadcrumbProps {
   titleClassName?: string;
   breadcrumbClassName?: string;
   inlineBreadcrumb?: boolean;
-  actions?: React.ReactNode;
 }
-
-type Crumb = { label: string; current?: boolean };
 
 const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
   pageTitle,
@@ -35,64 +30,147 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
   titleClassName = "",
   breadcrumbClassName = "",
   inlineBreadcrumb = true,
-  actions,
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const pathname = location.pathname;
 
-  const getTrail = (): Crumb[] => {
+  const findBreadcrumb = () => {
     for (const item of navItems) {
-      if (item.path === location.pathname) return [{ label: pageTitle, current: true }];
-      for (const subItem of item.subItems || []) {
-        if (subItem.path === location.pathname) {
-          return [{ label: item.name }, { label: subItem.name, current: true }];
+      if (item.subItems) {
+        let found = item.subItems.find((sub: any) => sub.path === pathname);
+        if (!found) {
+          for (const sub of item.subItems) {
+            if (sub.subItems) {
+              const ss = sub.subItems.find((s: any) => s.path === pathname);
+              if (ss) {
+                found = ss;
+                break;
+              }
+            }
+          }
         }
-        const nestedItem = subItem.subItems?.find((nested) => nested.path === location.pathname);
-        if (nestedItem) {
-          return [{ label: item.name }, { label: subItem.name }, { label: nestedItem.name, current: true }];
+        if (found) {
+          return { parent: item.name, child: found.name };
         }
       }
+
+      if (item.path === pathname) {
+        return { parent: item.name, child: null };
+      }
     }
-    return [{ label: pageTitle, current: true }];
+
+    return { parent: null, child: null };
   };
 
-  const trail = getTrail();
-  const handleBack = () => onBack ? onBack() : navigate(-1);
+  const { parent, child } = findBreadcrumb();
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+      return;
+    }
+
+    navigate(-1);
+  };
 
   return (
-    <div className={`page-breadcrumb ${inlineBreadcrumb ? "is-inline" : "is-stacked"} ${className}`.trim()}>
-      <div className={`page-breadcrumb__content ${contentClassName}`.trim()}>
-        <div className="page-breadcrumb__trail-wrap">
+    <div className={`my-[3px] px-4 lg:pr-56 ${className}`.trim()}>
+      <div className={`flex min-h-10 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${contentClassName}`.trim()}>
+        <div className="flex min-w-0 items-center gap-3">
           {showBackButton && (
-            <button type="button" className="page-breadcrumb__back" onClick={handleBack} aria-label="Go back">
-              <ArrowLeft size={18} strokeWidth={1.8} />
+            <button
+              onClick={handleBack}
+              className="inline-flex items-center justify-center rounded-full border border-gray-300 bg-white p-1.5 text-gray-800 shadow-sm transition-all hover:-translate-x-0.5 hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:border-cyan-800 dark:hover:bg-gray-800 dark:hover:text-cyan-300"
+              aria-label="Go back"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                />
+              </svg>
             </button>
           )}
-          <nav className={`page-breadcrumb__trail ${breadcrumbClassName}`.trim()} aria-label="Breadcrumb">
-            <ol>
-              <li>
-                <Link to="/" className="page-breadcrumb__home" aria-label="Go to dashboard" title="Go to dashboard">
-                  <House size={17} />
-                </Link>
-              </li>
-              {trail.map((crumb) => (
-                <li key={`${crumb.label}-${crumb.current ? "current" : "parent"}`}>
-                  <ChevronRight className="page-breadcrumb__separator" size={16} />
-                  <span className={crumb.current ? `page-breadcrumb__current ${titleClassName}`.trim() : "page-breadcrumb__link"}>
-                    {crumb.current ? <CircleDot size={16} /> : <FolderClosed size={17} />}
-                    {crumb.current ? pageTitle : crumb.label}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </nav>
+          <h2 className={`truncate text-[18px] font-medium tracking-tight text-cyan-600 dark:text-white/90 sm:text-[20px] ${titleClassName}`.trim()}>
+            {pageTitle}
+          </h2>
         </div>
-        {(actions || showAddButton) && (
-          <div className="page-breadcrumb__actions">
-            {actions || <AddButton onClick={onAddClick} label={addButtonLabel} className={`h-9 ${addButtonClassName}`.trim()} />}
-          </div>
-        )}
+
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
+          {inlineBreadcrumb && (
+            <nav className={`min-w-0 max-w-full overflow-x-auto ${breadcrumbClassName}`.trim()}>
+              <ol className="flex items-center justify-start gap-2 whitespace-nowrap text-sm font-medium text-gray-500 dark:text-gray-400">
+                <li>
+                  <Link
+                    className="inline-flex items-center gap-1.5 transition-colors hover:text-cyan-600 dark:hover:text-cyan-400"
+                    to="/"
+                  >
+                    Home
+                  </Link>
+                </li>
+
+                <li className="text-gray-500 dark:text-gray-400">{">"}</li>
+
+                {parent && (
+                  <>
+                    <li>{parent}</li>
+                    <li className="text-gray-500 dark:text-gray-400">{">"}</li>
+                  </>
+                )}
+
+                <li className="text-cyan-600 dark:text-white/90">
+                  {child || pageTitle}
+                </li>
+              </ol>
+            </nav>
+          )}
+          {showAddButton && (
+            <div className="shrink-0">
+              <AddButton
+                onClick={onAddClick}
+                label={addButtonLabel}
+                className={`h-10 ${addButtonClassName}`.trim()}
+              />
+            </div>
+          )}
+        </div>
       </div>
+
+      {!inlineBreadcrumb && (
+        <nav className={`mt-3 max-w-full overflow-x-auto pl-11 ${breadcrumbClassName}`.trim()}>
+          <ol className="flex items-center gap-2 whitespace-nowrap text-sm font-medium text-gray-500 dark:text-gray-400">
+            <li>
+              <Link
+                className="inline-flex items-center gap-1.5 transition-colors hover:text-cyan-600 dark:hover:text-cyan-400"
+                to="/"
+              >
+                Home
+              </Link>
+            </li>
+
+            <li className="text-gray-500 dark:text-gray-400">{">"}</li>
+
+            {parent && (
+              <>
+                <li>{parent}</li>
+                <li className="text-gray-500 dark:text-gray-400">{">"}</li>
+              </>
+            )}
+
+            <li className="text-cyan-600 dark:text-white/90">
+              {child || pageTitle}
+            </li>
+          </ol>
+        </nav>
+      )}
     </div>
   );
 };
