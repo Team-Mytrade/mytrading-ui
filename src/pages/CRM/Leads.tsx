@@ -449,7 +449,7 @@ const Leads: React.FC = () => {
       <PageBreadcrumb pageTitle="Leads" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+        <div className="mb-6 mx-4 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton
             onClick={() => {
               resetForm();
@@ -458,8 +458,8 @@ const Leads: React.FC = () => {
             label="Add Lead"
           />
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="py-4 px-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-[17px]">
           <StatsCard
             label="Total Leads"
             value={leads.length}
@@ -491,42 +491,7 @@ const Leads: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="my-1 mb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className=" flex-1 max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search leads by name, email, phone or status..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                }}
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 -mb-2">
-            <FilterPopover
-              title="Filter Leads"
-              buttonLabel="Filters"
-              label="Lead Status"
-              value={selectedStatus}
-              options={[
-                { label: "All Statuses", value: "" },
-                { label: "New", value: "NEW" },
-                { label: "Contacted", value: "CONTACTED" },
-                { label: "Qualified", value: "QUALIFIED" },
-                { label: "Lost", value: "LOST" },
-              ]}
-              onChange={setSelectedStatus}
-              onReset={() => setSelectedStatus("")}
-              onApply={() => undefined}
-            />
-          </div>
-        </div>
-
+        
         {/* Table */}
         <ReusableTable<Lead>
           data={filteredLeads}
@@ -554,8 +519,10 @@ const Leads: React.FC = () => {
                 </button>
               )}
             </div>
+            
           }
         />
+         </div>
 
         {/* Add/Edit Lead Modal */}
         {showModal &&
