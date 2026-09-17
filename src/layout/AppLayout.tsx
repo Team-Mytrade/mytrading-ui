@@ -14,7 +14,9 @@ const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, sidebarWidth, isResizing } = useSidebar();
   const location = useLocation();
   const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
-  const isScrollablePage = location.pathname === "/";
+  // const isScrollablePage = location.pathname === "/";
+  const scrollablePages = ["/", "/purchase-reports"];
+const isScrollablePage = scrollablePages.includes(location.pathname);
 
   useEffect(() => {
     const handleResize = () => {
