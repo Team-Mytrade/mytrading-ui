@@ -167,6 +167,10 @@ type Quotation = {
   versionNo: number;
 };
 
+// NOTE: subTotal / discountAmount / additionalDiscount / taxAmount / grandTotal are
+// intentionally NOT part of the editable form state anymore. They are always derived
+// from `lineItems` (+ the in-progress draft row) via `displayTotals`, so the sidebar
+// can never go stale the way it did when it only updated on a manual "Calculate Totals" click.
 type QuotationForm = {
   tenantId: string;
   customerId: string;
@@ -183,12 +187,7 @@ type QuotationForm = {
   quoteNumber: string;
   quoteDate: string;
   status: string;
-  subTotal: string;
-  discountAmount: string;
-  additionalDiscount: string;
   discountPercentage: string;
-  taxAmount: string;
-  grandTotal: string;
   salesPersonId: string;
   termsAndConditions: string;
   versionNo: string;
@@ -231,7 +230,7 @@ const quotationTypeOptions = ["PRODUCT", "SERVICE"];
 
 function getQuotationCustomerName(quotation: Quotation, customers: Customer[]) {
   const customer = customers.find((item) => Number(item.id) === Number(quotation.customerId));
-  return customer?.customerName || quotation.billingAddress?.customerName || `Customer #${quotation.customerId}`;
+  return customer?.customerName || quotation.billingAddress?.customerName || "Unknown Customer";
 }
 
 function getStoredTenantId() {
@@ -295,12 +294,7 @@ const emptyForm: QuotationForm = {
   quoteNumber: "",
   quoteDate: today,
   status: "DRAFT",
-  subTotal: "0",
-  discountAmount: "0",
-  additionalDiscount: "0",
   discountPercentage: "0",
-  taxAmount: "0",
-  grandTotal: "0",
   salesPersonId: "",
   termsAndConditions: "",
   versionNo: "0",
@@ -354,8 +348,8 @@ function money(value: number | string | undefined) {
 }
 
 function customerOptionLabel(customer: Customer) {
-  const name = customer.customerName || customer.tradeName || `Customer #${customer.id}`;
-  return `${customer.id} - ${name}`;
+  const name = customer.customerName || customer.tradeName || "Unnamed Customer";
+  return customer.customerCode ? `${name} (${customer.customerCode})` : name;
 }
 
 function isPositiveNumber(value: string) {
@@ -375,7 +369,10 @@ function isPercent(value: string) {
 function buildAddress(form: QuotationForm, type: "BILLING" | "SHIPPING"): Address {
   const prefix = type === "BILLING" ? "billing" : "shipping";
   return {
-    id: toNumber(form.customerId),
+    // This is a new address payload for the customer, not an existing address record,
+    // so it should not masquerade as having the customer's own id.
+    id: 0,
+    customerId: toNumber(form.customerId),
     customerName: form.customerName,
     customerCode: form.customerCode,
     type,
@@ -503,6 +500,56 @@ const Quotations: React.FC = () => {
     );
   });
 
+  // Live, always-in-sync totals. Derived straight from lineItems (+ the current draft
+  // row being edited), so adding/removing a line item is reflected immediately without
+  // needing a manual "Calculate Totals" click.
+  const draftItemTotals = calculateItem(form);
+  const displayTotals = useMemo(() => {
+    const draftAsPayload: QuotationItemPayload = {
+      id: 0,
+      categoryName: form.itemCategoryName,
+      itemType: form.itemType,
+      productName: form.itemProductName,
+      description: form.itemDescription,
+      productCode: form.itemProductCode,
+      uom: form.itemUom,
+      quantity: toNumber(form.itemQuantity),
+      unitPrice: toNumber(form.itemUnitPrice),
+      discountPercentage: toNumber(form.itemDiscountPercentage),
+      discountAmount: draftItemTotals.discountAmount,
+      taxRate: toNumber(form.itemTaxRate),
+      taxCode: form.itemTaxCode,
+      remarks: form.itemRemarks,
+      additionalDiscount: toNumber(form.itemAdditionalDiscount),
+    };
+    const draftHasData =
+      isPositiveNumber(form.itemQuantity) &&
+      isPositiveNumber(form.itemUnitPrice) &&
+      (form.itemProductName.trim() || form.itemDescription.trim());
+    // Mirrors buildPayload's logic exactly: once at least one item has been added,
+    // a valid in-progress draft is shown as an extra pending line rather than
+    // replacing or hiding the already-added items — so what you see here is always
+    // what actually gets submitted.
+    const itemsForTotals =
+      lineItems.length > 0
+        ? draftHasData
+          ? [...lineItems, draftAsPayload]
+          : lineItems
+        : [draftAsPayload];
+    return calculateQuotationTotals(itemsForTotals);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    lineItems,
+    form.itemQuantity,
+    form.itemUnitPrice,
+    form.itemProductName,
+    form.itemDescription,
+    form.itemDiscountPercentage,
+    form.itemDiscountAmount,
+    form.itemTaxRate,
+    form.itemAdditionalDiscount,
+  ]);
+
   const fetchQuotations = async () => {
     try {
       setLoading(true);
@@ -587,6 +634,8 @@ const Quotations: React.FC = () => {
       }
       if (name === "salesPersonId") {
         const person = salesPersons.find((item) => String(item.id) === value);
+        // email is derived from the chosen sales person; there is no independent
+        // email input in the form anymore.
         next.email = person?.email || "";
       }
       if (name === "itemType") {
@@ -635,6 +684,18 @@ const Quotations: React.FC = () => {
       }
       return next;
     });
+  };
+
+  // Detects whether the draft row (the still-being-typed item at the bottom of the
+  // Item Table) has enough data to count as a real item, even if the user never
+  // clicked the "+" button to formally add it. Used so a second/third item isn't
+  // silently dropped on submit if the user forgets that extra click.
+  const getPendingDraftItem = (): QuotationItemPayload | null => {
+    const hasValidDraft =
+      isPositiveNumber(form.itemQuantity) &&
+      isPositiveNumber(form.itemUnitPrice) &&
+      (form.itemProductName.trim() || form.itemDescription.trim());
+    return hasValidDraft ? buildItem() : null;
   };
 
   const buildItem = (): QuotationItemPayload => {
@@ -707,7 +768,18 @@ const Quotations: React.FC = () => {
   };
 
   const buildPayload = () => {
-    const payloadItems = lineItems.length > 0 ? lineItems : [buildItem()];
+    // Previously: `lineItems.length > 0 ? lineItems : [buildItem()]` — this only ever
+    // fell back to the draft row when the list was completely empty. If the user had
+    // already added one item and then typed a second item's details WITHOUT clicking
+    // "+" again, that second item vanished silently on submit. Now any valid pending
+    // draft is appended on top of the already-added items, so nothing typed is lost.
+    const pendingDraft = getPendingDraftItem();
+    const payloadItems =
+      lineItems.length > 0
+        ? pendingDraft
+          ? [...lineItems, pendingDraft]
+          : lineItems
+        : [buildItem()];
     const totals = calculateQuotationTotals(payloadItems);
 
     return {
@@ -748,7 +820,7 @@ const Quotations: React.FC = () => {
       return;
     }
     if (!isPositiveNumber(form.customerId) || !form.validUntil || !form.quoteDate) {
-      ToasterService.error("Required fields missing", "Customer ID, quote date, and valid until date are required.");
+      ToasterService.error("Required fields missing", "Customer, quote date, and valid until date are required.");
       return;
     }
     if (!isPositiveNumber(form.salesPersonId)) {
@@ -792,19 +864,6 @@ const Quotations: React.FC = () => {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const applyCalculatedTotals = () => {
-    const itemsForTotals = lineItems.length > 0 ? lineItems : [buildItem()];
-    const totals = calculateQuotationTotals(itemsForTotals);
-    setForm((current) => ({
-      ...current,
-      subTotal: String(Number(totals.subTotal.toFixed(2))),
-      discountAmount: String(Number(totals.discountAmount.toFixed(2))),
-      additionalDiscount: String(Number(totals.additionalDiscount.toFixed(2))),
-      taxAmount: String(Number(totals.taxAmount.toFixed(2))),
-      grandTotal: String(Number(totals.grandTotal.toFixed(2))),
-    }));
   };
 
   const openCreate = () => {
@@ -869,12 +928,7 @@ const Quotations: React.FC = () => {
         quoteNumber: full.quoteNumber || "",
         quoteDate: full.quoteDate || today,
         status: full.status || "DRAFT",
-        subTotal: String(full.subTotal || 0),
-        discountAmount: String(full.discountAmount || 0),
-        additionalDiscount: String(full.additionalDiscount || 0),
         discountPercentage: String(full.discountPercentage || 0),
-        taxAmount: String(full.taxAmount || 0),
-        grandTotal: String(full.grandTotal || 0),
         salesPersonId: String(full.salesPerson?.id || ""),
         termsAndConditions: full.termsAndConditions || "",
         versionNo: String(full.versionNo || 0),
@@ -968,7 +1022,7 @@ const Quotations: React.FC = () => {
       sortable: true,
       render: (quotation) => (
         <div>
-          <div className="font-medium text-cyan-700">{quotation.quoteNumber || `Quote #${quotation.id}`}</div>
+          <div className="font-medium text-cyan-700">{quotation.quoteNumber || "Untitled Quotation"}</div>
           <div className="text-xs text-slate-500">{quotation.subject || "No subject"}</div>
         </div>
       ),
@@ -977,26 +1031,28 @@ const Quotations: React.FC = () => {
       key: "customerId",
       label: "Customer",
       sortable: true,
-      render: (quotation) => (
-        <div>
-          <div className="text-sm font-semibold text-slate-900">
-            {getQuotationCustomerName(quotation, customers)}
+      render: (quotation) => {
+        const code =
+          customers.find((c) => Number(c.id) === Number(quotation.customerId))?.customerCode ||
+          quotation.billingAddress?.customerCode ||
+          "";
+        return (
+          <div>
+            <div className="text-sm font-semibold text-slate-900">
+              {getQuotationCustomerName(quotation, customers)}
+            </div>
+            {code && <div className="text-xs text-slate-500">{code}</div>}
           </div>
-          <div className="text-xs text-slate-500">
-            {customers.find((c) => Number(c.id) === Number(quotation.customerId))?.customerCode ||
-              quotation.billingAddress?.customerCode ||
-              `ID: ${quotation.customerId}`}
-          </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: "salesPerson",
       label: "Sales Person",
       sortable: true,
       render: (quotation) => {
-        const person = salesPersons.find(sp => sp.id === quotation.salesPerson?.id);
-        return person?.name || quotation.salesPerson?.name || `#${quotation.salesPerson?.id || "--"}`;
+        const person = salesPersons.find((sp) => sp.id === quotation.salesPerson?.id);
+        return person?.name || quotation.salesPerson?.name || "Unassigned";
       },
     },
     {
@@ -1059,7 +1115,7 @@ const Quotations: React.FC = () => {
   ];
 
   if (showFormModal) {
-    const itemTotals = calculateItem(form);
+    const itemTotals = draftItemTotals;
 
     return (
       <>
@@ -1111,7 +1167,7 @@ const Quotations: React.FC = () => {
                         {form.customerId &&
                           !customers.some((customer) => String(customer.id) === form.customerId) && (
                             <option value={form.customerId}>
-                              {form.customerName ? `${form.customerId} - ${form.customerName}` : `Customer #${form.customerId}`}
+                              {form.customerName || "Unknown Customer"}
                             </option>
                           )}
                         {customers.map((customer) => (
@@ -1183,18 +1239,22 @@ const Quotations: React.FC = () => {
                   <label className="shrink-0 text-[13px] font-bold uppercase tracking-wider text-slate-500 transition-colors group-focus-within:text-blue-600 md:w-48">
                     Sales Person <span className="text-red-500">*</span>
                   </label>
-                  <div className="grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2">
-                    <select name="salesPersonId" value={form.salesPersonId} onChange={handleChange} required className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+                  <div className="w-full max-w-3xl">
+                    <select name="salesPersonId" value={form.salesPersonId} onChange={handleChange} required className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
                       <option value="">Select sales person</option>
                       {form.salesPersonId &&
                         !salesPersons.some((person) => String(person.id) === form.salesPersonId) && (
-                          <option value={form.salesPersonId}>Sales Person #{form.salesPersonId}</option>
+                          <option value={form.salesPersonId}>Selected sales person</option>
                         )}
                       {salesPersons.map((person) => (
-                        <option key={person.id} value={person.id}>{person.name || `Person #${person.id}`}</option>
+                        <option key={person.id} value={person.id}>{person.name || "Unnamed sales person"}</option>
                       ))}
                     </select>
-                    <input name="email" type="email" value={form.email} onChange={handleChange} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" placeholder="Email" />
+                    {/* email is derived from the selected sales person above and sent with the
+                        payload automatically — no separate email input needed. */}
+                    {selectedSalesPerson?.email && (
+                      <p className="mt-1.5 text-xs text-slate-500">Contact: {selectedSalesPerson.email}</p>
+                    )}
                   </div>
                 </div>
 
@@ -1208,7 +1268,7 @@ const Quotations: React.FC = () => {
                     onChange={handleChange}
                     rows={2}
                     className="w-full max-w-xl resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[15px] font-medium text-slate-800 shadow-sm transition hover:bg-slate-100 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    placeholder="Sample purchase"
+                    placeholder="e.g., Quotation for Q3 office furniture supply"
                   />
                 </div>
               </div>
@@ -1223,9 +1283,6 @@ const Quotations: React.FC = () => {
                       className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-700 shadow-sm transition hover:bg-cyan-100"
                     >
                       Create Product Now
-                    </button>
-                    <button type="button" onClick={applyCalculatedTotals} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700">
-                      Calculate Totals
                     </button>
                   </div>
                 </div>
@@ -1326,7 +1383,7 @@ const Quotations: React.FC = () => {
                                       <option value="">Select product</option>
                                       {filteredProducts.map((product) => (
                                         <option key={product.id} value={product.id}>
-                                          {product.productName || product.shortName || `Product #${product.id}`}
+                                          {product.productName || product.shortName || "Unnamed product"}
                                         </option>
                                       ))}
                                     </select>
@@ -1340,7 +1397,7 @@ const Quotations: React.FC = () => {
                                         value={form.itemServiceItemId}
                                         onChange={handleChange}
                                         className="rounded-lg border border-transparent bg-transparent p-1 text-[13px] font-medium text-gray-900 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white"
-                                        placeholder="Service item ID"
+                                        placeholder="Service item reference"
                                       />
                                     )}
                                     <input name="itemProductName" value={form.itemProductName} onChange={handleChange} className="rounded-lg border border-transparent bg-transparent p-1 text-[13px] font-medium text-gray-900 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Product name" />
@@ -1348,11 +1405,30 @@ const Quotations: React.FC = () => {
                                 )}
                               </div>
                             </div>
-                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                              <input name="itemProductCode" value={form.itemProductCode} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Product code" />
-                              <input name="itemDescription" value={form.itemDescription} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Add a description to your item" />
-                              <input name="itemUom" value={form.itemUom} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="UOM" />
-                            </div>
+                            {/* For PRODUCT items these three fields come straight from the
+                                selected product and are shown read-only, not editable inputs,
+                                since edits here never reach the backend once a real productId
+                                is attached. For SERVICE items (no linked product) they stay
+                                editable, since they ARE the source of truth. */}
+                            {form.itemType === "PRODUCT" ? (
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                <div className="rounded-lg bg-gray-50 p-1 text-[11px] text-gray-500">
+                                  {form.itemProductCode || "Product code"}
+                                </div>
+                                <div className="rounded-lg bg-gray-50 p-1 text-[11px] text-gray-500">
+                                  {form.itemDescription || "Description"}
+                                </div>
+                                <div className="rounded-lg bg-gray-50 p-1 text-[11px] text-gray-500">
+                                  {form.itemUom || "UOM"}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                <input name="itemProductCode" value={form.itemProductCode} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Product code" />
+                                <input name="itemDescription" value={form.itemDescription} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Add a description to your item" />
+                                <input name="itemUom" value={form.itemUom} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="UOM" />
+                              </div>
+                            )}
                           </div>
                         </td>
                         <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
@@ -1386,11 +1462,11 @@ const Quotations: React.FC = () => {
 
                 <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-6">
                   <div className="space-y-3 text-sm">
-                    <div className="flex justify-between"><span className="text-slate-500">Sub Total</span><span className="font-semibold text-slate-900">{money(form.subTotal)}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Discount</span><span className="font-semibold text-rose-600">-{money(form.discountAmount)}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Additional Discount</span><span className="font-semibold text-rose-600">-{money(form.additionalDiscount)}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Tax</span><span className="font-semibold text-slate-900">{money(form.taxAmount)}</span></div>
-                    <div className="flex justify-between border-t border-slate-200 pt-3 text-lg font-black"><span>Grand Total</span><span className="text-cyan-600">{money(form.grandTotal)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Sub Total</span><span className="font-semibold text-slate-900">{money(displayTotals.subTotal)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Discount</span><span className="font-semibold text-rose-600">-{money(displayTotals.discountAmount)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Additional Discount</span><span className="font-semibold text-rose-600">-{money(displayTotals.additionalDiscount)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Tax</span><span className="font-semibold text-slate-900">{money(displayTotals.taxAmount)}</span></div>
+                    <div className="flex justify-between border-t border-slate-200 pt-3 text-lg font-black"><span>Grand Total</span><span className="text-cyan-600">{money(displayTotals.grandTotal)}</span></div>
                   </div>
                   <div className="flex flex-col gap-2 border-t border-slate-200 pt-4">
                     <button type="submit" disabled={submitting} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">
@@ -1473,7 +1549,11 @@ const Quotations: React.FC = () => {
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
         innerText="Delete Quotation"
-        subText={deleteQuotation ? `Are you sure you want to delete quotation #${deleteQuotation.id}?` : "Are you sure?"}
+        subText={
+          deleteQuotation
+            ? `Are you sure you want to delete "${deleteQuotation.quoteNumber || "this quotation"}"?`
+            : "Are you sure?"
+        }
         confirmLabel="Delete"
         cancelLabel="Cancel"
         onConfirm={confirmDelete}
