@@ -823,175 +823,186 @@ const CreditLimit: React.FC = () => {
       <PageMeta title="Credit Limit" description="Manage sales credit limit checks" />
       <PageBreadcrumb pageTitle="Credit Limit" />
 
-      <div className="-mt-3 w-full max-w-none space-y-6 px-0 pb-8 pt-4">
-        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-cyan-50 via-white to-slate-50 shadow-sm">
-          <div className="grid gap-6 px-6 py-6 lg:grid-cols-[1.45fr_1fr] lg:px-7">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-100 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">
-                <CreditCardIcon className="h-4 w-4" />
-                Sales Credit Control
-              </div>
-              <h2 className="mt-4 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-                Customer credit
-              </h2>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <div className="rounded-2xl border border-white/70 bg-white/90 p-4 shadow-sm">
-                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Selected Customer</div>
-                  <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <UserCircleIcon className="h-5 w-5 shrink-0 text-cyan-600" />
-                    <span className="truncate">{selectedCustomer ? customerOptionLabel(selectedCustomer) : "Choose a customer"}</span>
+      {/*
+        Page-level scroll owner.
+        - `h-[calc(100dvh-4rem)]` gives this container a bounded height equal to
+          the viewport minus the app header height (adjust `4rem` if your shell
+          header differs). Using `dvh` keeps mobile browser chrome in mind.
+        - `overflow-y-auto` makes this element the scroll container, so we no
+          longer depend on any ancestor having a fixed height.
+        - `overscroll-contain` prevents scroll chaining to the body when the
+          user reaches the top or bottom.
+      */}
+      <div className="flex h-[calc(100dvh-4rem)] w-full max-w-none flex-col overflow-y-auto overscroll-contain">
+        <div className="-mt-3 w-full max-w-none space-y-5 px-4 pb-8 pt-4 sm:px-6">
+          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-cyan-50 via-white to-slate-50 shadow-sm">
+            <div className="grid gap-5 px-5 py-5 lg:grid-cols-[1.45fr_1fr] lg:px-6">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-cyan-100 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">
+                  <CreditCardIcon className="h-4 w-4" />
+                  Sales Credit Control
+                </div>
+                <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+                  Customer credit
+                </h2>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="rounded-2xl border border-white/70 bg-white/90 p-3.5 shadow-sm">
+                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Selected Customer</div>
+                    <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
+                      <UserCircleIcon className="h-5 w-5 shrink-0 text-cyan-600" />
+                      <span className="truncate">{selectedCustomer ? customerOptionLabel(selectedCustomer) : "Choose a customer"}</span>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-white/70 bg-white/90 p-3.5 shadow-sm">
+                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Active Action</div>
+                    <div className="mt-2 text-sm font-semibold text-slate-900">{activeMethod.title}</div>
+                    <div className="mt-1 text-xs text-slate-500">{activeMethod.buttonLabel}</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/70 bg-white/90 p-3.5 shadow-sm sm:col-span-2 xl:col-span-1">
+                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">History Window</div>
+                    <div className="mt-2 text-sm font-semibold text-slate-900">
+                      {historyFrom && historyTo
+                        ? `${historyFrom.toLocaleDateString()} - ${historyTo.toLocaleDateString()}`
+                        : "Select date range"}
+                    </div>
                   </div>
                 </div>
-                <div className="rounded-2xl border border-white/70 bg-white/90 p-4 shadow-sm">
-                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Active Action</div>
-                  <div className="mt-2 text-sm font-semibold text-slate-900">{activeMethod.title}</div>
-                  <div className="mt-1 text-xs text-slate-500">{activeMethod.buttonLabel}</div>
+              </div>
+
+              <div className="grid gap-3 self-start sm:grid-cols-2">
+                <div className="rounded-2xl border border-cyan-100 bg-white p-3.5 shadow-sm">
+                  <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Credit Limit</div>
+                  <div className="mt-2 text-2xl font-semibold text-slate-900">
+                    {money(lastCreditLimit ?? baseLogs[0]?.creditLimit)}
+                  </div>
                 </div>
-                <div className="rounded-2xl border border-white/70 bg-white/90 p-4 shadow-sm sm:col-span-2 xl:col-span-1">
-                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">History Window</div>
-                  <div className="mt-2 text-sm font-semibold text-slate-900">
-                    {historyFrom && historyTo
-                      ? `${historyFrom.toLocaleDateString()} - ${historyTo.toLocaleDateString()}`
-                      : "Select date range"}
+                <div className="rounded-2xl border border-emerald-100 bg-white p-3.5 shadow-sm">
+                  <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Available Credit</div>
+                  <div className="mt-2 text-2xl font-semibold text-emerald-700">{money(stats.availableCredit)}</div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
+                  <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Recent Actions</div>
+                  <div className="mt-2 text-2xl font-semibold text-slate-900">{stats.actions}</div>
+                </div>
+                <div className="rounded-2xl border border-amber-100 bg-white p-3.5 shadow-sm">
+                  <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Latest Outstanding</div>
+                  <div className="mt-2 text-2xl font-semibold text-amber-700">
+                    {latestOutstanding === undefined ? "--" : money(latestOutstanding)}
                   </div>
                 </div>
               </div>
             </div>
+          </section>
 
-            <div className="grid gap-3 self-start sm:grid-cols-2">
-              <div className="rounded-2xl border border-cyan-100 bg-white p-4 shadow-sm">
-                <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Credit Limit</div>
-                <div className="mt-2 text-2xl font-semibold text-slate-900">
-                  {money(lastCreditLimit ?? baseLogs[0]?.creditLimit)}
-                </div>
-              </div>
-              <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
-                <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Available Credit</div>
-                <div className="mt-2 text-2xl font-semibold text-emerald-700">{money(stats.availableCredit)}</div>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Recent Actions</div>
-                <div className="mt-2 text-2xl font-semibold text-slate-900">{stats.actions}</div>
-              </div>
-              <div className="rounded-2xl border border-amber-100 bg-white p-4 shadow-sm">
-                <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Latest Outstanding</div>
-                <div className="mt-2 text-2xl font-semibold text-amber-700">
-                  {latestOutstanding === undefined ? "--" : money(latestOutstanding)}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <div className="grid gap-6">
-          <form onSubmit={handleMethodSubmit} className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
-            <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">Credit actions</h3>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    {activeMethod.title}
+          <div className="grid gap-5">
+            <form onSubmit={handleMethodSubmit} className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+              <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:px-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">Credit actions</h3>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowCreditActions((current) => !current)}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 transition hover:bg-slate-50"
-                  >
-                    <ChevronDownIcon className={`h-4 w-4 transition ${showCreditActions ? "rotate-180" : ""}`} />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className={`${showCreditActions ? "block" : "hidden"} p-5 sm:p-6`}>
-              <div className="grid gap-4 xl:grid-cols-[320px_1fr]">
-                <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50/80 p-5 shadow-sm">
-                  <FloatingSelect
-                    label="Customer"
-                    name="customerId"
-                    value={form.customerId}
-                    onChange={handleChange}
-                    options={customers.map((customer) => ({
-                      id: String(customer.id),
-                      name: customerOptionLabel(customer),
-                    }))}
-                    required
-                  />
-
-                  <div className="mt-2 flex flex-wrap items-center gap-3">
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className={`inline-flex min-w-[190px] items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition focus:outline-none focus:ring-4 disabled:cursor-not-allowed disabled:opacity-70 ${activeMethod.buttonClassName}`}
-                    >
-                      <ActiveMethodIcon className="h-4 w-4" />
-                      {activeMethod.buttonLabel}
-                    </button>
+                  <div className="flex items-center gap-2">
+                    <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                      {activeMethod.title}
+                    </div>
                     <button
                       type="button"
-                      onClick={() => setForm(emptyForm)}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                      onClick={() => setShowCreditActions((current) => !current)}
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 transition hover:bg-slate-50"
                     >
-                      <ArrowUturnLeftIcon className="h-4 w-4" />
-                      Reset Form
+                      <ChevronDownIcon className={`h-4 w-4 transition ${showCreditActions ? "rotate-180" : ""}`} />
                     </button>
                   </div>
                 </div>
+              </div>
 
-                <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <div className="text-sm font-semibold text-slate-900">Choose action</div>
-                    <div className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-500">
-                      {methodOptions.length} actions
+              <div className={`${showCreditActions ? "block" : "hidden"} p-5 sm:p-6`}>
+                <div className="grid gap-4 xl:grid-cols-[320px_1fr]">
+                  <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50/80 p-5 shadow-sm">
+                    <FloatingSelect
+                      label="Customer"
+                      name="customerId"
+                      value={form.customerId}
+                      onChange={handleChange}
+                      options={customers.map((customer) => ({
+                        id: String(customer.id),
+                        name: customerOptionLabel(customer),
+                      }))}
+                      required
+                    />
+
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className={`inline-flex min-w-[190px] items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition focus:outline-none focus:ring-4 disabled:cursor-not-allowed disabled:opacity-70 ${activeMethod.buttonClassName}`}
+                      >
+                        <ActiveMethodIcon className="h-4 w-4" />
+                        {activeMethod.buttonLabel}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setForm(emptyForm)}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                      >
+                        <ArrowUturnLeftIcon className="h-4 w-4" />
+                        Reset Form
+                      </button>
                     </div>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {methodOptions.map((option) => {
-                      const optionConfig = methodConfig[option.id];
-                      const OptionIcon = optionConfig.icon;
-                      const isActive = selectedMethod === option.id;
+                  <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div className="text-sm font-semibold text-slate-900">Choose action</div>
+                      <div className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-500">
+                        {methodOptions.length} actions
+                      </div>
+                    </div>
 
-                      return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => setSelectedMethod(option.id)}
-                          className={`group rounded-2xl border p-4 text-left transition ${
-                            isActive
-                              ? "border-cyan-300 bg-cyan-50/70 shadow-sm ring-2 ring-cyan-100"
-                              : "border-slate-200 bg-white hover:border-cyan-200 hover:bg-slate-50"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition ${
-                                isActive ? optionConfig.toneClassName : "border-slate-200 bg-slate-50 text-slate-500"
-                              }`}
-                            >
-                              <OptionIcon className="h-5 w-5" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <h4 className="text-sm font-semibold text-slate-900">{option.name}</h4>
-                                {isActive && (
-                                  <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-cyan-700 shadow-sm">
-                                    Active
-                                  </span>
-                                )}
+                    <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+                      {methodOptions.map((option) => {
+                        const optionConfig = methodConfig[option.id];
+                        const OptionIcon = optionConfig.icon;
+                        const isActive = selectedMethod === option.id;
+
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => setSelectedMethod(option.id)}
+                            className={`group rounded-2xl border p-3.5 text-left transition ${
+                              isActive
+                                ? "border-cyan-300 bg-cyan-50/70 shadow-sm ring-2 ring-cyan-100"
+                                : "border-slate-200 bg-white hover:border-cyan-200 hover:bg-slate-50"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition ${
+                                  isActive ? optionConfig.toneClassName : "border-slate-200 bg-slate-50 text-slate-500"
+                                }`}
+                              >
+                                <OptionIcon className="h-5 w-5" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h4 className="text-sm font-semibold text-slate-900">{option.name}</h4>
+                                  {isActive && (
+                                    <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-cyan-700 shadow-sm">
+                                      Active
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </button>
-                      );
-                    })}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="mt-4 grid gap-4 xl:grid-cols-[0.85fr] xl:justify-end">
+                <div className="mt-4 grid gap-4 xl:grid-cols-[0.85fr] xl:justify-end">
                   <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50/70 p-5">
                     <div className="mb-4 flex items-center justify-between gap-3">
                       <div>
@@ -1048,233 +1059,236 @@ const CreditLimit: React.FC = () => {
                           onChange={handleChange}
                         />
                       )}
-                        {selectedMethod === "available" && (
+                      {selectedMethod === "available" && (
                         <div className="rounded-2xl border border-teal-100 bg-teal-50/40 px-4 py-4 text-sm leading-6 text-slate-600">
                           No input required
                         </div>
-                        )}
+                      )}
                     </div>
-                  </div>
-              </div>
-
-              <div className="mt-4 grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
-                <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex items-center justify-between gap-3">
-                    <div>
-                      <h4 className="text-base font-semibold text-slate-900">Credit trend</h4>
-                    </div>
-                    <div className="rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
-                      Last {trendChartData.length || 0} records
-                    </div>
-                  </div>
-
-                  <div className="h-64">
-                    {trendChartData.length ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={trendChartData} barGap={10}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                          <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                          <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                          <Tooltip />
-                          <Bar dataKey="available" fill="#0f766e" radius={[8, 8, 0, 0]} />
-                          <Bar dataKey="outstanding" fill="#38bdf8" radius={[8, 8, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="flex h-full items-center justify-center rounded-2xl bg-slate-50 text-sm text-slate-500">
-                        No chart data yet
-                      </div>
-                    )}
                   </div>
                 </div>
 
-                <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4">
-                    <h4 className="text-base font-semibold text-slate-900">Action mix</h4>
-                  </div>
-
-                  <div className="h-52">
-                    {actionMixData.length ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={actionMixData}
-                            dataKey="value"
-                            nameKey="name"
-                            innerRadius={45}
-                            outerRadius={75}
-                            paddingAngle={4}
-                          >
-                            {actionMixData.map((entry, index) => (
-                              <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="flex h-full items-center justify-center rounded-2xl bg-slate-50 text-sm text-slate-500">
-                        No action mix yet
+                <div className="mt-4 grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
+                  <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <h4 className="text-base font-semibold text-slate-900">Credit trend</h4>
                       </div>
-                    )}
-                  </div>
+                      <div className="rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
+                        Last {trendChartData.length || 0} records
+                      </div>
+                    </div>
 
-                  <div className="mt-3 grid gap-2">
-                    {actionMixData.map((item, index) => (
-                      <div key={item.name} className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
-                        <div className="flex items-center gap-2 text-sm text-slate-700">
-                          <span
-                            className="h-2.5 w-2.5 rounded-full"
-                            style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
-                          />
-                          <span>{item.name}</span>
+                    <div className="h-56">
+                      {trendChartData.length ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={trendChartData} barGap={10}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                            <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                            <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                            <Tooltip />
+                            <Bar dataKey="available" fill="#0f766e" radius={[8, 8, 0, 0]} />
+                            <Bar dataKey="outstanding" fill="#38bdf8" radius={[8, 8, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex h-full items-center justify-center rounded-2xl bg-slate-50 text-sm text-slate-500">
+                          No chart data yet
                         </div>
-                        <span className="text-sm font-semibold text-slate-900">{item.value}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="mb-3">
+                      <h4 className="text-base font-semibold text-slate-900">Action mix</h4>
+                    </div>
+
+                    <div className="h-44">
+                      {actionMixData.length ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={actionMixData}
+                              dataKey="value"
+                              nameKey="name"
+                              innerRadius={38}
+                              outerRadius={62}
+                              paddingAngle={4}
+                            >
+                              {actionMixData.map((entry, index) => (
+                                <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex h-full items-center justify-center rounded-2xl bg-slate-50 text-sm text-slate-500">
+                          No action mix yet
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-3 grid gap-2">
+                      {actionMixData.map((item, index) => (
+                        <div key={item.name} className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
+                          <div className="flex items-center gap-2 text-sm text-slate-700">
+                            <span
+                              className="h-2.5 w-2.5 rounded-full"
+                              style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                            />
+                            <span>{item.name}</span>
+                          </div>
+                          <span className="text-sm font-semibold text-slate-900">{item.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {!showCreditActions && (
+                <div className="px-5 py-5 sm:px-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                        Selected Customer
                       </div>
-                    ))}
+                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                        {selectedCustomer ? customerOptionLabel(selectedCustomer) : "Choose customer"}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                        Selected Action
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">{activeMethod.buttonLabel}</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {!showCreditActions && (
-              <div className="px-5 py-5 sm:px-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                      Selected Customer
-                    </div>
-                    <div className="mt-1 text-sm font-semibold text-slate-900">
-                      {selectedCustomer ? customerOptionLabel(selectedCustomer) : "Choose customer"}
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                      Selected Action
-                    </div>
-                    <div className="mt-1 text-sm font-semibold text-slate-900">{activeMethod.buttonLabel}</div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </form>
-        </div>
-
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3">
-              <h3 className="text-lg font-semibold text-slate-900">Recent credit actions</h3>
-              <div className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium text-slate-600">
-                {filteredLogs.length} items
-              </div>
-            </div>
-
-            <div className="flex w-full flex-col gap-3 lg:w-auto lg:min-w-[680px]">
-              <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
-                <button
-                  type="button"
-                  onClick={() => void fetchRecentTransactions()}
-                  disabled={historyLoading || !isPositiveNumber(form.customerId)}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <ArrowPathIcon className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={openExportPopup}
-                  disabled={exportLoading || !isPositiveNumber(form.customerId)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <ArrowDownTrayIcon className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowPurgeConfirm(true)}
-                  disabled={purging || !isPositiveNumber(form.customerId)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <TrashIcon className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
+              )}
+            </form>
           </div>
 
-          {historyLoading ? (
-            <div className="py-10 text-center text-sm text-slate-500">Loading recent credit activity...</div>
-          ) : filteredLogs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <CreditCardIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">No credit actions yet</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredLogs.slice(0, PAGE_SIZE).map((log) => (
-                <div
-                  key={log.id}
-                  className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:border-cyan-200 hover:bg-cyan-50/40 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  {(() => {
-                    const customer = customers.find((item) => Number(item.id) === Number(log.customerId));
-                    return (
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-semibold text-cyan-700">
-                            {log.action}
-                          </span>
-                          <span className="text-sm font-medium text-slate-900">{customerDisplayName(customer)}</span>
-                        </div>
-                        <div className="mt-1 text-xs text-slate-500">{log.createdAt}</div>
-                      </div>
-                    );
-                  })()}
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-center gap-3">
+                <h3 className="text-lg font-semibold text-slate-900">Recent credit actions</h3>
+                <div className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium text-slate-600">
+                  {filteredLogs.length} items
+                </div>
+              </div>
 
-                  <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-                    <div>
-                      <div className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Amount</div>
-                      <div className="mt-1 text-sm font-semibold text-slate-900">
-                        {log.amount === undefined ? "--" : money(log.amount)}
+              <div className="flex w-full flex-col gap-3 lg:w-auto lg:min-w-[680px]">
+                <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => void fetchRecentTransactions()}
+                    disabled={historyLoading || !isPositiveNumber(form.customerId)}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <ArrowPathIcon className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openExportPopup}
+                    disabled={exportLoading || !isPositiveNumber(form.customerId)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <ArrowDownTrayIcon className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowPurgeConfirm(true)}
+                    disabled={purging || !isPositiveNumber(form.customerId)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {historyLoading ? (
+              <div className="py-10 text-center text-sm text-slate-500">Loading recent credit activity...</div>
+            ) : filteredLogs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <CreditCardIcon className="mb-3 h-12 w-12 text-gray-400" />
+                <p className="mb-2 text-sm text-gray-500">No credit actions yet</p>
+              </div>
+            ) : (
+              // Nested scroll region with `overscroll-contain` so the inner
+              // list scrolls smoothly without chaining to the outer page.
+              <div className="max-h-[26rem] space-y-3 overflow-y-auto overscroll-contain pr-1">
+                {filteredLogs.slice(0, PAGE_SIZE).map((log) => (
+                  <div
+                    key={log.id}
+                    className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:border-cyan-200 hover:bg-cyan-50/40 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    {(() => {
+                      const customer = customers.find((item) => Number(item.id) === Number(log.customerId));
+                      return (
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-semibold text-cyan-700">
+                              {log.action}
+                            </span>
+                            <span className="text-sm font-medium text-slate-900">{customerDisplayName(customer)}</span>
+                          </div>
+                          <div className="mt-1 text-xs text-slate-500">{log.createdAt}</div>
+                        </div>
+                      );
+                    })()}
+
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+                      <div>
+                        <div className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Amount</div>
+                        <div className="mt-1 text-sm font-semibold text-slate-900">
+                          {log.amount === undefined ? "--" : money(log.amount)}
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Available</div>
-                      <div className="mt-1 text-sm font-semibold text-slate-900">
-                        {log.availableCredit === undefined ? "--" : money(log.availableCredit)}
+                      <div>
+                        <div className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Available</div>
+                        <div className="mt-1 text-sm font-semibold text-slate-900">
+                          {log.availableCredit === undefined ? "--" : money(log.availableCredit)}
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Outstanding</div>
-                      <div className="mt-1 text-sm font-semibold text-slate-900">
-                        {log.outstandingBalance === undefined ? "--" : money(log.outstandingBalance)}
+                      <div>
+                        <div className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Outstanding</div>
+                        <div className="mt-1 text-sm font-semibold text-slate-900">
+                          {log.outstandingBalance === undefined ? "--" : money(log.outstandingBalance)}
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Credit Limit</div>
-                      <div className="mt-1 text-sm font-semibold text-slate-900">
-                        {log.creditLimit === undefined ? "--" : money(log.creditLimit)}
+                      <div>
+                        <div className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Credit Limit</div>
+                        <div className="mt-1 text-sm font-semibold text-slate-900">
+                          {log.creditLimit === undefined ? "--" : money(log.creditLimit)}
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Result</div>
-                      <div className="mt-1">
-                        {log.sufficient === undefined ? (
-                          <span className="text-sm font-semibold text-slate-900">--</span>
-                        ) : (
-                          <span
-                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                              log.sufficient ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
-                            }`}
-                          >
-                            {log.sufficient ? "Sufficient" : "Insufficient"}
-                          </span>
-                        )}
+                      <div>
+                        <div className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Result</div>
+                        <div className="mt-1">
+                          {log.sufficient === undefined ? (
+                            <span className="text-sm font-semibold text-slate-900">--</span>
+                          ) : (
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                log.sufficient ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+                              }`}
+                            >
+                              {log.sufficient ? "Sufficient" : "Insufficient"}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
 
       <ConfirmDialog
