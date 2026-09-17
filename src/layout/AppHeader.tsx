@@ -1,6 +1,7 @@
 import {
   forwardRef,
   useEffect,
+  useLayoutEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -182,6 +183,10 @@ const SearchBar = forwardRef<
   const [highlightedChildId, setHighlightedChildId] = useState<string | null>(null);
   // Which level currently owns keyboard focus
   const [level, setLevel] = useState<0 | 1>(0);
+   // Flyout placement — computed after mount by measuring the flyout
+   const flyoutRef = useRef<HTMLDivElement>(null);
+  const [flyoutPlacement, setFlyoutPlacement] = useState<"right" | "left">("right");
+  const [flyoutOffsetY, setFlyoutOffsetY] = useState(0);
 
   // Reset flyout/highlight state every time the menu transitions to open,
   // so ⌘K or tapping the input always starts fresh at level 0 with no
@@ -195,12 +200,46 @@ const SearchBar = forwardRef<
     }
   }, [isOpen]);
 
+    // Measure the open flyout and decide where it fits. Runs on every open
+  // and whenever the list of open children changes so vertical overflow is
+  // recalculated too.
+  useLayoutEffect(() => {
+    if (!openFlyoutId || !flyoutRef.current) return;
+
+    const el = flyoutRef.current;
+    // Reset to defaults so measurement is unbiased from the previous open.
+    el.style.transform = "";
+    el.style.left = "";
+    el.style.right = "";
+
+    const rect = el.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const margin = 8;
+
+    // --- Horizontal: prefer right, flip to left if it doesn't fit ---
+    const parentRect = el.parentElement?.getBoundingClientRect();
+    const parentRight = parentRect?.right ?? rect.left;
+    const fitsRight = parentRight + rect.width + margin <= vw;
+    const fitsLeft = (parentRect?.left ?? rect.left) - rect.width - margin >= 0;
+
+    let nextPlacement: "right" | "left" = "right";
+    if (!fitsRight && fitsLeft) nextPlacement = "left";
+    else if (!fitsRight && !fitsLeft) {
+      // Neither side fits cleanly — pick the one with more room.
+      nextPlacement = parentRight + rect.width <= vw - parentRight ? "right" : "left";
+    }
+    setFlyoutPlacement(nextPlacement);
+
+    // --- Vertical: shift up if the flyout overflows the bottom ---
+      const overflowBottom = rect.bottom - (vh - margin);
+    const offsetY = overflowBottom > 0 ? -overflowBottom : 0;
+    setFlyoutOffsetY(offsetY);
+  }, [openFlyoutId, openFlyoutId ? mainModules.find((m) => m.id === openFlyoutId)?.children?.length : 0]);
+
   const q = query.trim().toLowerCase();
   const showingModulesOnly = !q;
-  // While typing, flatten modules + their children + actions and fuzzy-filter.
-  // Modules themselves are included so typing "Sales" surfaces the "Sales"
-  // module; its children are flattened too so "sales order" surfaces the
-  // specific page.
+  
   const flatFiltered = useMemo(() => {
     if (!q) return [];
 
@@ -559,9 +598,15 @@ const SearchBar = forwardRef<
                     </button>
 
                     {/* Flyout submenu */}
-                    {hasChildren && isFlyoutOpen && (
+                                       {hasChildren && isFlyoutOpen && (
                       <div
-                        className={`${MENU_WRAP} !left-full !top-[-6px] !mt-0 ml-1`}
+                        ref={flyoutRef}
+                        className={`${MENU_WRAP} !top-[-6px] !mt-0 ${
+                          flyoutPlacement === "right"
+                            ? "!left-full ml-1"
+                            : "!right-full mr-1"
+                        }`}
+                        style={{ transform: `translateY(${flyoutOffsetY}px)` }}
                         role="menu"
                         onMouseEnter={() => setOpenFlyoutId(mod.id)}
                       >
@@ -766,24 +811,37 @@ const AppHeader: React.FC = () => {
   );
 
   // Centralized pick handler so desktop and mobile behave identically.
-  // Close the menu first, then navigate, then clear the query — this order
-  // avoids a flicker where the menu re-renders with an empty input mid-route-change.
-  const handlePick = (r: SearchResult) => {
+   const handlePick = (r: SearchResult) => {
     setIsSearchOpen(false);
     setApplicationMenuOpen(false); // close mobile menu after navigation
 
-    if (r.action) {
-      r.action();
-    } else if (r.path) {
-      navigate(r.path);
+    // If a main module with no path of its own was picked, fall through to
+    // its first navigable child. This makes typing "Sales" (or clicking the
+    // Sales module) land on Sales' first sub-page instead of doing nothing.
+    let target = r;
+    if (!r.path && !r.action && r.children?.length) {
+      const firstNavigable = r.children.find((c) => c.path);
+      if (firstNavigable) target = firstNavigable;
+    }
+
+    if (target.action) {
+      target.action();
+    } else if (target.path) {
+      navigate(target.path);
     }
 
     // Record this pick in recents (dedup by id, newest first, capped).
     // Only store navigable entries so recents remain usable.
-    if (r.path) {
+    if (target.path) {
       const next = [
-        { id: r.id, label: r.label, path: r.path, category: r.category, parent: r.parent },
-        ...recents.filter((x) => x.id !== r.id),
+        {
+          id: target.id,
+          label: target.label,
+          path: target.path,
+          category: target.category,
+          parent: target.parent,
+        },
+        ...recents.filter((x) => x.id !== target.id),
       ].slice(0, RECENTS_LIMIT);
       setRecents(next);
       saveRecents(next);

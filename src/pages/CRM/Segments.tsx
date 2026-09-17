@@ -1,4 +1,12 @@
-import React, { useEffect, useState, ChangeEvent, FormEvent, useRef, useMemo } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  ChangeEvent,
+  FormEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
 import {
@@ -18,22 +26,28 @@ import {
   PhoneIcon,
   EyeIcon,
 } from "@heroicons/react/24/outline";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate} from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import DynamicPopup from "../../components/common/Popup";
 import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import { FloatingInput, FloatingTextarea } from "../../components/inputfeild/FloatingInput";
+import {
+  FloatingInput,
+  FloatingTextarea,
+} from "../../components/inputfeild/FloatingInput";
 import StatsCard from "../../components/common/Statscard";
 import "./Deals.css";
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
 
 interface Customer {
   id: number;
   name?: string;
   industry?: string;
-  website?: string;
   email?: string;
   phone?: string;
   status?: string;
@@ -46,21 +60,37 @@ interface Customer {
   };
 }
 
-interface CustomerSegment {
-  id: number;
-  name: string;
-  description: string;
-  customers?: Customer[];
+interface SegmentCustomer {
+  customerId: number;
+  customerName?: string;
+  customerCode?: string;
+  active?: boolean;
+  email?: string;
+  phone?: string;
+  assignedAt?: string;
 }
 
+interface CustomerSegment {
+  id: number;
+  code?: string;
+  name: string;
+  description?: string;
+  active?: boolean;
+  segmentCustomers?: SegmentCustomer[];
+}
+
+/* ------------------------------------------------------------------ */
+/*  Constants + tenant helpers                                         */
+/* ------------------------------------------------------------------ */
+
 const API_URL = "/v1/api/crm/segments";
+const CUSTOMER_API = "/v1/api/crm/customers";
 const PAGE_SIZE = 10;
 
 const getTenantIdFromToken = (token: string) => {
   try {
     const payload = token.split(".")[1];
-    const decoded = JSON.parse(atob(payload));
-    return decoded?.tenantId || null;
+    return JSON.parse(atob(payload))?.tenantId || null;
   } catch {
     return null;
   }
@@ -74,242 +104,274 @@ const getTenantId = () => {
       if (user?.tenantId) return user.tenantId;
     }
     const token = localStorage.getItem("accessToken");
-    if (token) return getTenantIdFromToken(token);
-    return null;
+    return token ? getTenantIdFromToken(token) : null;
   } catch {
     return null;
   }
 };
 
+const safeString = (v?: string, fallback = "N/A") =>
+  v && String(v).trim() ? v : fallback;
+
+/* ------------------------------------------------------------------ */
+/*  Component                                                          */
+/* ------------------------------------------------------------------ */
+
 const Segments: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const [segments, setSegments] = useState<CustomerSegment[]>([]);
-  const [form, setForm] = useState<Partial<CustomerSegment>>({});
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [showFormModal, setShowFormModal] = useState(false);
-
-  // Customer modal
-  const [showCustomerModal, setShowCustomerModal] = useState(false);
-  const [customerModalMode, setCustomerModalMode] = useState<"add" | "manage">("add");
-  const [selectedCustomerIds, setSelectedCustomerIds] = useState<number[]>([]);
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [activeSegmentId, setActiveSegmentId] = useState<number | null>(null);
-  const [isAssigning, setIsAssigning] = useState(false);
-
-  const [showDeletePopup, setShowDeletePopup] = useState(false);
-  const [segmentToDelete, setSegmentToDelete] = useState<CustomerSegment | null>(null);
-
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeFilter, setActiveFilter] = useState("ALL");
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const navigate = useNavigate();
+  // const location = useLocation();
 
   const token = localStorage.getItem("accessToken");
   const tenantId = getTenantId();
-  const processedEditIdRef = useRef<number | null>(null);
-  const navigate = useNavigate();
-  const location = useLocation();
+  const authHeaders = useMemo(
+    () => (token ? { Authorization: `Bearer ${token}` } : {}),
+    [token]
+  );
 
-  /* ---------------- Fetching ---------------- */
+  /* ---------------- State ---------------- */
 
-  useEffect(() => {
-    fetchSegments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const [segments, setSegments] = useState<CustomerSegment[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<
+    "ALL" | "ACTIVE" | "INACTIVE"
+  >("ALL");
 
-  useEffect(() => {
-    if (segments.length > 0) {
-      const searchParams = new URLSearchParams(location.search);
-      const editId = searchParams.get("editId");
+  // Segment form modal
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState<Partial<CustomerSegment>>({});
+  // const processedEditIdRef = useRef<number | null>(null);
 
-      if (editId && editingId === null && processedEditIdRef.current !== Number(editId)) {
-        const segmentToEdit = segments.find((s) => s.id === Number(editId));
-        if (segmentToEdit) {
-          processedEditIdRef.current = Number(editId);
-          handleEdit(segmentToEdit);
-        }
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [segments, location.search]);
+  // Customer management modal
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [activeSegmentId, setActiveSegmentId] = useState<number | null>(null);
+  const [customerModalMode, setCustomerModalMode] = useState<"add" | "manage">(
+    "add"
+  );
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState<number[]>([]);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [isAssigning, setIsAssigning] = useState(false);
 
-  useEffect(() => {
-    if (!showFormModal) {
-      processedEditIdRef.current = null;
-      if (location.search.includes("editId")) {
-        navigate("/customer-segment", { replace: true });
-      }
-    }
-  }, [showFormModal, navigate, location.search]);
+  // Delete confirmation
+  const [showDeletePopup, setShowDeletePopup] = useState(false);
+  const [segmentToDelete, setSegmentToDelete] = useState<CustomerSegment | null>(
+    null
+  );
 
-  useEffect(() => {
-    if (showCustomerModal) fetchCustomers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showCustomerModal]);
+  /* ---------------- Fetch ---------------- */
 
-  const fetchCustomers = async () => {
-    try {
-      const res = await axios.get("/v1/api/crm/customers", {
-        headers: { Authorization: `Bearer ${token}` },
-        params: tenantId ? { tenantId } : {},
-      });
-      setCustomers(Array.isArray(res.data) ? res.data : []);
-    } catch (error) {
-      console.error("Error fetching customers:", error);
-      setCustomers([]);
-    }
-  };
-
-  const fetchSegments = async () => {
+  const fetchSegments = useCallback(async () => {
     try {
       setIsLoading(true);
       const res = await axios.get<CustomerSegment[]>(API_URL, {
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        headers: authHeaders,
         params: tenantId ? { tenantId } : {},
       });
-      if (id) {
-        setSegments(res.data.filter((seg) => seg.id === Number(id)));
-      } else {
-        setSegments(res.data);
-      }
+      const list = Array.isArray(res.data) ? res.data : [];
+      setSegments(id ? list.filter((s) => s.id === Number(id)) : list);
     } catch (err) {
       console.error("Error fetching segments", err);
+      setSegments([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [authHeaders, tenantId, id]);
 
-  /* ---------------- Form ---------------- */
-
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
-
-  const handleSubmitSegment = async (e: FormEvent) => {
-    e.preventDefault();
-
-    if (!form.name?.trim()) {
-      ToasterService.error("Segment name is required");
-      return;
-    }
-
+  const fetchCustomers = useCallback(async () => {
     try {
-      const res =
-        editingId !== null
-          ? await axios.put(`${API_URL}/${editingId}`, form, {
-              headers: { Authorization: `Bearer ${token}` },
-            })
-          : await axios.post(API_URL, form, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-
-      if (res.status === 200 || res.status === 201) {
-        const createdSegmentId =
-          editingId === null && res.data?.id ? res.data.id : null;
-
-        ToasterService.success(
-          editingId !== null ? "Segment updated successfully!" : "Segment added successfully!"
-        );
-
-        setShowFormModal(false);
-        setForm({});
-        setEditingId(null);
-        processedEditIdRef.current = null;
-        navigate("/customer-segment", { replace: true });
-        await fetchSegments();
-
-        // Auto-open add-customer modal after creating a new segment
-        if (createdSegmentId) {
-          openCustomerModal(createdSegmentId, "add");
-        }
-      }
+      const res = await axios.get<Customer[]>(CUSTOMER_API, {
+        headers: authHeaders,
+        params: tenantId ? { tenantId } : {},
+      });
+      setCustomers(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error("Error submitting segment", err);
-      ToasterService.error("Failed to save segment");
+      console.error("Error fetching customers", err);
+      setCustomers([]);
     }
-  };
+  }, [authHeaders, tenantId]);
 
-  const handleEdit = (segment: CustomerSegment) => {
-    setForm(segment);
-    setEditingId(segment.id);
-    setShowFormModal(true);
-    if (!location.search.includes("editId")) {
-      navigate(`/customer-segment?editId=${segment.id}`, { replace: true });
-    }
-  };
+  useEffect(() => {
+    fetchSegments();
+  }, [fetchSegments]);
 
-  const openCreateSegment = () => {
-    if (location.search.includes("editId")) {
-      navigate("/customer-segment", { replace: true });
-    }
-    setShowFormModal(true);
-    setForm({});
-    setEditingId(null);
-    processedEditIdRef.current = null;
-  };
+  useEffect(() => {
+    if (showCustomerModal) fetchCustomers();
+  }, [showCustomerModal, fetchCustomers]);
 
-  const closeSegmentModal = () => {
-    setShowFormModal(false);
-    setEditingId(null);
-    setForm({});
-    processedEditIdRef.current = null;
-    if (location.search.includes("editId")) {
-      navigate("/customer-segment", { replace: true });
-    }
-  };
+  /* ---------------- Deep-link edit (?editId=) ---------------- */
 
-  /* ---------------- Customer Modal ---------------- */
+ 
+  /* ---------------- Derived values ---------------- */
 
-  const openCustomerModal = (segmentId: number, mode: "add" | "manage" = "add") => {
-    setActiveSegmentId(segmentId);
-    setCustomerModalMode(mode);
-    setShowCustomerModal(true);
-    setSelectedCustomerIds([]);
-    setCustomerSearch("");
-  };
-
-  const closeCustomerModal = () => {
-    setShowCustomerModal(false);
-    setSelectedCustomerIds([]);
-    setCustomerSearch("");
-    setActiveSegmentId(null);
-    setCustomerModalMode("add");
-    setIsAssigning(false);
-  };
+  const getCustomerCount = (segment: CustomerSegment) =>
+    segment.segmentCustomers?.length ?? 0;
 
   const activeSegment = useMemo(
     () => segments.find((s) => s.id === activeSegmentId) || null,
     [segments, activeSegmentId]
   );
 
-  // Customers NOT yet in the segment (for "add" mode)
+  /** Assigned customers, deduped, converted to Customer shape */
+  const assignedCustomers = useMemo<Customer[]>(() => {
+    const list = activeSegment?.segmentCustomers || [];
+    const byId = new Map<number, Customer>();
+    for (const sc of list) {
+      if (byId.has(sc.customerId)) continue;
+      byId.set(sc.customerId, {
+        id: sc.customerId,
+        name: sc.customerName,
+        email: sc.email,
+        phone: sc.phone,
+        status: sc.active ? "Active" : "Inactive",
+      });
+    }
+    return Array.from(byId.values());
+  }, [activeSegment]);
+
+  /** Customers NOT yet in the segment */
   const availableCustomers = useMemo(() => {
-    const existing = new Set((activeSegment?.customers || []).map((c) => c.id));
+    const existing = new Set(assignedCustomers.map((c) => c.id));
     return customers.filter((c) => !existing.has(c.id));
-  }, [customers, activeSegment]);
+  }, [customers, assignedCustomers]);
 
-  // Customers currently in the segment (for "manage" mode)
-  const assignedCustomers = useMemo(
-    () => activeSegment?.customers || [],
-    [activeSegment]
+  /** Tab-dependent source list */
+  const sourceList =
+    customerModalMode === "add" ? availableCustomers : assignedCustomers;
+
+  const filteredCustomers = useMemo(() => {
+    const q = customerSearch.trim().toLowerCase();
+    if (!q) return sourceList;
+    return sourceList.filter(
+      (c) =>
+        (c.name || "").toLowerCase().includes(q) ||
+        (c.email || "").toLowerCase().includes(q) ||
+        (c.industry || "").toLowerCase().includes(q) ||
+        (c.phone || "").toLowerCase().includes(q)
+    );
+  }, [sourceList, customerSearch]);
+
+  const allVisibleSelected =
+    filteredCustomers.length > 0 &&
+    filteredCustomers.every((c) => selectedCustomerIds.includes(c.id));
+
+  const filteredSegments = useMemo(() => {
+    return segments.filter((segment) => {
+      if (activeFilter === "ACTIVE") return getCustomerCount(segment) > 0;
+      if (activeFilter === "INACTIVE") return getCustomerCount(segment) === 0;
+      return true;
+    });
+  }, [segments, activeFilter]);
+
+  const stats = useMemo(
+    () => ({
+      totalSegments: segments.length,
+      activeSegments: segments.filter((s) => getCustomerCount(s) > 0).length,
+      totalCustomers: segments.reduce((a, s) => a + getCustomerCount(s), 0),
+      emptySegments: segments.filter((s) => getCustomerCount(s) === 0).length,
+    }),
+    [segments]
   );
 
-  // Source list depends on mode
-  const sourceList = customerModalMode === "add" ? availableCustomers : assignedCustomers;
+  /* ---------------- Segment form handlers ---------------- */
 
-  const filteredCustomers = useMemo(
-    () =>
-      sourceList.filter((customer) => {
-        const companyName = (customer.name || "").toLowerCase();
-        const email = (customer.email || "").toLowerCase();
-        const industry = (customer.industry || "").toLowerCase();
-        const searchTerm = customerSearch.toLowerCase();
-        return (
-          companyName.includes(searchTerm) ||
-          email.includes(searchTerm) ||
-          industry.includes(searchTerm)
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => setForm({ ...form, [e.target.name]: e.target.value });
+
+ const openCreateSegment = () => {
+  setForm({});
+  setEditingId(null);
+  setShowFormModal(true);
+};
+
+  const handleEdit = (segment: CustomerSegment) => {
+  setForm(segment);
+  setEditingId(segment.id);
+  setShowFormModal(true);
+};
+
+ const closeSegmentModal = () => {
+  setShowFormModal(false);
+  setEditingId(null);
+  setForm({});
+};
+
+  const handleSubmitSegment = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!form.name?.trim()) {
+      ToasterService.error("Segment name is required");
+      return;
+    }
+    try {
+      const res =
+        editingId !== null
+          ? await axios.put(`${API_URL}/${editingId}`, form, {
+              headers: authHeaders,
+            })
+          : await axios.post(API_URL, form, { headers: authHeaders });
+
+      if (res.status === 200 || res.status === 201) {
+        const createdSegmentId =
+          editingId === null && res.data?.id ? res.data.id : null;
+
+        ToasterService.success(
+          editingId !== null
+            ? "Segment updated successfully!"
+            : "Segment added successfully!"
         );
-      }),
-    [sourceList, customerSearch]
-  );
+
+                setShowFormModal(false);
+        setForm({});
+        setEditingId(null);
+
+        await fetchSegments();
+        // Auto-open the customer modal on the newly-created segment
+        if (createdSegmentId) {
+          openCustomerModal(createdSegmentId);
+        }
+      }
+    } catch (err) {
+      console.error("Error saving segment", err);
+      ToasterService.error("Failed to save segment");
+    }
+  };
+
+  const goToCustomerDetail = (customerId: number) => {
+  if (!customerId) return;
+  navigate(`/customer-management/${customerId}`, {
+    state: {
+      from: "segments-customer-modal",
+      segmentId: activeSegmentId,
+    },
+  });
+};
+
+  /* ---------------- Customer modal handlers ---------------- */
+
+  const openCustomerModal = (segmentId: number) => {
+    setActiveSegmentId(segmentId);
+    setCustomerModalMode("add"); // always start on Add tab
+    setShowCustomerModal(true);
+    setSelectedCustomerIds([]);
+    setCustomerSearch("");
+  };
+
+  const closeCustomerModal = () => {
+    if (isAssigning) return; // prevent close during request
+    setShowCustomerModal(false);
+    setSelectedCustomerIds([]);
+    setCustomerSearch("");
+    setActiveSegmentId(null);
+    setCustomerModalMode("add");
+  };
+
+  const switchCustomerTab = (tab: "add" | "manage") => {
+    setCustomerModalMode(tab);
+    setSelectedCustomerIds([]);
+    setCustomerSearch("");
+  };
 
   const toggleCustomer = (customerId: number) => {
     setSelectedCustomerIds((prev) =>
@@ -319,20 +381,20 @@ const Segments: React.FC = () => {
     );
   };
 
-  const allVisibleSelected =
-    filteredCustomers.length > 0 &&
-    filteredCustomers.every((c) => selectedCustomerIds.includes(c.id));
-
   const toggleSelectAll = () => {
     if (allVisibleSelected) {
-      // Deselect only visible
-      const visibleIds = new Set(filteredCustomers.map((c) => c.id));
-      setSelectedCustomerIds((prev) => prev.filter((id) => !visibleIds.has(id)));
+      const visible = new Set(filteredCustomers.map((c) => c.id));
+      setSelectedCustomerIds((prev) => prev.filter((id) => !visible.has(id)));
     } else {
-      const merged = new Set([...selectedCustomerIds, ...filteredCustomers.map((c) => c.id)]);
+      const merged = new Set([
+        ...selectedCustomerIds,
+        ...filteredCustomers.map((c) => c.id),
+      ]);
       setSelectedCustomerIds(Array.from(merged));
     }
   };
+
+  /* ---------------- Assign / Remove ---------------- */
 
   const handleAssignCustomers = async () => {
     if (!activeSegmentId || selectedCustomerIds.length === 0) {
@@ -341,38 +403,33 @@ const Segments: React.FC = () => {
     }
     try {
       setIsAssigning(true);
-      // Try bulk first; fall back to individual calls if backend not ready
-      try {
-        await axios.post(
-          `${API_URL}/${activeSegmentId}/assign-bulk`,
-          { customerIds: selectedCustomerIds },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      } catch (bulkErr) {
-        // Fallback: loop individual assignments
-        console.warn("Bulk assign failed, falling back to individual calls", bulkErr);
-        await Promise.all(
-          selectedCustomerIds.map((cid) =>
-            axios.post(
-              `${API_URL}/${activeSegmentId}/assign/${cid}`,
-              {},
-              { headers: { Authorization: `Bearer ${token}` } }
-            )
+
+      // Backend endpoint: POST /segments/{segmentId}/customers/{customerId}
+      await Promise.all(
+        selectedCustomerIds.map((cid) =>
+          axios.post(
+            `${API_URL}/${activeSegmentId}/customers/${cid}`,
+            {},
+            { headers: authHeaders }
           )
-        );
-      }
+        )
+      );
 
       ToasterService.success(
-        `${selectedCustomerIds.length} customer${selectedCustomerIds.length > 1 ? "s" : ""} added successfully!`
+        `${selectedCustomerIds.length} customer${
+          selectedCustomerIds.length > 1 ? "s" : ""
+        } added successfully!`
       );
-      closeCustomerModal();
-      fetchSegments();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      console.error("Error assigning customers:", error);
+
+      await fetchSegments();
+      setSelectedCustomerIds([]);
+      // Stay on Add tab so the user can add more immediately
+    } catch (err: any) {
+      console.error("Error assigning customers", err);
       ToasterService.error(
-        error.response?.data?.message || "Failed to assign customers"
+        err.response?.data?.message || "Failed to assign customers"
       );
+    } finally {
       setIsAssigning(false);
     }
   };
@@ -384,45 +441,39 @@ const Segments: React.FC = () => {
     }
     try {
       setIsAssigning(true);
-      try {
-        await axios.post(
-          `${API_URL}/${activeSegmentId}/remove-bulk`,
-          { customerIds: selectedCustomerIds },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      } catch (bulkErr) {
-        console.warn("Bulk remove failed, falling back to individual calls", bulkErr);
-        await Promise.all(
-          selectedCustomerIds.map((cid) =>
-            axios.delete(`${API_URL}/${activeSegmentId}/remove/${cid}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            })
-          )
-        );
-      }
+
+      // Backend endpoint: DELETE /segments/{segmentId}/customers/{customerId}
+      await Promise.all(
+        selectedCustomerIds.map((cid) =>
+          axios.delete(`${API_URL}/${activeSegmentId}/customers/${cid}`, {
+            headers: authHeaders,
+          })
+        )
+      );
 
       ToasterService.success(
-        `${selectedCustomerIds.length} customer${selectedCustomerIds.length > 1 ? "s" : ""} removed!`
+        `${selectedCustomerIds.length} customer${
+          selectedCustomerIds.length > 1 ? "s" : ""
+        } removed!`
       );
-      setSelectedCustomerIds([]);
+
       await fetchSegments();
-      setIsAssigning(false);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      console.error("Error removing customers:", error);
+      setSelectedCustomerIds([]);
+    } catch (err: any) {
+      console.error("Error removing customers", err);
       ToasterService.error(
-        error.response?.data?.message || "Failed to remove customers"
+        err.response?.data?.message || "Failed to remove customers"
       );
+    } finally {
       setIsAssigning(false);
     }
   };
 
-  /* ---------------- Delete Segment ---------------- */
+  /* ---------------- Delete segment ---------------- */
 
-  const handleDelete = async (id: number, e: React.MouseEvent) => {
+  const handleDelete = (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    const target = segments.find((s) => s.id === id) || null;
-    setSegmentToDelete(target);
+    setSegmentToDelete(segments.find((s) => s.id === id) || null);
     setShowDeletePopup(true);
   };
 
@@ -430,7 +481,7 @@ const Segments: React.FC = () => {
     if (!segmentToDelete) return;
     try {
       await axios.delete(`${API_URL}/${segmentToDelete.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: authHeaders,
       });
       ToasterService.success("Segment deleted successfully!");
       setShowDeletePopup(false);
@@ -442,38 +493,12 @@ const Segments: React.FC = () => {
     }
   };
 
-  /* ---------------- Helpers ---------------- */
-
-  const getCustomerCount = (segment: CustomerSegment) => segment.customers?.length || 0;
-
-  const getSafeString = (value: string | undefined, defaultValue: string = "N/A") =>
-    value && value.trim() ? value : defaultValue;
-
-  const filteredSegments = useMemo(() => {
-    return segments.filter((segment) => {
-      let matchesFilter = true;
-      if (activeFilter === "ACTIVE") matchesFilter = getCustomerCount(segment) > 0;
-      else if (activeFilter === "INACTIVE") matchesFilter = getCustomerCount(segment) === 0;
-      return matchesFilter;
-    });
-  }, [segments, activeFilter]);
-
-  const stats = useMemo(
-    () => ({
-      totalSegments: segments.length,
-      activeSegments: segments.filter((s) => getCustomerCount(s) > 0).length,
-      totalCustomers: segments.reduce((acc, s) => acc + getCustomerCount(s), 0),
-      emptySegments: segments.filter((s) => getCustomerCount(s) === 0).length,
-    }),
-    [segments]
-  );
-
-  /* ---------------- Table Columns ---------------- */
+  /* ---------------- Table columns ---------------- */
 
   const tableColumns: ColumnDef<CustomerSegment>[] = [
     {
       key: "name",
-      label: "Segment Name",
+      label: "SEGMENT NAME",
       sortable: true,
       headerClassName: "w-[25%] text-left",
       className: "w-[25%]",
@@ -481,7 +506,7 @@ const Segments: React.FC = () => {
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
             <span className="text-sm font-semibold text-cyan-700">
-              {segment.name ? segment.name.charAt(0).toUpperCase() : "S"}
+              {segment.name?.charAt(0).toUpperCase() || "S"}
             </span>
           </div>
           <span className="text-sm font-semibold text-slate-900 truncate leading-snug">
@@ -492,16 +517,21 @@ const Segments: React.FC = () => {
     },
     {
       key: "description",
-      label: "Description",
+      label: "DESCRIPTION",
       sortable: true,
       headerClassName: "w-[38%] text-left",
       className: "w-[38%]",
       render: (segment) => (
         <div className="flex items-center gap-1.5 text-sm text-slate-600">
           <DocumentTextIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
-          <span className="truncate font-medium text-slate-600" title={segment.description}>
+          <span
+            className="truncate font-medium text-slate-600"
+            title={segment.description}
+          >
             {segment.description || (
-              <span className="text-slate-400 italic">No description provided</span>
+              <span className="text-slate-400 italic">
+                No description provided
+              </span>
             )}
           </span>
         </div>
@@ -509,7 +539,7 @@ const Segments: React.FC = () => {
     },
     {
       key: "customers",
-      label: "Customers",
+      label: "CUSTOMERS",
       sortable: true,
       headerClassName: "w-[15%] text-center",
       className: "w-[15%] text-center",
@@ -521,7 +551,7 @@ const Segments: React.FC = () => {
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              openCustomerModal(segment.id, count > 0 ? "manage" : "add");
+              openCustomerModal(segment.id);
             }}
             className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/40 hover:bg-cyan-100 transition-colors"
             title={count > 0 ? "Manage customers" : "Add customers"}
@@ -534,7 +564,7 @@ const Segments: React.FC = () => {
     },
     {
       key: "actions",
-      label: "Actions",
+      label: "ACTIONS",
       sortable: false,
       headerClassName: "w-[22%] text-right pr-4",
       className: "w-[22%] text-right",
@@ -545,10 +575,13 @@ const Segments: React.FC = () => {
             className="flex items-center justify-end gap-1"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* View segment */}
             <button
               type="button"
               onClick={() =>
-                navigate(`/crm-view/segments/${segment.id}`, { state: { from: "segments" } })
+                navigate(`/crm-view/segments/${segment.id}`, {
+                  state: { from: "segments" },
+                })
               }
               className="rounded-lg p-2 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
               title="View Segment"
@@ -556,6 +589,7 @@ const Segments: React.FC = () => {
               <EyeIcon className="h-4 w-4" />
             </button>
 
+            {/* Edit segment */}
             <button
               type="button"
               onClick={() => handleEdit(segment)}
@@ -565,21 +599,21 @@ const Segments: React.FC = () => {
               <PencilSquareIcon className="h-4 w-4" />
             </button>
 
+            {/* Manage / Add customers — always opens the modal */}
             <button
               type="button"
-              onClick={() =>
-                navigate(
-                  count > 0
-                    ? `/customer-management/${segment.id}`
-                    : "#"
-                ) || (count === 0 && openCustomerModal(segment.id, "add"))
-              }
+              onClick={() => openCustomerModal(segment.id)}
               className="rounded-lg p-2 text-slate-400 transition-all hover:bg-indigo-50 hover:text-indigo-600"
               title={count > 0 ? "Manage Customers" : "Add Customers"}
             >
-              {count > 0 ? <UsersIcon className="h-4 w-4" /> : <UserPlusIcon className="h-4 w-4" />}
+              {count > 0 ? (
+                <UsersIcon className="h-4 w-4" />
+              ) : (
+                <UserPlusIcon className="h-4 w-4" />
+              )}
             </button>
 
+            {/* Delete segment */}
             <button
               type="button"
               onClick={(e) => handleDelete(segment.id, e)}
@@ -655,7 +689,6 @@ const Segments: React.FC = () => {
         {showFormModal &&
           createPortal(
             <div
-              key="segment-modal"
               className="fixed inset-0 z-50 flex items-start justify-center bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto p-4 sm:items-center"
             >
               <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto animate-slide-up">
@@ -673,12 +706,16 @@ const Segments: React.FC = () => {
                   <button
                     onClick={closeSegmentModal}
                     className="text-gray-400 hover:text-gray-600 transition-colors"
+                    aria-label="Close"
                   >
                     <XMarkIcon className="h-5 w-5" />
                   </button>
                 </div>
 
-                <form onSubmit={handleSubmitSegment} className="p-5 max-h-[70vh] overflow-y-auto">
+                <form
+                  onSubmit={handleSubmitSegment}
+                  className="p-5 max-h-[70vh] overflow-y-auto"
+                >
                   <div className="space-y-4 pt-2">
                     <FloatingInput
                       label="Segment Name"
@@ -717,21 +754,16 @@ const Segments: React.FC = () => {
             document.body
           )}
 
-        {/* -------- Customer Modal (Add / Manage) -------- */}
+        {/* -------- Customer Modal (Add / In Segment tabs) -------- */}
         {showCustomerModal &&
           createPortal(
-            <div
-              key="customer-modal"
-              className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center"
-            >
+            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
               <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-auto animate-slide-up max-h-[90vh] flex flex-col">
                 {/* Header */}
                 <div className="flex items-center justify-between p-5 border-b border-gray-100">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {customerModalMode === "add"
-                        ? "Add Customers to Segment"
-                        : "Manage Customers"}
+                      Manage Customers
                     </h3>
                     <p className="text-xs text-gray-500 mt-0.5">
                       {activeSegment?.name
@@ -741,16 +773,50 @@ const Segments: React.FC = () => {
                   </div>
                   <button
                     onClick={closeCustomerModal}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                    disabled={isAssigning}
+                    className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-40"
+                    aria-label="Close"
                   >
                     <XMarkIcon className="h-5 w-5" />
+                  </button>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex items-center gap-1 px-5 pt-3 border-b border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => switchCustomerTab("add")}
+                    className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                      customerModalMode === "add"
+                        ? "border-cyan-600 text-cyan-700"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Add Customers
+                    <span className="ml-1.5 text-xs text-gray-400">
+                      ({availableCustomers.length})
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => switchCustomerTab("manage")}
+                    className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                      customerModalMode === "manage"
+                        ? "border-cyan-600 text-cyan-700"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    In Segment
+                    <span className="ml-1.5 text-xs text-gray-400">
+                      ({assignedCustomers.length})
+                    </span>
                   </button>
                 </div>
 
                 {/* Search + Select All */}
                 <div className="p-5 border-b border-gray-100 space-y-3">
                   <div className="relative">
-                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
                       type="text"
                       placeholder="Search customers by name, email, or industry..."
@@ -799,13 +865,17 @@ const Segments: React.FC = () => {
                           : "No customers in this segment yet"}
                       </p>
                       {customerSearch && (
-                        <p className="text-gray-400 text-xs mt-1">Try adjusting your search</p>
+                        <p className="text-gray-400 text-xs mt-1">
+                          Try adjusting your search
+                        </p>
                       )}
                     </div>
                   ) : (
                     <div className="space-y-3">
                       {filteredCustomers.map((customer) => {
-                        const isSelected = selectedCustomerIds.includes(customer.id);
+                        const isSelected = selectedCustomerIds.includes(
+                          customer.id
+                        );
                         return (
                           <div
                             key={`customer-${customer.id}`}
@@ -826,39 +896,60 @@ const Segments: React.FC = () => {
                               />
 
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div className="h-8 w-8 rounded-md bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
-                                    {getSafeString(customer.name).charAt(0).toUpperCase()}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <h4 className="text-sm font-semibold text-gray-900 truncate">
-                                      {getSafeString(customer.name)}
-                                    </h4>
-                                    <div className="flex flex-wrap items-center gap-2 !mb-0">
-                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
-                                        <BriefcaseIcon className="h-3 w-3 mr-1" />
-                                        {getSafeString(customer.industry)}
-                                      </span>
-                                      <span
-                                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                          customer.status === "Active"
-                                            ? "bg-green-100 text-green-700"
-                                            : "bg-gray-100 text-gray-700"
-                                        }`}
-                                      >
-                                        {getSafeString(customer.status, "Active")}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
+                                  <div className="flex items-center gap-2 mb-2">
+  <div className="h-8 w-8 rounded-md bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
+    {safeString(customer.name).charAt(0).toUpperCase()}
+  </div>
+  <div className="min-w-0 flex-1">
+    <div className="flex items-center justify-between gap-2">
+      <h4 className="text-sm font-semibold text-gray-900 truncate">
+        {safeString(customer.name)}
+      </h4>
+
+      {/* View customer detail */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();  // don't toggle the checkbox
+          goToCustomerDetail(customer.id);
+        }}
+        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600 flex-shrink-0"
+        title="View customer details"
+        aria-label="View customer details"
+      >
+        <EyeIcon className="h-4 w-4" />
+      </button>
+    </div>
+
+    <div className="flex flex-wrap items-center gap-2 !mb-0">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+        <BriefcaseIcon className="h-3 w-3 mr-1" />
+        {safeString(customer.industry)}
+      </span>
+      {customer.status && (
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+            customer.status === "Active"
+              ? "bg-green-100 text-green-700"
+              : "bg-gray-100 text-gray-700"
+          }`}
+        >
+          {customer.status}
+        </span>
+      )}
+    </div>
+  </div>
+</div>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-                                  <div className="flex !mb-0 items-center gap-2 text-xs text-gray-600">
+                                  <div className="flex items-center gap-2 text-xs text-gray-600">
                                     <EnvelopeIcon className="h-3.5 w-3.5 text-gray-400" />
-                                    <span className="truncate">{getSafeString(customer.email)}</span>
+                                    <span className="truncate">
+                                      {safeString(customer.email)}
+                                    </span>
                                   </div>
                                   {customer.phone && (
-                                    <div className="flex !mb-0 items-center gap-2 text-xs text-gray-600">
+                                    <div className="flex items-center gap-2 text-xs text-gray-600">
                                       <PhoneIcon className="h-3.5 w-3.5 text-gray-400" />
                                       <span>{customer.phone}</span>
                                     </div>
@@ -866,10 +957,11 @@ const Segments: React.FC = () => {
                                 </div>
 
                                 {customer.address &&
-                                  (customer.address.city || customer.address.country) && (
+                                  (customer.address.city ||
+                                    customer.address.country) && (
                                     <div className="mt-2 text-xs text-gray-500">
-                                      {getSafeString(customer.address.city)},{" "}
-                                      {getSafeString(customer.address.country)}
+                                      {safeString(customer.address.city)},{" "}
+                                      {safeString(customer.address.country)}
                                     </div>
                                   )}
                               </div>
@@ -899,15 +991,18 @@ const Segments: React.FC = () => {
                     <button
                       type="button"
                       onClick={closeCustomerModal}
-                      className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+                      disabled={isAssigning}
+                      className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-50"
                     >
-                      Cancel
+                      Close
                     </button>
 
                     {customerModalMode === "add" ? (
                       <button
                         onClick={handleAssignCustomers}
-                        disabled={selectedCustomerIds.length === 0 || isAssigning}
+                        disabled={
+                          selectedCustomerIds.length === 0 || isAssigning
+                        }
                         className={`px-4 py-2 rounded-lg text-sm !mb-0 font-medium transition-all duration-200 flex items-center gap-2 ${
                           selectedCustomerIds.length > 0 && !isAssigning
                             ? "bg-gradient-to-r from-cyan-600 to-blue-600 !text-white hover:from-cyan-700 hover:to-blue-700 shadow-sm"
@@ -922,7 +1017,9 @@ const Segments: React.FC = () => {
                     ) : (
                       <button
                         onClick={handleRemoveCustomers}
-                        disabled={selectedCustomerIds.length === 0 || isAssigning}
+                        disabled={
+                          selectedCustomerIds.length === 0 || isAssigning
+                        }
                         className={`px-4 py-2 rounded-lg text-sm !mb-0 font-medium transition-all duration-200 flex items-center gap-2 ${
                           selectedCustomerIds.length > 0 && !isAssigning
                             ? "bg-red-600 !text-white hover:bg-red-700 shadow-sm"
@@ -967,12 +1064,6 @@ const Segments: React.FC = () => {
           to { opacity: 1; transform: translateY(0); }
         }
         .animate-slide-up { animation: slide-up 0.25s ease-out; }
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
       `}</style>
     </>
   );
