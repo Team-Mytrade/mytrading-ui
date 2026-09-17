@@ -507,7 +507,7 @@ const TimesheetManagementPage: React.FC = () => {
               <form onSubmit={handleSubmitAll} className="flex flex-col h-full justify-between overflow-hidden">
                 
                 {/* Scrollable Cards Container */}
-                <div className="flex-1 overflow-y-auto p-2.5 space-y-2.5 pr-1.5 border-b border-gray-100">
+                <div className="flex-1 overflow-y-auto no-scrollbar p-2.5 space-y-2.5 pr-1.5 border-b border-gray-100">
                   {selectedCards.map((card) => (
                     <div key={card.dateStr} className="bg-white rounded-md border border-gray-200/90 shadow-2xs overflow-hidden relative">
                       
@@ -731,7 +731,7 @@ const TimesheetManagementPage: React.FC = () => {
             </div>
 
             {/* Drawer Search & List Body */}
-            <div className="p-4 flex-1 overflow-y-auto space-y-3">
+            <div className="p-4 flex-1 overflow-y-auto no-scrollbar space-y-3">
               <div className="relative mb-3">
                 <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-2.5" />
                 <input

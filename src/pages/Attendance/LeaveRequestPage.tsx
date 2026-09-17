@@ -410,7 +410,7 @@ const LeaveRequestPage: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start mb-2">
                 
                 {/* Left Column: Interactive Calendar matching TimesheetManagementPage */}
-                <div className="lg:col-span-5 bg-white rounded-lg shadow-2xs border border-gray-200/80 p-3 flex flex-col justify-between h-[340px]">
+                <div className="lg:col-span-5 bg-white rounded-lg shadow-2xs border border-gray-200/80 p-3 flex flex-col justify-between h-[360px]">
                   <div>
                     {/* Month Header */}
                     <div className="flex items-center justify-between mb-2">
@@ -450,7 +450,7 @@ const LeaveRequestPage: React.FC = () => {
                 </div>
 
                 {/* Right Column: Leave Application Desk */}
-                <div className="lg:col-span-7 bg-white rounded-lg shadow-2xs border border-gray-200/80 p-3.5 flex flex-col justify-between h-[340px] overflow-y-auto">
+                <div className="lg:col-span-7 bg-white rounded-lg shadow-2xs border border-gray-200/80 p-3.5 flex flex-col justify-between h-[360px] overflow-y-auto no-scrollbar">
                   <div className="space-y-2">
                     {/* Leave Type Dropdown */}
                     <div>

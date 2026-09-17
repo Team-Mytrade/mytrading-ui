@@ -14,7 +14,19 @@ const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, sidebarWidth, isResizing } = useSidebar();
   const location = useLocation();
   const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
-  const isScrollablePage = location.pathname === "/";
+  const isScrollablePage = 
+    location.pathname === "/" || 
+    location.pathname.startsWith("/att_leaveDashboard") || 
+    location.pathname.startsWith("/att_leaveManagerDashboard") ||
+    location.pathname.startsWith("/att_punch") ||
+    location.pathname.startsWith("/att_selfService") ||
+    location.pathname.startsWith("/att_attendanceTracking") ||
+    location.pathname.startsWith("/att_holidayCalendar") ||
+    location.pathname.startsWith("/payrollSummary") ||
+    location.pathname.startsWith("/departmentSummary") ||
+    location.pathname.startsWith("/payrollEngine") ||
+    location.pathname.startsWith("/it-declaration") ||
+    location.pathname.startsWith("/addEmployee");
 
   useEffect(() => {
     const handleResize = () => {
@@ -45,7 +57,7 @@ const LayoutContent: React.FC = () => {
         <div className="shrink-0">
           <AppHeader />
         </div>
-        <div className={`app-content-tight min-h-0 flex-1 w-full px-2 py-[3px] md:px-3 md:py-[3px] ${isScrollablePage ? "overflow-x-hidden overflow-y-auto overscroll-contain" : "overflow-hidden"}`}>
+        <div className={`app-content-tight min-h-0 flex-1 w-full px-2 py-[3px] md:px-3 md:py-[3px] ${isScrollablePage ? "overflow-x-hidden overflow-y-auto overscroll-contain no-scrollbar" : "overflow-hidden"}`}>
           <Outlet />
         </div>
       </div>

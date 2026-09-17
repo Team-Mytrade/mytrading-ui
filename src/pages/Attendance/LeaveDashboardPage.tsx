@@ -719,214 +719,179 @@ const LeaveDashboardPage: React.FC = () => {
   ];
 
   return (
-    <div className="w-full space-y-2">
+    <div className="w-full space-y-1">
       <PageMeta title="Leave Dashboard & Transactions" description="View leave balances, pending/approved metrics, and transaction audit trails" />
       <PageBreadcrumb pageTitle="Leave Dashboard & Transactions" />
 
-      <div className="max-w-7xl mx-auto pb-4 space-y-2.5 animate-in fade-in duration-200">
+      <div className="max-w-7xl mx-auto pb-1 space-y-1 animate-in fade-in duration-200">
         
-        {/* Header Bar */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-2.5 px-3.5 flex flex-col md:flex-row items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-cyan-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs border border-cyan-500 shrink-0">
+        {/* Unified Slim Header & Controls Bar */}
+        <div className="bg-white rounded-lg shadow-2xs border border-gray-200/80 px-2.5 py-1 flex flex-wrap items-center justify-between gap-1.5">
+          {/* Left: User Avatar & Info */}
+          <div className="flex items-center gap-1.5">
+            <div className="w-6 h-6 rounded-full bg-cyan-600 text-white flex items-center justify-center font-bold text-[10px] shadow-2xs border border-cyan-500 shrink-0">
               {currentUser.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2)}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xs font-bold text-gray-900">{currentUser.name}</h2>
-                <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-cyan-50 text-cyan-800 border border-cyan-200">
-                  #{employeeCode}
-                </span>
-              </div>
-              <p className="text-[11px] text-gray-500">Employee Leave Dashboard & Real-Time Transaction Logs</p>
+            <div className="flex items-center gap-1">
+              <h2 className="text-[11.5px] font-bold text-gray-900">{currentUser.name}</h2>
+              <span className="px-1 py-0 rounded text-[8.5px] font-mono font-bold bg-cyan-50 text-cyan-800 border border-cyan-200">
+                #{employeeCode}
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+          {/* Right: View Controls, Actions & Refresh */}
+          <div className="flex items-center gap-1 flex-wrap">
+            {/* View Mode Segmented Controls */}
+            <div className="inline-flex p-0.5 bg-gray-100 rounded border border-gray-200/60 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setCalendarViewMode('month')}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all flex items-center gap-0.5 ${
+                  calendarViewMode === 'month'
+                    ? 'bg-white text-gray-900 shadow-2xs'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <CalendarDays className="w-2.5 h-2.5" /> Month
+              </button>
+              <button
+                type="button"
+                onClick={() => setCalendarViewMode('week')}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all flex items-center gap-0.5 ${
+                  calendarViewMode === 'week'
+                    ? 'bg-white text-gray-900 shadow-2xs'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Clock className="w-2.5 h-2.5" /> Week
+              </button>
+              <button
+                type="button"
+                onClick={() => setCalendarViewMode('day')}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all flex items-center gap-0.5 ${
+                  calendarViewMode === 'day'
+                    ? 'bg-white text-gray-900 shadow-2xs'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <User className="w-2.5 h-2.5" /> Day
+              </button>
+            </div>
 
+            {/* Add Event Button */}
+            <button
+              type="button"
+              onClick={() => setIsAddEventModalOpen(true)}
+              className="px-2 py-0.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 rounded text-[10.5px] font-bold transition-all shadow-2xs flex items-center gap-0.5 shrink-0 active:scale-95"
+            >
+              <Plus className="w-2.5 h-2.5 text-cyan-600" />
+              <span>Add Event</span>
+            </button>
+
+            {/* Apply Leave Button */}
             <button
               type="button"
               onClick={() => { window.location.href = '/att_leaveRequest'; }}
-              className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-[11px] font-bold transition-all shadow-2xs flex items-center gap-1 shrink-0"
+              className="px-2 py-0.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-[10.5px] font-bold transition-all shadow-2xs flex items-center gap-0.5 shrink-0 active:scale-95"
             >
-              <Plus className="w-3 h-3" /> Apply Leave
+              <Plus className="w-2.5 h-2.5" /> Apply Leave
             </button>
 
+            {/* Refresh */}
             <button
               type="button"
               onClick={() => loadData()}
-              className="p-1 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg transition-all"
+              className="p-0.5 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded transition-all"
               title="Refresh Data"
             >
-              <RotateCw className={`w-3 h-3 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
+              <RotateCw className={`w-2.5 h-2.5 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
             </button>
           </div>
         </div>
 
         {/* ── EMPLOYEE LEAVE DASHBOARD VIEW ── */}
         {activeTab === 'employee' && (
-          <div className="space-y-2.5">
+          <div className="space-y-1">
             
             {/* 2. Compact Interactive Calendar & Upcoming Events Dashboard */}
-            <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-3 sm:p-3.5 space-y-2.5">
+            <div className="bg-white rounded-lg shadow-2xs border border-gray-200/80 p-1.5 sm:p-2 space-y-1.5">
               
-              {/* Calendar Dashboard Top Bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-2.5">
-                <div>
-                  <h2 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-cyan-600" />
-                    <span>Calendar</span>
-                  </h2>
-                  <p className="text-[11px] text-gray-500">Schedule and manage your events with ease</p>
+              {/* Unified Quotas & Event Filters Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-1.5 bg-gray-50/80 px-2 py-0.5 rounded-md border border-gray-200/70">
+                {/* Left: Compact Leave Quotas */}
+                <div className="flex items-center gap-1 flex-wrap">
+                  <span className="text-[9.5px] font-extrabold text-gray-500 uppercase tracking-wider mr-0.5 flex items-center gap-0.5">
+                    <Palmtree className="w-2.5 h-2.5 text-cyan-600" /> Quotas:
+                  </span>
+                  <div className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-white border border-cyan-200 text-[10px]">
+                    <span className="px-0.5 py-0 rounded text-[8px] font-extrabold bg-cyan-100 text-cyan-800">CL</span>
+                    <span className="font-mono font-bold text-gray-900">{employeeDashboard.leaveBalance?.casual ?? 5}</span>
+                    <span className="text-[9px] text-gray-500">/12d</span>
+                  </div>
+                  <div className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-white border border-emerald-200 text-[10px]">
+                    <span className="px-0.5 py-0 rounded text-[8px] font-extrabold bg-emerald-100 text-emerald-800">SL</span>
+                    <span className="font-mono font-bold text-gray-900">{employeeDashboard.leaveBalance?.sick ?? 12}</span>
+                    <span className="text-[9px] text-gray-500">/12d</span>
+                  </div>
+                  <div className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-white border border-indigo-200 text-[10px]">
+                    <span className="px-0.5 py-0 rounded text-[8px] font-extrabold bg-indigo-100 text-indigo-800">EL</span>
+                    <span className="font-mono font-bold text-gray-900">{employeeDashboard.leaveBalance?.earned ?? 16}</span>
+                    <span className="text-[9px] text-gray-500">/18d</span>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
-                  {/* View Mode Segmented Controls */}
-                  <div className="inline-flex p-0.5 bg-gray-100/90 rounded-lg border border-gray-200/60 shadow-2xs">
+                {/* Right: Filters & Dots Legend */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-0.5">
                     <button
                       type="button"
-                      onClick={() => setCalendarViewMode('month')}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
-                        calendarViewMode === 'month'
-                          ? 'bg-white text-gray-900 shadow-2xs'
-                          : 'text-gray-600 hover:text-gray-900'
+                      onClick={() => setEventCategoryFilter('ALL')}
+                      className={`px-1.5 py-0 rounded font-bold text-[9.5px] transition-all ${
+                        eventCategoryFilter === 'ALL' ? 'bg-cyan-700 text-white shadow-2xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
                       }`}
                     >
-                      <CalendarDays className="w-3 h-3" /> Month
+                      All ({eventsList.length})
                     </button>
                     <button
                       type="button"
-                      onClick={() => setCalendarViewMode('week')}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
-                        calendarViewMode === 'week'
-                          ? 'bg-white text-gray-900 shadow-2xs'
-                          : 'text-gray-600 hover:text-gray-900'
+                      onClick={() => setEventCategoryFilter('LEAVE')}
+                      className={`px-1.5 py-0 rounded font-bold text-[9.5px] transition-all flex items-center gap-0.5 ${
+                        eventCategoryFilter === 'LEAVE' ? 'bg-cyan-700 text-white shadow-2xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
                       }`}
                     >
-                      <Clock className="w-3 h-3" /> Week
+                      <Briefcase className="w-2.5 h-2.5" /> Leaves
                     </button>
                     <button
                       type="button"
-                      onClick={() => setCalendarViewMode('day')}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
-                        calendarViewMode === 'day'
-                          ? 'bg-white text-gray-900 shadow-2xs'
-                          : 'text-gray-600 hover:text-gray-900'
+                      onClick={() => setEventCategoryFilter('HOLIDAY')}
+                      className={`px-1.5 py-0 rounded font-bold text-[9.5px] transition-all flex items-center gap-0.5 ${
+                        eventCategoryFilter === 'HOLIDAY' ? 'bg-rose-600 text-white shadow-2xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
                       }`}
                     >
-                      <User className="w-3 h-3" /> Day
+                      <Gift className="w-2.5 h-2.5" /> Holidays
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEventCategoryFilter('MEETING')}
+                      className={`px-1.5 py-0 rounded font-bold text-[9.5px] transition-all flex items-center gap-0.5 ${
+                        eventCategoryFilter === 'MEETING' ? 'bg-purple-600 text-white shadow-2xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Users className="w-2.5 h-2.5" /> Meets
                     </button>
                   </div>
 
-                  {/* Add Event Button */}
-                  <button
-                    type="button"
-                    onClick={() => setIsAddEventModalOpen(true)}
-                    className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center gap-1 shrink-0 active:scale-95"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Event</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Filter Pills & Color Legend */}
-              <div className="flex flex-wrap items-center justify-between gap-2 bg-gray-50/70 p-2 rounded-lg border border-gray-200/60">
-                <div className="flex items-center gap-1 flex-wrap text-xs">
-                  <span className="font-bold text-gray-500 mr-1 text-[10px] tracking-wider">FILTER:</span>
-                  <button
-                    type="button"
-                    onClick={() => setEventCategoryFilter('ALL')}
-                    className={`px-2 py-0.5 rounded font-bold text-[10px] transition-all ${
-                      eventCategoryFilter === 'ALL' ? 'bg-cyan-700 text-white shadow-2xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
-                    }`}
-                  >
-                    All Events ({eventsList.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEventCategoryFilter('LEAVE')}
-                    className={`px-2 py-0.5 rounded font-bold text-[10px] transition-all flex items-center gap-1 ${
-                      eventCategoryFilter === 'LEAVE' ? 'bg-cyan-700 text-white shadow-2xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Briefcase className="w-3 h-3" /> My Leaves
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEventCategoryFilter('HOLIDAY')}
-                    className={`px-2 py-0.5 rounded font-bold text-[10px] transition-all flex items-center gap-1 ${
-                      eventCategoryFilter === 'HOLIDAY' ? 'bg-rose-600 text-white shadow-2xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Gift className="w-3 h-3" /> Holidays
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEventCategoryFilter('MEETING')}
-                    className={`px-2 py-0.5 rounded font-bold text-[10px] transition-all flex items-center gap-1 ${
-                      eventCategoryFilter === 'MEETING' ? 'bg-purple-600 text-white shadow-2xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Users className="w-3 h-3" /> Meetings
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2.5 text-[9px] font-bold text-gray-500">
-                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Leave</span>
-                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Holiday</span>
-                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Meeting</span>
-                </div>
-              </div>
-
-              {/* ── TOP ULTRA-COMPACT LEAVE QUOTA BALANCES STRIP ─────────────────── */}
-              <div className="bg-white rounded-xl border border-gray-200/80 p-2 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-2 mb-3">
-                <div className="flex items-center gap-1.5 shrink-0 px-1">
-                  <Palmtree className="w-3.5 h-3.5 text-cyan-600" />
-                  <span className="text-[11px] font-extrabold text-gray-900 uppercase tracking-wider">Leave Quotas:</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full flex-1">
-                  {/* Casual Leave */}
-                  <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-cyan-50/60 border border-cyan-200/60 text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <span className="px-1 py-0.2 rounded text-[9px] font-extrabold bg-cyan-100 text-cyan-800 border border-cyan-200">CL</span>
-                      <span className="font-semibold text-cyan-950 text-[11px]">Casual Leave</span>
-                    </div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="font-bold text-gray-900 font-mono text-xs">{employeeDashboard.leaveBalance?.casual ?? 5}</span>
-                      <span className="text-[10px] text-gray-500 font-normal">/ 12 days</span>
-                    </div>
-                  </div>
-
-                  {/* Sick Leave */}
-                  <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-emerald-50/60 border border-emerald-200/60 text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <span className="px-1 py-0.2 rounded text-[9px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">SL</span>
-                      <span className="font-semibold text-emerald-950 text-[11px]">Sick Leave</span>
-                    </div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="font-bold text-gray-900 font-mono text-xs">{employeeDashboard.leaveBalance?.sick ?? 12}</span>
-                      <span className="text-[10px] text-gray-500 font-normal">/ 12 days</span>
-                    </div>
-                  </div>
-
-                  {/* Earned Leave */}
-                  <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-indigo-50/60 border border-indigo-200/60 text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <span className="px-1 py-0.2 rounded text-[9px] font-extrabold bg-indigo-100 text-indigo-800 border border-indigo-200">EL</span>
-                      <span className="font-semibold text-indigo-950 text-[11px]">Earned Leave</span>
-                    </div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="font-bold text-gray-900 font-mono text-xs">{employeeDashboard.leaveBalance?.earned ?? 16}</span>
-                      <span className="text-[10px] text-gray-500 font-normal">/ 18 days</span>
-                    </div>
+                  <div className="hidden sm:flex items-center gap-1.5 pl-1 border-l border-gray-300 text-[8.5px] font-bold text-gray-500">
+                    <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Leave</span>
+                    <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Holiday</span>
+                    <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Meet</span>
                   </div>
                 </div>
               </div>
 
               {/* Main Grid: Left Calendar Matrix (8 cols) & Right Upcoming Events Panel (4 cols) */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start">
                 
                 {/* ── LEFT COLUMN: MONTHLY CALENDAR GRID ────────────────────── */}
                 <div className="lg:col-span-8 border border-gray-200/80 rounded-xl overflow-hidden bg-white shadow-2xs">
@@ -951,23 +916,23 @@ const LeaveDashboardPage: React.FC = () => {
 
                     return (
                       <>
-                        <div className="flex items-center justify-between px-3 py-1.5 bg-gray-50/80 border-b border-gray-200">
+                        <div className="flex items-center justify-between px-2.5 py-0.5 bg-gray-50/80 border-b border-gray-200">
                           <button
                             type="button"
                             onClick={() => setCalendarDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
-                            className="p-1 rounded text-gray-600 hover:bg-gray-200/60 transition-colors text-[11px] font-bold flex items-center gap-0.5"
+                            className="p-0.5 rounded text-gray-600 hover:bg-gray-200/60 transition-colors text-[10px] font-bold flex items-center gap-0.5"
                           >
-                            <ChevronLeft className="w-3.5 h-3.5" /> Prev
+                            <ChevronLeft className="w-3 h-3" /> Prev
                           </button>
-                          <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
+                          <h3 className="text-[11px] font-bold text-gray-900 uppercase tracking-wider">
                             {monthHeaderTitle}
                           </h3>
                           <button
                             type="button"
                             onClick={() => setCalendarDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
-                            className="p-1 rounded text-gray-600 hover:bg-gray-200/60 transition-colors text-[11px] font-bold flex items-center gap-0.5"
+                            className="p-0.5 rounded text-gray-600 hover:bg-gray-200/60 transition-colors text-[10px] font-bold flex items-center gap-0.5"
                           >
-                            Next <ChevronRight className="w-3.5 h-3.5" />
+                            Next <ChevronRight className="w-3 h-3" />
                           </button>
                         </div>
 
@@ -975,7 +940,7 @@ const LeaveDashboardPage: React.FC = () => {
                         {calendarViewMode === 'month' && (
                           <>
                             {/* Days of Week Header */}
-                            <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50/40 py-1.5 text-center text-[11px] font-bold text-gray-600">
+                            <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50/40 py-0.5 text-center text-[9.5px] font-bold text-gray-600">
                               <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
                             </div>
 
@@ -983,7 +948,7 @@ const LeaveDashboardPage: React.FC = () => {
                             <div className="grid grid-cols-7 divide-x divide-y divide-gray-100 text-xs">
                               {/* Previous Month Trail Days */}
                               {prevTrailDays.map(d => (
-                                <div key={`prev-${d}`} className="min-h-[46px] sm:min-h-[54px] p-1 bg-gray-50/30 text-gray-300 text-right font-medium text-[10px]">
+                                <div key={`prev-${d}`} className="h-[28px] sm:h-[32px] min-h-[28px] sm:min-h-[32px] p-0.5 bg-gray-50/30 text-gray-300 text-right font-medium text-[9px]">
                                   {d}
                                 </div>
                               ))}
@@ -1001,40 +966,40 @@ const LeaveDashboardPage: React.FC = () => {
                                       setNewEventForm(p => ({ ...p, dateStr: dayStr }));
                                       setIsAddEventModalOpen(true);
                                     }}
-                                    className={`min-h-[46px] sm:min-h-[54px] p-1 flex flex-col justify-between transition-all group hover:bg-cyan-50/30 cursor-pointer ${
+                                    className={`h-[28px] sm:h-[32px] min-h-[28px] sm:min-h-[32px] p-0.5 flex flex-col justify-between transition-all group hover:bg-cyan-50/30 cursor-pointer overflow-hidden ${
                                       isToday ? 'bg-amber-50/70 font-bold' : ''
                                     }`}
                                   >
-                                    <div className="text-right">
-                                      <span className={`inline-flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full text-[10px] sm:text-[11px] font-semibold ${
+                                    <div className="text-right leading-none">
+                                      <span className={`inline-flex items-center justify-center w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full text-[8.5px] sm:text-[9px] font-semibold ${
                                         isToday ? 'bg-amber-400 text-gray-900 shadow-2xs font-extrabold' : 'text-gray-700'
                                       }`}>
                                         {dayNum}
                                       </span>
                                     </div>
 
-                                    {/* Event Cards inside Calendar Days (max 2 visible + N more) */}
-                                    <div className="space-y-0.5 mt-0.5">
-                                      {dayEvents.slice(0, 2).map(evt => (
+                                    {/* Event Cards inside Calendar Days (max 1 visible + N more) */}
+                                    <div className="space-y-0.5 leading-none">
+                                      {dayEvents.slice(0, 1).map(evt => (
                                         <div
                                           key={evt.id}
-                                          className={`py-0.5 px-1 rounded border text-[9px] font-bold transition-all shadow-2xs cursor-pointer ${evt.badgeBg}`}
+                                          className={`py-0 px-0.5 rounded border text-[7.5px] font-bold transition-all shadow-2xs cursor-pointer truncate ${evt.badgeBg}`}
                                           title={`${evt.title} - ${evt.time} (${evt.location})`}
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             setSelectedEventDetails(evt);
                                           }}
                                         >
-                                          <div className="flex items-center gap-1">
-                                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${evt.dotColor}`} />
-                                            <span className="font-bold truncate">{evt.title}</span>
+                                          <div className="flex items-center gap-0.5">
+                                            <span className={`w-1 h-1 rounded-full shrink-0 ${evt.dotColor}`} />
+                                            <span className="truncate">{evt.title}</span>
                                           </div>
                                         </div>
                                       ))}
 
-                                      {dayEvents.length > 2 && (
-                                        <div className="text-[8px] font-bold text-gray-500 bg-gray-100 px-1 py-0.2 rounded text-center">
-                                          +{dayEvents.length - 2} more
+                                      {dayEvents.length > 1 && (
+                                        <div className="text-[7px] font-bold text-gray-500 bg-gray-100 px-0.5 rounded text-center leading-none">
+                                          +{dayEvents.length - 1} more
                                         </div>
                                       )}
                                     </div>
@@ -1044,7 +1009,7 @@ const LeaveDashboardPage: React.FC = () => {
 
                               {/* Next Month Trail Days */}
                               {nextTrailDays.map(d => (
-                                <div key={`next-${d}`} className="min-h-[46px] sm:min-h-[54px] p-1 bg-gray-50/30 text-gray-300 text-right font-medium text-[10px]">
+                                <div key={`next-${d}`} className="h-[28px] sm:h-[32px] min-h-[28px] sm:min-h-[32px] p-0.5 bg-gray-50/30 text-gray-300 text-right font-medium text-[9px]">
                                   {d}
                                 </div>
                               ))}
@@ -1259,37 +1224,37 @@ const LeaveDashboardPage: React.FC = () => {
                 </div>
 
                 {/* ── RIGHT COLUMN: UPCOMING EVENTS LIST ───────────────────── */}
-                <div className="lg:col-span-4 space-y-3">
+                <div className="lg:col-span-4 space-y-1.5">
                   
                   {/* Panel Header */}
-                  <div className="bg-white rounded-2xl border border-gray-200/80 p-3 shadow-2xs flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-600 shadow-2xs shrink-0">
-                        <Calendar className="w-4 h-4" />
+                  <div className="bg-white rounded-lg border border-gray-200/80 px-2 py-1 shadow-2xs flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="w-6 h-6 rounded-md bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-600 shadow-2xs shrink-0">
+                        <Calendar className="w-3 h-3" />
                       </div>
                       <div className="min-w-0">
-                        <h3 className="text-sm font-bold text-gray-900 whitespace-nowrap truncate">Upcoming Events</h3>
-                        <span className="text-[11px] text-gray-500 font-medium block truncate">Count: <strong className="text-gray-900">{eventsList.length}</strong></span>
+                        <h3 className="text-[11.5px] font-bold text-gray-900 whitespace-nowrap truncate">Upcoming Events</h3>
+                        <span className="text-[9.5px] text-gray-500 font-medium block truncate">Total: <strong className="text-gray-900">{eventsList.length}</strong></span>
                       </div>
                     </div>
 
                     <button
                       type="button"
                       onClick={() => setShowOnlyUpcoming(!showOnlyUpcoming)}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all duration-150 focus:outline-none shrink-0 cursor-pointer ${
+                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-all duration-150 focus:outline-none shrink-0 cursor-pointer ${
                         showOnlyUpcoming
                           ? 'bg-cyan-50 text-cyan-700 border-cyan-200 hover:bg-cyan-100'
                           : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
                       }`}
                       title={showOnlyUpcoming ? "Click to show all events" : "Click to show upcoming events only"}
                     >
-                      <Filter className={`w-3 h-3 shrink-0 ${showOnlyUpcoming ? 'text-cyan-600' : 'text-gray-500'}`} />
+                      <Filter className={`w-2 h-2 shrink-0 ${showOnlyUpcoming ? 'text-cyan-600' : 'text-gray-500'}`} />
                       <span>{showOnlyUpcoming ? "Upcoming" : "All"}</span>
                     </button>
                   </div>
 
                   {/* Clean Chronologically Sorted Upcoming Event Cards */}
-                  <div className="space-y-2 max-h-[440px] overflow-y-auto pr-1">
+                  <div className="space-y-1 max-h-[205px] overflow-y-auto no-scrollbar pr-0.5">
                     {useMemo(() => {
                       const todayStr = '2026-08-25';
                       let list = [...eventsList];
@@ -1317,36 +1282,36 @@ const LeaveDashboardPage: React.FC = () => {
                       return (
                         <div
                           key={evt.id}
-                          className="bg-white rounded-xl border border-gray-200/80 p-2.5 hover:shadow-md hover:border-cyan-300 transition-all cursor-pointer group"
+                          className="bg-white rounded-md border border-gray-200/80 p-1.5 hover:shadow-2xs hover:border-cyan-300 transition-all cursor-pointer group"
                           onClick={() => setSelectedEventDetails(evt)}
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-1.5">
-                              <span className={`w-2 h-2 rounded-full shrink-0 ${evt.dotColor}`} />
-                              <h4 className="text-[11px] font-bold text-gray-900 group-hover:text-cyan-600 transition-colors">
+                          <div className="flex items-start justify-between gap-1">
+                            <div className="flex items-center gap-1 min-w-0">
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${evt.dotColor}`} />
+                              <h4 className="text-[10px] font-bold text-gray-900 group-hover:text-cyan-600 transition-colors truncate">
                                 {evt.title}
                               </h4>
                             </div>
-                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-gray-100 text-gray-600 border border-gray-200 shrink-0">
+                            <span className="px-1 py-0 rounded text-[8px] font-bold bg-gray-100 text-gray-600 border border-gray-200 shrink-0">
                               {isHoliday ? '🎉 Holiday' : isLeave ? '🏖️ Leave' : '📅 Event'}
                             </span>
                           </div>
 
-                          <div className="text-[10px] text-gray-500 font-medium mt-0.5">
+                          <div className="text-[9px] text-gray-500 font-medium mt-0.5">
                             {evt.dateStr} • {evt.time}
                           </div>
 
-                          <p className="text-[11px] text-gray-600 mt-1 line-clamp-1 leading-relaxed">
+                          <p className="text-[9.5px] text-gray-600 mt-0.5 line-clamp-1 leading-snug">
                             {evt.description}
                           </p>
 
-                          <div className="flex items-center gap-2.5 mt-2 pt-1.5 border-t border-gray-100 text-[10px] text-gray-500 font-medium">
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3 text-gray-400" />
-                              {evt.location}
+                          <div className="flex items-center gap-1.5 mt-1 pt-0.5 border-t border-gray-100 text-[8.5px] text-gray-500 font-medium">
+                            <span className="flex items-center gap-0.5 truncate">
+                              <MapPin className="w-2 h-2 text-gray-400 shrink-0" />
+                              <span className="truncate">{evt.location}</span>
                             </span>
-                            <span className="flex items-center gap-1">
-                              <User className="w-3 h-3 text-gray-400" />
+                            <span className="flex items-center gap-0.5 shrink-0">
+                              <User className="w-2 h-2 text-gray-400 shrink-0" />
                               {evt.attendees} {evt.attendees === 1 ? 'person' : 'guests'}
                             </span>
                           </div>

@@ -634,8 +634,8 @@ const HolidayCalendarPage: React.FC = () => {
     // Prev Month Padding
     for (let i = firstDayIndex - 1; i >= 0; i--) {
       cells.push(
-        <div key={`prev-${i}`} className="flex items-center justify-center py-1">
-          <span className="text-[10px] text-gray-300 font-mono">{prevMonthDays - i}</span>
+        <div key={`prev-${i}`} className="flex items-center justify-center py-0.5">
+          <span className="text-[9px] text-gray-300 font-mono">{prevMonthDays - i}</span>
         </div>
       );
     }
@@ -653,11 +653,11 @@ const HolidayCalendarPage: React.FC = () => {
       const hasFestival = dayHolidays.some(h => (h.holidayType || '').toUpperCase() === 'FESTIVAL');
 
       cells.push(
-        <div key={`curr-${day}`} className="flex flex-col items-center justify-center py-1 relative">
+        <div key={`curr-${day}`} className="flex flex-col items-center justify-center py-0.5 relative">
           <button
             type="button"
             onClick={() => setSelectedDateStr(dateStr)}
-            className={`w-7 h-7 rounded-lg text-xs font-bold transition-all flex items-center justify-center relative ${
+            className={`w-6.5 h-6.5 rounded-md text-[11px] font-bold transition-all flex items-center justify-center relative ${
               isSelected
                 ? 'bg-cyan-600 text-white shadow-xs'
                 : isToday
@@ -667,7 +667,7 @@ const HolidayCalendarPage: React.FC = () => {
           >
             {day}
             {(hasNational || hasFestival) && !isSelected && (
-              <span className={`w-1.5 h-1.5 rounded-full absolute bottom-0.5 ${hasNational ? 'bg-rose-500' : 'bg-amber-500'}`} />
+              <span className={`w-1 h-1 rounded-full absolute bottom-0.5 ${hasNational ? 'bg-rose-500' : 'bg-amber-500'}`} />
             )}
           </button>
         </div>
@@ -678,8 +678,8 @@ const HolidayCalendarPage: React.FC = () => {
     const totalCells = Math.ceil((daysInMonth + firstDayIndex) / 7) * 7;
     for (let i = 1; i <= totalCells - (daysInMonth + firstDayIndex); i++) {
       cells.push(
-        <div key={`next-${i}`} className="flex items-center justify-center py-1">
-          <span className="text-[10px] text-gray-300 font-mono">{i}</span>
+        <div key={`next-${i}`} className="flex items-center justify-center py-0.5">
+          <span className="text-[9px] text-gray-300 font-mono">{i}</span>
         </div>
       );
     }
@@ -697,22 +697,22 @@ const HolidayCalendarPage: React.FC = () => {
       />
       <PageBreadcrumb pageTitle="Holiday Calendar Master" />
 
-      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-3 px-2 sm:px-4">
+      <div className="w-full max-w-6xl mx-auto pb-2 animate-in fade-in duration-200 mt-0.5 space-y-2 px-2 sm:px-4">
         
         {/* User Profile Banner matching Leave Request UI */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-cyan-600 flex items-center justify-center text-white font-bold text-sm shadow-xs shrink-0">
+        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-2 px-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7.5 h-7.5 rounded-lg bg-cyan-600 flex items-center justify-center text-white font-bold text-xs shadow-xs shrink-0">
               {currentUser.name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-gray-900">{currentUser.name}</h2>
-                <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 uppercase">
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-xs font-bold text-gray-900">{currentUser.name}</h2>
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 uppercase">
                   {currentUser.role.replace(/_/g, " ")}
                 </span>
               </div>
-              <p className="text-xs text-gray-500">{currentUser.email}</p>
+              <p className="text-[10px] text-gray-500">{currentUser.email}</p>
             </div>
           </div>
 
@@ -720,61 +720,61 @@ const HolidayCalendarPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab(activeTab === 'table' ? 'manager' : 'table')}
-              className="px-3 py-1.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 rounded-lg border border-cyan-200 text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5"
+              className="px-2.5 py-1 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 rounded-lg border border-cyan-200 text-[11px] font-bold shadow-2xs transition-all flex items-center gap-1"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <FileSpreadsheet className="w-3 h-3" />
               <span className="hidden sm:inline">{activeTab === 'table' ? 'Split Calendar View' : `Master Records (${calendars.length})`}</span>
               <span className="sm:hidden">{activeTab === 'table' ? 'Calendar View' : `Records (${calendars.length})`}</span>
             </button>
             <button
               type="button"
               onClick={openCreateCalendarModal}
-              className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
+              className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-[11px] font-bold transition-all shadow-xs flex items-center gap-1"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Create Calendar</span>
               <span className="sm:hidden">Create</span>
             </button>
-            <div className="text-right hidden sm:block border-l border-gray-200 pl-3 ml-1">
-              <span className="text-[9px] text-gray-400 font-medium block">Employee ID</span>
-              <span className="text-xs font-mono font-bold text-gray-700">{currentUser.code}</span>
+            <div className="text-right hidden sm:block border-l border-gray-200 pl-2.5 ml-0.5">
+              <span className="text-[8.5px] text-gray-400 font-medium block">Employee ID</span>
+              <span className="text-[11px] font-mono font-bold text-gray-700">{currentUser.code}</span>
             </div>
           </div>
         </div>
 
         {/* ── MODE 1: SPLIT CALENDAR & MANAGER VIEW ────────────────────── */}
         {activeTab === 'manager' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-start">
             
             {/* LEFT COLUMN: Mini Calendar Widget */}
-            <div className="lg:col-span-5 bg-white rounded-xl shadow-2xs border border-gray-200/80 p-3.5 flex flex-col justify-between min-h-[380px]">
+            <div className="lg:col-span-5 bg-white rounded-xl shadow-2xs border border-gray-200/80 p-2.5 flex flex-col justify-between min-h-[330px]">
               <div>
                 {/* Month Header */}
-                <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
+                <div className="flex items-center justify-between mb-1.5 border-b border-gray-100 pb-1">
                   <button 
                     type="button" 
                     onClick={handlePrevMonth}
-                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors font-bold text-sm"
+                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors font-bold text-xs"
                   >
                     &lt;
                   </button>
                   <div className="text-center">
-                    <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
+                    <h3 className="text-[11px] font-bold text-gray-900 uppercase tracking-wider">
                       {monthNames[miniCalendarDate.getMonth()]} {miniCalendarDate.getFullYear()}
                     </h3>
-                    <span className="text-[10px] text-gray-400 font-mono">Select date to inspect</span>
+                    <span className="text-[9.5px] text-gray-400 font-mono">Select date to inspect</span>
                   </div>
                   <button 
                     type="button" 
                     onClick={handleNextMonth}
-                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors font-bold text-sm"
+                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors font-bold text-xs"
                   >
                     &gt;
                   </button>
                 </div>
 
                 {/* Weekday Headers */}
-                <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-gray-500 mb-1">
+                <div className="grid grid-cols-7 gap-1 text-center text-[9.5px] font-bold text-gray-500 mb-0.5">
                   <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
                 </div>
 
@@ -785,26 +785,26 @@ const HolidayCalendarPage: React.FC = () => {
               </div>
 
               {/* Bottom Legend & Selected Date Holiday Inspector */}
-              <div className="mt-3 pt-2.5 border-t border-gray-100 space-y-2">
-                <div className="flex items-center justify-between text-[10px] text-gray-600 font-medium">
+              <div className="mt-1.5 pt-1.5 border-t border-gray-100 space-y-1.5">
+                <div className="flex items-center justify-between text-[9.5px] text-gray-600 font-medium">
                   <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-cyan-600" /> Selected
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-600" /> Selected
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-rose-500" /> National
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> National
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-amber-500" /> Festival
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Festival
                   </span>
                 </div>
 
                 {/* Selected Date Preview */}
-                <div className="bg-cyan-50/70 p-2.5 rounded-lg border border-cyan-200/80 flex items-center justify-between">
+                <div className="bg-cyan-50/70 p-1.5 px-2 rounded-lg border border-cyan-200/80 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] text-cyan-800 font-bold uppercase block">Selected Date</span>
-                    <span className="text-xs font-mono font-bold text-cyan-900">{selectedDateStr}</span>
+                    <span className="text-[9px] text-cyan-800 font-bold uppercase block">Selected Date</span>
+                    <span className="text-[11px] font-mono font-bold text-cyan-900">{selectedDateStr}</span>
                   </div>
-                  <span className="text-[10px] font-bold text-cyan-700 bg-white px-2 py-0.5 rounded border border-cyan-200">
+                  <span className="text-[9px] font-bold text-cyan-700 bg-white px-1.5 py-0.2 rounded border border-cyan-200">
                     {holidaysList.filter(h => h.holidayDate === selectedDateStr).length} Holidays
                   </span>
                 </div>
@@ -812,11 +812,11 @@ const HolidayCalendarPage: React.FC = () => {
             </div>
 
             {/* RIGHT COLUMN: Quick Holiday Master & Manager */}
-            <div className="lg:col-span-7 bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 space-y-4">
+            <div className="lg:col-span-7 bg-white rounded-xl shadow-2xs border border-gray-200/80 p-3 space-y-2.5">
               
               {/* Select Calendar Dropdown */}
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Select Holiday Calendar Master *</label>
+                <label className="block text-[11px] font-bold text-gray-700 mb-0.5">Select Holiday Calendar Master *</label>
                 <select
                   value={selectedCalendarCodeId || ''}
                   onChange={(e) => {
@@ -824,7 +824,7 @@ const HolidayCalendarPage: React.FC = () => {
                     setSelectedCalendarCodeId(id);
                     if (id) loadHolidaysForSelectedCalendar(id);
                   }}
-                  className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
+                  className="w-full py-1 px-2.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                 >
                   {calendars.map(cal => (
                     <option key={cal.id} value={cal.id}>
@@ -836,10 +836,10 @@ const HolidayCalendarPage: React.FC = () => {
 
               {/* Active Calendar Details Card */}
               {activeSelectedCalendar && (
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
+                <div className="p-2 px-2.5 bg-slate-50 rounded-lg border border-slate-200/80 space-y-1">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-[11px] font-bold text-cyan-700 bg-cyan-50 px-1.5 py-0.2 rounded border border-cyan-200">
                         {activeSelectedCalendar.calendarCode}
                       </span>
                       <h4 className="text-xs font-bold text-gray-900">{activeSelectedCalendar.calendarName}</h4>
@@ -847,13 +847,13 @@ const HolidayCalendarPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => openManageHolidaysModal(activeSelectedCalendar)}
-                      className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-[11px] font-bold shadow-2xs flex items-center gap-1"
+                      className="px-2 py-0.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-[10px] font-bold shadow-2xs flex items-center gap-1"
                     >
-                      <Edit className="w-3 h-3" /> Edit Holidays
+                      <Edit className="w-2.5 h-2.5" /> Edit Holidays
                     </button>
                   </div>
 
-                  <p className="text-[11px] text-gray-500">{activeSelectedCalendar.description || 'Holidays schedule for employees'}</p>
+                  <p className="text-[10px] text-gray-500">{activeSelectedCalendar.description || 'Holidays schedule for employees'}</p>
                 </div>
               )}
 
@@ -882,16 +882,16 @@ const HolidayCalendarPage: React.FC = () => {
                   )}
                 </div>
 
-                <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                <div className="max-h-52 overflow-y-auto no-scrollbar space-y-1.5 pr-1">
                   {holidaysList.length === 0 ? (
-                    <div className="p-6 text-center text-xs text-gray-500 italic bg-slate-50 rounded-lg border border-dashed border-slate-200 space-y-2">
+                    <div className="p-3 text-center text-[11px] text-gray-500 italic bg-slate-50 rounded-lg border border-dashed border-slate-200 space-y-1.5">
                       <p>No holidays configured for this calendar on <span className="font-mono font-bold text-cyan-700">{selectedDateStr}</span>.</p>
                       <button
                         type="button"
                         onClick={addHolidayRow}
-                        className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-xs font-bold inline-flex items-center gap-1 shadow-2xs"
+                        className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-[11px] font-bold inline-flex items-center gap-1 shadow-2xs"
                       >
-                        <Plus className="w-3.5 h-3.5" /> Create Holiday on {selectedDateStr}
+                        <Plus className="w-3 h-3" /> Create Holiday on {selectedDateStr}
                       </button>
                     </div>
                   ) : (
@@ -1071,8 +1071,7 @@ const HolidayCalendarPage: React.FC = () => {
                 data={filteredCalendars}
                 columns={columns}
                 loading={loading}
-                searchable={true}
-                searchPlaceholder="Search by calendar code or calendar name..."
+                searchable={false}
                 pageSize={10}
                 defaultSortKey="calendarName"
                 defaultSortOrder="asc"

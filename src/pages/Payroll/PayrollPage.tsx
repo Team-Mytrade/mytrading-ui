@@ -6,7 +6,6 @@ import * as XLSX from "xlsx";
 import { useReactToPrint } from "react-to-print";
 import {
     EllipsisVerticalIcon,
-    MagnifyingGlassIcon,
     FunnelIcon,
     ArrowUpIcon,
     ArrowDownIcon,
@@ -36,7 +35,6 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import FilterPopover from "../../components/common/filter";
 import PaginatedPopup from "../../components/common/unpopup";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
@@ -529,26 +527,14 @@ const PayrollPage: React.FC = () => {
 
                 {/* Toolbar */}
                 <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="flex-1 max-w-2xl flex gap-3">
-                        <div className="relative flex-1">
-                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search by employee name, code..."
-                                value={search}
-                                onChange={e => { setSearch(e.target.value); }}
-                                className="h-10 pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                            />
-                        </div>
-                        <div className="relative w-48">
-                            <CalendarIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                            <input
-                                type="month"
-                                value={filterMonth}
-                                onChange={e => { setFilterMonth(e.target.value); }}
-                                className="h-10 pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                            />
-                        </div>
+                    <div className="relative w-48">
+                        <CalendarIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <input
+                            type="month"
+                            value={filterMonth}
+                            onChange={e => { setFilterMonth(e.target.value); }}
+                            className="h-10 pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                        />
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -601,22 +587,6 @@ const PayrollPage: React.FC = () => {
                             <PrinterIcon className="h-5 w-5 text-gray-600" />
                         </button>
 
-                        {/* Filter Button */}
-                        <FilterPopover
-                            title="Filter Payslips"
-                            buttonLabel="Filter"
-                            label="Status"
-                            value={selectedStatus}
-                            onChange={(val) => setSelectedStatus(val)}
-                            options={[
-                                { label: "All Status", value: "" },
-                                { label: "Processed", value: "processed" },
-                                { label: "Draft", value: "draft" }
-                            ]}
-                            onReset={() => setSelectedStatus("")}
-                            showFooter={true}
-                        />
-
                         {/* Refresh Button */}
                         <button
                             onClick={fetchAll}
@@ -624,7 +594,6 @@ const PayrollPage: React.FC = () => {
                         >
                             <ArrowPathIcon className="h-5 w-5 text-gray-600" />
                         </button>
-
                     </div>
                 </div>
 

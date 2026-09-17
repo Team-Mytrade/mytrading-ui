@@ -8,7 +8,6 @@ import {
     EllipsisVerticalIcon,
     PencilSquareIcon,
     TrashIcon,
-    MagnifyingGlassIcon,
     FunnelIcon,
     ArrowUpIcon,
     ArrowDownIcon,
@@ -31,7 +30,6 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import FilterPopover from "../../components/common/filter";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
@@ -376,80 +374,49 @@ const EmployeeRecordsPage: React.FC = () => {
                 </div>
 
                 {/* Toolbar */}
-                <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="flex-1 max-w-md">
-                        <div className="relative">
-                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search employees by name, code, or email..."
-                                value={search}
-                                onChange={e => { setSearch(e.target.value); }}
-                                className="h-10 pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                            />
-                        </div>
-                    </div>
+                <div className="mb-6 flex justify-end items-center">
+                    {/* Export Menu */}
+                    <div ref={exportMenuRef} className="relative inline-flex items-center">
+                        <button
+                            type="button"
+                            onClick={() => setShowExportMenu(!showExportMenu)}
+                            className="h-10 w-10 border border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 rounded-lg transition-colors inline-flex items-center justify-center focus:outline-none shrink-0"
+                            title="Export"
+                        >
+                            <DocumentArrowDownIcon className="h-4 w-4 text-cyan-700" />
+                        </button>
 
-                    <div className="flex items-center gap-3">
-                        {/* Export Menu */}
-                        <div ref={exportMenuRef} className="relative inline-flex items-center">
-                            <button
-                                type="button"
-                                onClick={() => setShowExportMenu(!showExportMenu)}
-                                className="h-10 w-10 border border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 rounded-lg transition-colors inline-flex items-center justify-center focus:outline-none shrink-0"
-                                title="Export"
-                            >
-                                <DocumentArrowDownIcon className="h-4 w-4 text-cyan-700" />
-                            </button>
-
-                            {showExportMenu && (
-                                <div className="absolute right-0 top-12 w-40 bg-white shadow-lg rounded-md border border-gray-200 z-50 py-1">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setShowExportMenu(false);
-                                            exportPDF();
-                                        }}
-                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
-                                    >
-                                        <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
-                                        PDF
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setShowExportMenu(false);
-                                            exportEmployees();
-                                        }}
-                                        disabled={loading}
-                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {loading ? (
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
-                                        ) : (
-                                            <TableCellsIcon className="h-4 w-4 text-green-600" />
-                                        )}
-                                        {loading ? 'Exporting...' : 'Export Excel'}
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Filter Button */}
-                        <FilterPopover
-                            title="Filter Employees"
-                            buttonLabel="Filter"
-                            label="Department"
-                            value={selectedDept}
-                            onChange={(val) => setSelectedDept(val)}
-                            options={[
-                                { label: "All Departments", value: "" },
-                                ...(Array.isArray(departments) ? departments : []).map(d => ({ label: d.name, value: d.name }))
-                            ]}
-                            onReset={() => setSelectedDept("")}
-                            showFooter={true}
-                        />
-
+                        {showExportMenu && (
+                            <div className="absolute right-0 top-12 w-40 bg-white shadow-lg rounded-md border border-gray-200 z-50 py-1">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowExportMenu(false);
+                                        exportPDF();
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
+                                >
+                                    <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
+                                    PDF
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowExportMenu(false);
+                                        exportEmployees();
+                                    }}
+                                    disabled={loading}
+                                    className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {loading ? (
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                                    ) : (
+                                        <TableCellsIcon className="h-4 w-4 text-green-600" />
+                                    )}
+                                    {loading ? 'Exporting...' : 'Export Excel'}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
