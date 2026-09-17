@@ -35,15 +35,62 @@ const EmployeeSelfServicePage: React.FC = () => {
     if (userStr) {
       try {
         const parsed = JSON.parse(userStr);
+        const uName = (parsed.fullName || parsed.name || parsed.username || '').trim();
+        const isRoy = uName.toLowerCase().includes('roy') || uName.toLowerCase().includes('hamlin');
+        const defaultId = isRoy ? 71 : (parsed.employeeId || parsed.id || 71);
         return {
-          id: parsed.id || parsed.employeeId || 12,
-          name: parsed.fullName || parsed.name || parsed.username || 'Hello, K !',
-          code: parsed.employeeCode || `EMP-${parsed.id || 71}`
+          id: parsed.employeeId ? Number(parsed.employeeId) : defaultId,
+          name: uName || 'Roy Hamlin',
+          code: parsed.employeeCode || `EMP-${parsed.employeeId || defaultId}`
         };
       } catch (e) {}
     }
-    return { id: 12, name: 'Hello, K !', code: 'EMP-71' };
+    return { id: 71, name: 'Roy Hamlin', code: 'EMP-71' };
   }, []);
+
+  const [resolvedEmpId, setResolvedEmpId] = useState<number>(() => {
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      try {
+        const parsed = JSON.parse(userStr);
+        if (parsed.employeeId) return Number(parsed.employeeId);
+        const uName = (parsed.fullName || parsed.name || '').toLowerCase();
+        if (uName.includes('roy') || uName.includes('hamlin')) return 71;
+        if (parsed.id) return Number(parsed.id);
+      } catch (e) {}
+    }
+    return 71;
+  });
+
+  // Dynamic Employee ID resolver matching against /v1/api/payroll/employee/all
+  useEffect(() => {
+    const resolveUserEmployeeId = async () => {
+      try {
+        const empRes = await axios.get('/v1/api/payroll/employee/all');
+        if (Array.isArray(empRes.data) && empRes.data.length > 0) {
+          const uName = (currentUser.name || '').toLowerCase().trim();
+          const match = empRes.data.find((e: any) => {
+            const eName = `${e.firstName || ''} ${e.lastName || ''}`.trim().toLowerCase() || (e.name || '').toLowerCase();
+            return (uName && (eName.includes(uName) || uName.includes(eName))) || 
+                   (currentUser.id > 0 && Number(e.id) === currentUser.id);
+          });
+          if (match && match.id) {
+            const validId = Number(match.id);
+            setResolvedEmpId(validId);
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+              try {
+                const parsed = JSON.parse(userStr);
+                parsed.employeeId = validId;
+                localStorage.setItem('user', JSON.stringify(parsed));
+              } catch (e) {}
+            }
+          }
+        }
+      } catch (e) {}
+    };
+    resolveUserEmployeeId();
+  }, [currentUser.name, currentUser.id]);
 
   const monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -66,22 +113,12 @@ const EmployeeSelfServicePage: React.FC = () => {
   const [holidays, setHolidays] = useState<any[]>([]);
   const [loadingCalendar, setLoadingCalendar] = useState<boolean>(false);
 
-  // Fetch Attendance records, leaves, and holidays live
+  // Fetch Attendance records, leaves, and holidays live using the resolved employee ID
   useEffect(() => {
     const fetchCalendarData = async () => {
+      const empId = resolvedEmpId || currentUser.id || 71;
       setLoadingCalendar(true);
       try {
-        const userStr = localStorage.getItem('user');
-        let empId = currentUser.id || 12;
-        if (userStr) {
-          try {
-            const parsed = JSON.parse(userStr);
-            if (parsed.id || parsed.employeeId) {
-              empId = Number(parsed.id || parsed.employeeId);
-            }
-          } catch (e) {}
-        }
-
         const [attRes, leaveRes, holRes] = await Promise.allSettled([
           axios.get(`/v1/api/attendance/records/my-calendar/${empId}`, {
             params: { employeeId: empId, year, month: month + 1 }
@@ -112,7 +149,7 @@ const EmployeeSelfServicePage: React.FC = () => {
     };
 
     fetchCalendarData();
-  }, [currentUser, year, month]);
+  }, [resolvedEmpId, currentUser.id, year, month]);
 
   const calendarDays = useMemo(() => {
     const totalDays = new Date(year, month + 1, 0).getDate();

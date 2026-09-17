@@ -8,7 +8,6 @@ import {
     EllipsisVerticalIcon,
     PencilSquareIcon,
     TrashIcon,
-    MagnifyingGlassIcon,
     FunnelIcon,
     ArrowUpIcon,
     ArrowDownIcon,
@@ -34,7 +33,6 @@ import { Menu } from "@headlessui/react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
-import FilterPopover from "../../components/common/filter";
 import PaginatedPopup from "../../components/common/unpopup";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
@@ -65,14 +63,11 @@ const EmployeeDocumentsPage: React.FC = () => {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [previewFileType, setPreviewFileType] = useState<string>("");
     const [loading, setLoading] = useState(false);
-    const [search, setSearch] = useState("");
     const [sortKey, setSortKey] = useState<keyof EmployeeDocument>("documentType");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
     const [page, setPage] = useState(1);
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
-    const [verifiedFilter, setVerifiedFilter] = useState<"All" | "Verified" | "Pending">("All");
-    const [typeFilter, setTypeFilter] = useState<string>("");
     const [viewModalOpen, setViewModalOpen] = useState(false);
     const [selectedDocument, setSelectedDocument] = useState<EmployeeDocument | null>(null);
     const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
@@ -217,14 +212,7 @@ const EmployeeDocumentsPage: React.FC = () => {
         else { setSortKey(field); setSortOrder("asc"); }
     };
 
-    const filtered = documents.filter(doc => {
-        const matchesSearch = doc.documentType.toLowerCase().includes(search.toLowerCase()) ||
-            doc.fileName.toLowerCase().includes(search.toLowerCase());
-        const matchesVerified = verifiedFilter === "All" || 
-            (verifiedFilter === "Verified" ? doc.verified : !doc.verified);
-        const matchesType = typeFilter ? doc.documentType === typeFilter : true;
-        return matchesSearch && matchesVerified && matchesType;
-    });
+    const filtered = documents;
 
     const sorted = [...filtered].sort((a, b) => {
         let valA = a[sortKey];
@@ -253,8 +241,7 @@ const EmployeeDocumentsPage: React.FC = () => {
     const pendingCount = documents.filter(d => !d.verified).length;
     const totalDocuments = documents.length;
 
-    // Get unique document types for filter
-    const uniqueTypes = [...new Set(documents.map(d => d.documentType))];
+
 
     // File icon component
     const getFileIcon = (fileType: string) => {
@@ -420,20 +407,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                 </div>
 
                 {/* Toolbar */}
-                <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="flex-1 max-w-md">
-                        <div className="relative">
-                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search by document type or file name..."
-                                value={search}
-                                onChange={e => { setSearch(e.target.value); setPage(1); }}
-                                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                            />
-                        </div>
-                    </div>
-
+                <div className="mb-6 flex justify-end items-center">
                     <div className="flex items-center gap-3">
                         {/* Export Menu */}
                         <div className="relative">
@@ -473,45 +447,6 @@ const EmployeeDocumentsPage: React.FC = () => {
                         >
                             <PrinterIcon className="h-5 w-5 text-gray-600" />
                         </button>
-
-                        {/* Filter Button */}
-                        <FilterPopover
-                            title="Filter Documents"
-                            buttonLabel="Filter"
-                            onReset={() => {
-                                setVerifiedFilter("All");
-                                setTypeFilter("");
-                            }}
-                            showFooter={true}
-                        >
-                            <div className="space-y-3">
-                                <div>
-                                    <label className="mb-1 block text-sm font-medium text-gray-700">Verification Status</label>
-                                    <select
-                                        value={verifiedFilter}
-                                        onChange={e => { setVerifiedFilter(e.target.value as any); setPage(1); }}
-                                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                                    >
-                                        <option value="All">All Status</option>
-                                        <option value="Verified">Verified</option>
-                                        <option value="Pending">Pending</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="mb-1 block text-sm font-medium text-gray-700">Document Type</label>
-                                    <select
-                                        value={typeFilter}
-                                        onChange={e => { setTypeFilter(e.target.value); setPage(1); }}
-                                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                                    >
-                                        <option value="">All Types</option>
-                                        {uniqueTypes.map(type => (
-                                            <option key={type} value={type}>{type}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                        </FilterPopover>
 
                         {/* Refresh Button */}
                         <button

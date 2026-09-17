@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
-    MagnifyingGlassIcon,
     FunnelIcon,
     ArrowUpIcon,
     ArrowDownIcon,
@@ -18,7 +17,6 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import FilterPopover from "../../components/common/filter";
 import { ToasterService } from "../../Services/ToasterService";
 
 const SALARY_API = "/v1/api/payroll/employee-salaries";
@@ -305,64 +303,7 @@ const EmployeeSalaryPage: React.FC = () => {
                     <StatsCard label="Average Net Salary" value={"Rs " + Math.round(averageNet).toLocaleString()} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-6 w-6" />} />
                 </div>
 
-                {/* Toolbar - All buttons in single line */}
-                <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="flex-1 max-w-md">
-                        <div className="relative">
-                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search by employee name or code..."
-                                value={searchEmployee}
-                                onChange={(e) => setSearchEmployee(e.target.value)}
-                                className="h-10 pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                            />
-                        </div>
-                    </div>
 
-                    <div className="flex items-center gap-3">
-                        <FilterPopover
-                            title="Filter Salaries"
-                            buttonLabel="Filter"
-                            onReset={() => {
-                                setSelectedEmployeeFilter("");
-                                setSelectedRegime("");
-                            }}
-                            showFooter={true}
-                        >
-                            <div className="space-y-3">
-                                <div>
-                                    <label className="mb-1 block text-sm font-medium text-gray-700">Employee</label>
-                                    <select
-                                        value={selectedEmployeeFilter}
-                                        onChange={e => setSelectedEmployeeFilter(e.target.value)}
-                                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                                    >
-                                        <option value="">All Employees</option>
-                                        {uniqueEmployees.map(emp => (
-                                            <option key={emp.id} value={emp.id}>
-                                                {emp.name} - {emp.code}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="mb-1 block text-sm font-medium text-gray-700">Tax Regime</label>
-                                    <select
-                                        value={selectedRegime}
-                                        onChange={e => setSelectedRegime(e.target.value)}
-                                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                                    >
-                                        <option value="">All Regimes</option>
-                                        {uniqueRegimes.map(regime => (
-                                            <option key={regime} value={regime}>{regime} Regime</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                        </FilterPopover>
-                    </div>
-                </div>
 
                 {/* Table */}
                 <ReusableTable

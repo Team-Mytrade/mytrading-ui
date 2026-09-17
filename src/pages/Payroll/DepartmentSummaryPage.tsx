@@ -220,9 +220,7 @@ const DepartmentSummaryPage: React.FC = () => {
                                     { key: "totalDeductions", label: "Total Deductions", render: (row: any) => formatCurrency(row.totalDeductions || row.deductions), className: "text-right text-gray-900", headerClassName: "text-right" },
                                     { key: "totalNetSalary", label: "Net Salary", render: (row: any) => formatCurrency(row.totalNetSalary || row.netSalary), className: "text-right font-bold text-gray-900", headerClassName: "text-right" },
                                 ]}
-                                searchable={true}
-                                searchPlaceholder="Search departments..."
-                                searchFields={["departmentName", "department"]}
+                                searchable={false}
                             />
                         </div>
                     </div>

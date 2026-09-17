@@ -249,9 +249,7 @@ const EmployeeDepartmentsPage: React.FC = () => {
           data={departments}
           columns={columns}
           loading={loading}
-          searchable={true}
-          searchPlaceholder="Search departments by name..."
-          searchFields={["name"]}
+          searchable={false}
           emptyState={
             <div className="flex flex-col items-center">
               <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />

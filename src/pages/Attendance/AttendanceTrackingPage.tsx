@@ -334,8 +334,8 @@ const AttendanceTrackingPage: React.FC = () => {
     for (let i = firstDayWeekday - 1; i >= 0; i--) {
       const pDay = prevMonthDays - i;
       cells.push(
-        <div key={`prev-${i}`} className="bg-slate-50/40 p-1 border border-slate-100/60 h-[56px] text-slate-300 pointer-events-none rounded-md">
-          <span className="font-mono text-[10px] font-medium">{pDay}</span>
+        <div key={`prev-${i}`} className="bg-slate-50/40 p-1 border border-slate-100/60 h-[44px] text-slate-300 pointer-events-none rounded-md">
+          <span className="font-mono text-[9px] font-medium">{pDay}</span>
         </div>
       );
     }
@@ -363,7 +363,7 @@ const AttendanceTrackingPage: React.FC = () => {
         <div
           key={dateStr}
           onClick={() => dayData && setSelectedDayRecord(dayData)}
-          className={`p-1 border transition-all h-[56px] flex flex-col justify-between cursor-pointer rounded-md overflow-hidden ${
+          className={`p-1 border transition-all h-[44px] flex flex-col justify-between cursor-pointer rounded-md overflow-hidden ${
             !isFilteredMatch
               ? 'opacity-25 grayscale border-dashed border-gray-200 bg-gray-50/50 hover:opacity-100'
               : isToday 
@@ -379,11 +379,11 @@ const AttendanceTrackingPage: React.FC = () => {
         >
           {/* Top Row: Date & Status Badge */}
           <div className="flex items-center justify-between gap-1 leading-none">
-            <span className={`font-mono text-[11px] font-extrabold ${isToday ? 'bg-cyan-600 text-white px-1.5 rounded-full' : 'text-slate-800'}`}>
+            <span className={`font-mono text-[10px] font-extrabold ${isToday ? 'bg-cyan-600 text-white px-1 rounded-full' : 'text-slate-800'}`}>
               {dayNum}
             </span>
             {dayData && (
-              <span className={`px-1 py-0.2 rounded text-[8px] font-bold border truncate max-w-[55px] ${
+              <span className={`px-1 py-0 rounded text-[7.5px] font-bold border truncate max-w-[50px] ${
                 isLeave ? 'bg-purple-50 text-purple-700 border-purple-200' :
                 isPresent ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                 isAbsent ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-gray-100 text-gray-600 border-gray-200'
@@ -395,16 +395,16 @@ const AttendanceTrackingPage: React.FC = () => {
 
           {/* Compact Punch Info */}
           {dayData && (hasPunch || hasWorked || dayData.holidayName || dayData.leaveType) ? (
-            <div className="space-y-0.2 font-mono text-[8.5px] leading-tight">
+            <div className="space-y-0.2 font-mono text-[7.5px] leading-tight">
               {hasPunch && (
-                <div className="text-slate-700 font-medium truncate text-[8.5px]">
+                <div className="text-slate-700 font-medium truncate text-[7.5px]">
                   {formatDisplayTime(dayData.inTime)} {dayData.outTime ? `- ${formatDisplayTime(dayData.outTime)}` : ''}
                 </div>
               )}
 
               <div className="flex items-center justify-between gap-1">
                 {hasWorked ? (
-                  <span className="font-extrabold text-cyan-800 text-[9px]">
+                  <span className="font-extrabold text-cyan-800 text-[8px]">
                     {formatMinutesToHoursStr(dayData.workedMinutes)}
                   </span>
                 ) : <span />}
@@ -412,22 +412,22 @@ const AttendanceTrackingPage: React.FC = () => {
                 {/* Compact Badges */}
                 <div className="flex items-center gap-0.5 overflow-hidden">
                   {isLate && (
-                    <span className="px-1 rounded text-[7.5px] font-bold bg-amber-50 text-amber-700 border border-amber-200 truncate">
+                    <span className="px-0.5 rounded text-[7px] font-bold bg-amber-50 text-amber-700 border border-amber-200 truncate">
                       -{dayData.lateMinutes}m
                     </span>
                   )}
                   {isOvertime && (
-                    <span className="px-1 rounded text-[7.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 truncate">
+                    <span className="px-0.5 rounded text-[7px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 truncate">
                       +{dayData.overtimeMinutes}m
                     </span>
                   )}
                   {dayData.holidayName && (
-                    <span className="px-1 rounded text-[7.5px] font-bold bg-rose-50 text-rose-700 border border-rose-200 truncate max-w-[50px]">
+                    <span className="px-0.5 rounded text-[7px] font-bold bg-rose-50 text-rose-700 border border-rose-200 truncate max-w-[45px]">
                       {dayData.holidayName}
                     </span>
                   )}
                   {dayData.leaveType && (
-                    <span className="px-1 rounded text-[7.5px] font-bold bg-cyan-50 text-cyan-800 border border-cyan-200 truncate max-w-[50px]">
+                    <span className="px-0.5 rounded text-[7px] font-bold bg-cyan-50 text-cyan-800 border border-cyan-200 truncate max-w-[45px]">
                       {dayData.leaveType}
                     </span>
                   )}
@@ -617,12 +617,12 @@ const AttendanceTrackingPage: React.FC = () => {
       <PageMeta title="Attendance Tracking & Calendar Records" description="Live monthly attendance calendar logs, minute breakdowns, and punch audit trails" />
       <PageBreadcrumb pageTitle="Attendance Tracking & Calendar Records" />
 
-      <div className="max-w-7xl mx-auto pb-6 space-y-3.5 animate-in fade-in duration-200">
+      <div className="max-w-7xl mx-auto pb-2 space-y-2 animate-in fade-in duration-200">
         
         {/* ── TOP BANNER & MONTH NAVIGATION ───────────────────────────── */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 flex flex-col md:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-cyan-600 text-white flex items-center justify-center font-extrabold text-sm shadow-2xs border border-cyan-500 shrink-0">
+        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-2.5 px-3 flex flex-col md:flex-row items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-cyan-600 text-white flex items-center justify-center font-extrabold text-xs shadow-2xs border border-cyan-500 shrink-0">
               {currentUser.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2)}
             </div>
             <div>
@@ -631,7 +631,7 @@ const AttendanceTrackingPage: React.FC = () => {
                   <select
                     value={selectedEmpId}
                     onChange={(e) => setSelectedEmpId(Number(e.target.value))}
-                    className="py-1 px-2.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-extrabold text-gray-900 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
+                    className="py-0.5 px-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-900 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                   >
                     {employeeList.map(emp => (
                       <option key={emp.id} value={emp.id}>
@@ -640,9 +640,9 @@ const AttendanceTrackingPage: React.FC = () => {
                     ))}
                   </select>
                 ) : (
-                  <h2 className="text-sm font-extrabold text-gray-900">{currentUser.name}</h2>
+                  <h2 className="text-xs font-extrabold text-gray-900">{currentUser.name}</h2>
                 )}
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-50 text-cyan-800 border border-cyan-200">
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-cyan-50 text-cyan-800 border border-cyan-200">
                   ID #{calendarData?.employeeId || selectedEmpId || currentUser.id}
                 </span>
               </div>
@@ -650,23 +650,23 @@ const AttendanceTrackingPage: React.FC = () => {
           </div>
 
           {/* Month Navigator Controls */}
-          <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+          <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-lg border border-slate-200">
             <button
               type="button"
               onClick={handlePrevMonth}
-              className="p-1.5 rounded-lg hover:bg-white text-gray-700 font-bold transition-all shadow-2xs"
+              className="p-1 rounded hover:bg-white text-gray-700 font-bold transition-all shadow-2xs text-xs"
             >
               &lt;
             </button>
-            <div className="px-3 text-center min-w-[120px]">
-              <span className="text-xs font-bold text-gray-900 uppercase tracking-wider block">
+            <div className="px-2 text-center min-w-[110px]">
+              <span className="text-[11px] font-bold text-gray-900 uppercase tracking-wider block">
                 {monthNames[selectedMonth - 1]} {selectedYear}
               </span>
             </div>
             <button
               type="button"
               onClick={handleNextMonth}
-              className="p-1.5 rounded-lg hover:bg-white text-gray-700 font-bold transition-all shadow-2xs"
+              className="p-1 rounded hover:bg-white text-gray-700 font-bold transition-all shadow-2xs text-xs"
             >
               &gt;
             </button>
@@ -674,16 +674,16 @@ const AttendanceTrackingPage: React.FC = () => {
             <button
               type="button"
               onClick={fetchMyCalendarAttendance}
-              className="p-1.5 text-cyan-700 hover:bg-white rounded-lg transition-all ml-1"
+              className="p-1 text-cyan-700 hover:bg-white rounded transition-all ml-0.5"
               title="Refresh Calendar API"
             >
-              <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
+              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
             </button>
           </div>
         </div>
 
         {/* ── KPI METRICS CARDS USING REUSABLE StatsCard COMPONENT ────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
           <StatsCard
             label="Total Worked"
             value={formatMinutesToHoursStr(kpiStats.totalWorkedMinutes)}
@@ -727,17 +727,17 @@ const AttendanceTrackingPage: React.FC = () => {
         </div>
 
         {/* ── FILTER TOOLBAR & VIEW CONTROLS ─────────────────────────────── */}
-        <div className="bg-white p-3.5 rounded-xl shadow-2xs border border-gray-200/80 flex flex-wrap items-center justify-between gap-3">
+        <div className="bg-white p-2 px-3 rounded-xl shadow-2xs border border-gray-200/80 flex flex-wrap items-center justify-between gap-2">
           
           {/* Status Filter Pills */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider mr-1">Filter Status:</span>
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mr-1">Filter Status:</span>
             {(['ALL', 'PRESENT', 'ABSENT', 'LATE', 'LEAVE'] as const).map(st => (
               <button
                 key={st}
                 type="button"
                 onClick={() => setStatusFilter(st)}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold transition-all ${
                   statusFilter === st 
                     ? 'bg-cyan-600 text-white shadow-2xs' 
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -749,29 +749,29 @@ const AttendanceTrackingPage: React.FC = () => {
           </div>
 
           {/* Export Controls */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={handleExportCSV}
-              className="px-3 py-1.5 bg-cyan-50 text-cyan-800 border border-cyan-200 hover:bg-cyan-100 rounded-lg text-xs font-bold shadow-2xs flex items-center gap-1"
+              className="px-2.5 py-1 bg-cyan-50 text-cyan-800 border border-cyan-200 hover:bg-cyan-100 rounded-md text-[11px] font-bold shadow-2xs flex items-center gap-1"
             >
-              <Download className="w-3.5 h-3.5" /> Excel
+              <Download className="w-3 h-3" /> Excel
             </button>
 
             <button
               type="button"
               onClick={handleExportPDF}
-              className="px-3 py-1.5 bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100 rounded-lg text-xs font-bold shadow-2xs flex items-center gap-1"
+              className="px-2.5 py-1 bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100 rounded-md text-[11px] font-bold shadow-2xs flex items-center gap-1"
             >
-              <FileText className="w-3.5 h-3.5" /> PDF
+              <FileText className="w-3 h-3" /> PDF
             </button>
           </div>
         </div>
 
         {/* ── EXCLUSIVE INTERACTIVE 7-COLUMN MONTHLY CALENDAR GRID ───────── */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 space-y-3">
+        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-2.5 space-y-1.5">
           {/* Weekday Headers */}
-          <div className="grid grid-cols-7 gap-2 text-center text-xs font-extrabold text-gray-600 uppercase tracking-wider py-1 border-b border-gray-100">
+          <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-extrabold text-gray-600 uppercase tracking-wider py-0.5 border-b border-gray-100">
             <span className="text-rose-600">Sun</span>
             <span>Mon</span>
             <span>Tue</span>
@@ -782,7 +782,7 @@ const AttendanceTrackingPage: React.FC = () => {
           </div>
 
           {/* Calendar Days Matrix */}
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-1.5">
             {renderInteractiveMonthCalendar()}
           </div>
         </div>
