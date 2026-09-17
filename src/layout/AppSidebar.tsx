@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronsLeft,
   ChevronsRight,
+  BarChart3,
   Briefcase,
 } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
@@ -40,6 +41,22 @@ export const navItems: NavItem[] = [
     icon: <LayoutDashboard className="w-5 h-5" />,
     name: "Dashboard",
     path: "/",
+  },
+  {
+    icon: <BarChart3 className="w-5 h-5" />,
+    name: "Reports",
+    subItems: [
+      { name: "Sales Reports", path: "/salesReports" },
+      { name: "Lead Reports", path: "/leadReports" },
+      { name: "Activity Reports", path: "/activityReports" },
+      { name: "Custom Reports", path: "/customReports" },
+      { name: "Customer Retention", path: "/customerRetention" },
+      { name: "Performance Reports", path: "/performanceReports" },
+      { name: "Inventory Report", path: "/inventory-report" },
+      { name: "Purchase Reports", path: "/purchase-reports" },
+      { name: "Finance Report", path: "/financeReport" },
+      { name: "Tax Report", path: "/taxReport" },
+    ],
   },
   {
     icon: <Users className="w-5 h-5" />,
@@ -99,7 +116,6 @@ export const navItems: NavItem[] = [
       { name: "Inventory Reservation", path: "/inventory-reservation" },
       { name: "Stock Adjustment", path: "/stock-adjustment" },
       { name: "Stock Movement", path: "/stock-movement" },
-      { name: "Inventory Report", path: "/inventory-report" },
     ],
   },
   {
@@ -114,7 +130,6 @@ export const navItems: NavItem[] = [
       { name: "Deliveries", path: "/deliveries" },
       { name: "Approval Status", path: "/approval-status" },
       { name: "Inventory", path: "/purchase-inventory" },
-      { name: "Purchase Reports", path: "/purchase-reports" },
     ],
   },
 
@@ -134,8 +149,6 @@ export const navItems: NavItem[] = [
       { name: "General Ledger", path: "/generalLedger" },
       { name: "Expense / Revenue", path: "/expenseRevenue" },
       { name: "Accounts Receivable", path: "/accountsReceivable" },
-      { name: "Tax Report", path: "/taxReport" },
-      { name: "Finance Report", path: "/financeReport" },
     ],
   },
   {
@@ -168,8 +181,8 @@ export const navItems: NavItem[] = [
         name: "Reports",
         subItems: [
           { name: "Payroll Summary", path: "/payrollSummary" },
-          { name: "Department Summary", path: "/departmentSummary" }
-        ]
+          { name: "Department Summary", path: "/departmentSummary" },
+        ],
       },
       { name: "Payroll Engine", path: "/payrollEngine" },
       { name: "IT Declaration", path: "/it-declaration" },
@@ -272,6 +285,7 @@ const AppSidebar: React.FC = () => {
   const [tooltipVisible, setTooltipVisible] = useState<number | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isSidebarManuallyToggledRef = useRef(false);
 
   const [openSubmenu, setOpenSubmenu] = useState<number | null>(null);
 
@@ -497,11 +511,26 @@ const AppSidebar: React.FC = () => {
   };
 
   const handlePanelToggle = () => {
+    isSidebarManuallyToggledRef.current = true;
     if (isMobileOpen) {
       toggleMobileSidebar();
       return;
     }
     toggleSidebar();
+  };
+
+  const handleSidebarMouseLeave = () => {
+    if (window.innerWidth >= 1024 && isExpanded && !isResizing && !isSidebarManuallyToggledRef.current) {
+      setOpenSubSubmenu(null);
+      setRailTooltip(null);
+      toggleSidebar();
+    }
+  };
+
+  const handleSidebarMouseEnter = () => {
+    if (window.innerWidth >= 1024 && !isExpanded && !isMobileOpen && !isResizing && !isSidebarManuallyToggledRef.current) {
+      expandSidebar();
+    }
   };
 
   const handleRailTooltip = (nav: NavItem, event: React.MouseEvent<HTMLButtonElement>) => {
@@ -697,6 +726,8 @@ const AppSidebar: React.FC = () => {
           ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
           lg:translate-x-0
         `}
+        onMouseEnter={handleSidebarMouseEnter}
+        onMouseLeave={handleSidebarMouseLeave}
       >
         <button
           type="button"
