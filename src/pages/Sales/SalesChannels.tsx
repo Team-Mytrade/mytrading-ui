@@ -22,12 +22,15 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
+// tenantId still arrives on the raw API record (multi-tenant backend), but
+// the frontend no longer reads, displays, edits, or submits it — see the
+// note above the payload builder for why.
 type SalesChannel = {
   id: number;
   createdDate?: string;
   updatedDate?: string;
   createdBy?: string;
-  tenantId: string;
+  tenantId?: string;
   name: string;
   channelType: SalesChannelType | string;
   contactInfo: string;
@@ -44,7 +47,6 @@ type SalesChannelType =
   | "TELESALES";
 
 type ChannelForm = {
-  tenantId: string;
   channelName: string;
   channelType: SalesChannelType;
   contactInfo: string;
@@ -63,17 +65,7 @@ const channelTypeOptions: SalesChannelType[] = [
   "TELESALES",
 ];
 
-function getStoredTenantId() {
-  try {
-    const user = JSON.parse(localStorage.getItem("user") || "null");
-    return user?.tenantId || "";
-  } catch {
-    return "";
-  }
-}
-
 const emptyForm: ChannelForm = {
-  tenantId: getStoredTenantId(),
   channelName: "",
   channelType: "DIRECT",
   contactInfo: "",
@@ -144,9 +136,13 @@ const SalesChannels: React.FC = () => {
     setForm((current) => ({ ...current, [name]: value }));
   };
 
+  // Tenant is deliberately NOT sent from here. A client-editable
+  // localStorage value has no business being the thing that decides which
+  // tenant's data a write lands in — that has to be derived/verified by the
+  // backend from the authenticated session (JWT), not trusted from the
+  // request body. See the message to backend below.
   const buildPayload = () => ({
     id: editingId || 0,
-    tenantId: form.tenantId.trim(),
     name: form.channelName.trim(),
     channelType: form.channelType,
     contactInfo: form.contactInfo.trim(),
@@ -183,14 +179,13 @@ const SalesChannels: React.FC = () => {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ ...emptyForm, tenantId: getStoredTenantId() });
+    setForm(emptyForm);
     setShowFormModal(true);
   };
 
   const openEdit = (channel: SalesChannel) => {
     setEditingId(channel.id);
     setForm({
-      tenantId: channel.tenantId || getStoredTenantId(),
       channelName: channel.name || "",
       channelType: channelTypeOptions.includes(channel.channelType as SalesChannelType)
         ? (channel.channelType as SalesChannelType)
@@ -265,7 +260,6 @@ const SalesChannels: React.FC = () => {
       ),
     },
     { key: "contactInfo", label: "Contact Info", sortable: true },
-    { key: "tenantId", label: "Tenant", sortable: true },
     {
       key: "actions",
       label: "Actions",
@@ -273,11 +267,11 @@ const SalesChannels: React.FC = () => {
       headerClassName: "text-right",
       className: "text-right",
       render: (channel) => (
-        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={() => openEdit(channel)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-2 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
@@ -285,7 +279,7 @@ const SalesChannels: React.FC = () => {
           <button
             type="button"
             onClick={() => setDeleteChannel(channel)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            className="rounded-lg p-2 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
@@ -339,6 +333,9 @@ const SalesChannels: React.FC = () => {
           pageSize={PAGE_SIZE}
           defaultSortKey="name"
           defaultSortOrder="asc"
+          rowDetailsTitle={(channel) => channel.name || `Channel #${channel.id}`}
+          rowDetailsSubtitle="Sales channel details"
+          hiddenDetailKeys={["id", "tenantId"]}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <BuildingStorefrontIcon className="mb-3 h-12 w-12 text-gray-400" />

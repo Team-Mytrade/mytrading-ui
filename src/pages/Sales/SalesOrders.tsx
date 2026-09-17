@@ -186,7 +186,6 @@ type QuotationOption = {
 };
 
 type OrderForm = {
-  tenantId: string;
   orderNumber: string;
   quotationType: string;
   orderDate: string;
@@ -249,9 +248,17 @@ type OrderForm = {
 const API_URL = "/v1/api/sales/sales-orders";
 const PAGE_SIZE = 10;
 
-const statusOptions = ["DRAFT"];
 const quotationTypeOptions = ["PRODUCT", "SERVICE"];
 
+// STOPGAP, NOT A FIX: the backend currently requires tenantId as a request
+// parameter on create/update (confirmed by a 400 "Required parameter
+// 'tenantId' is not present" response) and does not yet derive it from the
+// authenticated session. Until that changes server-side, this value still
+// has to be sent — but it is read here only at call time and never exposed
+// as an editable form field, so at least the user can't see or tamper with
+// it through the UI. The underlying risk is unchanged: a client-editable
+// localStorage value still isn't a trustworthy way to enforce tenant
+// isolation, and this should move server-side as soon as backend supports it.
 function getStoredTenantId() {
   try {
     const user = JSON.parse(localStorage.getItem("user") || "null");
@@ -262,7 +269,6 @@ function getStoredTenantId() {
 }
 
 const emptyForm: OrderForm = {
-  tenantId: getStoredTenantId(),
   orderNumber: "",
   quotationType: "PRODUCT",
   orderDate: new Date().toISOString().split("T")[0],
@@ -327,7 +333,7 @@ function getErrorMessage(error: unknown, fallback: string) {
     const data = error.response?.data;
     if (typeof data === "string") return data;
     if (String(data?.error || "").includes("feign.Response$Body.asInputStream")) {
-      return "Backend could not resolve one of the referenced IDs. Check tenantId, quotationId, customerId, salesChannelId, salesPersonId, productId, and quotationItemId.";
+      return "Backend could not resolve one of the referenced IDs. Check quotationId, customerId, salesChannelId, salesPersonId, productId, and quotationItemId.";
     }
     return data?.message || data?.detail || data?.error || data?.title || fallback;
   }
@@ -683,12 +689,15 @@ const SalesOrders: React.FC = () => {
     });
   };
 
+  // status now round-trips the order's real status (set on openEdit / left
+  // at the "DRAFT" default for new orders) instead of being hardcoded here.
+  // tenantId is intentionally NOT sent — see the note on handleSubmit.
   const buildPayload = () => ({
     id: editingId || 0,
     orderNumber: form.orderNumber,
     quotationType: form.quotationType,
     orderDate: form.orderDate,
-    status: "DRAFT",
+    status: form.status,
     quotationId: toNumber(form.quotationId),
     quotationNumber: form.quotationNumber,
     quotationVersionNo: toNumber(form.quotationVersionNo),
@@ -724,10 +733,6 @@ const SalesOrders: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!form.tenantId.trim()) {
-      ToasterService.error("Tenant ID is required");
-      return;
-    }
     if (!form.customerId || !form.orderDate) {
       ToasterService.error("Required fields missing", "Customer ID and order date are required.");
       return;
@@ -771,7 +776,11 @@ const SalesOrders: React.FC = () => {
     try {
       setSubmitting(true);
       const payload = buildPayload();
-      const config = { headers, params: { tenantId: form.tenantId } };
+      // tenantId goes as a query param, not in the JSON body — matches
+      // what the backend currently expects. See the stopgap note on
+      // getStoredTenantId() above for why this isn't the right long-term
+      // place for this to live.
+      const config = { headers, params: { tenantId: getStoredTenantId() } };
       const res = editingId
         ? await axios.put<SalesOrder>(`${API_URL}/${editingId}`, payload, config)
         : await axios.post<SalesOrder>(API_URL, payload, config);
@@ -788,17 +797,19 @@ const SalesOrders: React.FC = () => {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ ...emptyForm, tenantId: getStoredTenantId() });
+    setForm(emptyForm);
     setShowFormModal(true);
   };
 
   const openEdit = (order: SalesOrder) => {
     setEditingId(order.id);
     setForm({
-      tenantId: getStoredTenantId(),
       orderNumber: order.orderNumber || "",
       quotationType: order.quotationType || "PRODUCT",
       orderDate: order.orderDate || new Date().toISOString().split("T")[0],
+      // Carries the order's real status forward so saving an edit can't
+      // silently reset it — previously this always got overwritten to
+      // "DRAFT" on save regardless of what it actually was.
       status: order.status || "DRAFT",
       quotationId: String(order.quotationId || ""),
       quotationNumber: order.quotationNumber || "",
@@ -1063,7 +1074,11 @@ const SalesOrders: React.FC = () => {
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Sales Order" : "Create Sales Order"}
-        subtitle="Enter sales order details from the API schema"
+        subtitle={
+          editingId
+            ? `Status: ${form.status || "DRAFT"} — status changes are managed elsewhere, not from this form`
+            : "Enter sales order details from the API schema"
+        }
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
@@ -1110,15 +1125,6 @@ const SalesOrders: React.FC = () => {
                 singleSelection
               />,
               <FloatingSelect
-                key="status"
-                label="Status"
-                name="status"
-                value={form.status}
-                onChange={handleChange}
-                includeEmptyOption={false}
-                options={statusOptions.map((item) => ({ id: item, name: item }))}
-              />,
-              <FloatingSelect
                 key="customerId"
                 label="Customer"
                 name="customerId"
@@ -1149,6 +1155,7 @@ const SalesOrders: React.FC = () => {
                     };
                   })
                   .filter((channel) => Number(channel.id) > 0)}
+                required
               />,
             ],
           },
@@ -1171,6 +1178,7 @@ const SalesOrders: React.FC = () => {
                     };
                   })
                   .filter((person) => Number(person.id) > 0)}
+                required
               />,
               <FloatingInput
                 key="subject"
@@ -1215,6 +1223,7 @@ const SalesOrders: React.FC = () => {
                     };
                   })
                   .filter((quotation) => Number(quotation.id) > 0)}
+                required
               />,
               <FloatingInput
                 key="quotationVersionNo"
@@ -1389,65 +1398,41 @@ const SalesOrders: React.FC = () => {
                 value={form.itemRemarks}
                 onChange={handleChange}
               />,
-            ],
-          },
-          {
-            label: "Totals",
-            fields: [
-              <FloatingInput
-                key="subTotal"
-                label="Sub Total"
-                name="subTotal"
-                type="number"
-                value={form.subTotal}
-                onChange={handleChange}
-                disabled
-              />,
-              <FloatingInput
-                key="discountAmount"
-                label="Discount Amount"
-                name="discountAmount"
-                type="number"
-                value={form.discountAmount}
-                onChange={handleChange}
-                disabled
-              />,
-              <FloatingInput
-                key="additionalDiscount"
-                label="Additional Discount"
-                name="additionalDiscount"
-                type="number"
-                value={form.additionalDiscount}
-                onChange={handleChange}
-                disabled
-              />,
-              <FloatingInput
-                key="discountPercentage"
-                label="Discount %"
-                name="discountPercentage"
-                type="number"
-                value={form.discountPercentage}
-                onChange={handleChange}
-                disabled
-              />,
-              <FloatingInput
-                key="taxAmount"
-                label="Tax Amount"
-                name="taxAmount"
-                type="number"
-                value={form.taxAmount}
-                onChange={handleChange}
-                disabled
-              />,
-              <FloatingInput
-                key="grandTotal"
-                label="Grand Total"
-                name="grandTotal"
-                type="number"
-                value={form.grandTotal}
-                onChange={handleChange}
-                disabled
-              />,
+              // Replaces the old standalone "Totals" tab, which was six
+              // disabled inputs that just re-displayed numbers already
+              // derived from this one line item — same data, shown twice.
+              // This single read-only summary block covers the same
+              // information without a duplicate tab.
+              <div
+                key="itemTotalsSummary"
+                className="md:col-span-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4"
+              >
+                <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                  Computed totals (from the line item above)
+                </div>
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                  <div className="rounded-xl border border-slate-200 bg-white p-2.5">
+                    <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">Sub Total</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900">{money(form.subTotal)}</div>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-2.5">
+                    <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                      Discount ({form.discountPercentage || 0}%)
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900">
+                      {money(toNumber(form.discountAmount) + toNumber(form.additionalDiscount))}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-2.5">
+                    <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">Tax</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900">{money(form.taxAmount)}</div>
+                  </div>
+                  <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-2.5">
+                    <div className="text-[10px] uppercase tracking-[0.1em] text-cyan-600">Grand Total</div>
+                    <div className="mt-1 text-sm font-semibold text-cyan-800">{money(form.grandTotal)}</div>
+                  </div>
+                </div>
+              </div>,
             ],
           },
           {

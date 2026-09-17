@@ -432,11 +432,19 @@ const SalesPersons: React.FC = () => {
       sortable: true,
       sortValueGetter: (person) => getEmployeeDisplayName(person),
       render: (person) => getEmployeeDisplayName(person) || "--",
+      // Kept in the table (that's the whole point of this column), but
+      // skipped in the row-details drawer — it's always identical to the
+      // "Sales Person" name today since both derive from the same linked
+      // User, so showing it twice there just looked like a mistake.
+      excludeFromDetails: true,
     },
     {
       key: "active",
       label: "Status",
       sortable: true,
+      // Without this, the drawer's generic boolean formatter would show
+      // the raw "active" value as "Yes"/"No" instead of "Active"/"Inactive".
+      detailFormatter: (person) => (person.active ? "Active" : "Inactive"),
       render: (person) => (
         <div onClick={(e) => e.stopPropagation()}>
           <select
@@ -512,6 +520,7 @@ const SalesPersons: React.FC = () => {
           pageSize={PAGE_SIZE}
           defaultSortKey="id"
           defaultSortOrder="desc"
+          hiddenDetailKeys={["id"]}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <UserGroupIcon className="mb-3 h-12 w-12 text-gray-400" />
