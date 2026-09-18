@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import SessionDraftRestorer from "./components/common/SessionDraftRestorer";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
@@ -363,7 +363,7 @@ export default function AppRouter() {
           <Route path="/att_leaveBalance" element={<LeaveBalancePage />} />
           <Route path="/att_leaveRequest" element={<LeaveRequestPage />} />
           <Route path="/att_leavePolicy" element={<LeavePolicyPage />} />
-          <Route path="/att_leaveDashboard" element={<LeaveDashboardPage />} />
+          <Route path="/att_leaveDashboard" element={<Navigate to="/att_selfService" replace />} />
           <Route path="/att_selfService" element={<EmployeeSelfServicePage />} />
           <Route path="/att_leaveManagerDashboard" element={<LeaveManagerDashboardPage />} />
           <Route path="/att_attendanceTracking" element={<AttendanceTrackingPage />} />

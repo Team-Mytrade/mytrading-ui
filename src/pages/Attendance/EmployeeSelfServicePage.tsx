@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { 
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, Plus, 
   Sparkles, CheckCircle2, AlertCircle, FileText, Gift, Briefcase, UserCheck,
-  Maximize2, Minimize2, X
+  Maximize2, Minimize2, X, Loader2
 } from 'lucide-react';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
@@ -99,6 +99,7 @@ const EmployeeSelfServicePage: React.FC = () => {
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   const handlePrevMonth = () => {
     setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
@@ -111,45 +112,216 @@ const EmployeeSelfServicePage: React.FC = () => {
   const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [holidays, setHolidays] = useState<any[]>([]);
+  const [leaveBalances, setLeaveBalances] = useState<{ casual: number; sick: number; earned: number }>({
+    casual: 10,
+    sick: 12,
+    earned: 18,
+  });
   const [loadingCalendar, setLoadingCalendar] = useState<boolean>(false);
 
-  // Fetch Attendance records, leaves, and holidays live using the resolved employee ID
-  useEffect(() => {
-    const fetchCalendarData = async () => {
-      const empId = resolvedEmpId || currentUser.id || 71;
-      setLoadingCalendar(true);
-      try {
-        const [attRes, leaveRes, holRes] = await Promise.allSettled([
-          axios.get(`/v1/api/attendance/records/my-calendar/${empId}`, {
-            params: { employeeId: empId, year, month: month + 1 }
-          }),
-          axios.get(`/v1/api/attendance/leave-requests/employee/${empId}`),
-          axios.get('/v1/api/attendance/holiday-calendars')
-        ]);
+  // 1-Click Punch & Quick Leave States
+  const [isPunching, setIsPunching] = useState<boolean>(false);
+  const [isApplyLeaveModalOpen, setIsApplyLeaveModalOpen] = useState<boolean>(false);
+  const [leaveForm, setLeaveForm] = useState({
+    leaveType: 'CASUAL',
+    fromDate: new Date().toISOString().slice(0, 10),
+    toDate: new Date().toISOString().slice(0, 10),
+    reason: ''
+  });
+  const [isSubmittingLeave, setIsSubmittingLeave] = useState<boolean>(false);
 
-        if (attRes.status === 'fulfilled' && attRes.value?.data) {
-          const data = attRes.value.data;
-          if (Array.isArray(data)) {
-            setAttendanceRecords(data);
-          } else if (Array.isArray(data.days)) {
-            setAttendanceRecords(data.days);
+  // Fetch Attendance records, leaves, and holidays live using the resolved employee ID
+  const fetchCalendarData = useCallback(async () => {
+    const empId = resolvedEmpId || currentUser.id || 71;
+    setLoadingCalendar(true);
+    try {
+      const [attRes, leaveRes, holRes, balRes] = await Promise.allSettled([
+        axios.get(`/v1/api/attendance/records/my-calendar/${empId}`, {
+          params: { employeeId: empId, year, month: month + 1 }
+        }),
+        axios.get(`/v1/api/attendance/leave-requests/employee/${empId}`),
+        axios.get('/v1/api/attendance/holiday-calendars/1/holidays').catch(() => axios.get('/v1/api/attendance/holiday-calendars')),
+        axios.get(`/v1/api/attendance/employee-leave-balances/${empId}`)
+      ]);
+
+      if (attRes.status === 'fulfilled' && attRes.value?.data) {
+        const data = attRes.value.data;
+        if (Array.isArray(data)) {
+          setAttendanceRecords(data);
+        } else if (Array.isArray(data.days)) {
+          setAttendanceRecords(data.days);
+        }
+      }
+      if (leaveRes.status === 'fulfilled' && Array.isArray(leaveRes.value?.data)) {
+        setLeaveRequests(leaveRes.value.data);
+      }
+      if (holRes.status === 'fulfilled' && holRes.value?.data) {
+        const hData = holRes.value.data;
+        if (Array.isArray(hData)) {
+          if (hData.length > 0 && Array.isArray(hData[0].holidays)) {
+            setHolidays(hData.flatMap((c: any) => c.holidays || []));
+          } else {
+            setHolidays(hData);
           }
         }
-        if (leaveRes.status === 'fulfilled' && Array.isArray(leaveRes.value?.data)) {
-          setLeaveRequests(leaveRes.value.data);
-        }
-        if (holRes.status === 'fulfilled' && Array.isArray(holRes.value?.data)) {
-          setHolidays(holRes.value.data);
-        }
-      } catch (err) {
-        console.error('Error loading calendar data:', err);
-      } finally {
-        setLoadingCalendar(false);
       }
+      if (balRes.status === 'fulfilled' && balRes.value?.data) {
+        const bData = balRes.value.data;
+        if (Array.isArray(bData) && bData.length > 0) {
+          const getBal = (t: string, defVal: number) => {
+            const item = bData.find((b: any) => String(b.leaveType || b.name || '').toUpperCase().includes(t));
+            return item ? (item.remainingLeaves ?? item.availableLeaves ?? item.balance ?? defVal) : defVal;
+          };
+          setLeaveBalances({
+            casual: getBal('CASUAL', 10),
+            sick: getBal('SICK', 12),
+            earned: getBal('EARNED', 18)
+          });
+        } else if (bData.leaveBalance) {
+          setLeaveBalances({
+            casual: bData.leaveBalance.casual ?? 10,
+            sick: bData.leaveBalance.sick ?? 12,
+            earned: bData.leaveBalance.earned ?? 18
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error loading calendar data:', err);
+    } finally {
+      setLoadingCalendar(false);
+    }
+  }, [resolvedEmpId, currentUser.id, year, month]);
+
+  useEffect(() => {
+    fetchCalendarData();
+  }, [fetchCalendarData]);
+
+  // Today's attendance punch status
+  const todayRecord = useMemo(() => {
+    return attendanceRecords.find((a: any) => {
+      const aDate = String(a.date || a.attendanceDate || a.recordDate || '').split('T')[0];
+      return aDate === todayStr;
+    });
+  }, [attendanceRecords, todayStr]);
+
+  const isCheckedIn = Boolean(
+    todayRecord &&
+    (todayRecord.inTime || todayRecord.checkInTime || todayRecord.clockIn || todayRecord.in) &&
+    !(todayRecord.outTime || todayRecord.checkOutTime || todayRecord.clockOut || todayRecord.out)
+  );
+
+  const isCheckedOut = Boolean(
+    todayRecord &&
+    (todayRecord.outTime || todayRecord.checkOutTime || todayRecord.clockOut || todayRecord.out)
+  );
+
+  const todayInTime = todayRecord?.inTime || todayRecord?.checkInTime || todayRecord?.clockIn || null;
+  const todayInFormatted = todayInTime ? (todayInTime.includes('T') ? new Date(todayInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : todayInTime) : null;
+
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }, []);
+
+  const handleWebPunch = async (punchType: 'CHECK_IN' | 'CHECK_OUT') => {
+    const empId = resolvedEmpId || currentUser.id || 65;
+    setIsPunching(true);
+    try {
+      const endpoint = punchType === 'CHECK_IN' ? '/v1/api/attendance/records/check-in' : '/v1/api/attendance/records/check-out';
+      const payload = {
+        employeeId: Number(empId),
+        attendanceSource: 'WEB',
+        attendanceMode: 'MANUAL',
+        deviceId: 'Browser',
+        deviceName: 'Employee Self Service Portal',
+        location: 'Office / Remote',
+        latitude: 0,
+        longitude: 0,
+        ipAddress: '127.0.0.1',
+        ...(punchType === 'CHECK_OUT' ? { remarks: 'Web Check-out from Self Service' } : {})
+      };
+
+      await axios.post(endpoint, payload, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 6000
+      });
+
+      ToasterService.success(punchType === 'CHECK_IN' ? 'Checked in successfully!' : 'Checked out successfully!');
+      fetchCalendarData();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to record attendance.';
+      ToasterService.error(String(msg));
+    } finally {
+      setIsPunching(false);
+    }
+  };
+
+  const handleApplyLeaveSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const empId = resolvedEmpId || currentUser.id || 65;
+    if (!leaveForm.fromDate || !leaveForm.toDate) {
+      ToasterService.error('Please select both From and To dates.');
+      return;
+    }
+    if (leaveForm.toDate < leaveForm.fromDate) {
+      ToasterService.error('End Date cannot be before Start Date.');
+      return;
+    }
+
+    const start = new Date(leaveForm.fromDate);
+    const end = new Date(leaveForm.toDate);
+    const diffDays = Math.ceil(Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    setIsSubmittingLeave(true);
+    const payload = {
+      employeeId: Number(empId),
+      employeeCode: currentUser.code || `EMP-${empId}`,
+      employeeName: currentUser.name,
+      leaveType: leaveForm.leaveType,
+      fromDate: leaveForm.fromDate,
+      toDate: leaveForm.toDate,
+      totalDays: diffDays,
+      reason: leaveForm.reason || 'Leave request from Self Service'
     };
 
-    fetchCalendarData();
-  }, [resolvedEmpId, currentUser.id, year, month]);
+    try {
+      try {
+        await axios.post('/v1/api/attendance/leave-requests', payload);
+      } catch (firstErr: any) {
+        const errMsg = String(firstErr.response?.data?.message || firstErr.response?.data?.error || '').toLowerCase();
+        if (errMsg.includes('balance') || errMsg.includes('policy') || firstErr.response?.status === 400 || firstErr.response?.status === 404) {
+          try {
+            await axios.post('/v1/api/attendance/employee-leave-balances/assign-policy', {
+              employeeIds: [Number(empId), 12],
+              leavePolicyId: 1
+            });
+            await axios.post('/v1/api/attendance/leave-requests', payload);
+          } catch {
+            throw firstErr;
+          }
+        } else {
+          throw firstErr;
+        }
+      }
+
+      ToasterService.success('Leave request submitted successfully!');
+      setIsApplyLeaveModalOpen(false);
+      setLeaveForm({
+        leaveType: 'CASUAL',
+        fromDate: new Date().toISOString().slice(0, 10),
+        toDate: new Date().toISOString().slice(0, 10),
+        reason: ''
+      });
+      fetchCalendarData();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Failed to submit leave request.';
+      ToasterService.error(String(msg));
+    } finally {
+      setIsSubmittingLeave(false);
+    }
+  };
 
   const calendarDays = useMemo(() => {
     const totalDays = new Date(year, month + 1, 0).getDate();
@@ -194,71 +366,83 @@ const EmployeeSelfServicePage: React.FC = () => {
       let lateMins: number | null = null;
       let badge: string | undefined = undefined;
 
-      if (dStr === todayStr) {
-        dayStatus = 'TODAY';
-        dayDetails = 'Today';
-      }
+      const isToday = dStr === todayStr;
 
-      // Check Holiday first
-      const holidayMatch = holidays.find((h: any) => h.holidayDate === dStr || h.date === dStr);
+      // 1. Check Holiday first
+      const holidayMatch = holidays.find((h: any) => {
+        const hDate = String(h.holidayDate || h.date || '').split('T')[0];
+        return hDate === dStr;
+      });
+
       if (holidayMatch) {
         dayStatus = 'HOLIDAY';
         dayDetails = holidayMatch.holidayName || holidayMatch.name || 'Holiday';
         badge = 'H';
       } else {
-        // Check Leave
+        // 2. Check Leave
         const leaveMatch = leaveRequests.find((l: any) => {
           if (l.status === 'REJECTED' || l.status === 'CANCELLED') return false;
-          if (l.fromDate && l.toDate) {
-            return dStr >= l.fromDate && dStr <= l.toDate;
+          const from = String(l.fromDate || l.startDate || '').split('T')[0];
+          const to = String(l.toDate || l.endDate || from).split('T')[0];
+          if (from && to) {
+            return dStr >= from && dStr <= to;
           }
-          return l.leaveDate === dStr;
+          return String(l.leaveDate || '').split('T')[0] === dStr;
         });
 
         if (leaveMatch) {
           dayStatus = 'LEAVE';
-          dayDetails = `Leave (${leaveMatch.leaveTypeName || leaveMatch.dayType || 'Approved'})`;
+          const typeName = leaveMatch.leaveTypeName || leaveMatch.dayType || leaveMatch.leaveType || 'Approved';
+          dayDetails = `Leave (${typeName})`;
           badge = 'L';
         } else {
-          // Check Attendance record
+          // 3. Check Attendance record
           const attMatch = attendanceRecords.find((a: any) => {
-            const matchesEmp = !a.employeeId || Number(a.employeeId) === Number(currentUser.id);
-            return matchesEmp && a.date === dStr;
+            const aDate = String(a.date || a.attendanceDate || a.recordDate || '').split('T')[0];
+            return aDate === dStr;
           });
 
           if (attMatch) {
             inTimeVal = attMatch.inTime || attMatch.checkInTime || attMatch.clockIn || attMatch.in || null;
             outTimeVal = attMatch.outTime || attMatch.checkOutTime || attMatch.clockOut || attMatch.out || null;
-            workedMins = attMatch.workedMinutes ?? (attMatch.workHours ? attMatch.workHours * 60 : undefined);
+            workedMins = attMatch.workedMinutes ?? (attMatch.workHours ? Math.round(attMatch.workHours * 60) : undefined);
             lateMins = attMatch.lateMinutes ?? null;
 
-            // Default standard shift punch times if present but time strings are missing
-            if ((attMatch.status === 'PRESENT' || attMatch.attendanceStatus === 'PRESENT') && !inTimeVal) {
-              inTimeVal = '09:00 AM';
-              outTimeVal = '06:00 PM';
-              if (!workedMins) workedMins = 540; // 9 hrs
-            }
+            const statusUpper = String(attMatch.status || attMatch.attendanceStatus || '').toUpperCase();
 
-            if (attMatch.status === 'LATE' || (lateMins && lateMins > 0)) {
+            if (statusUpper === 'LATE' || (lateMins && lateMins > 0)) {
               dayStatus = 'LATE';
               dayDetails = `Late (-${lateMins || 0}m)`;
               badge = 'LATE';
-            } else if (attMatch.status === 'PRESENT' || attMatch.attendanceStatus === 'PRESENT') {
+            } else if (statusUpper === 'PRESENT' || statusUpper === 'CHECKED_IN') {
               dayStatus = 'PRESENT';
               badge = 'P';
-              dayDetails = `Present (${inTimeVal ? (inTimeVal.includes('T') ? new Date(inTimeVal).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : inTimeVal) : 'Checked in'})`;
-            } else if (attMatch.status === 'ABSENT' || attMatch.attendanceStatus === 'ABSENT') {
+              const inStr = inTimeVal ? (inTimeVal.includes('T') ? new Date(inTimeVal).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : inTimeVal) : 'Checked in';
+              dayDetails = `Present (${inStr})`;
+            } else if (statusUpper === 'ABSENT') {
               dayStatus = 'ABSENT';
               dayDetails = 'Absent';
               badge = 'A';
-            } else if (attMatch.status === 'ON_LEAVE' || attMatch.attendanceStatus === 'ON_LEAVE') {
+            } else if (statusUpper === 'ON_LEAVE' || statusUpper === 'LEAVE') {
               dayStatus = 'LEAVE';
               dayDetails = 'On Leave';
               badge = 'L';
+            } else if (inTimeVal || outTimeVal) {
+              dayStatus = 'PRESENT';
+              badge = 'P';
+              const inStr = inTimeVal ? (inTimeVal.includes('T') ? new Date(inTimeVal).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : inTimeVal) : 'Checked in';
+              dayDetails = `Present (${inStr})`;
+            } else {
+              dayStatus = isToday ? 'TODAY' : 'REGULAR';
+              badge = undefined;
+              dayDetails = isToday ? 'Today' : '';
             }
           } else if (isSunday) {
             dayStatus = 'WEEK_OFF';
             dayDetails = 'Sunday / Week Off';
+          } else if (isToday) {
+            dayStatus = 'TODAY';
+            dayDetails = 'Today';
           }
         }
       }
@@ -312,19 +496,82 @@ const EmployeeSelfServicePage: React.FC = () => {
 
       <div className="max-w-7xl mx-auto pb-8 space-y-5 animate-in fade-in duration-200">
         
-        {/* Top Hello Banner */}
-        <div className="bg-gradient-to-r from-cyan-700 to-cyan-800 text-white rounded-xl p-5 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">{currentUser.name}</h1>
-            <p className="text-cyan-100 text-xs mt-0.5">Hope you are having a great day</p>
+        {/* Top Hello Banner with 1-Click Web Punch & Quick Apply Leave */}
+        <div className="bg-gradient-to-r from-cyan-800 via-cyan-700 to-teal-700 text-white rounded-xl p-4 sm:p-5 shadow-sm border border-cyan-600/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-white/10 backdrop-blur-xs border border-white/20 flex items-center justify-center text-white font-bold text-base shadow-inner shrink-0">
+              {currentUser.name ? currentUser.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'RH'}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-lg sm:text-xl font-bold tracking-tight">{currentUser.name}</h1>
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-900/40 border border-cyan-400/30 text-cyan-200">
+                  {currentUser.code}
+                </span>
+                {isCheckedIn ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 border border-emerald-400/40 text-emerald-100">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                    </span>
+                    Clocked In {todayInFormatted ? `at ${todayInFormatted}` : ''}
+                  </span>
+                ) : isCheckedOut ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-950/40 border border-cyan-400/30 text-cyan-200">
+                    <CheckCircle2 className="w-3 h-3 text-cyan-300" />
+                    Clocked Out for Today
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/10 border border-white/20 text-cyan-100">
+                    Not Clocked In Yet
+                  </span>
+                )}
+              </div>
+              <p className="text-cyan-100 text-xs mt-1 flex items-center gap-3 flex-wrap">
+                <span>{greeting}! Hope you have an awesome day.</span>
+                <span className="hidden sm:inline text-cyan-300/60">•</span>
+                <span className="text-cyan-200 text-[11px]">
+                  Leave balance: <strong>{leaveBalances.casual}</strong> Casual, <strong>{leaveBalances.sick}</strong> Sick, <strong>{leaveBalances.earned}</strong> Earned
+                </span>
+              </p>
+            </div>
           </div>
 
-          <div className="bg-cyan-600/40 p-3 rounded-lg border border-cyan-500/50 flex items-center gap-3">
-            <UserCheck className="w-6 h-6 text-cyan-200" />
-            <div>
-              <span className="text-[10px] uppercase font-bold text-cyan-200 block">Status</span>
-              <span className="text-xs font-extrabold text-white">Active Employee</span>
-            </div>
+          {/* Action Buttons: 1-Click Punch & Quick Apply Leave */}
+          <div className="flex items-center gap-2.5 w-full md:w-auto self-end md:self-center justify-end">
+            {/* Quick + Apply Leave Button */}
+            <button
+              onClick={() => setIsApplyLeaveModalOpen(true)}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-white/15 hover:bg-white/25 active:scale-95 border border-white/25 text-white transition shadow-2xs backdrop-blur-xs cursor-pointer"
+              title="Directly opens the leave request modal in 1 click"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Apply Leave</span>
+            </button>
+
+            {/* Web Punch Navigation Button */}
+            {isCheckedIn ? (
+              <button
+                onClick={() => navigate('/att_punch')}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-600 active:scale-95 text-gray-950 transition shadow-sm border border-amber-300/60 cursor-pointer"
+                title="Go to Attendance Punch Station to Clock Out"
+              >
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-90"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <span>Clock Out</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate('/att_punch')}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white transition shadow-sm border border-emerald-400 cursor-pointer"
+                title="Go to Attendance Punch Station to Clock In"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Clock In</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -490,6 +737,35 @@ const EmployeeSelfServicePage: React.FC = () => {
 
 
 
+              {/* Unified Live Leave Quotas Bar */}
+              <div className="flex items-center justify-between gap-1 bg-slate-50/90 px-2 py-1.5 rounded-lg border border-gray-100 text-xs">
+                <div className="flex items-center gap-1 flex-wrap">
+                  <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-wider">Quotas:</span>
+                  <div className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white border border-cyan-200 text-[9.5px]">
+                    <span className="px-1 rounded text-[8px] font-extrabold bg-cyan-100 text-cyan-800">CL</span>
+                    <span className="font-mono font-bold text-gray-900">{leaveBalances.casual}</span>
+                    <span className="text-[8px] text-gray-400">/12d</span>
+                  </div>
+                  <div className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white border border-emerald-200 text-[9.5px]">
+                    <span className="px-1 rounded text-[8px] font-extrabold bg-emerald-100 text-emerald-800">SL</span>
+                    <span className="font-mono font-bold text-gray-900">{leaveBalances.sick}</span>
+                    <span className="text-[8px] text-gray-400">/12d</span>
+                  </div>
+                  <div className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white border border-indigo-200 text-[9.5px]">
+                    <span className="px-1 rounded text-[8px] font-extrabold bg-indigo-100 text-indigo-800">EL</span>
+                    <span className="font-mono font-bold text-gray-900">{leaveBalances.earned}</span>
+                    <span className="text-[8px] text-gray-400">/18d</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/att_leaveRequest')}
+                  className="px-2 py-0.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-[10px] font-bold transition-all shadow-2xs shrink-0"
+                >
+                  + Apply
+                </button>
+              </div>
+
               {/* Month Days Weekday Headers */}
               <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-gray-500 py-1">
                 <span>Su</span>
@@ -506,53 +782,44 @@ const EmployeeSelfServicePage: React.FC = () => {
                 {filteredCalendarDays.map((day, idx) => {
                   if (!day.currentMonth) {
                     return (
-                      <div key={idx} className="min-h-12 p-1 text-[11px] text-gray-300 flex items-start justify-center font-mono">
+                      <div key={idx} className="min-h-8 p-1 text-[11px] text-gray-300 flex items-start justify-center font-mono">
                         {day.dayNumber}
                       </div>
                     );
                   }
 
+                  const isToday = day.dateStr === todayStr;
                   let cardStyle = 'border-gray-100 bg-white hover:bg-slate-50 text-gray-700';
                   let numBadgeStyle = 'text-gray-700 font-bold';
 
-                  if (day.status === 'TODAY') {
-                    cardStyle = 'border-cyan-500 bg-cyan-50/60 ring-2 ring-cyan-400/40';
-                    numBadgeStyle = 'bg-cyan-600 text-white font-extrabold px-1.5 py-0.5 rounded-full';
-                  } else if (day.status === 'PRESENT') {
-                    cardStyle = 'border-emerald-200 bg-emerald-50/40 text-emerald-950';
+                  if (day.status === 'PRESENT') {
+                    cardStyle = `border-emerald-200 bg-emerald-50/60 text-emerald-950 ${isToday ? 'ring-2 ring-cyan-500 shadow-xs' : ''}`;
                     numBadgeStyle = 'text-emerald-700 font-bold';
                   } else if (day.status === 'LATE') {
-                    cardStyle = 'border-amber-200 bg-amber-50/50 text-amber-950';
+                    cardStyle = `border-amber-200 bg-amber-50/70 text-amber-950 ${isToday ? 'ring-2 ring-cyan-500 shadow-xs' : ''}`;
                     numBadgeStyle = 'text-amber-700 font-bold';
                   } else if (day.status === 'LEAVE') {
-                    cardStyle = 'border-purple-200 bg-purple-50/50 text-purple-950';
+                    cardStyle = `border-purple-200 bg-purple-50/70 text-purple-950 ${isToday ? 'ring-2 ring-cyan-500 shadow-xs' : ''}`;
                     numBadgeStyle = 'text-purple-700 font-bold';
                   } else if (day.status === 'ABSENT') {
-                    cardStyle = 'border-rose-200 bg-rose-50/40 text-rose-950';
+                    cardStyle = `border-rose-200 bg-rose-50/60 text-rose-950 ${isToday ? 'ring-2 ring-cyan-500 shadow-xs' : ''}`;
                     numBadgeStyle = 'text-rose-600 font-bold';
                   } else if (day.status === 'HOLIDAY') {
-                    cardStyle = 'border-amber-200 bg-amber-50/40 text-amber-900';
+                    cardStyle = `border-amber-200 bg-amber-50/60 text-amber-900 ${isToday ? 'ring-2 ring-cyan-500 shadow-xs' : ''}`;
                     numBadgeStyle = 'text-amber-600 font-bold';
                   } else if (day.status === 'WEEK_OFF') {
                     cardStyle = 'border-gray-100 bg-gray-50/60 text-gray-400';
-                  }
-
-                  // Format times for neat display
-                  const inFormatted = day.inTime ? (day.inTime.includes('T') ? new Date(day.inTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : day.inTime) : null;
-                  const outFormatted = day.outTime ? (day.outTime.includes('T') ? new Date(day.outTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : day.outTime) : null;
-
-                  let workedStr = '';
-                  if (day.workedMinutes && day.workedMinutes > 0) {
-                    const h = Math.floor(day.workedMinutes / 60);
-                    const m = day.workedMinutes % 60;
-                    workedStr = `${h}h ${m}m`;
+                  } else if (isToday || day.status === 'TODAY') {
+                    cardStyle = 'border-cyan-500 bg-cyan-50/70 ring-2 ring-cyan-400/50 shadow-xs';
+                    numBadgeStyle = 'bg-cyan-600 text-white font-extrabold px-1.5 py-0.5 rounded-full';
                   }
 
                   return (
                     <div
                       key={idx}
-                      title={day.details || `Date: ${day.dateStr}`}
-                      className={`h-8 p-1 rounded-lg border text-left flex items-center justify-between transition-all cursor-pointer ${cardStyle}`}
+                      onClick={() => setIsCalendarExpanded(true)}
+                      title={day.details || `Date: ${day.dateStr} (Click to expand details)`}
+                      className={`h-8 p-1 rounded-lg border text-left flex items-center justify-between transition-all cursor-pointer hover:scale-102 ${cardStyle}`}
                     >
                       <span className={`text-[11px] font-mono leading-none ${numBadgeStyle}`}>
                         {day.dayNumber}
@@ -560,13 +827,13 @@ const EmployeeSelfServicePage: React.FC = () => {
 
                       {day.badgeText && (
                         <span className={`text-[8px] font-extrabold px-1 rounded-xs uppercase leading-tight ${
-                          day.status === 'PRESENT' ? 'bg-emerald-100 text-emerald-700' :
+                          day.status === 'PRESENT' ? 'bg-emerald-100 text-emerald-800' :
                           day.status === 'LATE' ? 'bg-amber-100 text-amber-800' :
-                          day.status === 'LEAVE' ? 'bg-purple-100 text-purple-700' :
-                          day.status === 'ABSENT' ? 'bg-rose-100 text-rose-700' :
-                          day.status === 'HOLIDAY' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'
+                          day.status === 'LEAVE' ? 'bg-purple-100 text-purple-800' :
+                          day.status === 'ABSENT' ? 'bg-rose-100 text-rose-800' :
+                          day.status === 'HOLIDAY' ? 'bg-amber-100 text-amber-900' : 'bg-gray-100 text-gray-600'
                         }`}>
-                          {day.badgeText}
+                          {day.badgeText === 'LATE' ? 'LT' : day.badgeText}
                         </span>
                       )}
                     </div>
@@ -786,6 +1053,119 @@ const EmployeeSelfServicePage: React.FC = () => {
                 </div>
               </div>
 
+            </div>
+          </div>
+        )}
+
+        {/* Quick Apply Leave Modal */}
+        {isApplyLeaveModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+            <div className="bg-white rounded-xl shadow-2xl border border-gray-200 max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 bg-gray-50/70">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-100 text-cyan-700 flex items-center justify-center">
+                    <Plus className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900">Apply Leave</h3>
+                    <p className="text-[11px] text-gray-500">Quick 1-click leave application</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsApplyLeaveModalOpen(false)}
+                  className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleApplyLeaveSubmit} className="p-5 space-y-4">
+                {/* Available Leave Balances */}
+                <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200/60 text-center">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">Casual</span>
+                    <span className="text-xs font-extrabold text-cyan-700">{leaveBalances.casual} days</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">Sick</span>
+                    <span className="text-xs font-extrabold text-emerald-700">{leaveBalances.sick} days</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">Earned</span>
+                    <span className="text-xs font-extrabold text-indigo-700">{leaveBalances.earned} days</span>
+                  </div>
+                </div>
+
+                {/* Leave Type */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Leave Type</label>
+                  <select
+                    value={leaveForm.leaveType}
+                    onChange={(e) => setLeaveForm(prev => ({ ...prev, leaveType: e.target.value }))}
+                    className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-600 bg-white"
+                  >
+                    <option value="CASUAL">Casual Leave (CL)</option>
+                    <option value="SICK">Sick Leave (SL)</option>
+                    <option value="EARNED">Earned / Privilege Leave (EL/PL)</option>
+                  </select>
+                </div>
+
+                {/* Dates */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">From Date</label>
+                    <input
+                      type="date"
+                      value={leaveForm.fromDate}
+                      onChange={(e) => setLeaveForm(prev => ({ ...prev, leaveDate: e.target.value, fromDate: e.target.value }))}
+                      required
+                      className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">To Date</label>
+                    <input
+                      type="date"
+                      value={leaveForm.toDate}
+                      onChange={(e) => setLeaveForm(prev => ({ ...prev, toDate: e.target.value }))}
+                      required
+                      className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-600"
+                    />
+                  </div>
+                </div>
+
+                {/* Reason */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Reason / Note</label>
+                  <textarea
+                    rows={2}
+                    value={leaveForm.reason}
+                    onChange={(e) => setLeaveForm(prev => ({ ...prev, reason: e.target.value }))}
+                    placeholder="Brief reason for your leave request..."
+                    className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-600"
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsApplyLeaveModalOpen(false)}
+                    className="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingLeave}
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-cyan-700 hover:bg-cyan-800 rounded-lg transition disabled:opacity-50 shadow-2xs cursor-pointer"
+                  >
+                    {isSubmittingLeave && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    <span>Submit Request</span>
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

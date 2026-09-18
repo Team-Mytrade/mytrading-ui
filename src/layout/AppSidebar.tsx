@@ -184,7 +184,6 @@ export const navItems: NavItem[] = [
     name: "Attendance",
     subItems: [
       // 1. Dashboards & Calendars
-      { name: "My Leave Calendar", path: "/att_leaveDashboard" },
       { name: "Employee Self Service", path: "/att_selfService" },
       { name: "Manager Leave Dashboard", path: "/att_leaveManagerDashboard", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
       { name: "Attendance Tracking", path: "/att_attendanceTracking" },
