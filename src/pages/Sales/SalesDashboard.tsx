@@ -65,7 +65,6 @@ const serviceModulesBase = [
   { name: "Service Schedule Notify", count: "Open", icon: FileText, route: "/service-schedule-notify", color: "blue" as ColorKey },
 ];
 
-// Hover-state chip color, used on the module tiles
 const colorClasses: Record<ColorKey, string> = {
   blue: "bg-blue-50 text-blue-600 group-hover:bg-blue-100",
   emerald: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100",
@@ -77,7 +76,6 @@ const colorClasses: Record<ColorKey, string> = {
   teal: "bg-teal-50 text-teal-600 group-hover:bg-teal-100",
 };
 
-// Flat chip color, used on the stat card icons (no hover conflict)
 const solidColorClasses: Record<ColorKey, string> = {
   blue: "bg-blue-50 text-blue-600",
   emerald: "bg-emerald-50 text-emerald-600",
@@ -89,7 +87,6 @@ const solidColorClasses: Record<ColorKey, string> = {
   teal: "bg-teal-50 text-teal-600",
 };
 
-// Top border accent for each stat card, ties the number to its icon color
 const accentBorderClasses: Record<ColorKey, string> = {
   blue: "border-t-blue-400",
   emerald: "border-t-emerald-400",
@@ -101,16 +98,51 @@ const accentBorderClasses: Record<ColorKey, string> = {
   teal: "border-t-teal-400",
 };
 
+const moduleGridClasses: Record<string, string> = {
+  Sales: "grid-cols-2 sm:grid-cols-3 md:grid-cols-6",
+  Service: "grid-cols-2 sm:grid-cols-2 md:grid-cols-4",
+};
+
 const chartColors = ["#06b6d4", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#6366f1"];
 
 function money(value: number | string | undefined) {
   return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
+// Formats "2026-01", "2026-01-15", or "Jan 2026" into "Jan 2026".
+// Falls back to the raw key if it can't be parsed as a date.
+function formatMonthLabel(raw: string): string {
+  if (!raw) return "--";
+
+  // Already a "MMM YYYY" style label — leave it alone.
+  if (/^[A-Za-z]{3,}\s+\d{4}$/.test(raw)) return raw;
+
+  // Try "YYYY-MM" or "YYYY-MM-DD"
+  const match = raw.match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?/);
+  if (match) {
+    const year = Number(match[1]);
+    const monthIdx = Number(match[2]) - 1;
+    const d = new Date(year, monthIdx, 1);
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+    }
+  }
+
+  // Try full date parse as last resort.
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  }
+
+  return raw;
+}
+
 const SalesDashboard: React.FC = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
+  const headers = token
+    ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
+    : undefined;
 
   const [report, setReport] = useState<SalesReport>(emptyReport);
   const [loading, setLoading] = useState(false);
@@ -136,15 +168,26 @@ const SalesDashboard: React.FC = () => {
     }
   };
 
+  // Sorted ascending with both a raw label and a display label. Sorting by
+  // the raw string is safe for YYYY-MM keys; the Date fallback handles
+  // anything else.
   const monthlySales = useMemo(() => {
     const entries = Object.entries(report.monthlySales || {});
     return entries
-      .map(([month, sales]) => ({ month, sales, date: new Date(month) }))
-      .sort((a, b) => a.date.getTime() - b.date.getTime())
-      .map(({ month, sales }) => ({ month, sales }));
+      .map(([rawMonth, sales]) => ({
+        raw: rawMonth,
+        label: formatMonthLabel(rawMonth),
+        sales: Number(sales) || 0,
+        sortKey: (() => {
+          const m = rawMonth.match(/^(\d{4})-(\d{1,2})/);
+          if (m) return Number(m[1]) * 100 + Number(m[2]);
+          const d = new Date(rawMonth);
+          return Number.isNaN(d.getTime()) ? 0 : d.getFullYear() * 100 + (d.getMonth() + 1);
+        })(),
+      }))
+      .sort((a, b) => a.sortKey - b.sortKey);
   }, [report.monthlySales]);
 
-  // Month-over-month delta for the sales trend card
   const salesDelta = useMemo(() => {
     if (monthlySales.length < 2) return null;
     const last = monthlySales[monthlySales.length - 1].sales;
@@ -153,12 +196,19 @@ const SalesDashboard: React.FC = () => {
     return ((last - prev) / prev) * 100;
   }, [monthlySales]);
 
+  // Total of all monthly entries — shown in the table footer.
+  const monthlyTotal = useMemo(
+    () => monthlySales.reduce((sum, item) => sum + item.sales, 0),
+    [monthlySales]
+  );
+
   const productData = useMemo(
-    () => (report.topProducts || []).map((name, index) => ({
-      name,
-      rank: report.topProducts.length - index,
-      color: chartColors[index % chartColors.length],
-    })),
+    () =>
+      (report.topProducts || []).map((name, index) => ({
+        name,
+        rank: report.topProducts.length - index,
+        color: chartColors[index % chartColors.length],
+      })),
     [report.topProducts]
   );
 
@@ -179,158 +229,215 @@ const SalesDashboard: React.FC = () => {
       <PageMeta title="Sales Dashboard" description="Sales overview and analytics" />
       <PageBreadcrumb pageTitle="Sales Dashboard" />
 
-      <div className="mx-auto max-w-7xl space-y-8 p-6">
-        {groups.map((group) => (
-          <div key={group.title}>
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
-              {group.title}
-            </h3>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {group.modules.map((module) => {
-                const Icon = module.icon;
-                const colorClass = colorClasses[module.color];
-                return (
-                  <button
-                    key={module.name}
-                    onClick={() => navigate(module.route)}
-                    className="group flex flex-col items-center rounded-xl border border-gray-100 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
-                  >
-                    <div className={`rounded-lg p-2.5 ${colorClass} transition-colors duration-200`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <h4 className="mt-2 text-sm font-semibold text-gray-900 transition-colors group-hover:text-cyan-600">
-                      {module.name}
-                    </h4>
-                    <p className="mt-0.5 text-xs text-gray-500">{module.count}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-4">
-          {cards.map((card) => {
-            const Icon = card.icon;
-            const chipClass = solidColorClasses[card.color];
-            const accentClass = accentBorderClasses[card.color];
-            return (
+      <div className="flex h-[calc(100dvh-4rem)] w-full flex-col overflow-y-auto overscroll-contain">
+        <div className="mx-auto w-full max-w-7xl space-y-5 p-4 sm:p-6">
+          {groups.map((group) => (
+            <div key={group.title}>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                {group.title}
+              </h3>
               <div
-                key={card.label}
-                className={`flex h-full flex-col justify-between rounded-xl border border-t-4 border-gray-100 bg-white p-5 transition-all duration-200 hover:shadow-md ${accentClass}`}
+                className={`grid gap-2.5 ${
+                  moduleGridClasses[group.title] || "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+                }`}
               >
-                <div className="mb-3 flex items-center justify-between">
-                  <div className={`rounded-lg p-2.5 ${chipClass}`}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <span
-                    className={
-                      loading
-                        ? "rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-500"
-                        : "rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-600"
-                    }
-                  >
-                    {loading ? "Loading" : "Live"}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{card.value}</p>
-                  <p className="mt-1 text-sm text-gray-500">{card.label}</p>
-                </div>
+                {group.modules.map((module) => {
+                  const Icon = module.icon;
+                  const colorClass = colorClasses[module.color];
+                  return (
+                    <button
+                      key={module.name}
+                      onClick={() => navigate(module.route)}
+                      className="group flex flex-col items-center rounded-lg border border-gray-100 bg-white px-3 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                    >
+                      <div className={`rounded-md p-1.5 ${colorClass} transition-colors duration-200`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <h4 className="mt-1.5 text-xs font-semibold text-gray-900 transition-colors group-hover:text-cyan-600">
+                        {module.name}
+                      </h4>
+                      <p className="mt-0.5 text-[10px] text-gray-500">{module.count}</p>
+                    </button>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          ))}
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="rounded-xl border border-gray-100 bg-white p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900">Monthly sales</h3>
-                <p className="mt-0.5 text-xs text-gray-500">From sales report API</p>
-              </div>
-              {salesDelta !== null ? (
-                <span
-                  className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
-                    salesDelta >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"
-                  }`}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
+            {cards.map((card) => {
+              const Icon = card.icon;
+              const chipClass = solidColorClasses[card.color];
+              const accentClass = accentBorderClasses[card.color];
+              return (
+                <div
+                  key={card.label}
+                  className={`flex h-full flex-col justify-between rounded-lg border border-t-2 border-gray-100 bg-white p-3 transition-all duration-200 hover:shadow-md ${accentClass}`}
                 >
-                  {salesDelta >= 0 ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
-                  {Math.abs(salesDelta).toFixed(1)}% vs last month
-                </span>
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className={`rounded-md p-1.5 ${chipClass}`}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <span
+                      className={
+                        loading
+                          ? "rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500"
+                          : "rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600"
+                      }
+                    >
+                      {loading ? "Loading" : "Live"}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-gray-900">{card.value}</p>
+                    <p className="mt-0.5 text-xs text-gray-500">{card.label}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="rounded-lg border border-gray-100 bg-white p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900">Monthly sales</h3>
+                  <p className="mt-0.5 text-xs text-gray-500">From sales report API</p>
+                </div>
+                {salesDelta !== null ? (
+                  <span
+                    className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                      salesDelta >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"
+                    }`}
+                  >
+                    {salesDelta >= 0 ? (
+                      <ArrowUpRight className="h-3 w-3" />
+                    ) : (
+                      <ArrowDownRight className="h-3 w-3" />
+                    )}
+                    {Math.abs(salesDelta).toFixed(1)}%
+                  </span>
+                ) : (
+                  <TrendingUp className="h-4 w-4 text-emerald-500" />
+                )}
+              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={monthlySales.map((m) => ({ month: m.label, sales: m.sales }))}>
+                  <defs>
+                    <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="month" stroke="#9ca3af" fontSize={11} />
+                  <YAxis stroke="#9ca3af" fontSize={11} />
+                  <Tooltip formatter={(value: any) => money(Number(value) || 0)} />
+                  <Area
+                    type="monotone"
+                    dataKey="sales"
+                    stroke="#06b6d4"
+                    strokeWidth={2}
+                    fill="url(#salesGradient)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="rounded-lg border border-gray-100 bg-white p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900">Top products</h3>
+                  <p className="mt-0.5 text-xs text-gray-500">Ranked by sales volume</p>
+                </div>
+                <Package className="h-4 w-4 text-orange-500" />
+              </div>
+              {productData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={productData} layout="vertical" margin={{ left: 8, right: 24 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+                    <XAxis type="number" hide />
+                    <YAxis type="category" dataKey="name" stroke="#9ca3af" fontSize={11} width={110} />
+                    <Tooltip formatter={(value: any) => [value, "Rank score"]} />
+                    <Bar dataKey="rank" radius={[0, 4, 4, 0]} barSize={20}>
+                      {productData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                      <LabelList
+                        dataKey="rank"
+                        position="right"
+                        style={{ fontSize: 11, fill: "#6b7280" }}
+                      />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               ) : (
-                <TrendingUp className="h-5 w-5 text-emerald-500" />
+                <div className="flex h-[200px] items-center justify-center text-sm text-gray-500">
+                  No top products found
+                </div>
               )}
             </div>
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={monthlySales}>
-                <defs>
-                  <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
-                <YAxis stroke="#9ca3af" fontSize={12} />
-                <Tooltip formatter={(value) => money(Number(value))} />
-                <Tooltip formatter={(value: any) => money(Number(value) || 0)} />
-                <Area type="monotone" dataKey="sales" stroke="#06b6d4" strokeWidth={2} fill="url(#salesGradient)" />
-              </AreaChart>
-            </ResponsiveContainer>
           </div>
 
-          <div className="rounded-xl border border-gray-100 bg-white p-5">
-            <div className="mb-4 flex items-center justify-between">
+          {/* ── Monthly sales table ──────────────────────────────────────
+              Proper headers, formatted month labels, right-aligned values,
+              sticky header when the list is long, and a totals footer. */}
+          <div className="overflow-hidden rounded-lg border border-gray-100 bg-white">
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
               <div>
-                <h3 className="text-sm font-semibold text-gray-900">Top products</h3>
-                <p className="mt-0.5 text-xs text-gray-500">Ranked by sales volume</p>
+                <h3 className="text-sm font-semibold text-gray-900">Monthly sales data</h3>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  {monthlySales.length} month{monthlySales.length === 1 ? "" : "s"} · Total{" "}
+                  {money(monthlyTotal)}
+                </p>
               </div>
-              <Package className="h-5 w-5 text-orange-500" />
+              <Calendar className="h-4 w-4 text-cyan-500" />
             </div>
-            {productData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={productData} layout="vertical" margin={{ left: 8, right: 24 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
-                  <XAxis type="number" hide />
-                  <YAxis type="category" dataKey="name" stroke="#9ca3af" fontSize={12} width={110} />
-                  <Tooltip formatter={(value) => [Number(value), "Rank score"]} />
-                  <Tooltip formatter={(value: any) => [value, "Rank score"]} />
-                  <Bar dataKey="rank" radius={[0, 4, 4, 0]} barSize={22}>
-                    {productData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                    <LabelList dataKey="rank" position="right" style={{ fontSize: 12, fill: "#6b7280" }} />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+
+            {monthlySales.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-sm text-gray-500">
+                <Package className="mb-2 h-8 w-8 text-gray-300" />
+                No monthly sales found
+              </div>
             ) : (
-              <div className="flex h-[250px] items-center justify-center text-sm text-gray-500">
-                No top products found
+              <div className="max-h-[320px] overflow-y-auto">
+                <table className="min-w-full divide-y divide-gray-100">
+                  <thead className="sticky top-0 z-10 bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                        Month
+                      </th>
+                      <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                        Sales
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {monthlySales.map((item) => (
+                      <tr key={item.raw} className="transition hover:bg-gray-50">
+                        <td className="px-4 py-2 text-sm font-medium text-gray-900">
+                          {item.label}
+                        </td>
+                        <td className="px-4 py-2 text-right text-sm text-gray-700">
+                          {money(item.sales)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="sticky bottom-0 bg-gray-50">
+                    <tr>
+                      <td className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600">
+                        Total
+                      </td>
+                      <td className="px-4 py-2 text-right text-sm font-semibold text-gray-900">
+                        {money(monthlyTotal)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             )}
           </div>
-        </div>
-
-        <div className="overflow-hidden rounded-xl border border-gray-100 bg-white">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h3 className="text-sm font-semibold text-gray-900">Monthly sales data</h3>
-          </div>
-          <table className="min-w-full divide-y divide-gray-100">
-            <tbody className="divide-y divide-gray-100">
-              {monthlySales.map((item) => (
-                <tr key={item.month}>
-                  <td className="px-5 py-3 text-sm font-medium text-gray-900">{item.month}</td>
-                  <td className="px-5 py-3 text-sm text-gray-600">{money(item.sales)}</td>
-                </tr>
-              ))}
-              {monthlySales.length === 0 && (
-                <tr>
-                  <td className="px-5 py-8 text-center text-sm text-gray-500">No monthly sales found</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
         </div>
       </div>
     </>

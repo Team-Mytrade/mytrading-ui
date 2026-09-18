@@ -52,10 +52,6 @@ type ReturnRequest = {
   refund?: Refund;
 };
 
-// New shape returned by /v1/api/sales/sales-orders/schedule/orders
-// Only `orderNumber` is guaranteed to be shown to the user. `salesOrderId`
-// and `itemId` are looked up defensively because the API may nest or rename
-// them — see resolve helpers below.
 type ScheduleOrderOption = {
   id?: number;
   salesOrderId?: number;
@@ -67,6 +63,9 @@ type ScheduleOrderOption = {
     id?: number;
     salesOrderItemId?: number;
     itemId?: number;
+    productName?: string;
+    productCode?: string;
+    quantity?: number;
   }>;
 };
 
@@ -109,6 +108,7 @@ const reasonOptions: ReturnReason[] = [
   "OTHER",
 ];
 const paymentMethodOptions = ["BANK_TRANSFER"];
+const refundStatusOptions = ["PENDING", "PROCESSED", "FAILED"];
 
 const emptyReturnForm: ReturnForm = {
   requestDate: new Date().toISOString().split("T")[0],
@@ -179,8 +179,6 @@ function toFriendlyLabel(value: string) {
   return value.replace(/_/g, " ");
 }
 
-// Defensive resolvers — the schedule orders API response shape is not
-// guaranteed, so try common field names before giving up.
 function getScheduleOrderId(order: ScheduleOrderOption) {
   return firstPositiveNumber(order.id, order.salesOrderId, order.orderId);
 }
@@ -189,23 +187,43 @@ function getScheduleOrderNumber(order: ScheduleOrderOption) {
   return order.orderNumber || order.salesOrderNumber || "";
 }
 
-function getScheduleOrderItemId(order: ScheduleOrderOption) {
-  const firstItem = order.items?.[0];
-  if (!firstItem) return 0;
-  return firstPositiveNumber(firstItem.id, firstItem.salesOrderItemId, firstItem.itemId);
+function getScheduleItemId(item: { id?: number; salesOrderItemId?: number; itemId?: number }) {
+  return firstPositiveNumber(item.id, item.salesOrderItemId, item.itemId);
+}
+
+function scheduleItemLabel(
+  item: {
+    id?: number;
+    salesOrderItemId?: number;
+    itemId?: number;
+    productName?: string;
+    productCode?: string;
+    quantity?: number;
+  },
+  index: number
+) {
+  const resolvedId = getScheduleItemId(item);
+  const name = item.productName || item.productCode || `Item #${resolvedId || index + 1}`;
+  const qty = item.quantity !== undefined ? ` · Qty ${item.quantity}` : "";
+  return `${name}${qty}`;
 }
 
 const ReturnRequests: React.FC = () => {
   const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const headers = useMemo(
+    () => (token ? { Authorization: `Bearer ${token}` } : undefined),
+    [token]
+  );
 
   const [returns, setReturns] = useState<ReturnRequest[]>([]);
   const [form, setForm] = useState<ReturnForm>(emptyReturnForm);
   const [refundForm, setRefundForm] = useState<RefundForm>(emptyRefundForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [refundSubmitting, setRefundSubmitting] = useState(false);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
   const [deleteReturn, setDeleteReturn] = useState<ReturnRequest | null>(null);
   const [scheduleOrders, setScheduleOrders] = useState<ScheduleOrderOption[]>([]);
@@ -264,15 +282,18 @@ const ReturnRequests: React.FC = () => {
     setForm((current) => {
       const next = { ...current, [name]: value };
 
-      // Sales Order dropdown drives both salesOrderId and the item id.
       if (name === "salesOrderId") {
         const selected = scheduleOrders.find((order) => String(getScheduleOrderId(order)) === value);
         if (selected) {
-          const resolvedId = getScheduleOrderId(selected);
-          const resolvedItemId = getScheduleOrderItemId(selected);
-          next.salesOrderId = String(resolvedId);
+          next.salesOrderId = String(getScheduleOrderId(selected));
           next.salesOrderNumber = getScheduleOrderNumber(selected);
-          next.itemSalesOrderItemId = resolvedItemId ? String(resolvedItemId) : "";
+          const items = selected.items || [];
+          if (items.length === 1) {
+            const onlyId = getScheduleItemId(items[0]);
+            next.itemSalesOrderItemId = onlyId ? String(onlyId) : "";
+          } else {
+            next.itemSalesOrderItemId = "";
+          }
         } else {
           next.salesOrderNumber = "";
           next.itemSalesOrderItemId = "";
@@ -297,6 +318,33 @@ const ReturnRequests: React.FC = () => {
       ),
     [returns]
   );
+
+  const selectedOrderItems = useMemo(() => {
+    if (!form.salesOrderId) return [];
+    const order = scheduleOrders.find(
+      (o) => String(getScheduleOrderId(o)) === form.salesOrderId
+    );
+    return order?.items || [];
+  }, [scheduleOrders, form.salesOrderId]);
+
+  // Resolves what a return request's item(s) actually ARE (product name),
+  // not just how many there are — looks the salesOrderItemId up against
+  // that return's own sales order (the same data source already used to
+  // populate the create-form dropdown).
+  const resolveReturnItemLabels = (request: ReturnRequest): string[] => {
+    const order = scheduleOrders.find((o) => getScheduleOrderId(o) === Number(request.salesOrderId));
+    if (!order) {
+      return (request.items || []).map((item) => `Item #${item.salesOrderItemId}`);
+    }
+    return (request.items || []).map((item) => {
+      const matched = (order.items || []).find(
+        (orderItem) => getScheduleItemId(orderItem) === Number(item.salesOrderItemId)
+      );
+      return matched
+        ? scheduleItemLabel(matched, 0)
+        : `Item #${item.salesOrderItemId}`;
+    });
+  };
 
   const buildPayload = () => ({
     id: editingId || 0,
@@ -324,8 +372,8 @@ const ReturnRequests: React.FC = () => {
     }
     if (!form.itemSalesOrderItemId) {
       ToasterService.error(
-        "Sales order item missing",
-        "The selected sales order has no schedulable item. Pick a different order."
+        "Sales order item required",
+        "Select which item from the sales order is being returned."
       );
       return;
     }
@@ -385,7 +433,6 @@ const ReturnRequests: React.FC = () => {
 
   const openEdit = (request: ReturnRequest) => {
     const item = request.items?.[0];
-    // Try to resolve the order number from the loaded schedule orders list.
     const matchedOrder = scheduleOrders.find(
       (order) => getScheduleOrderId(order) === Number(request.salesOrderId)
     );
@@ -430,37 +477,53 @@ const ReturnRequests: React.FC = () => {
     }
   };
 
+  const openRefundModal = (request: ReturnRequest) => {
+    setRefundForm({
+      ...emptyRefundForm,
+      returnRequestId: String(request.id),
+      amount: String(request.refund?.amount ?? request.items?.[0]?.refundAmount ?? 0),
+    });
+    setShowRefundModal(true);
+  };
+
+  const closeRefundModal = () => {
+    if (refundSubmitting) return;
+    setShowRefundModal(false);
+  };
+
   const createRefund = async () => {
     if (!refundForm.returnRequestId || !refundForm.amount) {
       ToasterService.error("Return request ID and refund amount are required");
       return;
     }
+
+    const returnRequestId = toNumber(refundForm.returnRequestId);
+    const existingReturn = returns.find((item) => Number(item.id) === returnRequestId);
+
+    if (!existingReturn) {
+      ToasterService.error(
+        "Return request not found",
+        `Return request #${returnRequestId} is not available in the loaded return requests list.`
+      );
+      return;
+    }
+
+    if (existingReturn?.refund?.id || existingReturn?.refund) {
+      ToasterService.error(
+        "Refund already exists",
+        `Return request #${returnRequestId} already has a refund. Update it from the refunds page instead of creating a new one.`
+      );
+      return;
+    }
+
     try {
-      const returnRequestId = toNumber(refundForm.returnRequestId);
-      const existingReturn = returns.find((item) => Number(item.id) === returnRequestId);
-
-      if (!existingReturn) {
-        ToasterService.error(
-          "Return request not found",
-          `Return request #${returnRequestId} is not available in the loaded return requests list.`
-        );
-        return;
-      }
-
-      if (existingReturn?.refund?.id || existingReturn?.refund) {
-        ToasterService.error(
-          "Refund already exists",
-          `Return request #${returnRequestId} already has a refund. Update it from the refunds page instead of creating a new one.`
-        );
-        return;
-      }
-
+      setRefundSubmitting(true);
       const payload = {
         id: 0,
         amount: toNumber(refundForm.amount),
         refundDate: toIsoDateTime(refundForm.refundDate),
-        status: "PENDING",
-        paymentMethod: "BANK_TRANSFER",
+        status: refundForm.status || "PENDING",
+        paymentMethod: refundForm.paymentMethod || "BANK_TRANSFER",
         returnRequestId,
       };
 
@@ -478,8 +541,11 @@ const ReturnRequests: React.FC = () => {
 
       ToasterService.success("Refund created");
       setRefundForm(emptyRefundForm);
+      setShowRefundModal(false);
     } catch (error) {
       ToasterService.error("Failed to create refund", getErrorMessage(error, "Please try again."));
+    } finally {
+      setRefundSubmitting(false);
     }
   };
 
@@ -511,6 +577,23 @@ const ReturnRequests: React.FC = () => {
           <div className="text-xs text-slate-500">Order ID: {item.salesOrderId}</div>
         </div>
       ),
+    },
+    {
+      key: "itemsReturned",
+      label: "Item Returned",
+      sortable: false,
+      render: (item) => {
+        const labels = resolveReturnItemLabels(item);
+        if (labels.length === 0) return <span className="text-sm text-slate-400">--</span>;
+        return (
+          <div className="text-sm text-slate-700">
+            {labels[0]}
+            {labels.length > 1 && (
+              <span className="ml-1 text-xs text-slate-400">+{labels.length - 1} more</span>
+            )}
+          </div>
+        );
+      },
     },
     { key: "requestDate", label: "Request Date", sortable: true },
     {
@@ -547,12 +630,6 @@ const ReturnRequests: React.FC = () => {
       ),
     },
     {
-      key: "items",
-      label: "Items",
-      sortable: false,
-      render: (item) => item.items?.length || 0,
-    },
-    {
       key: "refund",
       label: "Refund",
       sortable: false,
@@ -576,13 +653,7 @@ const ReturnRequests: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() =>
-              setRefundForm((current) => ({
-                ...current,
-                returnRequestId: String(item.id),
-                amount: String(item.refund?.amount || item.items?.[0]?.refundAmount || 0),
-              }))
-            }
+            onClick={() => openRefundModal(item)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600"
             title="Refund"
           >
@@ -740,6 +811,34 @@ const ReturnRequests: React.FC = () => {
                   </p>
                 )}
               </div>,
+              ...(form.salesOrderId && selectedOrderItems.length > 0
+                ? [
+                    <div key="salesOrderItem" className="md:col-span-2">
+                      <FloatingSelect
+                        label="Sales Order Item"
+                        name="itemSalesOrderItemId"
+                        value={form.itemSalesOrderItemId}
+                        onChange={handleChange}
+                        emptyOptionLabel=""
+                        options={selectedOrderItems
+                          .map((item, index) => {
+                            const id = getScheduleItemId(item);
+                            return {
+                              id: String(id),
+                              name: scheduleItemLabel(item, index),
+                            };
+                          })
+                          .filter((option) => Number(option.id) > 0)}
+                        required
+                      />
+                      {selectedOrderItems.length > 1 && !form.itemSalesOrderItemId && (
+                        <p className="mt-1 text-xs text-amber-600">
+                          This order has {selectedOrderItems.length} items — choose which one is being returned.
+                        </p>
+                      )}
+                    </div>,
+                  ]
+                : []),
             ],
           },
           {
@@ -780,6 +879,73 @@ const ReturnRequests: React.FC = () => {
                   rows={3}
                 />
               </div>,
+            ],
+          },
+        ]}
+      />
+
+      <PaginatedPopup
+        isOpen={showRefundModal}
+        title="Create Refund"
+        subtitle={
+          refundForm.returnRequestId
+            ? `Refund for return request #${refundForm.returnRequestId}`
+            : "Enter refund details"
+        }
+        onClose={closeRefundModal}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void createRefund();
+        }}
+        submitting={refundSubmitting}
+        submitLabel="Create Refund"
+        maxWidthClassName="max-w-2xl"
+        tabs={[
+          {
+            label: "Refund Details",
+            fields: [
+              <FloatingInput
+                key="refundAmount"
+                label="Refund Amount"
+                name="amount"
+                type="number"
+                min={0}
+                value={refundForm.amount}
+                onChange={handleRefundChange}
+                required
+              />,
+              <FloatingInput
+                key="refundDate"
+                label="Refund Date"
+                name="refundDate"
+                type="datetime-local"
+                value={refundForm.refundDate}
+                onChange={handleRefundChange}
+              />,
+              <FloatingSelect
+                key="refundStatus"
+                label="Refund Status"
+                name="status"
+                value={refundForm.status}
+                onChange={handleRefundChange}
+                includeEmptyOption={false}
+                options={refundStatusOptions.map((status) => ({
+                  id: status,
+                  name: toFriendlyLabel(status),
+                }))}
+              />,
+              <FloatingSelect
+                key="refundPaymentMethod"
+                label="Payment Method"
+                name="paymentMethod"
+                value={refundForm.paymentMethod}
+                onChange={handleRefundChange}
+                includeEmptyOption={false}
+                options={paymentMethodOptions.map((method) => ({
+                  id: method,
+                  name: toFriendlyLabel(method),
+                }))}
+              />,
             ],
           },
         ]}

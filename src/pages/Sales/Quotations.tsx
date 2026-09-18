@@ -1273,183 +1273,215 @@ const Quotations: React.FC = () => {
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-                <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50/80 p-3">
-                  <h4 className="text-[13px] font-bold uppercase tracking-wider text-gray-800">Item Table</h4>
-                  <div className="flex flex-wrap items-center gap-2">
+              {/* ---- Add Item card: a standalone "add to cart" style panel, separate
+                   from the list of items already added below it. ---- */}
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-cyan-50/60 to-white px-5 py-4">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-100 text-cyan-700">
+                      <PlusIcon className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">Add Item</h4>
+                      <p className="text-xs text-slate-400">Fill in the details, then add it to this quotation</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/purchase-products")}
+                    className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-700 shadow-sm transition hover:bg-cyan-100"
+                  >
+                    Create Product Now
+                  </button>
+                </div>
+
+                <div className="space-y-4 p-5">
+                  {/* Item type toggle — previously there was no control for this at all,
+                      so an item's type silently defaulted to PRODUCT every time. */}
+                  <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+                    {(["PRODUCT", "SERVICE"] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() =>
+                          handleChange({
+                            target: { name: "itemType", value: type },
+                          } as ChangeEvent<HTMLInputElement>)
+                        }
+                        className={`rounded-lg px-4 py-1.5 text-xs font-bold transition ${
+                          form.itemType === type
+                            ? "bg-white text-cyan-700 shadow-sm"
+                            : "text-slate-500 hover:text-slate-700"
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Category / product (or service reference) */}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {form.itemType === "PRODUCT" ? (
+                      <>
+                        <select
+                          name="itemCategoryId"
+                          value={form.itemCategoryId}
+                          onChange={handleChange}
+                          className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                        >
+                          <option value="">Select category</option>
+                          {leafCategories.map((category) => (
+                            <option key={category.id} value={category.id}>
+                              {category.parentName ? `${category.parentName} / ${category.categoryName}` : category.categoryName}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          name="itemProductId"
+                          value={form.itemProductId}
+                          onChange={handleChange}
+                          className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                        >
+                          <option value="">Select product</option>
+                          {filteredProducts.map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.productName || product.shortName || "Unnamed product"}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    ) : (
+                      <>
+                        {editingId && (
+                          <input
+                            name="itemServiceItemId"
+                            type="number"
+                            value={form.itemServiceItemId}
+                            onChange={handleChange}
+                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                            placeholder="Service item reference"
+                          />
+                        )}
+                        <input
+                          name="itemProductName"
+                          value={form.itemProductName}
+                          onChange={handleChange}
+                          className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                          placeholder="Service name"
+                        />
+                      </>
+                    )}
+                  </div>
+
+                  {/* For PRODUCT items these three come straight from the selected
+                      product and are shown read-only, not editable — edits here never
+                      reach the backend once a real productId is attached. For SERVICE
+                      items (no linked product) they stay editable, since they ARE the
+                      source of truth. */}
+                  {form.itemType === "PRODUCT" ? (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500">
+                        {form.itemProductCode || "Product code"}
+                      </div>
+                      <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500">
+                        {form.itemDescription || "Description"}
+                      </div>
+                      <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500">
+                        {form.itemUom || "UOM"}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <input name="itemProductCode" value={form.itemProductCode} onChange={handleChange} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white" placeholder="Service code" />
+                      <input name="itemDescription" value={form.itemDescription} onChange={handleChange} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white" placeholder="Description" />
+                      <input name="itemUom" value={form.itemUom} onChange={handleChange} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white" placeholder="UOM" />
+                    </div>
+                  )}
+
+                  {/* Quantity / price / discount / tax */}
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Quantity</label>
+                      <input name="itemQuantity" type="number" min="1" value={form.itemQuantity} onChange={handleChange} required className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Rate</label>
+                      <input name="itemUnitPrice" type="number" min="0" step="0.01" value={form.itemUnitPrice} onChange={handleChange} required className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Discount %</label>
+                      <input name="itemDiscountPercentage" type="number" min="0" max="100" value={form.itemDiscountPercentage} onChange={handleChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Tax %</label>
+                      <input name="itemTaxRate" type="number" min="0" max="100" value={form.itemTaxRate} onChange={handleChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20" />
+                    </div>
+                  </div>
+
+                  {/* Live line-total preview + the single "add to cart" action */}
+                  <div className="flex flex-col gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm text-slate-500">
+                      Line total <span className="ml-2 text-base font-black text-slate-900">{money(itemTotals.lineTotal)}</span>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => navigate("/purchase-products")}
-                      className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-700 shadow-sm transition hover:bg-cyan-100"
+                      onClick={addCurrentItem}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-cyan-700"
                     >
-                      Create Product Now
+                      <PlusIcon className="h-4 w-4" />
+                      Add to Quotation
                     </button>
                   </div>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-left text-sm">
-                    <thead className="border-b border-gray-200 bg-white text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                      <tr>
-                        <th className="min-w-[300px] border-r border-gray-100 px-3 py-2">Item Details</th>
-                        <th className="w-28 border-r border-gray-100 px-3 py-2 text-right">Quantity</th>
-                        <th className="w-32 border-r border-gray-100 px-3 py-2 text-right">Rate</th>
-                        <th className="w-28 border-r border-gray-100 px-3 py-2 text-right">Discount %</th>
-                        <th className="w-28 border-r border-gray-100 px-3 py-2 text-right">Tax %</th>
-                        <th className="w-36 px-3 py-2 text-right">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lineItems.map((item, index) => (
-                        <tr key={`line-item-${index}`} className="bg-white transition hover:bg-gray-50/60">
-                          <td className="border-r border-gray-100 px-3 py-2 align-top">
-                            <div className="space-y-3">
-                              <div className="flex items-center gap-3">
-                                <button
-                                  type="button"
-                                  onClick={() => removeLineItem(index)}
-                                  className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-                                  title="Remove item"
-                                >
-                                  <TrashIcon className="h-4 w-4" />
-                                </button>
-                                <div className="flex-1 rounded-2xl bg-white px-4 py-3 text-[13px] font-medium text-gray-900 shadow-sm">
-                                  {item.productName || "--"}
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                <div className="rounded-2xl bg-white px-4 py-3 text-[12px] text-gray-500 shadow-sm">
-                                  {item.productCode || "Product code"}
-                                </div>
-                                <div className="rounded-2xl bg-white px-4 py-4 text-[12px] text-gray-500 shadow-sm">
-                                  {item.description || "Add a description to your item"}
-                                </div>
-                                <div className="rounded-2xl bg-white px-4 py-3 text-[12px] text-gray-500 shadow-sm">
-                                  {item.uom || "UOM"}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
-                            <div className="p-1 text-[13px] font-medium text-gray-900">{item.quantity}</div>
-                          </td>
-                          <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
-                            <div className="p-1 text-[13px] font-medium text-gray-900">{money(item.unitPrice)}</div>
-                          </td>
-                          <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
-                            <div className="p-1 text-[13px] font-medium text-gray-900">{item.discountPercentage}</div>
-                          </td>
-                          <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
-                            <div className="p-1 text-[13px] font-medium text-gray-900">{item.taxRate}</div>
-                          </td>
-                          <td className="bg-white px-3 py-2 text-right align-top">
-                            <div className="p-1 text-[13px] font-semibold text-gray-900">{money(calculateLineTotal(item))}</div>
-                          </td>
-                        </tr>
-                      ))}
-                      <tr className="bg-white transition hover:bg-gray-50/60">
-                        <td className="border-r border-gray-100 px-3 py-2 align-top">
-                          <div className="space-y-2">
-                            <div className="flex items-start gap-2">
-                              <button
-                                type="button"
-                                onClick={addCurrentItem}
-                                className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-cyan-700 transition hover:bg-cyan-50"
-                                title="Add product row"
-                              >
-                                <PlusIcon className="h-4 w-4" />
-                              </button>
-                              <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
-                                {form.itemType === "PRODUCT" ? (
-                                  <>
-                                    <select
-                                      name="itemCategoryId"
-                                      value={form.itemCategoryId}
-                                      onChange={handleChange}
-                                      className="min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                                    >
-                                      <option value="">Select category</option>
-                                      {leafCategories.map((category) => (
-                                        <option key={category.id} value={category.id}>
-                                          {category.parentName ? `${category.parentName} / ${category.categoryName}` : category.categoryName}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    <select
-                                      name="itemProductId"
-                                      value={form.itemProductId}
-                                      onChange={handleChange}
-                                      className="min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                                    >
-                                      <option value="">Select product</option>
-                                      {filteredProducts.map((product) => (
-                                        <option key={product.id} value={product.id}>
-                                          {product.productName || product.shortName || "Unnamed product"}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </>
-                                ) : (
-                                  <>
-                                    {editingId && (
-                                      <input
-                                        name="itemServiceItemId"
-                                        type="number"
-                                        value={form.itemServiceItemId}
-                                        onChange={handleChange}
-                                        className="rounded-lg border border-transparent bg-transparent p-1 text-[13px] font-medium text-gray-900 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white"
-                                        placeholder="Service item reference"
-                                      />
-                                    )}
-                                    <input name="itemProductName" value={form.itemProductName} onChange={handleChange} className="rounded-lg border border-transparent bg-transparent p-1 text-[13px] font-medium text-gray-900 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Product name" />
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                            {/* For PRODUCT items these three fields come straight from the
-                                selected product and are shown read-only, not editable inputs,
-                                since edits here never reach the backend once a real productId
-                                is attached. For SERVICE items (no linked product) they stay
-                                editable, since they ARE the source of truth. */}
-                            {form.itemType === "PRODUCT" ? (
-                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                                <div className="rounded-lg bg-gray-50 p-1 text-[11px] text-gray-500">
-                                  {form.itemProductCode || "Product code"}
-                                </div>
-                                <div className="rounded-lg bg-gray-50 p-1 text-[11px] text-gray-500">
-                                  {form.itemDescription || "Description"}
-                                </div>
-                                <div className="rounded-lg bg-gray-50 p-1 text-[11px] text-gray-500">
-                                  {form.itemUom || "UOM"}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                                <input name="itemProductCode" value={form.itemProductCode} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Product code" />
-                                <input name="itemDescription" value={form.itemDescription} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Add a description to your item" />
-                                <input name="itemUom" value={form.itemUom} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="UOM" />
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
-                          <input name="itemQuantity" type="number" min="1" value={form.itemQuantity} onChange={handleChange} required className="w-full border-0 bg-transparent p-1 text-right text-[13px] font-medium text-gray-900 focus:ring-0" />
-                        </td>
-                        <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
-                          <input name="itemUnitPrice" type="number" min="0" step="0.01" value={form.itemUnitPrice} onChange={handleChange} required className="w-full border-0 bg-transparent p-1 text-right text-[13px] font-medium text-gray-900 focus:ring-0" />
-                        </td>
-                        <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
-                          <input name="itemDiscountPercentage" type="number" min="0" max="100" value={form.itemDiscountPercentage} onChange={handleChange} className="w-full border-0 bg-transparent p-1 text-right text-[13px] font-medium text-gray-900 focus:ring-0" />
-                        </td>
-                        <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
-                          <input name="itemTaxRate" type="number" min="0" max="100" value={form.itemTaxRate} onChange={handleChange} className="w-full border-0 bg-transparent p-1 text-right text-[13px] font-medium text-gray-900 focus:ring-0" />
-                        </td>
-                        <td className="bg-white px-3 py-2 text-right align-top">
-                          <div className="p-1 text-[13px] font-semibold text-gray-900">{money(itemTotals.lineTotal)}</div>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+              </div>
+
+              {/* ---- Items already added — a separate list, not mixed in with the
+                   add-item card above. ---- */}
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                  <h4 className="text-sm font-bold text-slate-900">Items in this Quotation</h4>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                    {lineItems.length} {lineItems.length === 1 ? "item" : "items"}
+                  </span>
                 </div>
+
+                {lineItems.length === 0 ? (
+                  <div className="px-5 py-10 text-center text-sm text-slate-400">
+                    No items added yet — use the card above to add your first item.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {lineItems.map((item, index) => (
+                      <div key={`line-item-${index}`} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start gap-3">
+                          <button
+                            type="button"
+                            onClick={() => removeLineItem(index)}
+                            className="mt-0.5 rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                            title="Remove item"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                          <div>
+                            <div className="text-sm font-semibold text-slate-900">{item.productName || "--"}</div>
+                            <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
+                              {item.productCode && <span>{item.productCode}</span>}
+                              {item.description && <span>{item.description}</span>}
+                              {item.uom && <span>{item.uom}</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-4 pl-9 text-xs text-slate-500 sm:pl-0">
+                          <span>Qty <strong className="text-slate-800">{item.quantity}</strong></span>
+                          <span>Rate <strong className="text-slate-800">{money(item.unitPrice)}</strong></span>
+                          <span>Disc <strong className="text-slate-800">{item.discountPercentage}%</strong></span>
+                          <span>Tax <strong className="text-slate-800">{item.taxRate}%</strong></span>
+                          <span className="rounded-lg bg-cyan-50 px-2.5 py-1 font-bold text-cyan-700">{money(calculateLineTotal(item))}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

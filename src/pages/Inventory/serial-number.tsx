@@ -502,7 +502,7 @@ const SerialNumberManager: React.FC = () => {
     return { total, inWarranty, expired, warehouses };
   }, [serialNumbers]);
 
-  // ---------- Table columns ----------
+  // ---------- Table columns (warranty columns removed) ----------
   const columns: ColumnDef<SerialNumber>[] = [
     {
       key: "serial",
@@ -581,37 +581,6 @@ const SerialNumberManager: React.FC = () => {
       label: "Batch",
       sortable: true,
       render: (sn) => getBatchNumber(sn),
-    },
-    {
-      key: "warrantyStart",
-      label: "Warranty Start",
-      sortable: true,
-      render: (sn) =>
-        sn.warrantyStart ? new Date(sn.warrantyStart).toLocaleDateString() : "N/A",
-    },
-    {
-      key: "warrantyEnd",
-      label: "Warranty End",
-      sortable: true,
-      render: (sn) =>
-        sn.warrantyEnd ? new Date(sn.warrantyEnd).toLocaleDateString() : "N/A",
-    },
-    {
-      key: "warrantyStatus",
-      label: "Warranty Status",
-      sortable: false,
-      render: (sn) => {
-        const active = isWarrantyActive(sn.warrantyEnd);
-        return (
-          <span
-            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-              active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-            }`}
-          >
-            {active ? "In Warranty" : "Expired"}
-          </span>
-        );
-      },
     },
     {
       key: "currentStatus",
@@ -708,18 +677,6 @@ const SerialNumberManager: React.FC = () => {
           />
         </div>
 
-        {/* Toolbar — Refresh only */}
-        <div className="mb-4 flex items-center justify-end">
-          <button
-            onClick={fetchSerialNumbers}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600"
-            title="Refresh"
-          >
-            <ArrowPathIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
-        </div>
-
         <ReusableTable
           data={serialNumbers}
           columns={columns}
@@ -814,7 +771,7 @@ const SerialNumberManager: React.FC = () => {
             fields: [
               <FloatingInput
                 key="warrantyStart"
-                label="Warranty Start"
+                label="WarrantyStart"
                 name="warrantyStart"
                 type="date"
                 value={form.warrantyStart}
@@ -835,7 +792,7 @@ const SerialNumberManager: React.FC = () => {
         ]}
       />
 
-      {/* Detail View Modal — now using PaginatedPopup for consistency */}
+      {/* Detail View Modal */}
       <PaginatedPopup
         isOpen={!!viewingSerial}
         title="Serial Number Details"
@@ -903,37 +860,6 @@ const SerialNumberManager: React.FC = () => {
                     <span className="text-slate-500">Batch</span>
                     <span className="font-medium text-slate-800">
                       {getBatchNumber(viewingSerial)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                    <span className="text-slate-500">Warranty Start</span>
-                    <span className="font-medium text-slate-800">
-                      {viewingSerial.warrantyStart
-                        ? new Date(viewingSerial.warrantyStart).toLocaleDateString()
-                        : "N/A"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                    <span className="text-slate-500">Warranty End</span>
-                    <span className="font-medium text-slate-800">
-                      {viewingSerial.warrantyEnd
-                        ? new Date(viewingSerial.warrantyEnd).toLocaleDateString()
-                        : "N/A"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                    <span className="text-slate-500">Warranty Status</span>
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        isWarrantyActive(viewingSerial.warrantyEnd)
-                          ? "bg-green-50 text-green-700"
-                          : "bg-red-50 text-red-700"
-                      }`}
-                    >
-                      {getWarrantyStatus(viewingSerial)}
                     </span>
                   </div>
 
