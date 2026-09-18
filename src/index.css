@@ -5,9 +5,11 @@
 
 @layer base {
   body {
-    /* background-color: #fff !important; */
     @apply relative text-base font-normal z-1 bg-gray-50 font-nunito dark:bg-gray-950;
+    background-color: #e7e9ee;
   }
+
+  html.dark body { background-color: #1f1f1f; }
 }
 
 @layer components {
@@ -714,27 +716,37 @@ span.flatpickr-weekday,
 
 /* Dark-mode compatibility for older shared layouts that still use light utilities. */
 .dark .bg-white {
-  background-color: #111827;
+  background-color: #191919;
 }
 
 .dark .bg-gray-50 {
-  background-color: #1f2937;
+  background-color: #202020;
 }
 
 .dark .bg-gray-100 {
-  background-color: #374151;
+  background-color: #2a2a2a;
 }
 
+/* Normalize Tailwind's explicit dark utilities to the app's charcoal theme. */
+.dark .dark\:bg-gray-900 { background-color: #191919; }
+.dark .dark\:bg-gray-800 { background-color: #222; }
+.dark .dark\:bg-gray-800\/70 { background-color: rgb(34 34 34 / .7); }
+.dark .dark\:bg-gray-800\/60 { background-color: rgb(34 34 34 / .6); }
+.dark .dark\:bg-gray-800\/50 { background-color: rgb(34 34 34 / .5); }
+.dark .dark\:border-gray-700,
+.dark .dark\:border-gray-800 { border-color: #303030; }
+.dark .dark\:divide-gray-800 > :not([hidden]) ~ :not([hidden]) { border-color: #303030; }
+
 .dark .bg-white\/80 {
-  background-color: rgb(17 24 39 / 0.92);
+  background-color: rgb(25 25 25 / 0.92);
 }
 
 .dark .bg-white\/90 {
-  background-color: rgb(17 24 39 / 0.96);
+  background-color: rgb(25 25 25 / 0.96);
 }
 
 .dark .bg-gray-50\/50 {
-  background-color: rgb(31 41 55 / 0.65);
+  background-color: rgb(32 32 32 / 0.65);
 }
 
 .dark .bg-cyan-50 {
@@ -764,15 +776,15 @@ span.flatpickr-weekday,
 }
 
 .dark .hover\:bg-white:hover {
-  background-color: #1f2937;
+  background-color: #202020;
 }
 
 .dark .hover\:bg-gray-50:hover {
-  background-color: #1f2937;
+  background-color: #202020;
 }
 
 .dark .hover\:bg-gray-100:hover {
-  background-color: #374151;
+  background-color: #2a2a2a;
 }
 
 .dark .hover\:bg-cyan-50:hover {

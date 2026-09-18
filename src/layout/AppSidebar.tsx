@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useContext } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import {
   LayoutDashboard,
   Users,
@@ -11,11 +11,14 @@ import {
   Calendar,
   UserCircle,
   ChevronDown,
-  CheckSquare,
+  ChevronsLeft,
+  ChevronsRight,
+  BarChart3,
   Briefcase,
 } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
 import { AuthContext } from "../context/AuthContext";
+import "./AppSidebar.css";
 
 type SubItem = {
   name: string;
@@ -32,6 +35,7 @@ type NavItem = {
   roles?: string[];
 };
 
+
 export const navItems: NavItem[] = [
   {
     icon: <LayoutDashboard className="w-5 h-5" />,
@@ -39,16 +43,45 @@ export const navItems: NavItem[] = [
     path: "/",
   },
   {
+    icon: <BarChart3 className="w-5 h-5" />,
+    name: "Reports",
+    subItems: [
+      { name: "Sales Reports", path: "/salesReports" },
+      { name: "Lead Reports", path: "/leadReports" },
+      { name: "Activity Reports", path: "/activityReports" },
+      { name: "Custom Reports", path: "/customReports" },
+      { name: "Customer Retention", path: "/customerRetention" },
+      { name: "Performance Reports", path: "/performanceReports" },
+      { name: "Inventory Report", path: "/inventory-report" },
+      { name: "Purchase Reports", path: "/purchase-reports" },
+      { name: "Finance Report", path: "/financeReport" },
+      { name: "Tax Report", path: "/taxReport" },
+    ],
+  },
+  {
     icon: <Users className="w-5 h-5" />,
     name: "CRM",
     subItems: [
       { name: "Segments", path: "/customer-segment" },
-      { name: "Customers", path: "/customer-management" },
       { name: "Key Contacts", path: "/contactPerson" },
       { name: "Leads", path: "/leads" },
       { name: "Deals", path: "/opportunities" },
       { name: "Interactions", path: "/communication-history" },
       { name: "Tasks", path: "/activities" },
+    ],
+  },
+
+  {
+    icon: <Package className="w-5 h-5" />,
+    name: "Common",
+    subItems: [
+      { name: "Customers", path: "/customer-management" },
+      { name: "Vendors", path: "/vendors" },
+      { name: "Invoice Vendors", path: "/invoiceVendors" },
+      { name: "Product Categories", path: "/product-categories" },
+      { name: "Products", path: "/purchase-products" },
+      { name: "Tax Types", path: "/taxTypes" },
+      { name: "Tax Details", path: "/taxDetails" },
     ],
   },
 
@@ -83,17 +116,13 @@ export const navItems: NavItem[] = [
       { name: "Inventory Reservation", path: "/inventory-reservation" },
       { name: "Stock Adjustment", path: "/stock-adjustment" },
       { name: "Stock Movement", path: "/stock-movement" },
-      { name: "Inventory Report", path: "/inventory-report" },
     ],
   },
   {
     icon: <FileText className="w-5 h-5" />,
     name: "Purchase",
     subItems: [
-      { name: "Vendors", path: "/vendors" },
       { name: "Terms and Conditions", path: "/terms-and-conditions" },
-      { name: "Product Categories", path: "/product-categories" },
-      { name: "Products", path: "/purchase-products" },
       { name: "Purchase Requisitions", path: "/purchase-requisitions" },
       { name: "Requisition Line Items", path: "/requisition-line-items" },
       { name: "Purchase Orders", path: "/purchase-orders" },
@@ -101,7 +130,6 @@ export const navItems: NavItem[] = [
       { name: "Deliveries", path: "/deliveries" },
       { name: "Approval Status", path: "/approval-status" },
       { name: "Inventory", path: "/purchase-inventory" },
-      { name: "Purchase Reports", path: "/purchase-reports" },
     ],
   },
 
@@ -109,9 +137,6 @@ export const navItems: NavItem[] = [
     icon: <CreditCard className="w-5 h-5" />,
     name: "Invoice",
     subItems: [
-      { name: "Vendors", path: "/invoiceVendors" },
-      { name: "Tax Types", path: "/taxTypes" },
-      { name: "Tax Details", path: "/taxDetails" },
       { name: "Purchase Invoices", path: "/purchaseInvoices" },
       { name: "Payment Terms", path: "/paymentTerms" },
       { name: "Journal Entries", path: "/journalEntries" },
@@ -124,8 +149,6 @@ export const navItems: NavItem[] = [
       { name: "General Ledger", path: "/generalLedger" },
       { name: "Expense / Revenue", path: "/expenseRevenue" },
       { name: "Accounts Receivable", path: "/accountsReceivable" },
-      { name: "Tax Report", path: "/taxReport" },
-      { name: "Finance Report", path: "/financeReport" },
     ],
   },
   {
@@ -154,13 +177,12 @@ export const navItems: NavItem[] = [
       { name: "Records", path: "/employeeRecords" },
       { name: "Salary", path: "/employeeSalary" },
       { name: "Payslips", path: "/employeePayslips" },
-      { name: "Payroll", path: "/employeePayroll" },
       {
         name: "Reports",
         subItems: [
           { name: "Payroll Summary", path: "/payrollSummary" },
-          { name: "Department Summary", path: "/departmentSummary" }
-        ]
+          { name: "Department Summary", path: "/departmentSummary" },
+        ],
       },
       { name: "Payroll Engine", path: "/payrollEngine" },
       { name: "IT Declaration", path: "/it-declaration" },
@@ -174,34 +196,34 @@ export const navItems: NavItem[] = [
     icon: <Calendar className="w-5 h-5" />,
     name: "Attendance",
     subItems: [
-      // 1. Daily Operations & Self-Service
-      { name: "Attendance Punch", path: "/att_punch" },
-      { name: "Attendance Regularization", path: "/att_timesheetManagement" },
-      { name: "Leave Application & Balances", path: "/att_leaveRequest" },
-      { name: "On Duty Requests", path: "/att_requests" },
-
-      // 2. Planning, Shift & Roster Management
-      { name: "Shift Roster & Schedule", path: "/att_shiftSchedule", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
-      { name: "Shift Master", path: "/att_shift", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
+      // 1. Dashboards & Calendars
+      { name: "My Leave Calendar", path: "/att_leaveDashboard" },
+      { name: "Employee Self Service", path: "/att_selfService" },
+      { name: "Manager Leave Dashboard", path: "/att_leaveManagerDashboard", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+      { name: "Attendance Tracking", path: "/att_attendanceTracking" },
       { name: "Holiday Calendar", path: "/att_holidayCalendar" },
 
-      // 3. Policy Configuration & Admin Setup
+      // 2. Employee Requests & Punch
+      { name: "Attendance Punch", path: "/att_punch" },
+      { name: "Leave Requests", path: "/att_leaveRequest" },
+      { name: "Attendance Regularization", path: "/att_timesheetManagement" },
+      { name: "On-Duty Requests", path: "/att_requests" },
+
+      // 3. Shift & Roster Management
+      { name: "Shift Roster & Schedule", path: "/att_shiftSchedule", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+      { name: "Shift Master", path: "/att_shift", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
+
+      // 4. Policy & Configuration
       { name: "Attendance Policy", path: "/att_attendancePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
       { name: "Leave Policy Master", path: "/att_leavePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
 
-      // 4. Dashboards, Reports & Audits
-      { name: "Leave Dashboard & Audits", path: "/att_leaveDashboard" },
+      // 5. Approvals Desk
+      { name: "Leave Approvals", path: "/att_attendanceApproval", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+      { name: "Regularization Approvals", path: "/att_regularizationApproval", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+      { name: "On-Duty Approvals", path: "/att_onDutyApproval", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+
+      // 6. Reports
       { name: "Attendance Reports", path: "/att_reports" },
-    ],
-  },
-  {
-    icon: <CheckSquare className="w-5 h-5" />,
-    name: "Approvals",
-    roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"],
-    subItems: [
-      { name: "Regularization Approvals", path: "/att_regularizationApproval" },
-      { name: "Leave Approvals", path: "/att_attendanceApproval" },
-      { name: "On Duty Approvals", path: "/att_onDutyApproval", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
     ],
   },
   {
@@ -253,16 +275,23 @@ const AppSidebar: React.FC = () => {
     setSidebarWidth,
     isResizing,
     setIsResizing,
+    toggleSidebar,
+    expandSidebar,
+    toggleMobileSidebar,
   } = useSidebar();
   const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useContext(AuthContext);
   const [tooltipVisible, setTooltipVisible] = useState<number | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isSidebarManuallyToggledRef = useRef(false);
 
   const [openSubmenu, setOpenSubmenu] = useState<number | null>(null);
 
   const [openSubSubmenu, setOpenSubSubmenu] = useState<string | null>(null);
+  const [selectedModuleIndex, setSelectedModuleIndex] = useState(0);
+  const [railTooltip, setRailTooltip] = useState<{ name: string; top: number; left: number } | null>(null);
 
   // FIX (#3): default role must carry no special privileges. "Admin" previously
   // meant every user was briefly treated as an admin while the real role loaded,
@@ -382,7 +411,7 @@ const AppSidebar: React.FC = () => {
     if (!isResizing) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const newWidth = Math.max(160, Math.min(400, e.clientX));
+      const newWidth = Math.max(220, Math.min(300, e.clientX));
       setSidebarWidth(newWidth);
     };
 
@@ -427,6 +456,7 @@ const AppSidebar: React.FC = () => {
           // Check level 2 items
           if (subItem.path && isActive(subItem.path)) {
             setOpenSubmenu(index);
+            setSelectedModuleIndex(index);
             // Close sub-submenus if we match a level 2 item
             setOpenSubSubmenu(null);
             submenuMatched = true;
@@ -436,6 +466,7 @@ const AppSidebar: React.FC = () => {
             subItem.subItems.forEach((ssItem) => {
               if (ssItem.path && isActive(ssItem.path)) {
                 setOpenSubmenu(index);
+                setSelectedModuleIndex(index);
                 setOpenSubSubmenu(`${index}-${subIndex}`);
                 submenuMatched = true;
               }
@@ -447,6 +478,8 @@ const AppSidebar: React.FC = () => {
     if (!submenuMatched) {
       setOpenSubmenu(null);
       setOpenSubSubmenu(null);
+      const directRouteIndex = navItems.findIndex((nav) => nav.path && isActive(nav.path));
+      if (directRouteIndex >= 0) setSelectedModuleIndex(directRouteIndex);
     }
   }, [location.pathname, isActive]);
 
@@ -460,6 +493,49 @@ const AppSidebar: React.FC = () => {
   const handleSubSubmenuToggle = (key: string, e: React.MouseEvent) => {
     e.preventDefault();
     setOpenSubSubmenu(prev => prev === key ? null : key);
+  };
+
+  const handleRailNavigation = (nav: NavItem, index: number) => {
+    setSelectedModuleIndex(index);
+    setRailTooltip(null);
+    if (nav.path) {
+      navigate(nav.path);
+      return;
+    }
+    if (window.innerWidth < 1024 && !isMobileOpen) {
+      toggleMobileSidebar();
+    } else if (!isExpanded) {
+      expandSidebar();
+    }
+    setOpenSubmenu(index);
+  };
+
+  const handlePanelToggle = () => {
+    isSidebarManuallyToggledRef.current = true;
+    if (isMobileOpen) {
+      toggleMobileSidebar();
+      return;
+    }
+    toggleSidebar();
+  };
+
+  const handleSidebarMouseLeave = () => {
+    if (window.innerWidth >= 1024 && isExpanded && !isResizing && !isSidebarManuallyToggledRef.current) {
+      setOpenSubSubmenu(null);
+      setRailTooltip(null);
+      toggleSidebar();
+    }
+  };
+
+  const handleSidebarMouseEnter = () => {
+    if (window.innerWidth >= 1024 && !isExpanded && !isMobileOpen && !isResizing && !isSidebarManuallyToggledRef.current) {
+      expandSidebar();
+    }
+  };
+
+  const handleRailTooltip = (nav: NavItem, event: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setRailTooltip({ name: nav.name, top: rect.top + rect.height / 2, left: rect.right + 12 });
   };
 
   const handleTooltipEnter = (index: number, event: React.MouseEvent<HTMLElement>) => {
@@ -490,10 +566,10 @@ const AppSidebar: React.FC = () => {
       const parentExpanded = openSubmenu === index;
 
       const buttonClass = parentActive
-        ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
+        ? "bg-cyan-50 text-cyan-600"
         : parentExpanded || (isCollapsed && tooltipVisible === index)
-        ? "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
-        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200";
+        ? "bg-gray-100 text-gray-900"
+        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900";
 
       return (
         <div key={nav.name} className="relative">
@@ -508,7 +584,7 @@ const AppSidebar: React.FC = () => {
             `}
           >
             <div className="flex items-center gap-3">
-              <span className="flex-shrink-0">{nav.icon}</span>
+              <span className="app-sidebar__menu-icon flex-shrink-0">{nav.icon}</span>
               {(isExpanded || isMobileOpen) && <span className="text-sm">{nav.name}</span>}
             </div>
             {(isExpanded || isMobileOpen) && (
@@ -525,7 +601,7 @@ const AppSidebar: React.FC = () => {
               className={`grid transition-all duration-300 ease-in-out ${parentExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
             >
               <div className="overflow-hidden">
-                <div className="ml-9 pl-2 mt-1 space-y-0.5 border-l border-gray-200 dark:border-gray-700">
+                <div className="mt-1 space-y-0.5 px-1">
                 {nav.subItems.filter(subItem => {
                   if (!subItem.roles) return true;
                   const currentRole = (user?.role || userRole || "").toUpperCase().replace(/[\s_]+/g, "");
@@ -543,8 +619,8 @@ const AppSidebar: React.FC = () => {
                           className={`
                             w-full flex items-center justify-between px-3 py-1.5 text-sm rounded-md transition-all duration-200
                             ${openSubSubmenu === subKey
-                              ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
-                              : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800"
+                              ? "bg-cyan-50 text-cyan-600"
+                              : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                             }
                           `}
                         >
@@ -556,7 +632,7 @@ const AppSidebar: React.FC = () => {
                           className={`grid transition-all duration-300 ease-in-out ${openSubSubmenu === subKey ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
                         >
                           <div className="overflow-hidden">
-                            <div className="ml-4 pl-2 mt-1 space-y-0.5 border-l border-gray-200 dark:border-gray-700">
+                            <div className="ml-4 pl-2 mt-1 space-y-0.5">
                             {subItem.subItems!.map((ssItem) => (
                               <Link
                                 key={ssItem.name}
@@ -564,8 +640,8 @@ const AppSidebar: React.FC = () => {
                                 className={`
                                   block px-3 py-1.5 text-xs rounded-md transition-all duration-200
                                   ${isActive(ssItem.path || "")
-                                    ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
-                                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800"
+                                    ? "bg-cyan-50 text-cyan-600"
+                                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                                   }
                                 `}
                               >
@@ -583,11 +659,12 @@ const AppSidebar: React.FC = () => {
                     <Link
                       key={subItem.name}
                       to={subItem.path || "#"}
+                      onClick={() => isMobileOpen && toggleMobileSidebar()}
                       className={`
                         block px-3 py-1.5 text-sm rounded-md transition-all duration-200 ease-in-out transform active:scale-95
                         ${isActive(subItem.path || "")
-                          ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400 font-semibold shadow-2xs translate-x-0.5 border-l-2 border-cyan-600"
-                          : "text-gray-500 hover:text-gray-900 hover:bg-gray-100/60 hover:translate-x-0.5 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800"
+                          ? "bg-cyan-50 text-cyan-600 font-semibold shadow-2xs translate-x-0.5 border-l-2 border-cyan-600"
+                          : "text-gray-500 hover:text-gray-900 hover:bg-gray-100/60 hover:translate-x-0.5"
                         }
                       `}
                     >
@@ -611,8 +688,8 @@ const AppSidebar: React.FC = () => {
             flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 relative
             ${
               isActive(nav.path) || (isCollapsed && tooltipVisible === index)
-                ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400"
-                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                ? "bg-cyan-50 text-cyan-600"
+                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
             }
             ${isCollapsed ? "justify-center" : ""}
           `}
@@ -620,7 +697,7 @@ const AppSidebar: React.FC = () => {
           onMouseLeave={handleTooltipLeave}
         >
           <div className="flex items-center gap-3">
-            <span className="flex-shrink-0">{nav.icon}</span>
+            <span className="app-sidebar__menu-icon flex-shrink-0">{nav.icon}</span>
             {(isExpanded || isMobileOpen) && <span className="text-sm">{nav.name}</span>}
           </div>
         </Link>
@@ -634,17 +711,6 @@ const AppSidebar: React.FC = () => {
 
   const activeTooltipItem = tooltipVisible !== null ? navItems[tooltipVisible] : undefined;
 
-  // FIX (#3): compute admin status only once the real role has loaded, so
-  // role-gated items never briefly render for non-admin users while loading.
-  const isAdmin =
-    !loadingProfile &&
-    (userRole === "SUPER_ADMIN" ||
-      userRole === "ADMIN" ||
-      user?.roles?.includes("SUPER_ADMIN") ||
-      user?.roles?.includes("ADMIN")) &&
-    user?.userType !== "USER" &&
-    user?.userType !== "EMPLOYEE";
-
   return (
     <>
       {/* Mobile Overlay Handled by Backdrop.tsx */}
@@ -654,26 +720,53 @@ const AppSidebar: React.FC = () => {
           width: isExpanded || isMobileOpen ? `${sidebarWidth}px` : "60px",
         }}
         className={`
-          fixed top-0 left-0 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800
+          app-sidebar ${isExpanded || isMobileOpen ? "app-sidebar--expanded" : "app-sidebar--collapsed"} fixed top-0 left-0 h-screen bg-white border-r border-gray-200
           shadow-lg z-[50] flex flex-col
           ${isResizing ? "transition-none select-none" : "transition-all duration-300 ease-in-out"}
           ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
           lg:translate-x-0
         `}
+        onMouseEnter={handleSidebarMouseEnter}
+        onMouseLeave={handleSidebarMouseLeave}
       >
+        <button
+          type="button"
+          className="app-sidebar__collapse"
+          onClick={handlePanelToggle}
+          aria-label={isExpanded || isMobileOpen ? "Collapse sidebar" : "Expand sidebar"}
+          title={isExpanded || isMobileOpen ? "Collapse sidebar" : "Expand sidebar"}
+        >
+          {isExpanded || isMobileOpen ? <ChevronsLeft size={17} /> : <ChevronsRight size={17} />}
+        </button>
+        <nav className="app-sidebar__rail" aria-label="Primary modules">
+          <Link to="/" className="app-sidebar__rail-brand" aria-label="Go to dashboard">
+            <img src="/images/logo/logo-icon.png" alt="" width={30} height={30} />
+          </Link>
+          <div className="app-sidebar__rail-items">
+            {navItems.map((nav, index) => {
+              const active = selectedModuleIndex === index;
+              return (
+                <button
+                  key={nav.name}
+                  type="button"
+                  className={`app-sidebar__rail-button ${active ? "is-active" : ""}`}
+                  onClick={() => handleRailNavigation(nav, index)}
+                  onMouseEnter={(event) => handleRailTooltip(nav, event)}
+                  onMouseLeave={() => setRailTooltip(null)}
+                  aria-label={nav.name}
+                >
+                  {nav.icon}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
         {/* Logo */}
-        <div className="flex items-center h-14 px-4 border-b border-gray-200 dark:border-gray-800">
-          <Link to="/" className="flex items-center">
+        <div className="app-sidebar__brand flex items-center h-16 px-4 border-b border-gray-200">
+          <Link to="/" className="app-sidebar__brand-link flex items-center" aria-label="Go to dashboard">
             {isExpanded || isMobileOpen ? (
               <>
-                <img className="dark:hidden" src="/images/logo/logo.png" alt="Logo" width={120} height={32} />
-                <img
-                  className="hidden dark:block"
-                  src="/images/logo/logo.png"
-                  alt="Logo"
-                  width={120}
-                  height={32}
-                />
+                <img src="/images/logo/logo.png" alt="Logo" width={120} height={32} />
               </>
             ) : (
               <img
@@ -688,13 +781,11 @@ const AppSidebar: React.FC = () => {
         </div>
 
         {/* Navigation */}
-        <div className="flex-1 overflow-y-auto py-4 px-2 no-scrollbar">
-          <div className="space-y-1">
-            {navItems.map((nav, index) => {
+        <div className="app-sidebar__navigation flex-1 overflow-y-auto py-4 px-2 no-scrollbar">
+          <div className="app-sidebar__menu space-y-1">
+            {navItems.filter((_, index) => index === selectedModuleIndex).map((nav) => {
+              const index = selectedModuleIndex;
               const isAdmin = (userRole === "SUPER_ADMIN" || userRole === "ADMIN" || user?.roles?.includes("SUPER_ADMIN") || user?.roles?.includes("ADMIN")) && user?.userType !== "USER" && user?.userType !== "EMPLOYEE";
-              if (nav.name === "Approvals" && !isAdmin) {
-                return null;
-              }
               if (nav.name === "HRMS" && nav.subItems) {
                 const mappedSubItems = nav.subItems.filter(sub => {
                   if (sub.name === "Exit Approvals" && !isAdmin) {
@@ -719,21 +810,21 @@ const AppSidebar: React.FC = () => {
         </div>
 
         {/* User Profile */}
-        <div className="p-3 mt-auto border-t border-gray-200 dark:border-gray-800">
+        <div className="app-sidebar__profile p-3 mt-auto border-t border-gray-200">
           <Link
             to="/profile"
             className={`
               flex items-center rounded-lg transition-all duration-200
-              ${isExpanded || isMobileOpen ? "gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800" : "justify-center"}
+              ${isExpanded || isMobileOpen ? "gap-3 px-3 py-2 hover:bg-gray-50" : "justify-center"}
             `}
           >
             {loadingProfile ? (
-              <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
+              <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse" />
             ) : profileImage ? (
               <img src={profileImage} alt={userName} className="w-8 h-8 rounded-full object-cover" />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center">
-                <span className="text-sm font-medium text-cyan-600 dark:text-cyan-400">
+              <div className="w-8 h-8 rounded-full bg-cyan-100 flex items-center justify-center">
+                <span className="text-sm font-medium text-cyan-600">
                   {getInitials(userName)}
                 </span>
               </div>
@@ -741,10 +832,10 @@ const AppSidebar: React.FC = () => {
 
             {(isExpanded || isMobileOpen) && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                <p className="text-sm font-medium text-gray-900 truncate">
                   {loadingProfile ? "Loading..." : userName}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{userRole || "—"}</p>
+                <p className="text-xs text-gray-500 truncate">{userRole || "—"}</p>
               </div>
             )}
           </Link>
@@ -755,10 +846,16 @@ const AppSidebar: React.FC = () => {
             onMouseDown={handleMouseDown}
             className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-cyan-500/30 active:bg-cyan-500 transition-colors z-30 group flex items-center justify-center"
           >
-            <div className="w-0.5 h-8 bg-gray-200 dark:bg-gray-700 group-hover:bg-cyan-500 rounded transition-colors" />
+            <div className="w-0.5 h-8 bg-gray-200 group-hover:bg-cyan-500 rounded transition-colors" />
           </div>
         )}
       </aside>
+
+      {railTooltip && (
+        <div className="app-sidebar__rail-tooltip" style={{ top: railTooltip.top, left: railTooltip.left }} role="tooltip">
+          {railTooltip.name}
+        </div>
+      )}
 
       {/* Global Tooltip Portal / Hover Submenu */}
       {tooltipVisible !== null && !isExpanded && !isMobileOpen && (

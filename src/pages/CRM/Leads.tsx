@@ -344,7 +344,7 @@ const Leads: React.FC = () => {
       label: "Email",
       sortable: true,
       render: (lead) => (
-        <div className="flex items-center text-xs text-gray-600 truncate max-w-[100px]" title={lead.email}>
+        <div className="flex items-center text-sm text-gray-600 truncate " title={lead.email}>
           <EnvelopeIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
           <span className="truncate">{lead.email || "-"}</span>
         </div>
@@ -355,8 +355,8 @@ const Leads: React.FC = () => {
       label: "Phone",
       sortable: true,
       render: (lead) => (
-        <div className="flex items-center text-xs text-gray-600">
-          <PhoneIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
+        <div className="flex items-center text-sm text-gray-600">
+          <PhoneIcon className="h-3 w-3 mr-1 truncate whitespace-nowrap text-gray-400 flex-shrink-0" />
           {lead.phone || "-"}
         </div>
       ),
@@ -387,10 +387,10 @@ const Leads: React.FC = () => {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "text-center",
-      className: "text-center",
+      headerClassName: "text-right",
+      className: "text-right",
       render: (lead) => (
-        <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={() => openAssignModal(lead.id)}
@@ -448,8 +448,8 @@ const Leads: React.FC = () => {
       <PageMeta title="Leads" description="Manage your sales leads" />
       <PageBreadcrumb pageTitle="Leads" />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
+        <div className="mb-6 mx-4 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton
             onClick={() => {
               resetForm();
@@ -458,8 +458,8 @@ const Leads: React.FC = () => {
             label="Add Lead"
           />
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="py-4 px-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-[17px]">
           <StatsCard
             label="Total Leads"
             value={leads.length}
@@ -491,42 +491,7 @@ const Leads: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex-1 max-w-md">
-            <div className="relative md:-mt-4">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search leads by name, email, phone or status..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                }}
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 -mt-0.5">
-            <FilterPopover
-              title="Filter Leads"
-              buttonLabel="Filters"
-              label="Lead Status"
-              value={selectedStatus}
-              options={[
-                { label: "All Statuses", value: "" },
-                { label: "New", value: "NEW" },
-                { label: "Contacted", value: "CONTACTED" },
-                { label: "Qualified", value: "QUALIFIED" },
-                { label: "Lost", value: "LOST" },
-              ]}
-              onChange={setSelectedStatus}
-              onReset={() => setSelectedStatus("")}
-              onApply={() => undefined}
-            />
-          </div>
-        </div>
-
+        
         {/* Table */}
         <ReusableTable<Lead>
           data={filteredLeads}
@@ -554,8 +519,10 @@ const Leads: React.FC = () => {
                 </button>
               )}
             </div>
+            
           }
         />
+         </div>
 
         {/* Add/Edit Lead Modal */}
         {showModal &&

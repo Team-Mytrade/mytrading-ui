@@ -7,7 +7,6 @@ import {
   CalendarDaysIcon,
   DocumentTextIcon,
   EyeIcon,
-  MagnifyingGlassIcon,
   PlusIcon,
   PencilSquareIcon,
   PrinterIcon,
@@ -18,19 +17,8 @@ import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import {
-  ListingPdfExportButton,
-  PdfExportColumn,
-} from "../../components/common/export";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
-import FilterPopover from "../../components/common/filter";
-import {
-  FloatingDatePicker,
-  FloatingInput,
-  FloatingSelect1 as FloatingSelect,
-  FloatingTextarea,
-} from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 import QuotationPreviewTemplate, {
   SellerProfile,
@@ -234,6 +222,7 @@ type QuotationForm = {
 };
 
 const API_URL = "/v1/api/sales/quotations";
+const CUSTOMERS_API = "/v1/api/sales/quotations/getCustomers";
 const PURCHASE_PRODUCTS_API = "/v1/api/purchase/products";
 const PURCHASE_CATEGORIES_API = "/v1/api/purchase/product-categories";
 const PAGE_SIZE = 10;
@@ -243,11 +232,6 @@ const quotationTypeOptions = ["PRODUCT", "SERVICE"];
 function getQuotationCustomerName(quotation: Quotation, customers: Customer[]) {
   const customer = customers.find((item) => Number(item.id) === Number(quotation.customerId));
   return customer?.customerName || quotation.billingAddress?.customerName || `Customer #${quotation.customerId}`;
-}
-
-function getQuotationCustomerCode(quotation: Quotation, customers: Customer[]) {
-  const customer = customers.find((item) => Number(item.id) === Number(quotation.customerId));
-  return customer?.customerCode || quotation.billingAddress?.customerCode || `ID: ${quotation.customerId}`;
 }
 
 function getStoredTenantId() {
@@ -369,11 +353,6 @@ function money(value: number | string | undefined) {
   return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-function searchableText(value: unknown) {
-  if (value === null || value === undefined) return "";
-  return String(value).toLowerCase().trim();
-}
-
 function customerOptionLabel(customer: Customer) {
   const name = customer.customerName || customer.tradeName || `Customer #${customer.id}`;
   return `${customer.id} - ${name}`;
@@ -492,9 +471,6 @@ const Quotations: React.FC = () => {
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [lookupId, setLookupId] = useState("");
   const [deleteQuotation, setDeleteQuotation] = useState<Quotation | null>(null);
   const [previewQuotation, setPreviewQuotation] = useState<Quotation | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -553,7 +529,7 @@ const Quotations: React.FC = () => {
 
   const fetchCustomers = async () => {
     try {
-      const res = await axios.get<Customer[]>("/v1/api/crm/customers", { headers });
+      const res = await axios.get<Customer[]>(CUSTOMERS_API, { headers });
       setCustomers(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       ToasterService.error("Failed to load customers", getErrorMessage(error, "Please try again."));
@@ -580,24 +556,6 @@ const Quotations: React.FC = () => {
     } catch (error) {
       ToasterService.error("Failed to load products", getErrorMessage(error, "Please try again."));
       setProducts([]);
-    }
-  };
-
-  const fetchById = async () => {
-    if (!lookupId) {
-      ToasterService.error("Quotation ID is required");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const res = await axios.get<Quotation>(`${API_URL}/${lookupId}`, { headers });
-      setQuotations([res.data]);
-      ToasterService.success("Quotation loaded");
-    } catch (error) {
-      ToasterService.error("Failed to load quotation", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -797,12 +755,13 @@ const Quotations: React.FC = () => {
       ToasterService.error("Sales person required", "Select a sales person from the dropdown.");
       return;
     }
-    if (!isPositiveNumber(form.itemQuantity) || !isPositiveNumber(form.itemUnitPrice)) {
-      ToasterService.error("Line item required", "Quantity and unit price must be greater than zero.");
-      return;
-    }
-    if (!form.itemProductName.trim() && !form.itemDescription.trim()) {
-      ToasterService.error("Line item required", "Enter a product name or description.");
+    if (
+      lineItems.length === 0 &&
+      (!isPositiveNumber(form.itemQuantity) ||
+        !isPositiveNumber(form.itemUnitPrice) ||
+        (!form.itemProductName.trim() && !form.itemDescription.trim()))
+    ) {
+      ToasterService.error("Line item required", "Add at least one item using the + button on the Items tab.");
       return;
     }
     if (!isPercent(form.discountPercentage) || !isPercent(form.itemDiscountPercentage) || !isPercent(form.itemTaxRate)) {
@@ -813,15 +772,6 @@ const Quotations: React.FC = () => {
     try {
       setSubmitting(true);
       const payload = buildPayload();
-      console.log("Quotation submit references", {
-        tenantIdParam: form.tenantId.trim(),
-        customerId: payload.customerId,
-        salesPersonId: payload.salesPersonId,
-        categoryId: payload.items?.[0]?.categoryId,
-        productId: payload.items?.[0]?.productId,
-        itemType: payload.items?.[0]?.itemType,
-        payload,
-      });
       const requestConfig = {
         headers,
         params: { tenantId: form.tenantId.trim() },
@@ -1004,107 +954,12 @@ const Quotations: React.FC = () => {
     }
   };
 
-  const filteredQuotations = useMemo(() => {
-    const term = searchableText(search);
-    return quotations.filter((quotation) => {
-      if (statusFilter && quotation.status !== statusFilter) {
-        return false;
-      }
-
-      if (!term) {
-        return true;
-      }
-
-      const customer = customers.find((item) => Number(item.id) === Number(quotation.customerId));
-      const haystack = [
-        quotation.id,
-        quotation.quoteNumber,
-        quotation.customerId,
-        customer?.customerName,
-        customer?.customerCode,
-        quotation.billingAddress?.customerName,
-        quotation.billingAddress?.customerCode,
-        quotation.subject,
-        quotation.email,
-        quotation.status,
-        quotation.salesPerson?.name,
-        quotation.salesPerson?.code,
-        quotation.quoteDate,
-        quotation.validUntil,
-        quotation.currencyCode,
-        quotation.grandTotal,
-        quotation.remarks,
-      ]
-        .map(searchableText)
-        .filter(Boolean)
-        .join(" ");
-
-      return haystack.includes(term);
-    });
-  }, [customers, quotations, search, statusFilter]);
-
   const stats = useMemo(() => ({
     total: quotations.length,
     draft: quotations.filter((item) => item.status === "DRAFT").length,
     accepted: quotations.filter((item) => item.status === "ACCEPTED").length,
-    grandTotal: quotations.reduce((sum, item) => sum + Number(item.grandTotal || 0), 0),
+    rejected: quotations.filter((item) => item.status === "REJECTED").length,
   }), [quotations]);
-
-  const pdfColumns = useMemo<PdfExportColumn<Quotation>[]>(() => [
-    {
-      header: "Quote No",
-      accessor: (quotation) => quotation.quoteNumber || `Quote #${quotation.id}`,
-      width: 36,
-    },
-    {
-      header: "Customer",
-      accessor: (quotation) => getQuotationCustomerName(quotation, customers),
-      width: 42,
-    },
-    {
-      header: "Customer Code",
-      accessor: (quotation) => getQuotationCustomerCode(quotation, customers),
-      width: 26,
-    },
-    {
-      header: "Quote Date",
-      accessor: (quotation) => quotation.quoteDate || "--",
-      width: 22,
-    },
-    {
-      header: "Valid Until",
-      accessor: (quotation) => quotation.validUntil || "--",
-      width: 22,
-    },
-    {
-      header: "Status",
-      accessor: (quotation) => quotation.status || "N/A",
-      width: 18,
-    },
-    {
-      header: "Sales Person",
-      accessor: (quotation) => quotation.salesPerson?.name || "--",
-      width: 30,
-    },
-    {
-      header: "Items",
-      accessor: (quotation) => quotation.items?.length || 0,
-      align: "center",
-      width: 14,
-    },
-    {
-      header: "Currency",
-      accessor: (quotation) => quotation.currencyCode || "--",
-      align: "center",
-      width: 20,
-    },
-    {
-      header: "Grand Total",
-      accessor: (quotation) => money(quotation.grandTotal),
-      align: "right",
-      width: 26,
-    },
-  ], [customers]);
 
   const columns: ColumnDef<Quotation>[] = [
     {
@@ -1122,24 +977,27 @@ const Quotations: React.FC = () => {
       key: "customerId",
       label: "Customer",
       sortable: true,
-      render: (quotation) => {
-        return (
-          <div>
-            <div className="text-sm font-semibold text-slate-900">
-              {getQuotationCustomerName(quotation, customers)}
-            </div>
-            <div className="text-xs text-slate-500">
-              {getQuotationCustomerCode(quotation, customers)}
-            </div>
+      render: (quotation) => (
+        <div>
+          <div className="text-sm font-semibold text-slate-900">
+            {getQuotationCustomerName(quotation, customers)}
           </div>
-        );
-      },
+          <div className="text-xs text-slate-500">
+            {customers.find((c) => Number(c.id) === Number(quotation.customerId))?.customerCode ||
+              quotation.billingAddress?.customerCode ||
+              `ID: ${quotation.customerId}`}
+          </div>
+        </div>
+      ),
     },
     {
       key: "salesPerson",
       label: "Sales Person",
       sortable: true,
-      render: (quotation) => quotation.salesPerson?.name || `#${quotation.salesPerson?.id || "--"}`,
+      render: (quotation) => {
+        const person = salesPersons.find(sp => sp.id === quotation.salesPerson?.id);
+        return person?.name || quotation.salesPerson?.name || `#${quotation.salesPerson?.id || "--"}`;
+      },
     },
     {
       key: "quoteDate",
@@ -1208,7 +1066,7 @@ const Quotations: React.FC = () => {
         <PageMeta title={editingId ? "Edit Quotation" : "Create New Quotation"} description="Manage sales quotations" />
         <PageBreadcrumb pageTitle={editingId ? "Edit Quotation" : "Create Quotation"} />
 
-        <div className="w-full max-w-none px-0 py-6">
+       <div className="h-[calc(100dvh-140px)] w-full max-w-none overflow-y-auto px-0 py-6">
           <div className="relative overflow-hidden rounded-3xl border border-slate-200/70 bg-gradient-to-br from-white via-slate-50/70 to-slate-100 p-6 shadow-xl shadow-slate-100/70 lg:p-8">
             <div className="absolute left-0 right-0 top-0 h-1.5 bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500" />
 
@@ -1232,11 +1090,13 @@ const Quotations: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-8">
-              <div className="flex w-full max-w-5xl flex-col gap-6">
+            <form onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+                <div className="flex flex-col gap-8">
+              <div className="flex w-full flex-col gap-6">
                 <div className="group flex flex-col gap-2 md:flex-row md:items-start md:gap-6">
                   <label className="mt-3 shrink-0 text-[13px] font-bold uppercase tracking-wider text-slate-500 transition-colors group-focus-within:text-blue-600 md:w-48">
-                    Customer ID <span className="text-red-500">*</span>
+                    Customer <span className="text-red-500">*</span>
                   </label>
                   <div className="flex-1">
                     <div className="flex max-w-[520px] overflow-hidden rounded-xl shadow-sm transition focus-within:ring-2 focus-within:ring-blue-500/20">
@@ -1301,19 +1161,6 @@ const Quotations: React.FC = () => {
                       />
                     </div>
                   </div>
-                </div>
-
-                <div className="group flex flex-col gap-2 md:flex-row md:items-center md:gap-6">
-                  <label className="shrink-0 text-[13px] font-bold uppercase tracking-wider text-slate-500 transition-colors group-focus-within:text-blue-600 md:w-48">
-                    Quote# <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    name="quoteNumber"
-                    value={form.quoteNumber}
-                    onChange={handleChange}
-                    className="w-full max-w-[320px] rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-[15px] font-medium text-slate-800 shadow-sm transition hover:bg-slate-100 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    placeholder="QT-000001"
-                  />
                 </div>
 
                 <div className="group flex flex-col gap-2 md:flex-row md:items-center md:gap-6">
@@ -1529,17 +1376,15 @@ const Quotations: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <textarea name="customerNotes" value={form.customerNotes} onChange={handleChange} rows={3} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" placeholder="Customer notes" />
-                    <textarea name="termsAndConditions" value={form.termsAndConditions} onChange={handleChange} rows={3} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" placeholder="Terms and conditions" />
-                    <textarea name="remarks" value={form.remarks} onChange={handleChange} rows={3} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" placeholder="Remarks" />
-                    <textarea name="internalNotes" value={form.internalNotes} onChange={handleChange} rows={3} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" placeholder="Internal notes" />
-                  </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <textarea name="customerNotes" value={form.customerNotes} onChange={handleChange} rows={3} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" placeholder="Customer notes" />
+                <textarea name="termsAndConditions" value={form.termsAndConditions} onChange={handleChange} rows={3} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" placeholder="Terms and conditions" />
+                <textarea name="remarks" value={form.remarks} onChange={handleChange} rows={3} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" placeholder="Remarks" />
+                <textarea name="internalNotes" value={form.internalNotes} onChange={handleChange} rows={3} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" placeholder="Internal notes" />
+              </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-6">
                   <div className="space-y-3 text-sm">
                     <div className="flex justify-between"><span className="text-slate-500">Sub Total</span><span className="font-semibold text-slate-900">{money(form.subTotal)}</span></div>
                     <div className="flex justify-between"><span className="text-slate-500">Discount</span><span className="font-semibold text-rose-600">-{money(form.discountAmount)}</span></div>
@@ -1547,16 +1392,15 @@ const Quotations: React.FC = () => {
                     <div className="flex justify-between"><span className="text-slate-500">Tax</span><span className="font-semibold text-slate-900">{money(form.taxAmount)}</span></div>
                     <div className="flex justify-between border-t border-slate-200 pt-3 text-lg font-black"><span>Grand Total</span><span className="text-cyan-600">{money(form.grandTotal)}</span></div>
                   </div>
+                  <div className="flex flex-col gap-2 border-t border-slate-200 pt-4">
+                    <button type="submit" disabled={submitting} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">
+                      {submitting ? "Saving..." : editingId ? "Update Quotation" : "Create Quotation"}
+                    </button>
+                    <button type="button" onClick={closeForm} className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50">
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-              </div>
-
-              <div className="flex flex-col justify-end gap-2 border-t border-slate-200 pt-5 sm:flex-row">
-                <button type="button" onClick={closeForm} className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50">
-                  Cancel
-                </button>
-                <button type="submit" disabled={submitting} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">
-                  {submitting ? "Saving..." : editingId ? "Update Quotation" : "Create Quotation"}
-                </button>
               </div>
             </form>
           </div>
@@ -1568,14 +1412,13 @@ const Quotations: React.FC = () => {
   return (
     <>
       <PageMeta title="Quotations" description="Manage sales quotations" />
-      <PageBreadcrumb pageTitle="Quotations" />
+      <PageBreadcrumb
+        pageTitle="Quotations"
+        actions={<AddButton onClick={openCreate} label="Add Quotation" />}
+      />
 
       <div className="w-full max-w-none px-0 py-8">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Quotation" />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Quotations" value={stats.total} icon={<DocumentTextIcon />} />
           <StatsCard
             label="Draft"
@@ -1594,84 +1437,17 @@ const Quotations: React.FC = () => {
             icon={<DocumentTextIcon />}
           />
           <StatsCard
-            label="Grand Total"
-            value={money(stats.grandTotal)}
-            gradient="from-purple-50 to-pink-50"
-            borderColor="border-purple-100"
-            labelColor="text-purple-600"
+            label="Rejected"
+            value={stats.rejected}
+            gradient="from-rose-50 to-red-50"
+            borderColor="border-rose-100"
+            labelColor="text-rose-600"
             icon={<BanknotesIcon />}
           />
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between md:-mb-5">
-          <div className="relative w-full sm:max-w-md mt-0.5">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search quotations..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <ListingPdfExportButton
-              title="Quotations"
-              subtitle="Filtered quotation listing"
-              reportLabel="Sales Report"
-              data={filteredQuotations}
-              columns={pdfColumns}
-              fileName="Quotations"
-              disabled={loading}
-              metadata={(rows, rangeLabel) => [
-                { label: "Total", value: rows.length },
-                { label: "Range", value: rangeLabel },
-                { label: "Status", value: statusFilter || "All" },
-                { label: "Search", value: search || "None" },
-              ]}
-            />
-            <FilterPopover
-              title="Filter Quotations"
-              widthClassName="w-[320px]"
-              onReset={() => setStatusFilter("")}
-            >
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">Status</label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
-                >
-                  <option value="">All statuses</option>
-                  {statusOptions.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="rounded-lg border border-dashed border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-700">
-                Filters apply live
-              </div>
-            </div>
-            </FilterPopover>
-          </div>
-        </div>
-
         <ReusableTable
-          data={filteredQuotations}
+          data={quotations}
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}
@@ -1688,204 +1464,6 @@ const Quotations: React.FC = () => {
           }
         />
       </div>
-
-      {showFormModal &&
-        createPortal(
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-4 backdrop-blur-sm sm:items-center">
-            <div className="mx-auto max-h-[calc(100vh-2rem)] w-full max-w-5xl overflow-y-auto rounded-xl bg-white shadow-xl">
-              <div className="flex items-center justify-between border-b border-gray-100 p-5">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {editingId ? "Edit Quotation" : "Create Quotation"}
-                  </h3>
-                  <p className="mt-0.5 text-xs text-gray-500">Enter quotation details from the API schema</p>
-                </div>
-                <button type="button" onClick={closeForm} className="text-gray-400 hover:text-gray-600">
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="p-5">
-                <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-3">
-                  <FloatingSelect
-                    label="Customer"
-                    name="customerId"
-                    value={form.customerId}
-                    onChange={handleChange}
-                    emptyOptionLabel="Select customer"
-                    options={customers.map((customer) => ({
-                      id: String(customer.id),
-                      name: customerOptionLabel(customer),
-                    }))}
-                    required
-                  />
-                  <FloatingSelect
-                    label="Sales Person"
-                    name="salesPersonId"
-                    value={form.salesPersonId}
-                    onChange={handleChange}
-                    emptyOptionLabel="Select sales person"
-                    options={salesPersons.map((person) => ({
-                      id: String(person.id),
-                      name: person.name || `Person #${person.id}`,
-                    }))}
-                  />
-                  <FloatingSelect
-                    label="Quotation Type"
-                    name="quotationType"
-                    value={form.quotationType}
-                    onChange={handleChange}
-                    includeEmptyOption={false}
-                    options={quotationTypeOptions.map((item) => ({ id: item, name: item }))}
-                  />
-                  <FloatingInput label="Quote Number" name="quoteNumber" value={form.quoteNumber} onChange={handleChange} />
-                  <FloatingDatePicker label="Quote Date" name="quoteDate" value={form.quoteDate} onChange={handleChange} required />
-                  <FloatingDatePicker label="Valid Until" name="validUntil" value={form.validUntil} onChange={handleChange} required />
-                  <FloatingSelect
-                    label="Status"
-                    name="status"
-                    value={form.status}
-                    onChange={handleChange}
-                    includeEmptyOption={false}
-                    options={statusOptions.map((item) => ({ id: item, name: item }))}
-                  />
-                  <FloatingInput label="Currency Code" name="currencyCode" value={form.currencyCode} onChange={handleChange} />
-                  <FloatingInput label="Subject" name="subject" value={form.subject} onChange={handleChange} />
-                  <FloatingInput label="Email" name="email" type="email" value={form.email} onChange={handleChange} />
-                  <FloatingInput label="Version No" name="versionNo" type="number" value={form.versionNo} onChange={handleChange} />
-                  <FloatingInput label="Sub Total" name="subTotal" type="number" value={form.subTotal} onChange={handleChange} />
-                  <FloatingInput label="Discount Amount" name="discountAmount" type="number" value={form.discountAmount} onChange={handleChange} />
-                  <FloatingInput label="Additional Discount" name="additionalDiscount" type="number" value={form.additionalDiscount} onChange={handleChange} />
-                  <FloatingInput label="Discount %" name="discountPercentage" type="number" value={form.discountPercentage} onChange={handleChange} />
-                  <FloatingInput label="Tax Amount" name="taxAmount" type="number" value={form.taxAmount} onChange={handleChange} />
-                  <FloatingInput label="Grand Total" name="grandTotal" type="number" value={form.grandTotal} onChange={handleChange} />
-                </div>
-
-                <div className="mt-2 grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <FloatingInput label="Billing Address" name="billingAddressLine1" value={form.billingAddressLine1} onChange={handleChange} />
-                  <FloatingInput label="Shipping Address" name="shippingAddressLine1" value={form.shippingAddressLine1} onChange={handleChange} />
-                  <FloatingInput label="Billing City" name="billingCity" value={form.billingCity} onChange={handleChange} />
-                  <FloatingInput label="Shipping City" name="shippingCity" value={form.shippingCity} onChange={handleChange} />
-                  <FloatingInput label="Billing State" name="billingState" value={form.billingState} onChange={handleChange} />
-                  <FloatingInput label="Shipping State" name="shippingState" value={form.shippingState} onChange={handleChange} />
-                  <FloatingInput label="Billing Country" name="billingCountry" value={form.billingCountry} onChange={handleChange} />
-                  <FloatingInput label="Shipping Country" name="shippingCountry" value={form.shippingCountry} onChange={handleChange} />
-                  <FloatingInput label="Billing Postal Code" name="billingPostalCode" value={form.billingPostalCode} onChange={handleChange} />
-                  <FloatingInput label="Shipping Postal Code" name="shippingPostalCode" value={form.shippingPostalCode} onChange={handleChange} />
-                </div>
-
-                <div className="mt-4 border-t border-gray-100 pt-4">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h4 className="text-sm font-semibold text-gray-900">Quotation Item</h4>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => navigate("/purchase-products")}
-                        className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-medium text-cyan-700 hover:bg-cyan-100"
-                      >
-                        Create Product Now
-                      </button>
-                      <button
-                        type="button"
-                        onClick={applyCalculatedTotals}
-                        className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-200"
-                      >
-                        Calculate Totals
-                      </button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <FloatingSelect
-                      label="Item Type"
-                      name="itemType"
-                      value={form.itemType}
-                      onChange={handleChange}
-                      includeEmptyOption={false}
-                      options={[
-                        { id: "PRODUCT", name: "PRODUCT" },
-                        { id: "SERVICE", name: "SERVICE" },
-                      ]}
-                    />
-                    {form.itemType === "PRODUCT" ? (
-                      <>
-                        <FloatingSelect
-                          label="Category"
-                          name="itemCategoryId"
-                          value={form.itemCategoryId}
-                          onChange={handleChange}
-                          emptyOptionLabel="Select category"
-                          options={leafCategories.map((category) => ({
-                            id: String(category.id),
-                            name: category.parentName
-                              ? `${category.parentName} / ${category.categoryName}`
-                              : category.categoryName,
-                          }))}
-                        />
-                        <FloatingSelect
-                          label="Product"
-                          name="itemProductId"
-                          value={form.itemProductId}
-                          onChange={handleChange}
-                          emptyOptionLabel="Select product"
-                          options={filteredProducts.map((product) => ({
-                            id: String(product.id),
-                            name: product.productName || product.shortName || `Product #${product.id}`,
-                          }))}
-                        />
-                        {editingId && (
-                          <FloatingInput label="Product ID" name="itemProductId" type="number" value={form.itemProductId} onChange={handleChange} />
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        {editingId && (
-                          <FloatingInput label="Service Item ID" name="itemServiceItemId" type="number" value={form.itemServiceItemId} onChange={handleChange} />
-                        )}
-                        <FloatingInput label="Category Name" name="itemCategoryName" value={form.itemCategoryName} onChange={handleChange} />
-                        <FloatingInput label="Product Name" name="itemProductName" value={form.itemProductName} onChange={handleChange} />
-                      </>
-                    )}
-                    {form.itemType === "PRODUCT" && (
-                      <FloatingInput label="Category Name" name="itemCategoryName" value={form.itemCategoryName} onChange={handleChange} />
-                    )}
-                    <FloatingInput label="Product Code" name="itemProductCode" value={form.itemProductCode} onChange={handleChange} />
-                    <FloatingInput label="Description" name="itemDescription" value={form.itemDescription} onChange={handleChange} />
-                    <FloatingInput label="UOM" name="itemUom" value={form.itemUom} onChange={handleChange} />
-                    <FloatingInput label="Quantity" name="itemQuantity" type="number" value={form.itemQuantity} onChange={handleChange} required />
-                    <FloatingInput label="Unit Price" name="itemUnitPrice" type="number" value={form.itemUnitPrice} onChange={handleChange} required />
-                    <FloatingInput label="Item Discount %" name="itemDiscountPercentage" type="number" value={form.itemDiscountPercentage} onChange={handleChange} />
-                    <FloatingInput label="Item Discount Amount" name="itemDiscountAmount" type="number" value={form.itemDiscountAmount} onChange={handleChange} />
-                    <FloatingInput label="Item Additional Discount" name="itemAdditionalDiscount" type="number" value={form.itemAdditionalDiscount} onChange={handleChange} />
-                    <FloatingInput label="Tax Rate" name="itemTaxRate" type="number" value={form.itemTaxRate} onChange={handleChange} />
-                    <FloatingInput label="Tax Code" name="itemTaxCode" value={form.itemTaxCode} onChange={handleChange} />
-                    <FloatingInput label="Item Remarks" name="itemRemarks" value={form.itemRemarks} onChange={handleChange} />
-                  </div>
-                </div>
-
-                <div className="mt-2 grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <FloatingTextarea label="Remarks" name="remarks" value={form.remarks} onChange={handleChange} rows={3} />
-                  <FloatingTextarea label="Terms and Conditions" name="termsAndConditions" value={form.termsAndConditions} onChange={handleChange} rows={3} />
-                  <FloatingTextarea label="Internal Notes" name="internalNotes" value={form.internalNotes} onChange={handleChange} rows={3} />
-                  <FloatingTextarea label="Customer Notes" name="customerNotes" value={form.customerNotes} onChange={handleChange} rows={3} />
-                </div>
-
-                <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                  <button type="button" onClick={closeForm} className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200">
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    {submitting ? "Saving..." : editingId ? "Update Quotation" : "Create Quotation"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>,
-          document.body
-        )}
 
       <DynamicPopup
         isPopupOpen={!!deleteQuotation}

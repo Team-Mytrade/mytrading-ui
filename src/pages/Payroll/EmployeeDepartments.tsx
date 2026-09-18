@@ -132,6 +132,12 @@ const EmployeeDepartmentsPage: React.FC = () => {
     }
   };
 
+  const closeModal = () => {
+    setShowForm(false);
+    setEditingDept(null);
+    setDeptName("");
+  };
+
   const openCreateModal = () => {
     setEditingDept(null);
     setDeptName("");
@@ -243,9 +249,7 @@ const EmployeeDepartmentsPage: React.FC = () => {
           data={departments}
           columns={columns}
           loading={loading}
-          searchable={true}
-          searchPlaceholder="Search departments by name..."
-          searchFields={["name"]}
+          searchable={false}
           emptyState={
             <div className="flex flex-col items-center">
               <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />
@@ -263,12 +267,16 @@ const EmployeeDepartmentsPage: React.FC = () => {
         {/* Modal Form */}
         <AnimatePresence>
           {showForm && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto p-4">
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto p-4"
+              onClick={closeModal}
+            >
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto"
+                onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between p-5 border-b border-gray-100">
                   <div>
@@ -282,11 +290,7 @@ const EmployeeDepartmentsPage: React.FC = () => {
                     </p>
                   </div>
                   <button
-                    onClick={() => {
-                      setShowForm(false);
-                      setEditingDept(null);
-                      setDeptName("");
-                    }}
+                    onClick={closeModal}
                     className="text-gray-400 hover:text-gray-600 transition-colors"
                   >
                     <XMarkIcon className="h-5 w-5" />
@@ -316,24 +320,21 @@ const EmployeeDepartmentsPage: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="flex justify-end gap-2 pt-4 mt-4 border-t border-gray-100">
+                  <div className="flex items-center justify-end gap-3 pt-4 mt-4 border-t border-gray-100">
                     <button
                       type="button"
-                      onClick={() => {
-                        setShowForm(false);
-                        setEditingDept(null);
-                        setDeptName("");
-                      }}
-                      className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+                      onClick={closeModal}
+                      className="inline-flex items-center justify-center h-10 px-5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 border border-transparent transition-all duration-200 focus:outline-none"
                     >
                       Cancel
                     </button>
                     <button
+                      type="button"
                       onClick={editingDept ? handleUpdate : handleCreate}
-                      className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 transition-all duration-200 shadow-sm flex items-center gap-2"
+                      className="inline-flex items-center justify-center h-10 px-5 text-sm font-medium !text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 rounded-lg border border-transparent shadow-sm transition-all duration-200 focus:outline-none gap-2"
                     >
-                      <CheckCircleIcon className="h-4 w-4" />
-                      {editingDept ? "Update Department" : "Create Department"}
+                      <CheckCircleIcon className="w-4 h-4 !text-white shrink-0" />
+                      <span className="!text-white whitespace-nowrap">{editingDept ? "Update Department" : "Create Department"}</span>
                     </button>
                   </div>
                 </div>

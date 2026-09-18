@@ -19,6 +19,7 @@ import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import FilterPopover from "../../components/common/filter";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import { toFilterOptions, toSelectOptions, useInvoiceEnum } from "./invoiceEnums";
 
 interface AccountPayable {
   id: number;
@@ -61,6 +62,7 @@ const AccountsPayable: React.FC = () => {
   const [purchaseInvoices, setPurchaseInvoices] = useState<{id:number;invoiceNumber?:string;vendor?:{name?:string}}[]>([]);
   const [vendors, setVendors] = useState<{id:number;name?:string}[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const payableStatuses = useInvoiceEnum("ACCOUNTS_PAYABLE_STATUS", ["OPEN", "PARTIALLY_PAID", "PAID", "OVERDUE", "OTHER"]);
 
   useEffect(() => {
     fetchAccountPayables();
@@ -386,10 +388,7 @@ const AccountsPayable: React.FC = () => {
               value={activeFilter}
               options={[
                 { label: "All Records", value: "ALL" },
-                { label: "Open", value: "OPEN" },
-                { label: "Partially Paid", value: "PARTIALLY_PAID" },
-                { label: "Paid", value: "PAID" },
-                { label: "Overdue", value: "OVERDUE" },
+                ...toFilterOptions(payableStatuses),
               ]}
               onChange={setActiveFilter}
               onReset={() => setActiveFilter("ALL")}
@@ -478,7 +477,7 @@ const AccountsPayable: React.FC = () => {
                   name="accountsPayableStatus"
                   value={form.accountsPayableStatus || ""}
                   onChange={(e) => setForm({ ...form, accountsPayableStatus: e.target.value })}
-                  options={["OPEN", "PARTIALLY_PAID", "PAID", "OVERDUE", "OTHER"].map((s) => ({ id: s, name: s }))}
+                  options={toSelectOptions(payableStatuses)}
                 />,
               ],
             },

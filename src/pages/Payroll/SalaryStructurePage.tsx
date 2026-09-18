@@ -7,8 +7,6 @@ import {
     EllipsisVerticalIcon,
     PencilSquareIcon,
     TrashIcon,
-    MagnifyingGlassIcon,
-    FunnelIcon,
     ArrowUpIcon,
     ArrowDownIcon,
     BuildingOfficeIcon,
@@ -59,12 +57,9 @@ const PAGE_SIZE = 10;
 const SalaryStructurePage: React.FC = () => {
     const [data, setData] = useState<SalaryStructure[]>([]);
     const [loading, setLoading] = useState(false);
-    const [search, setSearch] = useState('');
     const [showForm, setShowForm] = useState(false);
-    const [showFilters, setShowFilters] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState<string>("");
     const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
 
     const [form, setForm] = useState({
@@ -96,10 +91,13 @@ const SalaryStructurePage: React.FC = () => {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        setForm(prev => ({ 
-            ...prev, 
-            [name]: name === 'employeeId' || name === 'effectiveFrom' ? value : Number(value) 
-        }));
+        if (name === 'employeeId' || name === 'effectiveFrom') {
+            setForm(prev => ({ ...prev, [name]: value }));
+        } else {
+            const raw = String(value).replace(/^0+(?=\d)/, "");
+            const num = raw === "" ? 0 : Number(raw);
+            setForm(prev => ({ ...prev, [name]: isNaN(num) ? 0 : num }));
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -250,11 +248,7 @@ const SalaryStructurePage: React.FC = () => {
         setShowExportMenu(false);
     };
 
-    const filtered = data.filter(d => {
-        const matchSearch = d.employeeId.toLowerCase().includes(search.toLowerCase());
-        const matchEmployee = selectedEmployeeFilter ? d.employeeId === selectedEmployeeFilter : true;
-        return matchSearch && matchEmployee;
-    });
+    const filtered = data;
 
     const columns: ColumnDef<SalaryStructure>[] = [
         {
@@ -374,8 +368,7 @@ const SalaryStructurePage: React.FC = () => {
     const avgBasic = data.length > 0 ? data.reduce((sum, s) => sum + s.basic, 0) / data.length : 0;
     const avgNet = data.length > 0 ? data.reduce((sum, s) => sum + s.netSalary, 0) / data.length : 0;
 
-    // Get unique employee IDs for filter
-    const uniqueEmployees = [...new Set(data.map(s => s.employeeId))];
+
 
     return (
         <>
@@ -395,91 +388,37 @@ const SalaryStructurePage: React.FC = () => {
                 </div>
 
                 {/* Toolbar */}
-                <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="flex-1 max-w-md">
-                        <div className="relative">
-                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search by Employee ID..."
-                                value={search}
-                                onChange={e => setSearch(e.target.value)}
-                                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                        {/* Export Menu */}
-                        <div className="relative">
-                            <button
-                                onClick={() => setShowExportMenu(!showExportMenu)}
-                                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                                disabled={data.length === 0}
-                            >
-                                <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
-                            </button>
-
-                            {showExportMenu && (
-                                <div className="absolute right-0 mt-1 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50">
-                                    <button
-                                        onClick={exportAllPDF}
-                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
-                                    >
-                                        <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
-                                        All Records (PDF)
-                                    </button>
-                                    <button
-                                        onClick={exportExcel}
-                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
-                                    >
-                                        <TableCellsIcon className="h-4 w-4 text-green-600" />
-                                        Export to Excel
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Filter Button */}
+                <div className="mb-6 flex justify-end items-center">
+                    {/* Export Menu */}
+                    <div className="relative">
                         <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className={`p-2 rounded-lg border ${showFilters ? 'bg-cyan-50 border-cyan-300' : 'border-gray-300 hover:bg-gray-50'
-                                }`}
+                            onClick={() => setShowExportMenu(!showExportMenu)}
+                            className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                            disabled={data.length === 0}
                         >
-                            <FunnelIcon className={`h-5 w-5 ${showFilters ? 'text-cyan-600' : 'text-gray-600'}`} />
+                            <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
                         </button>
 
+                        {showExportMenu && (
+                            <div className="absolute right-0 mt-1 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50">
+                                <button
+                                    onClick={exportAllPDF}
+                                    className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
+                                >
+                                    <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
+                                    All Records (PDF)
+                                </button>
+                                <button
+                                    onClick={exportExcel}
+                                    className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
+                                >
+                                    <TableCellsIcon className="h-4 w-4 text-green-600" />
+                                    Export to Excel
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
-
-                {/* Filters Panel */}
-                {showFilters && (
-                    <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex flex-wrap gap-4">
-                            <div className="flex-1 min-w-[200px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
-                                <select
-                                    value={selectedEmployeeFilter}
-                                    onChange={e => setSelectedEmployeeFilter(e.target.value)}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                                >
-                                    <option value="">All Employees</option>
-                                    {uniqueEmployees.map(empId => (
-                                        <option key={empId} value={empId}>{empId}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            {selectedEmployeeFilter && (
-                                <button
-                                    onClick={() => setSelectedEmployeeFilter("")}
-                                    className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
-                                >
-                                    Clear Filter
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                )}
 
                 {/* Table */}
                 <ReusableTable
@@ -529,8 +468,9 @@ const SalaryStructurePage: React.FC = () => {
                                                         <input
                                                             type="number"
                                                             name="basic"
-                                                            value={form.basic}
+                                                            value={form.basic === 0 ? "" : form.basic}
                                                             onChange={handleChange}
+                                                            placeholder="0"
                                                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                                                             required
                                                         />
@@ -540,8 +480,9 @@ const SalaryStructurePage: React.FC = () => {
                                                         <input
                                                             type="number"
                                                             name="hra"
-                                                            value={form.hra}
+                                                            value={form.hra === 0 ? "" : form.hra}
                                                             onChange={handleChange}
+                                                            placeholder="0"
                                                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                                                         />
                                                     </div>
@@ -552,8 +493,9 @@ const SalaryStructurePage: React.FC = () => {
                                                         <input
                                                             type="number"
                                                             name="allowances"
-                                                            value={form.allowances}
+                                                            value={form.allowances === 0 ? "" : form.allowances}
                                                             onChange={handleChange}
+                                                            placeholder="0"
                                                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                                                         />
                                                     </div>
@@ -562,8 +504,9 @@ const SalaryStructurePage: React.FC = () => {
                                                         <input
                                                             type="number"
                                                             name="deductions"
-                                                            value={form.deductions}
+                                                            value={form.deductions === 0 ? "" : form.deductions}
                                                             onChange={handleChange}
+                                                            placeholder="0"
                                                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                                                         />
                                                     </div>

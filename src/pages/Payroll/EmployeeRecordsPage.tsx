@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import jsPDF from "jspdf";
@@ -8,7 +8,6 @@ import {
     EllipsisVerticalIcon,
     PencilSquareIcon,
     TrashIcon,
-    MagnifyingGlassIcon,
     FunnelIcon,
     ArrowUpIcon,
     ArrowDownIcon,
@@ -31,7 +30,6 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import FilterPopover from "../../components/common/filter";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
@@ -53,6 +51,21 @@ const EmployeeRecordsPage: React.FC = () => {
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [loading, setLoading] = useState(false);
     const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
+    const exportMenuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+                setShowExportMenu(false);
+            }
+        };
+        if (showExportMenu) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [showExportMenu]);
 
     const fetchEmployees = async () => {
         setLoading(true);
@@ -68,7 +81,7 @@ const EmployeeRecordsPage: React.FC = () => {
         }
     };
 
-    
+
     const fetchDepartments = async () => {
         try {
             const res = await axios.get(`${DEPARTMENT_API_URL}/listAll`);
@@ -79,64 +92,64 @@ const EmployeeRecordsPage: React.FC = () => {
         }
     };
 
-  const exportEmployees = async () => {
-    setLoading(true);
-    try {
-        const response = await axios.get(`${EMPLOYEE_API_URL}/export`, {
-            responseType: 'blob' // Important: tells axios to treat response as blob
-        });
-        
-        // Create a blob from the response data
-        const contentType = response.headers['content-type'];
-        const blob = new Blob([response.data], { 
-            type: typeof contentType === "string" ? contentType : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        });
-        
-        // Create download link
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        
-        // Extract filename from Content-Disposition header if available
-        const contentDisposition = response.headers['content-disposition'];
-        let filename = `Employee_Records_${new Date().toISOString().split('T')[0]}.xlsx`;
-        
-        if (typeof contentDisposition === "string") {
-            const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-            if (filenameMatch && filenameMatch[1]) {
-                filename = filenameMatch[1].replace(/['"]/g, '');
+    const exportEmployees = async () => {
+        setLoading(true);
+        try {
+            const response = await axios.get(`${EMPLOYEE_API_URL}/export`, {
+                responseType: 'blob' // Important: tells axios to treat response as blob
+            });
+
+            // Create a blob from the response data
+            const contentType = response.headers['content-type'];
+            const blob = new Blob([response.data], {
+                type: typeof contentType === "string" ? contentType : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+
+            // Extract filename from Content-Disposition header if available
+            const contentDisposition = response.headers['content-disposition'];
+            let filename = `Employee_Records_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+            if (typeof contentDisposition === "string") {
+                const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                if (filenameMatch && filenameMatch[1]) {
+                    filename = filenameMatch[1].replace(/['"]/g, '');
+                }
             }
-        }
-        
-        link.setAttribute('download', filename);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        
-        // Clean up the blob URL
-        window.URL.revokeObjectURL(url);
-        
-        ToasterService.success('Employee records exported successfully');
-        setShowExportMenu(false);
-    } catch (err: any) {
-        console.error("Error exporting employees:", err);
-        
-        // Try to parse error response if it's a blob
-        if (err.response && err.response.data instanceof Blob) {
-            const errorText = await err.response.data.text();
-            try {
-                const errorJson = JSON.parse(errorText);
-                ToasterService.error(errorJson.message || "Export failed");
-            } catch {
-                ToasterService.error("Export failed. Please try again.");
+
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            // Clean up the blob URL
+            window.URL.revokeObjectURL(url);
+
+            ToasterService.success('Employee records exported successfully');
+            setShowExportMenu(false);
+        } catch (err: any) {
+            console.error("Error exporting employees:", err);
+
+            // Try to parse error response if it's a blob
+            if (err.response && err.response.data instanceof Blob) {
+                const errorText = await err.response.data.text();
+                try {
+                    const errorJson = JSON.parse(errorText);
+                    ToasterService.error(errorJson.message || "Export failed");
+                } catch {
+                    ToasterService.error("Export failed. Please try again.");
+                }
+            } else {
+                ToasterService.error(err.response?.data?.message || "Failed to export employees");
             }
-        } else {
-            ToasterService.error(err.response?.data?.message || "Failed to export employees");
+        } finally {
+            setLoading(false);
         }
-    } finally {
-        setLoading(false);
-    }
-};
+    };
 
     useEffect(() => {
         fetchEmployees();
@@ -201,7 +214,7 @@ const EmployeeRecordsPage: React.FC = () => {
     };
 
     const safeEmployees = Array.isArray(employees) ? employees : [];
-    
+
     const filtered = safeEmployees.filter(e => {
         const fullName = `${e.firstName ?? ""} ${e.lastName ?? ""}`.toLowerCase();
         const employeeCode = String(e.employeeCode ?? "").toLowerCase();
@@ -342,9 +355,9 @@ const EmployeeRecordsPage: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                    <StatsCard label="Total Employees" value={employees.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<UserGroupIcon className="h-6 w-6" />} />
+                    <StatsCard label="Total Employees" value={safeEmployees.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<UserGroupIcon className="h-6 w-6" />} />
                     <StatsCard label="Active Employees" value={activeEmployees} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
-                    <StatsCard label="Departments" value={departments.length} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BuildingOfficeIcon className="h-6 w-6" />} />
+                    <StatsCard label="Departments" value={(Array.isArray(departments) ? departments : []).length} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BuildingOfficeIcon className="h-6 w-6" />} />
                     <StatsCard
                         label="Onboarded (30d)"
                         value={safeEmployees.filter(e => {
@@ -361,70 +374,49 @@ const EmployeeRecordsPage: React.FC = () => {
                 </div>
 
                 {/* Toolbar */}
-                <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="flex-1 max-w-md">
-                        <div className="relative">
-                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search employees by name, code, or email..."
-                                value={search}
-                                onChange={e => { setSearch(e.target.value); }}
-                                className="h-10 pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                            />
-                        </div>
-                    </div>
+                <div className="mb-6 flex justify-end items-center">
+                    {/* Export Menu */}
+                    <div ref={exportMenuRef} className="relative inline-flex items-center">
+                        <button
+                            type="button"
+                            onClick={() => setShowExportMenu(!showExportMenu)}
+                            className="h-10 w-10 border border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 rounded-lg transition-colors inline-flex items-center justify-center focus:outline-none shrink-0"
+                            title="Export"
+                        >
+                            <DocumentArrowDownIcon className="h-4 w-4 text-cyan-700" />
+                        </button>
 
-                    <div className="flex items-center gap-3">
-                        {/* Export Menu */}
-                        <div className="relative flex h-10 items-center">
-                            <button
-                                onClick={() => setShowExportMenu(!showExportMenu)}
-                                className="h-10 w-10 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
-                            >
-                                <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
-                            </button>
-
-                            {showExportMenu && (
-                                <div className="absolute right-0 mt-1 w-40 bg-white shadow-lg rounded-md border border-gray-200 z-50">
-                                    <button
-                                        onClick={exportPDF}
-                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
-                                    >
-                                        <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
-                                        PDF
-                                    </button>
-                                       <button
-            onClick={exportEmployees}
-            disabled={loading}
-            className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-            {loading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
-            ) : (
-                <TableCellsIcon className="h-4 w-4 text-green-600" />
-            )}
-            {loading ? 'Exporting...' : 'Export Excel'}
-        </button>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Filter Button */}
-                        <FilterPopover
-                            title="Filter Employees"
-                            buttonLabel="Filter"
-                            label="Department"
-                            value={selectedDept}
-                            onChange={(val) => setSelectedDept(val)}
-                            options={[
-                                { label: "All Departments", value: "" },
-                                ...departments.map(d => ({ label: d.name, value: d.name }))
-                            ]}
-                            onReset={() => setSelectedDept("")}
-                            showFooter={true}
-                        />
-
+                        {showExportMenu && (
+                            <div className="absolute right-0 top-12 w-40 bg-white shadow-lg rounded-md border border-gray-200 z-50 py-1">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowExportMenu(false);
+                                        exportPDF();
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
+                                >
+                                    <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
+                                    PDF
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowExportMenu(false);
+                                        exportEmployees();
+                                    }}
+                                    disabled={loading}
+                                    className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {loading ? (
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                                    ) : (
+                                        <TableCellsIcon className="h-4 w-4 text-green-600" />
+                                    )}
+                                    {loading ? 'Exporting...' : 'Export Excel'}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 

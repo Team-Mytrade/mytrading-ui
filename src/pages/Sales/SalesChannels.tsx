@@ -1,21 +1,18 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import axios from "axios";
 import {
+  ArrowPathIcon,
   BuildingStorefrontIcon,
   CheckCircleIcon,
-  MagnifyingGlassIcon,
   PencilSquareIcon,
   RadioIcon,
   TrashIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import { ListingPdfExportButton } from "../../components/common/export";
-import FilterPopover from "../../components/common/filter";
+import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import {
@@ -25,12 +22,15 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
+// tenantId still arrives on the raw API record (multi-tenant backend), but
+// the frontend no longer reads, displays, edits, or submits it — see the
+// note above the payload builder for why.
 type SalesChannel = {
   id: number;
   createdDate?: string;
   updatedDate?: string;
   createdBy?: string;
-  tenantId: string;
+  tenantId?: string;
   name: string;
   channelType: SalesChannelType | string;
   contactInfo: string;
@@ -47,8 +47,7 @@ type SalesChannelType =
   | "TELESALES";
 
 type ChannelForm = {
-  tenantId: string;
-  name: string;
+  channelName: string;
   channelType: SalesChannelType;
   contactInfo: string;
 };
@@ -66,18 +65,8 @@ const channelTypeOptions: SalesChannelType[] = [
   "TELESALES",
 ];
 
-function getStoredTenantId() {
-  try {
-    const user = JSON.parse(localStorage.getItem("user") || "null");
-    return user?.tenantId || "";
-  } catch {
-    return "";
-  }
-}
-
 const emptyForm: ChannelForm = {
-  tenantId: getStoredTenantId(),
-  name: "",
+  channelName: "",
   channelType: "DIRECT",
   contactInfo: "",
 };
@@ -89,11 +78,6 @@ function getErrorMessage(error: unknown, fallback: string) {
     return data?.message || data?.detail || data?.error || data?.title || fallback;
   }
   return fallback;
-}
-
-function searchableText(value: unknown) {
-  if (value === null || value === undefined) return "";
-  return String(value).toLowerCase().trim();
 }
 
 function friendlyChannelType(type: string) {
@@ -123,9 +107,6 @@ const SalesChannels: React.FC = () => {
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
-  const [lookupId, setLookupId] = useState("");
   const [deleteChannel, setDeleteChannel] = useState<SalesChannel | null>(null);
 
   useEffect(() => {
@@ -148,24 +129,6 @@ const SalesChannels: React.FC = () => {
     }
   };
 
-  const fetchById = async () => {
-    if (!lookupId) {
-      ToasterService.error("Channel ID is required");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const res = await axios.get<SalesChannel>(`${API_URL}/${lookupId}`, { headers });
-      setChannels([res.data]);
-      ToasterService.success("Sales channel loaded");
-    } catch (error) {
-      ToasterService.error("Failed to load sales channel", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
@@ -173,10 +136,14 @@ const SalesChannels: React.FC = () => {
     setForm((current) => ({ ...current, [name]: value }));
   };
 
+  // Tenant is deliberately NOT sent from here. A client-editable
+  // localStorage value has no business being the thing that decides which
+  // tenant's data a write lands in — that has to be derived/verified by the
+  // backend from the authenticated session (JWT), not trusted from the
+  // request body. See the message to backend below.
   const buildPayload = () => ({
     id: editingId || 0,
-    tenantId: form.tenantId.trim(),
-    name: form.name.trim(),
+    name: form.channelName.trim(),
     channelType: form.channelType,
     contactInfo: form.contactInfo.trim(),
   });
@@ -184,7 +151,7 @@ const SalesChannels: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!form.name.trim() || !form.channelType) {
+    if (!form.channelName.trim() || !form.channelType) {
       ToasterService.error("Required fields missing", "Name and channel type are required.");
       return;
     }
@@ -212,15 +179,14 @@ const SalesChannels: React.FC = () => {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ ...emptyForm, tenantId: getStoredTenantId() });
+    setForm(emptyForm);
     setShowFormModal(true);
   };
 
   const openEdit = (channel: SalesChannel) => {
     setEditingId(channel.id);
     setForm({
-      tenantId: channel.tenantId || getStoredTenantId(),
-      name: channel.name || "",
+      channelName: channel.name || "",
       channelType: channelTypeOptions.includes(channel.channelType as SalesChannelType)
         ? (channel.channelType as SalesChannelType)
         : "DIRECT",
@@ -252,35 +218,15 @@ const SalesChannels: React.FC = () => {
     }
   };
 
-  const filteredChannels = useMemo(() => {
-    const term = searchableText(search);
-
-    return channels.filter((channel) => {
-      const haystack = [
-        channel.id,
-        channel.name,
-        channel.channelType,
-        friendlyChannelType(channel.channelType),
-        channel.contactInfo,
-        channel.tenantId,
-      ]
-        .map(searchableText)
-        .filter(Boolean)
-        .join(" ");
-
-      const matchesSearch = !term || haystack.includes(term);
-      const matchesType = !typeFilter || String(channel.channelType) === typeFilter;
-
-      return matchesSearch && matchesType;
-    });
-  }, [channels, search, typeFilter]);
-
-  const stats = useMemo(() => ({
-    total: channels.length,
-    direct: channels.filter((item) => item.channelType === "DIRECT").length,
-    online: channels.filter((item) => item.channelType === "ONLINE").length,
-    activeTypes: new Set(channels.map((item) => item.channelType).filter(Boolean)).size,
-  }), [channels]);
+  const stats = useMemo(
+    () => ({
+      total: channels.length,
+      direct: channels.filter((item) => item.channelType === "DIRECT").length,
+      online: channels.filter((item) => item.channelType === "ONLINE").length,
+      activeTypes: new Set(channels.map((item) => item.channelType).filter(Boolean)).size,
+    }),
+    [channels]
+  );
 
   const columns: ColumnDef<SalesChannel>[] = [
     {
@@ -304,13 +250,16 @@ const SalesChannels: React.FC = () => {
       label: "Type",
       sortable: true,
       render: (channel) => (
-        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClass(channel.channelType)}`}>
+        <span
+          className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClass(
+            channel.channelType
+          )}`}
+        >
           {channel.channelType || "N/A"}
         </span>
       ),
     },
-    { key: "contactInfo", label: "Contact Info", sortable: true,},
-    { key: "tenantId", label: "Tenant", sortable: true,},
+    { key: "contactInfo", label: "Contact Info", sortable: true },
     {
       key: "actions",
       label: "Actions",
@@ -318,11 +267,11 @@ const SalesChannels: React.FC = () => {
       headerClassName: "text-right",
       className: "text-right",
       render: (channel) => (
-        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={() => openEdit(channel)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-2 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
@@ -330,7 +279,7 @@ const SalesChannels: React.FC = () => {
           <button
             type="button"
             onClick={() => setDeleteChannel(channel)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            className="rounded-lg p-2 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
@@ -343,14 +292,13 @@ const SalesChannels: React.FC = () => {
   return (
     <>
       <PageMeta title="Sales Channels" description="Manage sales channels" />
-      <PageBreadcrumb pageTitle="Sales Channels" />
+      <PageBreadcrumb
+        pageTitle="Sales Channels"
+        actions={<AddButton onClick={openCreate} label="Add Sales Channel" />}
+      />
 
       <div className="w-full max-w-none px-0 py-8">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Sales Channel" />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Channels" value={stats.total} icon={<BuildingStorefrontIcon />} />
           <StatsCard
             label="Direct"
@@ -378,130 +326,65 @@ const SalesChannels: React.FC = () => {
           />
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between -mb-5">
-          <div className="relative w-full sm:max-w-md mt-1">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search sales channels..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <ListingPdfExportButton
-              title="Sales Channels"
-              subtitle="Filtered sales channel listing"
-              reportLabel="Sales Report"
-              data={filteredChannels}
-              fileName="Sales_Channels"
-              disabled={loading}
-              metadata={(rows, rangeLabel) => [
-                { label: "Total", value: rows.length },
-                { label: "Range", value: rangeLabel },
-                { label: "Type", value: typeFilter || "All" },
-                { label: "Search", value: search || "None" },
-              ]}
-            />
-            <FilterPopover
-              title="Filter Sales Channels"
-              buttonLabel="Filters"
-              widthClassName="w-[18rem] sm:w-[20rem]"
-              showFooter={false}
-            >
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">Type</label>
-                <select
-                  value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                >
-                  <option value="">All types</option>
-                  {channelTypeOptions.map((item) => (
-                    <option key={item} value={item}>
-                      {friendlyChannelType(item)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center justify-between gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setTypeFilter("")}
-                  className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                >
-                  Reset
-                </button>
-                <div className="rounded-lg border border-dashed border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-medium text-cyan-700">
-                  Filters apply live
-                </div>
-              </div>
-            </div>
-            </FilterPopover>
-          </div>
-        </div>
-
         <ReusableTable
-          data={filteredChannels}
+          data={channels}
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}
           defaultSortKey="name"
           defaultSortOrder="asc"
+          rowDetailsTitle={(channel) => channel.name || `Channel #${channel.id}`}
+          rowDetailsSubtitle="Sales channel details"
+          hiddenDetailKeys={["id", "tenantId"]}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <BuildingStorefrontIcon className="mb-3 h-12 w-12 text-gray-400" />
               <p className="mb-2 text-sm text-gray-500">No sales channels found</p>
-              <button type="button" onClick={openCreate} className="text-xs font-medium text-cyan-600 hover:text-cyan-700">
-                Create your first sales channel
+              <button
+                type="button"
+                onClick={() => fetchChannels()}
+                className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700"
+              >
+                <ArrowPathIcon className="h-3.5 w-3.5" />
+                Reload all channels
               </button>
             </div>
           }
         />
       </div>
 
-      {showFormModal &&
-        createPortal(
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-4 backdrop-blur-sm sm:items-center">
-            <div className="mx-auto max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl">
-              <div className="flex items-center justify-between border-b border-gray-100 p-5">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {editingId ? "Edit Sales Channel" : "Create Sales Channel"}
-                  </h3>
-                  <p className="mt-0.5 text-xs text-gray-500">Enter sales channel details from the API schema</p>
-                </div>
-                <button type="button" onClick={closeForm} className="text-gray-400 hover:text-gray-600">
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="p-5">
-                <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
-                  <FloatingInput label="Name" name="name" value={form.name} onChange={handleChange} required />
-                  <FloatingSelect
-                    label="Channel Type"
-                    name="channelType"
-                    value={form.channelType}
-                    onChange={handleChange}
-                    includeEmptyOption={false}
-                    options={channelTypeOptions.map((item) => ({ id: item, name: item }))}
-                    required
-                  />
-                </div>
+      <PaginatedPopup
+        isOpen={showFormModal}
+        title={editingId ? "Edit Sales Channel" : "Create Sales Channel"}
+        subtitle="Enter sales channel details from the API schema"
+        onClose={closeForm}
+        onSubmit={handleSubmit}
+        submitting={submitting}
+        submitLabel={editingId ? "Update Sales Channel" : "Create Sales Channel"}
+        maxWidthClassName="max-w-2xl"
+        tabs={[
+          {
+            label: "Channel Info",
+            fields: [
+              <FloatingInput
+                key="channelName"
+                label="Channel Name"
+                name="channelName"
+                value={form.channelName}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingSelect
+                key="channelType"
+                label="Channel Type"
+                name="channelType"
+                value={form.channelType}
+                onChange={handleChange}
+                includeEmptyOption={false}
+                options={channelTypeOptions.map((item) => ({ id: item, name: friendlyChannelType(item) }))}
+                required
+              />,
+              <div key="contactInfo" className="md:col-span-2">
                 <FloatingTextarea
                   label="Contact Info"
                   name="contactInfo"
@@ -509,28 +392,11 @@ const SalesChannels: React.FC = () => {
                   onChange={handleChange}
                   rows={3}
                 />
-
-                <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={closeForm}
-                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    {submitting ? "Saving..." : editingId ? "Update Sales Channel" : "Create Sales Channel"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>,
-          document.body
-        )}
+              </div>,
+            ],
+          },
+        ]}
+      />
 
       <DynamicPopup
         isPopupOpen={!!deleteChannel}
@@ -540,7 +406,11 @@ const SalesChannels: React.FC = () => {
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
         innerText="Delete Sales Channel"
-        subText={deleteChannel ? `Are you sure you want to delete channel #${deleteChannel.id}?` : "Are you sure?"}
+        subText={
+          deleteChannel
+            ? `Are you sure you want to delete channel #${deleteChannel.id}?`
+            : "Are you sure?"
+        }
         confirmLabel="Delete"
         cancelLabel="Cancel"
         onConfirm={confirmDelete}

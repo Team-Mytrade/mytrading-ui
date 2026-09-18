@@ -3,21 +3,17 @@ import axios from "axios";
 import {
   ArrowPathIcon,
   BanknotesIcon,
-  CalendarDaysIcon,
   CheckCircleIcon,
-  MagnifyingGlassIcon,
   PencilSquareIcon,
   PresentationChartLineIcon,
   TrashIcon,
+  TrophyIcon,
   UserIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import { ListingPdfExportButton } from "../../components/common/export";
-import FilterPopover from "../../components/common/filter";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import PaginatedPopup from "../../components/common/unpopup";
@@ -49,7 +45,7 @@ type Period = {
 type SalesTarget = {
   id: number;
   salesPersonId: number;
-  salesPersonName: string;
+  salesPersonName?: string;
   salesPersonCode: string;
   targetType: TargetType | string;
   targetAmount: number;
@@ -86,6 +82,7 @@ type TargetForm = {
 };
 
 const API_URL = "/v1/api/sales/sales-targets";
+const SALES_PERSONS_API_URL = "/v1/api/sales/sales-persons";
 const PAGE_SIZE = 10;
 
 const statusOptions: TargetStatus[] = [
@@ -131,26 +128,6 @@ const emptyForm: TargetForm = {
   status: "NOT_STARTED",
 };
 
-function getMonthRange() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
-  return { start, end };
-}
-
-function isLeapYear(year: number) {
-  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-}
-
-function buildPeriod(year: number, month: number): Period {
-  return {
-    year,
-    month: monthNames[Math.max(0, Math.min(11, month - 1))],
-    monthValue: month,
-    leapYear: isLeapYear(year),
-  };
-}
-
 function formatPeriod(year: number, month: number) {
   return `${year}-${String(month).padStart(2, "0")}`;
 }
@@ -165,6 +142,17 @@ function getPeriodMonth(period?: Period | string) {
   if (!period) return undefined;
   if (typeof period === "string") return Number(period.split("-")[1]);
   return period.monthValue;
+}
+
+function normalizeTarget(target: SalesTarget): SalesTarget {
+  const targetYear = target.targetYear || getPeriodYear(target.period) || 0;
+  const targetMonth = target.targetMonth || getPeriodMonth(target.period) || 0;
+  const { period, ...rest } = target;
+  return { ...rest, targetYear, targetMonth };
+}
+
+function normalizeTargets(list: SalesTarget[]): SalesTarget[] {
+  return list.map(normalizeTarget);
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -191,11 +179,6 @@ function toFriendlyStatus(status: string) {
     .join(" ");
 }
 
-function searchableText(value: unknown) {
-  if (value === null || value === undefined) return "";
-  return String(value).toLowerCase().trim();
-}
-
 function toDateValue(value?: string) {
   if (!value) return null;
   const [year, month, day] = value.split("-").map(Number);
@@ -211,6 +194,23 @@ function toInputDateValue(date: Date | null) {
   return `${year}-${month}-${day}`;
 }
 
+// Derives a sensible status from achieved vs target when the user hasn't
+// manually picked one. Respects manual overrides (see resolveStatus).
+function deriveStatusFromAmounts(
+  targetAmount: number,
+  achievedAmount: number,
+  currentStatus: TargetStatus
+): TargetStatus {
+  // Don't override a manual COMPLETED/MISSED selection
+  if (currentStatus === "COMPLETED" || currentStatus === "MISSED") return currentStatus;
+
+  if (targetAmount <= 0) return "NOT_STARTED";
+  if (achievedAmount <= 0) return "NOT_STARTED";
+  if (achievedAmount > targetAmount) return "EXCEEDED";
+  if (achievedAmount === targetAmount) return "COMPLETED";
+  return "ON_TRACK";
+}
+
 const SalesTargets: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
@@ -223,26 +223,21 @@ const SalesTargets: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
   const [achievedUpdatingId, setAchievedUpdatingId] = useState<number | null>(null);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<TargetStatus | "">("");
-  const [salesPersonFilter, setSalesPersonFilter] = useState("");
-  const [lookupId, setLookupId] = useState("");
-  const [rangeStart, setRangeStart] = useState("");
-  const [rangeEnd, setRangeEnd] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<SalesTarget | null>(null);
   const [salesPersons, setSalesPersons] = useState<SalesPersonOption[]>([]);
+  const [salesPersonsError, setSalesPersonsError] = useState(false);
 
   useEffect(() => {
     fetchAllTargets(true);
     fetchSalesPersons();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const upsertTarget = (target: SalesTarget) => {
+    const normalized = normalizeTarget(target);
     setTargets((current) => {
-      const exists = current.some((item) => item.id === target.id);
-      if (exists) return current.map((item) => (item.id === target.id ? target : item));
-      return [target, ...current];
+      const exists = current.some((item) => item.id === normalized.id);
+      if (exists) return current.map((item) => (item.id === normalized.id ? normalized : item));
+      return [normalized, ...current];
     });
   };
 
@@ -250,35 +245,12 @@ const SalesTargets: React.FC = () => {
     try {
       setLoading(true);
       const res = await axios.get<SalesTarget[]>(`${API_URL}/getAll`, { headers });
-      const data = Array.isArray(res.data) ? res.data : [];
+      const data = normalizeTargets(Array.isArray(res.data) ? res.data : []);
       setTargets(data);
       if (!silent) {
-        data.length ? ToasterService.success("Sales targets loaded") : ToasterService.noData("No sales targets found");
-      }
-    } catch (error) {
-      ToasterService.error("Failed to load sales targets", getErrorMessage(error, "Please try again."));
-      setTargets([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchByRange = async (start = rangeStart, end = rangeEnd, silent = false) => {
-    if (!start || !end) {
-      ToasterService.error("Start and end date are required");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const res = await axios.get<SalesTarget[]>(`${API_URL}/range`, {
-        headers,
-        params: { start, end },
-      });
-      const data = Array.isArray(res.data) ? res.data : [];
-      setTargets(data);
-      if (!silent) {
-        data.length ? ToasterService.success("Sales targets loaded") : ToasterService.noData("No sales targets found");
+        data.length
+          ? ToasterService.success("Sales targets loaded")
+          : ToasterService.noData("No sales targets found");
       }
     } catch (error) {
       ToasterService.error("Failed to load sales targets", getErrorMessage(error, "Please try again."));
@@ -290,66 +262,12 @@ const SalesTargets: React.FC = () => {
 
   const fetchSalesPersons = async () => {
     try {
-      const res = await axios.get<SalesPersonOption[]>("/v1/api/sales/sales-persons", { headers });
+      setSalesPersonsError(false);
+      const res = await axios.get<SalesPersonOption[]>(SALES_PERSONS_API_URL, { headers });
       setSalesPersons(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
+      setSalesPersonsError(true);
       ToasterService.error("Failed to load sales persons", getErrorMessage(error, "Please try again."));
-    }
-  };
-
-  const fetchById = async () => {
-    if (!lookupId) {
-      ToasterService.error("Target ID is required");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const res = await axios.get<SalesTarget>(`${API_URL}/${lookupId}`, { headers });
-      setTargets([res.data]);
-      ToasterService.success("Sales target loaded");
-    } catch (error) {
-      ToasterService.error("Failed to load target", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchByStatus = async () => {
-    if (!statusFilter) {
-      ToasterService.error("Status is required");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const res = await axios.get<SalesTarget[]>(`${API_URL}/status/${statusFilter}`, { headers });
-      const data = Array.isArray(res.data) ? res.data : [];
-      setTargets(data);
-      data.length ? ToasterService.success("Sales targets loaded") : ToasterService.noData("No sales targets found");
-    } catch (error) {
-      ToasterService.error("Failed to load targets by status", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchBySalesPerson = async () => {
-    if (!salesPersonFilter) {
-      ToasterService.error("Sales person ID is required");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const res = await axios.get<SalesTarget[]>(`${API_URL}/salesperson/${salesPersonFilter}`, { headers });
-      const data = Array.isArray(res.data) ? res.data : [];
-      setTargets(data);
-      data.length ? ToasterService.success("Sales targets loaded") : ToasterService.noData("No sales targets found");
-    } catch (error) {
-      ToasterService.error("Failed to load salesperson targets", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -357,13 +275,21 @@ const SalesTargets: React.FC = () => {
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
+
+    // Hard block negative values for amount fields
+    if ((name === "targetAmount" || name === "achievedAmount") && Number(value) < 0) {
+      return;
+    }
+
     setForm((current) => {
       const next = { ...current, [name]: value };
+
       if (name === "salesPersonId") {
         const person = salesPersons.find((item) => String(item.id) === value);
         next.salesPersonName = person?.name || "";
         next.salesPersonCode = person?.code || "";
       }
+
       if (name === "targetYear" || name === "targetMonth") {
         const year = Number(name === "targetYear" ? value : next.targetYear);
         const month = Number(name === "targetMonth" ? value : next.targetMonth);
@@ -372,6 +298,19 @@ const SalesTargets: React.FC = () => {
           next.endDate = new Date(year, month, 0).toISOString().split("T")[0];
         }
       }
+
+      // Auto-derive status when amounts change (unless user has manually
+      // set a terminal status like COMPLETED/MISSED).
+      if (name === "targetAmount" || name === "achievedAmount") {
+        const targetAmount = Number(name === "targetAmount" ? value : next.targetAmount);
+        const achievedAmount = Number(name === "achievedAmount" ? value : next.achievedAmount);
+        next.status = deriveStatusFromAmounts(
+          Number.isFinite(targetAmount) ? targetAmount : 0,
+          Number.isFinite(achievedAmount) ? achievedAmount : 0,
+          next.status
+        );
+      }
+
       return next;
     });
   };
@@ -402,8 +341,54 @@ const SalesTargets: React.FC = () => {
     e.preventDefault();
 
     if (!form.salesPersonId || !form.targetAmount || !form.targetYear || !form.targetMonth) {
-      ToasterService.error("Required fields missing", "Sales person, target amount, year, and month are required.");
+      ToasterService.error(
+        "Required fields missing",
+        "Sales person, target amount, year, and month are required."
+      );
       return;
+    }
+
+    const targetAmountNum = Number(form.targetAmount);
+    const achievedAmountNum = Number(form.achievedAmount || 0);
+
+    if (!Number.isFinite(targetAmountNum) || targetAmountNum <= 0) {
+      ToasterService.error("Invalid target amount", "Target amount must be greater than zero.");
+      return;
+    }
+    if (targetAmountNum < 0) {
+      ToasterService.error("Invalid target amount", "Target amount cannot be negative.");
+      return;
+    }
+    if (!Number.isFinite(achievedAmountNum) || achievedAmountNum < 0) {
+      ToasterService.error("Invalid achieved amount", "Achieved amount cannot be negative.");
+      return;
+    }
+
+    // Date range validation
+    if (form.startDate && form.endDate && form.startDate > form.endDate) {
+      ToasterService.error("Invalid date range", "Start date cannot be after end date.");
+      return;
+    }
+
+    const year = Number(form.targetYear);
+    const month = Number(form.targetMonth);
+    if (year && month >= 1 && month <= 12) {
+      const monthStart = new Date(year, month - 1, 1).toISOString().split("T")[0];
+      const monthEnd = new Date(year, month, 0).toISOString().split("T")[0];
+      if (form.startDate && (form.startDate < monthStart || form.startDate > monthEnd)) {
+        ToasterService.error(
+          "Invalid date range",
+          "Start date must fall within the selected target month."
+        );
+        return;
+      }
+      if (form.endDate && (form.endDate < monthStart || form.endDate > monthEnd)) {
+        ToasterService.error(
+          "Invalid date range",
+          "End date must fall within the selected target month."
+        );
+        return;
+      }
     }
 
     try {
@@ -477,7 +462,10 @@ const SalesTargets: React.FC = () => {
     setEditingId(target.id);
     setForm({
       salesPersonId: String(target.salesPersonId || ""),
-      salesPersonName: target.salesPersonName || "",
+      salesPersonName:
+        target.salesPersonName ||
+        salesPersons.find((item) => Number(item.id) === Number(target.salesPersonId))?.name ||
+        "",
       salesPersonCode: target.salesPersonCode || "",
       targetType: targetTypeOptions.includes(target.targetType as TargetType)
         ? (target.targetType as TargetType)
@@ -535,7 +523,7 @@ const SalesTargets: React.FC = () => {
       } as any);
 
       const achievedTarget: SalesTarget = {
-        ...patchResponse.data,
+        ...normalizeTarget(patchResponse.data),
         achievedAmount: Number(patchResponse.data.achievedAmount || target.targetAmount || 0),
         status: "COMPLETED",
       };
@@ -569,59 +557,15 @@ const SalesTargets: React.FC = () => {
     return "border-blue-200 bg-blue-50 text-blue-700";
   };
 
-  const filteredTargets = useMemo(() => {
-    return targets.filter((target) => {
-      const person = salesPersons.find((item) => Number(item.id) === Number(target.salesPersonId));
-      const periodYear = target.targetYear || getPeriodYear(target.period) || "";
-      const periodMonth = target.targetMonth || getPeriodMonth(target.period) || "";
-      const periodLabel =
-        periodMonth && periodYear
-          ? `${monthNames[Number(periodMonth) - 1] || ""} ${periodYear}`.trim()
-          : "";
-      const targetStart = target.startDate || "";
-      const targetEnd = target.endDate || "";
-      const matchesStatus = !statusFilter || String(target.status) === statusFilter;
-      const matchesStart = !rangeStart || (targetStart && targetStart >= rangeStart);
-      const matchesEnd = !rangeEnd || (targetEnd && targetEnd <= rangeEnd);
-      const term = searchableText(search);
-
-      const haystack = [
-        target.salesPersonName,
-        target.salesPersonCode,
-        person?.name,
-        person?.code,
-        target.targetType,
-        target.status,
-        toFriendlyStatus(String(target.status)),
-        target.remarks,
-        target.id,
-        target.salesPersonId,
-        target.targetAmount,
-        target.achievedAmount,
-        target.targetYear,
-        target.targetMonth,
-        target.startDate,
-        target.endDate,
-        periodLabel,
-      ]
-        .map(searchableText)
-        .filter(Boolean)
-        .join(" ");
-
-      const matchesSearch = !term || haystack.includes(term);
-      return matchesStatus && matchesStart && matchesEnd && matchesSearch;
-    });
-  }, [rangeEnd, rangeStart, salesPersons, search, statusFilter, targets]);
-
-  const stats = useMemo(
-    () => ({
-      total: targets.length,
-      targetAmount: targets.reduce((sum, target) => sum + Number(target.targetAmount || 0), 0),
-      achievedAmount: targets.reduce((sum, target) => sum + Number(target.achievedAmount || 0), 0),
-      completed: targets.filter((target) => target.status === "COMPLETED" || target.status === "EXCEEDED").length,
-    }),
-    [targets]
-  );
+  const stats = useMemo(() => {
+    const targetAmount = targets.reduce((sum, target) => sum + Number(target.targetAmount || 0), 0);
+    const achievedAmount = targets.reduce((sum, target) => sum + Number(target.achievedAmount || 0), 0);
+    return {
+      targetAmount,
+      achievedAmount,
+      achievementPct: targetAmount > 0 ? Math.round((achievedAmount / targetAmount) * 100) : 0,
+    };
+  }, [targets]);
 
   const columns: ColumnDef<SalesTarget>[] = [
     {
@@ -674,7 +618,8 @@ const SalesTargets: React.FC = () => {
       sortable: true,
       render: (target) => (
         <span className="text-sm text-slate-700">
-          {monthNames[(target.targetMonth || getPeriodMonth(target.period) || 1) - 1]} {target.targetYear || getPeriodYear(target.period)}
+          {monthNames[(target.targetMonth || getPeriodMonth(target.period) || 1) - 1]}{" "}
+          {target.targetYear || getPeriodYear(target.period)}
         </span>
       ),
     },
@@ -688,9 +633,9 @@ const SalesTargets: React.FC = () => {
             value={String(target.status)}
             onChange={(e) => handleInlineStatusChange(target, e.target.value)}
             disabled={statusUpdatingId === target.id}
-            className={`w-[96px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${getStatusSelectClasses(String(target.status))} ${
-              statusUpdatingId === target.id ? "cursor-not-allowed opacity-70" : ""
-            }`}
+            className={`w-[96px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${getStatusSelectClasses(
+              String(target.status)
+            )} ${statusUpdatingId === target.id ? "cursor-not-allowed opacity-70" : ""}`}
           >
             {statusOptions.map((status) => (
               <option key={status} value={status}>
@@ -724,7 +669,7 @@ const SalesTargets: React.FC = () => {
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-70"
             title="Mark achieved"
           >
-            <PresentationChartLineIcon className="h-4 w-4" />
+            <TrophyIcon className="h-4 w-4" />
           </button>
           <button
             type="button"
@@ -755,140 +700,38 @@ const SalesTargets: React.FC = () => {
   return (
     <>
       <PageMeta title="Sales Targets" description="Manage sales targets" />
-      <PageBreadcrumb pageTitle="Sales Targets" />
+      <PageBreadcrumb
+        pageTitle="Sales Targets"
+        actions={<AddButton onClick={openCreate} label="Add Target" />}
+      />
 
       <div className="w-full max-w-none px-0 py-8">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Target" />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="Targets" value={stats.total} icon={<PresentationChartLineIcon />} />
+        <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-3">
           <StatsCard
-            label="Target Amount"
+            label="Total Target"
             value={toCurrency(stats.targetAmount)}
+            icon={<BanknotesIcon />}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
-            icon={<BanknotesIcon />}
           />
           <StatsCard
             label="Achieved"
             value={toCurrency(stats.achievedAmount)}
+            icon={<CheckCircleIcon />}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
             labelColor="text-purple-600"
-            icon={<CheckCircleIcon />}
           />
           <StatsCard
-            label="Completed"
-            value={stats.completed}
-            gradient="from-orange-50 to-yellow-50"
-            borderColor="border-orange-100"
-            labelColor="text-orange-600"
-            icon={<CalendarDaysIcon />}
+            label="Achievement %"
+            value={`${stats.achievementPct}%`}
+            icon={<PresentationChartLineIcon />}
           />
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between md:-mb-5">
-          <div className="relative w-full sm:max-w-md mt-1">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search targets..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <ListingPdfExportButton
-              title="Sales Targets"
-              subtitle="Filtered sales target listing"
-              reportLabel="Sales Report"
-              data={filteredTargets}
-              fileName="Sales_Targets"
-              disabled={loading}
-              metadata={(rows, rangeLabel) => [
-                { label: "Total", value: rows.length },
-                { label: "Range", value: rangeLabel },
-                { label: "Status", value: statusFilter || "All" },
-                { label: "Search", value: search || "None" },
-              ]}
-            />
-            <FilterPopover
-              title="Filter Sales Targets"
-              buttonLabel="Filters"
-              widthClassName="w-[21rem] sm:w-[23rem]"
-              showFooter={false}
-            >
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">Status</label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as TargetStatus | "")}
-                    className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                  >
-                    <option value="">Any status</option>
-                    {statusOptions.map((status) => (
-                      <option key={status} value={status}>
-                        {toFriendlyStatus(status)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div />
-              </div>
-
-              <FloatingDateRangePicker
-                label="Date Range"
-                startDate={toDateValue(rangeStart)}
-                endDate={toDateValue(rangeEnd)}
-                onChange={([start, end]) => {
-                  setRangeStart(toInputDateValue(start));
-                  setRangeEnd(toInputDateValue(end));
-                }}
-                placeholder=""
-              />
-
-              <div className="grid grid-cols-3 gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLookupId("");
-                    setSalesPersonFilter("");
-                    setStatusFilter("");
-                    setRangeStart("");
-                    setRangeEnd("");
-                    void fetchAllTargets(true);
-                  }}
-                  className="h-9 rounded-lg bg-gray-100 px-3 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                >
-                  Reset
-                </button>
-                <div className="col-span-2 flex items-center justify-center rounded-lg border border-dashed border-cyan-200 bg-cyan-50 px-3 text-xs font-medium text-cyan-700">
-                  Filters apply live
-                </div>
-              </div>
-            </div>
-            </FilterPopover>
-          </div>
         </div>
 
         <ReusableTable
-          data={filteredTargets}
+          data={targets}
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}
@@ -924,25 +767,31 @@ const SalesTargets: React.FC = () => {
           {
             label: "Target Info",
             fields: [
+              <div key="salesPerson" className="md:col-span-2">
+                <FloatingSelect
+                  label="Sales Person"
+                  name="salesPersonId"
+                  value={form.salesPersonId}
+                  onChange={handleChange}
+                  options={salesPersons.map((person) => ({
+                    id: String(person.id),
+                    name: person.name || `Person #${person.id}`,
+                  }))}
+                  required
+                />
+                {salesPersonsError && (
+                  <button
+                    type="button"
+                    onClick={fetchSalesPersons}
+                    className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                  >
+                    <ArrowPathIcon className="h-3 w-3" />
+                    Retry loading sales persons
+                  </button>
+                )}
+              </div>,
               <FloatingSelect
-                label="Sales Person"
-                name="salesPersonId"
-                value={form.salesPersonId}
-                onChange={handleChange}
-                options={salesPersons.map((person) => ({
-                  id: String(person.id),
-                  name: person.name || `Person #${person.id}`,
-                }))}
-                required
-              />,
-              <FloatingInput
-                label="Sales Person Name"
-                name="salesPersonName"
-                value={form.salesPersonName}
-                onChange={handleChange}
-                readOnly
-              />,
-              <FloatingSelect
+                key="targetType"
                 label="Target Type"
                 name="targetType"
                 value={form.targetType}
@@ -952,58 +801,67 @@ const SalesTargets: React.FC = () => {
                 required
               />,
               <FloatingInput
+                key="targetAmount"
                 label="Target Amount"
                 name="targetAmount"
                 type="number"
+                min={0}
                 value={form.targetAmount}
                 onChange={handleChange}
                 required
               />,
               <FloatingInput
+                key="achievedAmount"
                 label="Achieved Amount"
                 name="achievedAmount"
                 type="number"
+                min={0}
                 value={form.achievedAmount}
                 onChange={handleChange}
               />,
-              <FloatingInput
-                label="Target Year"
-                name="targetYear"
-                type="number"
-                value={form.targetYear}
-                onChange={handleChange}
-                required
-              />,
+              <div key="period" className="md:col-span-2 grid grid-cols-1 gap-4 sm:grid-cols-4">
+                <FloatingInput
+                  label="Target Year"
+                  name="targetYear"
+                  type="number"
+                  value={form.targetYear}
+                  onChange={handleChange}
+                  required
+                />
+                <FloatingInput
+                  label="Target Month"
+                  name="targetMonth"
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={form.targetMonth}
+                  onChange={handleChange}
+                  required
+                />
+                <div className="sm:col-span-2">
+                  <FloatingDateRangePicker
+                    label="Target Date Range"
+                    startDate={selectedStartDate}
+                    endDate={selectedEndDate}
+                    onChange={([start, end]) => {
+                      setForm((current) => ({
+                        ...current,
+                        startDate: toInputDateValue(start),
+                        endDate: toInputDateValue(end),
+                      }));
+                    }}
+                    minDate={rangeMinDate}
+                    maxDate={rangeMaxDate}
+                  />
+                </div>
+              </div>,
             ],
           },
           {
-            label: "Schedule & Status",
+            label: "Status & Remarks",
             fields: [
-              <FloatingInput
-                label="Target Month"
-                name="targetMonth"
-                type="number"
-                min={1}
-                max={12}
-                value={form.targetMonth}
-                onChange={handleChange}
-                required
-              />,
-              <FloatingDateRangePicker
-                label="Target Date Range"
-                startDate={selectedStartDate}
-                endDate={selectedEndDate}
-                onChange={([start, end]) => {
-                  setForm((current) => ({
-                    ...current,
-                    startDate: toInputDateValue(start),
-                    endDate: toInputDateValue(end),
-                  }));
-                }}
-                minDate={rangeMinDate}
-                maxDate={rangeMaxDate}
-              />,
               <FloatingSelect
+                key="status"
                 label="Status"
                 name="status"
                 value={form.status}
@@ -1012,12 +870,7 @@ const SalesTargets: React.FC = () => {
                 includeEmptyOption={false}
                 required
               />,
-            ],
-          },
-          {
-            label: "Remarks",
-            fields: [
-              <div className="md:col-span-2">
+              <div key="remarks" className="md:col-span-2">
                 <FloatingTextarea
                   label="Remarks"
                   name="remarks"

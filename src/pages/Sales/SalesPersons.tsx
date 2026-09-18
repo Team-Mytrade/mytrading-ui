@@ -2,27 +2,18 @@ import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "rea
 import axios from "axios";
 import {
   CheckCircleIcon,
-  MagnifyingGlassIcon,
   PencilSquareIcon,
-  TrashIcon,
   UserGroupIcon,
   UserIcon,
   XCircleIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
-import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import { ListingPdfExportButton } from "../../components/common/export";
-import FilterPopover from "../../components/common/filter";
 import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
-import {
-  FloatingInput,
-  FloatingSelect1 as FloatingSelect,
-} from "../../components/inputfeild/FloatingInput";
+import { FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
 type SalesPerson = {
@@ -60,6 +51,16 @@ type UserOption = {
 
 const API_URL = "/v1/api/sales/sales-persons";
 const PAGE_SIZE = 10;
+
+// Placeholder static list — swap for a real Regions endpoint/master list when
+// one is available. Values are shown as-is in the dropdown.
+const REGION_OPTIONS = [
+  { id: "North", name: "North" },
+  { id: "South", name: "South" },
+  { id: "East", name: "East" },
+  { id: "West", name: "West" },
+  { id: "Central", name: "Central" },
+];
 
 const emptyForm: SalesPersonForm = {
   name: "",
@@ -100,6 +101,11 @@ function getUserSalesCode(user?: UserOption) {
   return user.employeeCode || (user.employeeId ? String(user.employeeId) : "") || user.userId || "";
 }
 
+function getUserFullName(user?: UserOption) {
+  if (!user) return "";
+  return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.username || "";
+}
+
 const SalesPersons: React.FC = () => {
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
@@ -112,10 +118,6 @@ const SalesPersons: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [lookupId, setLookupId] = useState("");
-  const [deletePerson, setDeletePerson] = useState<SalesPerson | null>(null);
 
   useEffect(() => {
     fetchSalesPersons();
@@ -147,24 +149,6 @@ const SalesPersons: React.FC = () => {
     }
   };
 
-  const fetchById = async () => {
-    if (!lookupId) {
-      ToasterService.error("Sales person ID is required");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const res = await axios.get<SalesPerson>(`${API_URL}/${lookupId}`, { headers });
-      setSalesPersons([res.data]);
-      ToasterService.success("Sales person loaded");
-    } catch (error) {
-      ToasterService.error("Failed to load sales person", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -173,23 +157,18 @@ const SalesPersons: React.FC = () => {
       const next = { ...current, [name]: value };
       if (name === "userId") {
         const user = users.find((item) => item.userId === value);
-        const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
-        next.name = fullName || user?.username || next.name;
+        // Name/email/code always mirror the linked user once one is
+        // selected — there is no separate Name/Email field in the form.
+        if (value) {
+          next.name = getUserFullName(user) || next.name;
+        }
         next.code = getUserSalesCode(user) || next.code;
         next.email = user?.email || next.email;
         next.employeeId = user?.employeeId ? String(user.employeeId) : "";
         next.active = String(user?.active ?? true);
-        next.region = user?.department || next.region;
-      }
-      if (name === "employeeId") {
-        const user = users.find((item) => String(item.employeeId || "") === value);
-        const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
-        next.userId = user?.userId || next.userId;
-        next.name = fullName || user?.username || next.name;
-        next.code = getUserSalesCode(user) || next.code;
-        next.email = user?.email || next.email;
-        next.active = String(user?.active ?? true);
-        next.region = user?.department || next.region;
+        // Region is a sales-territory assignment, not a location or org
+        // attribute — it's intentionally left as its own dropdown and is
+        // never auto-filled from the linked User.
       }
       return next;
     });
@@ -230,12 +209,36 @@ const SalesPersons: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
+    if (!form.userId.trim()) {
+      ToasterService.error("Required fields missing", "Please select a user.");
+      return;
+    }
     if (!form.name.trim()) {
-      ToasterService.error("Required fields missing", "Name is required.");
+      ToasterService.error("Missing name", "The selected user has no name on file.");
       return;
     }
     if (form.employeeId.trim() && toNullableNumber(form.employeeId) === null) {
       ToasterService.error("Invalid employee ID", "Employee ID must be a number.");
+      return;
+    }
+
+    const normalizedEmail = searchableText(form.email);
+    const normalizedUserId = form.userId.trim();
+    const duplicate = salesPersons.find((person) => {
+      if (person.id === editingId) return false;
+      const sameUser = normalizedUserId && getResolvedUserId(person) === normalizedUserId;
+      const sameEmail = normalizedEmail && searchableText(person.email) === normalizedEmail;
+      return sameUser || sameEmail;
+    });
+    if (duplicate) {
+      const reason =
+        normalizedUserId && getResolvedUserId(duplicate) === normalizedUserId
+          ? "that User is already linked to"
+          : "that email is already used by";
+      ToasterService.error(
+        "Duplicate sales person",
+        `${reason} "${duplicate.name || `sales person #${duplicate.id}`}". Choose a different user or edit the existing record.`
+      );
       return;
     }
 
@@ -269,14 +272,18 @@ const SalesPersons: React.FC = () => {
 
   const openEdit = (person: SalesPerson) => {
     setEditingId(person.id);
+    // Use the resolved (fallback-matched) ids, not the raw fields — the API
+    // can return a null userId even when the row's Employee Name was
+    // successfully matched by email/code/name, and the form would otherwise
+    // show an empty User select after a refresh.
     setForm({
       name: person.name || "",
       code: person.code || "",
       email: person.email || "",
       region: person.region || "",
       active: String(person.active ?? true),
-      userId: person.userId === null || person.userId === undefined ? "" : String(person.userId),
-      employeeId: String(person.employeeId || ""),
+      userId: getResolvedUserId(person),
+      employeeId: getResolvedEmployeeId(person),
     });
     setShowFormModal(true);
   };
@@ -301,9 +308,7 @@ const SalesPersons: React.FC = () => {
     const normalizedCode = searchableText(person.code);
 
     return users.find((user) => {
-      const userName = normalizeText(
-        [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.username || ""
-      );
+      const userName = normalizeText(getUserFullName(user));
       const userEmail = searchableText(user.email);
       const userCode = searchableText(user.employeeCode);
 
@@ -328,6 +333,13 @@ const SalesPersons: React.FC = () => {
     }
     const matchedEmployeeId = getMatchedUser(person)?.employeeId;
     return matchedEmployeeId !== null && matchedEmployeeId !== undefined ? String(matchedEmployeeId) : "";
+  };
+
+  // Replaces the old separate User ID / Employee ID columns with a single
+  // human-readable name, resolved via the same matched-user logic.
+  const getEmployeeDisplayName = (person: SalesPerson) => {
+    const user = getMatchedUser(person);
+    return getUserFullName(user);
   };
 
   const buildPayloadFromPerson = (person: SalesPerson, active = person.active) => {
@@ -381,58 +393,16 @@ const SalesPersons: React.FC = () => {
     }
   };
 
-  const confirmDelete = async () => {
-    if (!deletePerson) return;
-
-    try {
-      await axios.delete(`${API_URL}/${deletePerson.id}`, {
-        headers,
-        skipSessionExpiredHandling: true,
-      } as any);
-      setSalesPersons((current) => current.filter((item) => item.id !== deletePerson.id));
-      ToasterService.success("Sales person deleted");
-    } catch (error) {
-      ToasterService.error("Failed to delete sales person", getErrorMessage(error, "Please try again."));
-    } finally {
-      setDeletePerson(null);
-    }
-  };
-
-  const filteredSalesPersons = useMemo(() => {
-    const term = searchableText(search);
-    
-    return salesPersons.filter((person) => {
-      const matchesStatus =
-        statusFilter === ""
-          ? true
-          : statusFilter === "active"
-            ? person.active
-            : !person.active;
-      const haystack = [
-        person.name,
-        person.code,
-        person.email,
-        person.region,
-        getResolvedUserId(person),
-        getResolvedEmployeeId(person),
-        person.id,
-        person.active ? "active" : "inactive",
-      ]
-        .map(searchableText)
-        .filter(Boolean)
-        .join(" ");
-
-      const matchesSearch = !term || haystack.includes(term);
-      return matchesStatus && matchesSearch;
-    });
-  }, [salesPersons, search, statusFilter]);
+  // Note: there is no DELETE endpoint for sales persons in the API — the
+  // "Delete" action has been removed. Use the Active/Inactive status toggle
+  // instead, since past Sales Orders still reference salesPersonId and a
+  // hard delete would orphan that history anyway.
 
   const stats = useMemo(
     () => ({
       total: salesPersons.length,
       active: salesPersons.filter((person) => person.active).length,
       inactive: salesPersons.filter((person) => !person.active).length,
-      regions: new Set(salesPersons.map((person) => person.region).filter(Boolean)).size,
     }),
     [salesPersons]
   );
@@ -454,26 +424,27 @@ const SalesPersons: React.FC = () => {
         </div>
       ),
     },
-    { key: "email", label: "Email", sortable: true},
-    { key: "region", label: "Region", sortable: true,},
+    { key: "email", label: "Email", sortable: true },
+    { key: "region", label: "Region", sortable: true },
     {
-      key: "userId",
-      label: "User ID",
+      key: "employeeName",
+      label: "Employee Name",
       sortable: true,
-      sortValueGetter: (person) => getResolvedUserId(person),
-      render: (person) => getResolvedUserId(person) || "--",
-    },
-    {
-      key: "employeeId",
-      label: "Employee ID",
-      sortable: true,
-      sortValueGetter: (person) => getResolvedEmployeeId(person),
-      render: (person) => getResolvedEmployeeId(person) || "--",
+      sortValueGetter: (person) => getEmployeeDisplayName(person),
+      render: (person) => getEmployeeDisplayName(person) || "--",
+      // Kept in the table (that's the whole point of this column), but
+      // skipped in the row-details drawer — it's always identical to the
+      // "Sales Person" name today since both derive from the same linked
+      // User, so showing it twice there just looked like a mistake.
+      excludeFromDetails: true,
     },
     {
       key: "active",
       label: "Status",
       sortable: true,
+      // Without this, the drawer's generic boolean formatter would show
+      // the raw "active" value as "Yes"/"No" instead of "Active"/"Inactive".
+      detailFormatter: (person) => (person.active ? "Active" : "Inactive"),
       render: (person) => (
         <div onClick={(e) => e.stopPropagation()}>
           <select
@@ -499,22 +470,14 @@ const SalesPersons: React.FC = () => {
       headerClassName: "text-right",
       className: "text-right",
       render: (person) => (
-        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={() => openEdit(person)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-2 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setDeletePerson(person)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-            title="Delete"
-          >
-            <TrashIcon className="h-4 w-4" />
           </button>
         </div>
       ),
@@ -524,14 +487,13 @@ const SalesPersons: React.FC = () => {
   return (
     <>
       <PageMeta title="Sales Persons" description="Manage sales persons" />
-      <PageBreadcrumb pageTitle="Sales Persons" />
+      <PageBreadcrumb
+        pageTitle="Sales Persons"
+        actions={<AddButton onClick={openCreate} label="Add Sales Person" />}
+      />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Sales Person" />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="w-full max-w-none px-0 py-8">
+        <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-3">
           <StatsCard label="Sales Persons" value={stats.total} icon={<UserGroupIcon />} />
           <StatsCard
             label="Active"
@@ -549,85 +511,16 @@ const SalesPersons: React.FC = () => {
             labelColor="text-red-600"
             icon={<XCircleIcon />}
           />
-          <StatsCard
-            label="Regions"
-            value={stats.regions}
-            gradient="from-purple-50 to-pink-50"
-            borderColor="border-purple-100"
-            labelColor="text-purple-600"
-            icon={<UserIcon />}
-          />
-        </div>
-
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between md:-mb-5">
-          <div className="relative w-full sm:max-w-md md:-mt-8 mt-1">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search sales persons..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <ListingPdfExportButton<SalesPerson>
-              title="Sales Persons"
-              subtitle="Filtered sales person listing"
-              reportLabel="Sales Report"
-              data={filteredSalesPersons}
-              fileName="Sales_Persons"
-              disabled={loading}
-              metadata={(rows, rangeLabel) => [
-                { label: "Total", value: rows.length },
-                { label: "Range", value: rangeLabel },
-                { label: "Status", value: statusFilter || "All" },
-                { label: "Search", value: search || "None" },
-              ]}
-              columns={[
-                { header: "Sales Person", accessor: (person) => person.name || "Unnamed" },
-                { header: "Code", accessor: (person) => person.code || `ID: ${person.id}` },
-                { header: "Email", key: "email" },
-                { header: "Region", key: "region" },
-                { header: "User ID", accessor: (person) => getResolvedUserId(person) || "-" },
-                { header: "Employee ID", accessor: (person) => getResolvedEmployeeId(person) || "-" },
-                { header: "Status", accessor: (person) => (person.active ? "Active" : "Inactive") },
-              ]}
-            />
-            <FilterPopover
-              title="Filter Sales Persons"
-              buttonLabel="Filters"
-              label="Status"
-              value={statusFilter}
-              options={[
-                { label: "All Statuses", value: "" },
-                { label: "Active", value: "active" },
-                { label: "Inactive", value: "inactive" },
-              ]}
-              onChange={setStatusFilter}
-              onReset={() => setStatusFilter("")}
-              onApply={() => undefined}
-            />
-          </div>
         </div>
 
         <ReusableTable
-          data={filteredSalesPersons}
+          data={salesPersons}
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}
           defaultSortKey="id"
           defaultSortOrder="desc"
+          hiddenDetailKeys={["id"]}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <UserGroupIcon className="mb-3 h-12 w-12 text-gray-400" />
@@ -647,7 +540,7 @@ const SalesPersons: React.FC = () => {
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Sales Person" : "Create Sales Person"}
-        subtitle="Enter sales person details from the API schema"
+        subtitle="Select the user and region for this sales person"
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
@@ -664,70 +557,20 @@ const SalesPersons: React.FC = () => {
                 onChange={handleChange}
                 options={users.map((user) => ({
                   id: user.userId,
-                  name: [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.username || user.userId,
+                  name: getUserFullName(user) || user.userId,
                 }))}
-              />,
-              <FloatingInput
-                label="Name"
-                name="name"
-                value={form.name}
-                onChange={handleChange}
                 required
               />,
-              <FloatingInput
-                label="Email"
-                name="email"
-                type="email"
-                value={form.email}
-                onChange={handleChange}
-              />,
-              <FloatingInput
+              <FloatingSelect
                 label="Region"
                 name="region"
                 value={form.region}
                 onChange={handleChange}
+                options={REGION_OPTIONS}
               />,
             ],
           },
-          ...(editingId
-            ? [{
-                label: "Status",
-                fields: [
-                  <FloatingSelect
-                    label="Status"
-                    name="active"
-                    value={form.active}
-                    onChange={handleChange}
-                    includeEmptyOption={false}
-                    options={[
-                      { id: "true", name: "Active" },
-                      { id: "false", name: "Inactive" },
-                    ]}
-                  />,
-                ],
-              }]
-            : []),
         ]}
-      />
-
-      <DynamicPopup
-        isPopupOpen={!!deletePerson}
-        setIsPopupOpen={(open) => {
-          if (!open) setDeletePerson(null);
-        }}
-        icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-        iconBg="bg-red-100"
-        innerText="Delete Sales Person"
-        subText={
-          deletePerson
-            ? `Are you sure you want to delete ${deletePerson.name || `sales person #${deletePerson.id}`}?`
-            : "Are you sure you want to delete this sales person?"
-        }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        onConfirm={confirmDelete}
-        onCancel={() => setDeletePerson(null)}
-        confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
       />
     </>
   );

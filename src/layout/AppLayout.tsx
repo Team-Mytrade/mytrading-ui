@@ -1,5 +1,5 @@
 import { SidebarProvider, useSidebar } from "../context/SidebarContext";
-import { Outlet } from "react-router";
+import { Outlet, useLocation } from "react-router";
 import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
@@ -12,7 +12,22 @@ import { useState, useEffect } from "react";
 
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, sidebarWidth, isResizing } = useSidebar();
+  const location = useLocation();
   const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
+  const scrollablePages = ["/", "/purchase-reports", "/rolesPermissions"];
+  const isScrollablePage =
+    scrollablePages.includes(location.pathname) ||
+    location.pathname.startsWith("/att_leaveDashboard") ||
+    location.pathname.startsWith("/att_leaveManagerDashboard") ||
+    location.pathname.startsWith("/att_punch") ||
+    location.pathname.startsWith("/att_selfService") ||
+    location.pathname.startsWith("/att_attendanceTracking") ||
+    location.pathname.startsWith("/att_holidayCalendar") ||
+    location.pathname.startsWith("/payrollSummary") ||
+    location.pathname.startsWith("/departmentSummary") ||
+    location.pathname.startsWith("/payrollEngine") ||
+    location.pathname.startsWith("/it-declaration") ||
+    location.pathname.startsWith("/addEmployee");
 
   useEffect(() => {
     const handleResize = () => {
@@ -24,7 +39,7 @@ const LayoutContent: React.FC = () => {
 
   return (
 
-    <div className="min-h-screen lg:flex">
+    <div className="h-screen overflow-hidden bg-[#e7e9ee] dark:bg-[#1f1f1f] lg:flex">
       <div>
         <AppSidebar />
         <Backdrop />
@@ -38,10 +53,12 @@ const LayoutContent: React.FC = () => {
             ? `calc(100% - ${(isExpanded || isHovered ? `${sidebarWidth}px` : "60px")})`
             : "100%",
         }}
-        className={`min-w-0 ${isResizing ? "transition-none" : "transition-all duration-300 ease-in-out"}`}
+        className={`flex h-screen min-w-0 flex-col overflow-hidden ${isResizing ? "transition-none" : "transition-all duration-300 ease-in-out"}`}
       >
-        <AppHeader />
-        <div className="app-content-tight w-full px-2 py-[3px] md:px-3 md:py-[3px]">
+        <div className="shrink-0">
+          <AppHeader />
+        </div>
+        <div className={`app-content-tight min-h-0 flex-1 w-full px-2 py-[3px] md:px-3 md:py-[3px] ${isScrollablePage ? "overflow-x-hidden overflow-y-auto overscroll-contain no-scrollbar" : "overflow-hidden"}`}>
           <Outlet />
         </div>
       </div>

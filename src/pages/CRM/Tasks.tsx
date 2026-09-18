@@ -442,7 +442,7 @@ const Tasks: React.FC = () => {
       render: (activity) => (
         <div className="flex items-center gap-1.5 text-sm text-gray-600">
           <UserIcon className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-          <span className="truncate max-w-[100px]">{activity.assignedTo || "Unassigned"}</span>
+          <span className="truncate ">{activity.assignedTo || "Unassigned"}</span>
         </div>
       ),
     },
@@ -455,19 +455,19 @@ const Tasks: React.FC = () => {
           {activity.lead && (
             <div className="flex items-center gap-1 text-xs text-gray-600">
               <UsersIcon className="h-3 w-3 text-gray-400 flex-shrink-0" />
-              <span className="truncate max-w-[100px]">Lead: {activity.lead.name}</span>
+              <span className="truncate">Lead: {activity.lead.name}</span>
             </div>
           )}
           {activity.customer && (
             <div className="flex items-center gap-1 text-xs text-gray-600">
               <BuildingOfficeIcon className="h-3 w-3 text-gray-400 flex-shrink-0" />
-              <span className="truncate max-w-[100px]">Customer: {getCustomerLabel(activity.customer)}</span>
+              <span className="truncate ">Customer: {getCustomerLabel(activity.customer)}</span>
             </div>
           )}
           {activity.contact && (
             <div className="flex items-center gap-1 text-xs text-gray-600">
               <UserIcon className="h-3 w-3 text-gray-400 flex-shrink-0" />
-              <span className="truncate max-w-[100px]">Contact: {activity.contact.fullName}</span>
+              <span className="truncate">Contact: {activity.contact.fullName}</span>
             </div>
           )}
           {!activity.lead && !activity.customer && !activity.contact && (
@@ -480,8 +480,8 @@ const Tasks: React.FC = () => {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "text-center",
-      className: "text-center",
+      headerClassName: "text-right",
+      className: "text-right",
       render: (activity) => (
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button type="button" onClick={() => handleEdit(activity)}
@@ -502,8 +502,8 @@ const Tasks: React.FC = () => {
       <PageMeta title="Activities" description="Manage your activities" />
       <PageBreadcrumb pageTitle="Activities" />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 ">
+        <div className="mb-6 mx-4 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton
             onClick={() => {
               setForm({});
@@ -515,7 +515,8 @@ const Tasks: React.FC = () => {
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="py-4 px-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4  mb-[17px]">
           <StatsCard
             label="Total Activities"
             value={activities.length}
@@ -547,72 +548,7 @@ const Tasks: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex-1 max-w-md md:-mt-4">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by title, description, type, or assignee..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <FilterPopover
-              title="Filter Activities"
-              buttonLabel="Filters"
-              widthClassName="w-[20rem] sm:w-[22rem]"
-              showFooter={false}
-            >
-              <div className="space-y-3">
-                <FloatingSelect
-                  label="Activity Type"
-                  name="activityType"
-                  value={selectedType}
-                  onChange={(e) => setSelectedType(e.target.value)}
-                  options={[
-                    { id: "", name: "All Types" },
-                    { id: "CALL", name: "Call" },
-                    { id: "MEETING", name: "Meeting" },
-                    { id: "EMAIL", name: "Email" },
-                    { id: "OTHER", name: "Other" },
-                  ]}
-                />
-                <FloatingSelect
-                  label="Status"
-                  name="status"
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                  options={[
-                    { id: "", name: "All Statuses" },
-                    { id: "PENDING", name: "Pending" },
-                    { id: "COMPLETED", name: "Completed" },
-                  ]}
-                />
-                <div className="flex items-center justify-between gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedType("");
-                      setSelectedStatus("");
-                    }}
-                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                  >
-                    Reset
-                  </button>
-                  <div className="rounded-lg border border-dashed border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-medium text-cyan-700">
-                    Filters apply live
-                  </div>
-                </div>
-              </div>
-            </FilterPopover>
-          </div>
-        </div>
-
+        
         {/* Table */}
         <ReusableTable
           data={filteredActivities}
@@ -636,6 +572,7 @@ const Tasks: React.FC = () => {
             </div>
           }
         />
+        </div>
 
         {/* View Activity Modal */}
         {showViewModal && selectedActivity && (

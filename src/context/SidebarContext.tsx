@@ -9,6 +9,7 @@ type SidebarContextType = {
   sidebarWidth: number;
   isResizing: boolean;
   toggleSidebar: () => void;
+  expandSidebar: () => void;
   toggleMobileSidebar: () => void;
   setIsHovered: (isHovered: boolean) => void;
   setActiveItem: (item: string | null) => void;
@@ -41,13 +42,15 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const [sidebarWidth, setSidebarWidthState] = useState<number>(() => {
     const saved = localStorage.getItem("sidebarWidth");
-    return saved ? parseInt(saved, 10) : 240;
+    const savedWidth = saved ? parseInt(saved, 10) : 260;
+    return Math.max(200, Math.min(260, savedWidth));
   });
   const [isResizing, setIsResizing] = useState(false);
 
   const setSidebarWidth = (width: number) => {
-    setSidebarWidthState(width);
-    localStorage.setItem("sidebarWidth", width.toString());
+    const constrainedWidth = Math.max(200, Math.min(260, width));
+    setSidebarWidthState(constrainedWidth);
+    localStorage.setItem("sidebarWidth", constrainedWidth.toString());
   };
 
   useEffect(() => {
@@ -75,6 +78,11 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   };
 
+  const expandSidebar = () => {
+    setIsExpanded(true);
+    localStorage.setItem("sidebarExpanded", JSON.stringify(true));
+  };
+
   const toggleMobileSidebar = () => {
     setIsMobileOpen((prev) => !prev);
   };
@@ -94,6 +102,7 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({
         sidebarWidth,
         isResizing,
         toggleSidebar,
+        expandSidebar,
         toggleMobileSidebar,
         setIsHovered,
         setActiveItem,
