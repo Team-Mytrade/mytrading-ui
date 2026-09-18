@@ -2,9 +2,9 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { 
   LogIn, LogOut, Monitor, MessageSquare, 
-  User, Clock, CheckCircle2, Activity, ChevronDown, 
+  Clock, Activity, ChevronDown, 
   Layers, CheckCircle, Search, RefreshCw, 
-  Zap, Loader2
+  Loader2
 } from 'lucide-react';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
@@ -71,10 +71,8 @@ const AttendancePunchPage: React.FC = () => {
   const [logSearchQuery, setLogSearchQuery] = useState('');
   const [logFilterTab, setLogFilterTab] = useState<'ALL' | 'CHECK_IN' | 'CHECK_OUT'>('ALL');
 
-  // Employee Directory state
+  // Employee Directory state (for enriching current user profile details)
   const [employees, setEmployees] = useState<EmployeeItem[]>([]);
-  const [employeeSearch, setEmployeeSearch] = useState('');
-  const [isEmpDropdownOpen, setIsEmpDropdownOpen] = useState(false);
 
   // Live ticking clock
   useEffect(() => {
@@ -223,8 +221,9 @@ const extractString = (val: any, fallback: string): string => {
   };
 
   const handlePunch = async (type: 'CHECK_IN' | 'CHECK_OUT') => {
-    if (!formData.employeeId) {
-      ToasterService.error('Please select or enter a valid Employee ID');
+    const targetEmpId = Number(formData.employeeId) || currentUser.id;
+    if (!targetEmpId) {
+      ToasterService.error('Active employee session not found. Please refresh or log in again.');
       return;
     }
 
@@ -496,138 +495,53 @@ const extractString = (val: any, fallback: string): string => {
                 </div>
               </div>
 
-              {/* Step 2: Employee Selection & Quick Shortcut */}
+              {/* Step 2, 3 & 4 Container */}
               <div className="p-4 sm:p-5 space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
+                {/* Step 2: Authenticated Employee Profile (Auto-Fetched) */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                       <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 inline-flex items-center justify-center text-[11px] font-semibold">2</span>
-                      Employee Identification
+                      Active Employee Identity
                     </span>
-
-                    {/* Quick Punch as Me button */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleInputChange('employeeId', currentUser.id);
-                        ToasterService.info(`Selected ${currentUser.name} (#${currentUser.id})`);
-                      }}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 active:scale-95 border border-slate-200 rounded-lg shadow-2xs transition cursor-pointer"
-                      title="Quickly fill logged-in profile"
-                    >
-                      <Zap className="w-3.5 h-3.5 text-slate-500" />
-                      <span>Punch as Me ({currentUser.name?.split(' ')[0] || 'Me'})</span>
-                    </button>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
+                      <CheckCircle className="w-3 h-3 text-emerald-600" />
+                      Verified Login Session
+                    </span>
                   </div>
 
-                  {/* Searchable Input + Dropdown */}
-                  <div className="relative">
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                          <User className="w-4 h-4" />
-                        </div>
-                        <input
-                          type="number"
-                          value={formData.employeeId || ''}
-                          onChange={(e) => handleInputChange('employeeId', e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handlePunch(activeTab);
-                            }
-                          }}
-                          placeholder="Type Employee ID (e.g. 71, 12)..."
-                          className="w-full pl-9 pr-3 py-2 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-slate-400/20 focus:border-slate-400 outline-none transition"
-                        />
+                  {/* Clean Authenticated User Card */}
+                  <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/80 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-slate-900 text-white font-bold text-xs flex items-center justify-center shadow-2xs shrink-0">
+                        {getInitials(selectedEmployee?.name || currentUser.name)}
                       </div>
-
-                      {/* Quick Select Dropdown Toggle */}
-                      <button
-                        type="button"
-                        onClick={() => setIsEmpDropdownOpen(!isEmpDropdownOpen)}
-                        className="px-3 py-2 bg-slate-100 hover:bg-slate-200/80 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 border border-slate-200 transition cursor-pointer shrink-0"
-                      >
-                        <span>Select from Directory</span>
-                        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isEmpDropdownOpen ? 'rotate-180' : ''}`} />
-                      </button>
-                    </div>
-
-                    {/* Dropdown Menu */}
-                    {isEmpDropdownOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-xl shadow-lg border border-slate-200 z-30 p-2 space-y-1.5 animate-in zoom-in-95 duration-100">
-                        <div className="relative">
-                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
-                          <input
-                            type="text"
-                            value={employeeSearch}
-                            onChange={(e) => setEmployeeSearch(e.target.value)}
-                            placeholder="Filter by name, ID or department..."
-                            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400"
-                            autoFocus
-                          />
-                        </div>
-
-                        <div className="max-h-48 overflow-y-auto no-scrollbar space-y-1 pt-1">
-                          {employees
-                            .filter(emp => {
-                              if (!employeeSearch.trim()) return true;
-                              const q = employeeSearch.toLowerCase().trim();
-                              return emp.name.toLowerCase().includes(q) || String(emp.id).includes(q) || (emp.department || '').toLowerCase().includes(q);
-                            })
-                            .map((emp) => (
-                              <div
-                                key={emp.id}
-                                onClick={() => {
-                                  handleInputChange('employeeId', emp.id);
-                                  setIsEmpDropdownOpen(false);
-                                  setEmployeeSearch('');
-                                }}
-                                className={`p-2 rounded-lg text-xs flex items-center justify-between cursor-pointer transition ${
-                                  Number(formData.employeeId) === emp.id ? 'bg-slate-100 text-slate-900 font-bold' : 'hover:bg-slate-50 text-slate-700'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 border border-slate-200 flex items-center justify-center font-bold text-[10px]">
-                                    {getInitials(emp.name)}
-                                  </div>
-                                  <div>
-                                    <span className="font-semibold text-slate-900 block">{emp.name}</span>
-                                    <span className="text-[10px] text-slate-400">{emp.department} • {emp.designation}</span>
-                                  </div>
-                                </div>
-                                <span className="font-mono text-slate-600 text-[11px] font-bold">#{emp.id}</span>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Selected Employee Preview Chip / Card */}
-                  {selectedEmployee && (
-                    <div className="mt-2.5 p-2.5 rounded-xl bg-slate-50/80 border border-slate-200/80 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-slate-900 text-white font-bold text-xs flex items-center justify-center shadow-2xs">
-                          {getInitials(selectedEmployee.name)}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-900">{selectedEmployee.name}</span>
-                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-200/80 text-slate-700 font-bold">
-                              ID: #{selectedEmployee.id}
-                            </span>
-                          </div>
-                          <span className="text-[10.5px] text-slate-500">
-                            {selectedEmployee.department} • {selectedEmployee.designation}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-bold text-slate-900 truncate">
+                            {selectedEmployee?.name || currentUser.name}
+                          </span>
+                          <span className="text-[10.5px] font-mono px-1.5 py-0.2 rounded bg-slate-200/80 text-slate-700 font-semibold">
+                            ID: #{currentUser.id}
+                          </span>
+                          <span className="text-[10.5px] font-mono px-1.5 py-0.2 rounded bg-slate-100 text-slate-600">
+                            {selectedEmployee?.code || currentUser.code}
                           </span>
                         </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                          {(selectedEmployee?.department && selectedEmployee.department !== 'Self') ? selectedEmployee.department : 'General Staff'}
+                          {' • '}
+                          {selectedEmployee?.designation || currentUser.role || 'Employee'}
+                        </p>
                       </div>
+                    </div>
 
+                    <div className="text-right shrink-0">
                       <span className="text-[10.5px] font-medium px-2 py-0.5 rounded-full bg-white text-slate-700 border border-slate-200 flex items-center gap-1.5 shadow-2xs">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Ready to Punch
                       </span>
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* Step 3: Remarks & Quick Presets */}
