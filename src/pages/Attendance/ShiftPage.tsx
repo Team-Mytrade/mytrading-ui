@@ -356,7 +356,7 @@ const ShiftPage: React.FC = () => {
       label: 'Shift Code',
       sortable: true,
       render: (row) => (
-        <span className="font-mono font-bold text-xs text-cyan-700 bg-cyan-50/80 px-2.5 py-1 rounded border border-cyan-200/70 whitespace-nowrap">
+        <span className="font-mono font-bold text-xs text-cyan-700 dark:text-cyan-300 bg-cyan-50/80 dark:bg-cyan-950/40 px-2.5 py-1 rounded border border-cyan-200/70 dark:border-cyan-800 whitespace-nowrap">
           {row.shiftCode}
         </span>
       )
@@ -367,8 +367,8 @@ const ShiftPage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <div>
-          <span className="font-bold text-xs text-gray-900 block">{row.shiftName}</span>
-          <span className="text-[10px] text-gray-400 font-mono">
+          <span className="font-bold text-xs text-gray-900 dark:text-white block">{row.shiftName}</span>
+          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
             {row.startTime?.substring(0, 5)} - {row.endTime?.substring(0, 5)}
           </span>
         </div>
@@ -378,7 +378,7 @@ const ShiftPage: React.FC = () => {
       key: 'workingHours',
       label: 'Net Working Duration',
       render: (row) => (
-        <span className="text-xs font-semibold text-slate-700 font-mono">
+        <span className="text-xs font-semibold text-slate-700 dark:text-gray-300 font-mono">
           {row.workingHours ? `${row.workingHours} mins (${(row.workingHours / 60).toFixed(1)}h)` : '480 mins (8.0h)'}
         </span>
       )
@@ -388,7 +388,7 @@ const ShiftPage: React.FC = () => {
       label: 'Shift Type',
       render: (row) => (
         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-          row.nightShift ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+          row.nightShift ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800' : 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
         }`}>
           {row.nightShift ? 'Night Shift' : 'Day Shift'}
         </span>
@@ -400,7 +400,7 @@ const ShiftPage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap ${
-          row.active !== false ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+          row.active !== false ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
         }`}>
           {row.active !== false ? 'Active' : 'Inactive'}
         </span>
@@ -414,7 +414,7 @@ const ShiftPage: React.FC = () => {
           <button
             type="button"
             onClick={() => handleInspectShift(row)}
-            className="p-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-gray-600 transition-colors"
+            className="p-1.5 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] border border-gray-200 dark:border-[#303030] rounded-lg text-gray-600 dark:text-gray-300 transition-colors cursor-pointer"
             title="Inspect Shift Details"
           >
             <Eye className="w-3.5 h-3.5" />
@@ -422,7 +422,7 @@ const ShiftPage: React.FC = () => {
           <button
             type="button"
             onClick={() => openWeeklyOffDrawer(row)}
-            className="p-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-indigo-700 transition-colors"
+            className="p-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800 rounded-lg text-indigo-700 dark:text-indigo-300 transition-colors cursor-pointer"
             title="Manage Weekly Off Rules"
           >
             <CalendarDays className="w-3.5 h-3.5" />
@@ -430,7 +430,7 @@ const ShiftPage: React.FC = () => {
           <button
             type="button"
             onClick={() => openEditModal(row)}
-            className="p-1.5 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 rounded-lg text-cyan-700 transition-colors"
+            className="p-1.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-950/50 dark:hover:bg-cyan-900/50 border border-cyan-200 dark:border-cyan-800 rounded-lg text-cyan-700 dark:text-cyan-300 transition-colors cursor-pointer"
             title="Edit Shift Master"
           >
             <Edit2 className="w-3.5 h-3.5" />
@@ -448,14 +448,14 @@ const ShiftPage: React.FC = () => {
       <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
         
         {/* Header Bar */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-cyan-50 text-cyan-700 rounded-lg border border-cyan-200">
+            <div className="p-2 bg-cyan-50 dark:bg-[#222222] text-cyan-700 dark:text-cyan-400 rounded-lg border border-cyan-200 dark:border-[#303030]">
               <Clock className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Shift Master</h2>
-              <p className="text-xs text-gray-500">Configure General, Morning, and Night shifts with weekly off policies</p>
+              <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Shift Master</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Configure General, Morning, and Night shifts with weekly off policies</p>
             </div>
           </div>
 
@@ -463,23 +463,23 @@ const ShiftPage: React.FC = () => {
             <button
               type="button"
               onClick={openCreateModal}
-              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0"
+              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0 cursor-pointer"
             >
               <Plus className="w-4 h-4" /> Create Shift
             </button>
             <button
               type="button"
               onClick={fetchShifts}
-              className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg transition-all"
+              className="p-2 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#303030] rounded-lg transition-all cursor-pointer shadow-2xs"
               title="Refresh Shift List"
             >
-              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
+              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
             </button>
           </div>
         </div>
 
         {/* Master Table */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4">
+        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-4">
           <ReusableTable
             data={shifts}
             columns={columns}
@@ -496,16 +496,16 @@ const ShiftPage: React.FC = () => {
 
       {/* ── MODAL 1: CREATE / EDIT SHIFT MASTER ───────────────────────────── */}
       {isShiftModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-xl w-full p-5 shadow-2xl border border-gray-100 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#191919] rounded-2xl max-w-xl w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] space-y-4 text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030]">
               <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-cyan-600" />
-                <h3 className="text-sm font-bold text-gray-900 uppercase">
+                <Clock className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
                   {editingShift ? 'Edit Shift Master' : 'Create New Shift'}
                 </h3>
               </div>
-              <button type="button" onClick={() => setIsShiftModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600">
+              <button type="button" onClick={() => setIsShiftModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -513,24 +513,24 @@ const ShiftPage: React.FC = () => {
             <form onSubmit={handleShiftSubmit} className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Shift Code *</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Shift Code *</label>
                   <input
                     type="text"
                     value={form.shiftCode}
                     onChange={(e) => setForm(p => ({ ...p, shiftCode: e.target.value }))}
-                    className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-bold font-mono text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                    className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-bold font-mono text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
                     placeholder="e.g. GEN, A, N"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Shift Name *</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Shift Name *</label>
                   <input
                     type="text"
                     value={form.shiftName}
                     onChange={(e) => setForm(p => ({ ...p, shiftName: e.target.value }))}
-                    className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-semibold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                    className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-semibold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
                     placeholder="e.g. General Shift"
                     required
                   />
@@ -539,36 +539,36 @@ const ShiftPage: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Start Time *</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Start Time *</label>
                   <input
                     type="time"
                     value={form.startTime}
                     onChange={(e) => setForm(p => ({ ...p, startTime: e.target.value }))}
-                    className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
+                    className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">End Time *</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">End Time *</label>
                   <input
                     type="time"
                     value={form.endTime}
                     onChange={(e) => setForm(p => ({ ...p, endTime: e.target.value }))}
-                    className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
+                    className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                     required
                   />
                 </div>
               </div>
 
-              <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-lg flex items-center justify-between text-xs">
+              <div className="p-3 bg-slate-50 dark:bg-[#222222] border border-slate-200/80 dark:border-[#303030] rounded-xl flex items-center justify-between text-xs">
                 <div>
-                  <span className="text-slate-500 font-semibold block text-[11px]">Calculated Working Hours:</span>
-                  <span className="font-mono font-bold text-cyan-800">{computedWorkingMinutes} mins ({(computedWorkingMinutes / 60).toFixed(1)}h)</span>
+                  <span className="text-slate-500 dark:text-gray-400 font-semibold block text-[11px]">Calculated Working Hours:</span>
+                  <span className="font-mono font-bold text-cyan-800 dark:text-cyan-300">{computedWorkingMinutes} mins ({(computedWorkingMinutes / 60).toFixed(1)}h)</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 font-semibold block text-[11px]">Night Shift Status:</span>
-                  <span className={`font-bold ${computedNightShift ? 'text-indigo-700' : 'text-slate-700'}`}>
+                  <span className="text-slate-500 dark:text-gray-400 font-semibold block text-[11px]">Night Shift Status:</span>
+                  <span className={`font-bold ${computedNightShift ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-gray-300'}`}>
                     {computedNightShift ? 'YES (Night Shift)' : 'NO (Day Shift)'}
                   </span>
                 </div>
@@ -576,38 +576,38 @@ const ShiftPage: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Break Minutes</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Break Minutes</label>
                   <input
                     type="number"
                     value={form.breakMinutes}
                     onChange={(e) => setForm(p => ({ ...p, breakMinutes: Number(e.target.value) }))}
-                    className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                    className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Grace Period Mins</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Grace Period Mins</label>
                   <input
                     type="number"
                     value={form.gracePeriodMinutes}
                     onChange={(e) => setForm(p => ({ ...p, gracePeriodMinutes: Number(e.target.value) }))}
-                    className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                    className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Finalize Buffer Mins</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Finalize Buffer Mins</label>
                   <input
                     type="number"
                     value={form.attendanceFinalizeBufferMinutes}
                     onChange={(e) => setForm(p => ({ ...p, attendanceFinalizeBufferMinutes: Number(e.target.value) }))}
-                    className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                    className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
                   />
                 </div>
               </div>
 
               <div className="flex items-center gap-6 pt-2 text-xs">
-                <label className="flex items-center gap-2 cursor-pointer select-none font-semibold text-slate-700">
+                <label className="flex items-center gap-2 cursor-pointer select-none font-semibold text-slate-700 dark:text-gray-300">
                   <input
                     type="checkbox"
                     checked={form.overtimeAllowed}
@@ -617,7 +617,7 @@ const ShiftPage: React.FC = () => {
                   <span>Overtime Permitted</span>
                 </label>
 
-                <label className="flex items-center gap-2 cursor-pointer select-none font-semibold text-slate-700">
+                <label className="flex items-center gap-2 cursor-pointer select-none font-semibold text-slate-700 dark:text-gray-300">
                   <input
                     type="checkbox"
                     checked={form.active}
@@ -628,18 +628,18 @@ const ShiftPage: React.FC = () => {
                 </label>
               </div>
 
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-gray-100 dark:border-[#303030] flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsShiftModalOpen(false)}
-                  className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold disabled:opacity-70"
+                  className="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold disabled:opacity-70 transition-all cursor-pointer shadow-xs"
                 >
                   {isSubmitting ? "Saving..." : (editingShift ? "Update Shift" : "Create Shift")}
                 </button>
@@ -651,49 +651,49 @@ const ShiftPage: React.FC = () => {
 
       {/* ── MODAL 2: MANAGE WEEKLY OFF RULES ─────────────────────────────── */}
       {isWeeklyOffDrawerOpen && activeShiftForWeeklyOff && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-2xl w-full p-5 shadow-2xl border border-gray-100 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#191919] rounded-2xl max-w-2xl w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] space-y-4 text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030]">
               <div>
-                <h3 className="text-sm font-bold text-gray-900 uppercase">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
                   Weekly Off Rules: {activeShiftForWeeklyOff.shiftName}
                 </h3>
-                <span className="text-[11px] font-mono text-cyan-700">Shift Code: {activeShiftForWeeklyOff.shiftCode} (ID: {activeShiftForWeeklyOff.id})</span>
+                <span className="text-[11px] font-mono text-cyan-700 dark:text-cyan-400">Shift Code: {activeShiftForWeeklyOff.shiftCode} (ID: {activeShiftForWeeklyOff.id})</span>
               </div>
-              <button type="button" onClick={() => setIsWeeklyOffDrawerOpen(false)} className="p-1 text-gray-400 hover:text-gray-600">
+              <button type="button" onClick={() => setIsWeeklyOffDrawerOpen(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Weekly Off Create/Edit Form */}
-            <form onSubmit={handleSaveWeeklyOffRule} className="p-3 bg-slate-50 rounded-lg border border-slate-200/80 space-y-3">
-              <span className="text-xs font-bold text-slate-800 block">
+            <form onSubmit={handleSaveWeeklyOffRule} className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030] space-y-3">
+              <span className="text-xs font-bold text-slate-800 dark:text-gray-200 block">
                 {editingWeeklyOffId ? 'Edit Weekly Off Rule' : 'Add Weekly Off Rule'}
               </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">Day of Week</label>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-300 mb-1">Day of Week</label>
                   <select
                     value={weeklyOffForm.dayOfWeek}
                     onChange={(e) => setWeeklyOffForm(p => ({ ...p, dayOfWeek: e.target.value as DayOfWeekType }))}
-                    className="w-full py-1.5 px-2 bg-white border border-slate-200 rounded text-xs font-bold text-slate-800"
+                    className="w-full py-1.5 px-2 bg-white dark:bg-[#191919] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-bold text-slate-800 dark:text-white outline-none"
                   >
                     {DAY_OF_WEEK_ENUMS.map(d => (
-                      <option key={d} value={d}>{d}</option>
+                      <option key={d} value={d} className="dark:bg-[#191919]">{d}</option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">Week Occurrence</label>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-300 mb-1">Week Occurrence</label>
                   <select
                     value={weeklyOffForm.weekOccurrence}
                     onChange={(e) => setWeeklyOffForm(p => ({ ...p, weekOccurrence: e.target.value as WeekOccurrenceType }))}
-                    className="w-full py-1.5 px-2 bg-white border border-slate-200 rounded text-xs font-bold text-slate-800"
+                    className="w-full py-1.5 px-2 bg-white dark:bg-[#191919] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-bold text-slate-800 dark:text-white outline-none"
                   >
                     {WEEK_OCCURRENCE_ENUMS.map(w => (
-                      <option key={w} value={w}>{w}</option>
+                      <option key={w} value={w} className="dark:bg-[#191919]">{w}</option>
                     ))}
                   </select>
                 </div>
@@ -701,7 +701,7 @@ const ShiftPage: React.FC = () => {
                 <div className="flex items-end gap-2">
                   <button
                     type="submit"
-                    className="w-full py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-xs font-bold transition-all shadow-xs"
+                    className="w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
                   >
                     {editingWeeklyOffId ? 'Update Rule' : 'Add Rule'}
                   </button>
@@ -710,20 +710,20 @@ const ShiftPage: React.FC = () => {
             </form>
 
             {/* Weekly Off Rules Table */}
-            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-1 no-scrollbar">
               {weeklyOffsList.length === 0 ? (
-                <div className="text-center py-6 text-xs text-gray-400">
+                <div className="text-center py-6 text-xs text-gray-400 dark:text-gray-500">
                   No weekly off rules configured for this shift.
                 </div>
               ) : (
                 weeklyOffsList.map((wo, idx) => (
-                  <div key={wo.id || idx} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg border border-gray-200/80">
+                  <div key={wo.id || idx} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-[#222222] rounded-xl border border-gray-200/80 dark:border-[#303030]">
                     <div className="flex items-center gap-3">
-                      <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
+                      <span className="font-mono text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 px-2 py-0.5 rounded">
                         {wo.dayOfWeek}
                       </span>
-                      <span className="text-xs font-semibold text-slate-700">
-                        Occurrence: <strong className="text-slate-900">{wo.weekOccurrence}</strong>
+                      <span className="text-xs font-semibold text-slate-700 dark:text-gray-300">
+                        Occurrence: <strong className="text-slate-900 dark:text-white">{wo.weekOccurrence}</strong>
                       </span>
                     </div>
 
@@ -735,7 +735,7 @@ const ShiftPage: React.FC = () => {
                             setEditingWeeklyOffId(wo.id!);
                             setWeeklyOffForm({ dayOfWeek: wo.dayOfWeek, weekOccurrence: wo.weekOccurrence, active: wo.active !== false });
                           }}
-                          className="p-1 text-cyan-600 hover:text-cyan-800"
+                          className="p-1 text-cyan-600 dark:text-cyan-400 hover:text-cyan-800 cursor-pointer"
                           title="Edit Rule"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -745,7 +745,7 @@ const ShiftPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleDeleteWeeklyOff(wo.id!)}
-                          className="p-1 text-rose-600 hover:text-rose-800"
+                          className="p-1 text-rose-600 dark:text-rose-400 hover:text-rose-800 cursor-pointer"
                           title="Delete Rule"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -757,11 +757,11 @@ const ShiftPage: React.FC = () => {
               )}
             </div>
 
-            <div className="pt-3 border-t border-gray-100 flex items-center justify-end">
+            <div className="pt-3 border-t border-gray-100 dark:border-[#303030] flex items-center justify-end">
               <button
                 type="button"
                 onClick={() => setIsWeeklyOffDrawerOpen(false)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold"
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold cursor-pointer transition-colors"
               >
                 Close
               </button>
@@ -772,41 +772,41 @@ const ShiftPage: React.FC = () => {
 
       {/* ── MODAL 3: VIEW SHIFT DETAILS ───────────────────────────────────── */}
       {viewingShiftDetails && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#191919] rounded-2xl max-w-md w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] space-y-4 text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030]">
               <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-cyan-600" />
+                <Clock className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900 uppercase">{viewingShiftDetails.shiftName}</h3>
-                  <span className="text-[11px] text-gray-500 font-mono">Code: {viewingShiftDetails.shiftCode} (ID: {viewingShiftDetails.id})</span>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">{viewingShiftDetails.shiftName}</h3>
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">Code: {viewingShiftDetails.shiftCode} (ID: {viewingShiftDetails.id})</span>
                 </div>
               </div>
-              <button type="button" onClick={() => setViewingShiftDetails(null)} className="p-1 text-gray-400 hover:text-gray-600">
+              <button type="button" onClick={() => setViewingShiftDetails(null)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-2 text-xs">
-              <div className="p-2.5 bg-slate-50 rounded border border-slate-200/80 flex items-center justify-between">
-                <span className="text-slate-500 font-semibold">Timings:</span>
-                <span className="font-mono font-bold text-slate-800">{viewingShiftDetails.startTime} - {viewingShiftDetails.endTime}</span>
+              <div className="p-2.5 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030] flex items-center justify-between">
+                <span className="text-slate-500 dark:text-gray-400 font-semibold">Timings:</span>
+                <span className="font-mono font-bold text-slate-800 dark:text-white">{viewingShiftDetails.startTime} - {viewingShiftDetails.endTime}</span>
               </div>
-              <div className="p-2.5 bg-slate-50 rounded border border-slate-200/80 flex items-center justify-between">
-                <span className="text-slate-500 font-semibold">Break & Grace:</span>
-                <span className="font-mono font-bold text-slate-800">{viewingShiftDetails.breakMinutes}m break / {viewingShiftDetails.gracePeriodMinutes}m grace</span>
+              <div className="p-2.5 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030] flex items-center justify-between">
+                <span className="text-slate-500 dark:text-gray-400 font-semibold">Break & Grace:</span>
+                <span className="font-mono font-bold text-slate-800 dark:text-white">{viewingShiftDetails.breakMinutes}m break / {viewingShiftDetails.gracePeriodMinutes}m grace</span>
               </div>
-              <div className="p-2.5 bg-slate-50 rounded border border-slate-200/80 flex items-center justify-between">
-                <span className="text-slate-500 font-semibold">Overtime Permitted:</span>
-                <span className="font-bold text-emerald-700">{viewingShiftDetails.overtimeAllowed ? 'Yes' : 'No'}</span>
+              <div className="p-2.5 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030] flex items-center justify-between">
+                <span className="text-slate-500 dark:text-gray-400 font-semibold">Overtime Permitted:</span>
+                <span className="font-bold text-emerald-700 dark:text-emerald-400">{viewingShiftDetails.overtimeAllowed ? 'Yes' : 'No'}</span>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-gray-100 flex items-center justify-end">
+            <div className="pt-3 border-t border-gray-100 dark:border-[#303030] flex items-center justify-end">
               <button
                 type="button"
                 onClick={() => setViewingShiftDetails(null)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold"
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold cursor-pointer transition-colors"
               >
                 Close
               </button>

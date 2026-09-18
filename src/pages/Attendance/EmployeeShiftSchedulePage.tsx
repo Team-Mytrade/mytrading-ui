@@ -281,10 +281,10 @@ const EmployeeShiftSchedulePage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <div>
-          <span className="font-bold text-xs text-gray-900 block">
+          <span className="font-bold text-xs text-gray-900 dark:text-white block">
             {row.employeeName || `Employee #${row.employeeId}`}
           </span>
-          <span className="text-[10px] text-cyan-700 font-mono">ID: {row.employeeId}</span>
+          <span className="text-[10px] text-cyan-700 dark:text-cyan-400 font-mono">ID: {row.employeeId}</span>
         </div>
       )
     },
@@ -294,10 +294,10 @@ const EmployeeShiftSchedulePage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <div>
-          <span className="font-bold text-xs text-slate-800 block">
+          <span className="font-bold text-xs text-slate-800 dark:text-gray-100 block">
             {row.shiftName || `Shift #${row.shiftId}`}
           </span>
-          <span className="text-[10px] text-gray-500 font-mono">
+          <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
             {row.shiftCode ? `Code: ${row.shiftCode}` : ''} {row.timings ? `(${row.timings})` : ''}
           </span>
         </div>
@@ -308,8 +308,8 @@ const EmployeeShiftSchedulePage: React.FC = () => {
       label: 'Effective Range',
       sortable: true,
       render: (row) => (
-        <span className="text-xs font-mono font-semibold text-slate-700">
-          {row.effectiveFrom} <span className="text-gray-400">to</span> {row.effectiveTo}
+        <span className="text-xs font-mono font-semibold text-slate-700 dark:text-gray-300">
+          {row.effectiveFrom} <span className="text-gray-400 dark:text-gray-500">to</span> {row.effectiveTo}
         </span>
       )
     },
@@ -321,7 +321,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
           <button
             type="button"
             onClick={() => openEditModal(row)}
-            className="p-1.5 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 rounded-lg text-cyan-700 transition-colors"
+            className="p-1.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-950/50 dark:hover:bg-cyan-900/50 border border-cyan-200 dark:border-cyan-800/80 rounded-lg text-cyan-700 dark:text-cyan-300 transition-colors cursor-pointer"
             title="Edit Assignment"
           >
             <Edit2 className="w-3.5 h-3.5" />
@@ -339,14 +339,14 @@ const EmployeeShiftSchedulePage: React.FC = () => {
       <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
         
         {/* Header Bar */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-3.5 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-cyan-50 text-cyan-700 rounded-lg border border-cyan-200">
+            <div className="p-2 bg-cyan-50 dark:bg-[#222222] text-cyan-700 dark:text-cyan-400 rounded-xl border border-cyan-200 dark:border-[#303030]">
               <UserCheck className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Employee Shift Roster & Schedule</h2>
-              <p className="text-xs text-gray-500">Assign work shifts and date ranges to individual employees</p>
+              <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Employee Shift Roster & Schedule</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Assign work shifts and date ranges to individual employees</p>
             </div>
           </div>
 
@@ -354,32 +354,32 @@ const EmployeeShiftSchedulePage: React.FC = () => {
             <button
               type="button"
               onClick={openCreateModal}
-              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0"
+              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0 cursor-pointer"
             >
               <Plus className="w-4 h-4" /> Assign Shift
             </button>
             <button
               type="button"
               onClick={() => loadEmployeeSchedules(selectedEmployeeId)}
-              className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg transition-all"
+              className="p-2 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#303030] rounded-xl transition-all cursor-pointer shadow-2xs"
               title="Refresh Roster"
             >
-              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
+              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
             </button>
           </div>
         </div>
 
         {/* Employee Selector Bar & Active Shift Status Card */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white p-4 rounded-xl shadow-2xs border border-gray-200/80 space-y-2">
-            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">Select Employee</label>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+          <div className="bg-white dark:bg-[#191919] p-4 rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] space-y-2">
+            <label className="block text-xs font-bold text-slate-800 dark:text-gray-300 uppercase tracking-wider">Select Employee</label>
             <select
               value={selectedEmployeeId}
               onChange={(e) => handleSelectEmployee(Number(e.target.value))}
-              className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
+              className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
             >
               {employees.map(e => (
-                <option key={e.id} value={e.id}>
+                <option key={e.id} value={e.id} className="dark:bg-[#222222]">
                   {e.name} ({e.code}) - ID #{e.id}
                 </option>
               ))}
@@ -387,38 +387,38 @@ const EmployeeShiftSchedulePage: React.FC = () => {
           </div>
 
           {/* Active Current Shift Card */}
-          <div className="md:col-span-2 bg-white p-4 rounded-xl shadow-2xs border border-gray-200/80 flex items-center justify-between">
+          <div className="md:col-span-2 bg-white dark:bg-[#191919] p-4 rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl border ${currentShiftInfo ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+              <div className={`p-2.5 rounded-xl border ${currentShiftInfo ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/80' : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/80'}`}>
                 {currentShiftInfo ? <CheckCircle2 className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Active Current Shift</span>
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider block">Active Current Shift</span>
                   {currentShiftInfo ? (
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase">Active</span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-extrabold uppercase">Active</span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold uppercase">Unassigned / Out of Shift</span>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[10px] font-extrabold uppercase">Unassigned / Out of Shift</span>
                   )}
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 mt-0.5">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
                   {currentShiftInfo ? (currentShiftInfo.shiftName || `Shift #${currentShiftInfo.shiftId}`) : 'No active shift assigned'}
                 </h3>
                 {currentShiftInfo && (
-                  <div className="flex items-center gap-3 mt-1 text-[11px] font-mono">
+                  <div className="flex items-center gap-3 mt-1 text-[11px] font-mono flex-wrap">
                     {currentShiftInfo.shiftCode && (
-                      <span className="px-1.5 py-0.5 bg-cyan-50 text-cyan-800 border border-cyan-200 rounded text-[10px] font-bold">
+                      <span className="px-1.5 py-0.5 bg-cyan-50 dark:bg-cyan-950/50 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 rounded-md text-[10px] font-bold">
                         Code: {currentShiftInfo.shiftCode}
                       </span>
                     )}
                     {currentShiftInfo.startTime && (
-                      <span className="text-cyan-700 font-semibold">
+                      <span className="text-cyan-700 dark:text-cyan-400 font-semibold">
                         Timings: {currentShiftInfo.startTime} - {currentShiftInfo.endTime}
                       </span>
                     )}
                     {currentShiftInfo.effectiveTo && (
-                      <span className="text-slate-500">
-                        Effective till: <span className="font-bold text-slate-700">{currentShiftInfo.effectiveTo}</span>
+                      <span className="text-slate-500 dark:text-gray-400">
+                        Effective till: <span className="font-bold text-slate-700 dark:text-gray-200">{currentShiftInfo.effectiveTo}</span>
                       </span>
                     )}
                   </div>
@@ -429,7 +429,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
         </div>
 
         {/* Assignments Master Table */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4">
+        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-4">
           <ReusableTable
             data={assignments}
             columns={columns}
@@ -446,31 +446,31 @@ const EmployeeShiftSchedulePage: React.FC = () => {
 
       {/* ── MODAL: ASSIGN / EDIT EMPLOYEE SHIFT ──────────────────────────── */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#191919] rounded-2xl max-w-md w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] space-y-4 text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030]">
               <div className="flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-cyan-600" />
-                <h3 className="text-sm font-bold text-gray-900 uppercase">
+                <UserCheck className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
                   {editingAssignment ? 'Edit Shift Schedule' : 'Assign Shift to Employee'}
                 </h3>
               </div>
-              <button type="button" onClick={() => setIsModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600">
+              <button type="button" onClick={() => setIsModalOpen(false)} className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSubmitAssignment} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Employee *</label>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">Employee *</label>
                 <select
                   value={form.employeeId}
                   onChange={(e) => setForm(p => ({ ...p, employeeId: Number(e.target.value) }))}
-                  className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
+                  className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-semibold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                   required
                 >
                   {employees.map(e => (
-                    <option key={e.id} value={e.id}>
+                    <option key={e.id} value={e.id} className="dark:bg-[#222222]">
                       {e.name} ({e.code}) - ID #{e.id}
                     </option>
                   ))}
@@ -478,15 +478,15 @@ const EmployeeShiftSchedulePage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Select Shift *</label>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">Select Shift *</label>
                 <select
                   value={form.shiftId}
                   onChange={(e) => setForm(p => ({ ...p, shiftId: Number(e.target.value) }))}
-                  className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
+                  className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-semibold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                   required
                 >
                   {shifts.map(s => (
-                    <option key={s.id} value={s.id}>
+                    <option key={s.id} value={s.id} className="dark:bg-[#222222]">
                       {s.name} ({s.code}) - [{s.timings}]
                     </option>
                   ))}
@@ -495,42 +495,42 @@ const EmployeeShiftSchedulePage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Effective From *</label>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">Effective From *</label>
                   <input
                     type="date"
                     value={form.effectiveFrom}
                     onChange={(e) => setForm(p => ({ ...p, effectiveFrom: e.target.value }))}
                     onClick={(e) => e.currentTarget.showPicker?.()}
-                    className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
+                    className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-mono font-semibold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Effective To *</label>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">Effective To *</label>
                   <input
                     type="date"
                     value={form.effectiveTo}
                     onChange={(e) => setForm(p => ({ ...p, effectiveTo: e.target.value }))}
                     onClick={(e) => e.currentTarget.showPicker?.()}
-                    className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
+                    className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-mono font-semibold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                     required
                   />
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-gray-100 dark:border-[#303030] flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold disabled:opacity-70"
+                  className="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs disabled:opacity-70 transition-all cursor-pointer"
                 >
                   {isSubmitting ? "Saving..." : (editingAssignment ? "Update Schedule" : "Assign Shift")}
                 </button>
