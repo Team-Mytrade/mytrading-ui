@@ -59,6 +59,10 @@ type ScheduleOrderOption = {
   orderNumber?: string;
   salesOrderNumber?: string;
   customerId?: number;
+  // Not yet confirmed present in the actual API response — see the
+  // filtering note near the dropdown options below. Added defensively so
+  // filtering works automatically the moment backend starts returning it.
+  quotationType?: "PRODUCT" | "SERVICE" | string;
   items?: Array<{
     id?: number;
     salesOrderItemId?: number;
@@ -318,6 +322,20 @@ const ReturnRequests: React.FC = () => {
       ),
     [returns]
   );
+
+  // Return Requests should only offer PRODUCT-type orders — a service
+  // order gets fulfilled via Service Schedule, not returned the way a
+  // physical product is. Filters only if quotationType is actually
+  // present in the response; if backend hasn't added that field yet,
+  // shows every order rather than silently filtering everything out
+  // (which would look like "no orders exist" when the field just isn't
+  // there yet).
+  const productScheduleOrders = useMemo(() => {
+    const hasOrderTypeInfo = scheduleOrders.some((order) => Boolean(order.quotationType));
+    return hasOrderTypeInfo
+      ? scheduleOrders.filter((order) => order.quotationType === "PRODUCT")
+      : scheduleOrders;
+  }, [scheduleOrders]);
 
   const selectedOrderItems = useMemo(() => {
     if (!form.salesOrderId) return [];
@@ -786,7 +804,7 @@ const ReturnRequests: React.FC = () => {
                   value={form.salesOrderId}
                   onChange={handleChange}
                   emptyOptionLabel={scheduleOrdersLoading ? "Loading orders..." : ""}
-                  options={scheduleOrders
+                  options={productScheduleOrders
                     .map((order) => {
                       const id = getScheduleOrderId(order);
                       const number = getScheduleOrderNumber(order);
