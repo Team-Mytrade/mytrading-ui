@@ -495,7 +495,6 @@ const SearchBar = forwardRef<
               onOpenChange(true);
             }
           }}
-          onKeyDown={runKey}
           className="w-full h-8 pl-9 pr-20 text-[13px] rounded-md
                      bg-white dark:bg-[#2b2b2b]
                      border border-black/10 dark:border-white/10

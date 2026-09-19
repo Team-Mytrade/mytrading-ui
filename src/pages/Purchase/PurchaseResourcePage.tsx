@@ -75,6 +75,8 @@ export type ResourceColumn = {
   key: string;
   label: string;
   sortable?: boolean;
+  className?: string;
+  headerClassName?: string;
   render?: (row: PurchaseRecord) => React.ReactNode;
 };
 
@@ -104,7 +106,6 @@ export type PurchaseResourceConfig = {
     name: string;
     options: SelectOption[];
     widthClassName?: string;
-
   }>;
   buildPayload?: (
     form: PurchaseRecord,
@@ -112,12 +113,21 @@ export type PurchaseResourceConfig = {
     context: { options: Record<string, SelectOption[]> }
   ) => PurchaseRecord | FormData;
   normalizeForm?: (row: PurchaseRecord) => PurchaseRecord;
+
+  initialFormState?: PurchaseRecord;
+  autoOpenCreate?: boolean;
+
+  /** Icon-only or extra action buttons rendered inside the Actions cell */
+  renderRowActions?: (row: PurchaseRecord) => React.ReactNode;
+
   renderFormExtras?: (context: {
     form: PurchaseRecord;
     setForm: React.Dispatch<React.SetStateAction<PurchaseRecord>>;
     editingRow: PurchaseRecord | null;
     refreshRows: () => Promise<void>;
+    options: Record<string, SelectOption[]>;
   }) => React.ReactNode;
+
   afterSubmit?: (context: {
     form: PurchaseRecord;
     editingRow: PurchaseRecord | null;
@@ -204,7 +214,7 @@ function searchableText(value: unknown) {
 function getInlineSelectTone(value: unknown) {
   const normalized = String(value || "").toLowerCase();
 
-  if (["active", "approved", "issued", "closed", "received"].includes(normalized)) {
+  if (["active", "approved", "issued", "received"].includes(normalized)) {
     return "border-emerald-200 bg-emerald-50 text-emerald-700 focus:border-emerald-300";
   }
 
@@ -214,6 +224,10 @@ function getInlineSelectTone(value: unknown) {
 
   if (["draft", "pending", "submitted"].includes(normalized)) {
     return "border-amber-200 bg-amber-50 text-amber-700 focus:border-amber-300";
+  }
+
+  if (normalized === "closed") {
+    return "border-slate-200 bg-slate-100 text-slate-600 focus:border-slate-300";
   }
 
   return "border-slate-200 bg-slate-50 text-slate-700 focus:border-cyan-300";
@@ -252,14 +266,17 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   const [inlineUpdatingId, setInlineUpdatingId] = useState<string | number | null>(null);
   const [search, setSearch] = useState("");
 
-  const updateRowLocally = useCallback((rowId: string | number, updater: (row: PurchaseRecord) => PurchaseRecord) => {
-    setRows((current) =>
-      current.map((item) => {
-        if (String(item.id) !== String(rowId)) return item;
-        return updater(item);
-      })
-    );
-  }, []);
+  const updateRowLocally = useCallback(
+    (rowId: string | number, updater: (row: PurchaseRecord) => PurchaseRecord) => {
+      setRows((current) =>
+        current.map((item) => {
+          if (String(item.id) !== String(rowId)) return item;
+          return updater(item);
+        })
+      );
+    },
+    []
+  );
 
   const emptyForm = useMemo(() => {
     return config.fields.reduce<PurchaseRecord>((acc, field) => {
@@ -295,26 +312,28 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
 
     const next: Record<string, SelectOption[]> = {};
     let hasFailure = false;
+
     await Promise.all(
-        optionFields.map(async (field) => {
-          try {
-            const res = await axios.get(field.optionsEndpoint || "", {
-              params: field.getOptionsParams?.() || config.getRequestParams?.(),
-            });
-            next[field.name] = asArray(res.data)
-              .map((row) => ({
-                value: optionValue(row, field.optionValue),
-                label: optionText(row, field.optionLabel),
-                raw: row,
-              }))
-              .filter((item) => item.value !== "" && item.label);
-          } catch (error) {
+      optionFields.map(async (field) => {
+        try {
+          const res = await axios.get(field.optionsEndpoint || "", {
+            params: field.getOptionsParams?.() || config.getRequestParams?.(),
+          });
+          next[field.name] = asArray(res.data)
+            .map((row) => ({
+              value: optionValue(row, field.optionValue),
+              label: optionText(row, field.optionLabel),
+              raw: row,
+            }))
+            .filter((item) => item.value !== "" && item.label);
+        } catch (error) {
           console.error(`Failed to load options for ${field.name}`, error);
           next[field.name] = [];
           hasFailure = true;
         }
       })
     );
+
     setOptions(next);
     if (hasFailure) setApiFailed(true);
   }, [config.fields]);
@@ -324,11 +343,29 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     loadOptions();
   }, [loadRows, loadOptions]);
 
-  const openCreate = () => {
-    setEditingRow(null);
-    setForm({ ...emptyForm });
-    setShowForm(true);
-  };
+  const openCreate = useCallback(
+    (seed?: PurchaseRecord) => {
+      setEditingRow(null);
+      setForm({
+        ...emptyForm,
+        ...(config.initialFormState || {}),
+        ...(seed || {}),
+      });
+      setShowForm(true);
+    },
+    [config.initialFormState, emptyForm]
+  );
+
+  useEffect(() => {
+    if (
+      config.autoOpenCreate &&
+      config.initialFormState &&
+      Object.keys(config.initialFormState).length > 0
+    ) {
+      openCreate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const openEdit = async (row: PurchaseRecord) => {
     let selectedRow = row;
@@ -414,7 +451,9 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   const confirmDelete = async () => {
     if (!deleteRow) return;
     try {
-      const url = config.deleteEndpoint ? config.deleteEndpoint(deleteRow) : `${config.endpoint}/${deleteRow.id}`;
+      const url = config.deleteEndpoint
+        ? config.deleteEndpoint(deleteRow)
+        : `${config.endpoint}/${deleteRow.id}`;
       await axios.delete(url, { params: config.getRequestParams?.() });
       ToasterService.success(`${config.title} deleted`);
       setDeleteRow(null);
@@ -447,20 +486,30 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       const rowForUpdate = await resolveRowForUpdate(row);
       const baseForm = config.normalizeForm ? config.normalizeForm(rowForUpdate) : rowForUpdate;
       const nextForm = { ...emptyForm, ...baseForm, active: nextActive };
-      const payload = config.buildPayload ? config.buildPayload(nextForm, rowForUpdate, { options }) : nextForm;
-      const url = config.updateEndpoint ? config.updateEndpoint(rowForUpdate, nextForm) : `${config.endpoint}/${row.id}`;
+      const payload = config.buildPayload
+        ? config.buildPayload(nextForm, rowForUpdate, { options })
+        : nextForm;
+      const url = config.updateEndpoint
+        ? config.updateEndpoint(rowForUpdate, nextForm)
+        : `${config.endpoint}/${row.id}`;
       await axios.put(url, payload, { params: config.getRequestParams?.() });
       updateRowLocally(row.id, (currentRow) => ({ ...currentRow, active: nextActive }));
       ToasterService.success(`${config.title} status updated`);
     } catch (error: any) {
       console.error(`Failed to update ${config.title} status`, error);
-      ToasterService.error(error.response?.data?.message || `Failed to update ${config.title} status`);
+      ToasterService.error(
+        error.response?.data?.message || `Failed to update ${config.title} status`
+      );
     } finally {
       setInlineUpdatingId(null);
     }
   };
 
-  const handleInlineSelectChange = async (row: PurchaseRecord, fieldName: string, nextValue: string) => {
+  const handleInlineSelectChange = async (
+    row: PurchaseRecord,
+    fieldName: string,
+    nextValue: string
+  ) => {
     if (!row?.id) return;
 
     try {
@@ -468,8 +517,12 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       const rowForUpdate = await resolveRowForUpdate(row);
       const baseForm = config.normalizeForm ? config.normalizeForm(rowForUpdate) : rowForUpdate;
       const nextForm = { ...emptyForm, ...baseForm, [fieldName]: nextValue };
-      const payload = config.buildPayload ? config.buildPayload(nextForm, rowForUpdate, { options }) : nextForm;
-      const url = config.updateEndpoint ? config.updateEndpoint(rowForUpdate, nextForm) : `${config.endpoint}/${row.id}`;
+      const payload = config.buildPayload
+        ? config.buildPayload(nextForm, rowForUpdate, { options })
+        : nextForm;
+      const url = config.updateEndpoint
+        ? config.updateEndpoint(rowForUpdate, nextForm)
+        : `${config.endpoint}/${row.id}`;
       await axios.put(url, payload, { params: config.getRequestParams?.() });
       updateRowLocally(row.id, (currentRow) => ({ ...currentRow, [fieldName]: nextValue }));
       ToasterService.success(`${config.title} updated`);
@@ -486,6 +539,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       key: column.key,
       label: column.label,
       sortable: column.sortable ?? true,
+      className: column.className,
+      headerClassName: column.headerClassName,
       sortValueGetter: (row: PurchaseRecord) => {
         const value = getValue(row, column.key);
         return typeof value === "object" ? formatCellValue(value) : value;
@@ -507,8 +562,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
               className={[
                 "w-[126px] rounded-2xl border px-4 py-2.5 text-sm font-medium outline-none transition",
                 "focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60",
-                  isActive
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 focus:border-emerald-300"
+                isActive
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 focus:border-emerald-300"
                   : "border-rose-200 bg-rose-50 text-red-600 focus:border-rose-300",
               ].join(" ")}
             >
@@ -517,13 +572,17 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
             </select>
           );
         }
-        const inlineSelectConfig = config.inlineSelectFields?.find((field) => field.name === column.key);
+        const inlineSelectConfig = config.inlineSelectFields?.find(
+          (field) => field.name === column.key
+        );
         if (inlineSelectConfig) {
           const currentValue = String(value ?? "");
           return (
             <select
               value={currentValue}
-              onChange={(event) => handleInlineSelectChange(row, column.key, event.target.value)}
+              onChange={(event) =>
+                handleInlineSelectChange(row, column.key, event.target.value)
+              }
               disabled={inlineUpdatingId === `${row.id}-${column.key}`}
               className={[
                 inlineSelectConfig.widthClassName || "w-[126px]",
@@ -545,7 +604,9 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       },
     }));
 
-    if (config.allowEdit === false && config.allowDelete === false) return cols;
+    if (config.allowEdit === false && config.allowDelete === false && !config.renderRowActions) {
+      return cols;
+    }
 
     return [
       ...cols,
@@ -557,6 +618,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         className: "text-right",
         render: (row: PurchaseRecord) => (
           <div className="flex items-center justify-end gap-1">
+            {config.renderRowActions?.(row)}
+
             {config.allowEdit !== false && (
               <button
                 type="button"
@@ -587,7 +650,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     () => rows.some((row) => typeof row.active === "boolean"),
     [rows]
   );
-  const searchableFields = (config.searchFields || config.columns.map((column) => column.key)) as any[];
+  const searchableFields = (config.searchFields ||
+    config.columns.map((column) => column.key)) as any[];
 
   const filteredRows = useMemo(() => {
     const term = searchableText(search);
@@ -599,12 +663,16 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
 
       const matchesSearch =
         !term ||
-        searchableFields.some((field) => searchableText(getValue(row, String(field))).includes(term));
+        searchableFields.some((field) =>
+          searchableText(getValue(row, String(field))).includes(term)
+        );
 
       return matchesActive && matchesSearch;
     });
   }, [activeFilter, rows, search, supportsActiveFilter]);
+
   const activeCount = rows.filter((row) => row.active === true).length;
+
   const popupFields = config.fields.map((field) => {
     const fieldOptions = field.getOptions
       ? field.getOptions({ form, options })
@@ -644,7 +712,9 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-sm font-medium text-slate-700">{field.label}</div>
-              <div className="text-xs text-slate-400">Enable this option for the current record.</div>
+              <div className="text-xs text-slate-400">
+                Enable this option for the current record.
+              </div>
             </div>
             <input
               type="checkbox"
@@ -688,6 +758,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     setForm,
     editingRow,
     refreshRows: loadRows,
+    options,
   });
 
   if (extraFormContent) {
@@ -707,82 +778,104 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         <div className="flex justify-start sm:justify-end lg:-mt-[134px] mx-3">
           <div className="flex flex-wrap items-center gap-3">
             {config.renderHeaderActions?.()}
-            {config.allowCreate !== false && <AddButton label={`Add ${config.title}`} onClick={openCreate} />}
+            {config.allowCreate !== false && (
+              <AddButton label={`Add ${config.title}`} onClick={() => openCreate()} />
+            )}
           </div>
         </div>
-           
+
         <div className="py-5 px-3">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-[17px]">
-          <StatsCard label="Total Records" value={rows.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-          <StatsCard label="Active Records" value={activeCount || "--"} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-          <StatsCard
-            label="Loaded From API"
-            value={loading ? "..." : apiFailed ? "API failed" : "Ready"}
-            gradient={apiFailed ? "from-red-50 to-rose-50" : "from-purple-50 to-pink-50"}
-            borderColor={apiFailed ? "border-red-100" : "border-purple-100"}
-            labelColor={apiFailed ? "text-red-600" : "text-purple-600"}
-            icon={apiFailed ? <XCircleIcon className="h-5 w-5" /> : <CheckCircleIcon className="h-5 w-5" />}
-          />
-        </div>
-
-        {/* <div className="my-3 flex flex-col sm:flex-row sm:items-center sm:justify-between"> */}
-          {/* <div className="relative w-full sm:max-w-md">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder={`Search ${config.title.toLowerCase()}...`}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-[17px]">
+            <StatsCard
+              label="Total Records"
+              value={rows.length}
+              gradient="from-cyan-50 to-blue-50"
+              borderColor="border-cyan-100"
+              labelColor="text-cyan-600"
             />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div> */}
+            <StatsCard
+              label="Active Records"
+              value={activeCount || "--"}
+              gradient="from-green-50 to-emerald-50"
+              borderColor="border-green-100"
+              labelColor="text-green-600"
+            />
+            <StatsCard
+              label="Loaded From API"
+              value={loading ? "..." : apiFailed ? "API failed" : "Ready"}
+              gradient={apiFailed ? "from-red-50 to-rose-50" : "from-purple-50 to-pink-50"}
+              borderColor={apiFailed ? "border-red-100" : "border-purple-100"}
+              labelColor={apiFailed ? "text-red-600" : "text-purple-600"}
+              icon={
+                apiFailed ? (
+                  <XCircleIcon className="h-5 w-5" />
+                ) : (
+                  <CheckCircleIcon className="h-5 w-5" />
+                )
+              }
+            />
+          </div>
 
- {/* <div className="flex items-center gap-2">
-    {config.renderSearchExtras?.()}
-
-          {supportsActiveFilter ? (
-            <div className="flex items-center -mb-9">
-
-              <FilterPopover
-                title={`Filter ${config.title}`}
-                buttonLabel="Filter"
-                label="Status"
-                value={activeFilter}
-                options={[
-                  { label: "All Statuses", value: "ALL" },
-                  { label: "Active", value: "ACTIVE" },
-                  { label: "Inactive", value: "INACTIVE" },
-                ]}
-                onChange={(value) => setActiveFilter((value as "ALL" | "ACTIVE" | "INACTIVE") || "ALL")}
-                onReset={() => setActiveFilter("ALL")}
-                onApply={() => undefined}
+          <div className="my-3 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full sm:max-w-md">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder={`Search ${config.title.toLowerCase()}...`}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
               />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <XMarkIcon className="h-4 w-4" />
+                </button>
+              )}
             </div>
-          ) : (
-    <div className="md:h-5 md:w-5 md:my-1 lg:h-5 lg:w-5 lg:my-1"></div>
-  )}
-        </div> */}
-        {/* </div> */}
-      <div className="">
-        <ReusableTable<PurchaseRecord>
-          data={filteredRows}
-          columns={tableColumns}
-          loading={loading}
-          pageSize={config.pageSize || 10}
-          defaultSortKey={config.columns[0]?.key}
-          rowDetailsTitle={`${config.title} Details`}
-        />
+
+            <div className="flex items-center gap-2">
+              {config.renderSearchExtras?.()}
+
+              {supportsActiveFilter ? (
+                <div className="flex items-center">
+                  <FilterPopover
+                    title={`Filter ${config.title}`}
+                    buttonLabel="Filter"
+                    label="Status"
+                    value={activeFilter}
+                    options={[
+                      { label: "All Statuses", value: "ALL" },
+                      { label: "Active", value: "ACTIVE" },
+                      { label: "Inactive", value: "INACTIVE" },
+                    ]}
+                    onChange={(value) =>
+                      setActiveFilter((value as "ALL" | "ACTIVE" | "INACTIVE") || "ALL")
+                    }
+                    onReset={() => setActiveFilter("ALL")}
+                    onApply={() => undefined}
+                  />
+                </div>
+              ) : (
+                <div className="md:h-5 md:w-5 md:my-1 lg:h-5 lg:w-5 lg:my-1"></div>
+              )}
+            </div>
+          </div>
+
+          <div className="">
+            <ReusableTable<PurchaseRecord>
+              data={filteredRows}
+              columns={tableColumns}
+              loading={loading}
+              pageSize={config.pageSize || 10}
+              defaultSortKey={config.columns[0]?.key}
+              rowDetailsTitle={`${config.title} Details`}
+            />
+          </div>
         </div>
-      </div>
       </div>
 
       <PaginatedPopup

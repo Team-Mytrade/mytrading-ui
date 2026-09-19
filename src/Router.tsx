@@ -61,7 +61,7 @@ import Deliveries from "./pages/Purchase/Deliveries";
 import ApprovalStatus from "./pages/Purchase/ApprovalStatus";
 import GoodsReceiptNotes from "./pages/Purchase/GoodsReceiptNotes";
 import Inventory from "./pages/Purchase/Inventory";
-import PurchaseReports from "./pages/Purchase/PurchaseReports";
+import PurchaseReports from "./pages/Reports/PurchaseReports";
 import DeliveryOrderPage from "./pages/Delivery/DeliveryOrderPage";
 import TransporterPage from "./pages/Delivery/TransporterPage";
 import VehiclePage from "./pages/Delivery/VehiclePage";
@@ -207,7 +207,7 @@ import ExpenseRevenue from "./pages/Invoice/ExpenseRevenue";
 import AccountsReceivable from "./pages/Invoice/AccountsReceivable";
 import TaxReport from "./pages/Invoice/TaxReport";
 import FinanceReport from "./pages/Invoice/FinanceReport";
-
+import Reports from "./pages/Reports/CrmReports";
 export default function AppRouter() {
   return (
     <BrowserRouter>
@@ -238,7 +238,8 @@ export default function AppRouter() {
           <Route path="/crm_dashboard" element={<CrmDashboardPage />} />
           <Route path="/customers/new" element={<CustomerFormPage />} />
           <Route path="/customers/edit/:id" element={<CustomerFormPage />} />
-
+          <Route path="/crm-reports" element={<Reports />} />
+          
           <Route path="/role_config" element={<Mainrole />} />
 
           <Route path="/service-schedule-notify" element={<ServiceScheduleNotify />} />
