@@ -3,11 +3,12 @@ import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { Link } from "react-router";
 import { AuthContext } from "../../context/AuthContext";
+import placeholderImage from "../../images/img-placeholder.png";
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
-  const [profileImage, setProfileImage] = useState("src/images/img-placeholder.png");
+  const [profileImage, setProfileImage] = useState(placeholderImage);
   const [status, setStatus] = useState("online"); // Default status
   const { user, logout } = useContext(AuthContext);
   const statusRef = useRef<HTMLDivElement>(null);
@@ -78,11 +79,11 @@ export default function UserDropdown() {
         setProfileImage(imageUrl);
       } else {
         console.log("No profile image found, using default");
-        setProfileImage("src/images/img-placeholder.png");
+        setProfileImage(placeholderImage);
       }
     } catch (error) {
       console.error("Error fetching user image:", error);
-      setProfileImage("src/images/img-placeholder.png");
+      setProfileImage(placeholderImage);
     }
   };
 
@@ -149,7 +150,7 @@ export default function UserDropdown() {
               alt="User" 
               className="object-cover w-full h-full"
               onError={(e) => {
-                e.currentTarget.src = "src/images/img-placeholder.png";
+                e.currentTarget.src = placeholderImage;
               }}
             />
           </div>
@@ -192,7 +193,7 @@ export default function UserDropdown() {
                 alt="User" 
                 className="object-cover w-full h-full"
                 onError={(e) => {
-                  e.currentTarget.src = "src/images/img-placeholder.png";
+                  e.currentTarget.src = placeholderImage;
                 }}
               />
             </div>
