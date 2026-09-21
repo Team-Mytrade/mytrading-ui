@@ -29,9 +29,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -77,7 +74,6 @@ type ExportFormat = "EXCEL" | "PDF";
 
 const API_URL = "/v1/api/sales/credit";
 const PAGE_SIZE = 10;
-const CHART_COLORS = ["#0f766e", "#06b6d4", "#2563eb", "#f59e0b", "#ef4444"];
 
 function getStoredTenantId() {
   try {
@@ -800,18 +796,6 @@ const CreditLimit: React.FC = () => {
     [baseLogs]
   );
 
-  const actionMixData = useMemo(() => {
-    const grouped = baseLogs.reduce<Record<string, number>>((acc, log) => {
-      acc[log.action] = (acc[log.action] || 0) + 1;
-      return acc;
-    }, {});
-
-    return Object.entries(grouped)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
-  }, [baseLogs]);
-
   const canPurgeDialogDescribeTarget = isPositiveNumber(form.customerId) && Boolean(historyFrom && historyTo);
   const activeMethod = methodConfig[selectedMethod];
   const ActiveMethodIcon = activeMethod.icon;
@@ -1055,7 +1039,7 @@ const CreditLimit: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-3 grid gap-3 xl:grid-cols-[1.3fr_0.9fr]">
+            <div className="mt-3">
               <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="mb-2.5 flex items-center justify-between gap-3">
                   <h4 className="text-sm font-semibold text-slate-900">Credit trend</h4>
@@ -1064,7 +1048,7 @@ const CreditLimit: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="h-44">
+                <div className="h-40">
                   {trendChartData.length ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={trendChartData} barGap={8}>
@@ -1081,51 +1065,6 @@ const CreditLimit: React.FC = () => {
                       No chart data yet
                     </div>
                   )}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <h4 className="mb-2 text-sm font-semibold text-slate-900">Action mix</h4>
-
-                <div className="h-32">
-                  {actionMixData.length ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={actionMixData}
-                          dataKey="value"
-                          nameKey="name"
-                          innerRadius={30}
-                          outerRadius={50}
-                          paddingAngle={4}
-                        >
-                          {actionMixData.map((entry, index) => (
-                            <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex h-full items-center justify-center rounded-xl bg-slate-50 text-xs text-slate-500">
-                      No action mix yet
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-2.5 grid gap-1.5">
-                  {actionMixData.map((item, index) => (
-                    <div key={item.name} className="flex items-center justify-between rounded-xl bg-slate-50 px-2.5 py-1.5">
-                      <div className="flex items-center gap-2 text-xs text-slate-700">
-                        <span
-                          className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
-                        />
-                        <span>{item.name}</span>
-                      </div>
-                      <span className="text-xs font-semibold text-slate-900">{item.value}</span>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>
