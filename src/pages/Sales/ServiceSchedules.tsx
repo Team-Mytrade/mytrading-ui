@@ -61,6 +61,10 @@ type SalesOrderOption = {
   soNumber?: string;
   orderNumber?: string;
   customerId?: number;
+  // Not yet confirmed present in the actual API response — see the
+  // filtering note near salesOrderOptions below. Added defensively so
+  // filtering works automatically the moment backend starts returning it.
+  quotationType?: "PRODUCT" | "SERVICE" | string;
 };
 
 // Customer option returned by /v1/api/sales/quotations/getCustomers
@@ -370,7 +374,15 @@ const ServiceSchedules: React.FC = () => {
     }))
     .filter((item) => Number(item.id) > 0);
 
+  // Service Schedules should only offer SERVICE-type orders — a product
+  // order isn't something you "schedule" the way a service visit is.
+  // Filters only if quotationType is actually present in the response;
+  // if backend hasn't added that field yet, this shows every order rather
+  // than silently filtering everything out (which would look like "no
+  // orders exist" when really the field just isn't there yet).
+  const hasOrderTypeInfo = salesOrders.some((order) => Boolean(order.quotationType));
   const salesOrderOptions = salesOrders
+    .filter((order) => !hasOrderTypeInfo || order.quotationType === "SERVICE")
     .map((order) => ({
       id: String(order.id),
       name: order.orderNo || order.soNumber || order.orderNumber || `Order #${order.id}`,
@@ -642,7 +654,7 @@ const ServiceSchedules: React.FC = () => {
                       name="serviceOrderId"
                       value={form.serviceOrderId}
                       onChange={handleChange}
-                      // emptyOptionLabel="Select service order"
+                      emptyOptionLabel="Select service order"
                       options={salesOrderOptions}
                       required
                     />
@@ -653,7 +665,7 @@ const ServiceSchedules: React.FC = () => {
                       name="customerId"
                       value={form.customerId}
                       onChange={handleChange}
-                      // emptyOptionLabel="Select customer"
+                      emptyOptionLabel="Select customer"
                       options={customerOptions}
                       required
                     />

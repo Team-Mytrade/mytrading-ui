@@ -1,21 +1,18 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
+  ArrowPathIcon,
   BanknotesIcon,
   CheckCircleIcon,
-  MagnifyingGlassIcon,
   PencilSquareIcon,
   ReceiptRefundIcon,
   TrashIcon,
   XCircleIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import { ListingPdfExportButton } from "../../components/common/export";
-import FilterPopover from "../../components/common/filter";
 import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
@@ -35,11 +32,19 @@ type Refund = {
   returnRequestId: number;
 };
 
+// Extended to include the `refund` field the API actually returns on each
+// return request — needed so this page can exclude returns that already
+// have a refund attached (previously this type dropped that field
+// entirely, so the dropdown had no way to filter them out, and a second
+// refund could be created against the same return via the standalone
+// POST /refunds endpoint, bypassing the duplicate-refund check that
+// already exists on the Return Requests page for its own refund button).
 type ReturnRequestOption = {
   id: number;
   salesOrderId?: number;
   status?: string;
   reason?: string;
+  refund?: { id?: number } | null;
 };
 
 type RefundForm = {
@@ -59,7 +64,24 @@ type PaymentMethod =
   | "CHEQUE"
   | "UPI";
 
+type ReturnDetail = {
+  id: number;
+  requestDate: string;
+  status: string;
+  reason: string;
+  salesOrderId: number;
+  remarks?: string;
+  items?: Array<{
+    id?: number;
+    salesOrderItemId: number;
+    refundAmount: number;
+    returnQuantity: number;
+    remarks?: string;
+  }>;
+};
+
 const API_URL = "/v1/api/sales/refunds";
+const RETURNS_API_URL = "/v1/api/sales/returns";
 const PAGE_SIZE = 10;
 const statusOptions = ["PENDING", "PROCESSED", "FAILED"];
 const paymentMethodOptions: PaymentMethod[] = [
@@ -71,6 +93,7 @@ const paymentMethodOptions: PaymentMethod[] = [
   "CHEQUE",
   "UPI",
 ];
+const REFUNDABLE_RETURN_STATUSES = ["APPROVED"];
 
 const emptyForm: RefundForm = {
   amount: "",
@@ -97,11 +120,13 @@ function toApiDateTime(value: string) {
   return value ? new Date(value).toISOString() : new Date().toISOString();
 }
 
-function toInputDateTime(value?: string) {
-  if (!value) return new Date().toISOString().slice(0, 16);
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return new Date().toISOString().slice(0, 16);
-  return date.toISOString().slice(0, 16);
+function toLocalDateTimeInput(value?: string) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const date = value ? new Date(value) : new Date();
+  const safe = Number.isNaN(date.getTime()) ? new Date() : date;
+  return `${safe.getFullYear()}-${pad(safe.getMonth() + 1)}-${pad(safe.getDate())}T${pad(
+    safe.getHours()
+  )}:${pad(safe.getMinutes())}`;
 }
 
 function toDateValue(value?: string) {
@@ -124,14 +149,15 @@ function money(value: number | string | undefined) {
   return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-function searchableText(value: unknown) {
-  if (value === null || value === undefined) return "";
-  return String(value).toLowerCase().trim();
-}
-
 const Refunds: React.FC = () => {
   const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
+  const headers = useMemo(
+    () =>
+      token
+        ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
+        : undefined,
+    [token]
+  );
 
   const [refunds, setRefunds] = useState<Refund[]>([]);
   const [returnRequests, setReturnRequests] = useState<ReturnRequestOption[]>([]);
@@ -141,9 +167,6 @@ const Refunds: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [returnRequestLookupId, setReturnRequestLookupId] = useState("");
   const [deleteRefund, setDeleteRefund] = useState<Refund | null>(null);
 
   useEffect(() => {
@@ -177,47 +200,39 @@ const Refunds: React.FC = () => {
 
   const fetchReturnRequests = async () => {
     try {
-      const res = await axios.get<ReturnRequestOption[]>("/v1/api/sales/returns", { headers });
+      const res = await axios.get<ReturnRequestOption[]>(RETURNS_API_URL, { headers });
       setReturnRequests(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       ToasterService.error("Failed to load return requests", getErrorMessage(error, "Please try again."));
     }
   };
 
-  const fetchByStatus = async () => {
-    if (!statusFilter) {
-      ToasterService.error("Status is required");
-      return;
-    }
-
+  const markReturnAsRefunded = async (returnRequestId: number) => {
+    if (!Number.isFinite(returnRequestId) || returnRequestId <= 0) return;
     try {
-      setLoading(true);
-      const res = await axios.get<Refund[]>(`${API_URL}/status/${statusFilter}`, { headers });
-      const data = Array.isArray(res.data) ? res.data : [];
-      setRefunds(data);
-      data.length ? ToasterService.success("Refunds loaded") : ToasterService.noData("No refunds found");
-    } catch (error) {
-      ToasterService.error("Failed to load refunds by status", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
-    }
-  };
+      const detail = await axios.get<ReturnDetail>(
+        `${RETURNS_API_URL}/${returnRequestId}`,
+        { headers }
+      );
 
-  const fetchByReturnRequest = async () => {
-    if (!returnRequestLookupId) {
-      ToasterService.error("Return request ID is required");
-      return;
-    }
+      const body = {
+        ...detail.data,
+        status: "REFUNDED",
+        items: (detail.data.items || []).map((item) => ({
+          id: item.id ?? 0,
+          salesOrderItemId: item.salesOrderItemId,
+          refundAmount: Number(item.refundAmount || 0),
+          returnQuantity: Number(item.returnQuantity || 0),
+          remarks: item.remarks ?? "",
+        })),
+      };
 
-    try {
-      setLoading(true);
-      const res = await axios.get<Refund>(`${API_URL}/return-request/${returnRequestLookupId}`, { headers });
-      setRefunds(res.data ? [res.data] : []);
-      ToasterService.success("Return request refund loaded");
-    } catch (error) {
-      ToasterService.error("Failed to load refund by return request", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
+      await axios.put(`${RETURNS_API_URL}/${returnRequestId}`, body, { headers });
+    } catch {
+      ToasterService.error(
+        "Refund saved, return not updated",
+        "The refund was created but the return request could not be marked REFUNDED. Open Return Requests and update it manually."
+      );
     }
   };
 
@@ -243,6 +258,29 @@ const Refunds: React.FC = () => {
       return;
     }
 
+    const amountNum = Number(form.amount);
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+      ToasterService.error("Invalid amount", "Amount must be greater than zero.");
+      return;
+    }
+
+    // Defensive re-check right before submit — the dropdown already
+    // excludes returns with a refund, but this guards against the list
+    // going stale between opening the form and clicking submit (e.g. a
+    // refund created elsewhere in the meantime).
+    if (!editingId) {
+      const targetReturn = returnRequests.find(
+        (item) => Number(item.id) === toNumber(form.returnRequestId)
+      );
+      if (targetReturn?.refund) {
+        ToasterService.error(
+          "Refund already exists",
+          `Return request #${form.returnRequestId} already has a refund. Edit that refund instead of creating a new one.`
+        );
+        return;
+      }
+    }
+
     try {
       setSubmitting(true);
       const payload = buildPayload();
@@ -250,7 +288,16 @@ const Refunds: React.FC = () => {
         ? await axios.put<Refund>(`${API_URL}/${editingId}`, payload, { headers })
         : await axios.post<Refund>(API_URL, payload, { headers });
 
-      upsertRefund(res.data);
+      upsertRefund({
+        ...res.data,
+        returnRequestId: res.data.returnRequestId ?? toNumber(form.returnRequestId),
+      });
+
+      if (!editingId) {
+        await markReturnAsRefunded(toNumber(form.returnRequestId));
+        void fetchReturnRequests();
+      }
+
       ToasterService.success(editingId ? "Refund updated" : "Refund created");
       closeForm();
     } catch (error) {
@@ -275,7 +322,10 @@ const Refunds: React.FC = () => {
       };
 
       const res = await axios.put<Refund>(`${API_URL}/${refund.id}`, payload, { headers });
-      upsertRefund(res.data);
+      upsertRefund({
+        ...res.data,
+        returnRequestId: res.data.returnRequestId ?? refund.returnRequestId,
+      });
       ToasterService.success("Refund status updated");
     } catch (error) {
       ToasterService.error("Failed to update status", getErrorMessage(error, "Please try again."));
@@ -294,7 +344,7 @@ const Refunds: React.FC = () => {
     setEditingId(refund.id);
     setForm({
       amount: String(refund.amount || ""),
-      refundDate: toInputDateTime(refund.refundDate),
+      refundDate: toLocalDateTimeInput(refund.refundDate),
       status: refund.status || "PENDING",
       paymentMethod: paymentMethodOptions.includes(refund.paymentMethod as PaymentMethod)
         ? (refund.paymentMethod as PaymentMethod)
@@ -327,44 +377,30 @@ const Refunds: React.FC = () => {
     }
   };
 
-  const filteredRefunds = useMemo(() => {
-    const term = searchableText(search);
-    if (!term) return refunds;
+  const stats = useMemo(
+    () => ({
+      total: refunds.length,
+      pending: refunds.filter((item) => item.status === "PENDING").length,
+      processed: refunds.filter((item) => item.status === "PROCESSED").length,
+      failed: refunds.filter((item) => item.status === "FAILED").length,
+    }),
+    [refunds]
+  );
 
-    return refunds.filter((refund) => {
-      const returnRequest = returnRequests.find((item) => Number(item.id) === Number(refund.returnRequestId));
-      const haystack = [
-        refund.id,
-        refund.returnRequestId,
-        refund.amount,
-        refund.status,
-        refund.paymentMethod,
-        refund.refundDate,
-        returnRequest?.salesOrderId,
-        returnRequest?.status,
-        returnRequest?.reason,
-        `refund ${refund.id}`,
-        `return ${refund.returnRequestId}`,
-      ]
-        .map(searchableText)
-        .filter(Boolean)
-        .join(" ");
-
-      return haystack.includes(term);
-    });
-  }, [refunds, returnRequests, search]);
-
-  const stats = useMemo(() => ({
-    total: refunds.length,
-    pending: refunds.filter((item) => item.status === "PENDING").length,
-    processed: refunds.filter((item) => item.status === "PROCESSED").length,
-    failed: refunds.filter((item) => item.status === "FAILED").length,
-  }), [refunds]);
-
-  const returnRequestOptions = returnRequests.map((item) => ({
-    id: String(item.id),
-    name: `Return #${item.id}${item.salesOrderId ? ` - Order #${item.salesOrderId}` : ""}${item.status ? ` (${item.status})` : ""}`,
-  }));
+  // Only APPROVED returns that don't already have a refund attached are
+  // eligible here — closes the duplicate-refund gap described above.
+  const returnRequestOptions = useMemo(
+    () =>
+      returnRequests
+        .filter((item) => REFUNDABLE_RETURN_STATUSES.includes(item.status || "") && !item.refund)
+        .map((item) => ({
+          id: String(item.id),
+          name: `Return #${item.id}${item.salesOrderId ? ` - Order #${item.salesOrderId}` : ""}${
+            item.status ? ` (${item.status})` : ""
+          }`,
+        })),
+    [returnRequests]
+  );
 
   const columns: ColumnDef<Refund>[] = [
     {
@@ -388,7 +424,7 @@ const Refunds: React.FC = () => {
       key: "refundDate",
       label: "Refund Date",
       sortable: true,
-      render: (refund) => refund.refundDate ? new Date(refund.refundDate).toLocaleString() : "--",
+      render: (refund) => (refund.refundDate ? new Date(refund.refundDate).toLocaleString() : "--"),
     },
     {
       key: "status",
@@ -413,7 +449,7 @@ const Refunds: React.FC = () => {
         </select>
       ),
     },
-    { key: "paymentMethod", label: "Payment Method", sortable: true, },
+    { key: "paymentMethod", label: "Payment Method", sortable: true },
     {
       key: "actions",
       label: "Actions",
@@ -446,118 +482,42 @@ const Refunds: React.FC = () => {
   return (
     <>
       <PageMeta title="Refunds" description="Manage sales refunds" />
-      <PageBreadcrumb pageTitle="Refunds" />
+      <PageBreadcrumb
+        pageTitle="Refunds"
+        actions={<AddButton onClick={openCreate} label="Add Refund" />}
+      />
 
       <div className="w-full max-w-none px-0 py-8">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Refund" />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Refunds" value={stats.total} icon={<ReceiptRefundIcon />} />
-          <StatsCard label="Pending" value={stats.pending} icon={<BanknotesIcon />} gradient="from-orange-50 to-yellow-50" borderColor="border-orange-100" labelColor="text-orange-600" />
-          <StatsCard label="Processed" value={stats.processed} icon={<CheckCircleIcon />} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-          <StatsCard label="Failed" value={stats.failed} icon={<XCircleIcon />} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between md:mt-1 md:-mb-4">
-          <div className="relative w-full sm:max-w-md mt-1">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search refunds..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-            />
-            {search && (
-              <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 -mt-0.5">
-            <ListingPdfExportButton
-  title="Refunds"
-  subtitle="Filtered refund listing"
-  reportLabel="Sales Report"
-  data={filteredRefunds}
-  dateAccessor={(refund) => refund.refundDate}
-  columns={[
-    {
-      key: "returnRequestId",
-      header: "Return Request",
-      accessor: (refund) => `Return #${refund.returnRequestId}`,
-    },
-    { key: "amount", header: "Amount", align: "right" },
-    {
-      key: "refundDate",
-      header: "Refund Date",
-      accessor: (refund) => (refund.refundDate ? new Date(refund.refundDate).toLocaleString() : "-"),
-    },
-    { key: "status", header: "Status" },
-    { key: "paymentMethod", header: "Payment Method" },
-  ]}
-  fileName="Refunds"
-  disabled={loading}
-  metadata={(rows, rangeLabel) => [
-    { label: "Total", value: rows.length },
-    { label: "Range", value: rangeLabel },
-    { label: "Status", value: statusFilter || "All" },
-    { label: "Search", value: search || "None" },
-  ]}
-/>
-            <FilterPopover title="Filter Refunds" buttonLabel="Filters" widthClassName="w-[20rem] sm:w-[22rem]" showFooter={false}>
-            <div className="space-y-3">
-              <FloatingSelect
-                label="Status"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                emptyOptionLabel=""
-                options={statusOptions.map((status) => ({ id: status, name: status }))}
-              />
-              <FloatingSelect
-                label="Return Request"
-                value={returnRequestLookupId}
-                onChange={(e) => setReturnRequestLookupId(e.target.value)}
-                emptyOptionLabel=""
-                options={returnRequestOptions}
-              />
-              <div className="grid grid-cols-3 gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStatusFilter("");
-                    setReturnRequestLookupId("");
-                    void fetchRefunds();
-                  }}
-                  className="h-10 rounded-lg bg-gray-100 px-3 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                >
-                  Reset
-                </button>
-                <button
-                  type="button"
-                  onClick={fetchByStatus}
-                  className="h-10 rounded-lg bg-cyan-600 px-3 text-sm font-medium text-white hover:bg-cyan-700"
-                >
-                  Status
-                </button>
-                <button
-                  type="button"
-                  onClick={fetchByReturnRequest}
-                  className="h-10 rounded-lg bg-cyan-600 px-3 text-sm font-medium text-white hover:bg-cyan-700"
-                >
-                  Return
-                </button>
-              </div>
-            </div>
-            </FilterPopover>
-          </div>
+          <StatsCard
+            label="Pending"
+            value={stats.pending}
+            icon={<BanknotesIcon />}
+            gradient="from-orange-50 to-yellow-50"
+            borderColor="border-orange-100"
+            labelColor="text-orange-600"
+          />
+          <StatsCard
+            label="Processed"
+            value={stats.processed}
+            icon={<CheckCircleIcon />}
+            gradient="from-green-50 to-emerald-50"
+            borderColor="border-green-100"
+            labelColor="text-green-600"
+          />
+          <StatsCard
+            label="Failed"
+            value={stats.failed}
+            icon={<XCircleIcon />}
+            gradient="from-red-50 to-rose-50"
+            borderColor="border-red-100"
+            labelColor="text-red-600"
+          />
         </div>
 
         <ReusableTable
-          data={filteredRefunds}
+          data={refunds}
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}
@@ -567,8 +527,13 @@ const Refunds: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               <ReceiptRefundIcon className="mb-3 h-12 w-12 text-gray-400" />
               <p className="mb-2 text-sm text-gray-500">No refunds found</p>
-              <button type="button" onClick={openCreate} className="text-xs font-medium text-cyan-600 hover:text-cyan-700">
-                Create your first refund
+              <button
+                type="button"
+                onClick={() => fetchRefunds()}
+                className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700"
+              >
+                <ArrowPathIcon className="h-3.5 w-3.5" />
+                Reload all refunds
               </button>
             </div>
           }
@@ -588,8 +553,18 @@ const Refunds: React.FC = () => {
           {
             label: "Refund Info",
             fields: [
-              <FloatingInput label="Amount" name="amount" type="number" value={form.amount} onChange={handleChange} required />,
+              <FloatingInput
+                key="amount"
+                label="Amount"
+                name="amount"
+                type="number"
+                min={0}
+                value={form.amount}
+                onChange={handleChange}
+                required
+              />,
               <FloatingDateRangePicker
+                key="refundDate"
                 label="Refund Date"
                 startDate={toDateValue(form.refundDate)}
                 endDate={toDateValue(form.refundDate)}
@@ -607,6 +582,7 @@ const Refunds: React.FC = () => {
                 dateFormat="dd-MM-yyyy hh:mm aa"
               />,
               <FloatingSelect
+                key="status"
                 label="Status"
                 name="status"
                 value={form.status}
@@ -615,6 +591,7 @@ const Refunds: React.FC = () => {
                 options={statusOptions.map((status) => ({ id: status, name: status }))}
               />,
               <FloatingSelect
+                key="paymentMethod"
                 label="Payment Method"
                 name="paymentMethod"
                 value={form.paymentMethod}
@@ -627,14 +604,28 @@ const Refunds: React.FC = () => {
           {
             label: "Return Request",
             fields: [
-              <FloatingSelect
-                label="Return Request"
-                name="returnRequestId"
-                value={form.returnRequestId}
-                onChange={handleChange}
-                options={returnRequestOptions}
-                required
-              />,
+              <div key="returnRequestBlock" className="md:col-span-2">
+                <FloatingSelect
+                  key="returnRequestId"
+                  label="Return Request (only APPROVED, not yet refunded)"
+                  name="returnRequestId"
+                  value={form.returnRequestId}
+                  onChange={handleChange}
+                  emptyOptionLabel={
+                    returnRequestOptions.length === 0
+                      ? "No eligible returns available"
+                      : ""
+                  }
+                  options={returnRequestOptions}
+                  required
+                />
+                {returnRequestOptions.length === 0 && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    Only return requests that are APPROVED and don't already have a refund can be
+                    refunded here. Approve a return first from the Return Requests page.
+                  </p>
+                )}
+              </div>,
             ],
           },
         ]}
@@ -648,7 +639,11 @@ const Refunds: React.FC = () => {
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
         innerText="Delete Refund"
-        subText={deleteRefund ? `Are you sure you want to delete refund #${deleteRefund.id}?` : "Are you sure?"}
+        subText={
+          deleteRefund
+            ? `Are you sure you want to delete refund #${deleteRefund.id}?`
+            : "Are you sure?"
+        }
         confirmLabel="Delete"
         cancelLabel="Cancel"
         onConfirm={confirmDelete}

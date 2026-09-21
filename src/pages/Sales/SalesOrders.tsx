@@ -1,21 +1,20 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import {
   BanknotesIcon,
   CalendarDaysIcon,
   CheckCircleIcon,
-  MagnifyingGlassIcon,
+  ExclamationTriangleIcon,
   PencilSquareIcon,
+  PlusIcon,
   ShoppingCartIcon,
   TrashIcon,
-  UserIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import { ListingPdfExportButton } from "../../components/common/export";
 import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
@@ -134,22 +133,6 @@ type CustomerOption = {
   currencyCode?: string;
 };
 
-type ProductOption = {
-  id: number;
-  productCode?: string;
-  productName?: string;
-  categoryName?: string;
-  brand?: string;
-  uom?: string;
-  standardCost?: number;
-  sellingPrice?: number;
-  stockItem?: boolean;
-  serviceItem?: boolean;
-  active?: boolean;
-  imageName?: string | null;
-  imageType?: string | null;
-};
-
 type QuotationItemOption = {
   id?: number;
   quotationItemId?: number;
@@ -189,8 +172,30 @@ type QuotationOption = {
   items?: QuotationItemOption[];
 };
 
+// One row in the "Items" tab. Product identity + pricing come straight from
+// the quotation and are NOT re-editable — the user can only adjust quantity,
+// discounts, tax, and remarks on top of the quotation's baseline.
+type OrderItemForm = {
+  key: string;
+  quotationItemId: string;
+  itemType: string;
+  serviceItemId: string;
+  productId: string;
+  productCode: string;
+  productName: string;
+  description: string;
+  uom: string;
+  quantity: string;
+  unitPrice: string;
+  discountPercentage: string;
+  discountAmount: string;
+  additionalDiscount: string;
+  taxRate: string;
+  taxCode: string;
+  remarks: string;
+};
+
 type OrderForm = {
-  tenantId: string;
   orderNumber: string;
   quotationType: string;
   orderDate: string;
@@ -232,30 +237,16 @@ type OrderForm = {
   internalNotes: string;
   customerNotes: string;
   termsAndConditions: string;
-  itemQuotationItemId: string;
-  itemType: string;
-  itemServiceItemId: string;
-  itemProductId: string;
-  itemProductCode: string;
-  itemProductName: string;
-  itemDescription: string;
-  itemUom: string;
-  itemQuantity: string;
-  itemUnitPrice: string;
-  itemDiscountPercentage: string;
-  itemDiscountAmount: string;
-  itemAdditionalDiscount: string;
-  itemTaxRate: string;
-  itemTaxCode: string;
-  itemRemarks: string;
+  items: OrderItemForm[];
 };
 
 const API_URL = "/v1/api/sales/sales-orders";
 const PAGE_SIZE = 10;
 
-const statusOptions = ["DRAFT"];
 const quotationTypeOptions = ["PRODUCT", "SERVICE"];
 
+// STOPGAP: backend still requires tenantId as a query param. Read at call
+// time only, never exposed in the UI. Move server-side when backend supports.
 function getStoredTenantId() {
   try {
     const user = JSON.parse(localStorage.getItem("user") || "null");
@@ -265,8 +256,57 @@ function getStoredTenantId() {
   }
 }
 
+let itemKeySeq = 0;
+function nextItemKey() {
+  itemKeySeq += 1;
+  return `item-${itemKeySeq}`;
+}
+
+function itemFromQuotationItem(qItem: QuotationItemOption): OrderItemForm {
+  return {
+    key: nextItemKey(),
+    quotationItemId: String(firstPositiveNumber(qItem.id, qItem.quotationItemId)),
+    itemType: "PRODUCT",
+    serviceItemId: "0",
+    productId: String(firstPositiveNumber(qItem.productId)),
+    productCode: qItem.productCode || "",
+    productName: qItem.productName || "",
+    description: qItem.description || "",
+    uom: qItem.uom || "",
+    quantity: String(qItem.quantity ?? 1),
+    unitPrice: String(qItem.unitPrice ?? 0),
+    discountPercentage: String(qItem.discountPercentage ?? 0),
+    discountAmount: String(qItem.discountAmount ?? 0),
+    additionalDiscount: String(qItem.additionalDiscount ?? 0),
+    taxRate: String(qItem.taxRate ?? 0),
+    taxCode: qItem.taxCode || "",
+    remarks: qItem.remarks || "",
+  };
+}
+
+function itemFromOrderItem(item: SalesOrderItem): OrderItemForm {
+  return {
+    key: nextItemKey(),
+    quotationItemId: String(item.quotationItemId || 0),
+    itemType: item.itemType || "PRODUCT",
+    serviceItemId: String(item.serviceItemId || 0),
+    productId: String(item.productId || ""),
+    productCode: item.productCode || "",
+    productName: item.productName || "",
+    description: item.description || "",
+    uom: item.uom || "",
+    quantity: String(item.quantity || 1),
+    unitPrice: String(item.unitPrice || 0),
+    discountPercentage: String(item.discountPercentage || 0),
+    discountAmount: String(item.discountAmount || 0),
+    additionalDiscount: String(item.additionalDiscount || 0),
+    taxRate: String(item.taxRate || 0),
+    taxCode: item.taxCode || "",
+    remarks: item.remarks || "",
+  };
+}
+
 const emptyForm: OrderForm = {
-  tenantId: getStoredTenantId(),
   orderNumber: "",
   quotationType: "PRODUCT",
   orderDate: new Date().toISOString().split("T")[0],
@@ -308,22 +348,7 @@ const emptyForm: OrderForm = {
   internalNotes: "",
   customerNotes: "",
   termsAndConditions: "",
-  itemQuotationItemId: "0",
-  itemType: "PRODUCT",
-  itemServiceItemId: "0",
-  itemProductId: "",
-  itemProductCode: "",
-  itemProductName: "",
-  itemDescription: "",
-  itemUom: "",
-  itemQuantity: "1",
-  itemUnitPrice: "0",
-  itemDiscountPercentage: "0",
-  itemDiscountAmount: "0",
-  itemAdditionalDiscount: "0",
-  itemTaxRate: "0",
-  itemTaxCode: "",
-  itemRemarks: "",
+  items: [],
 };
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -331,7 +356,7 @@ function getErrorMessage(error: unknown, fallback: string) {
     const data = error.response?.data;
     if (typeof data === "string") return data;
     if (String(data?.error || "").includes("feign.Response$Body.asInputStream")) {
-      return "Backend could not resolve one of the referenced IDs. Check tenantId, quotationId, customerId, salesChannelId, salesPersonId, productId, and quotationItemId.";
+      return "Backend could not resolve one of the referenced IDs. Check quotationId, customerId, salesChannelId, salesPersonId, productId, and quotationItemId.";
     }
     return data?.message || data?.detail || data?.error || data?.title || fallback;
   }
@@ -358,11 +383,6 @@ function toInputDateValue(date: Date | null) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function searchableText(value: unknown) {
-  if (value === null || value === undefined) return "";
-  return String(value).toLowerCase().trim();
 }
 
 function isPositiveNumber(value: string) {
@@ -394,10 +414,6 @@ function getQuotationId(quotation: QuotationOption) {
   return firstPositiveNumber(quotation.id, quotation.quotationId, quotation.quoteId);
 }
 
-function getQuotationItemId(item: QuotationItemOption) {
-  return firstPositiveNumber(item.id, item.quotationItemId);
-}
-
 function customerOptionLabel(customer: CustomerOption) {
   return customer.customerName || customer.tradeName || `Customer #${customer.id}`;
 }
@@ -422,48 +438,66 @@ function buildAddress(form: OrderForm, type: "BILLING" | "SHIPPING"): Address {
   };
 }
 
-function buildItem(form: OrderForm): SalesOrderItem {
-  const quantity = toNumber(form.itemQuantity);
-  const unitPrice = toNumber(form.itemUnitPrice);
-  const discountAmount = toNumber(form.itemDiscountAmount);
-  const additionalDiscount = toNumber(form.itemAdditionalDiscount);
-  const taxRate = toNumber(form.itemTaxRate);
+function computeItemTotals(item: OrderItemForm) {
+  const quantity = toNumber(item.quantity);
+  const unitPrice = toNumber(item.unitPrice);
+  const discountAmount = toNumber(item.discountAmount);
+  const additionalDiscount = toNumber(item.additionalDiscount);
+  const taxRate = toNumber(item.taxRate);
   const grossAmount = quantity * unitPrice;
   const taxableAmount = Math.max(0, grossAmount - discountAmount - additionalDiscount);
   const taxAmount = Number(((taxableAmount * taxRate) / 100).toFixed(2));
   const lineTotal = Number((taxableAmount + taxAmount).toFixed(2));
-
   return {
-    id: 0,
-    quotationItemId: toNumber(form.itemQuotationItemId),
-    itemType: form.itemType,
-    serviceItemId: toNumber(form.itemServiceItemId),
-    productId: toNumber(form.itemProductId),
-    productCode: form.itemProductCode,
-    productName: form.itemProductName,
-    description: form.itemDescription,
-    uom: form.itemUom,
     quantity,
     unitPrice,
-    discountPercentage: toNumber(form.itemDiscountPercentage),
     discountAmount,
     additionalDiscount,
     taxRate,
-    taxCode: form.itemTaxCode,
-    remarks: form.itemRemarks,
-    status: "NEW",
     grossAmount,
     taxableAmount,
     taxAmount,
     lineTotal,
+  };
+}
+
+function buildOrderItemPayload(item: OrderItemForm): SalesOrderItem {
+  const totals = computeItemTotals(item);
+  return {
+    id: 0,
+    quotationItemId: toNumber(item.quotationItemId),
+    itemType: item.itemType,
+    serviceItemId: toNumber(item.serviceItemId),
+    productId: toNumber(item.productId),
+    productCode: item.productCode,
+    productName: item.productName,
+    description: item.description,
+    uom: item.uom,
+    quantity: totals.quantity,
+    unitPrice: totals.unitPrice,
+    discountPercentage: toNumber(item.discountPercentage),
+    discountAmount: totals.discountAmount,
+    additionalDiscount: totals.additionalDiscount,
+    taxRate: totals.taxRate,
+    taxCode: item.taxCode,
+    remarks: item.remarks,
+    status: "NEW",
+    grossAmount: totals.grossAmount,
+    taxableAmount: totals.taxableAmount,
+    taxAmount: totals.taxAmount,
+    lineTotal: totals.lineTotal,
     deliveredQuantity: 0,
-    pendingQuantity: quantity,
+    pendingQuantity: totals.quantity,
   };
 }
 
 const SalesOrders: React.FC = () => {
+  const navigate = useNavigate();
   const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const headers = useMemo(
+  () => (token ? { Authorization: `Bearer ${token}` } : undefined),
+  [token]
+);
 
   const [orders, setOrders] = useState<SalesOrder[]>([]);
   const [form, setForm] = useState<OrderForm>(emptyForm);
@@ -471,13 +505,20 @@ const SalesOrders: React.FC = () => {
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [search, setSearch] = useState("");
   const [deleteOrder, setDeleteOrder] = useState<SalesOrder | null>(null);
   const [salesPersons, setSalesPersons] = useState<SalesPersonOption[]>([]);
   const [salesChannels, setSalesChannels] = useState<SalesChannelOption[]>([]);
   const [quotations, setQuotations] = useState<QuotationOption[]>([]);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
-  const [products, setProducts] = useState<ProductOption[]>([]);
+  // Existing orders for the currently-selected customer — reference panel
+  // only, fetched from /sales-orders/customer/{customerId}. Never used to
+  // build the order itself.
+  const [customerOrders, setCustomerOrders] = useState<SalesOrder[]>([]);
+  const [creditCheck, setCreditCheck] = useState<{
+    status: "idle" | "checking" | "ok" | "insufficient" | "error";
+    availableCredit?: number;
+    message?: string;
+  }>({ status: "idle" });
 
   useEffect(() => {
     fetchOrders();
@@ -485,53 +526,104 @@ const SalesOrders: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-calculate order-level Sub Total, Discount, Discount %, Tax Amount and
-  // Grand Total directly from the line item's own fields, so the Totals tab
-  // always matches what buildItem() actually computes and sends in the payload.
+  // Order-level totals are always summed from the items in this order.
+  // Never copied from the quotation's own total, because an order's items
+  // can legitimately diverge from the quotation (adjusted qty/price, or
+  // only some items included).
   useEffect(() => {
-    const quantity = toNumber(form.itemQuantity);
-    const unitPrice = toNumber(form.itemUnitPrice);
-    const discountAmount = toNumber(form.itemDiscountAmount);
-    const additionalDiscount = toNumber(form.itemAdditionalDiscount);
-    const taxRate = toNumber(form.itemTaxRate);
-
-    const subTotal = quantity * unitPrice;
-    const taxableAmount = Math.max(0, subTotal - discountAmount - additionalDiscount);
-    const taxAmount = Number(((taxableAmount * taxRate) / 100).toFixed(2));
-    const grandTotal = Number((taxableAmount + taxAmount).toFixed(2));
+    const totalsPerItem = form.items.map(computeItemTotals);
+    const subTotal = totalsPerItem.reduce((sum, t) => sum + t.grossAmount, 0);
+    const discountAmount = totalsPerItem.reduce((sum, t) => sum + t.discountAmount, 0);
+    const additionalDiscount = totalsPerItem.reduce((sum, t) => sum + t.additionalDiscount, 0);
+    const taxAmount = Number(totalsPerItem.reduce((sum, t) => sum + t.taxAmount, 0).toFixed(2));
+    const grandTotal = Number(totalsPerItem.reduce((sum, t) => sum + t.lineTotal, 0).toFixed(2));
     const discountPercentage =
       subTotal > 0 ? Number((((discountAmount + additionalDiscount) / subTotal) * 100).toFixed(2)) : 0;
 
     setForm((current) => {
-      const nextSubTotal = String(subTotal);
-      const nextDiscountAmount = String(discountAmount);
-      const nextAdditionalDiscount = String(additionalDiscount);
-      const nextTaxAmount = String(taxAmount);
-      const nextGrandTotal = String(grandTotal);
-      const nextDiscountPercentage = String(discountPercentage);
+      const next = {
+        subTotal: String(subTotal),
+        discountAmount: String(discountAmount),
+        additionalDiscount: String(additionalDiscount),
+        taxAmount: String(taxAmount),
+        grandTotal: String(grandTotal),
+        discountPercentage: String(discountPercentage),
+      };
+      const unchanged = (Object.keys(next) as (keyof typeof next)[]).every(
+        (key) => current[key] === next[key]
+      );
+      return unchanged ? current : { ...current, ...next };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.items]);
 
-      if (
-        current.subTotal === nextSubTotal &&
-        current.discountAmount === nextDiscountAmount &&
-        current.additionalDiscount === nextAdditionalDiscount &&
-        current.taxAmount === nextTaxAmount &&
-        current.grandTotal === nextGrandTotal &&
-        current.discountPercentage === nextDiscountPercentage
-      ) {
+  // Paid / Balance are fully derived from the Paid toggle and grand total.
+  useEffect(() => {
+    const isPaid = form.paid === "true";
+    const nextPaidAmount = isPaid ? form.grandTotal : "0";
+    const nextBalanceAmount = isPaid ? "0" : form.grandTotal;
+
+    setForm((current) => {
+      if (current.paidAmount === nextPaidAmount && current.balanceAmount === nextBalanceAmount) {
         return current;
       }
-
-      return {
-        ...current,
-        subTotal: nextSubTotal,
-        discountAmount: nextDiscountAmount,
-        additionalDiscount: nextAdditionalDiscount,
-        taxAmount: nextTaxAmount,
-        grandTotal: nextGrandTotal,
-        discountPercentage: nextDiscountPercentage,
-      };
+      return { ...current, paidAmount: nextPaidAmount, balanceAmount: nextBalanceAmount };
     });
-  }, [form.itemQuantity, form.itemUnitPrice, form.itemDiscountAmount, form.itemAdditionalDiscount, form.itemTaxRate]);
+  }, [form.paid, form.grandTotal]);
+
+  // Fetch this customer's existing orders for the reference panel. Uses the
+  // dedicated per-customer endpoint instead of filtering the full list.
+  useEffect(() => {
+    const customerId = Number(form.customerId);
+    if (!Number.isFinite(customerId) || customerId <= 0) {
+      setCustomerOrders([]);
+      return;
+    }
+    let cancelled = false;
+    axios
+      .get<SalesOrder[]>(`${API_URL}/customer/${customerId}`, { headers })
+      .then((res) => {
+        if (cancelled) return;
+        setCustomerOrders(Array.isArray(res.data) ? res.data : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCustomerOrders([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [form.customerId, headers]);
+
+  // Proactive credit check — same endpoint the Credit Limit page uses.
+  useEffect(() => {
+    const customerId = Number(form.customerId);
+    const orderAmount = Number(form.grandTotal);
+
+    if (!Number.isFinite(customerId) || customerId <= 0 || !Number.isFinite(orderAmount) || orderAmount <= 0) {
+      setCreditCheck({ status: "idle" });
+      return;
+    }
+
+    setCreditCheck({ status: "checking" });
+    const timeoutId = setTimeout(async () => {
+      try {
+        const res = await axios.post<{ sufficient: boolean; availableCredit: number }>(
+          "/v1/api/sales/credit/check",
+          { tenantId: getStoredTenantId(), customerId, orderAmount },
+          { headers }
+        );
+        setCreditCheck({
+          status: res.data.sufficient ? "ok" : "insufficient",
+          availableCredit: Number(res.data.availableCredit || 0),
+        });
+      } catch (error) {
+        setCreditCheck({ status: "error", message: getErrorMessage(error, "Could not verify credit.") });
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [form.customerId, form.grandTotal, headers]);
 
   const upsertOrder = (order: SalesOrder) => {
     setOrders((current) => {
@@ -557,12 +649,11 @@ const SalesOrders: React.FC = () => {
   };
 
   const fetchDropdowns = async () => {
-    const [personsRes, channelsRes, quotationsRes, customersRes, productsRes] = await Promise.allSettled([
+    const [personsRes, channelsRes, quotationsRes, customersRes] = await Promise.allSettled([
       axios.get<SalesPersonOption[]>("/v1/api/sales/sales-persons", { headers }),
       axios.get<SalesChannelOption[]>("/v1/api/sales/channels", { headers }),
       axios.get<QuotationOption[]>("/v1/api/sales/quotations", { headers }),
       axios.get<CustomerOption[]>("/v1/api/crm/customers", { headers }),
-      axios.get<ProductOption[]>("/v1/api/purchase/products", { headers }),
     ]);
 
     if (personsRes.status === "fulfilled") {
@@ -592,13 +683,6 @@ const SalesOrders: React.FC = () => {
       console.error("Failed to load customers:", customersRes.reason);
       ToasterService.error("Failed to load customers", getErrorMessage(customersRes.reason, "Please try again."));
     }
-
-    if (productsRes.status === "fulfilled") {
-      setProducts(Array.isArray(productsRes.value.data) ? productsRes.value.data : []);
-    } else {
-      console.error("Failed to load products:", productsRes.reason);
-      ToasterService.error("Failed to load products", getErrorMessage(productsRes.reason, "Please try again."));
-    }
   };
 
   const handleChange = (
@@ -611,48 +695,29 @@ const SalesOrders: React.FC = () => {
       if (name === "quotationId") {
         const quotation = quotations.find((item) => String(getQuotationId(item)) === value);
         if (quotation) {
-          const quotationNumber = quotation.quoteNumber || quotation.quotationNumber || "";
-          next.quotationNumber = quotationNumber;
+          next.quotationNumber = quotation.quoteNumber || quotation.quotationNumber || "";
           next.quotationVersionNo = String(quotation.versionNo ?? quotation.quotationVersionNo ?? 0);
           next.quotationDate = quotation.quoteDate || quotation.quotationDate || "";
           next.quotationValidUntil = quotation.validUntil || quotation.quotationValidUntil || "";
 
           const quotationCustomerId = quotation.customerId ?? quotation.customer?.id;
-          if (quotationCustomerId !== undefined && String(quotationCustomerId) !== current.customerId && current.customerId) {
-            ToasterService.error(
-              "Customer changed",
-              `This quotation belongs to a different customer (#${quotationCustomerId}). Customer has been updated to match.`
-            );
-          }
           next.customerId = String(quotationCustomerId ?? next.customerId);
-          next.email = quotation.email || quotation.customer?.email || next.email;
+       const matchedCustomer = customers.find((c) => Number(c.id) === Number(quotationCustomerId));
+next.email = matchedCustomer?.email || quotation.customer?.email || quotation.email || "";
           next.subject = quotation.subject || next.subject;
-          next.grandTotal = String(quotation.grandTotal ?? quotation.totalAmount ?? next.grandTotal);
 
-          const firstItem = quotation.items?.[0];
-          if (firstItem) {
-            next.itemQuotationItemId = String(getQuotationItemId(firstItem) || next.itemQuotationItemId);
-            next.itemProductId = String(firstPositiveNumber(firstItem.productId) || next.itemProductId);
-            next.itemProductCode = firstItem.productCode || next.itemProductCode;
-            next.itemProductName = firstItem.productName || next.itemProductName;
-            next.itemDescription = firstItem.description || next.itemDescription;
-            next.itemUom = firstItem.uom || next.itemUom;
-            next.itemQuantity = String(firstItem.quantity ?? next.itemQuantity);
-            next.itemUnitPrice = String(firstItem.unitPrice ?? next.itemUnitPrice);
-            next.itemDiscountPercentage = String(firstItem.discountPercentage ?? next.itemDiscountPercentage);
-            next.itemDiscountAmount = String(firstItem.discountAmount ?? next.itemDiscountAmount);
-            next.itemAdditionalDiscount = String(firstItem.additionalDiscount ?? next.itemAdditionalDiscount);
-            next.itemTaxRate = String(firstItem.taxRate ?? next.itemTaxRate);
-            next.itemTaxCode = firstItem.taxCode || next.itemTaxCode;
-            next.itemRemarks = firstItem.remarks || next.itemRemarks;
-          }
+          // Load ALL quotation items as read-only rows. Product identity and
+          // pricing come from the quotation — the user does not re-pick them.
+          next.items =
+            quotation.items && quotation.items.length > 0
+              ? quotation.items.map(itemFromQuotationItem)
+              : [];
+        } else {
+          // Quotation cleared — drop items so they can't linger from a
+          // previous quotation.
+          next.items = [];
         }
       }
-
-      if (name === "itemType" && value !== "SERVICE") {
-        next.itemServiceItemId = "0";
-      }
-
 
       if (name === "customerId") {
         const customer = customers.find((item) => String(item.id) === value);
@@ -662,33 +727,32 @@ const SalesOrders: React.FC = () => {
         }
       }
 
-      if (name === "itemProductId") {
-        const product = products.find((item) => String(item.id) === value);
-        if (product) {
-          const newUnitPrice = product.sellingPrice;
-          if (
-            newUnitPrice !== undefined &&
-            current.itemProductId &&
-            current.itemProductId !== value &&
-            String(newUnitPrice) !== current.itemUnitPrice
-          ) {
-            ToasterService.success(
-              "Unit price updated",
-              `Price set to ${money(newUnitPrice)} based on ${product.productName || product.productCode || "the selected product"}'s master price. Review before submitting.`
-            );
-          }
-          next.itemProductCode = product.productCode || "";
-          next.itemProductName = product.productName || "";
-          next.itemUom = product.uom || next.itemUom;
-          next.itemUnitPrice = String(newUnitPrice ?? next.itemUnitPrice);
-        } else if (!value) {
-          next.itemProductCode = "";
-          next.itemProductName = "";
-        }
-      }
-
       return next;
     });
+  };
+
+  // Item edits are limited to values that are legitimately negotiable on
+  // top of the quotation — quantity, discounts, tax, remarks. Product
+  // identity, unit price, and quotation item linkage are locked.
+  const updateItemField = (index: number, patch: Partial<OrderItemForm>) => {
+    setForm((current) => ({
+      ...current,
+      items: current.items.map((item, i) => (i === index ? { ...item, ...patch } : item)),
+    }));
+  };
+
+  const handleItemInputChange =
+    (index: number) =>
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      const { name, value } = e.target;
+      updateItemField(index, { [name]: value } as Partial<OrderItemForm>);
+    };
+
+  const removeItem = (index: number) => {
+    setForm((current) => ({
+      ...current,
+      items: current.items.filter((_, i) => i !== index),
+    }));
   };
 
   const buildPayload = () => ({
@@ -696,7 +760,7 @@ const SalesOrders: React.FC = () => {
     orderNumber: form.orderNumber,
     quotationType: form.quotationType,
     orderDate: form.orderDate,
-    status: "DRAFT",
+    status: form.status,
     quotationId: toNumber(form.quotationId),
     quotationNumber: form.quotationNumber,
     quotationVersionNo: toNumber(form.quotationVersionNo),
@@ -726,20 +790,25 @@ const SalesOrders: React.FC = () => {
     creditDays: toNumber(form.creditDays),
     paymentTerms: form.paymentTerms,
     dueDate: form.dueDate,
-    items: [buildItem(form)],
+    items: form.items.map(buildOrderItemPayload),
   });
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!form.tenantId.trim()) {
-      ToasterService.error("Tenant ID is required");
+    if (creditCheck.status === "insufficient") {
+      ToasterService.error(
+        "Insufficient credit",
+        `Available: ${money(creditCheck.availableCredit)}, required: ${money(form.grandTotal)}. Reduce the order, clear the customer's outstanding balance, or raise their credit limit before submitting.`
+      );
       return;
     }
+
     if (!form.customerId || !form.orderDate) {
       ToasterService.error("Required fields missing", "Customer ID and order date are required.");
       return;
     }
+
     const missingReferences = [
       !isPositiveNumber(form.quotationId) ? "Quotation" : "",
       !isPositiveNumber(form.customerId) ? "Customer ID" : "",
@@ -750,30 +819,50 @@ const SalesOrders: React.FC = () => {
     if (missingReferences.length > 0) {
       ToasterService.error(
         "Valid referenced IDs required",
-        `${missingReferences.join(", ")} ${missingReferences.length === 1 ? "is" : "are"} missing. Select from the dropdowns or enter a valid ID.`
+        `${missingReferences.join(", ")} ${
+          missingReferences.length === 1 ? "is" : "are"
+        } missing. Select from the dropdowns or enter a valid ID.`
       );
       return;
     }
-    if (!form.itemProductId || !form.itemQuantity || !form.itemUnitPrice) {
-      ToasterService.error("Line item required", "Product ID, quantity, and unit price are required.");
-      return;
-    }
-    if (!isPositiveNumber(form.itemQuotationItemId) || !isPositiveNumber(form.itemProductId)) {
+
+    if (form.items.length === 0) {
       ToasterService.error(
-        "Valid item IDs required",
-        "Quotation item ID and product ID must exist for this tenant."
+        "At least one item required",
+        "Pick a quotation that has line items, or add items before submitting."
       );
       return;
     }
-    if (!isPercent(form.discountPercentage) || !isPercent(form.itemDiscountPercentage) || !isPercent(form.itemTaxRate)) {
-      ToasterService.error("Invalid percentage", "Discount and tax percentages must be between 0 and 100.");
-      return;
+
+    for (const item of form.items) {
+      if (
+        !isPositiveNumber(item.productId) ||
+        !isPositiveNumber(item.quantity) ||
+        !isPositiveNumber(item.unitPrice)
+      ) {
+        ToasterService.error(
+          "Line item incomplete",
+          "Every item needs a product, a quantity, and a unit price greater than zero."
+        );
+        return;
+      }
+      if (!isPositiveNumber(item.quotationItemId)) {
+        ToasterService.error(
+          "Valid item reference required",
+          "Every item must be linked to a quotation item."
+        );
+        return;
+      }
+      if (!isPercent(item.discountPercentage) || !isPercent(item.taxRate)) {
+        ToasterService.error("Invalid percentage", "Discount and tax percentages must be between 0 and 100.");
+        return;
+      }
     }
 
     try {
       setSubmitting(true);
       const payload = buildPayload();
-      const config = { headers, params: { tenantId: form.tenantId } };
+      const config = { headers, params: { tenantId: getStoredTenantId() } };
       const res = editingId
         ? await axios.put<SalesOrder>(`${API_URL}/${editingId}`, payload, config)
         : await axios.post<SalesOrder>(API_URL, payload, config);
@@ -790,14 +879,14 @@ const SalesOrders: React.FC = () => {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ ...emptyForm, tenantId: getStoredTenantId() });
+    setForm(emptyForm);
+    setCustomerOrders([]);
     setShowFormModal(true);
   };
 
   const openEdit = (order: SalesOrder) => {
     setEditingId(order.id);
     setForm({
-      tenantId: getStoredTenantId(),
       orderNumber: order.orderNumber || "",
       quotationType: order.quotationType || "PRODUCT",
       orderDate: order.orderDate || new Date().toISOString().split("T")[0],
@@ -839,22 +928,7 @@ const SalesOrders: React.FC = () => {
       internalNotes: order.internalNotes || "",
       customerNotes: order.customerNotes || "",
       termsAndConditions: order.termsAndConditions || "",
-      itemQuotationItemId: String(order.items?.[0]?.quotationItemId || 0),
-      itemType: order.items?.[0]?.itemType || "PRODUCT",
-      itemServiceItemId: String(order.items?.[0]?.serviceItemId || 0),
-      itemProductId: String(order.items?.[0]?.productId || ""),
-      itemProductCode: order.items?.[0]?.productCode || "",
-      itemProductName: order.items?.[0]?.productName || "",
-      itemDescription: order.items?.[0]?.description || "",
-      itemUom: order.items?.[0]?.uom || "",
-      itemQuantity: String(order.items?.[0]?.quantity || 1),
-      itemUnitPrice: String(order.items?.[0]?.unitPrice || 0),
-      itemDiscountPercentage: String(order.items?.[0]?.discountPercentage || 0),
-      itemDiscountAmount: String(order.items?.[0]?.discountAmount || 0),
-      itemAdditionalDiscount: String(order.items?.[0]?.additionalDiscount || 0),
-      itemTaxRate: String(order.items?.[0]?.taxRate || 0),
-      itemTaxCode: order.items?.[0]?.taxCode || "",
-      itemRemarks: order.items?.[0]?.remarks || "",
+      items: (order.items || []).map(itemFromOrderItem),
     });
     setShowFormModal(true);
   };
@@ -862,6 +936,7 @@ const SalesOrders: React.FC = () => {
   const closeForm = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setCustomerOrders([]);
     setShowFormModal(false);
   };
 
@@ -889,68 +964,19 @@ const SalesOrders: React.FC = () => {
     }
   };
 
-  const filteredOrders = useMemo(() => {
-    const term = searchableText(search);
-    if (!term) return orders;
-
-    return orders.filter((order) => {
-      const customer = customers.find((item) => Number(item.id) === Number(order.customerId));
-      const salesPerson = salesPersons.find(
-        (item) => Number(getSalesPersonId(item)) === Number(order.salesPersonId)
-      );
-      const salesChannel = salesChannels.find(
-        (item) => Number(getSalesChannelId(item)) === Number(order.salesChannelId)
-      );
-
-      const haystack = [
-        order.orderNumber,
-        order.status,
-        order.quotationNumber,
-        order.subject,
-        order.email,
-        order.currencyCode,
-        order.orderDate,
-        order.quotationDate,
-        order.quotationValidUntil,
-        order.dueDate,
-        order.customerId,
-        customer?.customerName,
-        customer?.tradeName,
-        customer?.email,
-        order.salesChannelId,
-        salesChannel?.name,
-        salesChannel?.channelType,
-        order.salesPersonId,
-        salesPerson?.name,
-        salesPerson?.code,
-        order.grandTotal,
-        order.subTotal,
-        order.taxAmount,
-        order.paidAmount,
-        order.balanceAmount,
-        order.remarks,
-        order.internalNotes,
-        order.customerNotes,
-        order.termsAndConditions,
-        order.id,
-        order.paid ? "paid yes true" : "paid no false",
-      ]
-        .map(searchableText)
-        .filter(Boolean)
-        .join(" ");
-
-      return haystack.includes(term);
-    });
-  }, [customers, orders, salesChannels, salesPersons, search]);
-
   const stats = useMemo(
     () => ({
       total: orders.length,
       draft: orders.filter((order) => order.status === "DRAFT").length,
       paid: orders.filter((order) => order.paid).length,
-      grandTotal: orders.reduce((sum, order) => sum + Number(order.grandTotal || 0), 0),
+      unpaid: orders.filter((order) => !order.paid).length,
     }),
     [orders]
+  );
+
+  const customerOutstanding = useMemo(
+    () => customerOrders.reduce((sum, o) => sum + Number(o.balanceAmount || 0), 0),
+    [customerOrders]
   );
 
   const columns: ColumnDef<SalesOrder>[] = [
@@ -960,8 +986,12 @@ const SalesOrders: React.FC = () => {
       sortable: true,
       render: (order) => (
         <div>
-          <div className="text-sm font-semibold text-slate-900">{order.orderNumber || `Order #${order.id}`}</div>
-          <div className="text-xs text-slate-500">{order.subject || order.quotationNumber || "No subject"}</div>
+          <div className="text-sm font-semibold text-slate-900">
+            {order.orderNumber || `Order #${order.id}`}
+          </div>
+          <div className="text-xs text-slate-500">
+            {order.subject || order.quotationNumber || "No subject"}
+          </div>
         </div>
       ),
     },
@@ -971,11 +1001,8 @@ const SalesOrders: React.FC = () => {
       sortable: true,
       render: (order) => {
         const customer = customers.find((item) => Number(item.id) === Number(order.customerId));
-        return (
-          <span className="text-sm text-slate-700">
-            {customer ? customerOptionLabel(customer) : order.customerId ? `Customer #${order.customerId}` : "--"}
-          </span>
-        );
+        const name = customer ? customerOptionLabel(customer) : order.customerId ? `Customer #${order.customerId}` : "--";
+        return order.customerId ? <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/customer-management?customerIds=${order.customerId}&customerName=${encodeURIComponent(name)}`); }} className="max-w-[220px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline" title={`View ${name}`}>{name}</button> : <span className="text-sm text-slate-700">{name}</span>;
       },
     },
     {
@@ -986,11 +1013,8 @@ const SalesOrders: React.FC = () => {
         const channel = salesChannels.find(
           (item) => Number(getSalesChannelId(item)) === Number(order.salesChannelId)
         );
-        return (
-          <span className="text-sm text-slate-700">
-            {channel?.name || (order.salesChannelId ? `Channel #${order.salesChannelId}` : "--")}
-          </span>
-        );
+        const name = channel?.name || (order.salesChannelId ? `Channel #${order.salesChannelId}` : "--");
+        return order.salesChannelId ? <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/sales-channels?channelId=${order.salesChannelId}&channelName=${encodeURIComponent(name)}`); }} className="max-w-[180px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline" title={`View ${name}`}>{name}</button> : <span className="text-sm text-slate-700">{name}</span>;
       },
     },
     {
@@ -1050,16 +1074,22 @@ const SalesOrders: React.FC = () => {
     },
   ];
 
+  const inputClass =
+    "w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20";
+  const readOnlyClass =
+    "w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-sm text-slate-700";
+  const miniLabelClass =
+    "mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400"
+
   return (
     <>
       <PageMeta title="Sales Orders" description="Manage sales orders" />
-      <PageBreadcrumb pageTitle="Sales Orders" />
+      <PageBreadcrumb
+        pageTitle="Sales Orders"
+        actions={<AddButton onClick={openCreate} label="Add Sales Order" />}
+      />
 
       <div className="w-full max-w-none px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Sales Order" />
-        </div>
-
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Orders" value={stats.total} icon={<ShoppingCartIcon />} />
           <StatsCard
@@ -1079,8 +1109,8 @@ const SalesOrders: React.FC = () => {
             icon={<CheckCircleIcon />}
           />
           <StatsCard
-            label="Grand Total"
-            value={money(stats.grandTotal)}
+            label="Unpaid"
+            value={stats.unpaid}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
             labelColor="text-purple-600"
@@ -1088,73 +1118,8 @@ const SalesOrders: React.FC = () => {
           />
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between md:pb-0.5">
-          <div className="relative w-full sm:max-w-md md:-mt-4">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search sales orders..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-         <ListingPdfExportButton
-  title="Sales Orders"
-  subtitle="Filtered sales order listing"
-  reportLabel="Sales Report"
-  data={filteredOrders}
-  columns={[
-    { key: "orderNumber", header: "Order Number" },
-    { key: "quotationType", header: "Type" },
-    { key: "orderDate", header: "Order Date" },
-    { key: "status", header: "Status" },
-    { key: "quotationNumber", header: "Quotation No" },
-    { key: "customerId", header: "Customer" },
-    {
-      key: "billingAddress",
-      header: "Billing Address",
-      accessor: (order) =>
-        [order.billingAddress?.addressLine1, order.billingAddress?.city, order.billingAddress?.state]
-          .filter(Boolean)
-          .join(", "),
-    },
-    {
-      key: "shippingAddress",
-      header: "Shipping Address",
-      accessor: (order) =>
-        [order.shippingAddress?.addressLine1, order.shippingAddress?.city, order.shippingAddress?.state]
-          .filter(Boolean)
-          .join(", "),
-    },
-    { key: "subTotal", header: "Sub Total", align: "right" },
-    { key: "taxAmount", header: "Tax", align: "right" },
-    { key: "grandTotal", header: "Grand Total", align: "right" },
-    { key: "paid", header: "Paid" },
-    { key: "dueDate", header: "Due Date" },
-  ]}
-  fileName="Sales_Orders"
-  disabled={loading}
-  metadata={(rows, rangeLabel) => [
-    { label: "Total", value: rows.length },
-    { label: "Range", value: rangeLabel },
-    { label: "Search", value: search || "None" },
-  ]}
-/>
-        </div>
-
         <ReusableTable
-          data={filteredOrders}
+          data={orders}
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}
@@ -1164,7 +1129,11 @@ const SalesOrders: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               <ShoppingCartIcon className="mb-3 h-12 w-12 text-gray-400" />
               <p className="mb-2 text-sm text-gray-500">No sales orders found</p>
-              <button type="button" onClick={openCreate} className="text-xs font-medium text-cyan-600 hover:text-cyan-700">
+              <button
+                type="button"
+                onClick={openCreate}
+                className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
+              >
                 Create your first sales order
               </button>
             </div>
@@ -1175,7 +1144,11 @@ const SalesOrders: React.FC = () => {
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Sales Order" : "Create Sales Order"}
-        subtitle="Enter sales order details from the API schema"
+        subtitle={
+          editingId
+            ? `Status: ${form.status || "DRAFT"} — status changes are managed elsewhere, not from this form`
+            : "Start from a quotation — its customer and items carry over automatically"
+        }
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
@@ -1183,11 +1156,12 @@ const SalesOrders: React.FC = () => {
         maxWidthClassName="max-w-5xl"
         tabs={[
           {
-            label: "Order Info",
+            label: "Quotation",
             fields: [
               ...(editingId
                 ? [
                     <FloatingInput
+                      key="orderNumber"
                       label="Order Number"
                       name="orderNumber"
                       value={form.orderNumber}
@@ -1197,93 +1171,7 @@ const SalesOrders: React.FC = () => {
                   ]
                 : []),
               <FloatingSelect
-                label="Quotation Type"
-                name="quotationType"
-                value={form.quotationType}
-                onChange={handleChange}
-                includeEmptyOption={false}
-                options={quotationTypeOptions.map((item) => ({ id: item, name: item }))}
-              />,
-              <FloatingDateRangePicker
-                label="Order Date"
-                startDate={toDateValue(form.orderDate)}
-                endDate={toDateValue(form.orderDate)}
-                onChange={([start, end]) =>
-                  setForm((current) => ({
-                    ...current,
-                    orderDate: toInputDateValue(end || start),
-                  }))
-                }
-                placeholder=""
-                required
-                singleSelection
-              />,
-              <FloatingSelect
-                label="Status"
-                name="status"
-                value={form.status}
-                onChange={handleChange}
-                includeEmptyOption={false}
-                options={statusOptions.map((item) => ({ id: item, name: item }))}
-              />,
-              <FloatingSelect
-                label="Customer"
-                name="customerId"
-                value={form.customerId}
-                onChange={handleChange}
-                emptyOptionLabel=""
-                options={customers.map((customer) => ({
-                  id: String(customer.id),
-                  name: customerOptionLabel(customer),
-                }))}
-                required
-              />,
-              <FloatingSelect
-                label="Sales Channel"
-                name="salesChannelId"
-                value={form.salesChannelId}
-                onChange={handleChange}
-                emptyOptionLabel=""
-                options={salesChannels
-                  .map((channel) => {
-                    const id = getSalesChannelId(channel);
-                    return {
-                      id: String(id),
-                      name: `${channel.name || `Channel #${id}`}${channel.channelType ? ` (${channel.channelType})` : ""}`,
-                    };
-                  })
-                  .filter((channel) => Number(channel.id) > 0)}
-              />,
-            ],
-          },
-          {
-            label: "Order Details",
-            fields: [
-              <FloatingSelect
-                label="Sales Person"
-                name="salesPersonId"
-                value={form.salesPersonId}
-                onChange={handleChange}
-                emptyOptionLabel=""
-                options={salesPersons
-                  .map((person) => {
-                    const id = getSalesPersonId(person);
-                    return {
-                      id: String(id),
-                      name: `${person.name || `Person #${id}`}${person.code ? ` (${person.code})` : ""}`,
-                    };
-                  })
-                  .filter((person) => Number(person.id) > 0)}
-              />,
-              <FloatingInput label="Subject" name="subject" value={form.subject} onChange={handleChange} />,
-              <FloatingInput label="Email" name="email" type="email" value={form.email} onChange={handleChange} />,
-              <FloatingInput label="Currency Code" name="currencyCode" value={form.currencyCode} onChange={handleChange} />,
-            ],
-          },
-          {
-            label: "Quotation",
-            fields: [
-              <FloatingSelect
+                key="quotationId"
                 label="Quotation"
                 name="quotationId"
                 value={form.quotationId}
@@ -1298,9 +1186,19 @@ const SalesOrders: React.FC = () => {
                     };
                   })
                   .filter((quotation) => Number(quotation.id) > 0)}
+                required
               />,
-              <FloatingInput label="Quotation Version" name="quotationVersionNo" type="number" value={form.quotationVersionNo} onChange={handleChange} />,
+              <FloatingInput
+                key="quotationVersionNo"
+                label="Quotation Version"
+                name="quotationVersionNo"
+                type="number"
+                value={form.quotationVersionNo}
+                onChange={handleChange}
+                disabled
+              />,
               <FloatingDateRangePicker
+                key="quotationDates"
                 label="Quotation Date Range"
                 startDate={toDateValue(form.quotationDate)}
                 endDate={toDateValue(form.quotationValidUntil)}
@@ -1313,7 +1211,111 @@ const SalesOrders: React.FC = () => {
                 }
                 placeholder=""
               />,
+              <FloatingSelect
+                key="customerId"
+                label="Customer"
+                name="customerId"
+                value={form.customerId}
+                onChange={handleChange}
+                emptyOptionLabel=""
+                disabled={isPositiveNumber(form.quotationId)}
+                options={customers.map((customer) => ({
+                  id: String(customer.id),
+                  name: customerOptionLabel(customer),
+                }))}
+                required
+              />,
+              ...(isPositiveNumber(form.quotationId)
+                ? [
+                    <p key="customerLockedHint" className="md:col-span-2 -mt-2 text-xs text-slate-400">
+                      Customer follows the selected quotation. Clear the Quotation above to pick a
+                      different customer.
+                    </p>,
+                  ]
+                : []),
+
+              // Existing orders for this customer — reference only. Uses the
+              // dedicated per-customer endpoint rather than filtering all
+              // orders client-side.
+              ...(customerOrders.length > 0
+                ? [
+                    <div
+                      key="customerOrdersPanel"
+                      className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/70 p-3"
+                    >
+                      <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                        Existing orders for this customer
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        {customerOrders.length} order(s) · Outstanding balance{" "}
+                        <span className="font-semibold text-slate-900">
+                          {money(customerOutstanding)}
+                        </span>
+                      </div>
+                    </div>,
+                  ]
+                : []),
+
+              <div key="creditCheckBanner" className="md:col-span-2">
+                {creditCheck.status === "checking" && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                    Checking available credit for this customer…
+                  </div>
+                )}
+                {creditCheck.status === "ok" && (
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                    Credit check passed — {money(creditCheck.availableCredit)} available against this order.
+                  </div>
+                )}
+                {creditCheck.status === "insufficient" && (
+                  <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                    <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                      Insufficient credit for this customer. Available:{" "}
+                      {money(creditCheck.availableCredit)}, this order requires{" "}
+                      {money(form.grandTotal)}. The backend will reject this order as-is — reduce the
+                      order, clear outstanding balance, or raise the credit limit first.
+                    </span>
+                  </div>
+                )}
+                {creditCheck.status === "error" && (
+                  <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    Could not verify credit automatically ({creditCheck.message}). The order may still be
+                    rejected on submit if credit is insufficient.
+                  </div>
+                )}
+              </div>,
+            ],
+          },
+          {
+            label: "Order Details",
+            fields: [
+              <FloatingSelect
+                key="quotationType"
+                label="Quotation Type"
+                name="quotationType"
+                value={form.quotationType}
+                onChange={handleChange}
+                includeEmptyOption={false}
+                options={quotationTypeOptions.map((item) => ({ id: item, name: item }))}
+              />,
               <FloatingDateRangePicker
+                key="orderDate"
+                label="Order Date"
+                startDate={toDateValue(form.orderDate)}
+                endDate={toDateValue(form.orderDate)}
+                onChange={([start, end]) =>
+                  setForm((current) => ({
+                    ...current,
+                    orderDate: toInputDateValue(end || start),
+                  }))
+                }
+                placeholder=""
+                required
+                singleSelection
+              />,
+              <FloatingDateRangePicker
+                key="dueDate"
                 label="Due Date"
                 startDate={toDateValue(form.dueDate)}
                 endDate={toDateValue(form.dueDate)}
@@ -1326,172 +1328,467 @@ const SalesOrders: React.FC = () => {
                 placeholder=""
                 singleSelection
               />,
-            ],
-          },
-          {
-            label: "Order Item",
-            fields: [
-              <FloatingInput label="Order Item Number" name="itemQuotationItemId" type="number" value={form.itemQuotationItemId} onChange={handleChange} />,
               <FloatingSelect
-                label="Item Type"
-                name="itemType"
-                value={form.itemType}
-                onChange={handleChange}
-                includeEmptyOption={false}
-                options={[
-                  { id: "PRODUCT", name: "PRODUCT" },
-                  { id: "SERVICE", name: "SERVICE" },
-                ]}
-              />,
-              <FloatingInput
-                label="Service Number"
-                name="itemServiceItemId"
-                type="number"
-                value={form.itemServiceItemId}
-                onChange={handleChange}
-                disabled={form.itemType !== "SERVICE"}
-              />,
-              <FloatingSelect
-                label="Product Name"
-                name="itemProductId"
-                value={form.itemProductId}
+                key="salesChannelId"
+                label="Sales Channel"
+                name="salesChannelId"
+                value={form.salesChannelId}
                 onChange={handleChange}
                 emptyOptionLabel=""
-                options={products
-                  .filter((product) => Number(product.id) > 0)
-                  .map((product) => ({
-                    id: String(product.id),
-                    name: product.productName || product.productCode || `Product #${product.id}`,
-                  }))}
+                options={salesChannels
+                  .map((channel) => {
+                    const id = getSalesChannelId(channel);
+                    return {
+                      id: String(id),
+                      name: `${channel.name || `Channel #${id}`}${
+                        channel.channelType ? ` (${channel.channelType})` : ""
+                      }`,
+                    };
+                  })
+                  .filter((channel) => Number(channel.id) > 0)}
                 required
               />,
+              <FloatingSelect
+                key="salesPersonId"
+                label="Sales Person"
+                name="salesPersonId"
+                value={form.salesPersonId}
+                onChange={handleChange}
+                emptyOptionLabel=""
+                options={salesPersons
+                  .map((person) => {
+                    const id = getSalesPersonId(person);
+                    return {
+                      id: String(id),
+                      name: `${person.name || `Person #${id}`}${
+                        person.code ? ` (${person.code})` : ""
+                      }`,
+                    };
+                  })
+                  .filter((person) => Number(person.id) > 0)}
+                required
+              />,
+              <FloatingInput
+                key="subject"
+                label="Subject"
+                name="subject"
+                value={form.subject}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="email"
+                label="Email (from customer/quotation)"
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={handleChange}
+                disabled
+              />,
+              <FloatingInput
+                key="currencyCode"
+                label="Currency Code (from customer)"
+                name="currencyCode"
+                value={form.currencyCode}
+                onChange={handleChange}
+                disabled
+              />,
             ],
           },
           {
-            label: "Item Details",
+            label: "Items",
             fields: [
-              <FloatingInput label="Description" name="itemDescription" value={form.itemDescription} onChange={handleChange} />,
-              <FloatingInput label="UOM" name="itemUom" value={form.itemUom} onChange={handleChange} />,
-              <FloatingInput label="Quantity" name="itemQuantity" type="number" value={form.itemQuantity} onChange={handleChange} required />,
-              <FloatingInput label="Unit Price" name="itemUnitPrice" type="number" value={form.itemUnitPrice} onChange={handleChange} required />,
-              <FloatingInput label="Item Discount %" name="itemDiscountPercentage" type="number" value={form.itemDiscountPercentage} onChange={handleChange} />,
-              <FloatingInput label="Item Discount Amount" name="itemDiscountAmount" type="number" value={form.itemDiscountAmount} onChange={handleChange} />,
-            ],
-          },
-          {
-            label: "Item Pricing",
-            fields: [
-              <FloatingInput label="Item Additional Discount" name="itemAdditionalDiscount" type="number" value={form.itemAdditionalDiscount} onChange={handleChange} />,
-              <FloatingInput label="Tax Rate" name="itemTaxRate" type="number" value={form.itemTaxRate} onChange={handleChange} />,
-              <FloatingInput label="Tax Code" name="itemTaxCode" value={form.itemTaxCode} onChange={handleChange} />,
-              <FloatingInput label="Item Remarks" name="itemRemarks" value={form.itemRemarks} onChange={handleChange} />,
-            ],
-          },
-          {
-            label: "Totals",
-            fields: [
-              <FloatingInput
-                label="Sub Total"
-                name="subTotal"
-                type="number"
-                value={form.subTotal}
-                onChange={handleChange}
-                disabled
-              />,
-              <FloatingInput
-                label="Discount Amount"
-                name="discountAmount"
-                type="number"
-                value={form.discountAmount}
-                onChange={handleChange}
-                disabled
-              />,
-              <FloatingInput
-                label="Additional Discount"
-                name="additionalDiscount"
-                type="number"
-                value={form.additionalDiscount}
-                onChange={handleChange}
-                disabled
-              />,
-              <FloatingInput
-                label="Discount %"
-                name="discountPercentage"
-                type="number"
-                value={form.discountPercentage}
-                onChange={handleChange}
-                disabled
-              />,
-              <FloatingInput
-                label="Tax Amount"
-                name="taxAmount"
-                type="number"
-                value={form.taxAmount}
-                onChange={handleChange}
-                disabled
-              />,
-              <FloatingInput
-                label="Grand Total"
-                name="grandTotal"
-                type="number"
-                value={form.grandTotal}
-                onChange={handleChange}
-                disabled
-              />,
+              <div key="itemsList" className="md:col-span-2 space-y-3">
+                {form.items.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-6 text-center text-sm text-slate-500">
+                    Select a quotation on the Quotation tab to load its items here. Items are inherited
+                    from the quotation and cannot be swapped out — change the quotation instead.
+                  </div>
+                ) : (
+                  form.items.map((item, index) => {
+                    const lineTotals = computeItemTotals(item);
+                    return (
+                      <div
+                        key={item.key}
+                        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                      >
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-semibold text-slate-900">
+                              Item {index + 1}
+                            </span>
+                            <span className="text-xs text-slate-400">
+                              Quotation item #{item.quotationItemId}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeItem(index)}
+                            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                            title="Remove item from this order"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+
+                        {/* Product identity is read-only — inherited from the
+                            quotation. Swapping it here would silently detach
+                            the order from its quotation item. */}
+                        <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                          <div>
+                            <div className="text-sm font-medium text-slate-900">
+                              {item.productName ||
+                                item.productCode ||
+                                `Product #${item.productId}`}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              {item.uom ? `${item.uom} · ` : ""}
+                              Qty {item.quantity} × {money(item.unitPrice)}
+                              {item.taxRate ? ` · Tax ${item.taxRate}%` : ""}
+                            </div>
+                          </div>
+                          <div className="text-sm font-semibold text-slate-900">
+                            {money(lineTotals.lineTotal)}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className={miniLabelClass}>Quantity</label>
+                            <input
+                              name="quantity"
+                              type="number"
+                              className={inputClass}
+                              value={item.quantity}
+                              onChange={handleItemInputChange(index)}
+                            />
+                          </div>
+                          <div>
+                            <label className={miniLabelClass}>Unit Price (from quotation)</label>
+                            <input className={readOnlyClass} value={item.unitPrice} readOnly />
+                          </div>
+
+                          <div>
+                            <label className={miniLabelClass}>Discount %</label>
+                            <input
+                              name="discountPercentage"
+                              type="number"
+                              className={inputClass}
+                              value={item.discountPercentage}
+                              onChange={handleItemInputChange(index)}
+                            />
+                          </div>
+                          <div>
+                            <label className={miniLabelClass}>Discount Amount</label>
+                            <input
+                              name="discountAmount"
+                              type="number"
+                              className={inputClass}
+                              value={item.discountAmount}
+                              onChange={handleItemInputChange(index)}
+                            />
+                          </div>
+
+                          <div>
+                            <label className={miniLabelClass}>Additional Discount</label>
+                            <input
+                              name="additionalDiscount"
+                              type="number"
+                              className={inputClass}
+                              value={item.additionalDiscount}
+                              onChange={handleItemInputChange(index)}
+                            />
+                          </div>
+                          <div>
+                            <label className={miniLabelClass}>Tax Rate</label>
+                            <input
+                              name="taxRate"
+                              type="number"
+                              className={inputClass}
+                              value={item.taxRate}
+                              onChange={handleItemInputChange(index)}
+                            />
+                          </div>
+
+                          <div>
+                            <label className={miniLabelClass}>Tax Code</label>
+                            <input
+                              name="taxCode"
+                              className={inputClass}
+                              value={item.taxCode}
+                              onChange={handleItemInputChange(index)}
+                            />
+                          </div>
+                          <div>
+                            <label className={miniLabelClass}>UOM</label>
+                            <input className={readOnlyClass} value={item.uom} readOnly />
+                          </div>
+
+                          <div className="sm:col-span-2">
+                            <label className={miniLabelClass}>Remarks</label>
+                            <input
+                              name="remarks"
+                              className={inputClass}
+                              value={item.remarks}
+                              onChange={handleItemInputChange(index)}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          <div className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs">
+                            <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                              Gross
+                            </div>
+                            <div className="font-semibold text-slate-700">
+                              {money(lineTotals.grossAmount)}
+                            </div>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs">
+                            <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                              Taxable
+                            </div>
+                            <div className="font-semibold text-slate-700">
+                              {money(lineTotals.taxableAmount)}
+                            </div>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs">
+                            <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                              Tax
+                            </div>
+                            <div className="font-semibold text-slate-700">
+                              {money(lineTotals.taxAmount)}
+                            </div>
+                          </div>
+                          <div className="rounded-lg bg-cyan-50 px-2.5 py-1.5 text-xs">
+                            <div className="text-[10px] uppercase tracking-[0.1em] text-cyan-600">
+                              Line Total
+                            </div>
+                            <div className="font-semibold text-cyan-800">
+                              {money(lineTotals.lineTotal)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+
+                <p className="text-xs text-slate-400">
+                  Items are inherited from the selected quotation. To change which products appear
+                  on this order, change the quotation — not the rows below.
+                </p>
+              </div>,
+
+              <div
+                key="itemTotalsSummary"
+                className="md:col-span-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4"
+              >
+                <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                  Order totals (summed from all items above)
+                </div>
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                  <div className="rounded-xl border border-slate-200 bg-white p-2.5">
+                    <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                      Sub Total
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900">
+                      {money(form.subTotal)}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-2.5">
+                    <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                      Discount ({form.discountPercentage || 0}%)
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900">
+                      {money(toNumber(form.discountAmount) + toNumber(form.additionalDiscount))}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-2.5">
+                    <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">Tax</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900">
+                      {money(form.taxAmount)}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-2.5">
+                    <div className="text-[10px] uppercase tracking-[0.1em] text-cyan-600">
+                      Grand Total
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-cyan-800">
+                      {money(form.grandTotal)}
+                    </div>
+                  </div>
+                </div>
+              </div>,
             ],
           },
           {
             label: "Payment",
             fields: [
-              <FloatingInput label="Payment Terms" name="paymentTerms" value={form.paymentTerms} onChange={handleChange} />,
-              <FloatingInput label="Credit Days" name="creditDays" type="number" value={form.creditDays} onChange={handleChange} />,
+              <FloatingInput
+                key="paymentTerms"
+                label="Payment Terms"
+                name="paymentTerms"
+                value={form.paymentTerms}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="creditDays"
+                label="Credit Days"
+                name="creditDays"
+                type="number"
+                value={form.creditDays}
+                onChange={handleChange}
+              />,
               <FloatingSelect
+                key="paid"
                 label="Paid"
                 name="paid"
                 value={form.paid}
                 onChange={handleChange}
                 includeEmptyOption={false}
                 options={[
-                  { id: "true", name: "Yes" },
-                  { id: "false", name: "No" },
+                  { id: "true", name: "Yes — fully paid" },
+                  { id: "false", name: "No — unpaid" },
                 ]}
               />,
-            ],
-          },
-          {
-            label: "Settlement",
-            fields: [
-              <FloatingInput label="Paid Amount" name="paidAmount" type="number" value={form.paidAmount} onChange={handleChange} />,
-              <FloatingInput label="Balance Amount" name="balanceAmount" type="number" value={form.balanceAmount} onChange={handleChange} />,
+              <div key="settlementNote" className="md:col-span-2 text-xs text-slate-400">
+                Paid Amount and Balance Amount follow this setting automatically. True partial payments
+                would need a real payment-status field from backend rather than a strict yes/no flag.
+              </div>,
+              <FloatingInput
+                key="paidAmount"
+                label="Paid Amount"
+                name="paidAmount"
+                type="number"
+                value={form.paidAmount}
+                onChange={handleChange}
+                disabled
+              />,
+              <FloatingInput
+                key="balanceAmount"
+                label="Balance Amount"
+                name="balanceAmount"
+                type="number"
+                value={form.balanceAmount}
+                onChange={handleChange}
+                disabled
+              />,
             ],
           },
           {
             label: "Addresses",
             fields: [
-              <FloatingInput label="Billing Address" name="billingAddressLine1" value={form.billingAddressLine1} onChange={handleChange} />,
-              <FloatingInput label="Shipping Address" name="shippingAddressLine1" value={form.shippingAddressLine1} onChange={handleChange} />,
-              <FloatingInput label="Billing City" name="billingCity" value={form.billingCity} onChange={handleChange} />,
-              <FloatingInput label="Shipping City" name="shippingCity" value={form.shippingCity} onChange={handleChange} />,
-              <FloatingInput label="Billing State" name="billingState" value={form.billingState} onChange={handleChange} />,
-              <FloatingInput label="Shipping State" name="shippingState" value={form.shippingState} onChange={handleChange} />,
-            ],
-          },
-          {
-            label: "Address More",
-            fields: [
-              <FloatingInput label="Billing Country" name="billingCountry" value={form.billingCountry} onChange={handleChange} />,
-              <FloatingInput label="Shipping Country" name="shippingCountry" value={form.shippingCountry} onChange={handleChange} />,
-              <FloatingInput label="Billing Postal Code" name="billingPostalCode" value={form.billingPostalCode} onChange={handleChange} />,
-              <FloatingInput label="Shipping Postal Code" name="shippingPostalCode" value={form.shippingPostalCode} onChange={handleChange} />,
+              <p key="addressesHint" className="md:col-span-2 text-xs text-slate-400">
+                Both addresses belong to the customer — Billing is where the invoice is addressed,
+                Shipping is where goods/services are delivered. Neither is your company's own address.
+              </p>,
+              <FloatingInput
+                key="billingAddressLine1"
+                label="Billing Address"
+                name="billingAddressLine1"
+                value={form.billingAddressLine1}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="shippingAddressLine1"
+                label="Shipping Address"
+                name="shippingAddressLine1"
+                value={form.shippingAddressLine1}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="billingCity"
+                label="Billing City"
+                name="billingCity"
+                value={form.billingCity}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="shippingCity"
+                label="Shipping City"
+                name="shippingCity"
+                value={form.shippingCity}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="billingState"
+                label="Billing State"
+                name="billingState"
+                value={form.billingState}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="shippingState"
+                label="Shipping State"
+                name="shippingState"
+                value={form.shippingState}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="billingCountry"
+                label="Billing Country"
+                name="billingCountry"
+                value={form.billingCountry}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="shippingCountry"
+                label="Shipping Country"
+                name="shippingCountry"
+                value={form.shippingCountry}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="billingPostalCode"
+                label="Billing Postal Code"
+                name="billingPostalCode"
+                value={form.billingPostalCode}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="shippingPostalCode"
+                label="Shipping Postal Code"
+                name="shippingPostalCode"
+                value={form.shippingPostalCode}
+                onChange={handleChange}
+              />,
             ],
           },
           {
             label: "Notes",
             fields: [
-              <FloatingTextarea label="Remarks" name="remarks" value={form.remarks} onChange={handleChange} rows={3} />,
-              <FloatingTextarea label="Terms and Conditions" name="termsAndConditions" value={form.termsAndConditions} onChange={handleChange} rows={3} />,
-              <FloatingTextarea label="Internal Notes" name="internalNotes" value={form.internalNotes} onChange={handleChange} rows={3} />,
-              <FloatingTextarea label="Customer Notes" name="customerNotes" value={form.customerNotes} onChange={handleChange} rows={3} />,
+              <FloatingTextarea
+                key="remarks"
+                label="Remarks"
+                name="remarks"
+                value={form.remarks}
+                onChange={handleChange}
+                rows={3}
+              />,
+              <FloatingTextarea
+                key="termsAndConditions"
+                label="Terms and Conditions"
+                name="termsAndConditions"
+                value={form.termsAndConditions}
+                onChange={handleChange}
+                rows={3}
+              />,
+              <FloatingTextarea
+                key="internalNotes"
+                label="Internal Notes"
+                name="internalNotes"
+                value={form.internalNotes}
+                onChange={handleChange}
+                rows={3}
+              />,
+              <FloatingTextarea
+                key="customerNotes"
+                label="Customer Notes"
+                name="customerNotes"
+                value={form.customerNotes}
+                onChange={handleChange}
+                rows={3}
+              />,
             ],
           },
         ]}
@@ -1505,7 +1802,11 @@ const SalesOrders: React.FC = () => {
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
         innerText="Delete Sales Order"
-        subText={deleteOrder ? `Are you sure you want to delete order #${deleteOrder.id}?` : "Are you sure?"}
+        subText={
+          deleteOrder
+            ? `Are you sure you want to delete order #${deleteOrder.id}?`
+            : "Are you sure?"
+        }
         confirmLabel="Delete"
         cancelLabel="Cancel"
         onConfirm={confirmDelete}

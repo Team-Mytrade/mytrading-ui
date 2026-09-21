@@ -290,26 +290,26 @@ const TimesheetManagementPage: React.FC = () => {
       calendarDays.push(
         <div 
           key={`curr-${i}`} 
-          className={`flex items-center justify-center py-0.5 relative ${
+          className={`flex items-center justify-center p-0.5 relative ${
             isInRange && selectedIsoList.length > 1
-              ? 'bg-emerald-100/70'
+              ? 'bg-cyan-100/50 dark:bg-cyan-950/30'
               : ''
-          } ${isStart ? 'rounded-l-full' : ''} ${isEnd ? 'rounded-r-full' : ''}`}
+          } ${isStart ? 'rounded-l-xl' : ''} ${isEnd ? 'rounded-r-xl' : ''}`}
         >
           <button
             type="button"
             onClick={() => handleDateClick(dayFormatted)}
             onDoubleClick={() => handleDateDoubleClick(dayFormatted)}
-            className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-medium transition-all ${
+            className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-semibold transition-all cursor-pointer ${
               isStart || isEnd || isFirstClick
-                ? 'bg-emerald-700 text-white font-bold shadow-2xs scale-105 z-10'
+                ? 'bg-cyan-600 text-white font-bold shadow-xs scale-105 z-10 ring-2 ring-cyan-500/20'
                 : isInRange
-                ? 'text-emerald-950 font-bold z-10'
+                ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-900 dark:text-cyan-200 font-bold z-10'
                 : isAbsent
-                ? 'border border-rose-400 text-rose-700 font-semibold hover:bg-rose-50'
+                ? 'border border-rose-400 dark:border-rose-500/60 text-rose-600 dark:text-rose-400 font-semibold hover:bg-rose-50 dark:hover:bg-rose-950/30'
                 : isToday
-                ? 'border border-emerald-500 text-emerald-700 font-medium'
-                : 'text-gray-700 hover:bg-gray-100'
+                ? 'border border-cyan-500 text-cyan-600 dark:text-cyan-400 font-bold'
+                : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#222222]'
             }`}
           >
             {i}
@@ -323,7 +323,7 @@ const TimesheetManagementPage: React.FC = () => {
     for (let i = 1; i <= totalCells - (days + firstDay); i++) {
       calendarDays.push(
         <div key={`next-${i}`} className="flex items-center justify-center p-0.5">
-          <span className="text-gray-300 text-[11px]">{i}</span>
+          <span className="text-slate-300 dark:text-gray-700 text-xs font-medium">{i}</span>
         </div>
       );
     }
@@ -396,200 +396,210 @@ const TimesheetManagementPage: React.FC = () => {
       />
       <PageBreadcrumb pageTitle="Attendance Regularization" />
 
-      <div className="max-w-6xl mx-auto pb-1 animate-in fade-in duration-200 mt-0.5">
+      <div className="max-w-6xl mx-auto pb-4 animate-in fade-in duration-200 mt-1">
         
-        {/* Compact User Banner matching Image 2 */}
-        <div className="bg-white rounded-lg shadow-2xs border border-gray-200/80 p-2.5 mb-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7.5 h-7.5 rounded-md bg-cyan-600 flex items-center justify-center text-white font-bold text-xs shadow-2xs shrink-0">
+        {/* User Banner matching Punch Station theme */}
+        <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-[#303030] shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 transition-all">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-cyan-600 text-white font-bold text-sm shadow-2xs flex items-center justify-center shrink-0">
               {currentUser.name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <div className="flex items-center gap-1.5">
-                <h2 className="text-xs font-bold text-gray-900">{currentUser.name}</h2>
-                <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200/80">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">{currentUser.name}</h2>
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border border-cyan-200/80 dark:border-cyan-800 uppercase tracking-wider">
                   {currentUser.role.replace(/_/g, " ")}
                 </span>
               </div>
-              <p className="text-[10px] text-gray-500">{currentUser.email}</p>
+              <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">{currentUser.email}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
             <button
               type="button"
               onClick={() => setIsHistoryDrawerOpen(true)}
-              className="hover:underline flex items-center gap-1 bg-cyan-50 px-2.5 py-0.5 rounded text-cyan-800 border border-cyan-200 text-[11px] font-semibold shadow-2xs"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] border border-slate-200 dark:border-[#303030] text-slate-700 dark:text-gray-200 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
             >
-              <FileText className="w-3 h-3" /> Request History ({regularizationLogs.length})
+              <FileText className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+              <span>Request History ({regularizationLogs.length})</span>
             </button>
-            <div className="text-left sm:text-right">
-              <span className="text-[9px] text-gray-400 font-medium block">Employee ID</span>
-              <span className="text-[11px] font-mono font-semibold text-gray-700">#{currentUser.code}</span>
+            <div className="bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl px-3 py-1.5 text-right">
+              <span className="text-[10px] text-slate-400 dark:text-gray-500 font-medium block uppercase tracking-wider">Employee ID</span>
+              <span className="text-xs font-mono font-bold text-slate-700 dark:text-gray-200">#{currentUser.code}</span>
             </div>
           </div>
         </div>
 
         {/* Selection Hint Badge when range is active */}
         {firstClickDate && (
-          <div className="mb-2">
-            <span className="text-cyan-700 font-bold bg-cyan-50 px-2.5 py-0.5 rounded border border-cyan-200 text-[10px] inline-block shadow-2xs">
+          <div className="mb-3">
+            <span className="text-cyan-700 dark:text-cyan-300 font-bold bg-cyan-50 dark:bg-cyan-950/50 px-3 py-1 rounded-xl border border-cyan-200 dark:border-cyan-800 text-xs inline-block shadow-2xs">
               Selected start: {firstClickDate}. Click end date to finish range!
             </span>
           </div>
         )}
 
         {/* Main 2-Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start mb-2">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start mb-4">
           
           {/* Left Column: Interactive Calendar */}
-          <div className="lg:col-span-5 bg-white rounded-lg shadow-2xs border border-gray-200/80 p-3 flex flex-col justify-between h-[340px]">
+          <div className="lg:col-span-5 bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] p-4 sm:p-5 flex flex-col justify-between min-h-[380px]">
             <div>
               {/* Month Header */}
-              <div className="flex items-center justify-between mb-2">
-                <button type="button" onClick={handlePrevMonth} className="text-emerald-700 hover:text-emerald-900 p-0.5 rounded hover:bg-gray-50">
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                <h2 className="text-xs font-bold text-gray-800">
-                  {monthNames[currentMonth]} {currentYear}
-                </h2>
-                <button type="button" onClick={handleNextMonth} className="text-emerald-700 hover:text-emerald-900 p-0.5 rounded hover:bg-gray-50">
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
+              <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:border-[#303030] pb-2.5">
+                <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] px-2 py-1 rounded-xl border border-slate-200/80 dark:border-[#303030] shadow-2xs">
+                  <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer">
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-xs font-extrabold text-slate-800 dark:text-white uppercase tracking-wider min-w-[120px] text-center">
+                    {monthNames[currentMonth]} {currentYear}
+                  </span>
+                  <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer">
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+                <span className="text-[11px] font-medium text-slate-400 dark:text-gray-500">Pick AR Date</span>
               </div>
 
               {/* Weekday Labels */}
-              <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] font-semibold text-gray-500 mb-1 border-b border-gray-100 pb-0.5">
+              <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase mb-2">
                 <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
               </div>
 
               {/* Dates Grid with Connected Range Bar */}
-              <div className="grid grid-cols-7 gap-y-0.5 mb-1">
+              <div className="grid grid-cols-7 gap-1 mb-1">
                 {renderCalendar()}
               </div>
             </div>
 
             <div>
               {/* Legend */}
-              <div className="flex items-center justify-start gap-2 text-[10px] text-gray-600 border-t border-dashed border-gray-200 pt-1.5 mb-1">
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-sm border border-emerald-500 bg-emerald-50" />
+              <div className="flex items-center justify-start gap-3 text-[11px] text-slate-500 dark:text-gray-400 border-t border-slate-100 dark:border-[#303030] pt-3 mb-1.5">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-sm border-2 border-cyan-500 bg-cyan-500/20" />
                   <span>Today</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full border border-rose-400 bg-white" />
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full border-2 border-rose-500 bg-rose-500/20" />
                   <span>Absent</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full border border-purple-400 bg-white" />
-                  <span>Half day absent</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full border-2 border-purple-500 bg-purple-500/20" />
+                  <span>Half day</span>
                 </div>
               </div>
 
-              <p className="text-[9.5px] text-gray-500 truncate">
-                Dates marked "Absent": <span className="font-semibold text-rose-700">{absentDates.length > 0 ? absentDates.join(', ') : 'None'}</span>
+              <p className="text-[11px] text-slate-400 dark:text-gray-500 truncate">
+                Dates marked "Absent": <span className="font-semibold text-rose-600 dark:text-rose-400">{absentDates.length > 0 ? absentDates.join(', ') : 'None'}</span>
               </p>
             </div>
           </div>
 
-          {/* Right Column: Ultra-Compact Multi-Card Container */}
-          <div className="lg:col-span-7 bg-white rounded-lg shadow-2xs border border-gray-200/80 overflow-hidden h-[340px] flex flex-col justify-between">
+          {/* Right Column: Multi-Card Container */}
+          <div className="lg:col-span-7 bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] overflow-hidden min-h-[380px] flex flex-col justify-between">
             
             {selectedCards.length === 0 ? (
               /* State 1: Placeholder before selecting date */
-              <div className="p-6 text-center flex flex-col items-center justify-center my-auto">
-                <h3 className="text-xl md:text-2xl font-extrabold text-gray-300 tracking-tight max-w-xs leading-snug">
+              <div className="p-8 text-center flex flex-col items-center justify-center my-auto">
+                <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] flex items-center justify-center text-slate-400 dark:text-gray-500 mb-3 shadow-2xs">
+                  <Calendar className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg md:text-xl font-bold text-slate-700 dark:text-gray-300 tracking-tight max-w-xs leading-snug">
                   Please select AR date from calendar
                 </h3>
+                <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">
+                  Click or drag across calendar dates to request regularization
+                </p>
               </div>
             ) : (
-              /* State 2: Ultra-compact Cards for each selected date in range */
+              /* State 2: Cards for each selected date in range */
               <form onSubmit={handleSubmitAll} className="flex flex-col h-full justify-between overflow-hidden">
                 
                 {/* Scrollable Cards Container */}
-                <div className="flex-1 overflow-y-auto p-2.5 space-y-2.5 pr-1.5 border-b border-gray-100">
+                <div className="flex-1 overflow-y-auto no-scrollbar p-3.5 space-y-3 border-b border-slate-100 dark:border-[#303030] max-h-[360px]">
                   {selectedCards.map((card) => (
-                    <div key={card.dateStr} className="bg-white rounded-md border border-gray-200/90 shadow-2xs overflow-hidden relative">
+                    <div key={card.dateStr} className="bg-slate-50/50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030] shadow-2xs overflow-hidden relative">
                       
                       {/* Top Bar with Request Date and Remove Button */}
-                      <div className="bg-cyan-50/80 border-b border-cyan-200/60 px-3 py-1.5 flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-gray-800">
-                          Request for <span className="text-gray-900 font-black">{card.dateStr}</span>
+                      <div className="bg-slate-100/80 dark:bg-[#191919] border-b border-slate-200/80 dark:border-[#303030] px-3.5 py-2 flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800 dark:text-white">
+                          Request for <span className="font-mono text-cyan-600 dark:text-cyan-400">{card.dateStr}</span>
                         </span>
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-3">
                           <button
                             type="button"
                             onClick={() => setViewPunchesDate(card.dateStr)}
-                            className="text-[11px] font-semibold text-cyan-700 hover:underline"
+                            className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:underline cursor-pointer"
                           >
                             View Punches
                           </button>
                           <button
                             type="button"
                             onClick={() => removeCard(card.dateStr)}
-                            className="w-4 h-4 rounded-full bg-white/90 hover:bg-rose-50 text-gray-400 hover:text-rose-600 border border-gray-200 flex items-center justify-center transition-colors"
+                            className="w-5 h-5 rounded-full bg-white dark:bg-[#191919] hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 border border-slate-200 dark:border-[#303030] flex items-center justify-center transition-colors cursor-pointer"
                             title="Remove date"
                           >
-                            <X className="w-2.5 h-2.5" />
+                            <X className="w-3 h-3" />
                           </button>
                         </div>
                       </div>
 
-                      <div className="p-2.5 space-y-2">
+                      <div className="p-3 space-y-2.5">
                         {/* Shift info header row */}
-                        <div className="flex items-center justify-between text-[10px] text-gray-600 font-medium bg-gray-50/80 px-2 py-1 rounded border border-gray-100">
+                        <div className="flex items-center justify-between text-xs text-slate-600 dark:text-gray-300 font-medium bg-white dark:bg-[#191919] px-3 py-1.5 rounded-lg border border-slate-200/60 dark:border-[#303030]">
                           <div>
-                            Shift: <span className="font-bold text-gray-900">04:00 - 10:00</span>
+                            Shift: <span className="font-bold text-slate-900 dark:text-white font-mono">09:00 - 18:00</span>
                           </div>
                           <div>
-                            Check in: <span className="text-gray-400 font-mono">--:--</span>
+                            Check in: <span className="text-slate-400 dark:text-gray-500 font-mono">--:--</span>
                           </div>
                           <div>
-                            Check out: <span className="text-gray-400 font-mono">--:--</span>
+                            Check out: <span className="text-slate-400 dark:text-gray-500 font-mono">--:--</span>
                           </div>
                         </div>
 
                         {/* Radio Choices */}
-                        <div className="flex items-center justify-center gap-4 py-0">
-                          <label className="flex items-center gap-1 cursor-pointer">
+                        <div className="flex items-center justify-center gap-5 py-0.5">
+                          <label className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-slate-700 dark:text-gray-300">
                             <input
                               type="radio"
                               name={`reasonType-${card.dateStr}`}
                               checked={card.reasonType === 'FORGOT_IN'}
                               onChange={() => updateCardState(card.dateStr, 'reasonType', 'FORGOT_IN')}
-                              className="w-3 h-3 text-cyan-600 focus:ring-cyan-500 border-gray-300"
+                              className="text-cyan-600 focus:ring-cyan-500 dark:bg-[#191919] dark:border-[#303030] cursor-pointer"
                             />
-                            <span className="text-[11px] font-medium text-gray-700">Forgot In</span>
+                            <span>Forgot In</span>
                           </label>
 
-                          <label className="flex items-center gap-1 cursor-pointer">
+                          <label className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-slate-700 dark:text-gray-300">
                             <input
                               type="radio"
                               name={`reasonType-${card.dateStr}`}
                               checked={card.reasonType === 'FORGOT_OUT'}
                               onChange={() => updateCardState(card.dateStr, 'reasonType', 'FORGOT_OUT')}
-                              className="w-3 h-3 text-cyan-600 focus:ring-cyan-500 border-gray-300"
+                              className="text-cyan-600 focus:ring-cyan-500 dark:bg-[#191919] dark:border-[#303030] cursor-pointer"
                             />
-                            <span className="text-[11px] font-medium text-gray-700">Forgot Out</span>
+                            <span>Forgot Out</span>
                           </label>
 
-                          <label className="flex items-center gap-1 cursor-pointer">
+                          <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-slate-900 dark:text-white">
                             <input
                               type="radio"
                               name={`reasonType-${card.dateStr}`}
                               checked={card.reasonType === 'BOTH'}
                               onChange={() => updateCardState(card.dateStr, 'reasonType', 'BOTH')}
-                              className="w-3 h-3 text-cyan-600 focus:ring-cyan-500 border-gray-300"
+                              className="text-cyan-600 focus:ring-cyan-500 dark:bg-[#191919] dark:border-[#303030] cursor-pointer"
                             />
-                            <span className="text-[11px] font-bold text-gray-900">Both</span>
+                            <span>Both</span>
                           </label>
                         </div>
 
                         {/* Form Inputs Grid */}
-                        <div className="space-y-1.5">
-                          <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-2 gap-2.5">
                             <div>
-                              <label className="block text-[10px] font-medium text-gray-700 mb-0.5">
+                              <label className="block text-[11px] font-bold text-slate-700 dark:text-gray-300 mb-1">
                                 <span className="text-rose-500">*</span> From date
                               </label>
                               <div className="relative">
@@ -606,14 +616,14 @@ const TimesheetManagementPage: React.FC = () => {
                                       updateCardState(card.dateStr, 'fromDate', formatted);
                                     }
                                   }}
-                                  className="w-full h-6.5 pl-2 pr-6 py-0 bg-white border border-gray-200 rounded text-[11px] font-medium text-gray-800 outline-none focus:ring-1 focus:ring-cyan-500 transition-all cursor-pointer"
+                                  className="w-full h-8 pl-3 pr-8 py-0 bg-white dark:bg-[#191919] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono font-medium text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all cursor-pointer"
                                 />
-                                <CalendarDays className="w-3 h-3 text-gray-400 absolute right-1.5 top-1.5 pointer-events-none" />
+                                <CalendarDays className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 absolute right-2 top-2 pointer-events-none" />
                               </div>
                             </div>
 
                             <div>
-                              <label className="block text-[10px] font-medium text-gray-700 mb-0.5">
+                              <label className="block text-[11px] font-bold text-slate-700 dark:text-gray-300 mb-1">
                                 <span className="text-rose-500">*</span> To date
                               </label>
                               <div className="relative">
@@ -630,59 +640,59 @@ const TimesheetManagementPage: React.FC = () => {
                                       updateCardState(card.dateStr, 'toDate', formatted);
                                     }
                                   }}
-                                  className="w-full h-6.5 pl-2 pr-6 py-0 bg-white border border-gray-200 rounded text-[11px] font-medium text-gray-800 outline-none focus:ring-1 focus:ring-cyan-500 transition-all cursor-pointer"
+                                  className="w-full h-8 pl-3 pr-8 py-0 bg-white dark:bg-[#191919] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono font-medium text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all cursor-pointer"
                                 />
-                                <CalendarDays className="w-3 h-3 text-gray-400 absolute right-1.5 top-1.5 pointer-events-none" />
+                                <CalendarDays className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 absolute right-2 top-2 pointer-events-none" />
                               </div>
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-4 gap-1.5">
+                          <div className="grid grid-cols-4 gap-2">
                             <div>
-                              <label className="block text-[9px] font-medium text-gray-700 mb-0.5">
+                              <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 mb-1">
                                 <span className="text-rose-500">*</span> Start Hours
                               </label>
                               <input
                                 type="text"
                                 value={card.startHours}
                                 onChange={(e) => updateCardState(card.dateStr, 'startHours', e.target.value)}
-                                className="w-full h-6.5 px-1 py-0 bg-white border border-gray-200 rounded text-[11px] font-medium text-center outline-none focus:ring-1 focus:ring-cyan-500"
+                                className="w-full h-8 px-2 py-0 bg-white dark:bg-[#191919] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono font-bold text-center text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
                               />
                             </div>
 
                             <div>
-                              <label className="block text-[9px] font-medium text-gray-700 mb-0.5">
+                              <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 mb-1">
                                 <span className="text-rose-500">*</span> Start Mins
                               </label>
                               <input
                                 type="text"
                                 value={card.startMinutes}
                                 onChange={(e) => updateCardState(card.dateStr, 'startMinutes', e.target.value)}
-                                className="w-full h-6.5 px-1 py-0 bg-white border border-gray-200 rounded text-[11px] font-medium text-center outline-none focus:ring-1 focus:ring-cyan-500"
+                                className="w-full h-8 px-2 py-0 bg-white dark:bg-[#191919] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono font-bold text-center text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
                               />
                             </div>
 
                             <div>
-                              <label className="block text-[9px] font-medium text-gray-700 mb-0.5">
+                              <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 mb-1">
                                 <span className="text-rose-500">*</span> End Hours
                               </label>
                               <input
                                 type="text"
                                 value={card.endHours}
                                 onChange={(e) => updateCardState(card.dateStr, 'endHours', e.target.value)}
-                                className="w-full h-6.5 px-1 py-0 bg-white border border-gray-200 rounded text-[11px] font-medium text-center outline-none focus:ring-1 focus:ring-cyan-500"
+                                className="w-full h-8 px-2 py-0 bg-white dark:bg-[#191919] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono font-bold text-center text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
                               />
                             </div>
 
                             <div>
-                              <label className="block text-[9px] font-medium text-gray-700 mb-0.5">
+                              <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 mb-1">
                                 <span className="text-rose-500">*</span> End Mins
                               </label>
                               <input
                                 type="text"
                                 value={card.endMinutes}
                                 onChange={(e) => updateCardState(card.dateStr, 'endMinutes', e.target.value)}
-                                className="w-full h-6.5 px-1 py-0 bg-white border border-gray-200 rounded text-[11px] font-medium text-center outline-none focus:ring-1 focus:ring-cyan-500"
+                                className="w-full h-8 px-2 py-0 bg-white dark:bg-[#191919] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono font-bold text-center text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
                               />
                             </div>
                           </div>
@@ -694,13 +704,13 @@ const TimesheetManagementPage: React.FC = () => {
                 </div>
 
                 {/* Fixed Bottom Submit Bar */}
-                <div className="bg-cyan-50/30 p-2 flex justify-center shrink-0 border-t border-cyan-100">
+                <div className="bg-slate-50 dark:bg-[#191919] p-3 flex justify-center shrink-0 border-t border-slate-200/80 dark:border-[#303030]">
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="inline-flex items-center justify-center h-8.5 px-8 bg-cyan-600 hover:bg-cyan-700 text-white rounded-md font-bold text-[11px] uppercase tracking-wider transition-all shadow-xs disabled:opacity-70 min-w-[130px]"
+                    className="inline-flex items-center justify-center h-9 px-8 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-xs disabled:opacity-50 cursor-pointer min-w-[140px]"
                   >
-                    {isSubmitting ? 'Submitting...' : 'SUBMIT'}
+                    {isSubmitting ? 'Submitting...' : 'SUBMIT ALL'}
                   </button>
                 </div>
               </form>
@@ -712,50 +722,50 @@ const TimesheetManagementPage: React.FC = () => {
 
       {/* Sleek Slide-Over Drawer for Regularization Request History */}
       {isHistoryDrawerOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex justify-end z-50 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col justify-between border-l border-gray-200 animate-in slide-in-from-right duration-300">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex justify-end z-50 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white w-full max-w-md h-full shadow-2xl flex flex-col justify-between border-l border-slate-200 dark:border-[#303030] animate-in slide-in-from-right duration-300">
             
             {/* Drawer Header */}
-            <div className="p-4 border-b border-gray-200 bg-gray-50/80 flex items-center justify-between">
+            <div className="p-4 border-b border-slate-200 dark:border-[#303030] bg-slate-50 dark:bg-[#222222] flex items-center justify-between">
               <div>
-                <h2 className="text-sm font-bold text-gray-900">Regularization Requests History</h2>
-                <p className="text-[11px] text-gray-500">Track status of submitted regularization requests</p>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">Regularization Requests History</h2>
+                <p className="text-xs text-slate-500 dark:text-gray-400">Track status of submitted regularization requests</p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsHistoryDrawerOpen(false)}
-                className="text-gray-400 hover:text-gray-700 p-1 rounded-md"
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-md cursor-pointer transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Drawer Search & List Body */}
-            <div className="p-4 flex-1 overflow-y-auto space-y-3">
+            <div className="p-4 flex-1 overflow-y-auto no-scrollbar space-y-3">
               <div className="relative mb-3">
-                <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-2.5" />
+                <Search className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 absolute left-3 top-3" />
                 <input
                   type="text"
                   placeholder="Search history..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-xs outline-none focus:bg-white focus:ring-1 focus:ring-cyan-500 transition-all"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl text-xs text-slate-800 dark:text-white outline-none focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
                 />
               </div>
 
               <div className="space-y-2.5">
                 {filteredLogs.map((row) => (
-                  <div key={row.id} className="p-3 bg-white rounded-lg border border-gray-200/80 shadow-2xs hover:border-cyan-300 transition-all flex items-center justify-between">
+                  <div key={row.id} className="p-3 bg-slate-50/70 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030] shadow-2xs hover:border-cyan-500/50 transition-all flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs text-gray-400 font-medium">#{row.id}</span>
-                        <span className="text-xs font-bold text-gray-900">{row.date}</span>
+                        <span className="font-mono text-xs text-cyan-600 dark:text-cyan-400 font-bold">#{row.id}</span>
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">{row.date}</span>
                       </div>
-                      <div className="text-[11px] text-cyan-700 font-semibold mt-0.5">{row.type} ({row.hours})</div>
+                      <div className="text-[11px] text-slate-600 dark:text-gray-300 font-medium mt-0.5">{row.type} ({row.hours})</div>
                     </div>
 
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      row.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border shadow-2xs ${
+                      row.status === 'APPROVED' ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800'
                     }`}>
                       {row.status}
                     </span>
@@ -765,11 +775,11 @@ const TimesheetManagementPage: React.FC = () => {
             </div>
 
             {/* Drawer Footer */}
-            <div className="p-3 border-t border-gray-100 bg-gray-50 flex justify-end">
+            <div className="p-3.5 border-t border-slate-200 dark:border-[#303030] bg-slate-50 dark:bg-[#222222] flex justify-end">
               <button
                 type="button"
                 onClick={() => setIsHistoryDrawerOpen(false)}
-                className="px-4 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-md font-medium text-xs hover:bg-gray-100"
+                className="px-4 py-2 bg-white dark:bg-[#191919] border border-slate-200 dark:border-[#303030] text-slate-700 dark:text-gray-200 rounded-xl font-semibold text-xs hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition cursor-pointer"
               >
                 Close
               </button>
@@ -783,54 +793,54 @@ const TimesheetManagementPage: React.FC = () => {
 
       {/* View Punches Modal */}
       {viewPunchesDate && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full overflow-hidden border border-gray-100">
-            <div className="bg-amber-50/80 border-b border-amber-200/60 p-4 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-bold text-gray-800">
-                <Clock className="w-4 h-4 text-amber-700" />
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden border border-slate-200 dark:border-[#303030]">
+            <div className="bg-amber-50/80 dark:bg-amber-950/30 border-b border-amber-200/60 dark:border-amber-900/50 p-4 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-300">
+                <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                 <span>Punch Details for {viewPunchesDate}</span>
               </div>
               <button
                 type="button"
                 onClick={() => setViewPunchesDate(null)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-md"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-md cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
             <div className="p-4 space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-3 bg-gray-50 p-2.5 rounded-lg border border-gray-200/60">
+              <div className="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-[#222222] p-3 rounded-xl border border-slate-200/60 dark:border-[#303030]">
                 <div>
-                  <span className="text-gray-500 block text-[11px]">Assigned Shift</span>
-                  <span className="font-bold text-gray-900 text-xs">09:00 - 18:00</span>
+                  <span className="text-slate-500 dark:text-gray-400 block text-[11px]">Assigned Shift</span>
+                  <span className="font-bold text-slate-900 dark:text-white text-xs font-mono">09:00 - 18:00</span>
                 </div>
                 <div>
-                  <span className="text-gray-500 block text-[11px]">Shift Duration</span>
-                  <span className="font-bold text-gray-900 text-xs">9 Hours</span>
+                  <span className="text-slate-500 dark:text-gray-400 block text-[11px]">Shift Duration</span>
+                  <span className="font-bold text-slate-900 dark:text-white text-xs font-mono">9 Hours</span>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between p-2 rounded-md border border-gray-100 bg-white">
-                  <span className="text-gray-600 font-medium">Check-In Punch</span>
-                  <span className="font-mono text-rose-600 font-bold text-[11px]">--:-- (Missing)</span>
+                <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200/80 dark:border-[#303030] bg-slate-50/50 dark:bg-[#222222]">
+                  <span className="text-slate-600 dark:text-gray-300 font-medium">Check-In Punch</span>
+                  <span className="font-mono text-rose-600 dark:text-rose-400 font-bold text-xs">--:-- (Missing)</span>
                 </div>
-                <div className="flex items-center justify-between p-2 rounded-md border border-gray-100 bg-white">
-                  <span className="text-gray-600 font-medium">Check-Out Punch</span>
-                  <span className="font-mono text-rose-600 font-bold text-[11px]">--:-- (Missing)</span>
+                <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200/80 dark:border-[#303030] bg-slate-50/50 dark:bg-[#222222]">
+                  <span className="text-slate-600 dark:text-gray-300 font-medium">Check-Out Punch</span>
+                  <span className="font-mono text-rose-600 dark:text-rose-400 font-bold text-xs">--:-- (Missing)</span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 text-rose-700 bg-rose-50 p-2.5 rounded-md border border-rose-100 text-[11px] font-medium">
-                <AlertCircle className="w-4 h-4 shrink-0" />
+              <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 p-3 rounded-xl border border-rose-200 dark:border-rose-900/50 text-[11px] font-medium">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
                 <span>No punch records found for this date. Submit Attendance Regularization to request manual punch entry.</span>
               </div>
             </div>
-            <div className="bg-gray-50 p-3 border-t border-gray-100 flex justify-end">
+            <div className="bg-slate-50 dark:bg-[#222222] p-3.5 border-t border-slate-200 dark:border-[#303030] flex justify-end">
               <button
                 type="button"
                 onClick={() => setViewPunchesDate(null)}
-                className="px-4 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-md font-medium hover:bg-gray-100 text-xs"
+                className="px-4 py-2 bg-white dark:bg-[#191919] border border-slate-200 dark:border-[#303030] text-slate-700 dark:text-gray-200 rounded-xl font-semibold hover:bg-slate-100 dark:hover:bg-[#2a2a2a] text-xs transition cursor-pointer"
               >
                 Close
               </button>

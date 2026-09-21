@@ -13,11 +13,13 @@ import {
   ChevronDown,
   ChevronsLeft,
   ChevronsRight,
+  BarChart3,
   Briefcase,
 } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
 import { AuthContext } from "../context/AuthContext";
 import "./AppSidebar.css";
+import { publicAsset } from "../utils/assets";
 
 type SubItem = {
   name: string;
@@ -40,6 +42,22 @@ export const navItems: NavItem[] = [
     icon: <LayoutDashboard className="w-5 h-5" />,
     name: "Dashboard",
     path: "/",
+  },
+  {
+    icon: <BarChart3 className="w-5 h-5" />,
+    name: "Reports",
+    subItems: [
+      { name: "Sales Reports", path: "/salesReports" },
+      { name: "Lead Reports", path: "/leadReports" },
+      { name: "Activity Reports", path: "/activityReports" },
+      { name: "Custom Reports", path: "/customReports" },
+      { name: "Customer Retention", path: "/customerRetention" },
+      { name: "Performance Reports", path: "/performanceReports" },
+      { name: "Inventory Report", path: "/inventory-report" },
+      { name: "Purchase Reports", path: "/purchase-reports" },
+      { name: "Finance Report", path: "/financeReport" },
+      { name: "Tax Report", path: "/taxReport" },
+    ],
   },
   {
     icon: <Users className="w-5 h-5" />,
@@ -100,7 +118,6 @@ export const navItems: NavItem[] = [
       { name: "Inventory Reservation", path: "/inventory-reservation" },
       { name: "Stock Adjustment", path: "/stock-adjustment" },
       { name: "Stock Movement", path: "/stock-movement" },
-      { name: "Inventory Report", path: "/inventory-report" },
     ],
   },
   {
@@ -115,7 +132,6 @@ export const navItems: NavItem[] = [
       { name: "Deliveries", path: "/deliveries" },
       { name: "Approval Status", path: "/approval-status" },
       { name: "Inventory", path: "/purchase-inventory" },
-      { name: "Purchase Reports", path: "/purchase-reports" },
     ],
   },
 
@@ -135,8 +151,6 @@ export const navItems: NavItem[] = [
       { name: "General Ledger", path: "/generalLedger" },
       { name: "Expense / Revenue", path: "/expenseRevenue" },
       { name: "Accounts Receivable", path: "/accountsReceivable" },
-      { name: "Tax Report", path: "/taxReport" },
-      { name: "Finance Report", path: "/financeReport" },
     ],
   },
   {
@@ -169,8 +183,8 @@ export const navItems: NavItem[] = [
         name: "Reports",
         subItems: [
           { name: "Payroll Summary", path: "/payrollSummary" },
-          { name: "Department Summary", path: "/departmentSummary" }
-        ]
+          { name: "Department Summary", path: "/departmentSummary" },
+        ],
       },
       { name: "Payroll Engine", path: "/payrollEngine" },
       { name: "IT Declaration", path: "/it-declaration" },
@@ -185,7 +199,6 @@ export const navItems: NavItem[] = [
     name: "Attendance",
     subItems: [
       // 1. Dashboards & Calendars
-      { name: "My Leave Calendar", path: "/att_leaveDashboard" },
       { name: "Employee Self Service", path: "/att_selfService" },
       { name: "Manager Leave Dashboard", path: "/att_leaveManagerDashboard", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
       { name: "Attendance Tracking", path: "/att_attendanceTracking" },
@@ -273,6 +286,7 @@ const AppSidebar: React.FC = () => {
   const [tooltipVisible, setTooltipVisible] = useState<number | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isSidebarManuallyToggledRef = useRef(false);
 
   const [openSubmenu, setOpenSubmenu] = useState<number | null>(null);
 
@@ -470,10 +484,53 @@ const AppSidebar: React.FC = () => {
     }
   }, [location.pathname, isActive]);
 
+  const getFirstVisibleSubmenuPath = (nav: NavItem): string | undefined => {
+    const currentRole = (user?.role || userRole || "")
+      .toUpperCase()
+      .replace(/[\s_]+/g, "");
+    const isAdmin =
+      (userRole === "SUPER_ADMIN" ||
+        userRole === "ADMIN" ||
+        user?.roles?.includes("SUPER_ADMIN") ||
+        user?.roles?.includes("ADMIN")) &&
+      user?.userType !== "USER" &&
+      user?.userType !== "EMPLOYEE";
+
+    const firstVisibleItem = nav.subItems?.find((subItem) => {
+      if (nav.name === "HRMS" && subItem.name === "Exit Approvals" && !isAdmin) {
+        return false;
+      }
+      if (
+        nav.name === "Profile" &&
+        (subItem.name === "Create User" || subItem.name === "Role") &&
+        !isAdmin
+      ) {
+        return false;
+      }
+      if (!subItem.roles) return true;
+      return subItem.roles.some(
+        (role) =>
+          role.toUpperCase().replace(/[\s_]+/g, "") === currentRole ||
+          currentRole === "SUPERADMIN",
+      );
+    });
+
+    return firstVisibleItem?.path || firstVisibleItem?.subItems?.[0]?.path;
+  };
+
+  const selectFirstSubmenu = (nav: NavItem) => {
+    const firstPath = getFirstVisibleSubmenuPath(nav);
+    if (firstPath && !isActive(firstPath)) {
+      navigate(firstPath);
+    }
+  };
+
   const handleSubmenuToggle = (index: number) => {
-    setOpenSubmenu(prev => prev === index ? null : index);
-    if (openSubmenu !== index) {
+    const isOpening = openSubmenu !== index;
+    setOpenSubmenu(isOpening ? index : null);
+    if (isOpening) {
       setOpenSubSubmenu(null);
+      selectFirstSubmenu(navItems[index]);
     }
   };
 
@@ -495,14 +552,31 @@ const AppSidebar: React.FC = () => {
       expandSidebar();
     }
     setOpenSubmenu(index);
+    setOpenSubSubmenu(null);
+    selectFirstSubmenu(nav);
   };
 
   const handlePanelToggle = () => {
+    isSidebarManuallyToggledRef.current = true;
     if (isMobileOpen) {
       toggleMobileSidebar();
       return;
     }
     toggleSidebar();
+  };
+
+  const handleSidebarMouseLeave = () => {
+    if (window.innerWidth >= 1024 && isExpanded && !isResizing && !isSidebarManuallyToggledRef.current) {
+      setOpenSubSubmenu(null);
+      setRailTooltip(null);
+      toggleSidebar();
+    }
+  };
+
+  const handleSidebarMouseEnter = () => {
+    if (window.innerWidth >= 1024 && !isExpanded && !isMobileOpen && !isResizing && !isSidebarManuallyToggledRef.current) {
+      expandSidebar();
+    }
   };
 
   const handleRailTooltip = (nav: NavItem, event: React.MouseEvent<HTMLButtonElement>) => {
@@ -698,6 +772,8 @@ const AppSidebar: React.FC = () => {
           ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
           lg:translate-x-0
         `}
+        onMouseEnter={handleSidebarMouseEnter}
+        onMouseLeave={handleSidebarMouseLeave}
       >
         <button
           type="button"
@@ -710,7 +786,7 @@ const AppSidebar: React.FC = () => {
         </button>
         <nav className="app-sidebar__rail" aria-label="Primary modules">
           <Link to="/" className="app-sidebar__rail-brand" aria-label="Go to dashboard">
-            <img src="/images/logo/logo-icon.png" alt="" width={30} height={30} />
+            <img src={publicAsset("images/logo/logo-icon.png")} alt="" width={30} height={30} />
           </Link>
           <div className="app-sidebar__rail-items">
             {navItems.map((nav, index) => {
@@ -736,11 +812,11 @@ const AppSidebar: React.FC = () => {
           <Link to="/" className="app-sidebar__brand-link flex items-center" aria-label="Go to dashboard">
             {isExpanded || isMobileOpen ? (
               <>
-                <img src="/images/logo/logo.png" alt="Logo" width={120} height={32} />
+                <img src={publicAsset("images/logo/logo.png")} alt="Logo" width={120} height={32} />
               </>
             ) : (
               <img
-                src="/images/logo/logo-icon.png"
+                src={publicAsset("images/logo/logo-icon.png")}
                 alt="Logo"
                 width={32}
                 height={32}

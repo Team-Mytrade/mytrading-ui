@@ -418,13 +418,9 @@ const EmployeeCompensationPage: React.FC = () => {
                     <StatsCard label="Avg Components / Role" value={averageComponentsPerRole} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BriefcaseIcon className="h-6 w-6" />} />
                 </div>
 
-                {/* Header */}
-                <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="w-full sm:w-auto">
-                        <h2 className="text-lg font-semibold text-gray-900">Compensation Configuration</h2>
-                        <p className="text-sm text-gray-500">Define percentage-based compensation components for each employee role</p>
-                    </div>
-                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                {/* Header Actions */}
+                <div className="mb-4 flex justify-end items-center gap-3">
+                    <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
                         {!showForm && (
                             <div className="relative flex h-10 items-center">
                                 <button
@@ -684,9 +680,7 @@ const EmployeeCompensationPage: React.FC = () => {
                         data={tableData}
                         columns={columns}
                         loading={loading}
-                        searchable={true}
-                        searchPlaceholder="Search role..."
-                        searchFields={["employeeRole"]}
+                        searchable={false}
                         pageSize={10}
                     />
                 )}

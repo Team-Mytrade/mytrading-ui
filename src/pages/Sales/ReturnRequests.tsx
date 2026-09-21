@@ -1,21 +1,18 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
+  ArrowPathIcon,
   ArrowUturnLeftIcon,
   BanknotesIcon,
   CalendarDaysIcon,
-  MagnifyingGlassIcon,
   PencilSquareIcon,
   ReceiptRefundIcon,
   TrashIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import { ListingPdfExportButton } from "../../components/common/export";
-import FilterPopover from "../../components/common/filter";
 import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
@@ -55,11 +52,25 @@ type ReturnRequest = {
   refund?: Refund;
 };
 
-type SalesOrderOption = {
-  id: number;
+type ScheduleOrderOption = {
+  id?: number;
+  salesOrderId?: number;
+  orderId?: number;
   orderNumber?: string;
+  salesOrderNumber?: string;
   customerId?: number;
-  items?: Array<{ id?: number }>;
+  // Not yet confirmed present in the actual API response — see the
+  // filtering note near the dropdown options below. Added defensively so
+  // filtering works automatically the moment backend starts returning it.
+  quotationType?: "PRODUCT" | "SERVICE" | string;
+  items?: Array<{
+    id?: number;
+    salesOrderItemId?: number;
+    itemId?: number;
+    productName?: string;
+    productCode?: string;
+    quantity?: number;
+  }>;
 };
 
 type ReturnReason =
@@ -74,6 +85,7 @@ type ReturnForm = {
   status: string;
   reason: ReturnReason;
   salesOrderId: string;
+  salesOrderNumber: string;
   remarks: string;
   itemSalesOrderItemId: string;
   itemRefundAmount: string;
@@ -90,6 +102,7 @@ type RefundForm = {
 };
 
 const API_URL = "/v1/api/sales/returns";
+const SCHEDULE_ORDERS_API = "/v1/api/sales/sales-orders/schedule/orders";
 const PAGE_SIZE = 10;
 const reasonOptions: ReturnReason[] = [
   "DAMAGED_PRODUCT",
@@ -98,14 +111,15 @@ const reasonOptions: ReturnReason[] = [
   "LATE_DELIVERY",
   "OTHER",
 ];
-const refundStatusOptions = ["PENDING"];
 const paymentMethodOptions = ["BANK_TRANSFER"];
+const refundStatusOptions = ["PENDING", "PROCESSED", "FAILED"];
 
 const emptyReturnForm: ReturnForm = {
   requestDate: new Date().toISOString().split("T")[0],
   status: "REQUESTED",
   reason: "DAMAGED_PRODUCT",
   salesOrderId: "",
+  salesOrderNumber: "",
   remarks: "",
   itemSalesOrderItemId: "",
   itemRefundAmount: "0",
@@ -134,6 +148,14 @@ function toNumber(value: string) {
   return Number(value || 0);
 }
 
+function firstPositiveNumber(...values: Array<number | string | undefined | null>) {
+  for (const value of values) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric > 0) return numeric;
+  }
+  return 0;
+}
+
 function toIsoDateTime(value: string) {
   if (!value) return new Date().toISOString();
   return value.includes("T") ? new Date(value).toISOString() : new Date(`${value}T00:00:00`).toISOString();
@@ -157,41 +179,64 @@ function money(value: number | string | undefined) {
   return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-function searchableText(value: unknown) {
-  if (value === null || value === undefined) return "";
-  return String(value).toLowerCase().trim();
-}
-
 function toFriendlyLabel(value: string) {
   return value.replace(/_/g, " ");
 }
 
-function salesOrderOptionLabel(order: SalesOrderOption) {
-  return order.orderNumber || `Order #${order.id}`;
+function getScheduleOrderId(order: ScheduleOrderOption) {
+  return firstPositiveNumber(order.id, order.salesOrderId, order.orderId);
+}
+
+function getScheduleOrderNumber(order: ScheduleOrderOption) {
+  return order.orderNumber || order.salesOrderNumber || "";
+}
+
+function getScheduleItemId(item: { id?: number; salesOrderItemId?: number; itemId?: number }) {
+  return firstPositiveNumber(item.id, item.salesOrderItemId, item.itemId);
+}
+
+function scheduleItemLabel(
+  item: {
+    id?: number;
+    salesOrderItemId?: number;
+    itemId?: number;
+    productName?: string;
+    productCode?: string;
+    quantity?: number;
+  },
+  index: number
+) {
+  const resolvedId = getScheduleItemId(item);
+  const name = item.productName || item.productCode || `Item #${resolvedId || index + 1}`;
+  const qty = item.quantity !== undefined ? ` · Qty ${item.quantity}` : "";
+  return `${name}${qty}`;
 }
 
 const ReturnRequests: React.FC = () => {
   const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const headers = useMemo(
+    () => (token ? { Authorization: `Bearer ${token}` } : undefined),
+    [token]
+  );
 
   const [returns, setReturns] = useState<ReturnRequest[]>([]);
   const [form, setForm] = useState<ReturnForm>(emptyReturnForm);
   const [refundForm, setRefundForm] = useState<RefundForm>(emptyRefundForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [refundSubmitting, setRefundSubmitting] = useState(false);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
-  const [search, setSearch] = useState("");
-  const [requestIdFilter, setRequestIdFilter] = useState("");
-  const [paymentMethodFilter, setPaymentMethodFilter] = useState("");
-  const [refundDateFilter, setRefundDateFilter] = useState("");
   const [deleteReturn, setDeleteReturn] = useState<ReturnRequest | null>(null);
-  const [salesOrders, setSalesOrders] = useState<SalesOrderOption[]>([]);
+  const [scheduleOrders, setScheduleOrders] = useState<ScheduleOrderOption[]>([]);
+  const [scheduleOrdersLoading, setScheduleOrdersLoading] = useState(false);
+  const [scheduleOrdersError, setScheduleOrdersError] = useState(false);
 
   useEffect(() => {
     fetchReturns();
-    fetchSalesOrders();
+    fetchScheduleOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -218,13 +263,21 @@ const ReturnRequests: React.FC = () => {
     }
   };
 
-  const fetchSalesOrders = async () => {
+  const fetchScheduleOrders = async () => {
     try {
-      const res = await axios.get<SalesOrderOption[]>("/v1/api/sales/sales-orders", { headers });
-      setSalesOrders(Array.isArray(res.data) ? res.data : []);
+      setScheduleOrdersLoading(true);
+      setScheduleOrdersError(false);
+      const res = await axios.get<ScheduleOrderOption[]>(SCHEDULE_ORDERS_API, { headers });
+      setScheduleOrders(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
-      ToasterService.error("Failed to load sales orders", getErrorMessage(error, "Please try again."));
-      setSalesOrders([]);
+      setScheduleOrdersError(true);
+      setScheduleOrders([]);
+      ToasterService.error(
+        "Failed to load sales order numbers",
+        getErrorMessage(error, "Please try again.")
+      );
+    } finally {
+      setScheduleOrdersLoading(false);
     }
   };
 
@@ -234,9 +287,20 @@ const ReturnRequests: React.FC = () => {
       const next = { ...current, [name]: value };
 
       if (name === "salesOrderId") {
-        const selectedOrder = salesOrders.find((order) => String(order.id) === value);
-        if (selectedOrder?.items?.[0]?.id) {
-          next.itemSalesOrderItemId = String(selectedOrder.items[0].id);
+        const selected = scheduleOrders.find((order) => String(getScheduleOrderId(order)) === value);
+        if (selected) {
+          next.salesOrderId = String(getScheduleOrderId(selected));
+          next.salesOrderNumber = getScheduleOrderNumber(selected);
+          const items = selected.items || [];
+          if (items.length === 1) {
+            const onlyId = getScheduleItemId(items[0]);
+            next.itemSalesOrderItemId = onlyId ? String(onlyId) : "";
+          } else {
+            next.itemSalesOrderItemId = "";
+          }
+        } else {
+          next.salesOrderNumber = "";
+          next.itemSalesOrderItemId = "";
         }
       }
 
@@ -259,6 +323,47 @@ const ReturnRequests: React.FC = () => {
     [returns]
   );
 
+  // Return Requests should only offer PRODUCT-type orders — a service
+  // order gets fulfilled via Service Schedule, not returned the way a
+  // physical product is. Filters only if quotationType is actually
+  // present in the response; if backend hasn't added that field yet,
+  // shows every order rather than silently filtering everything out
+  // (which would look like "no orders exist" when the field just isn't
+  // there yet).
+  const productScheduleOrders = useMemo(() => {
+    const hasOrderTypeInfo = scheduleOrders.some((order) => Boolean(order.quotationType));
+    return hasOrderTypeInfo
+      ? scheduleOrders.filter((order) => order.quotationType === "PRODUCT")
+      : scheduleOrders;
+  }, [scheduleOrders]);
+
+  const selectedOrderItems = useMemo(() => {
+    if (!form.salesOrderId) return [];
+    const order = scheduleOrders.find(
+      (o) => String(getScheduleOrderId(o)) === form.salesOrderId
+    );
+    return order?.items || [];
+  }, [scheduleOrders, form.salesOrderId]);
+
+  // Resolves what a return request's item(s) actually ARE (product name),
+  // not just how many there are — looks the salesOrderItemId up against
+  // that return's own sales order (the same data source already used to
+  // populate the create-form dropdown).
+  const resolveReturnItemLabels = (request: ReturnRequest): string[] => {
+    const order = scheduleOrders.find((o) => getScheduleOrderId(o) === Number(request.salesOrderId));
+    if (!order) {
+      return (request.items || []).map((item) => `Item #${item.salesOrderItemId}`);
+    }
+    return (request.items || []).map((item) => {
+      const matched = (order.items || []).find(
+        (orderItem) => getScheduleItemId(orderItem) === Number(item.salesOrderItemId)
+      );
+      return matched
+        ? scheduleItemLabel(matched, 0)
+        : `Item #${item.salesOrderItemId}`;
+    });
+  };
+
   const buildPayload = () => ({
     id: editingId || 0,
     requestDate: form.requestDate,
@@ -279,8 +384,15 @@ const ReturnRequests: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!form.salesOrderId || !form.itemSalesOrderItemId) {
-      ToasterService.error("Required fields missing", "Sales order ID and sales order item ID are required.");
+    if (!form.salesOrderId) {
+      ToasterService.error("Sales order required", "Select a sales order number.");
+      return;
+    }
+    if (!form.itemSalesOrderItemId) {
+      ToasterService.error(
+        "Sales order item required",
+        "Select which item from the sales order is being returned."
+      );
       return;
     }
 
@@ -339,6 +451,10 @@ const ReturnRequests: React.FC = () => {
 
   const openEdit = (request: ReturnRequest) => {
     const item = request.items?.[0];
+    const matchedOrder = scheduleOrders.find(
+      (order) => getScheduleOrderId(order) === Number(request.salesOrderId)
+    );
+
     setEditingId(request.id);
     setForm({
       requestDate: request.requestDate || emptyReturnForm.requestDate,
@@ -347,6 +463,7 @@ const ReturnRequests: React.FC = () => {
         ? (request.reason as ReturnReason)
         : "DAMAGED_PRODUCT",
       salesOrderId: String(request.salesOrderId || ""),
+      salesOrderNumber: matchedOrder ? getScheduleOrderNumber(matchedOrder) : `Order #${request.salesOrderId}`,
       remarks: request.remarks || "",
       itemSalesOrderItemId: String(item?.salesOrderItemId || ""),
       itemRefundAmount: String(item?.refundAmount || 0),
@@ -378,37 +495,53 @@ const ReturnRequests: React.FC = () => {
     }
   };
 
+  const openRefundModal = (request: ReturnRequest) => {
+    setRefundForm({
+      ...emptyRefundForm,
+      returnRequestId: String(request.id),
+      amount: String(request.refund?.amount ?? request.items?.[0]?.refundAmount ?? 0),
+    });
+    setShowRefundModal(true);
+  };
+
+  const closeRefundModal = () => {
+    if (refundSubmitting) return;
+    setShowRefundModal(false);
+  };
+
   const createRefund = async () => {
     if (!refundForm.returnRequestId || !refundForm.amount) {
       ToasterService.error("Return request ID and refund amount are required");
       return;
     }
+
+    const returnRequestId = toNumber(refundForm.returnRequestId);
+    const existingReturn = returns.find((item) => Number(item.id) === returnRequestId);
+
+    if (!existingReturn) {
+      ToasterService.error(
+        "Return request not found",
+        `Return request #${returnRequestId} is not available in the loaded return requests list.`
+      );
+      return;
+    }
+
+    if (existingReturn?.refund?.id || existingReturn?.refund) {
+      ToasterService.error(
+        "Refund already exists",
+        `Return request #${returnRequestId} already has a refund. Update it from the refunds page instead of creating a new one.`
+      );
+      return;
+    }
+
     try {
-      const returnRequestId = toNumber(refundForm.returnRequestId);
-      const existingReturn = returns.find((item) => Number(item.id) === returnRequestId);
-
-      if (!existingReturn) {
-        ToasterService.error(
-          "Return request not found",
-          `Return request #${returnRequestId} is not available in the loaded return requests list.`
-        );
-        return;
-      }
-
-      if (existingReturn?.refund?.id || existingReturn?.refund) {
-        ToasterService.error(
-          "Refund already exists",
-          `Return request #${returnRequestId} already has a refund. Update it from the refunds page instead of creating a new one.`
-        );
-        return;
-      }
-
+      setRefundSubmitting(true);
       const payload = {
         id: 0,
         amount: toNumber(refundForm.amount),
         refundDate: toIsoDateTime(refundForm.refundDate),
-        status: "PENDING",
-        paymentMethod: "BANK_TRANSFER",
+        status: refundForm.status || "PENDING",
+        paymentMethod: refundForm.paymentMethod || "BANK_TRANSFER",
         returnRequestId,
       };
 
@@ -420,73 +553,30 @@ const ReturnRequests: React.FC = () => {
 
       setReturns((current) =>
         current.map((item) =>
-          Number(item.id) === returnRequestId
-            ? {
-              ...item,
-              refund,
-            }
-            : item
+          Number(item.id) === returnRequestId ? { ...item, refund } : item
         )
       );
 
       ToasterService.success("Refund created");
       setRefundForm(emptyRefundForm);
+      setShowRefundModal(false);
     } catch (error) {
       ToasterService.error("Failed to create refund", getErrorMessage(error, "Please try again."));
+    } finally {
+      setRefundSubmitting(false);
     }
   };
-
-  const filtered = useMemo(() => {
-    const term = searchableText(search);
-
-    return returns.filter((item) => {
-      const salesOrder = salesOrders.find((order) => Number(order.id) === Number(item.salesOrderId));
-      const refundAmount = item.refund?.amount || item.items?.reduce((sum, row) => sum + Number(row.refundAmount || 0), 0) || 0;
-      const refundDateOnly = item.refund?.refundDate ? String(item.refund.refundDate).slice(0, 10) : "";
-      const filterDateOnly = refundDateFilter ? refundDateFilter.slice(0, 10) : "";
-
-      const haystack = [
-        item.id,
-        item.status,
-        item.reason,
-        item.salesOrderId,
-        item.requestDate,
-        item.remarks,
-        salesOrder?.orderNumber,
-        salesOrder?.customerId,
-        item.refund?.status,
-        item.refund?.paymentMethod,
-        item.refund?.refundDate,
-        refundAmount,
-        item.items?.length,
-        ...((item.items || []).flatMap((row) => [
-          row.id,
-          row.salesOrderItemId,
-          row.returnQuantity,
-          row.refundAmount,
-          row.remarks,
-        ])),
-      ]
-        .map(searchableText)
-        .filter(Boolean)
-        .join(" ");
-
-      const matchesSearch = !term || haystack.includes(term);
-      const matchesRequestId = !requestIdFilter || String(item.id).includes(requestIdFilter);
-      const matchesPaymentMethod =
-        !paymentMethodFilter || String(item.refund?.paymentMethod || "").toLowerCase() === paymentMethodFilter.toLowerCase();
-      const matchesRefundDate = !filterDateOnly || refundDateOnly === filterDateOnly;
-
-      return matchesSearch && matchesRequestId && matchesPaymentMethod && matchesRefundDate;
-    });
-  }, [paymentMethodFilter, refundDateFilter, requestIdFilter, returns, salesOrders, search]);
 
   const stats = useMemo(
     () => ({
       total: returns.length,
       requested: returns.filter((item) => item.status === "REQUESTED").length,
       refundAmount: returns.reduce(
-        (sum, item) => sum + (item.refund?.amount || item.items?.reduce((a, b) => a + Number(b.refundAmount || 0), 0) || 0),
+        (sum, item) =>
+          sum +
+          (item.refund?.amount ||
+            item.items?.reduce((a, b) => a + Number(b.refundAmount || 0), 0) ||
+            0),
         0
       ),
       refunded: returns.filter((item) => !!item.refund).length,
@@ -506,12 +596,33 @@ const ReturnRequests: React.FC = () => {
         </div>
       ),
     },
-    { key: "requestDate", label: "Request Date", sortable: true, },
+    {
+      key: "itemsReturned",
+      label: "Item Returned",
+      sortable: false,
+      render: (item) => {
+        const labels = resolveReturnItemLabels(item);
+        if (labels.length === 0) return <span className="text-sm text-slate-400">--</span>;
+        return (
+          <div className="text-sm text-slate-700">
+            {labels[0]}
+            {labels.length > 1 && (
+              <span className="ml-1 text-xs text-slate-400">+{labels.length - 1} more</span>
+            )}
+          </div>
+        );
+      },
+    },
+    { key: "requestDate", label: "Request Date", sortable: true },
     {
       key: "reason",
       label: "Reason",
       sortable: true,
-      render: (item) => <div className="rounded-full text-center bg-cyan-50 py-1 text-xs font-semibold text-cyan-700"><span >{toFriendlyLabel(item.reason)}</span></div>,
+      render: (item) => (
+        <div className="rounded-full bg-cyan-50 py-1 text-center text-xs font-semibold text-cyan-700">
+          <span>{toFriendlyLabel(item.reason)}</span>
+        </div>
+      ),
     },
     {
       key: "status",
@@ -537,16 +648,9 @@ const ReturnRequests: React.FC = () => {
       ),
     },
     {
-      key: "items",
-      label: "Items",
-      sortable: false,
-      render: (item) => item.items?.length || 0,
-    },
-    {
       key: "refund",
       label: "Refund",
       sortable: false,
-      className: "",
       render: (item) => (item.refund ? `${money(item.refund.amount)} (${item.refund.status})` : "--"),
     },
     {
@@ -567,7 +671,7 @@ const ReturnRequests: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setRefundForm((current) => ({ ...current, returnRequestId: String(item.id), amount: String(item.refund?.amount || item.items?.[0]?.refundAmount || 0) }))}
+            onClick={() => openRefundModal(item)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600"
             title="Refund"
           >
@@ -589,165 +693,61 @@ const ReturnRequests: React.FC = () => {
   return (
     <>
       <PageMeta title="Return Requests" description="Manage sales return requests" />
-      <PageBreadcrumb pageTitle="Return Requests" />
+      <PageBreadcrumb
+        pageTitle="Return Requests"
+        actions={<AddButton onClick={openCreate} label="Add Return Request" />}
+      />
 
       <div className="w-full max-w-none px-0 py-8">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Return Request" />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Return Requests" value={stats.total} icon={<ArrowUturnLeftIcon />} />
-          <StatsCard label="Requested" value={stats.requested} icon={<CalendarDaysIcon />} gradient="from-orange-50 to-yellow-50" borderColor="border-orange-100" labelColor="text-orange-600" />
-          <StatsCard label="Refund Amount" value={money(stats.refundAmount)} icon={<BanknotesIcon />} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-          <StatsCard label="Refunded" value={stats.refunded} icon={<ReceiptRefundIcon />} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between md:-mb-4">
-          <div className="relative w-full sm:max-w-md mt-1">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search return requests..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-            />
-            {search && (
-              <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-
-           <ListingPdfExportButton
-  title="Return Requests"
-  subtitle="Filtered return request listing"
-  reportLabel="Sales Report"
-  data={filtered}
-  includeSerialNumber={false}
-  dateAccessor={(row) => row.requestDate}
-  columns={[
-    {
-      key: "requestDate",
-      header: "Request Date",
-      accessor: (row) => (row.requestDate ? new Date(row.requestDate).toLocaleDateString() : "-"),
-    },
-    { key: "status", header: "Status" },
-    { key: "reason", header: "Reason" },
-    { key: "salesOrderId", header: "Sales Order Id" },
-    { key: "remarks", header: "Remarks" },
-    {
-      key: "items",
-      header: "Items",
-      accessor: (row) =>
-        Array.isArray(row.items)
-          ? row.items.map((item: any) => item.productName || item.description).filter(Boolean).join(", ")
-          : "-",
-    },
-    {
-      key: "refund",
-      header: "Refund",
-      accessor: (row) =>
-        row.refund ? `${row.refund.amount ?? ""} ${row.refund.status ?? ""}`.trim() || "-" : "-",
-    },
-  ]}
-  fileName="Return_Requests"
-  disabled={loading}
-  metadata={(rows, rangeLabel) => [
-    { label: "Total", value: rows.length },
-    { label: "Range", value: rangeLabel },
-    { label: "Payment", value: paymentMethodFilter || "All" },
-    { label: "Search", value: search || "None" },
-  ]}
-/>
-            <FilterPopover title="Refund Tools" buttonLabel="Filters" widthClassName="w-[20rem] sm:w-[22rem]" showFooter={false}>
-              <div className="space-y-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">Return Request ID</label>
-                  <input
-                    type="number"
-                    value={requestIdFilter}
-                    onChange={(e) => setRequestIdFilter(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-700">Payment Method</label>
-                    <select
-                      value={paymentMethodFilter}
-                      onChange={(e) => setPaymentMethodFilter(e.target.value)}
-                      className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                    >
-                      <option value="">Any method</option>
-                      {paymentMethodOptions.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-700">Refund Amount</label>
-                    <input
-                      type="number"
-                      name="amount"
-                      value={refundForm.amount}
-                      onChange={handleRefundChange}
-                      className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">Refund Date</label>
-                  <input
-                    type="date"
-                    value={refundDateFilter}
-                    onChange={(e) => setRefundDateFilter(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRequestIdFilter("");
-                      setPaymentMethodFilter("");
-                      setRefundDateFilter("");
-                      setRefundForm(emptyRefundForm);
-                    }}
-                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                  >
-                    Reset
-                  </button>
-                  <div className="flex items-center gap-2">
-                    <div className="rounded-lg border border-dashed border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-medium text-cyan-700">
-                      Filters apply live
-                    </div>
-                    <button
-                      type="button"
-                      onClick={createRefund}
-                      className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-                    >
-                      Create Refund
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </FilterPopover>
-          </div>
+          <StatsCard
+            label="Requested"
+            value={stats.requested}
+            icon={<CalendarDaysIcon />}
+            gradient="from-orange-50 to-yellow-50"
+            borderColor="border-orange-100"
+            labelColor="text-orange-600"
+          />
+          <StatsCard
+            label="Refund Amount"
+            value={money(stats.refundAmount)}
+            icon={<BanknotesIcon />}
+            gradient="from-green-50 to-emerald-50"
+            borderColor="border-green-100"
+            labelColor="text-green-600"
+          />
+          <StatsCard
+            label="Refunded"
+            value={stats.refunded}
+            icon={<ReceiptRefundIcon />}
+            gradient="from-purple-50 to-pink-50"
+            borderColor="border-purple-100"
+            labelColor="text-purple-600"
+          />
         </div>
 
         <ReusableTable
-          data={filtered}
+          data={returns}
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}
           defaultSortKey="requestDate"
           defaultSortOrder="desc"
+          emptyState={
+            <div className="flex flex-col items-center justify-center py-12">
+              <ArrowUturnLeftIcon className="mb-3 h-12 w-12 text-gray-400" />
+              <p className="mb-2 text-sm text-gray-500">No return requests found</p>
+              <button
+                type="button"
+                onClick={() => fetchReturns()}
+                className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700"
+              >
+                <ArrowPathIcon className="h-3.5 w-3.5" />
+                Reload all return requests
+              </button>
+            </div>
+          }
         />
       </div>
 
@@ -765,6 +765,7 @@ const ReturnRequests: React.FC = () => {
             label: "Request Info",
             fields: [
               <FloatingDateRangePicker
+                key="requestDate"
                 label="Request Date"
                 startDate={toDateValue(form.requestDate)}
                 endDate={toDateValue(form.requestDate)}
@@ -779,6 +780,7 @@ const ReturnRequests: React.FC = () => {
                 singleSelection
               />,
               <FloatingSelect
+                key="status"
                 label="Status"
                 name="status"
                 value={form.status}
@@ -787,6 +789,7 @@ const ReturnRequests: React.FC = () => {
                 options={availableStatusOptions.map((item) => ({ id: item, name: toFriendlyLabel(item) }))}
               />,
               <FloatingSelect
+                key="reason"
                 label="Reason"
                 name="reason"
                 value={form.reason}
@@ -794,26 +797,173 @@ const ReturnRequests: React.FC = () => {
                 includeEmptyOption={false}
                 options={reasonOptions.map((item) => ({ id: item, name: toFriendlyLabel(item) }))}
               />,
-              <FloatingSelect
-                label="Sales Order"
-                name="salesOrderId"
-                value={form.salesOrderId}
-                onChange={handleChange}
-                options={salesOrders.map((order) => ({
-                  id: String(order.id),
-                  name: salesOrderOptionLabel(order),
-                }))}
-              />,
+              <div key="salesOrder" className="md:col-span-2">
+                <FloatingSelect
+                  label="Sales Order Number"
+                  name="salesOrderId"
+                  value={form.salesOrderId}
+                  onChange={handleChange}
+                  emptyOptionLabel={scheduleOrdersLoading ? "Loading orders..." : ""}
+                  options={productScheduleOrders
+                    .map((order) => {
+                      const id = getScheduleOrderId(order);
+                      const number = getScheduleOrderNumber(order);
+                      return { id: String(id), name: number || `Order #${id}` };
+                    })
+                    .filter((order) => Number(order.id) > 0)}
+                  required
+                />
+                {scheduleOrdersError && (
+                  <button
+                    type="button"
+                    onClick={fetchScheduleOrders}
+                    className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                  >
+                    <ArrowPathIcon className="h-3 w-3" />
+                    Retry loading sales order numbers
+                  </button>
+                )}
+                {form.salesOrderNumber && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    Selected: <span className="font-medium text-slate-700">{form.salesOrderNumber}</span>
+                  </p>
+                )}
+              </div>,
+              ...(form.salesOrderId && selectedOrderItems.length > 0
+                ? [
+                    <div key="salesOrderItem" className="md:col-span-2">
+                      <FloatingSelect
+                        label="Sales Order Item"
+                        name="itemSalesOrderItemId"
+                        value={form.itemSalesOrderItemId}
+                        onChange={handleChange}
+                        emptyOptionLabel=""
+                        options={selectedOrderItems
+                          .map((item, index) => {
+                            const id = getScheduleItemId(item);
+                            return {
+                              id: String(id),
+                              name: scheduleItemLabel(item, index),
+                            };
+                          })
+                          .filter((option) => Number(option.id) > 0)}
+                        required
+                      />
+                      {selectedOrderItems.length > 1 && !form.itemSalesOrderItemId && (
+                        <p className="mt-1 text-xs text-amber-600">
+                          This order has {selectedOrderItems.length} items — choose which one is being returned.
+                        </p>
+                      )}
+                    </div>,
+                  ]
+                : []),
             ],
           },
           {
             label: "Item Details",
             fields: [
-              <FloatingInput label="Sales Order Item ID" name="itemSalesOrderItemId" type="number" value={form.itemSalesOrderItemId} onChange={handleChange} required />,
-              <FloatingInput label="Return Quantity" name="itemReturnQuantity" type="number" value={form.itemReturnQuantity} onChange={handleChange} required />,
-              <FloatingInput label="Refund Amount" name="itemRefundAmount" type="number" value={form.itemRefundAmount} onChange={handleChange} />,
-              <FloatingInput label="Item Remarks" name="itemRemarks" value={form.itemRemarks} onChange={handleChange} />,
-              <FloatingTextarea label="Remarks" name="remarks" value={form.remarks} onChange={handleChange} rows={3} />,
+              <FloatingInput
+                key="itemReturnQuantity"
+                label="Return Quantity"
+                name="itemReturnQuantity"
+                type="number"
+                min={1}
+                value={form.itemReturnQuantity}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingInput
+                key="itemRefundAmount"
+                label="Refund Amount"
+                name="itemRefundAmount"
+                type="number"
+                min={0}
+                value={form.itemRefundAmount}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="itemRemarks"
+                label="Item Remarks"
+                name="itemRemarks"
+                value={form.itemRemarks}
+                onChange={handleChange}
+              />,
+              <div key="remarks" className="md:col-span-2">
+                <FloatingTextarea
+                  label="Remarks"
+                  name="remarks"
+                  value={form.remarks}
+                  onChange={handleChange}
+                  rows={3}
+                />
+              </div>,
+            ],
+          },
+        ]}
+      />
+
+      <PaginatedPopup
+        isOpen={showRefundModal}
+        title="Create Refund"
+        subtitle={
+          refundForm.returnRequestId
+            ? `Refund for return request #${refundForm.returnRequestId}`
+            : "Enter refund details"
+        }
+        onClose={closeRefundModal}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void createRefund();
+        }}
+        submitting={refundSubmitting}
+        submitLabel="Create Refund"
+        maxWidthClassName="max-w-2xl"
+        tabs={[
+          {
+            label: "Refund Details",
+            fields: [
+              <FloatingInput
+                key="refundAmount"
+                label="Refund Amount"
+                name="amount"
+                type="number"
+                min={0}
+                value={refundForm.amount}
+                onChange={handleRefundChange}
+                required
+              />,
+              <FloatingInput
+                key="refundDate"
+                label="Refund Date"
+                name="refundDate"
+                type="datetime-local"
+                value={refundForm.refundDate}
+                onChange={handleRefundChange}
+              />,
+              <FloatingSelect
+                key="refundStatus"
+                label="Refund Status"
+                name="status"
+                value={refundForm.status}
+                onChange={handleRefundChange}
+                includeEmptyOption={false}
+                options={refundStatusOptions.map((status) => ({
+                  id: status,
+                  name: toFriendlyLabel(status),
+                }))}
+              />,
+              <FloatingSelect
+                key="refundPaymentMethod"
+                label="Payment Method"
+                name="paymentMethod"
+                value={refundForm.paymentMethod}
+                onChange={handleRefundChange}
+                includeEmptyOption={false}
+                options={paymentMethodOptions.map((method) => ({
+                  id: method,
+                  name: toFriendlyLabel(method),
+                }))}
+              />,
             ],
           },
         ]}

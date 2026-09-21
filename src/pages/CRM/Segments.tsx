@@ -586,10 +586,11 @@ const Segments: React.FC = () => {
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              openCustomerModal(segment.id, count > 0 ? "manage" : "add");
+              const customerIds = [...new Set((segment.segmentCustomers || []).map((customer) => customer.customerId))];
+              navigate(`/customer-management?segmentId=${segment.id}&segmentName=${encodeURIComponent(segment.name || "Segment")}&customerIds=${customerIds.join(",")}`);
             }}
-            className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/40 hover:bg-cyan-100 transition-colors"
-            title={count > 0 ? "Manage customers" : "Add customers"}
+            className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/40 hover:bg-cyan-100 hover:underline transition-colors"
+            title={`View customers in ${segment.name || "this segment"}`}
           >
             <UserGroupIcon className="h-3.5 w-3.5 text-cyan-600 opacity-80" />
             {count} customer{count === 1 ? "" : "s"}

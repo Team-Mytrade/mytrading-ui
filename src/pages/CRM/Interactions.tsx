@@ -403,25 +403,31 @@ const Interactions: React.FC = () => {
       key: "customer",
       label: "Customer",
       sortable: true,
-      render: (entry) => (
-        <div className="flex items-center text-xs text-gray-600">
+      render: (entry) => {
+        const customerName = getCustomerName(entry);
+        const customerId = entry.customer?.id;
+        return <div className="flex items-center text-xs text-gray-600">
           <BuildingOfficeIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
-          <span className="truncate max-w-[150px]">
-            {getCustomerName(entry)}
-          </span>
-        </div>
-      ),
+          {customerId && customerName !== "N/A" ? <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/customer-management?customerIds=${customerId}&customerName=${encodeURIComponent(customerName)}`); }} className="max-w-[150px] truncate text-left text-cyan-700 hover:text-cyan-800 hover:underline" title={`View ${customerName}`}>
+            {customerName}
+          </button> : <span className="truncate max-w-[150px]">{customerName}</span>}
+        </div>;
+      },
     },
     {
       key: "lead",
       label: "Lead",
       sortable: true,
-      render: (entry) => (
-        <div className="flex items-center text-xs text-gray-600">
+      render: (entry) => {
+        const leadName = getLeadName(entry);
+        const leadId = entry.lead?.id;
+        return <div className="flex items-center text-xs text-gray-600">
           <UsersIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
-          <span className="truncate max-w-[150px]">{getLeadName(entry)}</span>
-        </div>
-      ),
+          {leadId && leadName !== "N/A" ? <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/leads?leadId=${leadId}&leadName=${encodeURIComponent(leadName)}`); }} className="max-w-[150px] truncate text-left text-cyan-700 hover:text-cyan-800 hover:underline" title={`View ${leadName}`}>
+            {leadName}
+          </button> : <span className="truncate max-w-[150px]">{leadName}</span>}
+        </div>;
+      },
     },
     {
       key: "actions",

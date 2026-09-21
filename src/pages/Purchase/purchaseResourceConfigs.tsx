@@ -65,6 +65,7 @@ export const vendorConfig: PurchaseResourceConfig = {
   description: "Create and manage purchase vendors from the Purchase Service vendor controller.",
   endpoint: `${PURCHASE}/vendors`,
   allowInlineActiveToggle: true,
+  scope: { idParam: "vendorId", nameParam: "vendorName", label: "Vendor" },
   columns: [
     { key: "name", label: "Vendor Name" },
     { key: "contactName", label: "Contact" },
@@ -488,7 +489,7 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
   ],
   columns: [
     { key: "poNumber", label: "PO Number" },
-    { key: "vendor.name", label: "Vendor" },
+    { key: "vendor.name", label: "Vendor", link: (row) => row.vendor?.id ? { to: `/vendors?vendorId=${row.vendor.id}&vendorName=${encodeURIComponent(row.vendor.name || `Vendor #${row.vendor.id}`)}`, title: `View ${row.vendor.name || "vendor"}` } : null },
     { key: "orderDate", label: "Order Date" },
     { key: "expectedDeliveryDate", label: "Expected Delivery" },
     { key: "status", label: "Status", render: (row) => statusBadge(row.status) },

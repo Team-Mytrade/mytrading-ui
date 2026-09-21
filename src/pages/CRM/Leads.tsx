@@ -22,7 +22,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 import DynamicPopup from "../../components/common/Popup";
 import { ToasterService } from "../../Services/ToasterService";
 import StatsCard from "../../components/common/Statscard";
-import { AddButton } from "../../components/common/AddButton";
 import {
   FloatingInput,
   FloatingSelect1 as FloatingSelect,
@@ -106,6 +105,10 @@ const getCustomerLabel = (c: Customer) =>
 const Leads: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const leadSearchParams = new URLSearchParams(location.search);
+  const scopedLeadId = Number(leadSearchParams.get("leadId")) || null;
+  const scopedLeadName = leadSearchParams.get("leadName") || "Selected lead";
+  const isLeadScoped = leadSearchParams.has("leadId");
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -203,10 +206,11 @@ const Leads: React.FC = () => {
         const matchesStatus = selectedStatus
           ? lead.status === selectedStatus
           : true;
-        return matchesSearch && matchesStatus;
+        const matchesScope = !isLeadScoped || lead.id === scopedLeadId;
+        return matchesSearch && matchesStatus && matchesScope;
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [leads, search, selectedStatus]);
+  }, [leads, search, selectedStatus, isLeadScoped, scopedLeadId]);
 
   const stats = useMemo(
     () => ({
@@ -606,19 +610,10 @@ const Leads: React.FC = () => {
   return (
     <>
       <PageMeta title="Leads" description="Manage your sales leads" />
-      <PageBreadcrumb pageTitle="Leads" />
+      <PageBreadcrumb pageTitle="Leads" showAddButton addButtonLabel="Add Lead" onAddClick={() => { resetForm(); setShowModal(true); }} />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
-        <div className="mb-6 mx-4 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton
-            onClick={() => {
-              resetForm();
-              setShowModal(true);
-            }}
-            label="Add Lead"
-          />
-        </div>
-
+        {isLeadScoped && <div className="mb-4 mx-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>Showing lead: <strong>{scopedLeadName}</strong></span><button type="button" onClick={() => navigate("/leads")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all leads</button></div>}
         <div className="py-4 px-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-[17px]">
             <StatsCard

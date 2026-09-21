@@ -850,37 +850,37 @@ const AddEmployeePage: React.FC = () => {
         description="Employee onboarding and management"
       />
 
-      <div className="mx-auto px-4 sm:px-6 py-4 sm:py-6 max-w-7xl">
+      <div className="mx-auto px-3 sm:px-4 py-2 sm:py-2.5 max-w-6xl">
         {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <div className="flex items-center gap-3">
+        <div className="mb-2 sm:mb-2.5">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => navigate(-1)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
               >
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
+                <ChevronLeft className="w-4 h-4 text-gray-600" />
               </button>
               <div>
-                <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
+                <h1 className="text-base sm:text-lg font-bold text-gray-900">
                   {editId ? "Edit Employee" : "Add New Employee"}
                 </h1>
-                <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
+                <p className="text-[11px] text-gray-500">
                   Complete all sections to onboard employee
                 </p>
               </div>
             </div>
             <button
               onClick={() => navigate(-1)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors w-fit"
+              className="p-1 hover:bg-gray-100 rounded-lg transition-colors w-fit"
             >
-              <X className="w-5 h-5 text-gray-600" />
+              <X className="w-4 h-4 text-gray-600" />
             </button>
           </div>
 
           {/* Step Indicators - Desktop */}
           <div className="hidden sm:block">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-0.5">
               {steps.map((step, index) => {
                 const Icon = step.icon;
                 const isComplete = currentStep > step.num;
@@ -890,14 +890,14 @@ const AddEmployeePage: React.FC = () => {
                   <React.Fragment key={step.num}>
                     <div className="flex flex-col items-center">
                       <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${isComplete
+                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 ${isComplete
                           ? "bg-cyan-600 text-white"
                           : isCurrent
                             ? "bg-white border-2 border-cyan-600 text-cyan-600"
                             : "bg-gray-100 text-gray-400"
                           }`}
                       >
-                        <Icon className="w-4 h-4" />
+                        <Icon className="w-3.5 h-3.5" />
                       </div>
                     </div>
                     {!isLast && (
@@ -909,7 +909,7 @@ const AddEmployeePage: React.FC = () => {
                 );
               })}
             </div>
-            <div className="flex justify-between text-xs text-gray-500 px-2">
+            <div className="flex justify-between text-[11px] text-gray-500 px-1">
               {steps.map((step) => (
                 <span key={step.num}>{step.label}</span>
               ))}
@@ -920,16 +920,16 @@ const AddEmployeePage: React.FC = () => {
           <div className="sm:hidden">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-cyan-600 text-white flex items-center justify-center text-sm font-semibold">
+                <div className="w-7 h-7 rounded-full bg-cyan-600 text-white flex items-center justify-center text-xs font-semibold">
                   {currentStep}
                 </div>
-                <span className="text-sm font-medium text-gray-900">
+                <span className="text-xs font-medium text-gray-900">
                   {steps[currentStep - 1].label}
                 </span>
               </div>
-              <div className="text-xs text-gray-500">Step {currentStep} of {steps.length}</div>
+              <div className="text-[11px] text-gray-500">Step {currentStep} of {steps.length}</div>
             </div>
-            <div className="mt-3 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+            <div className="mt-2 h-1 bg-gray-200 rounded-full overflow-hidden">
               <div
                 className="h-full bg-cyan-600 rounded-full transition-all duration-300"
                 style={{ width: `${(currentStep / steps.length) * 100}%` }}
@@ -947,66 +947,66 @@ const AddEmployeePage: React.FC = () => {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
           >
-            <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 mb-6">
+            <div className="bg-white rounded-xl border border-gray-200/80 p-3 sm:p-4 mb-3 shadow-2xs">
 
               {/* Step 1: Personal Information */}
               {currentStep === 1 && (
-                <div className="space-y-6">
-                  <div className="mb-6">
-                    <h2 className="text-lg font-semibold text-gray-900">Personal Information</h2>
-                    <p className="text-sm text-gray-500 mt-1">Basic employee details</p>
+                <div className="space-y-3">
+                  <div className="mb-2">
+                    <h2 className="text-sm font-bold text-gray-900">Personal Information</h2>
+                    <p className="text-[11px] text-gray-500">Basic employee details</p>
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                           First Name <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
                           value={form.firstName}
                           onChange={(e) => handleChange("firstName", e.target.value)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.firstName ? "border-red-500" : "border-gray-300"}`}
+                          className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.firstName ? "border-red-500" : "border-gray-300"}`}
                         />
                         <ErrorMessage message={errors.firstName} />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                           Last Name <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
                           value={form.lastName}
                           onChange={(e) => handleChange("lastName", e.target.value)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.lastName ? "border-red-500" : "border-gray-300"}`}
+                          className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.lastName ? "border-red-500" : "border-gray-300"}`}
                         />
                         <ErrorMessage message={errors.lastName} />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                         Father's Name <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
                         value={form.fatherName}
                         onChange={(e) => handleChange("fatherName", e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.fatherName ? "border-red-500" : "border-gray-300"}`}
+                        className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.fatherName ? "border-red-500" : "border-gray-300"}`}
                       />
                       <ErrorMessage message={errors.fatherName} />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                           Gender <span className="text-red-500">*</span>
                         </label>
                         <select
                           value={form.gender}
                           onChange={(e) => handleChange("gender", e.target.value)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors.gender ? "border-red-500" : "border-gray-300"}`}
+                          className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors.gender ? "border-red-500" : "border-gray-300"}`}
                         >
                           <option value="MALE">Male</option>
                           <option value="FEMALE">Female</option>
@@ -1015,7 +1015,7 @@ const AddEmployeePage: React.FC = () => {
                         <ErrorMessage message={errors.gender} />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                           Date of Birth <span className="text-red-500">*</span>
                         </label>
                         <DatePicker
@@ -1027,21 +1027,21 @@ const AddEmployeePage: React.FC = () => {
                           scrollableYearDropdown
                           yearDropdownItemNumber={100}
                           placeholderText="Select date of birth"
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.dateOfBirth ? "border-red-500" : "border-gray-300"}`}
+                          className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.dateOfBirth ? "border-red-500" : "border-gray-300"}`}
                         />
                         <ErrorMessage message={errors.dateOfBirth} />
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                           Marital Status
                         </label>
                         <select
                           value={form.maritalStatus}
                           onChange={(e) => handleChange("maritalStatus", e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white"
+                          className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white"
                         >
                           <option value="SINGLE">Single</option>
                           <option value="MARRIED">Married</option>
@@ -1050,13 +1050,13 @@ const AddEmployeePage: React.FC = () => {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                           Tenant <span className="text-red-500">*</span>
                         </label>
                         <select
                           value={form.tenantId}
                           onChange={(e) => handleTenantChange(e.target.value)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors.tenantId ? "border-red-500" : "border-gray-300"}`}
+                          className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors.tenantId ? "border-red-500" : "border-gray-300"}`}
                         >
                           <option value="">Select Tenant</option>
                           {tenants.map((tenant) => (
@@ -1070,12 +1070,14 @@ const AddEmployeePage: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                         Phone Number <span className="text-red-500">*</span>
                       </label>
                       <style>{`
                         .react-tel-input .form-control {
                           padding-left: 48px !important;
+                          height: 32px !important;
+                          font-size: 12px !important;
                         }
                       `}</style>
                       <PhoneInput
@@ -1087,7 +1089,7 @@ const AddEmployeePage: React.FC = () => {
                             handleChange("countryCode", countryData.countryCode.toUpperCase());
                           }
                         }}
-                        inputClass={`w-full !py-2 !border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent ${errors.phone ? "!border-red-500" : "!border-gray-300"}`}
+                        inputClass={`w-full !py-1.5 !text-xs !border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent ${errors.phone ? "!border-red-500" : "!border-gray-300"}`}
                         containerClass="!w-full"
                         buttonClass="!border !border-gray-300 !rounded-l-lg"
                         dropdownClass="!z-50"
@@ -1097,33 +1099,33 @@ const AddEmployeePage: React.FC = () => {
                       <ErrorMessage message={errors.phone} />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                           Personal Email <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
-                          <Mail className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                          <Mail className="absolute left-2.5 top-2 w-3.5 h-3.5 text-gray-400" />
                           <input
                             type="email"
                             value={form.personalEmail}
                             onChange={(e) => handleChange("personalEmail", e.target.value)}
-                            className={`w-full pl-9 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.personalEmail ? "border-red-500" : "border-gray-300"}`}
+                            className={`w-full pl-8 pr-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.personalEmail ? "border-red-500" : "border-gray-300"}`}
                           />
                         </div>
                         <ErrorMessage message={errors.personalEmail} />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                           Official Email <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
-                          <Mail className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                          <Mail className="absolute left-2.5 top-2 w-3.5 h-3.5 text-gray-400" />
                           <input
                             type="email"
                             value={form.officialEmail}
                             onChange={(e) => handleChange("officialEmail", e.target.value)}
-                            className={`w-full pl-9 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.officialEmail ? "border-red-500" : "border-gray-300"}`}
+                            className={`w-full pl-8 pr-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.officialEmail ? "border-red-500" : "border-gray-300"}`}
                           />
                         </div>
                         <ErrorMessage message={errors.officialEmail} />
@@ -1135,31 +1137,30 @@ const AddEmployeePage: React.FC = () => {
 
               {/* Step 2: Employment Details */}
               {currentStep === 2 && (
-                <div className="space-y-6">
-                  <div className="mb-6">
-                    <h2 className="text-lg font-semibold text-gray-900">Employment Details</h2>
-                    <p className="text-sm text-gray-500 mt-1">Job role and department information</p>
+                <div className="space-y-3">
+                  <div className="mb-2">
+                    <h2 className="text-sm font-bold text-gray-900">Employment Details</h2>
+                    <p className="text-[11px] text-gray-500">Job role and department information</p>
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                           Designation <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
                           value={form.designation}
                           onChange={(e) => handleChange("designation", e.target.value)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.designation ? "border-red-500" : "border-gray-300"}`}
+                          className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.designation ? "border-red-500" : "border-gray-300"}`}
                           placeholder="e.g., Software Engineer, Product Manager"
                         />
                         <ErrorMessage message={errors.designation} />
                       </div>
 
-
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                           Domain
                         </label>
                         <select
@@ -1169,7 +1170,7 @@ const AddEmployeePage: React.FC = () => {
                             handleChange("domain", domain || null);
                           }}
                           disabled={!form.tenantId || filteredDomains.length === 0}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
                         >
                           <option value="">
                             {!form.tenantId
@@ -1187,15 +1188,15 @@ const AddEmployeePage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                           Department <span className="text-red-500">*</span>
                         </label>
                         <select
                           value={isOtherDepartment ? -1 : form.department.id}
                           onChange={(e) => handleDepartmentChange(Number(e.target.value))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white"
+                          className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white"
                         >
                           <option value="">Select Department</option>
                           {departments.map((dept) => (
@@ -1212,19 +1213,19 @@ const AddEmployeePage: React.FC = () => {
                               handleChange("department", { id: -1, name: e.target.value });
                             }}
                             placeholder="Enter custom department"
-                            className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                            className="mt-1.5 w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                           />
                         )}
                         <ErrorMessage message={errors.department} />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                           Employment Type <span className="text-red-500">*</span>
                         </label>
                         <select
                           value={form.employmentType}
                           onChange={(e) => handleChange("employmentType", e.target.value)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors.employmentType ? "border-red-500" : "border-gray-300"}`}
+                          className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors.employmentType ? "border-red-500" : "border-gray-300"}`}
                         >
                           <option value="FULL_TIME">Full Time</option>
                           <option value="PART_TIME">Part Time</option>
@@ -1235,25 +1236,25 @@ const AddEmployeePage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                           Location <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
-                          <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                          <MapPin className="absolute left-2.5 top-2 w-3.5 h-3.5 text-gray-400" />
                           <input
                             type="text"
                             value={form.location}
                             onChange={(e) => handleChange("location", e.target.value)}
-                            className={`w-full pl-9 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.location ? "border-red-500" : "border-gray-300"}`}
+                            className={`w-full pl-8 pr-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.location ? "border-red-500" : "border-gray-300"}`}
                             placeholder="Bangalore"
                           />
                         </div>
                         <ErrorMessage message={errors.location} />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                           Joining Date <span className="text-red-500">*</span>
                         </label>
                         <DatePicker
@@ -1261,21 +1262,21 @@ const AddEmployeePage: React.FC = () => {
                           onChange={(date) => handleChange("joiningDate", date)}
                           dateFormat="dd/MM/yyyy"
                           placeholderText="Select joining date"
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.joiningDate ? "border-red-500" : "border-gray-300"}`}
+                          className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.joiningDate ? "border-red-500" : "border-gray-300"}`}
                         />
                         <ErrorMessage message={errors.joiningDate} />
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Manager</label>
+                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">Manager</label>
                         <div className="relative">
-                          <Users className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                          <Users className="absolute left-2.5 top-2 w-3.5 h-3.5 text-gray-400" />
                           <select
                             value={form.managerId || ""}
                             onChange={(e) => handleChange("managerId", e.target.value || null)}
-                            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white"
+                            className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white"
                           >
                             <option value="">Select Manager</option>
                             {managers.map((manager) => (
@@ -1287,19 +1288,19 @@ const AddEmployeePage: React.FC = () => {
                         </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Exit Date</label>
+                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">Exit Date</label>
                         <DatePicker
                           selected={form.exitDate}
                           onChange={(date) => handleChange("exitDate", date)}
                           dateFormat="dd/MM/yyyy"
                           placeholderText="Select exit date (if applicable)"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                          className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                         Roles
                       </label>
                       <Select classNames={customClassNames}
@@ -1313,7 +1314,6 @@ const AddEmployeePage: React.FC = () => {
                         getOptionLabel={(option) => option.label}
                         getOptionValue={(option) => option.value.toString()}
                       />
-
                     </div>
                   </div>
                 </div>
@@ -2103,33 +2103,33 @@ const AddEmployeePage: React.FC = () => {
         </AnimatePresence>
 
         {/* Navigation Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
           <button
             onClick={prevStep}
             disabled={currentStep === 1}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed transition w-full sm:w-auto justify-center"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed transition w-full sm:w-auto justify-center"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-3.5 h-3.5" />
             Previous
           </button>
 
           {currentStep < 5 ? (
             <button
               onClick={nextStep}
-              className="flex items-center gap-2 px-6 py-2.5 bg-cyan-600 !text-white text-sm font-medium rounded-lg hover:bg-cyan-700 transition w-full sm:w-auto justify-center"
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-cyan-600 !text-white text-xs font-medium rounded-lg hover:bg-cyan-700 transition w-full sm:w-auto justify-center shadow-2xs"
             >
               Continue
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           ) : (
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="px-8 py-2.5 bg-cyan-600 !text-white text-sm font-medium rounded-lg hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2 w-full sm:w-auto justify-center"
+              className="px-5 py-1.5 bg-cyan-600 !text-white text-xs font-medium rounded-lg hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1.5 w-full sm:w-auto justify-center shadow-2xs"
             >
               {isSubmitting ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   Processing...
                 </>
               ) : (
@@ -2144,7 +2144,8 @@ const AddEmployeePage: React.FC = () => {
         .react-select-container .react-select__control {
           border-color: #d1d5db;
           border-radius: 0.5rem;
-          min-height: 42px;
+          min-height: 32px;
+          font-size: 0.75rem;
         }
         .react-select-container .react-select__control:hover {
           border-color: #06b6d4;
@@ -2164,7 +2165,7 @@ const AddEmployeePage: React.FC = () => {
         }
         @media (max-width: 640px) {
           .react-select-container .react-select__control {
-            min-height: 38px;
+            min-height: 32px;
           }
         }
       `}</style>

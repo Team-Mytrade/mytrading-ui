@@ -1,19 +1,18 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
+  ArrowPathIcon,
   BuildingOffice2Icon,
-  MagnifyingGlassIcon,
+  CheckCircleIcon,
   PencilSquareIcon,
   TrashIcon,
-  XMarkIcon,
-  CheckCircleIcon,
   XCircleIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import FilterPopover from "../../components/common/filter";
 import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
@@ -23,7 +22,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
-//  Types
+// Types
 type WarehouseLocationType = string;
 type WarehouseStatus = string;
 
@@ -57,7 +56,6 @@ const API_URL = "/v1/api/inventory/warehouses";
 const ENUM_API_URL = "/v1/api/inventory/enums";
 const PAGE_SIZE = 10;
 
-// Fallback values
 const FALLBACK_LOCATION_TYPES = ["MAIN", "DISTRIBUTION", "TRANSIT", "RETURN_CENTER"];
 const FALLBACK_STATUS = ["ACTIVE", "INACTIVE"];
 
@@ -74,11 +72,6 @@ function getErrorMessage(error: unknown, fallback: string): string {
     return data?.message || data?.detail || data?.error || fallback;
   }
   return fallback;
-}
-
-function searchableText(value: unknown) {
-  if (value === null || value === undefined) return "";
-  return String(value).toLowerCase().trim();
 }
 
 function getLocationTypeColor(type: string) {
@@ -107,20 +100,16 @@ function getStatusColor(status: string) {
   }
 }
 
-function getStatusIcon(status: string) {
-  switch (status) {
-    case "ACTIVE":
-      return <CheckCircleIcon className="h-3 w-3" />;
-    case "INACTIVE":
-      return <XCircleIcon className="h-3 w-3" />;
-    default:
-      return null;
-  }
-}
-
 const WarehousePage: React.FC = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const scopedWarehouseId = Number(searchParams.get("warehouseId")) || null;
+  const scopedWarehouseName = searchParams.get("warehouseName") || "Selected warehouse";
+  const isWarehouseScoped = searchParams.has("warehouseId");
   const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
+  const headers = token
+    ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
+    : undefined;
 
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [form, setForm] = useState<WarehouseForm>(emptyForm);
@@ -128,44 +117,46 @@ const WarehousePage: React.FC = () => {
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
   const [deleteWarehouse, setDeleteWarehouse] = useState<Warehouse | null>(null);
-  
-  const [locationTypeOptions, setLocationTypeOptions] = useState<string[]>(FALLBACK_LOCATION_TYPES);
+
+  const [locationTypeOptions, setLocationTypeOptions] = useState<string[]>(
+    FALLBACK_LOCATION_TYPES
+  );
   const [enumLoading, setEnumLoading] = useState(true);
 
   useEffect(() => {
     fetchEnums();
     fetchWarehouses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch enums from backend
   const fetchEnums = async (): Promise<void> => {
     try {
       setEnumLoading(true);
-      const locationRes = await axios.get(`${ENUM_API_URL}?type=LOCATION_TYPE`, { headers });
-      
+      const locationRes = await axios.get(`${ENUM_API_URL}?type=LOCATION_TYPE`, {
+        headers,
+      });
+
       let locationCodes: string[] = [];
       const rawData = locationRes.data;
-      
+
       if (Array.isArray(rawData)) {
-        if (rawData.length > 0 && typeof rawData[0] === 'object' && rawData[0].code) {
+        if (rawData.length > 0 && typeof rawData[0] === "object" && rawData[0].code) {
           locationCodes = rawData.map((item: any) => item.code);
         } else {
           locationCodes = rawData;
         }
       }
-      
-      setLocationTypeOptions(locationCodes.length > 0 ? locationCodes : FALLBACK_LOCATION_TYPES);
-      
-      setForm((prev) => ({ 
-        ...prev, 
+
+      setLocationTypeOptions(
+        locationCodes.length > 0 ? locationCodes : FALLBACK_LOCATION_TYPES
+      );
+
+      setForm((prev) => ({
+        ...prev,
         locationType: locationCodes.length > 0 ? locationCodes[0] : FALLBACK_LOCATION_TYPES[0],
         status: "ACTIVE",
       }));
-      
     } catch (error) {
       console.error("Failed to fetch enums:", error);
       setLocationTypeOptions(FALLBACK_LOCATION_TYPES);
@@ -174,33 +165,33 @@ const WarehousePage: React.FC = () => {
     }
   };
 
-  //  Fetch warehouses with code fallback
   const fetchWarehouses = async (): Promise<void> => {
     try {
       setLoading(true);
-      
+
       const response = await axios.get<Warehouse[]>(API_URL, { headers });
       const data = Array.isArray(response.data) ? response.data : [];
-      
+
       const enrichedData = await Promise.all(
         data.map(async (warehouse) => {
           try {
             const detailRes = await axios.get(`${API_URL}/${warehouse.id}`, { headers });
             const fullData = detailRes.data;
-            
-            const stockCount = fullData.stockLevels?.reduce(
-              (sum: number, level: any) => sum + (level.quantity || 0), 0
-            ) || 0;
-            
+
+            const stockCount =
+              fullData.stockLevels?.reduce(
+                (sum: number, level: any) => sum + (level.quantity || 0),
+                0
+              ) || 0;
+
             const isActive = fullData.active === true;
             const status = isActive ? "ACTIVE" : "INACTIVE";
-            
-            // Generate fallback code if backend returns null
+
             let code = fullData.code || warehouse.code;
-            if (!code || code === 'null' || code === 'undefined' || code.trim() === '') {
-              code = `WH-${String(warehouse.id).padStart(6, '0')}`;
+            if (!code || code === "null" || code === "undefined" || code.trim() === "") {
+              code = `WH-${String(warehouse.id).padStart(6, "0")}`;
             }
-            
+
             return {
               ...fullData,
               code: code,
@@ -209,12 +200,11 @@ const WarehousePage: React.FC = () => {
               status: status,
             };
           } catch (detailError) {
-            // Fallback if detail fetch fails
             let code = warehouse.code;
-            if (!code || code === 'null' || code === 'undefined' || code.trim() === '') {
-              code = `WH-${String(warehouse.id).padStart(6, '0')}`;
+            if (!code || code === "null" || code === "undefined" || code.trim() === "") {
+              code = `WH-${String(warehouse.id).padStart(6, "0")}`;
             }
-            
+
             return {
               ...warehouse,
               code: code,
@@ -225,7 +215,7 @@ const WarehousePage: React.FC = () => {
           }
         })
       );
-      
+
       setWarehouses(enrichedData);
     } catch (error) {
       console.error("Failed to load warehouses:", error);
@@ -267,35 +257,32 @@ const WarehousePage: React.FC = () => {
     setForm((current) => ({ ...current, [name]: value }));
   };
 
-  //  Handle table inline updates
   const handleTableUpdate = async (id: number, field: string, value: string) => {
-    const warehouse = warehouses.find(w => w.id === id);
+    const warehouse = warehouses.find((w) => w.id === id);
     if (!warehouse) return;
 
-    // Optimistic update
-    const updatedWarehouse = { 
-      ...warehouse, 
-      [field]: value, 
-      ...(field === 'status' && { active: value === 'ACTIVE' })
+    const updatedWarehouse = {
+      ...warehouse,
+      [field]: value,
+      ...(field === "status" && { active: value === "ACTIVE" }),
     };
-    
-    setWarehouses(prev => prev.map(w => 
-      w.id === id ? updatedWarehouse : w
-    ));
+
+    setWarehouses((prev) => prev.map((w) => (w.id === id ? updatedWarehouse : w)));
 
     try {
-      await axios.put(`${API_URL}/${id}`, {
-        id,
-        name: warehouse.name,
-        locationType: field === 'locationType' ? value : warehouse.locationType,
-        active: field === 'status' ? value === 'ACTIVE' : warehouse.status === 'ACTIVE',
-      }, { headers });
-      
+      await axios.put(
+        `${API_URL}/${id}`,
+        {
+          id,
+          name: warehouse.name,
+          locationType: field === "locationType" ? value : warehouse.locationType,
+          active: field === "status" ? value === "ACTIVE" : warehouse.status === "ACTIVE",
+        },
+        { headers }
+      );
+
       ToasterService.success(`${field} updated successfully`);
-      
-      //  Don't refresh - keep local changes
     } catch (error) {
-      // Revert on error
       await fetchWarehouses();
       ToasterService.error(`Failed to update ${field}`, getErrorMessage(error, "Please try again."));
     }
@@ -303,7 +290,7 @@ const WarehousePage: React.FC = () => {
 
   const buildPayload = () => {
     const isActive = form.status === "ACTIVE";
-    
+
     if (!editingId) {
       return {
         name: form.name.trim(),
@@ -326,7 +313,7 @@ const WarehousePage: React.FC = () => {
       ToasterService.error("Warehouse Name is required");
       return;
     }
-    
+
     if (form.name.trim().length < 2) {
       ToasterService.error("Warehouse Name must be at least 2 characters");
       return;
@@ -338,9 +325,7 @@ const WarehousePage: React.FC = () => {
     }
 
     const duplicate = warehouses.find(
-      (w) => 
-        w.name.toLowerCase() === form.name.trim().toLowerCase() && 
-        w.id !== editingId
+      (w) => w.name.toLowerCase() === form.name.trim().toLowerCase() && w.id !== editingId
     );
     if (duplicate) {
       ToasterService.error("A warehouse with this name already exists");
@@ -354,16 +339,15 @@ const WarehousePage: React.FC = () => {
       if (editingId) {
         await axios.put(`${API_URL}/${editingId}`, payload, { headers });
         ToasterService.success("Warehouse updated successfully");
-        
-        //  Update local state with payload values
+
         setWarehouses((prev) =>
           prev.map((w) => {
             if (w.id === editingId) {
               let code = w.code;
-              if (!code || code === 'null' || code === 'undefined' || code.trim() === '') {
-                code = `WH-${String(w.id).padStart(6, '0')}`;
+              if (!code || code === "null" || code === "undefined" || code.trim() === "") {
+                code = `WH-${String(w.id).padStart(6, "0")}`;
               }
-              
+
               return {
                 ...w,
                 name: payload.name,
@@ -379,13 +363,12 @@ const WarehousePage: React.FC = () => {
       } else {
         const response = await axios.post(API_URL, payload, { headers });
         ToasterService.success("Warehouse created successfully");
-        
-        //  Generate code if backend returns null
+
         let code = response.data.code;
-        if (!code || code === 'null' || code === 'undefined' || code.trim() === '') {
-          code = `WH-${String(response.data.id).padStart(6, '0')}`;
+        if (!code || code === "null" || code === "undefined" || code.trim() === "") {
+          code = `WH-${String(response.data.id).padStart(6, "0")}`;
         }
-        
+
         const newWarehouse = {
           ...response.data,
           code: code,
@@ -396,7 +379,6 @@ const WarehousePage: React.FC = () => {
       }
 
       closeForm();
-      
     } catch (error) {
       ToasterService.error("Failed to save warehouse", getErrorMessage(error, "Please try again."));
     } finally {
@@ -417,46 +399,20 @@ const WarehousePage: React.FC = () => {
     }
   };
 
-  const getCleanWarehouseData = (warehouse: Warehouse): any => {
-    return {
-      id: warehouse.id,
-      code: warehouse.code,
-      name: warehouse.name,
-      locationType: warehouse.locationType,
-      stockCount: warehouse.stockCount || 0,
-      status: warehouse.status || "ACTIVE",
-      createdDate: warehouse.createdDate,
-      updatedDate: warehouse.updatedDate,
-      createdBy: warehouse.createdBy,
-      tenantId: warehouse.tenantId,
-    };
-  };
-
-  const filteredWarehouses = useMemo(() => {
-    const term = searchableText(search);
-    
-    return warehouses
-      .filter((warehouse) => {
-        const matchesType = typeFilter === "" || warehouse.locationType === typeFilter;
-        const matchesStatus = statusFilter === "" || warehouse.status === statusFilter;
-        const searchString = `${warehouse.id} ${warehouse.code} ${warehouse.name} ${warehouse.locationType} ${warehouse.status}`.toLowerCase();
-        const matchesSearch = !term || searchString.includes(term);
-        return matchesType && matchesStatus && matchesSearch;
-      })
-      .map((warehouse) => getCleanWarehouseData(warehouse));
-  }, [warehouses, search, typeFilter, statusFilter]);
+  const displayedWarehouses = useMemo(
+    () => isWarehouseScoped ? warehouses.filter((warehouse) => warehouse.id === scopedWarehouseId) : warehouses,
+    [warehouses, isWarehouseScoped, scopedWarehouseId]
+  );
 
   const stats = useMemo(
     () => ({
-      total: warehouses.length,
-      main: warehouses.filter((w) => w.locationType === "MAIN").length,
-      distribution: warehouses.filter((w) => w.locationType === "DISTRIBUTION").length,
-      transit: warehouses.filter((w) => w.locationType === "TRANSIT").length,
-      returnCenter: warehouses.filter((w) => w.locationType === "RETURN_CENTER").length,
-      active: warehouses.filter((w) => w.status === "ACTIVE").length,
-      inactive: warehouses.filter((w) => w.status === "INACTIVE").length,
+      total: displayedWarehouses.length,
+      active: displayedWarehouses.filter((w) => w.status === "ACTIVE").length,
+      inactive: displayedWarehouses.filter((w) => w.status === "INACTIVE").length,
+      main: displayedWarehouses.filter((w) => w.locationType === "MAIN").length,
+      distribution: displayedWarehouses.filter((w) => w.locationType === "DISTRIBUTION").length,
     }),
-    [warehouses]
+    [displayedWarehouses]
   );
 
   const columns: ColumnDef<Warehouse>[] = [
@@ -480,9 +436,7 @@ const WarehousePage: React.FC = () => {
       key: "name",
       label: "Name",
       sortable: true,
-      render: (warehouse) => (
-        <span className="text-sm text-slate-700">{warehouse.name}</span>
-      ),
+      render: (warehouse) => <span className="text-sm text-slate-700">{warehouse.name}</span>,
     },
     {
       key: "locationType",
@@ -491,10 +445,16 @@ const WarehousePage: React.FC = () => {
       render: (warehouse) => (
         <select
           value={warehouse.locationType}
-          onChange={(e) => handleTableUpdate(warehouse.id, 'locationType', e.target.value)}
-          className={`rounded-lg border w-[150px] px-2.5 py-1 text-xs font-medium ${getLocationTypeColor(warehouse.locationType)}`}
+          onChange={(e) => handleTableUpdate(warehouse.id, "locationType", e.target.value)}
+          className={`w-[150px] rounded-lg border px-2.5 py-1 text-xs font-medium ${getLocationTypeColor(
+            warehouse.locationType
+          )}`}
         >
-          {locationTypeOptions.map(type => <option key={type} value={type}>{type}</option>)}
+          {locationTypeOptions.map((type) => (
+            <option key={type} value={type}>
+              {type}
+            </option>
+          ))}
         </select>
       ),
     },
@@ -507,10 +467,14 @@ const WarehousePage: React.FC = () => {
         return (
           <select
             value={status}
-            onChange={(e) => handleTableUpdate(warehouse.id, 'status', e.target.value)}
-            className={`rounded-lg border w-[100px] px-2.5 py-1 text-xs font-medium ${getStatusColor(status)}`}
+            onChange={(e) => handleTableUpdate(warehouse.id, "status", e.target.value)}
+            className={`w-[100px] rounded-lg border px-2.5 py-1 text-xs font-medium ${getStatusColor(status)}`}
           >
-            {FALLBACK_STATUS.map(s => <option key={s} value={s}>{s}</option>)}
+            {FALLBACK_STATUS.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
           </select>
         );
       },
@@ -520,9 +484,7 @@ const WarehousePage: React.FC = () => {
       label: "Stock Items",
       sortable: true,
       render: (warehouse) => (
-        <span className="text-sm text-slate-600">
-          {warehouse.stockCount || 0}
-        </span>
+        <span className="text-sm text-slate-600">{warehouse.stockCount || 0}</span>
       ),
     },
     {
@@ -554,35 +516,17 @@ const WarehousePage: React.FC = () => {
     },
   ];
 
-  const typeFilterOptions = useMemo(() => {
-    return [
-      { label: "All Types", value: "" },
-      ...locationTypeOptions.map((type) => ({
-        label: type,
-        value: type,
-      })),
-    ];
-  }, [locationTypeOptions]);
-
-  const statusFilterOptions = useMemo(() => {
-    return [
-      { label: "All Status", value: "" },
-      { label: "ACTIVE", value: "ACTIVE" },
-      { label: "INACTIVE", value: "INACTIVE" },
-    ];
-  }, []);
-
   return (
     <>
       <PageMeta title="Warehouses" description="Manage warehouses" />
-      <PageBreadcrumb pageTitle="Warehouses" />
+      <PageBreadcrumb
+        pageTitle="Warehouses"
+        actions={<AddButton onClick={openCreate} label="Add Warehouse" />}
+      />
 
       <div className="w-full max-w-none px-0 py-8">
-        <div className="mb-6 flex justify-end -mt-12">
-          <AddButton onClick={openCreate} label="Add Warehouse" />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {isWarehouseScoped && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>Showing warehouse: <strong>{scopedWarehouseName}</strong></span><button type="button" onClick={() => navigate("/warehouse")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all warehouses</button></div>}
+        <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
             label="Total Warehouses"
             value={stats.total}
@@ -617,78 +561,8 @@ const WarehousePage: React.FC = () => {
           />
         </div>
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full -mt-8 sm:max-w-md">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search warehouses..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <FilterPopover
-              title="Filter Warehouses"
-              buttonLabel="Filter"
-              label="Location Type"
-              value={typeFilter}
-              options={typeFilterOptions}
-              onChange={setTypeFilter}
-              onReset={() => {
-                setTypeFilter("");
-                setStatusFilter("");
-              }}
-              onApply={() => undefined}
-              widthClassName="w-72"
-            >
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">Location Type</label>
-                  <select
-                    value={typeFilter}
-                    onChange={(e) => setTypeFilter(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                  >
-                    <option value="">All Types</option>
-                    {locationTypeOptions.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">Status</label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                  >
-                    <option value="">All Status</option>
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="INACTIVE">INACTIVE</option>
-                  </select>
-                </div>
-              </div>
-            </FilterPopover>
-          </div>
-        </div>
-
         <ReusableTable
-          data={filteredWarehouses}
+          data={displayedWarehouses}
           columns={columns}
           loading={loading || enumLoading}
           pageSize={PAGE_SIZE}
@@ -696,17 +570,17 @@ const WarehousePage: React.FC = () => {
           defaultSortOrder="desc"
           enableRowDetails={true}
           rowDetailsTitle="Warehouse Details"
-          className="md:-mt-4"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <BuildingOffice2Icon className="mb-3 h-12 w-12 text-gray-400" />
               <p className="mb-2 text-sm text-gray-500">No warehouses found</p>
               <button
                 type="button"
-                onClick={openCreate}
-                className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                onClick={() => fetchWarehouses()}
+                className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700"
               >
-                Create your first warehouse
+                <ArrowPathIcon className="h-3.5 w-3.5" />
+                Reload all warehouses
               </button>
             </div>
           }
@@ -726,41 +600,38 @@ const WarehousePage: React.FC = () => {
           {
             label: "Warehouse Details",
             fields: [
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <FloatingInput
-                  label="Name"
-                  name="name"
-                  value={form.name}
-                  onChange={handleChange}
-                  required
-                />
-              </div>,
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <FloatingSelect
-                  label="Location Type"
-                  name="locationType"
-                  value={form.locationType}
-                  onChange={handleChange}
-                  includeEmptyOption={false}
-                  options={locationTypeOptions.map((type) => ({
-                    id: type,
-                    name: type,
-                  }))}
-                />
-              </div>,
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <FloatingSelect
-                  label="Status"
-                  name="status"
-                  value={form.status}
-                  onChange={handleChange}
-                  includeEmptyOption={false}
-                  options={FALLBACK_STATUS.map((status) => ({
-                    id: status,
-                    name: status,
-                  }))}
-                />
-              </div>,
+              <FloatingInput
+                key="name"
+                label="Name"
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingSelect
+                key="locationType"
+                label="Location Type"
+                name="locationType"
+                value={form.locationType}
+                onChange={handleChange}
+                includeEmptyOption={false}
+                options={locationTypeOptions.map((type) => ({
+                  id: type,
+                  name: type,
+                }))}
+              />,
+              <FloatingSelect
+                key="status"
+                label="Status"
+                name="status"
+                value={form.status}
+                onChange={handleChange}
+                includeEmptyOption={false}
+                options={FALLBACK_STATUS.map((status) => ({
+                  id: status,
+                  name: status,
+                }))}
+              />,
             ],
           },
         ]}

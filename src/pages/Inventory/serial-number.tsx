@@ -2,22 +2,19 @@ import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "rea
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import {
+  ArrowPathIcon,
   BuildingStorefrontIcon,
   CheckCircleIcon,
-  MagnifyingGlassIcon,
+  CubeIcon,
+  EyeIcon,
   PencilSquareIcon,
   QrCodeIcon,
   TrashIcon,
   XCircleIcon,
-  XMarkIcon,
-  EyeIcon,
-  CubeIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import { ListingPdfExportButton } from "../../components/common/export";
-import FilterPopover from "../../components/common/filter";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import DynamicPopup from "../../components/common/Popup";
@@ -73,9 +70,6 @@ interface EnumOption {
   name: string;
 }
 
-// purchaseDate / salesDate removed entirely — they were speculative additions
-// not confirmed to exist on the backend schema. currentStatus stays, but its
-// allowed values now come exclusively from the enum endpoint (no static list).
 interface SerialNumber {
   id: number;
   serial: string;
@@ -86,7 +80,7 @@ interface SerialNumber {
   warehouse?: WarehouseRef;
   batch?: BatchRef;
   inspections?: Inspection[];
-  currentStatus?: string; // as returned by API — no client-side default
+  currentStatus?: string;
 }
 
 type SerialNumberForm = {
@@ -125,11 +119,6 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
-function searchableText(value: unknown) {
-  if (value === null || value === undefined) return "";
-  return String(value).toLowerCase().trim();
-}
-
 function isWarrantyActive(warrantyEnd: string) {
   if (!warrantyEnd) return false;
   const end = new Date(warrantyEnd);
@@ -137,8 +126,6 @@ function isWarrantyActive(warrantyEnd: string) {
   return end.getTime() >= Date.now();
 }
 
-// Product is shown as productName only — no fallback substitution using
-// productNumber/productCode as a stand-in display name.
 function getProductName(sn: SerialNumber, products: Product[]) {
   const product = products.find((p) => p.id === sn.productId);
   return product?.productName || "N/A";
@@ -152,7 +139,10 @@ function getBatchNumber(sn: SerialNumber) {
   return sn.batch?.batchNumber || "N/A";
 }
 
-function getInspections(sn: SerialNumber, inspectionsBySerial: Record<number, Inspection[]>): string {
+function getInspections(
+  sn: SerialNumber,
+  inspectionsBySerial: Record<number, Inspection[]>
+): string {
   const inspections = inspectionsBySerial[sn.id] ?? sn.inspections ?? [];
   if (inspections.length === 0) return "N/A";
   const results = inspections.map((i) => i.result).join(", ");
@@ -164,7 +154,6 @@ function getWarrantyStatus(sn: SerialNumber) {
 }
 
 function formatEnumResponse(raw: unknown): EnumOption[] {
-  // Accepts a few common shapes: string[], {id,name}[], {code,label}[], {value}[]
   if (!Array.isArray(raw)) {
     if (raw && typeof raw === "object") {
       const obj = raw as Record<string, unknown>;
@@ -189,8 +178,6 @@ function formatEnumResponse(raw: unknown): EnumOption[] {
     .filter((item): item is EnumOption => item !== null);
 }
 
-// Deterministic color per status string — no hardcoded mapping tied to
-// specific expected values like "Available"/"Sold"/"In Repair"/"Returned".
 const STATUS_BADGE_PALETTE = [
   "bg-green-50 text-green-700",
   "bg-blue-50 text-blue-700",
@@ -223,19 +210,15 @@ const SerialNumberManager: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<WarehouseRef[]>([]);
   const [batches, setBatches] = useState<BatchRef[]>([]);
-  const [inspectionsBySerial, setInspectionsBySerial] = useState<Record<number, Inspection[]>>({});
+  const [inspectionsBySerial, setInspectionsBySerial] = useState<Record<number, Inspection[]>>(
+    {}
+  );
   const [statusOptions, setStatusOptions] = useState<EnumOption[]>([]);
   const [form, setForm] = useState<SerialNumberForm>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [search, setSearch] = useState("");
-  const [filterProductId, setFilterProductId] = useState("");
-  const [filterWarehouseId, setFilterWarehouseId] = useState("");
-  const [filterBatchId, setFilterBatchId] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
-  const [filterCurrentStatus, setFilterCurrentStatus] = useState("");
   const [viewingSerial, setViewingSerial] = useState<SerialNumber | null>(null);
   const [viewLoading, setViewLoading] = useState(false);
   const [deletingSerial, setDeletingSerial] = useState<SerialNumber | null>(null);
@@ -258,7 +241,10 @@ const SerialNumberManager: React.FC = () => {
       setSerialNumbers(data);
       if (data.length === 0) ToasterService.noData("No serial numbers found");
     } catch (error) {
-      ToasterService.error("Failed to load serial numbers", getErrorMessage(error, "Please try again."));
+      ToasterService.error(
+        "Failed to load serial numbers",
+        getErrorMessage(error, "Please try again.")
+      );
       setSerialNumbers([]);
     } finally {
       setLoading(false);
@@ -326,13 +312,13 @@ const SerialNumberManager: React.FC = () => {
       });
       setInspectionsBySerial(grouped);
     } catch (error) {
-      ToasterService.error("Failed to load quality inspections", getErrorMessage(error, "Please try again."));
+      ToasterService.error(
+        "Failed to load quality inspections",
+        getErrorMessage(error, "Please try again.")
+      );
     }
   };
 
-  // Current Status options come exclusively from the enum endpoint.
-  // No static fallback list — if the call fails or returns nothing, the
-  // dropdown is simply empty rather than silently showing invented values.
   const fetchCurrentStatusOptions = async () => {
     try {
       const res = await axios.get(`${API_URL}/enums`, {
@@ -385,15 +371,24 @@ const SerialNumberManager: React.FC = () => {
     e.preventDefault();
 
     if (!form.productId || !form.warehouseId || !form.batchId) {
-      ToasterService.error("Required fields missing", "Product, warehouse, and batch are required.");
+      ToasterService.error(
+        "Required fields missing",
+        "Product, warehouse, and batch are required."
+      );
       return;
     }
     if (!form.warrantyStart || !form.warrantyEnd) {
-      ToasterService.error("Required fields missing", "Warranty start and end dates are required.");
+      ToasterService.error(
+        "Required fields missing",
+        "Warranty start and end dates are required."
+      );
       return;
     }
     if (new Date(form.warrantyEnd) < new Date(form.warrantyStart)) {
-      ToasterService.error("Invalid warranty range", "Warranty end date cannot be before the start date.");
+      ToasterService.error(
+        "Invalid warranty range",
+        "Warranty end date cannot be before the start date."
+      );
       return;
     }
     try {
@@ -409,7 +404,10 @@ const SerialNumberManager: React.FC = () => {
       closeForm();
       fetchSerialNumbers();
     } catch (error) {
-      ToasterService.error("Failed to save serial number", getErrorMessage(error, "Please try again."));
+      ToasterService.error(
+        "Failed to save serial number",
+        getErrorMessage(error, "Please try again.")
+      );
     } finally {
       setSubmitting(false);
     }
@@ -447,7 +445,10 @@ const SerialNumberManager: React.FC = () => {
       ToasterService.success("Serial number deleted");
       setSerialNumbers((current) => current.filter((item) => item.id !== deletingSerial.id));
     } catch (error) {
-      ToasterService.error("Failed to delete serial number", getErrorMessage(error, "Please try again."));
+      ToasterService.error(
+        "Failed to delete serial number",
+        getErrorMessage(error, "Please try again.")
+      );
     } finally {
       setDeletingSerial(null);
     }
@@ -462,7 +463,10 @@ const SerialNumberManager: React.FC = () => {
         setViewingSerial(res.data);
       }
     } catch (error) {
-      ToasterService.error("Failed to load serial number details", getErrorMessage(error, "Showing last known details."));
+      ToasterService.error(
+        "Failed to load serial number details",
+        getErrorMessage(error, "Showing last known details.")
+      );
     } finally {
       setViewLoading(false);
     }
@@ -487,68 +491,18 @@ const SerialNumberManager: React.FC = () => {
     });
   };
 
-  // ---------- Filtering ----------
-  const filteredSerialNumbers = useMemo(() => {
-    const term = searchableText(search);
-
-    return serialNumbers
-      .filter((sn) => {
-        if (filterProductId && String(sn.productId) !== filterProductId) return false;
-        if (filterWarehouseId && String(sn.warehouse?.id || "") !== filterWarehouseId) return false;
-        if (filterBatchId && String(sn.batch?.id || "") !== filterBatchId) return false;
-        if (filterStatus === "active" && !isWarrantyActive(sn.warrantyEnd)) return false;
-        if (filterStatus === "expired" && isWarrantyActive(sn.warrantyEnd)) return false;
-        if (filterCurrentStatus && sn.currentStatus !== filterCurrentStatus) return false;
-
-        if (!term) return true;
-
-        const haystack = [
-          sn.serial,
-          sn.id,
-          sn.productNumber,
-          sn.productId,
-          sn.warehouse?.name,
-          sn.batch?.batchNumber,
-          isWarrantyActive(sn.warrantyEnd) ? "active" : "expired",
-          sn.currentStatus,
-        ]
-          .map(searchableText)
-          .filter(Boolean)
-          .join(" ");
-
-        return haystack.includes(term);
-      })
-      .map((sn) => ({
-        ...sn,
-        productNumber:
-          sn.productNumber || products.find((p) => p.id === sn.productId)?.productCode || "N/A",
-        inspections: inspectionsBySerial[sn.id] ?? sn.inspections ?? [],
-      }));
-  }, [serialNumbers, search, filterProductId, filterWarehouseId, filterBatchId, filterStatus, filterCurrentStatus, products, inspectionsBySerial]);
-
-  const resetFilters = () => {
-    setFilterProductId("");
-    setFilterWarehouseId("");
-    setFilterBatchId("");
-    setFilterStatus("");
-    setFilterCurrentStatus("");
-  };
-
   // ---------- Stats ----------
   const stats = useMemo(() => {
     const total = serialNumbers.length;
     const inWarranty = serialNumbers.filter((sn) => isWarrantyActive(sn.warrantyEnd)).length;
     const expired = total - inWarranty;
-    const warehouses = new Set(serialNumbers.map((sn) => sn.warehouse?.name).filter(Boolean)).size;
-    const statusCounts: Record<string, number> = {};
-    serialNumbers.forEach((sn) => {
-      const status = sn.currentStatus || "Unknown";
-      statusCounts[status] = (statusCounts[status] || 0) + 1;
-    });
-    return { total, inWarranty, expired, warehouses, statusCounts };
+    const warehouses = new Set(
+      serialNumbers.map((sn) => sn.warehouse?.name).filter(Boolean)
+    ).size;
+    return { total, inWarranty, expired, warehouses };
   }, [serialNumbers]);
 
-  // ---------- Table columns ----------
+  // ---------- Table columns (warranty columns removed) ----------
   const columns: ColumnDef<SerialNumber>[] = [
     {
       key: "serial",
@@ -557,7 +511,7 @@ const SerialNumberManager: React.FC = () => {
       headerClassName: "w-[18%] text-left whitespace-nowrap",
       className: "w-[18%]",
       render: (sn) => (
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50">
             <QrCodeIcon className="h-4 w-4 text-cyan-700" />
           </div>
@@ -629,35 +583,6 @@ const SerialNumberManager: React.FC = () => {
       render: (sn) => getBatchNumber(sn),
     },
     {
-      key: "warrantyStart",
-      label: "Warranty Start",
-      sortable: true,
-      render: (sn) => (sn.warrantyStart ? new Date(sn.warrantyStart).toLocaleDateString() : "N/A"),
-    },
-    {
-      key: "warrantyEnd",
-      label: "Warranty End",
-      sortable: true,
-      render: (sn) => (sn.warrantyEnd ? new Date(sn.warrantyEnd).toLocaleDateString() : "N/A"),
-    },
-    {
-      key: "warrantyStatus",
-      label: "Warranty Status",
-      sortable: false,
-      render: (sn) => {
-        const active = isWarrantyActive(sn.warrantyEnd);
-        return (
-          <span
-            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-              active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-            }`}
-          >
-            {active ? "In Warranty" : "Expired"}
-          </span>
-        );
-      },
-    },
-    {
       key: "currentStatus",
       label: "Current Status",
       sortable: true,
@@ -667,7 +592,11 @@ const SerialNumberManager: React.FC = () => {
           return <span className="text-xs text-slate-400">N/A</span>;
         }
         return (
-          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClass(status)}`}>
+          <span
+            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClass(
+              status
+            )}`}
+          >
             {status}
           </span>
         );
@@ -713,15 +642,14 @@ const SerialNumberManager: React.FC = () => {
   return (
     <>
       <PageMeta title="Serial Numbers" description="Manage inventory serial numbers" />
-      <PageBreadcrumb pageTitle="Serial Numbers" />
+      <PageBreadcrumb
+        pageTitle="Serial Numbers"
+        actions={<AddButton onClick={openCreate} label="Add Serial Number" />}
+      />
 
       <div className="w-full max-w-none px-0 py-8">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Serial Number" />
-        </div>
-
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatsCard label="Serial Numbers" value={stats.total} icon={<QrCodeIcon />} />
           <StatsCard
             label="In Warranty"
@@ -749,136 +677,13 @@ const SerialNumberManager: React.FC = () => {
           />
         </div>
 
-        {/* Search & Filters */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="relative w-full sm:max-w-md md:mt-1">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by serial, product, warehouse, batch, status..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <ListingPdfExportButton
-              title="Serial Numbers"
-              subtitle="Filtered serial number listing"
-              reportLabel="Serial Numbers Report"
-              data={filteredSerialNumbers}
-              fileName="Serial_Numbers"
-              disabled={loading}
-              dateAccessor={(row) => row.warrantyStart || row.warrantyEnd}
-              metadata={(rows) => [
-                { label: "Total", value: rows.length },
-                { label: "In Warranty", value: rows.filter((sn) => isWarrantyActive(sn.warrantyEnd)).length },
-                { label: "Expired", value: rows.filter((sn) => !isWarrantyActive(sn.warrantyEnd)).length },
-                { label: "Search", value: search || "None" },
-              ]}
-              columns={[
-                { header: "Serial Number", accessor: (row) => row.serial || "N/A" },
-                { header: "Product Name", accessor: (row) => getProductName(row, products) },
-                { header: "Warehouse", accessor: (row) => getWarehouseName(row) },
-                { header: "Batch", accessor: (row) => getBatchNumber(row) },
-                {
-                  header: "Warranty Start",
-                  accessor: (row) => (row.warrantyStart ? new Date(row.warrantyStart).toLocaleDateString() : "N/A"),
-                },
-                {
-                  header: "Warranty End",
-                  accessor: (row) => (row.warrantyEnd ? new Date(row.warrantyEnd).toLocaleDateString() : "N/A"),
-                },
-                { header: "Warranty Status", accessor: (row) => getWarrantyStatus(row) },
-                { header: "Current Status", accessor: (row) => row.currentStatus || "N/A" },
-              ]}
-            />
-            <FilterPopover
-              title="Filter Serial Numbers"
-              buttonLabel="Filters"
-              widthClassName="w-[21rem] sm:w-[23rem]"
-              showFooter={false}
-            >
-              <div className="space-y-3">
-                <FloatingSelect
-                  label="Product Name"
-                  name="filterProductId"
-                  value={filterProductId}
-                  onChange={(e) => setFilterProductId(e.target.value)}
-                  options={products.map((product) => ({
-                    id: String(product.id),
-                    name: product.productName,
-                  }))}
-                />
-                <FloatingSelect
-                  label="Warehouse"
-                  name="filterWarehouseId"
-                  value={filterWarehouseId}
-                  onChange={(e) => setFilterWarehouseId(e.target.value)}
-                  options={warehouses.map((warehouse) => ({
-                    id: String(warehouse.id),
-                    name: warehouse.name,
-                  }))}
-                />
-                <FloatingSelect
-                  label="Batch"
-                  name="filterBatchId"
-                  value={filterBatchId}
-                  onChange={(e) => setFilterBatchId(e.target.value)}
-                  options={batches.map((batch) => ({
-                    id: String(batch.id),
-                    name: batch.batchNumber,
-                  }))}
-                />
-                <FloatingSelect
-                  label="Warranty Status"
-                  name="filterStatus"
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  options={[
-                    { id: "active", name: "In Warranty" },
-                    { id: "expired", name: "Expired" },
-                  ]}
-                />
-                <FloatingSelect
-                  label="Current Status"
-                  name="filterCurrentStatus"
-                  value={filterCurrentStatus}
-                  onChange={(e) => setFilterCurrentStatus(e.target.value)}
-                  options={statusOptions}
-                />
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={resetFilters}
-                    className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
-                  >
-                    Reset filters
-                  </button>
-                </div>
-              </div>
-            </FilterPopover>
-          </div>
-        </div>
-
         <ReusableTable
-          data={filteredSerialNumbers}
+          data={serialNumbers}
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}
           defaultSortKey="serial"
           defaultSortOrder="asc"
-          className="md:-mt-4"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <QrCodeIcon className="mb-3 h-12 w-12 text-gray-400" />
@@ -904,6 +709,7 @@ const SerialNumberManager: React.FC = () => {
         onSubmit={handleSubmit}
         submitting={submitting}
         submitLabel={editingId ? "Update Serial Number" : "Create Serial Number"}
+        maxWidthClassName="max-w-2xl"
         tabs={[
           {
             label: "Details",
@@ -965,7 +771,7 @@ const SerialNumberManager: React.FC = () => {
             fields: [
               <FloatingInput
                 key="warrantyStart"
-                label="Warranty Start"
+                label="WarrantyStart"
                 name="warrantyStart"
                 type="date"
                 value={form.warrantyStart}
@@ -987,148 +793,95 @@ const SerialNumberManager: React.FC = () => {
       />
 
       {/* Detail View Modal */}
-      {viewingSerial && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
-          onClick={closeView}
-        >
-          <div
-            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-4 flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50">
-                  <QrCodeIcon className="h-5 w-5 text-cyan-700" />
-                </div>
-                <div>
-                  <div className="text-base font-semibold text-slate-900">
-                    {viewingSerial.serial || "N/A"}
+      <PaginatedPopup
+        isOpen={!!viewingSerial}
+        title="Serial Number Details"
+        subtitle={viewingSerial ? `Serial ${viewingSerial.serial || `#${viewingSerial.id}`}` : ""}
+        onClose={closeView}
+        submitting={false}
+        maxWidthClassName="max-w-lg"
+        tabs={[
+          {
+            label: "Details",
+            fields: [
+              viewingSerial && (
+                <div key="view-content" className="space-y-3 text-sm">
+                  {viewLoading && (
+                    <div className="mb-3 text-xs text-slate-400">
+                      Refreshing latest details…
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
+                    <span className="flex items-center gap-2 text-slate-500">
+                      <CubeIcon className="h-4 w-4" /> Product
+                    </span>
+                    {viewingSerial.productId ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          closeView();
+                          goToProduct(viewingSerial.productId);
+                        }}
+                        className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
+                      >
+                        {getProductName(viewingSerial, products)}
+                      </button>
+                    ) : (
+                      <span className="font-medium text-slate-800">
+                        {getProductName(viewingSerial, products)}
+                      </span>
+                    )}
                   </div>
-                  <div className="text-xs text-slate-500">ID: {viewingSerial.id}</div>
+
+                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
+                    <span className="flex items-center gap-2 text-slate-500">
+                      <BuildingStorefrontIcon className="h-4 w-4" /> Warehouse
+                    </span>
+                    {viewingSerial.warehouse?.id ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          closeView();
+                          goToWarehouse(viewingSerial.warehouse);
+                        }}
+                        className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
+                      >
+                        {getWarehouseName(viewingSerial)}
+                      </button>
+                    ) : (
+                      <span className="font-medium text-slate-800">
+                        {getWarehouseName(viewingSerial)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
+                    <span className="text-slate-500">Batch</span>
+                    <span className="font-medium text-slate-800">
+                      {getBatchNumber(viewingSerial)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
+                    <span className="text-slate-500">Current Status</span>
+                    <span className="font-medium text-slate-800">
+                      {viewingSerial.currentStatus || "N/A"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
+                    <span className="text-slate-500">Inspections</span>
+                    <span className="font-medium text-slate-800">
+                      {getInspections(viewingSerial, inspectionsBySerial)}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <button
-                type="button"
-                onClick={closeView}
-                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-              >
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            </div>
-
-            {viewLoading && <div className="mb-3 text-xs text-slate-400">Refreshing latest details…</div>}
-
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                <span className="flex items-center gap-2 text-slate-500">
-                  <CubeIcon className="h-4 w-4" /> Product
-                </span>
-                {viewingSerial.productId ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      closeView();
-                      goToProduct(viewingSerial.productId);
-                    }}
-                    className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
-                  >
-                    {getProductName(viewingSerial, products)}
-                  </button>
-                ) : (
-                  <span className="font-medium text-slate-800">
-                    {getProductName(viewingSerial, products)}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                <span className="flex items-center gap-2 text-slate-500">
-                  <BuildingStorefrontIcon className="h-4 w-4" /> Warehouse
-                </span>
-                {viewingSerial.warehouse?.id ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      closeView();
-                      goToWarehouse(viewingSerial.warehouse);
-                    }}
-                    className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
-                  >
-                    {getWarehouseName(viewingSerial)}
-                  </button>
-                ) : (
-                  <span className="font-medium text-slate-800">{getWarehouseName(viewingSerial)}</span>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                <span className="text-slate-500">Batch</span>
-                <span className="font-medium text-slate-800">{getBatchNumber(viewingSerial)}</span>
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                <span className="text-slate-500">Warranty Start</span>
-                <span className="font-medium text-slate-800">
-                  {viewingSerial.warrantyStart ? new Date(viewingSerial.warrantyStart).toLocaleDateString() : "N/A"}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                <span className="text-slate-500">Warranty End</span>
-                <span className="font-medium text-slate-800">
-                  {viewingSerial.warrantyEnd ? new Date(viewingSerial.warrantyEnd).toLocaleDateString() : "N/A"}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                <span className="text-slate-500">Warranty Status</span>
-                <span
-                  className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                    isWarrantyActive(viewingSerial.warrantyEnd)
-                      ? "bg-green-50 text-green-700"
-                      : "bg-red-50 text-red-700"
-                  }`}
-                >
-                  {getWarrantyStatus(viewingSerial)}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                <span className="text-slate-500">Current Status</span>
-                <span className="font-medium text-slate-800">{viewingSerial.currentStatus || "N/A"}</span>
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                <span className="text-slate-500">Inspections</span>
-                <span className="font-medium text-slate-800">
-                  {getInspections(viewingSerial, inspectionsBySerial)}
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  closeView();
-                  openEdit(viewingSerial);
-                }}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                onClick={closeView}
-                className="rounded-lg bg-cyan-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-cyan-700"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              ),
+            ],
+          },
+        ]}
+      />
 
       <DynamicPopup
         isPopupOpen={!!deletingSerial}
@@ -1140,7 +893,9 @@ const SerialNumberManager: React.FC = () => {
         innerText="Delete Serial Number"
         subText={
           deletingSerial
-            ? `Are you sure you want to delete serial number "${deletingSerial.serial || deletingSerial.id}"? This action cannot be undone.`
+            ? `Are you sure you want to delete serial number "${
+                deletingSerial.serial || deletingSerial.id
+              }"? This action cannot be undone.`
             : "Are you sure you want to delete this serial number?"
         }
         confirmLabel="Delete"

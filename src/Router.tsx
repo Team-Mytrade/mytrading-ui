@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import SessionDraftRestorer from "./components/common/SessionDraftRestorer";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
@@ -48,7 +48,7 @@ import QualityInspection from "./pages/Inventory/quality-inspection";
 import SerialNumber from "./pages/Inventory/serial-number";
 import StockMovement from "./pages/Inventory/stock-movement";
 import InventoryReservation from "./pages/Inventory/inventory-reservation";
-import InventoryReport from "./pages/Inventory/inventory-report";
+import InventoryReport from "./pages/reports/inventory-report";
 import StockAdjustment from "./pages/Inventory/stock-adjustment";
 import PurchaseRequisitions from "./pages/Purchase/PurchaseRequisitions";
 import RequisitionLineItems from "./pages/Purchase/RequisitionLineItems";
@@ -118,12 +118,12 @@ import KnowledgeBase from "./pages/Support/KnowledgeBase";
 import SLAManagement from "./pages/Support/SLAManagement";
 import SupportReports from "./pages/Support/SupportReports";
 import TicketSupport from "./pages/Support/TicketSupport";
-import ActivityReports from "./pages/Reports/ActivityReports";
-import CustomReports from "./pages/Reports/CustomReports";
-import CustomerRetentionReport from "./pages/Reports/CustomerRetentionReport";
-import LeadReports from "./pages/Reports/LeadReports";
-import PerformanceReports from "./pages/Reports/PerformanceReports";
-import SalesReports from "./pages/Reports/SalesReports";
+import ActivityReports from "./pages/reports/ActivityReports";
+import CustomReports from "./pages/reports/CustomReports";
+import CustomerRetentionReport from "./pages/reports/CustomerRetentionReport";
+import LeadReports from "./pages/reports/LeadReports";
+import PerformanceReports from "./pages/reports/PerformanceReports";
+import SalesReports from "./pages/reports/SalesReports";
 import AutomationLogs from "./pages/Workflow/AutomationLogs";
 import AutomationWorkflowRules from "./pages/Workflow/AutomationWorkflowRules";
 import ScheduledActions from "./pages/Workflow/ScheduledActions";
@@ -205,8 +205,8 @@ import PaymentReceipts from "./pages/Invoice/PaymentReceipts";
 import GeneralLedger from "./pages/Invoice/GeneralLedger";
 import ExpenseRevenue from "./pages/Invoice/ExpenseRevenue";
 import AccountsReceivable from "./pages/Invoice/AccountsReceivable";
-import TaxReport from "./pages/Invoice/TaxReport";
-import FinanceReport from "./pages/Invoice/FinanceReport";
+import TaxReport from "./pages/reports/TaxReport";
+import FinanceReport from "./pages/reports/FinanceReport";
 import Reports from "./pages/Reports/CrmReports";
 export default function AppRouter() {
   return (
@@ -364,7 +364,7 @@ export default function AppRouter() {
           <Route path="/att_leaveBalance" element={<LeaveBalancePage />} />
           <Route path="/att_leaveRequest" element={<LeaveRequestPage />} />
           <Route path="/att_leavePolicy" element={<LeavePolicyPage />} />
-          <Route path="/att_leaveDashboard" element={<LeaveDashboardPage />} />
+          <Route path="/att_leaveDashboard" element={<Navigate to="/att_selfService" replace />} />
           <Route path="/att_selfService" element={<EmployeeSelfServicePage />} />
           <Route path="/att_leaveManagerDashboard" element={<LeaveManagerDashboardPage />} />
           <Route path="/att_attendanceTracking" element={<AttendanceTrackingPage />} />
