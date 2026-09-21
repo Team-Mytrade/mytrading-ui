@@ -785,36 +785,22 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         </div>
 
         <div className="py-5 px-3">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-[17px]">
-            <StatsCard
-              label="Total Records"
-              value={rows.length}
-              gradient="from-cyan-50 to-blue-50"
-              borderColor="border-cyan-100"
-              labelColor="text-cyan-600"
-            />
-            <StatsCard
-              label="Active Records"
-              value={activeCount || "--"}
-              gradient="from-green-50 to-emerald-50"
-              borderColor="border-green-100"
-              labelColor="text-green-600"
-            />
-            <StatsCard
-              label="Loaded From API"
-              value={loading ? "..." : apiFailed ? "API failed" : "Ready"}
-              gradient={apiFailed ? "from-red-50 to-rose-50" : "from-purple-50 to-pink-50"}
-              borderColor={apiFailed ? "border-red-100" : "border-purple-100"}
-              labelColor={apiFailed ? "text-red-600" : "text-purple-600"}
-              icon={
-                apiFailed ? (
-                  <XCircleIcon className="h-5 w-5" />
-                ) : (
-                  <CheckCircleIcon className="h-5 w-5" />
-                )
-              }
-            />
-          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-[17px]">
+  <StatsCard
+    label="Total Records"
+    value={rows.length}
+    gradient="from-cyan-50 to-blue-50"
+    borderColor="border-cyan-100"
+    labelColor="text-cyan-600"
+  />
+  <StatsCard
+    label="Active Records"
+    value={activeCount || "--"}
+    gradient="from-green-50 to-emerald-50"
+    borderColor="border-green-100"
+    labelColor="text-green-600"
+  />
+</div>
 
           <div className="my-3 flex flex-col sm:flex-row sm:items-center sm:justify-between">
             <div className="relative w-full sm:max-w-md">
