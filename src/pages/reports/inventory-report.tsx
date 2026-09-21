@@ -667,7 +667,7 @@ const InventoryReports: React.FC = () => {
 
             
     {/* Filters + PDF (Below Stats Cards) */}
-<div className="mb-6  flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
+<div className=" mt-8 mb-6  flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
   <div className="flex items-center gap-2">
     {/* Report Type Dropdown */}
     <select
@@ -722,7 +722,7 @@ const InventoryReports: React.FC = () => {
     )}
 
     {/* PDF Export Button */}
-    <ListingPdfExportButton
+    {/* <ListingPdfExportButton
       title={getReportTitle()}
       subtitle="Complete inventory report"
       reportLabel="Inventory Report"
@@ -742,7 +742,7 @@ const InventoryReports: React.FC = () => {
         { header: "Quantity", accessor: (item) => item.quantity },
         { header: "Available", accessor: (item) => item.available },
       ]}
-    />
+    /> */}
   </div>
 </div>
 

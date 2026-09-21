@@ -95,6 +95,30 @@ function getCellTitle(value: unknown): string | undefined {
   return undefined;
 }
 
+/**
+ * Matches internal foreign-key / primary-key style fields — "id", "productId",
+ * "categoryId", "employeeId", "salesPersonId", "serviceItemId", "userId", etc.
+ * These are never meaningful to an end user and should never be rendered in
+ * the row-details drawer, at any nesting depth (top-level fields, fields
+ * inside a nested object like `salesPerson`, or fields inside each item of
+ * an array like `items[]`).
+ */
+function isIdLikeKey(key: string): boolean {
+  return /^id$/i.test(key) || /Id$/.test(key);
+}
+
+/**
+ * Field-name based check used only to decide whether a nested numeric value
+ * inside an object (e.g. an item's `unitPrice`) should be a plain formatted
+ * number or an actual currency amount. This intentionally excludes rates,
+ * percentages and quantities, which are numeric but not money.
+ */
+function isMoneyLikeKey(key: string): boolean {
+  if (/percentage|percent|rate$|quantity|qty/i.test(key)) return false;
+  if (isIdLikeKey(key)) return false;
+  return /amount|price|total|cost|discount|tax/i.test(key);
+}
+
 function formatDetailLabel(key: string): string {
   if (key === "fromDate") return "FROM DATE";
   if (key === "toDate") return "TO DATE";
@@ -306,8 +330,12 @@ function renderDetailValue(
     }
 
     const entries = Object.entries(rec).filter(
-      ([_, v]) =>
-        v !== null && v !== undefined && v !== "" && typeof v !== "function",
+      ([k, v]) =>
+        v !== null &&
+        v !== undefined &&
+        v !== "" &&
+        typeof v !== "function" &&
+        !isIdLikeKey(k),
     );
 
     if (entries.length === 0) return <span className="text-gray-400">--</span>;
@@ -332,7 +360,7 @@ function renderDetailValue(
                   {formatDetailLabel(k)}
                 </span>
                 <span className="font-semibold text-cyan-700 dark:text-cyan-400 break-words sm:text-right shrink-0">
-                  {typeof v === "number"
+                  {typeof v === "number" && isMoneyLikeKey(k)
                     ? `₹${v.toLocaleString()}`
                     : formatPrimitiveValue(v)}
                 </span>
@@ -380,6 +408,7 @@ function getDetailEntries<T>(
     .filter((key, index, arr) => arr.indexOf(key) === index)
     .filter((key) => key !== "actions" && typeof record[key] !== "function")
     .filter((key) => !hiddenDetailKeys.includes(key))
+    .filter((key) => !isIdLikeKey(key))
     .filter((key) => {
       const column = columns.find((item) => item.key === key);
       return !column?.excludeFromDetails;

@@ -32,11 +32,19 @@ type Refund = {
   returnRequestId: number;
 };
 
+// Extended to include the `refund` field the API actually returns on each
+// return request — needed so this page can exclude returns that already
+// have a refund attached (previously this type dropped that field
+// entirely, so the dropdown had no way to filter them out, and a second
+// refund could be created against the same return via the standalone
+// POST /refunds endpoint, bypassing the duplicate-refund check that
+// already exists on the Return Requests page for its own refund button).
 type ReturnRequestOption = {
   id: number;
   salesOrderId?: number;
   status?: string;
   reason?: string;
+  refund?: { id?: number } | null;
 };
 
 type RefundForm = {
@@ -56,7 +64,24 @@ type PaymentMethod =
   | "CHEQUE"
   | "UPI";
 
+type ReturnDetail = {
+  id: number;
+  requestDate: string;
+  status: string;
+  reason: string;
+  salesOrderId: number;
+  remarks?: string;
+  items?: Array<{
+    id?: number;
+    salesOrderItemId: number;
+    refundAmount: number;
+    returnQuantity: number;
+    remarks?: string;
+  }>;
+};
+
 const API_URL = "/v1/api/sales/refunds";
+const RETURNS_API_URL = "/v1/api/sales/returns";
 const PAGE_SIZE = 10;
 const statusOptions = ["PENDING", "PROCESSED", "FAILED"];
 const paymentMethodOptions: PaymentMethod[] = [
@@ -68,6 +93,7 @@ const paymentMethodOptions: PaymentMethod[] = [
   "CHEQUE",
   "UPI",
 ];
+const REFUNDABLE_RETURN_STATUSES = ["APPROVED"];
 
 const emptyForm: RefundForm = {
   amount: "",
@@ -94,11 +120,13 @@ function toApiDateTime(value: string) {
   return value ? new Date(value).toISOString() : new Date().toISOString();
 }
 
-function toInputDateTime(value?: string) {
-  if (!value) return new Date().toISOString().slice(0, 16);
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return new Date().toISOString().slice(0, 16);
-  return date.toISOString().slice(0, 16);
+function toLocalDateTimeInput(value?: string) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const date = value ? new Date(value) : new Date();
+  const safe = Number.isNaN(date.getTime()) ? new Date() : date;
+  return `${safe.getFullYear()}-${pad(safe.getMonth() + 1)}-${pad(safe.getDate())}T${pad(
+    safe.getHours()
+  )}:${pad(safe.getMinutes())}`;
 }
 
 function toDateValue(value?: string) {
@@ -123,7 +151,13 @@ function money(value: number | string | undefined) {
 
 const Refunds: React.FC = () => {
   const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
+  const headers = useMemo(
+    () =>
+      token
+        ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
+        : undefined,
+    [token]
+  );
 
   const [refunds, setRefunds] = useState<Refund[]>([]);
   const [returnRequests, setReturnRequests] = useState<ReturnRequestOption[]>([]);
@@ -166,21 +200,44 @@ const Refunds: React.FC = () => {
 
   const fetchReturnRequests = async () => {
     try {
-      const res = await axios.get<ReturnRequestOption[]>("/v1/api/sales/returns", { headers });
+      const res = await axios.get<ReturnRequestOption[]>(RETURNS_API_URL, { headers });
       setReturnRequests(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       ToasterService.error("Failed to load return requests", getErrorMessage(error, "Please try again."));
     }
   };
 
+  const markReturnAsRefunded = async (returnRequestId: number) => {
+    if (!Number.isFinite(returnRequestId) || returnRequestId <= 0) return;
+    try {
+      const detail = await axios.get<ReturnDetail>(
+        `${RETURNS_API_URL}/${returnRequestId}`,
+        { headers }
+      );
+
+      const body = {
+        ...detail.data,
+        status: "REFUNDED",
+        items: (detail.data.items || []).map((item) => ({
+          id: item.id ?? 0,
+          salesOrderItemId: item.salesOrderItemId,
+          refundAmount: Number(item.refundAmount || 0),
+          returnQuantity: Number(item.returnQuantity || 0),
+          remarks: item.remarks ?? "",
+        })),
+      };
+
+      await axios.put(`${RETURNS_API_URL}/${returnRequestId}`, body, { headers });
+    } catch {
+      ToasterService.error(
+        "Refund saved, return not updated",
+        "The refund was created but the return request could not be marked REFUNDED. Open Return Requests and update it manually."
+      );
+    }
+  };
+
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-
-    // Block negative amounts on input
-    if (name === "amount" && Number(value) < 0) {
-      return;
-    }
-
     setForm((current) => ({ ...current, [name]: value }));
   };
 
@@ -206,9 +263,22 @@ const Refunds: React.FC = () => {
       ToasterService.error("Invalid amount", "Amount must be greater than zero.");
       return;
     }
-    if (amountNum < 0) {
-      ToasterService.error("Invalid amount", "Amount cannot be negative.");
-      return;
+
+    // Defensive re-check right before submit — the dropdown already
+    // excludes returns with a refund, but this guards against the list
+    // going stale between opening the form and clicking submit (e.g. a
+    // refund created elsewhere in the meantime).
+    if (!editingId) {
+      const targetReturn = returnRequests.find(
+        (item) => Number(item.id) === toNumber(form.returnRequestId)
+      );
+      if (targetReturn?.refund) {
+        ToasterService.error(
+          "Refund already exists",
+          `Return request #${form.returnRequestId} already has a refund. Edit that refund instead of creating a new one.`
+        );
+        return;
+      }
     }
 
     try {
@@ -218,7 +288,16 @@ const Refunds: React.FC = () => {
         ? await axios.put<Refund>(`${API_URL}/${editingId}`, payload, { headers })
         : await axios.post<Refund>(API_URL, payload, { headers });
 
-      upsertRefund(res.data);
+      upsertRefund({
+        ...res.data,
+        returnRequestId: res.data.returnRequestId ?? toNumber(form.returnRequestId),
+      });
+
+      if (!editingId) {
+        await markReturnAsRefunded(toNumber(form.returnRequestId));
+        void fetchReturnRequests();
+      }
+
       ToasterService.success(editingId ? "Refund updated" : "Refund created");
       closeForm();
     } catch (error) {
@@ -243,7 +322,10 @@ const Refunds: React.FC = () => {
       };
 
       const res = await axios.put<Refund>(`${API_URL}/${refund.id}`, payload, { headers });
-      upsertRefund(res.data);
+      upsertRefund({
+        ...res.data,
+        returnRequestId: res.data.returnRequestId ?? refund.returnRequestId,
+      });
       ToasterService.success("Refund status updated");
     } catch (error) {
       ToasterService.error("Failed to update status", getErrorMessage(error, "Please try again."));
@@ -262,7 +344,7 @@ const Refunds: React.FC = () => {
     setEditingId(refund.id);
     setForm({
       amount: String(refund.amount || ""),
-      refundDate: toInputDateTime(refund.refundDate),
+      refundDate: toLocalDateTimeInput(refund.refundDate),
       status: refund.status || "PENDING",
       paymentMethod: paymentMethodOptions.includes(refund.paymentMethod as PaymentMethod)
         ? (refund.paymentMethod as PaymentMethod)
@@ -305,14 +387,18 @@ const Refunds: React.FC = () => {
     [refunds]
   );
 
+  // Only APPROVED returns that don't already have a refund attached are
+  // eligible here — closes the duplicate-refund gap described above.
   const returnRequestOptions = useMemo(
     () =>
-      returnRequests.map((item) => ({
-        id: String(item.id),
-        name: `Return #${item.id}${item.salesOrderId ? ` - Order #${item.salesOrderId}` : ""}${
-          item.status ? ` (${item.status})` : ""
-        }`,
-      })),
+      returnRequests
+        .filter((item) => REFUNDABLE_RETURN_STATUSES.includes(item.status || "") && !item.refund)
+        .map((item) => ({
+          id: String(item.id),
+          name: `Return #${item.id}${item.salesOrderId ? ` - Order #${item.salesOrderId}` : ""}${
+            item.status ? ` (${item.status})` : ""
+          }`,
+        })),
     [returnRequests]
   );
 
@@ -518,15 +604,28 @@ const Refunds: React.FC = () => {
           {
             label: "Return Request",
             fields: [
-              <FloatingSelect
-                key="returnRequestId"
-                label="Return Request"
-                name="returnRequestId"
-                value={form.returnRequestId}
-                onChange={handleChange}
-                options={returnRequestOptions}
-                required
-              />,
+              <div key="returnRequestBlock" className="md:col-span-2">
+                <FloatingSelect
+                  key="returnRequestId"
+                  label="Return Request (only APPROVED, not yet refunded)"
+                  name="returnRequestId"
+                  value={form.returnRequestId}
+                  onChange={handleChange}
+                  emptyOptionLabel={
+                    returnRequestOptions.length === 0
+                      ? "No eligible returns available"
+                      : ""
+                  }
+                  options={returnRequestOptions}
+                  required
+                />
+                {returnRequestOptions.length === 0 && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    Only return requests that are APPROVED and don't already have a refund can be
+                    refunded here. Approve a return first from the Return Requests page.
+                  </p>
+                )}
+              </div>,
             ],
           },
         ]}
@@ -540,7 +639,11 @@ const Refunds: React.FC = () => {
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
         innerText="Delete Refund"
-        subText={deleteRefund ? `Are you sure you want to delete refund #${deleteRefund.id}?` : "Are you sure?"}
+        subText={
+          deleteRefund
+            ? `Are you sure you want to delete refund #${deleteRefund.id}?`
+            : "Are you sure?"
+        }
         confirmLabel="Delete"
         cancelLabel="Cancel"
         onConfirm={confirmDelete}
