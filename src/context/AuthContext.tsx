@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect, ReactNode, useRef, useCallback } from 'react';
 import axios from 'axios';
+import placeholderImage from '../images/img-placeholder.png';
 import {
   clearSessionExpiredRedirect,
   clearSessionExpiredFlag,
@@ -112,7 +113,7 @@ export const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoggedIn: false,
   loading: false,
-  profileImage: "src/images/img-placeholder.png",
+  profileImage: placeholderImage,
   login: async () => { throw new Error('Login function not implemented'); },
   signup: async () => { throw new Error('Signup function not implemented'); },
   logout: () => {},
@@ -127,7 +128,7 @@ export const AuthContext = createContext<AuthContextType>({
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [profileImage, setProfileImage] = useState("src/images/img-placeholder.png");
+  const [profileImage, setProfileImage] = useState(placeholderImage);
   const [sessionExpired, setSessionExpired] = useState(false);
   const inactivityTimerRef = useRef<number | null>(null);
   const sessionExpiredRef = useRef(false);
@@ -175,7 +176,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem('user');
     delete axios.defaults.headers.common['Authorization'];
     setUser(null);
-    setProfileImage("src/images/img-placeholder.png");
+    setProfileImage(placeholderImage);
     setSessionExpired(false);
     sessionExpiredRef.current = false;
     
@@ -260,11 +261,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setProfileImage(imageUrl);
       } else {
         console.log("No profile image found, using default");
-        setProfileImage("src/images/img-placeholder.png");
+        setProfileImage(placeholderImage);
       }
     } catch (error) {
       console.error("Error fetching user image:", error);
-      setProfileImage("src/images/img-placeholder.png");
+      setProfileImage(placeholderImage);
     }
   }, [user]);
 

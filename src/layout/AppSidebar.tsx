@@ -19,6 +19,7 @@ import {
 import { useSidebar } from "../context/SidebarContext";
 import { AuthContext } from "../context/AuthContext";
 import "./AppSidebar.css";
+import { publicAsset } from "../utils/assets";
 
 type SubItem = {
   name: string;
@@ -483,10 +484,53 @@ const AppSidebar: React.FC = () => {
     }
   }, [location.pathname, isActive]);
 
+  const getFirstVisibleSubmenuPath = (nav: NavItem): string | undefined => {
+    const currentRole = (user?.role || userRole || "")
+      .toUpperCase()
+      .replace(/[\s_]+/g, "");
+    const isAdmin =
+      (userRole === "SUPER_ADMIN" ||
+        userRole === "ADMIN" ||
+        user?.roles?.includes("SUPER_ADMIN") ||
+        user?.roles?.includes("ADMIN")) &&
+      user?.userType !== "USER" &&
+      user?.userType !== "EMPLOYEE";
+
+    const firstVisibleItem = nav.subItems?.find((subItem) => {
+      if (nav.name === "HRMS" && subItem.name === "Exit Approvals" && !isAdmin) {
+        return false;
+      }
+      if (
+        nav.name === "Profile" &&
+        (subItem.name === "Create User" || subItem.name === "Role") &&
+        !isAdmin
+      ) {
+        return false;
+      }
+      if (!subItem.roles) return true;
+      return subItem.roles.some(
+        (role) =>
+          role.toUpperCase().replace(/[\s_]+/g, "") === currentRole ||
+          currentRole === "SUPERADMIN",
+      );
+    });
+
+    return firstVisibleItem?.path || firstVisibleItem?.subItems?.[0]?.path;
+  };
+
+  const selectFirstSubmenu = (nav: NavItem) => {
+    const firstPath = getFirstVisibleSubmenuPath(nav);
+    if (firstPath && !isActive(firstPath)) {
+      navigate(firstPath);
+    }
+  };
+
   const handleSubmenuToggle = (index: number) => {
-    setOpenSubmenu(prev => prev === index ? null : index);
-    if (openSubmenu !== index) {
+    const isOpening = openSubmenu !== index;
+    setOpenSubmenu(isOpening ? index : null);
+    if (isOpening) {
       setOpenSubSubmenu(null);
+      selectFirstSubmenu(navItems[index]);
     }
   };
 
@@ -508,6 +552,8 @@ const AppSidebar: React.FC = () => {
       expandSidebar();
     }
     setOpenSubmenu(index);
+    setOpenSubSubmenu(null);
+    selectFirstSubmenu(nav);
   };
 
   const handlePanelToggle = () => {
@@ -740,7 +786,7 @@ const AppSidebar: React.FC = () => {
         </button>
         <nav className="app-sidebar__rail" aria-label="Primary modules">
           <Link to="/" className="app-sidebar__rail-brand" aria-label="Go to dashboard">
-            <img src="/images/logo/logo-icon.png" alt="" width={30} height={30} />
+            <img src={publicAsset("images/logo/logo-icon.png")} alt="" width={30} height={30} />
           </Link>
           <div className="app-sidebar__rail-items">
             {navItems.map((nav, index) => {
@@ -766,11 +812,11 @@ const AppSidebar: React.FC = () => {
           <Link to="/" className="app-sidebar__brand-link flex items-center" aria-label="Go to dashboard">
             {isExpanded || isMobileOpen ? (
               <>
-                <img src="/images/logo/logo.png" alt="Logo" width={120} height={32} />
+                <img src={publicAsset("images/logo/logo.png")} alt="Logo" width={120} height={32} />
               </>
             ) : (
               <img
-                src="/images/logo/logo-icon.png"
+                src={publicAsset("images/logo/logo-icon.png")}
                 alt="Logo"
                 width={32}
                 height={32}

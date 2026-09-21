@@ -33,9 +33,11 @@ export const CURRENCY_SYMBOLS = {
 
 }as const;
 
+const PUBLIC_BASE = import.meta.env.BASE_URL;
+
 export const CUSTOMER_UTILS = {
   CURRENCY: "₹",
-  ICON: "./images/logo/logo.png",
-  ICON_D:"./images/logo/logo-dark.svg"
+  ICON: `${PUBLIC_BASE}images/logo/logo.png`,
+  ICON_D: `${PUBLIC_BASE}images/logo/logo-dark.svg`
 
 }as const;
