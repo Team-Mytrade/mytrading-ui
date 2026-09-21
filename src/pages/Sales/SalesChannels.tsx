@@ -1,5 +1,6 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowPathIcon,
   BuildingStorefrontIcon,
@@ -98,6 +99,11 @@ const badgeClass = (type: string) => {
 };
 
 const SalesChannels: React.FC = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const scopedChannelId = Number(searchParams.get("channelId")) || null;
+  const scopedChannelName = searchParams.get("channelName") || "Selected channel";
+  const isChannelScoped = searchParams.has("channelId");
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
@@ -218,14 +224,19 @@ const SalesChannels: React.FC = () => {
     }
   };
 
+  const displayedChannels = useMemo(
+    () => isChannelScoped ? channels.filter((channel) => channel.id === scopedChannelId) : channels,
+    [channels, isChannelScoped, scopedChannelId]
+  );
+
   const stats = useMemo(
     () => ({
-      total: channels.length,
-      direct: channels.filter((item) => item.channelType === "DIRECT").length,
-      online: channels.filter((item) => item.channelType === "ONLINE").length,
-      activeTypes: new Set(channels.map((item) => item.channelType).filter(Boolean)).size,
+      total: displayedChannels.length,
+      direct: displayedChannels.filter((item) => item.channelType === "DIRECT").length,
+      online: displayedChannels.filter((item) => item.channelType === "ONLINE").length,
+      activeTypes: new Set(displayedChannels.map((item) => item.channelType).filter(Boolean)).size,
     }),
-    [channels]
+    [displayedChannels]
   );
 
   const columns: ColumnDef<SalesChannel>[] = [
@@ -298,6 +309,7 @@ const SalesChannels: React.FC = () => {
       />
 
       <div className="w-full max-w-none px-0 py-8">
+        {isChannelScoped && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>Showing channel: <strong>{scopedChannelName}</strong></span><button type="button" onClick={() => navigate("/sales-channels")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all channels</button></div>}
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Channels" value={stats.total} icon={<BuildingStorefrontIcon />} />
           <StatsCard
@@ -327,7 +339,7 @@ const SalesChannels: React.FC = () => {
         </div>
 
         <ReusableTable
-          data={channels}
+          data={displayedChannels}
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}

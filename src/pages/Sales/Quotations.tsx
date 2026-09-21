@@ -1052,7 +1052,9 @@ const Quotations: React.FC = () => {
       sortable: true,
       render: (quotation) => {
         const person = salesPersons.find((sp) => sp.id === quotation.salesPerson?.id);
-        return person?.name || quotation.salesPerson?.name || "Unassigned";
+        const salesPerson = person || quotation.salesPerson;
+        const name = salesPerson?.name || "Unassigned";
+        return salesPerson?.id ? <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/sales-persons?salesPersonId=${salesPerson.id}&salesPersonName=${encodeURIComponent(name)}`); }} className="max-w-[180px] truncate text-left text-cyan-700 hover:text-cyan-800 hover:underline" title={`View ${name}`}>{name}</button> : <span>{name}</span>;
       },
     },
     {

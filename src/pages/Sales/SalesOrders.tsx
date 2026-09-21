@@ -1,5 +1,6 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import {
   BanknotesIcon,
   CalendarDaysIcon,
@@ -491,6 +492,7 @@ function buildOrderItemPayload(item: OrderItemForm): SalesOrderItem {
 }
 
 const SalesOrders: React.FC = () => {
+  const navigate = useNavigate();
   const token = localStorage.getItem("accessToken");
   const headers = useMemo(
   () => (token ? { Authorization: `Bearer ${token}` } : undefined),
@@ -999,15 +1001,8 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
       sortable: true,
       render: (order) => {
         const customer = customers.find((item) => Number(item.id) === Number(order.customerId));
-        return (
-          <span className="text-sm text-slate-700">
-            {customer
-              ? customerOptionLabel(customer)
-              : order.customerId
-              ? `Customer #${order.customerId}`
-              : "--"}
-          </span>
-        );
+        const name = customer ? customerOptionLabel(customer) : order.customerId ? `Customer #${order.customerId}` : "--";
+        return order.customerId ? <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/customer-management?customerIds=${order.customerId}&customerName=${encodeURIComponent(name)}`); }} className="max-w-[220px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline" title={`View ${name}`}>{name}</button> : <span className="text-sm text-slate-700">{name}</span>;
       },
     },
     {
@@ -1018,11 +1013,8 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
         const channel = salesChannels.find(
           (item) => Number(getSalesChannelId(item)) === Number(order.salesChannelId)
         );
-        return (
-          <span className="text-sm text-slate-700">
-            {channel?.name || (order.salesChannelId ? `Channel #${order.salesChannelId}` : "--")}
-          </span>
-        );
+        const name = channel?.name || (order.salesChannelId ? `Channel #${order.salesChannelId}` : "--");
+        return order.salesChannelId ? <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/sales-channels?channelId=${order.salesChannelId}&channelName=${encodeURIComponent(name)}`); }} className="max-w-[180px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline" title={`View ${name}`}>{name}</button> : <span className="text-sm text-slate-700">{name}</span>;
       },
     },
     {

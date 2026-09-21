@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   CheckCircleIcon,
   MagnifyingGlassIcon,
@@ -78,6 +79,7 @@ export type ResourceColumn = {
   className?: string;
   headerClassName?: string;
   render?: (row: PurchaseRecord) => React.ReactNode;
+  link?: (row: PurchaseRecord) => { to: string; title: string } | null;
 };
 
 export type PurchaseResourceConfig = {
@@ -116,6 +118,7 @@ export type PurchaseResourceConfig = {
 
   initialFormState?: PurchaseRecord;
   autoOpenCreate?: boolean;
+  scope?: { idParam: string; nameParam: string; label: string };
 
   /** Icon-only or extra action buttons rendered inside the Actions cell */
   renderRowActions?: (row: PurchaseRecord) => React.ReactNode;
@@ -253,6 +256,12 @@ export const toNumberOrZero = (value: any) =>
   value === "" || value == null ? 0 : Number(value);
 
 export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> = ({ config }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const scopeId = Number(config.scope ? searchParams.get(config.scope.idParam) : "") || null;
+  const scopeName = config.scope ? searchParams.get(config.scope.nameParam) || `Selected ${config.scope.label.toLowerCase()}` : "";
+  const isScoped = Boolean(config.scope && searchParams.has(config.scope.idParam));
   const [rows, setRows] = useState<PurchaseRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -548,6 +557,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       render: (row: PurchaseRecord) => {
         if (column.render) return column.render(row);
         const value = getValue(row, column.key);
+        const link = column.link?.(row);
+        if (link) return <button type="button" onClick={(event) => { event.stopPropagation(); navigate(link.to); }} className="max-w-[220px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline" title={link.title}>{formatCellValue(value)}</button>;
         const isInlineBooleanField =
           typeof value === "boolean" &&
           ((column.key === "active" && config.allowInlineActiveToggle) ||
@@ -644,7 +655,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         ),
       },
     ];
-  }, [config, emptyForm, inlineUpdatingId, openEdit, options]);
+  }, [config, emptyForm, inlineUpdatingId, navigate, openEdit, options]);
 
   const supportsActiveFilter = useMemo(
     () => rows.some((row) => typeof row.active === "boolean"),
@@ -656,6 +667,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   const filteredRows = useMemo(() => {
     const term = searchableText(search);
     return rows.filter((row) => {
+      const matchesScope = !isScoped || Number(row.id) === scopeId;
       const matchesActive =
         !supportsActiveFilter || activeFilter === "ALL"
           ? true
@@ -667,9 +679,9 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           searchableText(getValue(row, String(field))).includes(term)
         );
 
-      return matchesActive && matchesSearch;
+      return matchesScope && matchesActive && matchesSearch;
     });
-  }, [activeFilter, rows, search, supportsActiveFilter]);
+  }, [activeFilter, isScoped, rows, scopeId, search, supportsActiveFilter]);
 
   const activeCount = rows.filter((row) => row.active === true).length;
 
@@ -772,17 +784,10 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   return (
     <>
       <PageMeta title={config.title} description={config.description} />
-      <PageBreadcrumb className="mr-4" pageTitle={config.title} />
+      <PageBreadcrumb className="mr-4" pageTitle={config.title} actions={<>{config.renderHeaderActions?.()}{config.allowCreate !== false && <AddButton label={`Add ${config.title}`} onClick={() => openCreate()} />}</>} />
 
       <div className="w-full max-w-none px-0 py-8">
-        <div className="flex justify-start sm:justify-end lg:-mt-[134px] mx-3">
-          <div className="flex flex-wrap items-center gap-3">
-            {config.renderHeaderActions?.()}
-            {config.allowCreate !== false && (
-              <AddButton label={`Add ${config.title}`} onClick={() => openCreate()} />
-            )}
-          </div>
-        </div>
+        {isScoped && config.scope && <div className="mx-3 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>Showing {config.scope.label.toLowerCase()}: <strong>{scopeName}</strong></span><button type="button" onClick={() => navigate(location.pathname)} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all {config.scope.label.toLowerCase()}s</button></div>}
 
         <div className="py-5 px-3">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-[17px]">

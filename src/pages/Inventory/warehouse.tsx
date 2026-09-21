@@ -1,5 +1,6 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowPathIcon,
   BuildingOffice2Icon,
@@ -100,6 +101,11 @@ function getStatusColor(status: string) {
 }
 
 const WarehousePage: React.FC = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const scopedWarehouseId = Number(searchParams.get("warehouseId")) || null;
+  const scopedWarehouseName = searchParams.get("warehouseName") || "Selected warehouse";
+  const isWarehouseScoped = searchParams.has("warehouseId");
   const token = localStorage.getItem("accessToken");
   const headers = token
     ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
@@ -393,15 +399,20 @@ const WarehousePage: React.FC = () => {
     }
   };
 
+  const displayedWarehouses = useMemo(
+    () => isWarehouseScoped ? warehouses.filter((warehouse) => warehouse.id === scopedWarehouseId) : warehouses,
+    [warehouses, isWarehouseScoped, scopedWarehouseId]
+  );
+
   const stats = useMemo(
     () => ({
-      total: warehouses.length,
-      active: warehouses.filter((w) => w.status === "ACTIVE").length,
-      inactive: warehouses.filter((w) => w.status === "INACTIVE").length,
-      main: warehouses.filter((w) => w.locationType === "MAIN").length,
-      distribution: warehouses.filter((w) => w.locationType === "DISTRIBUTION").length,
+      total: displayedWarehouses.length,
+      active: displayedWarehouses.filter((w) => w.status === "ACTIVE").length,
+      inactive: displayedWarehouses.filter((w) => w.status === "INACTIVE").length,
+      main: displayedWarehouses.filter((w) => w.locationType === "MAIN").length,
+      distribution: displayedWarehouses.filter((w) => w.locationType === "DISTRIBUTION").length,
     }),
-    [warehouses]
+    [displayedWarehouses]
   );
 
   const columns: ColumnDef<Warehouse>[] = [
@@ -514,6 +525,7 @@ const WarehousePage: React.FC = () => {
       />
 
       <div className="w-full max-w-none px-0 py-8">
+        {isWarehouseScoped && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>Showing warehouse: <strong>{scopedWarehouseName}</strong></span><button type="button" onClick={() => navigate("/warehouse")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all warehouses</button></div>}
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
             label="Total Warehouses"
@@ -550,7 +562,7 @@ const WarehousePage: React.FC = () => {
         </div>
 
         <ReusableTable
-          data={warehouses}
+          data={displayedWarehouses}
           columns={columns}
           loading={loading || enumLoading}
           pageSize={PAGE_SIZE}

@@ -1,5 +1,6 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowPathIcon,
   CheckCircleIcon,
@@ -202,6 +203,7 @@ const getFEFORank = (batches: Batch[], batch: Batch) => {
 
 // ============ COMPONENT ============
 const BatchManagement: React.FC = () => {
+  const navigate = useNavigate();
   const token = localStorage.getItem("accessToken");
   const headers = token
     ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
@@ -539,9 +541,13 @@ const BatchManagement: React.FC = () => {
       key: "warehouse",
       label: "Warehouse",
       sortable: true,
-      render: (batch) => (
-        <span className="text-sm text-slate-700">{getWarehouseDisplay(batch)}</span>
-      ),
+      render: (batch) => {
+        const name = getWarehouseDisplay(batch);
+        const warehouseId = typeof batch.warehouse === "object" && batch.warehouse !== null
+          ? Number(batch.warehouse.id)
+          : warehouses.find((warehouse) => String(warehouse.id) === String(batch.warehouse) || warehouse.name === batch.warehouse || warehouse.code === batch.warehouse)?.id;
+        return warehouseId ? <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/warehouse?warehouseId=${warehouseId}&warehouseName=${encodeURIComponent(name)}`); }} className="max-w-[210px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline" title={`View ${name}`}>{name}</button> : <span className="text-sm text-slate-700">{name || "--"}</span>;
+      },
     },
     {
       key: "quantity",
