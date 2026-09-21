@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
-import { Calendar, User, Clock, CheckCircle2, AlertCircle, Plus, Send, FileText } from "lucide-react";
+import { Calendar, User, Clock, CheckCircle2, AlertCircle, Plus, Send, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
@@ -276,8 +276,8 @@ const LeaveRequestPage: React.FC = () => {
 
     for (let i = firstDay - 1; i >= 0; i--) {
       calendarDays.push(
-        <div key={`prev-${i}`} className="flex items-center justify-center">
-          <div className="w-6 h-6 flex items-center justify-center text-gray-300 text-[10px]">{prevMonthDays - i}</div>
+        <div key={`prev-${i}`} className="flex items-center justify-center p-0.5">
+          <div className="w-8 h-8 flex items-center justify-center text-slate-300 dark:text-gray-700 text-xs font-medium">{prevMonthDays - i}</div>
         </div>
       );
     }
@@ -287,13 +287,13 @@ const LeaveRequestPage: React.FC = () => {
       const isSelected = dateStr >= fromDate && dateStr <= toDate;
 
       calendarDays.push(
-        <div key={`curr-${i}`} className="flex items-center justify-center py-0">
+        <div key={`curr-${i}`} className="flex items-center justify-center p-0.5">
           <button 
             type="button"
-            className={`w-6 h-6 flex items-center justify-center rounded-md text-[11px] font-medium transition-all ${
+            className={`w-8 h-8 flex items-center justify-center rounded-xl text-xs font-semibold transition-all cursor-pointer ${
               isSelected 
-                ? 'bg-cyan-600 text-white shadow-xs font-bold' 
-                : 'text-gray-700 hover:bg-gray-100'
+                ? 'bg-cyan-600 text-white shadow-xs font-bold ring-2 ring-cyan-500/20' 
+                : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#222222]'
             }`}
             onClick={() => {
               if (dateStr < fromDate) {
@@ -317,8 +317,8 @@ const LeaveRequestPage: React.FC = () => {
     const totalCells = Math.ceil((days + firstDay) / 7) * 7;
     for (let i = 1; i <= totalCells - (days + firstDay); i++) {
       calendarDays.push(
-        <div key={`next-${i}`} className="flex items-center justify-center">
-          <div className="w-6 h-6 flex items-center justify-center text-gray-300 text-[10px]">{i}</div>
+        <div key={`next-${i}`} className="flex items-center justify-center p-0.5">
+          <div className="w-8 h-8 flex items-center justify-center text-slate-300 dark:text-gray-700 text-xs font-medium">{i}</div>
         </div>
       );
     }
@@ -327,8 +327,8 @@ const LeaveRequestPage: React.FC = () => {
   };
 
   const historyColumns: ColumnDef<any>[] = [
-    { key: 'id', label: 'Req ID', sortable: true, render: (row) => <span className="font-mono text-cyan-700 font-bold">#{row.id}</span> },
-    { key: 'leaveType', label: 'Leave Type', sortable: true, render: (row) => <span className="font-bold text-xs text-gray-900">{row.leaveType || 'CASUAL'}</span> },
+    { key: 'id', label: 'Req ID', sortable: true, render: (row) => <span className="font-mono text-cyan-600 dark:text-cyan-400 font-bold">#{row.id}</span> },
+    { key: 'leaveType', label: 'Leave Type', sortable: true, render: (row) => <span className="font-bold text-xs text-slate-900 dark:text-white">{row.leaveType || 'CASUAL'}</span> },
     { 
       key: 'fromDate', 
       label: 'Dates', 
@@ -336,25 +336,25 @@ const LeaveRequestPage: React.FC = () => {
       render: (row) => {
         const start = row.fromDate || row.startDate || '-';
         const end = row.toDate || row.endDate || '-';
-        return <span className="text-gray-700 font-mono text-xs whitespace-nowrap">{start} &rarr; {end}</span>;
+        return <span className="text-slate-700 dark:text-gray-300 font-mono text-xs whitespace-nowrap">{start} &rarr; {end}</span>;
       } 
     },
     { 
       key: 'totalDays', 
       label: 'Days', 
       sortable: true, 
-      render: (row) => <span className="font-bold font-mono text-xs text-gray-900">{row.totalDays ?? row.days ?? 1} {Number(row.totalDays ?? row.days ?? 1) === 1 ? 'day' : 'days'}</span> 
+      render: (row) => <span className="font-bold font-mono text-xs text-slate-900 dark:text-white">{row.totalDays ?? row.days ?? 1} {Number(row.totalDays ?? row.days ?? 1) === 1 ? 'day' : 'days'}</span> 
     },
-    { key: 'reason', label: 'Reason', sortable: true, render: (row) => <span className="text-xs text-gray-600 max-w-[220px] truncate block">{row.reason || '-'}</span> },
+    { key: 'reason', label: 'Reason', sortable: true, render: (row) => <span className="text-xs text-slate-600 dark:text-gray-400 max-w-[220px] truncate block">{row.reason || '-'}</span> },
     { 
       key: 'status', 
       label: 'Status', 
       sortable: true, 
       render: (row) => {
         const st = String(row.status || 'PENDING').toUpperCase();
-        const badgeStyle = st.includes('APPROV') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-          st.includes('REJECT') ? 'bg-rose-50 text-rose-700 border-rose-200' :
-          'bg-amber-50 text-amber-700 border-amber-200';
+        const badgeStyle = st.includes('APPROV') ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' :
+          st.includes('REJECT') ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800' :
+          'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800';
         return (
           <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border shadow-2xs ${badgeStyle}`}>
             {st}
@@ -369,36 +369,37 @@ const LeaveRequestPage: React.FC = () => {
       <PageMeta title="Leave Request" description="Submit and track leave applications" />
       <PageBreadcrumb pageTitle="Leave Request" />
 
-      <div className="max-w-6xl mx-auto pb-1 animate-in fade-in duration-200 mt-0.5">
+      <div className="max-w-6xl mx-auto pb-4 animate-in fade-in duration-200 mt-1">
         
-        {/* User Banner matching Attendance Regularization Page */}
-        <div className="bg-white rounded-lg shadow-2xs border border-gray-200/80 p-2.5 mb-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7.5 h-7.5 rounded-md bg-cyan-600 flex items-center justify-center text-white font-bold text-xs shadow-2xs shrink-0">
+        {/* User Banner matching Punch Station theme */}
+        <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-[#303030] shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 transition-all">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-cyan-600 text-white font-bold text-sm shadow-2xs flex items-center justify-center shrink-0">
               {currentUser.name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <div className="flex items-center gap-1.5">
-                <h2 className="text-xs font-bold text-gray-900">{currentUser.name}</h2>
-                <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200/80 uppercase">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">{currentUser.name}</h2>
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border border-cyan-200/80 dark:border-cyan-800 uppercase tracking-wider">
                   {currentUser.role.replace(/_/g, " ")}
                 </span>
               </div>
-              <p className="text-[10px] text-gray-500">{currentUser.email}</p>
+              <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">{currentUser.email}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
             <button
               type="button"
               onClick={() => setActiveTab(activeTab === 'history' ? 'apply' : 'history')}
-              className="hover:underline flex items-center gap-1 bg-cyan-50 px-2.5 py-0.5 rounded text-cyan-800 border border-cyan-200 text-[11px] font-semibold shadow-2xs transition-all"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] border border-slate-200 dark:border-[#303030] text-slate-700 dark:text-gray-200 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
             >
-              <FileText className="w-3 h-3" /> Request History ({myLeaves.length})
+              <FileText className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+              <span>{activeTab === 'history' ? 'Back to Apply' : `Request History (${myLeaves.length})`}</span>
             </button>
-            <div className="text-left sm:text-right">
-              <span className="text-[9px] text-gray-400 font-medium block">Employee ID</span>
-              <span className="text-[11px] font-mono font-semibold text-gray-700">#{employeeCode || `EMP-${selectedEmployeeId || 12}`}</span>
+            <div className="bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl px-3 py-1.5 text-right">
+              <span className="text-[10px] text-slate-400 dark:text-gray-500 font-medium block uppercase tracking-wider">Employee ID</span>
+              <span className="text-xs font-mono font-bold text-slate-700 dark:text-gray-200">#{employeeCode || `EMP-${selectedEmployeeId || 12}`}</span>
             </div>
           </div>
         </div>
@@ -407,66 +408,69 @@ const LeaveRequestPage: React.FC = () => {
         {activeTab === 'apply' && (
           <div>
             <form onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start mb-2">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start mb-4">
                 
-                {/* Left Column: Interactive Calendar matching TimesheetManagementPage */}
-                <div className="lg:col-span-5 bg-white rounded-lg shadow-2xs border border-gray-200/80 p-3 flex flex-col justify-between h-[360px]">
+                {/* Left Column: Interactive Calendar */}
+                <div className="lg:col-span-5 bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] p-4 sm:p-5 flex flex-col justify-between min-h-[380px]">
                   <div>
                     {/* Month Header */}
-                    <div className="flex items-center justify-between mb-2">
-                      <button type="button" onClick={handlePrevMonth} className="text-emerald-700 hover:text-emerald-900 p-0.5 rounded hover:bg-gray-50">
-                        &lt;
-                      </button>
-                      <h2 className="text-xs font-bold text-gray-800">
-                        {monthNames[currentMonth]} {currentYear}
-                      </h2>
-                      <button type="button" onClick={handleNextMonth} className="text-emerald-700 hover:text-emerald-900 p-0.5 rounded hover:bg-gray-50">
-                        &gt;
-                      </button>
+                    <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:border-[#303030] pb-2.5">
+                      <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] px-2 py-1 rounded-xl border border-slate-200/80 dark:border-[#303030] shadow-2xs">
+                        <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer">
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <span className="text-xs font-extrabold text-slate-800 dark:text-white uppercase tracking-wider min-w-[120px] text-center">
+                          {monthNames[currentMonth]} {currentYear}
+                        </span>
+                        <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer">
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <span className="text-[11px] font-medium text-slate-400 dark:text-gray-500">Pick Date Range</span>
                     </div>
 
                     {/* Weekday Labels */}
-                    <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] font-semibold text-gray-500 mb-1 border-b border-gray-100 pb-0.5">
+                    <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase mb-2">
                       <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
                     </div>
 
                     {/* Dates Grid */}
-                    <div className="grid grid-cols-7 gap-0.5 max-w-xs mx-auto lg:max-w-none">
+                    <div className="grid grid-cols-7 gap-1 max-w-xs mx-auto lg:max-w-none">
                       {renderCalendar()}
                     </div>
                   </div>
 
-                  {/* Bottom Legend matching TimesheetManagementPage */}
-                  <div className="mt-2 pt-2 border-t border-gray-100 space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-gray-500">
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full border border-cyan-600 inline-block"></span> Today</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full border border-rose-500 inline-block"></span> Absent</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full border border-purple-500 inline-block"></span> Half day absent</span>
+                  {/* Bottom Legend */}
+                  <div className="mt-3 pt-3 border-t border-slate-100 dark:border-[#303030] space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-gray-400">
+                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-cyan-500 bg-cyan-500/20 inline-block"></span> Today</span>
+                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-rose-500 bg-rose-500/20 inline-block"></span> Absent</span>
+                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-purple-500 bg-purple-500/20 inline-block"></span> Half day</span>
                     </div>
-                    <div className="text-[10px] text-gray-400">
-                      Dates marked "Absent": <span className="text-rose-600 font-semibold">None</span>
+                    <div className="text-[11px] text-slate-400 dark:text-gray-500">
+                      Double click any date to select single day
                     </div>
                   </div>
                 </div>
 
                 {/* Right Column: Leave Application Desk */}
-                <div className="lg:col-span-7 bg-white rounded-lg shadow-2xs border border-gray-200/80 p-3.5 flex flex-col justify-between h-[360px] overflow-y-auto no-scrollbar">
-                  <div className="space-y-2">
+                <div className="lg:col-span-7 bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] p-4 sm:p-5 flex flex-col justify-between min-h-[380px]">
+                  <div className="space-y-3">
                     {/* Leave Type Dropdown */}
                     <div>
-                      <label className="block text-[11px] font-bold text-gray-700 mb-0.5">Leave Type *</label>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">Leave Type *</label>
                       <select
                         value={leaveTypeId}
                         onChange={(e) => setLeaveTypeId(e.target.value ? Number(e.target.value) : "")}
-                        className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded-md focus:bg-white focus:ring-1 focus:ring-cyan-500 transition-all outline-none text-xs font-semibold text-gray-800"
+                        className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-semibold text-slate-800 dark:text-white cursor-pointer"
                         required
                       >
-                        <option value="">-- Select Leave Type --</option>
+                        <option value="" className="dark:bg-[#222222] text-gray-400">-- Select Leave Type --</option>
                         {leaveTypes.map((lt) => {
                           const typeKey = lt.name.toLowerCase().includes("casual") ? "CASUAL" : lt.name.toLowerCase().includes("sick") ? "SICK" : "EARNED";
                           const bal = getBalanceForType(typeKey);
                           return (
-                            <option key={lt.id} value={lt.id}>
+                            <option key={lt.id} value={lt.id} className="dark:bg-[#222222] dark:text-white">
                               {lt.name} — ({bal} days balance)
                             </option>
                           );
@@ -475,34 +479,34 @@ const LeaveRequestPage: React.FC = () => {
                     </div>
 
                     {/* Duration Summary */}
-                    <div className="p-1.5 px-2.5 bg-cyan-50/50 rounded-md border border-cyan-100 flex items-center justify-between">
-                      <span className="text-[11px] text-gray-600">
-                        Duration: <strong className="text-gray-900">{fromDate}</strong> to <strong className="text-gray-900">{toDate}</strong>
+                    <div className="p-2.5 px-3.5 bg-slate-50/80 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030] flex items-center justify-between">
+                      <span className="text-xs text-slate-600 dark:text-gray-300">
+                        Duration: <strong className="text-slate-900 dark:text-white font-mono">{fromDate || '---'}</strong> to <strong className="text-slate-900 dark:text-white font-mono">{toDate || '---'}</strong>
                       </span>
-                      <span className="px-2 py-0.2 bg-white text-cyan-700 border border-cyan-200 rounded text-[10px] font-bold shadow-2xs">
+                      <span className="px-2.5 py-0.5 bg-white dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/30 rounded-lg text-[11px] font-bold shadow-2xs font-mono">
                         {totalDays} {totalDays === 1 ? 'Day' : 'Days'}
                       </span>
                     </div>
 
                     {/* Date Inputs */}
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-semibold text-gray-700 mb-0.5">From Date *</label>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">From Date *</label>
                         <input 
                           type="date"
                           value={fromDate}
                           onChange={(e) => setFromDate(e.target.value)}
-                          className="w-full px-2.5 py-1 bg-gray-50/50 border border-gray-200 rounded-md focus:bg-white focus:ring-1 focus:ring-cyan-500 transition-all outline-none text-xs"
+                          className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-mono font-medium text-slate-800 dark:text-white"
                           required
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-semibold text-gray-700 mb-0.5">To Date *</label>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">To Date *</label>
                         <input 
                           type="date"
                           value={toDate}
                           onChange={(e) => setToDate(e.target.value)}
-                          className="w-full px-2.5 py-1 bg-gray-50/50 border border-gray-200 rounded-md focus:bg-white focus:ring-1 focus:ring-cyan-500 transition-all outline-none text-xs"
+                          className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-mono font-medium text-slate-800 dark:text-white"
                           required
                         />
                       </div>
@@ -510,20 +514,20 @@ const LeaveRequestPage: React.FC = () => {
 
                     {/* Day Portion Radio Choice */}
                     <div>
-                      <label className="block text-[11px] font-semibold text-gray-700 mb-1">Day Portion</label>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">Day Portion</label>
                       <div className="flex items-center gap-4">
                         {["Full Day", "First half", "Second half"].map((type) => {
                           const isHalfDay = type !== "Full Day";
                           const isDisabled = isHalfDay && fromDate !== toDate;
                           return (
-                            <label key={type} className={`flex items-center gap-1.5 text-xs ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}>
+                            <label key={type} className={`flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-gray-300 ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}>
                               <input 
                                 type="radio" 
                                 name="dayType" 
                                 value={type}
                                 checked={dayType === type}
                                 onChange={(e) => setDayType(e.target.value)}
-                                className="text-cyan-600 focus:ring-cyan-500"
+                                className="text-cyan-600 focus:ring-cyan-500 dark:bg-[#222222] dark:border-[#303030] cursor-pointer"
                               />
                               {type}
                             </label>
@@ -534,19 +538,19 @@ const LeaveRequestPage: React.FC = () => {
 
                     {/* Comments */}
                     <div>
-                      <label className="block text-[11px] font-semibold text-gray-700 mb-0.5">Reason / Comments</label>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">Reason / Comments</label>
                       <textarea 
                         rows={2}
                         placeholder="Provide details for your leave request..."
                         value={comments}
                         onChange={(e) => setComments(e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-gray-50/50 border border-gray-200 rounded-md focus:bg-white focus:ring-1 focus:ring-cyan-500 transition-all outline-none text-xs resize-none"
+                        className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 resize-none"
                       />
                     </div>
                   </div>
 
                   {/* Footer Actions */}
-                  <div className="pt-2 border-t border-gray-100 flex items-center justify-end gap-2 shrink-0">
+                  <div className="pt-3 border-t border-slate-100 dark:border-[#303030] flex items-center justify-end gap-2.5 shrink-0 mt-3">
                     <button 
                       type="button"
                       onClick={() => {
@@ -554,14 +558,14 @@ const LeaveRequestPage: React.FC = () => {
                         setToDate("");
                         setComments("");
                       }}
-                      className="px-3 py-1.5 text-[11px] font-semibold text-gray-500 hover:text-gray-800 transition-colors"
+                      className="px-3.5 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white transition-colors cursor-pointer"
                     >
                       Clear Form
                     </button>
                     <button 
                       type="submit"
                       disabled={isSubmitting}
-                      className="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-md text-xs font-bold transition-all shadow-xs flex items-center gap-1"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
                     >
                       <Send className="w-3.5 h-3.5" />
                       {isSubmitting ? 'Submitting...' : 'Submit Leave Request'}
@@ -576,8 +580,8 @@ const LeaveRequestPage: React.FC = () => {
 
         {/* HISTORY TAB USING COMMON ReusableTable */}
         {activeTab === 'history' && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200/80 overflow-hidden p-4">
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">My Leave History Log</h3>
+          <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] overflow-hidden p-4 sm:p-5">
+            <h3 className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-3">My Leave History Log</h3>
             <ReusableTable
               data={myLeaves}
               columns={historyColumns}

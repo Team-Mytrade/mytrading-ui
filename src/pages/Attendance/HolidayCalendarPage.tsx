@@ -483,7 +483,7 @@ const HolidayCalendarPage: React.FC = () => {
       label: 'Calendar Code',
       sortable: true,
       render: (row) => (
-        <span className="font-mono font-bold text-xs text-cyan-700 bg-cyan-50/80 px-2.5 py-1 rounded border border-cyan-200/70 whitespace-nowrap">
+        <span className="font-mono font-bold text-xs text-cyan-700 dark:text-cyan-400 bg-cyan-50/80 dark:bg-cyan-950/60 px-2.5 py-1 rounded border border-cyan-200/70 dark:border-cyan-800/60 whitespace-nowrap">
           {row.calendarCode}
         </span>
       )
@@ -494,8 +494,8 @@ const HolidayCalendarPage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <div>
-          <span className="font-bold text-xs text-gray-900 block">{row.calendarName}</span>
-          <span className="text-[10px] text-gray-400 font-mono">Year: {row.calendarYear}</span>
+          <span className="font-bold text-xs text-gray-900 dark:text-white block">{row.calendarName}</span>
+          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">Year: {row.calendarYear}</span>
         </div>
       )
     },
@@ -503,7 +503,7 @@ const HolidayCalendarPage: React.FC = () => {
       key: 'description',
       label: 'Description',
       render: (row) => (
-        <span className="text-xs text-gray-600 truncate max-w-xs block">
+        <span className="text-xs text-gray-600 dark:text-gray-300 truncate max-w-xs block">
           {row.description || 'Holidays'}
         </span>
       )
@@ -517,7 +517,9 @@ const HolidayCalendarPage: React.FC = () => {
           type="button"
           onClick={() => handleToggleCalendarActive(row)}
           className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shadow-2xs ${
-            row.active !== false ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+            row.active !== false 
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50' 
+              : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 hover:bg-rose-100 dark:hover:bg-rose-900/50'
           }`}
           title="Click to toggle Active / Inactive"
         >
@@ -533,7 +535,7 @@ const HolidayCalendarPage: React.FC = () => {
           <button
             type="button"
             onClick={() => handleInspectCalendar(row)}
-            className="p-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-gray-600 transition-colors"
+            className="p-1.5 bg-gray-50 dark:bg-[#222222] hover:bg-gray-100 dark:hover:bg-[#2a2a2a] border border-gray-200 dark:border-[#303030] rounded-lg text-gray-600 dark:text-gray-300 transition-colors"
             title="Inspect Calendar & Holiday List"
           >
             <Eye className="w-3.5 h-3.5" />
@@ -541,7 +543,7 @@ const HolidayCalendarPage: React.FC = () => {
           <button
             type="button"
             onClick={() => openManageHolidaysModal(row)}
-            className="p-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-indigo-700 transition-colors"
+            className="p-1.5 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800 rounded-lg text-indigo-700 dark:text-indigo-300 transition-colors"
             title="Manage Holidays List"
           >
             <CalendarDays className="w-3.5 h-3.5" />
@@ -549,7 +551,7 @@ const HolidayCalendarPage: React.FC = () => {
           <button
             type="button"
             onClick={() => handleDuplicateCalendar(row)}
-            className="p-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg text-amber-700 transition-colors"
+            className="p-1.5 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-700 dark:text-amber-300 transition-colors"
             title="Duplicate Calendar for Next Year"
           >
             <Copy className="w-3.5 h-3.5" />
@@ -557,7 +559,7 @@ const HolidayCalendarPage: React.FC = () => {
           <button
             type="button"
             onClick={() => openEditCalendarModal(row)}
-            className="p-1.5 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 rounded-lg text-cyan-700 transition-colors"
+            className="p-1.5 bg-cyan-50 dark:bg-cyan-950/40 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 border border-cyan-200 dark:border-cyan-800 rounded-lg text-cyan-700 dark:text-cyan-300 transition-colors"
             title="Edit Calendar Master"
           >
             <Edit className="w-3.5 h-3.5" />
@@ -565,7 +567,7 @@ const HolidayCalendarPage: React.FC = () => {
           <button
             type="button"
             onClick={() => handleDeleteCalendar(row)}
-            className="p-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg text-rose-600 transition-colors"
+            className="p-1.5 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800 rounded-lg text-rose-600 dark:text-rose-400 transition-colors"
             title="Delete Calendar"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -659,10 +661,10 @@ const HolidayCalendarPage: React.FC = () => {
             onClick={() => setSelectedDateStr(dateStr)}
             className={`w-6.5 h-6.5 rounded-md text-[11px] font-bold transition-all flex items-center justify-center relative ${
               isSelected
-                ? 'bg-cyan-600 text-white shadow-xs'
+                ? 'bg-cyan-600 dark:bg-cyan-500 text-white shadow-xs'
                 : isToday
-                ? 'bg-cyan-50 text-cyan-800 border border-cyan-300 font-extrabold'
-                : 'text-gray-700 hover:bg-gray-100'
+                ? 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800 font-extrabold'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#222222]'
             }`}
           >
             {day}
@@ -679,7 +681,7 @@ const HolidayCalendarPage: React.FC = () => {
     for (let i = 1; i <= totalCells - (daysInMonth + firstDayIndex); i++) {
       cells.push(
         <div key={`next-${i}`} className="flex items-center justify-center py-0.5">
-          <span className="text-[9px] text-gray-300 font-mono">{i}</span>
+          <span className="text-[9px] text-gray-300 dark:text-gray-600 font-mono">{i}</span>
         </div>
       );
     }
@@ -697,22 +699,22 @@ const HolidayCalendarPage: React.FC = () => {
       />
       <PageBreadcrumb pageTitle="Holiday Calendar Master" />
 
-      <div className="w-full max-w-6xl mx-auto pb-2 animate-in fade-in duration-200 mt-0.5 space-y-2 px-2 sm:px-4">
+      <div className="w-full max-w-6xl mx-auto pb-2 animate-in fade-in duration-200 mt-0.5 space-y-2.5 px-2 sm:px-4">
         
-        {/* User Profile Banner matching Leave Request UI */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-2 px-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        {/* User Profile Banner matching minimal dark aesthetic */}
+        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-2.5 px-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-7.5 h-7.5 rounded-lg bg-cyan-600 flex items-center justify-center text-white font-bold text-xs shadow-xs shrink-0">
+            <div className="w-7.5 h-7.5 rounded-lg bg-cyan-600 dark:bg-cyan-700 flex items-center justify-center text-white font-bold text-xs shadow-xs shrink-0">
               {currentUser.name.charAt(0).toUpperCase()}
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h2 className="text-xs font-bold text-gray-900">{currentUser.name}</h2>
-                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 uppercase">
+                <h2 className="text-xs font-bold text-gray-900 dark:text-white">{currentUser.name}</h2>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-gray-100 dark:bg-[#222222] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#303030] uppercase">
                   {currentUser.role.replace(/_/g, " ")}
                 </span>
               </div>
-              <p className="text-[10px] text-gray-500">{currentUser.email}</p>
+              <p className="text-[10px] text-gray-500 dark:text-gray-400">{currentUser.email}</p>
             </div>
           </div>
 
@@ -720,24 +722,24 @@ const HolidayCalendarPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab(activeTab === 'table' ? 'manager' : 'table')}
-              className="px-2.5 py-1 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 rounded-lg border border-cyan-200 text-[11px] font-bold shadow-2xs transition-all flex items-center gap-1"
+              className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200/70 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 rounded-lg border border-gray-200 dark:border-[#303030] text-[11px] font-semibold shadow-2xs transition-all flex items-center gap-1"
             >
-              <FileSpreadsheet className="w-3 h-3" />
+              <FileSpreadsheet className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
               <span className="hidden sm:inline">{activeTab === 'table' ? 'Split Calendar View' : `Master Records (${calendars.length})`}</span>
               <span className="sm:hidden">{activeTab === 'table' ? 'Calendar View' : `Records (${calendars.length})`}</span>
             </button>
             <button
               type="button"
               onClick={openCreateCalendarModal}
-              className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-[11px] font-bold transition-all shadow-xs flex items-center gap-1"
+              className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-[11px] font-semibold transition-all shadow-xs flex items-center gap-1"
             >
               <Plus className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Create Calendar</span>
               <span className="sm:hidden">Create</span>
             </button>
-            <div className="text-right hidden sm:block border-l border-gray-200 pl-2.5 ml-0.5">
-              <span className="text-[8.5px] text-gray-400 font-medium block">Employee ID</span>
-              <span className="text-[11px] font-mono font-bold text-gray-700">{currentUser.code}</span>
+            <div className="text-right hidden sm:block border-l border-gray-200 dark:border-[#303030] pl-2.5 ml-0.5">
+              <span className="text-[8.5px] text-gray-400 dark:text-gray-500 font-medium block">Employee ID</span>
+              <span className="text-[11px] font-mono font-bold text-gray-700 dark:text-gray-300">{currentUser.code}</span>
             </div>
           </div>
         </div>
@@ -747,34 +749,34 @@ const HolidayCalendarPage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-start">
             
             {/* LEFT COLUMN: Mini Calendar Widget */}
-            <div className="lg:col-span-5 bg-white rounded-xl shadow-2xs border border-gray-200/80 p-2.5 flex flex-col justify-between min-h-[330px]">
+            <div className="lg:col-span-5 bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-3 flex flex-col justify-between min-h-[330px]">
               <div>
                 {/* Month Header */}
-                <div className="flex items-center justify-between mb-1.5 border-b border-gray-100 pb-1">
+                <div className="flex items-center justify-between mb-1.5 border-b border-gray-100 dark:border-[#303030] pb-1.5">
                   <button 
                     type="button" 
                     onClick={handlePrevMonth}
-                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors font-bold text-xs"
+                    className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-[#222222] text-gray-600 dark:text-gray-400 transition-colors font-bold text-xs"
                   >
                     &lt;
                   </button>
                   <div className="text-center">
-                    <h3 className="text-[11px] font-bold text-gray-900 uppercase tracking-wider">
+                    <h3 className="text-[11px] font-bold text-gray-900 dark:text-white uppercase tracking-wider">
                       {monthNames[miniCalendarDate.getMonth()]} {miniCalendarDate.getFullYear()}
                     </h3>
-                    <span className="text-[9.5px] text-gray-400 font-mono">Select date to inspect</span>
+                    <span className="text-[9.5px] text-gray-400 dark:text-gray-500 font-mono">Select date to inspect</span>
                   </div>
                   <button 
                     type="button" 
                     onClick={handleNextMonth}
-                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors font-bold text-xs"
+                    className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-[#222222] text-gray-600 dark:text-gray-400 transition-colors font-bold text-xs"
                   >
                     &gt;
                   </button>
                 </div>
 
                 {/* Weekday Headers */}
-                <div className="grid grid-cols-7 gap-1 text-center text-[9.5px] font-bold text-gray-500 mb-0.5">
+                <div className="grid grid-cols-7 gap-1 text-center text-[9.5px] font-bold text-gray-400 dark:text-gray-500 mb-1">
                   <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
                 </div>
 
@@ -785,10 +787,10 @@ const HolidayCalendarPage: React.FC = () => {
               </div>
 
               {/* Bottom Legend & Selected Date Holiday Inspector */}
-              <div className="mt-1.5 pt-1.5 border-t border-gray-100 space-y-1.5">
-                <div className="flex items-center justify-between text-[9.5px] text-gray-600 font-medium">
+              <div className="mt-2 pt-2 border-t border-gray-100 dark:border-[#303030] space-y-2">
+                <div className="flex items-center justify-between text-[9.5px] text-gray-500 dark:text-gray-400 font-medium">
                   <span className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-600" /> Selected
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-600 dark:bg-cyan-500" /> Selected
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> National
@@ -798,13 +800,13 @@ const HolidayCalendarPage: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Selected Date Preview */}
-                <div className="bg-cyan-50/70 p-1.5 px-2 rounded-lg border border-cyan-200/80 flex items-center justify-between">
+                {/* Selected Date Preview - Clean Minimal Pill */}
+                <div className="bg-gray-50/80 dark:bg-[#222222] p-2 rounded-lg border border-gray-200/80 dark:border-[#303030] flex items-center justify-between">
                   <div>
-                    <span className="text-[9px] text-cyan-800 font-bold uppercase block">Selected Date</span>
-                    <span className="text-[11px] font-mono font-bold text-cyan-900">{selectedDateStr}</span>
+                    <span className="text-[9px] text-gray-400 dark:text-gray-500 font-semibold uppercase tracking-wider block">Selected Date</span>
+                    <span className="text-xs font-mono font-bold text-gray-900 dark:text-white">{selectedDateStr}</span>
                   </div>
-                  <span className="text-[9px] font-bold text-cyan-700 bg-white px-1.5 py-0.2 rounded border border-cyan-200">
+                  <span className="text-[9.5px] font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-[#191919] px-2.5 py-0.5 rounded-full border border-gray-200 dark:border-[#303030]">
                     {holidaysList.filter(h => h.holidayDate === selectedDateStr).length} Holidays
                   </span>
                 </div>
@@ -812,11 +814,11 @@ const HolidayCalendarPage: React.FC = () => {
             </div>
 
             {/* RIGHT COLUMN: Quick Holiday Master & Manager */}
-            <div className="lg:col-span-7 bg-white rounded-xl shadow-2xs border border-gray-200/80 p-3 space-y-2.5">
+            <div className="lg:col-span-7 bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-3.5 space-y-3">
               
               {/* Select Calendar Dropdown */}
               <div>
-                <label className="block text-[11px] font-bold text-gray-700 mb-0.5">Select Holiday Calendar Master *</label>
+                <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 mb-1">Select Holiday Calendar Master *</label>
                 <select
                   value={selectedCalendarCodeId || ''}
                   onChange={(e) => {
@@ -824,10 +826,10 @@ const HolidayCalendarPage: React.FC = () => {
                     setSelectedCalendarCodeId(id);
                     if (id) loadHolidaysForSelectedCalendar(id);
                   }}
-                  className="w-full py-1 px-2.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
+                  className="w-full py-1.5 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-lg text-xs font-bold text-gray-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                 >
                   {calendars.map(cal => (
-                    <option key={cal.id} value={cal.id}>
+                    <option key={cal.id} value={cal.id} className="dark:bg-[#222222] dark:text-white">
                       {cal.calendarName} ({cal.calendarCode}) — Year {cal.calendarYear}
                     </option>
                   ))}
@@ -836,36 +838,36 @@ const HolidayCalendarPage: React.FC = () => {
 
               {/* Active Calendar Details Card */}
               {activeSelectedCalendar && (
-                <div className="p-2 px-2.5 bg-slate-50 rounded-lg border border-slate-200/80 space-y-1">
+                <div className="p-2.5 px-3 bg-gray-50/70 dark:bg-[#222222] rounded-xl border border-gray-200/80 dark:border-[#303030] space-y-1.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-[11px] font-bold text-cyan-700 bg-cyan-50 px-1.5 py-0.2 rounded border border-cyan-200">
+                      <span className="font-mono text-[11px] font-bold text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/60 px-1.5 py-0.2 rounded border border-cyan-200 dark:border-cyan-800/70">
                         {activeSelectedCalendar.calendarCode}
                       </span>
-                      <h4 className="text-xs font-bold text-gray-900">{activeSelectedCalendar.calendarName}</h4>
+                      <h4 className="text-xs font-bold text-gray-900 dark:text-white">{activeSelectedCalendar.calendarName}</h4>
                     </div>
                     <button
                       type="button"
                       onClick={() => openManageHolidaysModal(activeSelectedCalendar)}
-                      className="px-2 py-0.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-[10px] font-bold shadow-2xs flex items-center gap-1"
+                      className="px-2 py-0.5 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded text-[10px] font-bold shadow-2xs flex items-center gap-1 transition-colors"
                     >
                       <Edit className="w-2.5 h-2.5" /> Edit Holidays
                     </button>
                   </div>
 
-                  <p className="text-[10px] text-gray-500">{activeSelectedCalendar.description || 'Holidays schedule for employees'}</p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400">{activeSelectedCalendar.description || 'Holidays schedule for employees'}</p>
                 </div>
               )}
 
               {/* Holidays List Preview & Quick Add */}
-              <div className="space-y-2 pt-1 border-t border-gray-100">
+              <div className="space-y-2 pt-1 border-t border-gray-100 dark:border-[#303030]">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
-                    <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                    <h4 className="text-xs font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider">
                       Holidays Schedule ({holidaysList.length})
                     </h4>
                     {selectedDateStr && (
-                      <span className="px-2 py-0.5 bg-cyan-50 text-cyan-800 border border-cyan-200 rounded text-[10px] font-mono font-bold">
+                      <span className="px-2 py-0.5 bg-gray-100 dark:bg-[#222222] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#303030] rounded text-[10px] font-mono font-bold">
                         Selected: {selectedDateStr}
                       </span>
                     )}
@@ -875,7 +877,7 @@ const HolidayCalendarPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={addHolidayRow}
-                      className="px-2.5 py-1 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1"
+                      className="px-2.5 py-1 bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-950/40 dark:hover:bg-cyan-900/50 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800/70 rounded-lg text-xs font-bold transition-all flex items-center gap-1"
                     >
                       <Plus className="w-3.5 h-3.5" /> Add Holiday for {selectedDateStr || 'Today'}
                     </button>
@@ -884,12 +886,12 @@ const HolidayCalendarPage: React.FC = () => {
 
                 <div className="max-h-52 overflow-y-auto no-scrollbar space-y-1.5 pr-1">
                   {holidaysList.length === 0 ? (
-                    <div className="p-3 text-center text-[11px] text-gray-500 italic bg-slate-50 rounded-lg border border-dashed border-slate-200 space-y-1.5">
-                      <p>No holidays configured for this calendar on <span className="font-mono font-bold text-cyan-700">{selectedDateStr}</span>.</p>
+                    <div className="p-4 text-center text-[11px] text-gray-500 dark:text-gray-400 italic bg-gray-50/60 dark:bg-[#222222] rounded-xl border border-dashed border-gray-200 dark:border-[#303030] space-y-2">
+                      <p>No holidays configured for this calendar on <span className="font-mono font-bold text-cyan-600 dark:text-cyan-400">{selectedDateStr}</span>.</p>
                       <button
                         type="button"
                         onClick={addHolidayRow}
-                        className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-[11px] font-bold inline-flex items-center gap-1 shadow-2xs"
+                        className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-xs font-bold inline-flex items-center gap-1 shadow-2xs transition-colors"
                       >
                         <Plus className="w-3 h-3" /> Create Holiday on {selectedDateStr}
                       </button>
@@ -910,8 +912,8 @@ const HolidayCalendarPage: React.FC = () => {
                           }}
                           className={`p-2.5 rounded-xl border transition-all space-y-2 ${
                             isMatchSelected 
-                              ? 'bg-cyan-50/80 border-cyan-400 ring-2 ring-cyan-400/20 shadow-2xs' 
-                              : 'bg-gray-50 border-gray-200 hover:bg-gray-100/80'
+                              ? 'bg-cyan-50/50 dark:bg-cyan-950/30 border-cyan-300 dark:border-cyan-800 ring-1 ring-cyan-400/20 shadow-2xs' 
+                              : 'bg-gray-50/70 dark:bg-[#222222] border-gray-200 dark:border-[#303030] hover:border-gray-300 dark:hover:border-gray-600'
                           }`}
                         >
                           {/* Row 1: Name + Date */}
@@ -921,7 +923,7 @@ const HolidayCalendarPage: React.FC = () => {
                               value={h.holidayName}
                               onChange={(e) => handleHolidayFieldChange(idx, 'holidayName', e.target.value)}
                               placeholder="Holiday Name (e.g. Independence Day)"
-                              className="flex-1 h-9 px-3 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 focus:ring-1 focus:ring-cyan-500 outline-none min-w-0"
+                              className="flex-1 h-9 px-3 bg-white dark:bg-[#191919] border border-gray-300 dark:border-[#303030] rounded-lg text-xs font-semibold text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-cyan-500 outline-none min-w-0"
                             />
                             <div className="w-36 sm:w-44 h-9 relative flex items-center shrink-0">
                               <input
@@ -940,7 +942,7 @@ const HolidayCalendarPage: React.FC = () => {
                                     if (!isNaN(d.getTime())) setMiniCalendarDate(d);
                                   }
                                 }}
-                                className="w-full h-9 pl-3 pr-8 bg-white border border-gray-300 rounded-lg text-xs font-mono text-gray-800 focus:ring-1 focus:ring-cyan-500 cursor-pointer outline-none"
+                                className="w-full h-9 pl-3 pr-8 bg-white dark:bg-[#191919] border border-gray-300 dark:border-[#303030] rounded-lg text-xs font-mono text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-cyan-500 cursor-pointer outline-none"
                               />
                               <Calendar className="w-4 h-4 text-gray-400 absolute right-2.5 pointer-events-none" />
                             </div>
@@ -950,7 +952,7 @@ const HolidayCalendarPage: React.FC = () => {
                             <select
                               value={h.holidayType}
                               onChange={(e) => handleHolidayFieldChange(idx, 'holidayType', e.target.value)}
-                              className="flex-1 h-9 pl-2.5 pr-8 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-800 cursor-pointer outline-none focus:ring-1 focus:ring-cyan-500"
+                              className="flex-1 h-9 pl-2.5 pr-8 bg-white dark:bg-[#191919] border border-gray-300 dark:border-[#303030] rounded-lg text-xs font-bold text-gray-800 dark:text-gray-100 cursor-pointer outline-none focus:ring-1 focus:ring-cyan-500"
                             >
                               <option value="NATIONAL">NATIONAL</option>
                               <option value="STATE">STATE</option>
@@ -962,7 +964,7 @@ const HolidayCalendarPage: React.FC = () => {
                                 e.stopPropagation();
                                 handleDeleteSingleHoliday(idx, h);
                               }}
-                              className="h-9 w-9 flex items-center justify-center text-rose-500 hover:text-rose-700 bg-white hover:bg-rose-50 border border-gray-300 hover:border-rose-200 rounded-lg shrink-0 transition-colors shadow-2xs"
+                              className="h-9 w-9 flex items-center justify-center text-rose-500 hover:text-rose-700 bg-white dark:bg-[#191919] hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-gray-300 dark:border-[#303030] hover:border-rose-200 dark:hover:border-rose-800 rounded-lg shrink-0 transition-colors shadow-2xs"
                               title="Delete Holiday"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -980,7 +982,7 @@ const HolidayCalendarPage: React.FC = () => {
                       type="button"
                       onClick={handleBulkCreateHolidays}
                       disabled={isSubmitting}
-                      className="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold rounded-lg shadow-2xs disabled:opacity-70"
+                      className="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white text-xs font-bold rounded-lg shadow-2xs disabled:opacity-70 transition-colors"
                     >
                       {isSubmitting ? "Saving..." : "Save Holidays Schedule"}
                     </button>
@@ -997,16 +999,16 @@ const HolidayCalendarPage: React.FC = () => {
         {activeTab === 'table' && (
           <div className="space-y-3">
             {/* Year & Status Filter Pills */}
-            <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-gray-200/80 shadow-2xs">
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-[#191919] p-3.5 rounded-xl border border-gray-200/80 dark:border-[#303030] shadow-2xs">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1">
-                  <Filter className="w-3.5 h-3.5 text-cyan-600" /> Year:
+                <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                  <Filter className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Year:
                 </span>
                 <button
                   type="button"
                   onClick={() => setYearFilter('ALL')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    yearFilter === 'ALL' ? 'bg-cyan-600 text-white shadow-2xs' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    yearFilter === 'ALL' ? 'bg-cyan-600 text-white shadow-2xs' : 'bg-gray-100 dark:bg-[#222222] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#2a2a2a]'
                   }`}
                 >
                   All Years
@@ -1017,7 +1019,7 @@ const HolidayCalendarPage: React.FC = () => {
                     type="button"
                     onClick={() => setYearFilter(yr)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      yearFilter === yr ? 'bg-cyan-600 text-white shadow-2xs' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      yearFilter === yr ? 'bg-cyan-600 text-white shadow-2xs' : 'bg-gray-100 dark:bg-[#222222] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#2a2a2a]'
                     }`}
                   >
                     FY {yr}
@@ -1026,12 +1028,12 @@ const HolidayCalendarPage: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Status:</span>
+                <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status:</span>
                 <button
                   type="button"
                   onClick={() => setStatusFilter('ALL')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    statusFilter === 'ALL' ? 'bg-slate-700 text-white' : 'bg-gray-100 text-gray-600'
+                    statusFilter === 'ALL' ? 'bg-slate-700 text-white' : 'bg-gray-100 dark:bg-[#222222] text-gray-600 dark:text-gray-300'
                   }`}
                 >
                   All
@@ -1040,7 +1042,7 @@ const HolidayCalendarPage: React.FC = () => {
                   type="button"
                   onClick={() => setStatusFilter('ACTIVE')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    statusFilter === 'ACTIVE' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600'
+                    statusFilter === 'ACTIVE' ? 'bg-emerald-600 text-white' : 'bg-gray-100 dark:bg-[#222222] text-gray-600 dark:text-gray-300'
                   }`}
                 >
                   Active Only
@@ -1049,7 +1051,7 @@ const HolidayCalendarPage: React.FC = () => {
                   type="button"
                   onClick={() => setStatusFilter('INACTIVE')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    statusFilter === 'INACTIVE' ? 'bg-rose-600 text-white' : 'bg-gray-100 text-gray-600'
+                    statusFilter === 'INACTIVE' ? 'bg-rose-600 text-white' : 'bg-gray-100 dark:bg-[#222222] text-gray-600 dark:text-gray-300'
                   }`}
                 >
                   Inactive
@@ -1058,7 +1060,7 @@ const HolidayCalendarPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleExportCSV}
-                  className="px-3.5 py-1.5 bg-cyan-50 text-cyan-800 border border-cyan-200 hover:bg-cyan-100 rounded-lg text-xs font-bold shadow-2xs flex items-center gap-1.5 sm:ml-2"
+                  className="px-3.5 py-1.5 bg-cyan-50 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 rounded-lg text-xs font-bold shadow-2xs flex items-center gap-1.5 sm:ml-2 transition-colors"
                 >
                   <Download className="w-3.5 h-3.5" /> Export Noticeboard
                 </button>
@@ -1066,7 +1068,7 @@ const HolidayCalendarPage: React.FC = () => {
             </div>
 
             {/* Master Table - Full 100% Width */}
-            <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4">
+            <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-4">
               <ReusableTable
                 data={filteredCalendars}
                 columns={columns}
@@ -1084,40 +1086,40 @@ const HolidayCalendarPage: React.FC = () => {
 
       {/* ── MODAL 1: CREATE / EDIT CALENDAR MASTER ───────────────────────── */}
       {isCalendarModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-gray-100 space-y-4 my-4 sm:my-0 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#191919] rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-gray-100 dark:border-[#303030] space-y-4 my-4 sm:my-0 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030]">
               <div className="flex items-center gap-2">
-                <CalendarDays className="w-5 h-5 text-cyan-600" />
-                <h3 className="text-sm font-bold text-gray-900 uppercase">
+                <CalendarDays className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
                   {editingCalendar ? 'Edit Holiday Calendar' : 'Create Holiday Calendar'}
                 </h3>
               </div>
-              <button type="button" onClick={() => setIsCalendarModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600">
+              <button type="button" onClick={() => setIsCalendarModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleCalendarSubmit} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Calendar Code *</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Calendar Code *</label>
                 <input
                   type="text"
                   value={calendarForm.calendarCode}
                   onChange={(e) => setCalendarForm(p => ({ ...p, calendarCode: e.target.value }))}
-                  className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-bold font-mono text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                  className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-lg text-xs font-bold font-mono text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
                   placeholder="e.g. IND_Hyd_2026"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Calendar Name *</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Calendar Name *</label>
                 <input
                   type="text"
                   value={calendarForm.calendarName}
                   onChange={(e) => setCalendarForm(p => ({ ...p, calendarName: e.target.value }))}
-                  className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-semibold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                  className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-lg text-xs font-semibold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
                   placeholder="e.g. IND_TS_HYD_2026_Holday_Calendar"
                   required
                 />
@@ -1125,22 +1127,22 @@ const HolidayCalendarPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Calendar Year *</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Calendar Year *</label>
                   <input
                     type="number"
                     value={calendarForm.calendarYear}
                     onChange={(e) => setCalendarForm(p => ({ ...p, calendarYear: Number(e.target.value) }))}
-                    className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                    className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-lg text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Status</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Status</label>
                   <select
                     value={calendarForm.active ? "true" : "false"}
                     onChange={(e) => setCalendarForm(p => ({ ...p, active: e.target.value === "true" }))}
-                    className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-semibold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                    className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-lg text-xs font-semibold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                   >
                     <option value="true">Active</option>
                     <option value="false">Inactive</option>
@@ -1149,28 +1151,28 @@ const HolidayCalendarPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Description</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Description</label>
                 <textarea
                   rows={2}
                   value={calendarForm.description}
                   onChange={(e) => setCalendarForm(p => ({ ...p, description: e.target.value }))}
-                  className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none resize-none"
+                  className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-lg text-xs text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none resize-none"
                   placeholder="Holidays"
                 />
               </div>
 
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-gray-100 dark:border-[#303030] flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsCalendarModalOpen(false)}
-                  className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 border border-gray-200 dark:border-[#303030] rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold disabled:opacity-70"
+                  className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold disabled:opacity-70 transition-colors"
                 >
                   {isSubmitting ? "Saving..." : "Save Calendar"}
                 </button>
@@ -1182,31 +1184,31 @@ const HolidayCalendarPage: React.FC = () => {
 
       {/* ── MODAL 2: MANAGE HOLIDAYS FOR CALENDAR ─────────────────────────── */}
       {isHolidayManageModalOpen && activeCalendarForHolidays && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-3xl w-full p-4 sm:p-5 shadow-2xl border border-gray-100 space-y-4 my-4 sm:my-0 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#191919] rounded-2xl max-w-3xl w-full p-4 sm:p-5 shadow-2xl border border-gray-100 dark:border-[#303030] space-y-4 my-4 sm:my-0 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030]">
               <div>
-                <h3 className="text-sm font-bold text-gray-900 uppercase">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
                   Manage Holidays: {activeCalendarForHolidays.calendarName}
                 </h3>
-                <p className="text-[11px] font-mono text-cyan-700">Calendar ID: {activeCalendarForHolidays.id}</p>
+                <p className="text-[11px] font-mono text-cyan-600 dark:text-cyan-400">Calendar ID: {activeCalendarForHolidays.id}</p>
               </div>
-              <button type="button" onClick={() => setIsHolidayManageModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600">
+              <button type="button" onClick={() => setIsHolidayManageModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Bulk Options Header */}
-            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200/80">
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-gray-50 dark:bg-[#222222] p-3 rounded-xl border border-gray-200/80 dark:border-[#303030]">
               <div className="flex items-center gap-4 text-xs">
                 <label className="flex items-center gap-1.5 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={replaceExisting}
                     onChange={(e) => setReplaceExisting(e.target.checked)}
-                    className="rounded text-cyan-600"
+                    className="rounded text-cyan-600 dark:bg-gray-900"
                   />
-                  <span className="font-semibold text-slate-700">Replace Existing</span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">Replace Existing</span>
                 </label>
 
                 <label className="flex items-center gap-1.5 cursor-pointer select-none">
@@ -1214,16 +1216,16 @@ const HolidayCalendarPage: React.FC = () => {
                     type="checkbox"
                     checked={validateDuplicates}
                     onChange={(e) => setValidateDuplicates(e.target.checked)}
-                    className="rounded text-cyan-600"
+                    className="rounded text-cyan-600 dark:bg-gray-900"
                   />
-                  <span className="font-semibold text-slate-700">Validate Duplicates</span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">Validate Duplicates</span>
                 </label>
               </div>
 
               <button
                 type="button"
                 onClick={addHolidayRow}
-                className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-xs font-bold flex items-center gap-1"
+                className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" /> Add Holiday Row
               </button>
@@ -1237,7 +1239,7 @@ const HolidayCalendarPage: React.FC = () => {
                 </div>
               ) : (
                 holidaysList.map((h, idx) => (
-                  <div key={idx} className="p-2.5 bg-gray-50 rounded-xl border border-gray-200 space-y-2">
+                  <div key={idx} className="p-2.5 bg-gray-50 dark:bg-[#222222] rounded-xl border border-gray-200 dark:border-[#303030] space-y-2">
                     {/* Row 1: Name + Date */}
                     <div className="flex items-center gap-2">
                       <input
@@ -1245,7 +1247,7 @@ const HolidayCalendarPage: React.FC = () => {
                         value={h.holidayName}
                         onChange={(e) => handleHolidayFieldChange(idx, 'holidayName', e.target.value)}
                         placeholder="Holiday Name (e.g. New Year)"
-                        className="flex-1 h-9 px-3 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-800 focus:ring-1 focus:ring-cyan-500 outline-none min-w-0"
+                        className="flex-1 h-9 px-3 bg-white dark:bg-[#191919] border border-gray-300 dark:border-[#303030] rounded-lg text-xs font-semibold text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-cyan-500 outline-none min-w-0"
                         required
                       />
                       <div className="w-36 sm:w-44 h-9 relative flex items-center shrink-0">
@@ -1258,7 +1260,7 @@ const HolidayCalendarPage: React.FC = () => {
                             } catch {}
                           }}
                           onChange={(e) => handleHolidayFieldChange(idx, 'holidayDate', e.target.value)}
-                          className="w-full h-9 pl-3 pr-8 bg-white border border-gray-300 rounded-lg text-xs font-mono text-gray-800 focus:outline-none focus:ring-1 focus:ring-cyan-500 cursor-pointer"
+                          className="w-full h-9 pl-3 pr-8 bg-white dark:bg-[#191919] border border-gray-300 dark:border-[#303030] rounded-lg text-xs font-mono text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-cyan-500 cursor-pointer"
                           required
                         />
                         <Calendar className="w-4 h-4 text-gray-400 absolute right-2.5 pointer-events-none" />
@@ -1269,7 +1271,7 @@ const HolidayCalendarPage: React.FC = () => {
                       <select
                         value={h.holidayType}
                         onChange={(e) => handleHolidayFieldChange(idx, 'holidayType', e.target.value)}
-                        className="flex-1 h-9 pl-2.5 pr-8 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-800 cursor-pointer outline-none focus:ring-1 focus:ring-cyan-500"
+                        className="flex-1 h-9 pl-2.5 pr-8 bg-white dark:bg-[#191919] border border-gray-300 dark:border-[#303030] rounded-lg text-xs font-bold text-gray-800 dark:text-gray-100 cursor-pointer outline-none focus:ring-1 focus:ring-cyan-500"
                       >
                         <option value="NATIONAL">NATIONAL</option>
                         <option value="STATE">STATE</option>
@@ -1278,7 +1280,7 @@ const HolidayCalendarPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleDeleteSingleHoliday(idx, h)}
-                        className="h-9 w-9 flex items-center justify-center text-rose-500 hover:text-rose-700 bg-white hover:bg-rose-50 border border-gray-300 hover:border-rose-200 rounded-lg shrink-0 transition-colors shadow-2xs"
+                        className="h-9 w-9 flex items-center justify-center text-rose-500 hover:text-rose-700 bg-white dark:bg-[#191919] hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-gray-300 dark:border-[#303030] hover:border-rose-200 dark:hover:border-rose-800 rounded-lg shrink-0 transition-colors shadow-2xs"
                         title="Remove Holiday"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -1289,11 +1291,11 @@ const HolidayCalendarPage: React.FC = () => {
               )}
             </div>
 
-            <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+            <div className="pt-3 border-t border-gray-100 dark:border-[#303030] flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setIsHolidayManageModalOpen(false)}
-                className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 border border-gray-200 dark:border-[#303030] rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] transition-colors"
               >
                 Cancel
               </button>
@@ -1312,41 +1314,41 @@ const HolidayCalendarPage: React.FC = () => {
 
       {/* ── MODAL 3: VIEW / INSPECT CALENDAR DETAILS ─────────────────────── */}
       {viewingCalendarDetails && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-md w-full p-4 sm:p-5 shadow-2xl border border-gray-100 space-y-4 my-4 sm:my-0 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#191919] rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl border border-gray-100 dark:border-[#303030] space-y-4 my-4 sm:my-0 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030]">
               <div className="flex items-center gap-2">
-                <CalendarDays className="w-5 h-5 text-cyan-600" />
+                <CalendarDays className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900 uppercase">{viewingCalendarDetails.calendarName}</h3>
-                  <span className="text-[11px] text-gray-500 font-mono">{viewingCalendarDetails.calendarCode} • FY {viewingCalendarDetails.calendarYear}</span>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">{viewingCalendarDetails.calendarName}</h3>
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">{viewingCalendarDetails.calendarCode} • FY {viewingCalendarDetails.calendarYear}</span>
                 </div>
               </div>
-              <button type="button" onClick={() => setViewingCalendarDetails(null)} className="p-1 text-gray-400 hover:text-gray-600">
+              <button type="button" onClick={() => setViewingCalendarDetails(null)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200/80">
+              <div className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-[#222222] rounded-xl border border-gray-200/80 dark:border-[#303030]">
                 <div>
-                  <span className="text-slate-500 block font-semibold text-[10px] uppercase">Description:</span>
-                  <span className="font-bold text-slate-800">{viewingCalendarDetails.description || 'Holidays'}</span>
+                  <span className="text-gray-500 dark:text-gray-400 block font-semibold text-[10px] uppercase">Description:</span>
+                  <span className="font-bold text-gray-800 dark:text-gray-200">{viewingCalendarDetails.description || 'Holidays'}</span>
                 </div>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${viewingCalendarDetails.active !== false ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${viewingCalendarDetails.active !== false ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800'}`}>
                   {viewingCalendarDetails.active !== false ? 'Active' : 'Inactive'}
                 </span>
               </div>
 
               {/* Inspected Child Holidays List */}
               <div className="space-y-1.5">
-                <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider block">
                   Holidays Included ({inspectedHolidays.length}):
                 </span>
                 
                 <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
                   {inspectedHolidays.length === 0 ? (
-                    <div className="p-3 text-center text-slate-400 italic bg-slate-50 rounded border border-dashed border-slate-200">
+                    <div className="p-3 text-center text-gray-400 italic bg-gray-50 dark:bg-[#222222] rounded-xl border border-dashed border-gray-200 dark:border-[#303030]">
                       No holiday items registered for this calendar. Click Manage Holidays to add.
                     </div>
                   ) : (
@@ -1355,17 +1357,21 @@ const HolidayCalendarPage: React.FC = () => {
                       const isFestival = (h.holidayType || '').toUpperCase() === 'FESTIVAL';
 
                       return (
-                        <div key={idx} className="p-2 bg-slate-50 hover:bg-slate-100/80 rounded-lg border border-slate-200 flex items-center justify-between transition-colors">
+                        <div key={idx} className="p-2 bg-gray-50/80 dark:bg-[#222222] hover:bg-gray-100 dark:hover:bg-[#2a2a2a] rounded-xl border border-gray-200 dark:border-[#303030] flex items-center justify-between transition-colors">
                           <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-cyan-600 shrink-0" />
+                            <span className="w-2 h-2 rounded-full bg-cyan-600 dark:bg-cyan-400 shrink-0" />
                             <div>
-                              <span className="font-bold text-slate-900 block text-xs">{h.holidayName}</span>
-                              <span className="text-[10px] text-slate-500 font-mono">{h.holidayDate}</span>
+                              <span className="font-bold text-gray-900 dark:text-white block text-xs">{h.holidayName}</span>
+                              <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">{h.holidayDate}</span>
                             </div>
                           </div>
 
-                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold font-mono ${
-                            isNational ? 'bg-rose-50 text-rose-700 border border-rose-200' : isFestival ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-cyan-50 text-cyan-800 border border-cyan-200'
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold font-mono ${
+                            isNational 
+                              ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800' 
+                              : isFestival 
+                              ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-400 border border-amber-200 dark:border-amber-800' 
+                              : 'bg-cyan-50 dark:bg-cyan-950/50 text-cyan-800 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800'
                           }`}>
                             {h.holidayType || 'HOLIDAY'}
                           </span>
@@ -1377,7 +1383,7 @@ const HolidayCalendarPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+            <div className="pt-3 border-t border-gray-100 dark:border-[#303030] flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => {
@@ -1385,7 +1391,7 @@ const HolidayCalendarPage: React.FC = () => {
                   setViewingCalendarDetails(null);
                   openManageHolidaysModal(target);
                 }}
-                className="px-3 py-1.5 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 rounded-lg text-xs font-bold border border-cyan-200 transition-colors flex items-center gap-1"
+                className="px-3 py-1.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-950/40 dark:hover:bg-cyan-900/50 text-cyan-700 dark:text-cyan-300 rounded-lg text-xs font-bold border border-cyan-200 dark:border-cyan-800/70 transition-colors flex items-center gap-1"
               >
                 <Edit className="w-3.5 h-3.5" /> Manage Holiday List
               </button>
@@ -1393,7 +1399,7 @@ const HolidayCalendarPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setViewingCalendarDetails(null)}
-                className="px-4 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold transition-colors"
+                className="px-4 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 rounded-lg text-xs font-bold transition-colors"
               >
                 Close
               </button>

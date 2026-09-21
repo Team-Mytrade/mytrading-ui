@@ -19,6 +19,9 @@ const LayoutContent: React.FC = () => {
     scrollablePages.includes(location.pathname) ||
     location.pathname.startsWith("/att_leaveDashboard") ||
     location.pathname.startsWith("/att_leaveManagerDashboard") ||
+    location.pathname.startsWith("/att_leaveRequest") ||
+    location.pathname.startsWith("/att_timesheetManagement") ||
+    location.pathname.startsWith("/att_requests") ||
     location.pathname.startsWith("/att_punch") ||
     location.pathname.startsWith("/att_selfService") ||
     location.pathname.startsWith("/att_attendanceTracking") ||
