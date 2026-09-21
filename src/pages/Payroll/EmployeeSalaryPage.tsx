@@ -76,6 +76,11 @@ interface SalaryDTO {
     totalEarnings: number;
     totalDeductions: number;
     regime: string;
+    status?: string;
+    taxRegime?: string;
+    otherAllowances?: number;
+    taxAndDeductions?: number;
+    [key: string]: any;
 }
 
 const EmployeeSalaryPage: React.FC = () => {
@@ -144,28 +149,53 @@ const EmployeeSalaryPage: React.FC = () => {
                 const grossSalary = record.grossSalary || (basic + hra + sumEarnings);
                 const netSalary = record.netSalary || (grossSalary - sumDeductions);
 
-                return {
-                    id: record.id || record.employeeSalaryId || empId || index,
-                    employeeId: empId || 0,
-                    employeeName: emp ? `${emp.firstName || ''} ${emp.lastName || ''}`.trim() : (record.employee ? `${record.employee.firstName} ${record.employee.lastName}` : ''),
-                    employeeCode: emp?.employeeCode || record.employee?.employeeCode || '',
+                const isProc = Boolean(record.processed);
+                const empName = emp ? `${emp.firstName || ''} ${emp.lastName || ''}`.trim() : (record.employee ? `${record.employee.firstName || ''} ${record.employee.lastName || ''}`.trim() : `Employee #${empId || index}`);
+                const empCode = emp?.employeeCode || record.employee?.employeeCode || `EMP-${String(empId || index).padStart(4, '0')}`;
+                const regimeStr = record.regime ? (String(record.regime).toUpperCase().includes('OLD') ? 'Old Regime (OLD)' : 'New Regime (NEW)') : 'New Regime (NEW)';
+
+                // Enumerable properties visible in Table & drawer:
+                // First 4 columns: employeeName, month, basic, netSalary -> top 4 summary metric cards in drawer
+                const rowItem: Record<string, any> = {
+                    employeeName: empName,
                     month: record.month || new Date().toISOString().split('T')[0].slice(0, 7),
                     basic: basic,
-                    hra: hra,
-                    bonus: bonus,
-                    specialAllowance: record.specialAllowance || 0,
-                    allowance: record.allowance || 0,
-                    tds: record.tds || 0,
-                    professionalTax: record.professionalTax || 0,
-                    pfEmployee: record.pfEmployee || 0,
-                    otherDeductions: record.otherDeductions || 0,
-                    grossSalary: grossSalary,
-                    totalEarnings: record.totalEarnings || grossSalary,
-                    totalDeductions: sumDeductions,
                     netSalary: netSalary,
-                    isProcessed: record.processed || false,
-                    regime: record.regime || 'NEW',
+                    status: isProc ? "PROCESSED" : "PENDING",
+                    employeeCode: empCode,
+                    grossSalary: grossSalary,
+                    hra: hra,
+                    totalDeductions: sumDeductions,
+                    taxRegime: regimeStr,
                 };
+
+                const otherAllowances = (record.specialAllowance || 0) + (record.allowance || 0) + bonus;
+                if (otherAllowances > 0) {
+                    rowItem.otherAllowances = otherAllowances;
+                }
+
+                const taxAndPf = (record.tds || 0) + (record.professionalTax || 0) + (record.pfEmployee || 0) + (record.otherDeductions || 0);
+                if (taxAndPf > 0) {
+                    rowItem.taxAndDeductions = taxAndPf;
+                }
+
+                // Non-enumerable properties: accessible by code, filters, and stats, but hidden from drawer Object.keys()
+                Object.defineProperties(rowItem, {
+                    id: { value: record.id || record.employeeSalaryId || empId || index, enumerable: false, writable: true },
+                    employeeId: { value: empId || 0, enumerable: false, writable: true },
+                    isProcessed: { value: isProc, enumerable: false, writable: true },
+                    totalEarnings: { value: record.totalEarnings || grossSalary, enumerable: false, writable: true },
+                    bonus: { value: bonus, enumerable: false, writable: true },
+                    specialAllowance: { value: record.specialAllowance || 0, enumerable: false, writable: true },
+                    allowance: { value: record.allowance || 0, enumerable: false, writable: true },
+                    tds: { value: record.tds || 0, enumerable: false, writable: true },
+                    professionalTax: { value: record.professionalTax || 0, enumerable: false, writable: true },
+                    pfEmployee: { value: record.pfEmployee || 0, enumerable: false, writable: true },
+                    otherDeductions: { value: record.otherDeductions || 0, enumerable: false, writable: true },
+                    regime: { value: record.regime || 'NEW', enumerable: false, writable: true },
+                });
+
+                return rowItem as SalaryDTO;
             });
 
             setSalaries(transformedData);
@@ -270,9 +300,10 @@ const EmployeeSalaryPage: React.FC = () => {
             render: (row) => <span className="text-xs font-bold text-cyan-600 whitespace-nowrap">₹{row.netSalary.toLocaleString()}</span>
         },
         {
-            key: "isProcessed",
+            key: "status",
             label: "Status",
             sortable: true,
+            sortValueGetter: (row) => row.isProcessed ? 1 : 0,
             render: (row) => row.isProcessed ? (
                 <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
                     <CheckCircleIcon className="h-3 w-3 mr-1" />
@@ -316,6 +347,8 @@ const EmployeeSalaryPage: React.FC = () => {
                     pageSize={PAGE_SIZE}
                     defaultSortKey="month"
                     defaultSortOrder="desc"
+                    rowDetailsTitle={(row) => `${row.employeeName || 'Employee'} - ${row.month}`}
+                    rowDetailsSubtitle="Monthly salary breakdown and net take-home details"
                     emptyState={
                         <div className="flex flex-col items-center">
                             <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />

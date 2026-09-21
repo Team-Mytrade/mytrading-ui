@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { 
   CheckCircle2, XCircle, Clock, RotateCw, Eye, X, Check, ShieldCheck, Plus, AlertCircle, Ban
@@ -29,6 +29,7 @@ export interface RegularizationItemModel {
   createdDate?: string;
   updatedDate?: string;
   rejectionReason?: string | null;
+  [key: string]: any;
 }
 
 const AttendanceRegularizationApprovalPage: React.FC = () => {
@@ -145,26 +146,86 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
     return raw;
   };
 
+  // ── Normalized Data for Clean Display & Drawer ──────────────────────────
+  const normalizedRequests = useMemo(() => {
+    return requests.map((req, index) => {
+      const id = req.id || index + 1;
+      const empName = req.employeeName || `Employee #${req.employeeId || 12}`;
+      const empCode = `Emp ID: #${req.employeeId || 12}`;
+      const empLabel = `${empName} (${empCode})`;
+
+      const inTime = formatTimeStr(req.requestedInTime);
+      const outTime = formatTimeStr(req.requestedOutTime);
+      const timingsStr = (inTime !== 'N/A' || outTime !== 'N/A') ? `${inTime} - ${outTime}` : 'N/A';
+
+      const formatDate = (dStr?: string) => {
+        if (!dStr) return '';
+        const d = new Date(dStr);
+        return isNaN(d.getTime()) ? dStr : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      };
+
+      const appliedOnStr = req.createdDate ? formatDate(req.createdDate) : undefined;
+      const statusStr = (req.status || 'PENDING').toUpperCase();
+
+      // Enumerable properties visible in Table & drawer:
+      // First 4 columns: id, employee, attendanceDate, status -> top 4 summary metric cards
+      const rowItem: Record<string, any> = {
+        id: Number(id) || 1,
+        employee: empLabel,
+        attendanceDate: req.attendanceDate,
+        status: statusStr,
+        requestedTiming: timingsStr,
+        reason: req.reason || 'Forgot punch in/out',
+      };
+
+      if (appliedOnStr) {
+        rowItem.appliedOn = appliedOnStr;
+      }
+
+      if (req.rejectionReason) {
+        rowItem.rejectionReason = req.rejectionReason;
+      }
+
+      // Non-enumerable properties: accessible by code, modals, and actions
+      Object.defineProperties(rowItem, {
+        _raw: { value: req, enumerable: false, writable: true },
+        employeeId: { value: req.employeeId || 12, enumerable: false, writable: true },
+        employeeName: { value: empName, enumerable: false, writable: true },
+        requestedInTime: { value: req.requestedInTime, enumerable: false, writable: true },
+        requestedOutTime: { value: req.requestedOutTime, enumerable: false, writable: true },
+        createdDate: { value: req.createdDate, enumerable: false, writable: true },
+        updatedDate: { value: req.updatedDate, enumerable: false, writable: true },
+      });
+
+      return rowItem as RegularizationItemModel;
+    });
+  }, [requests]);
+
   // ── Table Column Definitions ───────────────────────────────────────────
   const columns: ColumnDef<RegularizationItemModel>[] = [
     {
       key: 'id',
       label: 'Req ID',
       sortable: true,
+      headerClassName: 'w-[7%] min-w-[55px]',
+      className: 'whitespace-nowrap font-mono font-bold text-xs text-cyan-700',
       render: (row) => (
-        <span className="font-mono font-bold text-xs text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
+        <span className="font-mono font-bold text-xs text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded border border-cyan-200">
           #{row.id}
         </span>
       )
     },
     {
-      key: 'employeeId',
+      key: 'employee',
       label: 'Employee',
       sortable: true,
+      headerClassName: 'w-[18%] min-w-[130px]',
+      className: 'whitespace-nowrap',
+      sortValueGetter: (row) => row.employeeName || String(row.employee || ''),
       render: (row) => (
-        <div>
-          <span className="font-bold text-xs text-gray-900 block">{row.employeeName || `Employee #${row.employeeId}`}</span>
-          <span className="text-[10px] text-gray-500 font-mono">Emp ID: #{row.employeeId}</span>
+        <div className="min-w-0">
+          <span className="font-bold text-xs text-gray-900 block truncate">{row.employeeName || `Employee #${row.employeeId}`}</span>
+          <span className="text-[10px] text-gray-500 font-mono">ID: #{row.employeeId}</span>
         </div>
       )
     },
@@ -172,21 +233,25 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
       key: 'attendanceDate',
       label: 'Date',
       sortable: true,
+      headerClassName: 'w-[12%] min-w-[95px]',
+      className: 'whitespace-nowrap',
       render: (row) => (
-        <span className="text-xs font-mono font-semibold text-slate-800">
+        <span className="text-xs font-mono font-semibold text-slate-800 whitespace-nowrap">
           {row.attendanceDate}
         </span>
       )
     },
     {
-      key: 'requestedTime',
+      key: 'requestedTiming',
       label: 'Requested In / Out',
+      headerClassName: 'w-[20%] min-w-[160px]',
+      className: 'whitespace-nowrap',
       render: (row) => (
-        <div className="text-xs font-mono font-semibold text-slate-800 flex items-center gap-1">
+        <div className="text-[11px] font-mono font-semibold text-slate-800 flex items-center gap-1 whitespace-nowrap">
           <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
             {formatTimeStr(row.requestedInTime)}
           </span>
-          <span>-</span>
+          <span className="text-gray-400 font-bold">-</span>
           <span className="text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
             {formatTimeStr(row.requestedOutTime)}
           </span>
@@ -196,8 +261,9 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
     {
       key: 'reason',
       label: 'Reason',
+      headerClassName: 'w-[17%] min-w-[120px]',
       render: (row) => (
-        <span className="inline-block px-2.5 py-1 bg-cyan-50 text-cyan-800 rounded text-xs font-semibold max-w-[180px] truncate" title={row.reason}>
+        <span className="inline-block px-2 py-0.5 bg-cyan-50 text-cyan-800 rounded text-xs font-medium truncate max-w-full" title={row.reason}>
           {row.reason || 'Forgot punch in/out'}
         </span>
       )
@@ -206,6 +272,8 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
       key: 'status',
       label: 'Status',
       sortable: true,
+      headerClassName: 'w-[10%] min-w-[85px] text-center',
+      className: 'whitespace-nowrap text-center',
       render: (row) => {
         const status = (row.status || 'PENDING').toUpperCase();
         let colorClass = 'bg-amber-50 text-amber-700 border-amber-200';
@@ -214,7 +282,7 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
         if (status === 'CANCELLED') colorClass = 'bg-gray-100 text-gray-600 border-gray-200';
 
         return (
-          <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap ${colorClass}`}>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border uppercase tracking-wider ${colorClass}`}>
             {status}
           </span>
         );
@@ -223,46 +291,50 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
     {
       key: 'actions',
       label: 'Actions',
+      headerClassName: 'w-[16%] min-w-[175px] !pr-10 whitespace-nowrap',
+      className: 'whitespace-nowrap text-right',
       render: (row) => (
-        <div className="flex items-center gap-1.5 whitespace-nowrap">
+        <div className="flex items-center justify-end gap-1 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+          {activeTab === 'pending' && (
+            <>
+              <button
+                type="button"
+                onClick={() => openActionModal(row._raw || row, 'approve')}
+                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-semibold transition-colors flex items-center gap-1 shadow-2xs"
+                title="Approve Request"
+              >
+                <Check className="w-3 h-3" /> Approve
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => openActionModal(row._raw || row, 'reject')}
+                className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[11px] font-semibold transition-colors flex items-center gap-1 shadow-2xs"
+                title="Reject Request"
+              >
+                <X className="w-3 h-3" /> Reject
+              </button>
+            </>
+          )}
+
           <button
             type="button"
-            onClick={() => openActionModal(row, 'view')}
-            className="p-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-gray-600 transition-colors"
+            onClick={() => openActionModal(row._raw || row, 'view')}
+            className="p-1 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded text-gray-600 hover:text-cyan-700 transition-colors"
             title="Inspect Details"
           >
             <Eye className="w-3.5 h-3.5" />
           </button>
           
           {activeTab === 'pending' && (
-            <>
-              <button
-                type="button"
-                onClick={() => openActionModal(row, 'approve')}
-                className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded text-emerald-700 text-xs font-bold transition-colors flex items-center gap-1"
-                title="Approve Request"
-              >
-                <Check className="w-3.5 h-3.5" /> Approve
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => openActionModal(row, 'reject')}
-                className="px-2 py-1 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded text-rose-700 text-xs font-bold transition-colors flex items-center gap-1"
-                title="Reject Request"
-              >
-                <X className="w-3.5 h-3.5" /> Reject
-              </button>
-
-              <button
-                type="button"
-                onClick={() => openActionModal(row, 'cancel')}
-                className="p-1.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg text-gray-600 transition-colors"
-                title="Cancel Request"
-              >
-                <Ban className="w-3.5 h-3.5" />
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() => openActionModal(row._raw || row, 'cancel')}
+              className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 border border-transparent hover:border-gray-200 rounded transition-colors"
+              title="Cancel Request"
+            >
+              <Ban className="w-3.5 h-3.5" />
+            </button>
           )}
         </div>
       )
@@ -274,7 +346,7 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
       <PageMeta title="Attendance Regularization" description="Manage and approve employee attendance regularization requests" />
       <PageBreadcrumb pageTitle="Attendance Regularization" />
 
-      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
+      <div className="w-full pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
         
         {/* Header Bar */}
         <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -320,7 +392,8 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
         {/* Regularization Data Table */}
         <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4">
           <ReusableTable
-            data={requests}
+            className="[&_th]:!px-2 [&_td]:!px-2 [&_th]:!py-2.5 [&_td]:!py-2"
+            data={normalizedRequests}
             columns={columns}
             loading={loading}
             searchable={true}
@@ -328,6 +401,8 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
             pageSize={10}
             defaultSortKey="id"
             defaultSortOrder="desc"
+            rowDetailsTitle={(row) => `Regularization Request #${row.id}`}
+            rowDetailsSubtitle="Missed punch regularization review and approval details"
           />
         </div>
 

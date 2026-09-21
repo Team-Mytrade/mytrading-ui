@@ -50,6 +50,7 @@ export interface OnDutyApprovalRequest {
   actionedAt?: string | null;
   approverName?: string;
   approverRemarks?: string | null;
+  [key: string]: any;
 }
 
 const ATTENDANCE_APPROVAL_API = "/v1/api/attendance/attendance-approvals";
@@ -164,33 +165,84 @@ const OnDutyApprovalPage: React.FC = () => {
 
     const reqId = typeof r.id === 'object' ? (r.id?.id || 1) : (r.id || 1);
 
-    return {
-      id: Number(reqId) || 1,
-      employeeId: Number(empId) || 12,
-      employeeCode: resolvedCode,
-      employeeName: resolvedName,
-      department: resolvedDept,
-      designation: resolvedDesig,
-      requestType: reqTypeStr || "ON_DUTY",
-      fromDate: safeString(r.fromDate || detail.fromDate || r.startDate || r.shiftDate, new Date().toISOString().slice(0, 10)),
-      toDate: safeString(r.toDate || detail.toDate || r.endDate || r.fromDate, new Date().toISOString().slice(0, 10)),
-      startHours: safeString(r.startHours || detail.startHours, ""),
-      startMinutes: safeString(r.startMinutes || detail.startMinutes, ""),
-      endHours: safeString(r.endHours || detail.endHours, ""),
-      endMinutes: safeString(r.endMinutes || detail.endMinutes, ""),
-      projectTaskId: safeString(r.projectTaskId || detail.projectTaskId, "—"),
-      projectTaskName: safeString(r.projectTaskName || detail.projectTaskName || r.projectTask || detail.projectTask, "Attendance Task"),
-      clientName: safeString(r.clientName || detail.clientName || r.client || detail.client, "Acme Corp"),
-      visitLocation: safeString(r.visitLocation || detail.visitLocation || r.location || detail.location, "HQ Branch"),
-      purpose: safeString(r.purpose || detail.purpose || r.reason || detail.reason, "Client Visit"),
-      reason: safeString(r.reason || detail.reason || r.remarks || detail.remarks, "Business Visit"),
-      comments: safeString(r.comments || detail.comments, ""),
-      status: statusVal,
-      requestedAt: safeString(r.requestedAt || r.createdDate, "—"),
-      actionedAt: (r.actionedAt || r.actionDate) ? safeString(r.actionedAt || r.actionDate) : null,
-      approverName: safeString(r.approverName || r.actionedBy, "Manager"),
-      approverRemarks: (r.approverRemarks || r.remarks || detail.remarks) ? safeString(r.approverRemarks || r.remarks || detail.remarks) : null
+    const fromD = safeString(r.fromDate || detail.fromDate || r.startDate || r.shiftDate, new Date().toISOString().slice(0, 10));
+    const toD = safeString(r.toDate || detail.toDate || r.endDate || fromD, fromD);
+    const datesStr = fromD ? `${fromD}${toD && toD !== fromD ? ` to ${toD}` : ''}` : 'N/A';
+
+    const empCode = rawCode || `EMP-${String(empId).padStart(4, '0')}`;
+    const empName = resolvedName;
+    const empLabel = `${empName}${empCode ? ` (${empCode})` : ''}`;
+
+    const taskName = safeString(r.projectTaskName || detail.projectTaskName || r.projectTask || detail.projectTask, '');
+    const client = safeString(r.clientName || detail.clientName || r.client || detail.client, '');
+    const location = safeString(r.visitLocation || detail.visitLocation || r.location || detail.location, '');
+    const purposeText = safeString(r.purpose || detail.purpose || r.reason || detail.reason || r.remarks || detail.remarks, 'On Duty Visit');
+
+    const inTime = safeString(r.startHours && r.startMinutes ? `${r.startHours}:${r.startMinutes}` : detail.checkInTime || '', '');
+    const outTime = safeString(r.endHours && r.endMinutes ? `${r.endHours}:${r.endMinutes}` : detail.checkOutTime || '', '');
+    const formatTimeOnly = (t?: string) => {
+      if (!t) return '';
+      if (t.includes('T')) return t.split('T')[1]?.slice(0, 5) || '';
+      return t.slice(0, 5);
     };
+    const tIn = formatTimeOnly(inTime);
+    const tOut = formatTimeOnly(outTime);
+    const timingsStr = (tIn || tOut) ? `${tIn || '--:--'} - ${tOut || '--:--'}` : undefined;
+
+    const requestedAtStr = safeString(r.requestedAt || r.createdDate, '');
+    const formatDateOnly = (dStr?: string) => {
+      if (!dStr || dStr === '—') return '';
+      const dateObj = new Date(dStr);
+      if (isNaN(dateObj.getTime())) return dStr.split('T')[0];
+      return dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    };
+    const appliedOnStr = requestedAtStr ? formatDateOnly(requestedAtStr) : undefined;
+
+    const approverRemarksText = (r.approverRemarks || r.remarks || detail.remarks) ? safeString(r.approverRemarks || r.remarks || detail.remarks) : undefined;
+
+    // Top 4 summary metrics in Table drawer:
+    // 1. id -> REQ ID
+    // 2. employee -> EMPLOYEE
+    // 3. dates -> DATES
+    // 4. status -> STATUS
+    const rowItem: Record<string, any> = {
+      id: Number(reqId) || 1,
+      employee: empLabel,
+      dates: datesStr,
+      status: statusVal,
+    };
+
+    // Concise, user-friendly details:
+    if (taskName) rowItem.projectTask = taskName;
+    if (client) rowItem.client = client;
+    if (location) rowItem.location = location;
+    if (purposeText) rowItem.purpose = purposeText;
+    if (timingsStr) rowItem.timings = timingsStr;
+    if (appliedOnStr) rowItem.appliedOn = appliedOnStr;
+    if (approverRemarksText) rowItem.approverRemarks = approverRemarksText;
+
+    // Non-enumerable properties: accessible by code, modals, and columns, but hidden from drawer Object.keys()
+    Object.defineProperties(rowItem, {
+      _raw: { value: r, enumerable: false, writable: true },
+      employeeId: { value: Number(empId) || 12, enumerable: false, writable: true },
+      employeeName: { value: empName, enumerable: false, writable: true },
+      employeeCode: { value: empCode, enumerable: false, writable: true },
+      department: { value: resolvedDept, enumerable: false, writable: true },
+      designation: { value: resolvedDesig, enumerable: false, writable: true },
+      requestType: { value: reqTypeStr || "ON_DUTY", enumerable: false, writable: true },
+      fromDate: { value: fromD, enumerable: false, writable: true },
+      toDate: { value: toD, enumerable: false, writable: true },
+      projectTaskId: { value: safeString(r.projectTaskId || detail.projectTaskId, "—"), enumerable: false, writable: true },
+      projectTaskName: { value: taskName, enumerable: false, writable: true },
+      clientName: { value: client, enumerable: false, writable: true },
+      visitLocation: { value: location, enumerable: false, writable: true },
+      reason: { value: purposeText, enumerable: false, writable: true },
+      requestedAt: { value: requestedAtStr, enumerable: false, writable: true },
+      actionedAt: { value: (r.actionedAt || r.actionDate) ? safeString(r.actionedAt || r.actionDate) : null, enumerable: false, writable: true },
+      approverName: { value: safeString(r.approverName || r.actionedBy, "Manager"), enumerable: false, writable: true },
+    });
+
+    return rowItem as OnDutyApprovalRequest;
   };
 
   // ── Fetch Live On-Duty Approvals (Lazy-loaded per active tab + count summary) ───
@@ -335,39 +387,23 @@ const OnDutyApprovalPage: React.FC = () => {
       ),
     },
     {
-      key: "employeeName",
+      key: "employee",
       label: "Employee",
       sortable: true,
       render: (row) => (
         <div>
-          <span className="font-bold text-xs text-gray-900 block">{row.employeeName || `Employee #${row.employeeId || 'N/A'}`}</span>
+          <span className="font-bold text-xs text-gray-900 block">{row.employeeName || row.employee || `Employee #${row.employeeId || 'N/A'}`}</span>
           <span className="text-[10px] text-gray-500 font-mono">{row.employeeCode || `ID: #${row.employeeId || '12'}`}</span>
         </div>
       ),
     },
     {
-      key: "fromDate",
-      label: "From Date",
+      key: "dates",
+      label: "Dates",
       sortable: true,
+      sortValueGetter: (row) => row.dates || row.fromDate || '',
       render: (row) => (
-        <span className="font-mono font-semibold text-xs text-gray-800">{row.fromDate}</span>
-      ),
-    },
-    {
-      key: "toDate",
-      label: "To Date",
-      sortable: true,
-      render: (row) => (
-        <span className="font-mono font-semibold text-xs text-gray-800">{row.toDate || row.fromDate}</span>
-      ),
-    },
-    {
-      key: "reason",
-      label: "Reason",
-      render: (row) => (
-        <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-cyan-50 text-cyan-800 border border-cyan-200/80 inline-block">
-          {row.reason}
-        </span>
+        <span className="font-mono font-semibold text-xs text-gray-800">{row.dates || (row.fromDate ? `${row.fromDate}${row.toDate && row.toDate !== row.fromDate ? ` to ${row.toDate}` : ''}` : 'N/A')}</span>
       ),
     },
     {
@@ -513,6 +549,8 @@ const OnDutyApprovalPage: React.FC = () => {
             pageSize={5}
             defaultSortKey="id"
             defaultSortOrder="desc"
+            rowDetailsTitle={(row) => `On-Duty Request #${row.id}`}
+            rowDetailsSubtitle="Key business trip and client visit details"
           />
         </div>
 

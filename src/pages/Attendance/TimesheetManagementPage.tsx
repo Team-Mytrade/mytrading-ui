@@ -25,9 +25,23 @@ interface DateRequestCardState {
 const TimesheetManagementPage: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   
-  // Date Range selection state
+  const now = useMemo(() => new Date(), []);
+  const todayDate = useMemo(() => `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`, [now]);
+
+  // Date Range selection state - default to today matching Leave Requests and On Duty Requests
   const [firstClickDate, setFirstClickDate] = useState<string | null>(null);
-  const [selectedCards, setSelectedCards] = useState<DateRequestCardState[]>([]);
+  const [selectedCards, setSelectedCards] = useState<DateRequestCardState[]>([
+    {
+      dateStr: todayDate,
+      fromDate: todayDate,
+      toDate: todayDate,
+      reasonType: 'BOTH',
+      startHours: '09',
+      startMinutes: '00',
+      endHours: '18',
+      endMinutes: '00'
+    }
+  ]);
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
   const [viewPunchesDate, setViewPunchesDate] = useState<string | null>(null);
 
@@ -141,9 +155,6 @@ const TimesheetManagementPage: React.FC = () => {
   }, [currentUser.id]);
 
   const absentDates: string[] = [];
-
-  const now = new Date();
-  const todayDate = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
 
   const daysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
   const firstDayOfMonth = (month: number, year: number) => new Date(year, month, 1).getDay();
@@ -269,7 +280,7 @@ const TimesheetManagementPage: React.FC = () => {
     for (let i = firstDay - 1; i >= 0; i--) {
       calendarDays.push(
         <div key={`prev-${i}`} className="flex items-center justify-center p-0.5">
-          <span className="text-gray-300 text-[11px]">{prevMonthDays - i}</span>
+          <div className="w-8 h-8 flex items-center justify-center text-slate-300 dark:text-gray-700 text-xs font-medium">{prevMonthDays - i}</div>
         </div>
       );
     }
@@ -283,28 +294,20 @@ const TimesheetManagementPage: React.FC = () => {
       const isEnd = maxSelectedIso === currIso;
       const isInRange = minSelectedIso && maxSelectedIso && currIso >= minSelectedIso && currIso <= maxSelectedIso;
       const isFirstClick = firstClickDate === dayFormatted;
+      const isSelected = isStart || isEnd || isInRange || isFirstClick || selectedCards.some(c => c.dateStr === dayFormatted);
 
       const isAbsent = absentDates.includes(dayFormatted);
       const isToday = todayDate === dayFormatted;
 
       calendarDays.push(
-        <div 
-          key={`curr-${i}`} 
-          className={`flex items-center justify-center p-0.5 relative ${
-            isInRange && selectedIsoList.length > 1
-              ? 'bg-cyan-100/50 dark:bg-cyan-950/30'
-              : ''
-          } ${isStart ? 'rounded-l-xl' : ''} ${isEnd ? 'rounded-r-xl' : ''}`}
-        >
+        <div key={`curr-${i}`} className="flex items-center justify-center p-0.5">
           <button
             type="button"
             onClick={() => handleDateClick(dayFormatted)}
             onDoubleClick={() => handleDateDoubleClick(dayFormatted)}
-            className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-semibold transition-all cursor-pointer ${
-              isStart || isEnd || isFirstClick
-                ? 'bg-cyan-600 text-white font-bold shadow-xs scale-105 z-10 ring-2 ring-cyan-500/20'
-                : isInRange
-                ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-900 dark:text-cyan-200 font-bold z-10'
+            className={`w-8 h-8 flex items-center justify-center rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              isSelected
+                ? 'bg-cyan-600 text-white shadow-xs font-bold ring-2 ring-cyan-500/20'
                 : isAbsent
                 ? 'border border-rose-400 dark:border-rose-500/60 text-rose-600 dark:text-rose-400 font-semibold hover:bg-rose-50 dark:hover:bg-rose-950/30'
                 : isToday
@@ -323,7 +326,7 @@ const TimesheetManagementPage: React.FC = () => {
     for (let i = 1; i <= totalCells - (days + firstDay); i++) {
       calendarDays.push(
         <div key={`next-${i}`} className="flex items-center justify-center p-0.5">
-          <span className="text-slate-300 dark:text-gray-700 text-xs font-medium">{i}</span>
+          <div className="w-8 h-8 flex items-center justify-center text-slate-300 dark:text-gray-700 text-xs font-medium">{i}</div>
         </div>
       );
     }
@@ -459,7 +462,7 @@ const TimesheetManagementPage: React.FC = () => {
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
-                <span className="text-[11px] font-medium text-slate-400 dark:text-gray-500">Pick AR Date</span>
+                <span className="text-[11px] font-medium text-slate-400 dark:text-gray-500">Pick Date Range</span>
               </div>
 
               {/* Weekday Labels */}
@@ -467,32 +470,22 @@ const TimesheetManagementPage: React.FC = () => {
                 <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
               </div>
 
-              {/* Dates Grid with Connected Range Bar */}
-              <div className="grid grid-cols-7 gap-1 mb-1">
+              {/* Dates Grid */}
+              <div className="grid grid-cols-7 gap-1 max-w-xs mx-auto lg:max-w-none">
                 {renderCalendar()}
               </div>
             </div>
 
-            <div>
-              {/* Legend */}
-              <div className="flex items-center justify-start gap-3 text-[11px] text-slate-500 dark:text-gray-400 border-t border-slate-100 dark:border-[#303030] pt-3 mb-1.5">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-sm border-2 border-cyan-500 bg-cyan-500/20" />
-                  <span>Today</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full border-2 border-rose-500 bg-rose-500/20" />
-                  <span>Absent</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full border-2 border-purple-500 bg-purple-500/20" />
-                  <span>Half day</span>
-                </div>
+            {/* Bottom Legend */}
+            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-[#303030] space-y-1.5">
+              <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-gray-400">
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-cyan-500 bg-cyan-500/20 inline-block"></span> Today</span>
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-rose-500 bg-rose-500/20 inline-block"></span> Absent</span>
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-purple-500 bg-purple-500/20 inline-block"></span> Half day</span>
               </div>
-
-              <p className="text-[11px] text-slate-400 dark:text-gray-500 truncate">
-                Dates marked "Absent": <span className="font-semibold text-rose-600 dark:text-rose-400">{absentDates.length > 0 ? absentDates.join(', ') : 'None'}</span>
-              </p>
+              <div className="text-[11px] text-slate-400 dark:text-gray-500">
+                Double click any date to select single day
+              </div>
             </div>
           </div>
 

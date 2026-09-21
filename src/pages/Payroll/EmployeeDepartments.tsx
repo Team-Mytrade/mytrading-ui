@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import {
   TrashIcon,
@@ -36,6 +36,7 @@ interface Department {
   employees?: any[];
   createdDate?: string;
   updatedDate?: string;
+  [key: string]: any;
 }
 
 const EmployeeDepartmentsPage: React.FC = () => {
@@ -52,7 +53,8 @@ const EmployeeDepartmentsPage: React.FC = () => {
     setLoading(true);
     try {
       const res = await axios.get(`${API_URL}/listAll`);
-      setDepartments(res.data);
+      const data = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.data) ? res.data.data : []);
+      setDepartments(data);
     } catch (err) {
       console.error("Error loading departments:", err);
       ToasterService.error("Failed to load departments");
@@ -150,12 +152,74 @@ const EmployeeDepartmentsPage: React.FC = () => {
     setShowForm(true);
   };
 
-  const columns: ColumnDef<Department>[] = [
+  const normalizedDepartments = useMemo(() => {
+    return departments.map((dept: any, index: number) => {
+      const id = dept.id || index + 1;
+      const name = dept.name || `Department #${id}`;
+      const rawEmployees = Array.isArray(dept.employees) ? dept.employees : [];
+      const empCount = rawEmployees.length;
+
+      const formatDate = (dStr?: string) => {
+        if (!dStr) return "-";
+        const d = new Date(dStr);
+        return isNaN(d.getTime()) ? dStr : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      };
+
+      const createdDateStr = formatDate(dept.createdDate);
+      const updatedDateStr = dept.updatedDate ? formatDate(dept.updatedDate) : undefined;
+
+      // Extract clean team member labels if employees exist
+      const memberNames: string[] = rawEmployees
+        .map((e: any) => {
+          if (typeof e === 'string') return e;
+          const n = `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.name || e.username;
+          const code = e.employeeCode || (e.id ? `ID: ${e.id}` : '');
+          return n ? `${n}${code ? ` (${code})` : ''}` : null;
+        })
+        .filter(Boolean) as string[];
+
+      // Enumerable properties visible in Table & drawer:
+      // First 4 columns: id, name, employees, createdDate -> top 4 summary metric cards
+      const rowItem: Record<string, any> = {
+        id: `#${id}`,
+        name: name,
+        employees: `${empCount} ${empCount === 1 ? 'Member' : 'Members'}`,
+        createdDate: createdDateStr,
+        status: "Active",
+      };
+
+      if (updatedDateStr && updatedDateStr !== "-") {
+        rowItem.lastUpdated = updatedDateStr;
+      }
+
+      if (memberNames.length > 0) {
+        rowItem.teamMembers = memberNames.slice(0, 8);
+        if (memberNames.length > 8) {
+          rowItem.teamMembers.push(`+${memberNames.length - 8} more`);
+        }
+      }
+
+      // Non-enumerable properties: accessible by code, modals, and actions, but hidden from drawer Object.keys()
+      Object.defineProperties(rowItem, {
+        _raw: { value: dept, enumerable: false, writable: true },
+        numericId: { value: Number(id) || 1, enumerable: false, writable: true },
+        rawEmployees: { value: rawEmployees, enumerable: false, writable: true },
+      });
+
+      return rowItem;
+    });
+  }, [departments]);
+
+  const columns: ColumnDef<any>[] = [
     {
       key: "id",
       label: "ID",
       sortable: true,
-      render: (row) => <span className="pl-2 text-xs font-mono font-medium text-gray-900">{row.id}</span>
+      render: (row) => (
+        <span className="pl-2 font-mono font-bold text-xs text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
+          {row.id}
+        </span>
+      )
     },
     {
       key: "name",
@@ -165,7 +229,7 @@ const EmployeeDepartmentsPage: React.FC = () => {
         <div className="flex items-center">
           <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3 shrink-0">
             <span className="text-xs font-medium text-cyan-700">
-              {row.name.charAt(0).toUpperCase()}
+              {String(row.name).charAt(0).toUpperCase()}
             </span>
           </div>
           <div>
@@ -180,11 +244,11 @@ const EmployeeDepartmentsPage: React.FC = () => {
       key: "employees",
       label: "Employees",
       sortable: true,
-      sortValueGetter: (row) => row.employees?.length || 0,
+      sortValueGetter: (row) => parseInt(String(row.employees)) || 0,
       render: (row) => (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-cyan-50 text-cyan-700 border border-cyan-100">
           <UserGroupIcon className="h-3 w-3 mr-1 shrink-0" />
-          {row.employees?.length || 0} employees
+          {row.employees}
         </span>
       )
     },
@@ -193,8 +257,8 @@ const EmployeeDepartmentsPage: React.FC = () => {
       label: "Created Date",
       sortable: true,
       render: (row) => (
-        <span className="text-xs text-gray-500">
-          {row.createdDate ? new Date(row.createdDate).toLocaleDateString() : "-"}
+        <span className="text-xs text-gray-500 font-mono">
+          {row.createdDate}
         </span>
       )
     },
@@ -207,14 +271,14 @@ const EmployeeDepartmentsPage: React.FC = () => {
       render: (row) => (
         <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
           <button
-            onClick={() => openEditModal(row)}
+            onClick={() => openEditModal(row._raw || { id: row.numericId, name: row.name })}
             className="text-cyan-600 hover:text-cyan-900 bg-cyan-50 hover:bg-cyan-100 p-1.5 rounded-md transition-colors"
             title="Edit Department"
           >
             <PencilSquareIcon className="h-3.5 w-3.5" />
           </button>
           <button
-            onClick={() => handleDelete(row.id, row.name)}
+            onClick={() => handleDelete(row.numericId, row.name)}
             className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 p-1.5 rounded-md transition-colors"
             title="Delete Department"
           >
@@ -246,10 +310,12 @@ const EmployeeDepartmentsPage: React.FC = () => {
 
         {/* Table */}
         <ReusableTable
-          data={departments}
+          data={normalizedDepartments}
           columns={columns}
           loading={loading}
           searchable={false}
+          rowDetailsTitle={(row) => `${row.name} Department`}
+          rowDetailsSubtitle="Department profile, headcount, and operational status"
           emptyState={
             <div className="flex flex-col items-center">
               <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />

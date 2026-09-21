@@ -76,6 +76,11 @@ interface EmployeeSalary {
     employee: Employee | null;
     createdAt?: string;
     updatedAt?: string;
+    status?: string;
+    employeeName?: string;
+    employeeCode?: string;
+    otherAllowances?: number;
+    [key: string]: any;
 }
 
 const PayrollPage: React.FC = () => {
@@ -146,21 +151,66 @@ const PayrollPage: React.FC = () => {
                 employeeMap.set(emp.id, emp);
             });
 
-            const merged = salaryData.map((s: any, index: number) => ({
-                id: s.employeeSalaryId || s.employeeId || index,
-                month: s.month || filterMonth,
-                grossSalary: s.grossSalary || 0,
-                netSalary: s.netSalary || 0,
-                basic: s.basic || 0,
-                hra: s.hra || 0,
-                bonus: s.bonus || 0,
-                currency: s.currency || 'INR',
-                isProcessed: !!s.processedDate,
-                processedDate: s.processedDate || null,
-                totalEarnings: s.totalEarnings || s.grossSalary || 0,
-                totalDeductions: s.totalDeductions || 0,
-                employee: employeeMap.get(s.employeeId) || null,
-            }));
+            const merged = salaryData.map((s: any, index: number) => {
+                const emp = employeeMap.get(s.employeeId) || s.employee || null;
+                const empName = emp ? `${emp.firstName || ''} ${emp.lastName || ''}`.trim() : `Employee #${s.employeeId || index}`;
+                const empCode = emp?.employeeCode || (s.employeeId ? `EMP-${String(s.employeeId).padStart(4, '0')}` : '');
+                const empLabel = `${empName}${empCode ? ` (${empCode})` : ''}`;
+
+                const gross = s.grossSalary || 0;
+                const net = s.netSalary || 0;
+                const basic = s.basic || 0;
+                const hra = s.hra || 0;
+                const bonus = s.bonus || 0;
+                const deductions = s.totalDeductions || 0;
+                const isProc = !!s.processedDate || Boolean(s.isProcessed);
+                const procDateStr = s.processedDate
+                    ? new Date(s.processedDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : "Pending Processing";
+
+                // Enumerable properties visible in Table & drawer:
+                // Columns order: employee, month, grossSalary, netSalary -> top 4 summary metric cards
+                const rowItem: Record<string, any> = {
+                    employee: empLabel,
+                    month: s.month || filterMonth,
+                    grossSalary: gross,
+                    netSalary: net,
+                    status: isProc ? "PROCESSED" : "DRAFT",
+                    basic: basic,
+                    hra: hra,
+                    totalDeductions: deductions,
+                    processedDate: procDateStr,
+                };
+
+                if (bonus > 0) {
+                    rowItem.bonus = bonus;
+                }
+
+                const otherAllowances = (s.specialAllowance || 0) + (s.allowance || 0);
+                if (otherAllowances > 0) {
+                    rowItem.otherAllowances = otherAllowances;
+                }
+
+                // Non-enumerable properties: accessible by code, modals, actions, and downloads
+                Object.defineProperties(rowItem, {
+                    id: { value: s.employeeSalaryId || s.employeeId || index, enumerable: false, writable: true },
+                    isProcessed: { value: isProc, enumerable: false, writable: true },
+                    currency: { value: s.currency || 'INR', enumerable: false, writable: true },
+                    totalEarnings: { value: s.totalEarnings || gross, enumerable: false, writable: true },
+                    employee: { value: emp, enumerable: false, writable: true },
+                    rawEmployee: { value: emp, enumerable: false, writable: true },
+                    employeeName: { value: empName, enumerable: false, writable: true },
+                    employeeCode: { value: empCode, enumerable: false, writable: true },
+                    tds: { value: s.tds || 0, enumerable: false, writable: true },
+                    professionalTax: { value: s.professionalTax || 0, enumerable: false, writable: true },
+                    pfEmployee: { value: s.pfEmployee || 0, enumerable: false, writable: true },
+                    otherDeductions: { value: s.otherDeductions || 0, enumerable: false, writable: true },
+                    paymentMode: { value: s.paymentMode || 'BANK_TRANSFER', enumerable: false, writable: true },
+                    _raw: { value: s, enumerable: false, writable: true },
+                });
+
+                return rowItem as EmployeeSalary;
+            });
 
             setSalaries(merged);
         } catch (err) {
@@ -440,9 +490,10 @@ const PayrollPage: React.FC = () => {
             render: (row) => <span className="text-xs font-bold text-cyan-600">₹{row.netSalary.toLocaleString()}</span>
         },
         {
-            key: "isProcessed",
+            key: "status",
             label: "Status",
             sortable: true,
+            sortValueGetter: (row) => row.isProcessed ? 1 : 0,
             render: (row) => row.isProcessed ? (
                 <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
                     <CheckCircleIcon className="h-3 w-3 mr-1 shrink-0" />
@@ -608,6 +659,8 @@ const PayrollPage: React.FC = () => {
                         pageSize={PAGE_SIZE}
                         defaultSortKey="month"
                         defaultSortOrder="desc"
+                        rowDetailsTitle={(row) => `${row.employeeName || row.employee?.firstName || 'Employee'} - ${row.month} Payslip`}
+                        rowDetailsSubtitle="Salary breakdown and net disbursement status"
                         emptyState={
                             <div className="flex flex-col items-center">
                                 <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />

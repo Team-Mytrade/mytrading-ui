@@ -20,6 +20,7 @@ export interface ApprovalRequestModel {
   appliedDate?: string;
   remarks?: string;
   requestDetails?: any[];
+  [key: string]: any;
 }
 
 const AttendanceApprovalRequestPage: React.FC = () => {
@@ -89,8 +90,84 @@ const AttendanceApprovalRequestPage: React.FC = () => {
         return !isReg;
       });
 
-      setRequests(filtered);
-      setCache(prev => ({ ...prev, [tab]: filtered }));
+      // Sanitize each request for the table and drawer so it's concise and unscrollable
+      const cleaned = filtered.map((item: any) => {
+        const detailList = (Array.isArray(item.responseDetails) && item.responseDetails.length > 0)
+          ? item.responseDetails
+          : (Array.isArray(item.requestDetails) ? item.requestDetails : []);
+
+        const fromD = item.fromDate || detailList[0]?.fromDate || detailList[0]?.shiftDate || '';
+        const toD = item.toDate || detailList[detailList.length - 1]?.toDate || detailList[detailList.length - 1]?.fromDate || '';
+        const datesStr = fromD ? `${fromD}${toD && toD !== fromD ? ` to ${toD}` : ''}` : 'N/A';
+
+        const empCode = item.employeeCode || (item.employeeId ? `EMP-${item.employeeId}` : '');
+        const empName = item.employeeName || (item.employeeId ? `Employee #${item.employeeId}` : 'Employee');
+        const empLabel = `${empName}${empCode ? ` (${empCode})` : ''}`;
+
+        const rawType = item.requestType || item.leaveType || detailList[0]?.requestType || 'WORK_FROM_HOME';
+        const requestTypeStr = String(rawType).replace(/_/g, ' ');
+
+        const statusStr = String(item.status || item.approvalStatus || tab).toUpperCase();
+
+        const formatTimeOnly = (t?: string) => {
+          if (!t) return '';
+          if (t.includes('T')) {
+            const part = t.split('T')[1];
+            return part ? part.slice(0, 5) : '';
+          }
+          return t.slice(0, 5);
+        };
+
+        const formatDateOnly = (dStr?: string) => {
+          if (!dStr) return '';
+          const dateObj = new Date(dStr);
+          if (isNaN(dateObj.getTime())) return dStr.split('T')[0];
+          return dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        };
+
+        const schedule = detailList.length > 0 ? detailList.map((d: any) => {
+          const dDate = d.fromDate || d.shiftDate || '';
+          const inT = formatTimeOnly(d.checkInTime);
+          const outT = formatTimeOnly(d.checkOutTime);
+          const timings = (inT || outT) ? ` (${inT || '--:--'} - ${outT || '--:--'})` : '';
+          const dTask = d.projectTaskName ? ` [${d.projectTaskName}]` : '';
+          const dRemarks = d.remarks ? `: ${d.remarks}` : '';
+          return `${dDate}${timings}${dTask}${dRemarks}`;
+        }) : undefined;
+
+        const reasonText = item.remarks || item.reason || detailList[0]?.remarks || detailList[0]?.reason;
+        const createdOn = item.createdDate || item.appliedDate;
+
+        // Top 4 highlight summary metrics in Table drawer:
+        // 1. id -> APPROVAL ID
+        // 2. employee -> EMPLOYEE
+        // 3. requestType -> REQUEST TYPE
+        // 4. status -> STATUS
+        const rowItem: Record<string, any> = {
+          id: item.id,
+          employee: empLabel,
+          requestType: requestTypeStr,
+          status: statusStr,
+          dates: datesStr,
+        };
+
+        if (createdOn) rowItem.appliedOn = formatDateOnly(createdOn);
+        if (reasonText) rowItem.reason = reasonText;
+        if (schedule && schedule.length > 0) rowItem.schedule = schedule;
+
+        // Attach raw request and helper properties non-enumerably so Table.tsx's Object.keys() does NOT inspect them
+        Object.defineProperties(rowItem, {
+          _raw: { value: item, enumerable: false, writable: true },
+          employeeName: { value: empName, enumerable: false, writable: true },
+          employeeCode: { value: empCode, enumerable: false, writable: true },
+          employeeId: { value: item.employeeId, enumerable: false, writable: true },
+        });
+
+        return rowItem;
+      });
+
+      setRequests(cleaned);
+      setCache(prev => ({ ...prev, [tab]: cleaned }));
     } catch (err: any) {
       if (axios.isCancel(err) || err.name === 'CanceledError') return;
       console.warn(`Failed to fetch ${tab} approvals:`, err);
@@ -161,7 +238,8 @@ const AttendanceApprovalRequestPage: React.FC = () => {
   };
 
   const openActionModal = (req: ApprovalRequestModel, type: 'approve' | 'reject' | 'view') => {
-    setSelectedRequest(req);
+    const rawReq = (req as any)._raw || req;
+    setSelectedRequest(rawReq);
     setActionType(type);
     setActionRemarks(type === 'reject' ? "enter task description for each day and resubmit" : "Approved by Manager");
   };
@@ -184,8 +262,8 @@ const AttendanceApprovalRequestPage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <div>
-          <span className="font-bold text-xs text-gray-900 block">{row.employeeName || (row.employeeId ? `Employee #${row.employeeId}` : 'Employee')}</span>
-          <span className="text-[10px] text-gray-500 font-mono">{row.employeeId ? `ID: #${row.employeeId}` : '—'}</span>
+          <span className="font-bold text-xs text-gray-900 block">{row.employeeName || row.employee || (row.employeeId ? `Employee #${row.employeeId}` : 'Employee')}</span>
+          <span className="text-[10px] text-gray-500 font-mono">{row.employeeCode || (row.employeeId ? `ID: #${row.employeeId}` : '—')}</span>
         </div>
       )
     },
@@ -291,8 +369,8 @@ const AttendanceApprovalRequestPage: React.FC = () => {
               onClick={() => setActiveTab(tab)}
               className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all duration-200 ease-in-out transform active:scale-95 ${
                 activeTab === tab 
-                  ? 'bg-cyan-600 text-white shadow-xs scale-102' 
-                  : 'bg-white text-gray-600 hover:bg-gray-100/80 border border-gray-200/80 hover:text-gray-900'
+                ? 'bg-cyan-600 text-white shadow-xs scale-102' 
+                : 'bg-white text-gray-600 hover:bg-gray-100/80 border border-gray-200/80 hover:text-gray-900'
               }`}
             >
               {tab} Approvals
@@ -312,6 +390,8 @@ const AttendanceApprovalRequestPage: React.FC = () => {
               pageSize={5}
               defaultSortKey="id"
               defaultSortOrder="desc"
+              rowDetailsTitle={(row) => `Approval Request #${row.id}`}
+              rowDetailsSubtitle="Review request details and employee information"
             />
           </div>
         </div>

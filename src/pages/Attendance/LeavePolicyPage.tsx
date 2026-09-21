@@ -30,12 +30,13 @@ export interface LeavePolicyModel {
   id?: number;
   policyCode: string;
   policyName: string;
-  financialYear: number;
+  financialYear: number | string;
   effectiveFrom: string;
   effectiveTo: string;
   description: string;
   active: boolean;
   policyDetails: PolicyDetailItem[];
+  [key: string]: any;
 }
 
 export interface EmployeeOption {
@@ -101,7 +102,53 @@ const LeavePolicyPage: React.FC = () => {
     try {
       const res = await getApi();
       if (Array.isArray(res.data)) {
-        setPolicies(res.data);
+        const cleaned = res.data.map((p: any) => {
+          const fromD = p.effectiveFrom || '';
+          const toD = p.effectiveTo || '';
+          const effectiveStr = fromD ? `${fromD}${toD && toD !== fromD ? ` to ${toD}` : ''}` : 'N/A';
+
+          const statusStr = p.active !== false ? 'Active' : 'Inactive';
+          const fyStr = p.financialYear ? `FY ${p.financialYear}` : undefined;
+
+          // Format policyDetails (leave types & quotas) into clean, concise string badges
+          const detailsList = Array.isArray(p.policyDetails) ? p.policyDetails : [];
+          const leaveAllocations = detailsList.length > 0 ? detailsList.map((d: any) => {
+            const type = String(d.leaveType || 'LEAVE').toUpperCase();
+            const leaves = d.allocatedLeaves ?? 0;
+            const cf = d.carryForwardAllowed ? ` (Max CF: ${d.maxCarryForward ?? 0})` : '';
+            return `${type}: ${leaves} days${cf}`;
+          }) : undefined;
+
+          // The first 4 scalar properties will become the top 4 highlight summary metrics in Table drawer:
+          // 1. policyCode -> POLICY CODE
+          // 2. policyName -> POLICY NAME
+          // 3. effectivePeriod -> EFFECTIVE PERIOD
+          // 4. status -> STATUS
+          const rowItem: Record<string, any> = {
+            id: p.id,
+            policyCode: p.policyCode,
+            policyName: p.policyName,
+            effectivePeriod: effectiveStr,
+            status: statusStr,
+          };
+
+          if (fyStr) rowItem.financialYear = fyStr;
+          if (p.description) rowItem.description = p.description;
+          if (leaveAllocations && leaveAllocations.length > 0) {
+            rowItem.leaveAllocations = leaveAllocations;
+          }
+
+          // Attach raw reference non-enumerably so Table.tsx's Object.keys() does NOT inspect it
+          Object.defineProperty(rowItem, '_raw', {
+            value: p,
+            enumerable: false,
+            writable: true,
+          });
+
+          return rowItem;
+        });
+
+        setPolicies(cleaned);
       } else {
         setPolicies([]);
       }
@@ -240,16 +287,19 @@ const LeavePolicyPage: React.FC = () => {
   };
 
   const openEditModal = (p: LeavePolicyModel) => {
-    setEditingPolicy(p);
+    const raw = (p as any)._raw || p;
+    setEditingPolicy(raw);
+    const rawFy = raw.financialYear;
+    const fyNum = typeof rawFy === 'number' ? rawFy : Number(String(rawFy || '').replace(/\D/g, '')) || 2026;
     setForm({
-      policyCode: p.policyCode,
-      policyName: p.policyName,
-      financialYear: p.financialYear,
-      effectiveFrom: p.effectiveFrom,
-      effectiveTo: p.effectiveTo,
-      description: p.description || "",
-      active: p.active !== false,
-      policyDetails: p.policyDetails || []
+      policyCode: raw.policyCode,
+      policyName: raw.policyName,
+      financialYear: fyNum,
+      effectiveFrom: raw.effectiveFrom,
+      effectiveTo: raw.effectiveTo,
+      description: raw.description || "",
+      active: raw.active !== false,
+      policyDetails: raw.policyDetails || []
     });
     setFormErrors({});
   };
@@ -308,32 +358,38 @@ const LeavePolicyPage: React.FC = () => {
       render: (row) => (
         <div>
           <span className="font-bold text-xs text-gray-900 block">{row.policyName}</span>
-          <span className="text-[10px] text-gray-400 font-mono">FY {row.financialYear}</span>
+          <span className="text-[10px] text-gray-400 font-mono">
+            {row.financialYear ? (String(row.financialYear).startsWith('FY') ? String(row.financialYear) : `FY ${row.financialYear}`) : 'FY 2026'}
+          </span>
         </div>
       )
     },
     {
-      key: 'effectiveFrom',
+      key: 'effectivePeriod',
       label: 'Effective Period',
       sortable: true,
+      sortValueGetter: (row) => row.effectivePeriod || row.effectiveFrom || '',
       render: (row) => (
         <span className="font-mono text-xs font-medium text-gray-600 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-md whitespace-nowrap inline-flex items-center gap-1">
           <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-          {row.effectiveFrom} &rarr; {row.effectiveTo}
+          {row.effectivePeriod || (row.effectiveFrom ? `${row.effectiveFrom} → ${row.effectiveTo || ''}` : 'N/A')}
         </span>
       )
     },
     {
-      key: 'active',
+      key: 'status',
       label: 'Status',
       sortable: true,
-      render: (row) => (
-        <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold shadow-2xs whitespace-nowrap ${
-          row.active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
-        }`}>
-          {row.active ? 'Active' : 'Inactive'}
-        </span>
-      )
+      render: (row) => {
+        const isActive = row.status === 'Active' || row.active !== false;
+        return (
+          <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold shadow-2xs whitespace-nowrap ${
+            isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+          }`}>
+            {isActive ? 'Active' : 'Inactive'}
+          </span>
+        );
+      }
     },
     {
       key: 'actions',
@@ -358,7 +414,11 @@ const LeavePolicyPage: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => { setAssigningPolicy(row); setSelectedEmployeeIds([12]); }}
+            onClick={() => {
+              const raw = (row as any)._raw || row;
+              setAssigningPolicy(raw);
+              setSelectedEmployeeIds([12]);
+            }}
             className="px-2 py-1 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow-2xs"
             title="Assign Policy to Employees"
           >
@@ -426,6 +486,8 @@ const LeavePolicyPage: React.FC = () => {
             pageSize={5}
             defaultSortKey="policyCode"
             defaultSortOrder="asc"
+            rowDetailsTitle={(row) => `${row.policyName} (${row.policyCode})`}
+            rowDetailsSubtitle="Leave allocations, quotas, and validity period"
           />
         </div>
 

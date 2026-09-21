@@ -45,6 +45,7 @@ export interface ShiftModel {
   attendanceFinalizeBufferMinutes?: number;
   active: boolean;
   weeklyOffs?: WeeklyOffItem[];
+  [key: string]: any;
 }
 
 const ShiftPage: React.FC = () => {
@@ -110,7 +111,66 @@ const ShiftPage: React.FC = () => {
         res = await axios.get(`${BASE_SHIFT_URL}/active`);
       }
       if (Array.isArray(res.data)) {
-        setShifts(res.data);
+        const formatTimeOnly = (t?: string) => {
+          if (!t) return '';
+          const parts = t.split(':');
+          if (parts.length >= 2) return `${parts[0]}:${parts[1]}`;
+          return t;
+        };
+
+        const cleaned = res.data.map((s: any) => {
+          const start = formatTimeOnly(s.startTime);
+          const end = formatTimeOnly(s.endTime);
+          const timingsStr = (start || end) ? `${start || '--:--'} - ${end || '--:--'}` : 'N/A';
+
+          const workingMins = s.workingHours ?? 480;
+          const hoursStr = `${(workingMins / 60).toFixed(1)} hrs (${workingMins} mins)`;
+
+          const isNight = Boolean(s.nightShift || (end && start && end < start));
+          const shiftTypeLabel = isNight ? 'Night Shift' : 'Day Shift';
+          const statusLabel = s.active !== false ? 'Active' : 'Inactive';
+
+          const weeklyOffsList = Array.isArray(s.weeklyOffs) && s.weeklyOffs.length > 0
+            ? s.weeklyOffs.map((w: any) => {
+                const occ = w.weekOccurrence && w.weekOccurrence !== 'EVERY' ? `${w.weekOccurrence} ` : '';
+                const day = w.dayOfWeek ? `${w.dayOfWeek.charAt(0)}${w.dayOfWeek.slice(1).toLowerCase()}` : '';
+                return `${occ}${day}`.trim();
+              }).filter(Boolean)
+            : undefined;
+
+          // The first 4 scalar properties will become the top 4 highlight summary metrics in Table drawer:
+          // 1. shiftCode -> SHIFT CODE
+          // 2. shiftName -> SHIFT NAME
+          // 3. timings -> TIMINGS
+          // 4. status -> STATUS
+          const rowItem: Record<string, any> = {
+            id: s.id,
+            shiftCode: s.shiftCode,
+            shiftName: s.shiftName,
+            timings: timingsStr,
+            status: statusLabel,
+            shiftType: shiftTypeLabel,
+            netDuration: hoursStr,
+            breakTime: `${s.breakMinutes ?? 60} mins`,
+            gracePeriod: `${s.gracePeriodMinutes ?? 15} mins`,
+            overtime: s.overtimeAllowed !== false ? 'Allowed' : 'Not Allowed',
+          };
+
+          if (weeklyOffsList && weeklyOffsList.length > 0) {
+            rowItem.weeklyOffs = weeklyOffsList;
+          }
+
+          // Attach raw reference non-enumerably so Table.tsx's Object.keys() does NOT inspect it
+          Object.defineProperty(rowItem, '_raw', {
+            value: s,
+            enumerable: false,
+            writable: true,
+          });
+
+          return rowItem;
+        });
+
+        setShifts(cleaned);
       } else {
         setShifts([]);
       }
@@ -216,31 +276,35 @@ const ShiftPage: React.FC = () => {
   // ── API 5: GET SHIFT BY ID ──────────────────────────────────────────────
   // Endpoint: GET /v1/api/attendance/shifts/{id}
   const handleInspectShift = async (shiftItem: ShiftModel) => {
-    if (!shiftItem.id) return;
+    const rawShift = (shiftItem as any)._raw || shiftItem;
+    const shiftId = shiftItem.id || rawShift.id;
+    if (!shiftId) return;
     try {
-      const res = await axios.get(`${BASE_SHIFT_URL}/${shiftItem.id}`);
-      setViewingShiftDetails(res.data || shiftItem);
+      const res = await axios.get(`${BASE_SHIFT_URL}/${shiftId}`);
+      setViewingShiftDetails(res.data || rawShift);
     } catch {
-      setViewingShiftDetails(shiftItem);
+      setViewingShiftDetails(rawShift);
     }
   };
 
   // ── API 6: GET ALL WEEKLY-OFFS FOR SHIFT ────────────────────────────────
   // Endpoint: GET /v1/api/attendance/shifts/{shiftId}/weekly-offs
   const openWeeklyOffDrawer = async (shiftItem: ShiftModel) => {
-    if (!shiftItem.id) return;
-    setActiveShiftForWeeklyOff(shiftItem);
+    const rawShift = (shiftItem as any)._raw || shiftItem;
+    const shiftId = shiftItem.id || rawShift.id;
+    if (!shiftId) return;
+    setActiveShiftForWeeklyOff(rawShift);
     setLoading(true);
 
     try {
-      const res = await axios.get(`${BASE_SHIFT_URL}/${shiftItem.id}/weekly-offs`);
+      const res = await axios.get(`${BASE_SHIFT_URL}/${shiftId}/weekly-offs`);
       if (Array.isArray(res.data)) {
         setWeeklyOffsList(res.data);
       } else {
-        setWeeklyOffsList(shiftItem.weeklyOffs || []);
+        setWeeklyOffsList(rawShift.weeklyOffs || []);
       }
     } catch {
-      setWeeklyOffsList(shiftItem.weeklyOffs || []);
+      setWeeklyOffsList(rawShift.weeklyOffs || []);
     } finally {
       setLoading(false);
       setIsWeeklyOffDrawerOpen(true);
@@ -319,17 +383,18 @@ const ShiftPage: React.FC = () => {
   };
 
   const openEditModal = (s: ShiftModel) => {
-    setEditingShift(s);
+    const rawShift = (s as any)._raw || s;
+    setEditingShift(rawShift);
     setForm({
-      shiftCode: s.shiftCode,
-      shiftName: s.shiftName,
-      startTime: s.startTime ? s.startTime.substring(0, 5) : "09:00",
-      endTime: s.endTime ? s.endTime.substring(0, 5) : "18:00",
-      breakMinutes: s.breakMinutes ?? 60,
-      gracePeriodMinutes: s.gracePeriodMinutes ?? 15,
-      overtimeAllowed: s.overtimeAllowed !== false,
-      attendanceFinalizeBufferMinutes: s.attendanceFinalizeBufferMinutes ?? 360,
-      active: s.active !== false
+      shiftCode: rawShift.shiftCode,
+      shiftName: rawShift.shiftName,
+      startTime: rawShift.startTime ? rawShift.startTime.substring(0, 5) : "09:00",
+      endTime: rawShift.endTime ? rawShift.endTime.substring(0, 5) : "18:00",
+      breakMinutes: rawShift.breakMinutes ?? 60,
+      gracePeriodMinutes: rawShift.gracePeriodMinutes ?? 15,
+      overtimeAllowed: rawShift.overtimeAllowed !== false,
+      attendanceFinalizeBufferMinutes: rawShift.attendanceFinalizeBufferMinutes ?? 360,
+      active: rawShift.active !== false
     });
     setIsShiftModalOpen(true);
   };
@@ -369,42 +434,35 @@ const ShiftPage: React.FC = () => {
         <div>
           <span className="font-bold text-xs text-gray-900 dark:text-white block">{row.shiftName}</span>
           <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
-            {row.startTime?.substring(0, 5)} - {row.endTime?.substring(0, 5)}
+            {row.timings || `${row.startTime?.substring(0, 5)} - ${row.endTime?.substring(0, 5)}`}
           </span>
         </div>
       )
     },
     {
-      key: 'workingHours',
-      label: 'Net Working Duration',
-      render: (row) => (
-        <span className="text-xs font-semibold text-slate-700 dark:text-gray-300 font-mono">
-          {row.workingHours ? `${row.workingHours} mins (${(row.workingHours / 60).toFixed(1)}h)` : '480 mins (8.0h)'}
-        </span>
-      )
-    },
-    {
-      key: 'nightShift',
-      label: 'Shift Type',
-      render: (row) => (
-        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-          row.nightShift ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800' : 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-        }`}>
-          {row.nightShift ? 'Night Shift' : 'Day Shift'}
-        </span>
-      )
-    },
-    {
-      key: 'active',
-      label: 'Status',
+      key: 'timings',
+      label: 'Timings',
       sortable: true,
       render: (row) => (
-        <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap ${
-          row.active !== false ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-        }`}>
-          {row.active !== false ? 'Active' : 'Inactive'}
+        <span className="font-mono text-xs font-semibold text-slate-700 dark:text-gray-300">
+          {row.timings || `${row.startTime?.substring(0, 5)} - ${row.endTime?.substring(0, 5)}`}
         </span>
       )
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      sortable: true,
+      render: (row) => {
+        const isActive = row.status === 'Active' || row.active !== false;
+        return (
+          <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap ${
+            isActive ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+          }`}>
+            {isActive ? 'Active' : 'Inactive'}
+          </span>
+        );
+      }
     },
     {
       key: 'actions',
@@ -489,6 +547,8 @@ const ShiftPage: React.FC = () => {
             pageSize={5}
             defaultSortKey="shiftName"
             defaultSortOrder="asc"
+            rowDetailsTitle={(row) => `${row.shiftName} (${row.shiftCode})`}
+            rowDetailsSubtitle="Shift timings and configuration summary"
           />
         </div>
 

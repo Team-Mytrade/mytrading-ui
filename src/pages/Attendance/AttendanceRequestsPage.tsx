@@ -31,12 +31,13 @@ export interface RequestDetailItem {
 
 export interface AttendanceRequestModel {
   id?: number;
-  employeeId: number;
+  employeeId?: number;
   employeeName?: string;
   requestType?: string;
   status?: string; // PENDING, APPROVED, REJECTED, CANCELLED
   createdDate?: string;
-  requestDetails: RequestDetailItem[];
+  requestDetails?: RequestDetailItem[];
+  [key: string]: any;
 }
 
 export interface OnDutyDateRow {
@@ -131,9 +132,20 @@ const AttendanceRequestsPage: React.FC = () => {
   }, [form.fromDate, form.toDate]);
 
   // Request Counts for top summary cards
-  const wfhCount = useMemo(() => requests.filter(r => (r.requestType || r.requestDetails?.[0]?.requestType) === 'WORK_FROM_HOME').length, [requests]);
-  const regCount = useMemo(() => requests.filter(r => (r.requestType || r.requestDetails?.[0]?.requestType) === 'REGULARIZATION').length, [requests]);
-  const dutyCount = useMemo(() => requests.filter(r => (r.requestType || r.requestDetails?.[0]?.requestType) === 'ON_DUTY').length, [requests]);
+  const wfhCount = useMemo(() => requests.filter(r => {
+    const t = String(r.requestType || (r as any)._raw?.requestType || '').toUpperCase().replace(/[\s_-]+/g, '');
+    return t.includes('WORKFROMHOME') || t.includes('WFH');
+  }).length, [requests]);
+
+  const regCount = useMemo(() => requests.filter(r => {
+    const t = String(r.requestType || (r as any)._raw?.requestType || '').toUpperCase().replace(/[\s_-]+/g, '');
+    return t.includes('REGULARIZ');
+  }).length, [requests]);
+
+  const dutyCount = useMemo(() => requests.filter(r => {
+    const t = String(r.requestType || (r as any)._raw?.requestType || '').toUpperCase().replace(/[\s_-]+/g, '');
+    return t.includes('ONDUTY') || t.includes('DUTY');
+  }).length, [requests]);
 
   // ── Dynamic Employee ID Resolution ─────────────────────────────────────
   useEffect(() => {
@@ -176,7 +188,90 @@ const AttendanceRequestsPage: React.FC = () => {
     try {
       const res = await axios.get(`${BASE_REQUESTS_URL}/my/${empId}`);
       if (Array.isArray(res.data)) {
-        setRequests(res.data);
+        // Keep only high-value, essential fields so the details drawer fits in-screen without scrolling
+        const cleaned = res.data.map((r: any) => {
+          // Backend may return responseDetails or requestDetails
+          const detailList = (Array.isArray(r.responseDetails) && r.responseDetails.length > 0)
+            ? r.responseDetails
+            : (Array.isArray(r.requestDetails) ? r.requestDetails : []);
+          const firstDetail = detailList[0] || {};
+          
+          const fromD = r.fromDate || firstDetail.fromDate;
+          const toD = r.toDate || firstDetail.toDate;
+          const datesStr = fromD ? `${fromD}${toD && toD !== fromD ? ` to ${toD}` : ''}` : 'N/A';
+
+          const formatTimeOnly = (t?: string) => {
+            if (!t) return '';
+            if (t.includes('T')) {
+              const part = t.split('T')[1];
+              return part ? part.slice(0, 5) : '';
+            }
+            return t.slice(0, 5);
+          };
+
+          const rawType = r.requestType || firstDetail.requestType || 'ON_DUTY';
+          const requestTypeStr = String(rawType).replace(/_/g, ' ');
+          const statusStr = String(r.status || r.approvalStatus || firstDetail.approvalStatus || 'PENDING').toUpperCase();
+
+          const empCode = r.employeeCode || (r.employeeId ? `EMP-${r.employeeId}` : '');
+          const empName = r.employeeName || currentUser.name;
+          const empLabel = empName ? `${empName}${empCode ? ` (${empCode})` : ''}` : undefined;
+
+          // The first 4 scalar fields become the top 4 highlight summary metrics in Table drawer:
+          // 1. id -> REQ ID
+          // 2. requestType -> REQUEST TYPE
+          // 3. dates -> DATES
+          // 4. status -> STATUS
+          const rowItem: Record<string, any> = {
+            id: r.id,
+            requestType: requestTypeStr,
+            dates: datesStr,
+            status: statusStr,
+          };
+
+          // Information entries below summary (clean, concise, non-scrolling):
+          if (empLabel) rowItem.employee = empLabel;
+
+          const inTime = formatTimeOnly(firstDetail.checkInTime);
+          const outTime = formatTimeOnly(firstDetail.checkOutTime);
+          if (inTime || outTime) {
+            rowItem.timing = `${inTime || '--:--'} - ${outTime || '--:--'}`;
+          }
+
+          const taskName = firstDetail.projectTaskName || (firstDetail.projectTaskId ? `Task #${firstDetail.projectTaskId}` : undefined);
+          if (taskName) rowItem.projectTask = taskName;
+
+          const clientOrLocation = [firstDetail.clientName, firstDetail.visitLocation].filter(Boolean).join(' • ');
+          if (clientOrLocation) rowItem.location = clientOrLocation;
+
+          const remarksText = firstDetail.remarks || firstDetail.reason || r.remarks || r.reason;
+          if (remarksText) rowItem.remarks = remarksText;
+
+          const approverRemarksText = r.approverRemarks || firstDetail.approverRemarks;
+          if (approverRemarksText) rowItem.approverRemarks = approverRemarksText;
+
+          // If multiple dates were requested in a single request, provide compact badges
+          if (detailList.length > 1) {
+            rowItem.schedule = detailList.map((d: any) => {
+              const dDate = d.fromDate || '';
+              const dIn = formatTimeOnly(d.checkInTime);
+              const dOut = formatTimeOnly(d.checkOutTime);
+              const dTime = (dIn || dOut) ? ` (${dIn || '--:--'} - ${dOut || '--:--'})` : '';
+              return `${dDate}${dTime}`;
+            });
+          }
+
+          // Attach raw reference non-enumerably so Table.tsx's Object.keys() does NOT inspect it
+          Object.defineProperty(rowItem, '_raw', {
+            value: r,
+            enumerable: false,
+            writable: true,
+          });
+
+          return rowItem;
+        });
+
+        setRequests(cleaned);
       } else {
         setRequests([]);
       }
@@ -327,12 +422,14 @@ const AttendanceRequestsPage: React.FC = () => {
 
   // ── API 3: GET BY REQUEST ID AND EMPLOYEE ID ────────────────────────────
   const handleInspectRequest = async (req: AttendanceRequestModel) => {
-    if (!req.id) return;
+    const rawObj = (req as any)._raw || req;
+    const reqId = req.id || rawObj.id;
+    if (!reqId) return;
     try {
-      const res = await axios.get(`${BASE_REQUESTS_URL}/${req.id}/${currentEmployeeId}`);
-      setViewingRequest(res.data || req);
+      const res = await axios.get(`${BASE_REQUESTS_URL}/${reqId}/${currentEmployeeId}`);
+      setViewingRequest(res.data || rawObj);
     } catch {
-      setViewingRequest(req);
+      setViewingRequest(rawObj);
     }
   };
 
@@ -487,11 +584,14 @@ const AttendanceRequestsPage: React.FC = () => {
     {
       key: 'dates',
       label: 'Dates',
+      sortable: true,
+      sortValueGetter: (row) => row.dates || row.requestDetails?.[0]?.fromDate || '',
       render: (row) => {
         const detail = row.requestDetails?.[0];
+        const dateDisplay = row.dates || (detail?.fromDate ? `${detail.fromDate}${detail.toDate && detail.toDate !== detail.fromDate ? ` to ${detail.toDate}` : ''}` : 'N/A');
         return (
-          <span className="text-xs font-mono font-semibold text-slate-700">
-            {detail?.fromDate || 'N/A'} {detail?.toDate && detail.toDate !== detail.fromDate ? `to ${detail.toDate}` : ''}
+          <span className="text-xs font-mono font-semibold text-slate-700 dark:text-gray-300">
+            {dateDisplay}
           </span>
         );
       }
@@ -932,6 +1032,8 @@ const AttendanceRequestsPage: React.FC = () => {
               pageSize={5}
               defaultSortKey="id"
               defaultSortOrder="desc"
+              rowDetailsTitle={(row) => `Request Details #${row.id}`}
+              rowDetailsSubtitle="Key attendance request information"
             />
           </div>
         )}
@@ -1063,7 +1165,7 @@ const AttendanceRequestsPage: React.FC = () => {
 
       {/* ── MODAL: VIEW REQUEST DETAILS ───────────────────────────────────── */}
       {viewingRequest && (() => {
-        const detail = viewingRequest.requestDetails?.[0] || {} as Partial<RequestDetailItem>;
+        const detail = (viewingRequest.requestDetails?.[0] || (viewingRequest as any).responseDetails?.[0] || {}) as Partial<RequestDetailItem>;
         const status = (viewingRequest.status || 'PENDING').toUpperCase();
         let statusBadgeClass = 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800';
         if (status === 'APPROVED') statusBadgeClass = 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800';

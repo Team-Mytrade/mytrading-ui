@@ -310,14 +310,28 @@ const EmployeeCompensationPage: React.FC = () => {
         return compensations.map((item, index) => {
             const components = item.componentDetails || {};
             const total = Object.values(components).reduce((sum, val) => sum + val, 0);
-            return {
-                id: item.employeeRole || `role-${index}`,
+            const compCount = Object.keys(components).length;
+
+            const formattedComponents: Record<string, string> = {};
+            for (const [name, pct] of Object.entries(components)) {
+                formattedComponents[name] = `${pct}%`;
+            }
+
+            const rowItem: Record<string, any> = {
                 employeeRole: item.employeeRole,
-                componentDetails: components,
-                total,
-                isDefaultComponent: item.isDefaultComponent || false,
-                rawItem: item,
+                total: `${total}%`,
+                componentsCount: `${compCount} Component${compCount !== 1 ? 's' : ''}`,
+                templateType: item.isDefaultComponent ? "Default Template" : "Role Specific",
+                componentDetails: formattedComponents,
             };
+
+            Object.defineProperties(rowItem, {
+                id: { value: item.employeeRole || `role-${index}`, enumerable: false, writable: true },
+                isDefaultComponent: { value: item.isDefaultComponent || false, enumerable: false, writable: true },
+                rawItem: { value: item, enumerable: false, writable: true },
+            });
+
+            return rowItem;
         });
     }, [compensations]);
 
@@ -350,7 +364,7 @@ const EmployeeCompensationPage: React.FC = () => {
                     <div className="flex flex-wrap gap-1.5 py-1">
                         {entries.map(([name, pct]) => (
                             <span key={name} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-50 text-gray-800 border border-gray-200 shadow-2xsm">
-                                <span className="font-semibold text-gray-600 mr-1">{name}:</span> {pct as number}%
+                                <span className="font-semibold text-gray-600 mr-1">{name}:</span> {String(pct).endsWith('%') ? pct : `${pct}%`}
                             </span>
                         ))}
                     </div>
@@ -361,9 +375,10 @@ const EmployeeCompensationPage: React.FC = () => {
             key: "total",
             label: "Total %",
             sortable: true,
+            sortValueGetter: (row) => parseFloat(String(row.total)) || 0,
             render: (row) => (
                 <span className="font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full text-xs border border-cyan-100">
-                    {row.total}%
+                    {row.total}
                 </span>
             ),
         },
@@ -682,6 +697,8 @@ const EmployeeCompensationPage: React.FC = () => {
                         loading={loading}
                         searchable={false}
                         pageSize={10}
+                        rowDetailsTitle={(row) => `${row.employeeRole} Compensation`}
+                        rowDetailsSubtitle="Role-based salary component percentage allocation"
                     />
                 )}
 
