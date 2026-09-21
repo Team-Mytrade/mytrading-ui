@@ -48,7 +48,7 @@ import QualityInspection from "./pages/Inventory/quality-inspection";
 import SerialNumber from "./pages/Inventory/serial-number";
 import StockMovement from "./pages/Inventory/stock-movement";
 import InventoryReservation from "./pages/Inventory/inventory-reservation";
-import InventoryReport from "./pages/Inventory/inventory-report";
+import InventoryReport from "./pages/reports/inventory-report";
 import StockAdjustment from "./pages/Inventory/stock-adjustment";
 import PurchaseRequisitions from "./pages/Purchase/PurchaseRequisitions";
 import RequisitionLineItems from "./pages/Purchase/RequisitionLineItems";
@@ -61,7 +61,7 @@ import Deliveries from "./pages/Purchase/Deliveries";
 import ApprovalStatus from "./pages/Purchase/ApprovalStatus";
 import GoodsReceiptNotes from "./pages/Purchase/GoodsReceiptNotes";
 import Inventory from "./pages/Purchase/Inventory";
-import PurchaseReports from "./pages/Purchase/PurchaseReports";
+import PurchaseReports from "./pages/Reports/PurchaseReports";
 import DeliveryOrderPage from "./pages/Delivery/DeliveryOrderPage";
 import TransporterPage from "./pages/Delivery/TransporterPage";
 import VehiclePage from "./pages/Delivery/VehiclePage";
@@ -118,12 +118,12 @@ import KnowledgeBase from "./pages/Support/KnowledgeBase";
 import SLAManagement from "./pages/Support/SLAManagement";
 import SupportReports from "./pages/Support/SupportReports";
 import TicketSupport from "./pages/Support/TicketSupport";
-import ActivityReports from "./pages/Reports/ActivityReports";
-import CustomReports from "./pages/Reports/CustomReports";
-import CustomerRetentionReport from "./pages/Reports/CustomerRetentionReport";
-import LeadReports from "./pages/Reports/LeadReports";
-import PerformanceReports from "./pages/Reports/PerformanceReports";
-import SalesReports from "./pages/Reports/SalesReports";
+import ActivityReports from "./pages/reports/ActivityReports";
+import CustomReports from "./pages/reports/CustomReports";
+import CustomerRetentionReport from "./pages/reports/CustomerRetentionReport";
+import LeadReports from "./pages/reports/LeadReports";
+import PerformanceReports from "./pages/reports/PerformanceReports";
+import SalesReports from "./pages/reports/SalesReports";
 import AutomationLogs from "./pages/Workflow/AutomationLogs";
 import AutomationWorkflowRules from "./pages/Workflow/AutomationWorkflowRules";
 import ScheduledActions from "./pages/Workflow/ScheduledActions";
@@ -205,9 +205,9 @@ import PaymentReceipts from "./pages/Invoice/PaymentReceipts";
 import GeneralLedger from "./pages/Invoice/GeneralLedger";
 import ExpenseRevenue from "./pages/Invoice/ExpenseRevenue";
 import AccountsReceivable from "./pages/Invoice/AccountsReceivable";
-import TaxReport from "./pages/Invoice/TaxReport";
-import FinanceReport from "./pages/Invoice/FinanceReport";
-
+import TaxReport from "./pages/reports/TaxReport";
+import FinanceReport from "./pages/reports/FinanceReport";
+import Reports from "./pages/Reports/CrmReports";
 export default function AppRouter() {
   return (
     <BrowserRouter>
@@ -238,7 +238,8 @@ export default function AppRouter() {
           <Route path="/crm_dashboard" element={<CrmDashboardPage />} />
           <Route path="/customers/new" element={<CustomerFormPage />} />
           <Route path="/customers/edit/:id" element={<CustomerFormPage />} />
-
+          <Route path="/crm-reports" element={<Reports />} />
+          
           <Route path="/role_config" element={<Mainrole />} />
 
           <Route path="/service-schedule-notify" element={<ServiceScheduleNotify />} />

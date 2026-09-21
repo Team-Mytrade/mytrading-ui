@@ -14,9 +14,10 @@ const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, sidebarWidth, isResizing } = useSidebar();
   const location = useLocation();
   const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
-  const isScrollablePage = 
-    location.pathname === "/" || 
-    location.pathname.startsWith("/att_leaveDashboard") || 
+  const scrollablePages = ["/purchase-reports", "/rolesPermissions", "/delivery_dashboard"];
+  const isScrollablePage =
+    scrollablePages.includes(location.pathname) ||
+    location.pathname.startsWith("/att_leaveDashboard") ||
     location.pathname.startsWith("/att_leaveManagerDashboard") ||
     location.pathname.startsWith("/att_leaveRequest") ||
     location.pathname.startsWith("/att_timesheetManagement") ||

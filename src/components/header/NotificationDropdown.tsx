@@ -11,6 +11,7 @@ import {
   Bell, Trash2, Clock, AlertCircle, CheckCircle,
   Calendar, Zap, TrendingUp, AlertTriangle, Eye, Inbox,
 } from "lucide-react";
+import { publicAsset } from "../../utils/assets";
 
 type HeaderNotification = {
   id: number;
@@ -23,7 +24,7 @@ type HeaderNotification = {
   priority?: "LOW" | "MEDIUM" | "HIGH";
 };
 
-const DEFAULT_AVATAR = "/images/user/user-01.jpg";
+const DEFAULT_AVATAR = publicAsset("images/user/user-01.jpg");
 
 const getPriorityColor = (priority?: string) => {
   switch (priority) {

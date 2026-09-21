@@ -90,6 +90,7 @@ const API_URL = "/v1/api/crm/contacts";
 const CUSTOMER_API_URL = "/v1/api/crm/customers";
 const PAGE_SIZE = 10;
 
+
 const safeText = (value?: string | null) => value?.trim() || "";
 
 const getCustomerDisplayName = (customer?: Customer | null) =>
@@ -104,6 +105,7 @@ const mapContactsFromCustomers = (customerList: Customer[]): Contact[] =>
       phone: safeText(contact.phone),
       customer,
     }))
+    
   );
 
 const KeyContacts: React.FC = () => {
@@ -337,80 +339,124 @@ const KeyContacts: React.FC = () => {
   });
 
   // Add Contact Submit
-  const handleAddContact = async (e: FormEvent) => {
-    e.preventDefault();
-    try {
-      const payload = {
-        fullName: newContact.fullName,
-        email: newContact.email,
-        phone: newContact.phone,
-        role: newContact.role,
-        customer: newContact.customerId
-          ? { id: Number(newContact.customerId) }
-          : null,
-      };
+  // Add Contact Submit
+const handleAddContact = async (e: FormEvent) => {
+  e.preventDefault();
+  try {
+    // Do NOT send `customer` in the body — backend ignores it on PUT and
+    // the add flow carries the customer id via the URL instead.
+    const payload = {
+      fullName: newContact.fullName,
+      email: newContact.email,
+      phone: newContact.phone,
+      role: newContact.role,
+    };
 
-      const res = await axios.post(
-        `${API_URL}/customer/${newContact.customerId}`,
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+    const url = newContact.customerId
+      ? `${API_URL}/customer/${newContact.customerId}`
+      : API_URL;
 
-      if (res.status === 200 || res.status === 201) {
-        ToasterService.success("Contact added successfully!");
-        setShowAddModal(false);
-        setNewContact({
-          fullName: "",
-          email: "",
-          phone: "",
-          role: "",
-          customerId: "",
-        });
-        localStorage.removeItem(ADD_DRAFT_STORAGE_KEY);
-        fetchCustomers();
-      }
-    } catch (error) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const err = error as any;
-      console.error("Error adding contact:", err);
-      ToasterService.error(err.response?.data?.message || "Failed to add contact.");
+    const res = await axios.post(url, payload, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (res.status === 200 || res.status === 201) {
+      ToasterService.success("Contact added successfully!");
+      setShowAddModal(false);
+      setNewContact({
+        fullName: "",
+        email: "",
+        phone: "",
+        role: "",
+        customerId: "",
+      });
+      localStorage.removeItem(ADD_DRAFT_STORAGE_KEY);
+      fetchCustomers();
     }
-  };
+  } catch (error) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const err = error as any;
+    console.error("Error adding contact:", err);
+    ToasterService.error(err.response?.data?.message || "Failed to add contact.");
+  }
+};
 
-  // Handle Edit Contact
-  const handleEditContact = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!editContact) return;
+ // Handle Edit Contact
+// Handle Edit Contact
+const handleEditContact = async (e: FormEvent) => {
+  e.preventDefault();
+  if (!editContact) return;
+
+  const original = contacts.find((c) => c.id === editContact.id);
+  const originalCustomerId = original?.customer?.id ?? null;
+  const newCustomerId = editContact.customer?.id ?? null;
+  const companyChanged = newCustomerId !== originalCustomerId;
+
+  try {
+    // Step 1: company change first
+    if (companyChanged && newCustomerId) {
+      try {
+        await axios.post(
+          `/v1/api/crm/contacts/${editContact.id}/assign/${newCustomerId}`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } catch (assignError) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const err = assignError as any;
+        console.error("ASSIGN STEP FAILED:", {
+          status: err.response?.status,
+          data: err.response?.data,
+          url: err.config?.url,
+        });
+        ToasterService.error(
+          err.response?.data?.message ||
+            `Failed to assign company (HTTP ${err.response?.status ?? "?"})`
+        );
+        return; // stop — don't bother with the PUT if assign failed
+      }
+    }
+
+    // Step 2: scalar fields
+    const payload = {
+      fullName: editContact.fullName,
+      email: editContact.email,
+      phone: editContact.phone,
+      role: editContact.role,
+    };
 
     try {
-      const payload = {
-        fullName: editContact.fullName,
-        email: editContact.email,
-        phone: editContact.phone,
-        role: editContact.role,
-        customer: editContact.customer?.id
-          ? { id: editContact.customer.id }
-          : null,
-      };
-
-      const res = await axios.put(`${API_URL}/${editContact.id}`, payload, {
+      await axios.put(`${API_URL}/${editContact.id}`, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      if (res.status === 200) {
-        ToasterService.success("Contact updated successfully!");
-        setShowEditModal(false);
-        setEditContact(null);
-        localStorage.removeItem(EDIT_DRAFT_STORAGE_KEY);
-        fetchCustomers();
-      }
-    } catch (error) {
+    } catch (putError) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const err = error as any;
-      console.error("Error updating contact:", err);
-      ToasterService.error(err.response?.data?.message || "Failed to update contact.");
+      const err = putError as any;
+      console.error("PUT STEP FAILED:", {
+        status: err.response?.status,
+        data: err.response?.data,
+        url: err.config?.url,
+      });
+      ToasterService.error(
+        err.response?.data?.message ||
+          `Failed to update contact (HTTP ${err.response?.status ?? "?"})`
+      );
+      return;
     }
-  };
+
+    ToasterService.success("Contact updated successfully!");
+    setShowEditModal(false);
+    setEditContact(null);
+    localStorage.removeItem(EDIT_DRAFT_STORAGE_KEY);
+    fetchCustomers();
+  } catch (error) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const err = error as any;
+    console.error("Unexpected error updating contact:", err);
+    ToasterService.error(err.response?.data?.message || "Failed to update contact.");
+  }
+};
+
 
   // Handle Assign Customer
   const handleAssignCustomer = async (contactId: number, customerId: number) => {
@@ -598,10 +644,11 @@ const KeyContacts: React.FC = () => {
       <PageBreadcrumb pageTitle="Contact Persons" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+        <div className="mb-6 mx-4 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={() => setShowAddModal(true)} label="Add Contact Person" />
         </div>
-        <div className=" grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="py-4 px-3">
+        <div className=" grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-[17px]">
           <StatsCard
             label="Total Contacts"
             value={totalContacts}
@@ -632,39 +679,6 @@ const KeyContacts: React.FC = () => {
           />
         </div>
 
-        {/* Toolbar */}
-        <div className=" flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="mb-1 w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search contacts by name, email, or phone..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <div className="-mb-1 my-2 flex w-full items-center justify-end gap-3 sm:w-auto">
-            <FilterPopover
-              title="Filter Contacts"
-              buttonLabel="Filters"
-              label="Filter by Role"
-              value={activeFilter}
-              options={[
-                { label: "All Contacts", value: "ALL" },
-                { label: "Linked to Customer", value: "WITH_CUSTOMER" },
-                { label: "Decision Makers", value: "DECISION_MAKER" },
-                { label: "Influencers", value: "INFLUENCER" },
-              ]}
-              onChange={setActiveFilter}
-              onReset={() => setActiveFilter("ALL")}
-              onApply={() => undefined}
-            />
-          </div>
-        </div>
 
         {/* Table */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-visible shadow-sm">
@@ -695,6 +709,7 @@ const KeyContacts: React.FC = () => {
                 </div>
               }
             />
+        </div>
         </div>
 
         {/* Add Contact Modal */}
@@ -855,18 +870,24 @@ const KeyContacts: React.FC = () => {
                   </div>
 
                   <div className="col-span-1 sm:col-span-2">
-                    <FloatingSelect
-                      label="Company"
-                      name="customerId"
-                      value={editContact.customer?.id || ""}
-                      onChange={(e) =>
-                        setEditContact({
-                          ...editContact,
-                          customer: e.target.value ? { id: Number(e.target.value) } as Customer : null,
-                        })
-                      }
-                      options={customers.map(cust => ({ id: cust.id, name: getCustomerDisplayName(cust) }))}
-                    />
+                   <FloatingSelect
+  label="Company"
+  name="customerId"
+  value={editContact.customer?.id || ""}
+  onChange={(e) => {
+    // Backend cannot unassign a contact from its company yet.
+    // Ignore empty selection to avoid a no-op save that confuses users.
+    if (!e.target.value) return;
+    setEditContact({
+      ...editContact,
+      customer: { id: Number(e.target.value) } as Customer,
+    });
+  }}
+  options={customers.map((cust) => ({
+    id: cust.id,
+    name: getCustomerDisplayName(cust),
+  }))}
+/>
                   </div>
                 </div>
 

@@ -16,12 +16,11 @@ import {
   FunnelIcon,
   MapPinIcon,
 } from "@heroicons/react/24/outline";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import StatsCard from "../../components/common/Statscard";
-import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import DynamicPopup from "../../components/common/Popup";
 
@@ -76,6 +75,13 @@ const PAGE_SIZE = 10;
 
 const Customers: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const segmentId = Number(searchParams.get("segmentId")) || null;
+  const segmentName = searchParams.get("segmentName") || "Selected segment";
+  const customerIdsParam = searchParams.get("customerIds");
+  const customerName = searchParams.get("customerName") || "Selected customer";
+  const isCustomerScoped = searchParams.has("customerIds");
+  const assignedCustomerIds = new Set((customerIdsParam || "").split(",").map(Number).filter(Number.isFinite));
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [search, setSearch] = useState("");
@@ -101,8 +107,12 @@ const Customers: React.FC = () => {
     setLoading(true);
     try {
       const res = await axios.get<Customer[]>(API_URL);
-      setCustomers(res.data);
-      setFilteredCustomers(res.data);
+      const allCustomers = Array.isArray(res.data) ? res.data : [];
+      const scopedCustomers = isCustomerScoped
+        ? allCustomers.filter((customer) => assignedCustomerIds.has(customer.id))
+        : allCustomers;
+      setCustomers(scopedCustomers);
+      setFilteredCustomers(scopedCustomers);
     } catch (err) {
       console.error("Error fetching customers", err);
       ToasterService.error("Failed to load customers");
@@ -113,7 +123,7 @@ const Customers: React.FC = () => {
 
   useEffect(() => {
     fetchCustomers();
-  }, []);
+  }, [segmentId, customerIdsParam]);
 
   // Search filter
   useEffect(() => {
@@ -445,12 +455,10 @@ const Customers: React.FC = () => {
   return (
     <>
       <PageMeta title="Customers" description="Manage your Customers" />
-      <PageBreadcrumb pageTitle="Customers" />
+      <PageBreadcrumb pageTitle="Customers" showAddButton addButtonLabel="Add Customer" onAddClick={handleAddCustomer} />
 
       <div className="min-w-0 w-full max-w-full px-0 py-8">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={handleAddCustomer} label="Add Customer" />
-        </div>
+        {isCustomerScoped && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>{segmentId ? <>Showing customers in segment: <strong>{segmentName}</strong></> : <>Showing customer: <strong>{customerName}</strong></>}</span><button type="button" onClick={() => navigate("/customer-management")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all customers</button></div>}
         <div className="mb-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
             label="Total Customers"

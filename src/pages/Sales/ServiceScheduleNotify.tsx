@@ -1,38 +1,31 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import axios from "axios";
 import {
   CalendarDaysIcon,
   CheckCircleIcon,
   ClockIcon,
-  MagnifyingGlassIcon,
   PaperAirplaneIcon,
+  PencilSquareIcon,
   PlayIcon,
   TrashIcon,
   UserPlusIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
+import { AddButton } from "../../components/common/AddButton";
+import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import { AddButton } from "../../components/common/AddButton";
-import { ListingPdfExportButton } from "../../components/common/export";
-import FilterPopover from "../../components/common/filter";
+import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
-import { ToasterService } from "../../Services/ToasterService";
 import {
   FloatingDatePicker,
   FloatingInput,
   FloatingSelect1 as FloatingSelect,
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
+import { ToasterService } from "../../Services/ToasterService";
 
-type LocalTime = {
-  hour: number;
-  minute: number;
-  second: number;
-  nano: number;
-};
+type LocalTime = { hour: number; minute: number; second: number; nano: number };
 
 type ServiceSchedule = {
   id: number;
@@ -72,7 +65,21 @@ type UserOption = {
   active?: boolean;
 };
 
+type CustomerOption = { id: number; customerName?: string; tradeName?: string; email?: string };
+
+type ScheduleOrderOption = {
+  id?: number;
+  salesOrderId?: number;
+  orderId?: number;
+  orderNumber?: string;
+  salesOrderNumber?: string;
+  customerId?: number;
+  customerName?: string;
+};
+
 const API_URL = "/v1/api/sales/service-schedule-notify";
+const CUSTOMERS_API = "/v1/api/crm/customers";
+const SCHEDULE_ORDERS_API = "/v1/api/sales/sales-orders/schedule/orders";
 const PAGE_SIZE = 10;
 
 const emptyForm: ScheduleForm = {
@@ -85,16 +92,49 @@ const emptyForm: ScheduleForm = {
   remarks: "",
 };
 
+// ── Normalizers — accept any shape a custom input might emit ────────────
+
+// Reads a string from an onChange payload. Handles:
+//   • standard event  { target: { value: "..." } }
+//   • raw string      "..."
+//   • raw number      123
+//   • Date            Date
+//   • range tuple     [start, end]
+function readInputValue(input: unknown): string {
+  if (input == null) return "";
+  if (typeof input === "string") return input;
+  if (typeof input === "number") return String(input);
+  if (input instanceof Date) {
+    const y = input.getFullYear();
+    const m = String(input.getMonth() + 1).padStart(2, "0");
+    const d = String(input.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  if (Array.isArray(input)) {
+    return readInputValue(input[1] ?? input[0]);
+  }
+  if (typeof input === "object" && "target" in input) {
+    const target = (input as { target?: { value?: unknown } }).target;
+    return readInputValue(target?.value);
+  }
+  return "";
+}
+
 function formatTime(time?: LocalTime | string) {
   if (!time) return "--";
   if (typeof time === "string") return time.slice(0, 5);
   return `${String(time.hour).padStart(2, "0")}:${String(time.minute).padStart(2, "0")}`;
 }
 
-function formatRequestTime(value: string) {
-  if (!value) return "00:00:00";
-  const [hour = "00", minute = "00"] = value.split(":");
-  return `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}:00`;
+function toLocalTimeObject(value: string): LocalTime {
+  if (!value) return { hour: 0, minute: 0, second: 0, nano: 0 };
+  const [hour = "0", minute = "0", second = "0"] = value.split(":");
+  return {
+    hour: Number(hour) || 0,
+    minute: Number(minute) || 0,
+    second: Number(second) || 0,
+    nano: 0,
+  };
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -105,15 +145,33 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 function getEmployeeName(user: UserOption) {
-  return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.username || user.userId;
+  return (
+    [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+    user.username ||
+    user.userId
+  );
 }
 
-function searchableText(value: unknown) {
-  if (value === null || value === undefined) return "";
-  return String(value).toLowerCase().trim();
+function customerLabel(c: CustomerOption) {
+  return c.customerName || c.tradeName || `Customer #${c.id}`;
 }
 
-function openNativeTimePicker(event: React.FocusEvent<HTMLInputElement> | React.MouseEvent<HTMLInputElement>) {
+function getScheduleOrderId(o: ScheduleOrderOption) {
+  const numeric = Number(o.id ?? o.salesOrderId ?? o.orderId ?? 0);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : 0;
+}
+
+function getScheduleOrderLabel(o: ScheduleOrderOption) {
+  const id = getScheduleOrderId(o);
+  const number = o.orderNumber || o.salesOrderNumber;
+  if (number) return number;
+  if (o.customerName) return `Order #${id} — ${o.customerName}`;
+  return `Order #${id}`;
+}
+
+function openNativeTimePicker(
+  event: React.FocusEvent<HTMLInputElement> | React.MouseEvent<HTMLInputElement>
+) {
   const input = event.currentTarget;
   if (typeof input.showPicker === "function") {
     input.showPicker();
@@ -122,19 +180,33 @@ function openNativeTimePicker(event: React.FocusEvent<HTMLInputElement> | React.
 
 const ServiceScheduleNotify: React.FC = () => {
   const token = localStorage.getItem("accessToken");
+  const headers = useMemo(
+    () =>
+      token
+        ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
+        : undefined,
+    [token]
+  );
+
   const [schedules, setSchedules] = useState<ServiceSchedule[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
+  const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [scheduleOrders, setScheduleOrders] = useState<ScheduleOrderOption[]>([]);
+
   const [form, setForm] = useState<ScheduleForm>(emptyForm);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [scheduleId, setScheduleId] = useState("");
-  const [employeeId, setEmployeeId] = useState("");
-  const [search, setSearch] = useState("");
+  const [actionUpdatingId, setActionUpdatingId] = useState<number | null>(null);
 
-  const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
+  const [editTarget, setEditTarget] = useState<ServiceSchedule | null>(null);
+  const [editAssignedEmployeeId, setEditAssignedEmployeeId] = useState("");
+
+  const [deleteScheduleTarget, setDeleteScheduleTarget] = useState<ServiceSchedule | null>(null);
 
   useEffect(() => {
     fetchUsers();
+    fetchCustomers();
+    fetchScheduleOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -147,21 +219,74 @@ const ServiceScheduleNotify: React.FC = () => {
     }
   };
 
+  const fetchCustomers = async () => {
+    try {
+      const res = await axios.get<CustomerOption[] | { data?: CustomerOption[] }>(
+        CUSTOMERS_API,
+        { headers }
+      );
+      const list = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.data)
+        ? res.data.data
+        : [];
+      setCustomers(list);
+    } catch (error) {
+      ToasterService.error("Failed to load customers", getErrorMessage(error, "Please try again."));
+    }
+  };
+
+  const fetchScheduleOrders = async () => {
+    try {
+      const res = await axios.get<
+        ScheduleOrderOption[] | { data?: ScheduleOrderOption[] }
+      >(SCHEDULE_ORDERS_API, { headers });
+      const list = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.data)
+        ? res.data.data
+        : [];
+      setScheduleOrders(list);
+    } catch (error) {
+      ToasterService.error(
+        "Failed to load sales order numbers",
+        getErrorMessage(error, "Please try again.")
+      );
+    }
+  };
+
   const updateSchedule = (schedule: ServiceSchedule) => {
     setSchedules((current) => {
       const exists = current.some((item) => item.id === schedule.id);
-      if (exists) {
-        return current.map((item) => (item.id === schedule.id ? schedule : item));
-      }
+      if (exists) return current.map((item) => (item.id === schedule.id ? schedule : item));
       return [schedule, ...current];
     });
   };
 
-  const handleChange = (
+  // ── Field setters — each one is explicit and normalized ───────────────
+
+  const setField = <K extends keyof ScheduleForm>(name: K, value: ScheduleForm[K]) => {
+    setForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const handleSimpleInputChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
     setForm((current) => ({ ...current, [name]: value }));
+  };
+
+  // Sales order change also auto-fills the customer when the order carries one.
+  const handleServiceOrderChange = (input: unknown) => {
+    const value = readInputValue(input);
+    setForm((current) => {
+      const next = { ...current, serviceOrderId: value };
+      const picked = scheduleOrders.find((o) => String(getScheduleOrderId(o)) === value);
+      if (picked?.customerId) {
+        next.customerId = String(picked.customerId);
+      }
+      return next;
+    });
   };
 
   const closeCreateModal = () => {
@@ -172,8 +297,16 @@ const ServiceScheduleNotify: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
+    // eslint-disable-next-line no-console
+    console.log("[create schedule] submit", form);
+
     if (!form.serviceOrderId || !form.customerId || !form.scheduledDate) {
-      ToasterService.error("Required fields missing", "Service order, customer, and scheduled date are required.");
+      ToasterService.error(
+        "Required fields missing",
+        `Sales order (${form.serviceOrderId || "missing"}), customer (${
+          form.customerId || "missing"
+        }), and scheduled date (${form.scheduledDate || "missing"}) are required.`
+      );
       return;
     }
 
@@ -184,119 +317,149 @@ const ServiceScheduleNotify: React.FC = () => {
         customerId: Number(form.customerId),
         assignedEmployeeId: Number(form.assignedEmployeeId || 0),
         scheduledDate: form.scheduledDate,
-        startTime: formatRequestTime(form.startTime),
-        endTime: formatRequestTime(form.endTime),
+        startTime: toLocalTimeObject(form.startTime),
+        endTime: toLocalTimeObject(form.endTime),
         remarks: form.remarks,
       };
+
+      // eslint-disable-next-line no-console
+      console.log("[create schedule] payload", payload);
 
       const res = await axios.post<ServiceSchedule>(API_URL, payload, { headers });
       updateSchedule(res.data);
       ToasterService.success("Schedule notification created successfully");
       closeCreateModal();
     } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("[create schedule] error", error);
       ToasterService.error("Failed to create schedule", getErrorMessage(error, "Please try again."));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const runScheduleAction = async (
-    action: "start" | "complete",
-    id = Number(scheduleId)
-  ) => {
-    if (!id) {
-      ToasterService.error("Schedule ID is required");
-      return;
-    }
+  // ── Edit modal ────────────────────────────────────────────────────────
 
-    try {
-      const res = await axios.put<ServiceSchedule>(`${API_URL}/${id}/${action}`, {}, { headers });
-      updateSchedule(res.data);
-      setScheduleId("");
-      ToasterService.success(`Schedule ${action === "start" ? "started" : "completed"} successfully`);
-    } catch (error) {
-      ToasterService.error(`Failed to ${action} schedule`, getErrorMessage(error, "Please try again."));
-    }
+  const openEdit = (schedule: ServiceSchedule) => {
+    setEditTarget(schedule);
+    setEditAssignedEmployeeId(String(schedule.assignedEmployeeId || ""));
   };
 
-  const assignEmployee = async (id = Number(scheduleId), employee = Number(employeeId)) => {
-    if (!id || !employee) {
-      ToasterService.error("Schedule ID and Employee ID are required");
-      return;
-    }
+  const closeEdit = () => {
+    if (actionUpdatingId !== null) return;
+    setEditTarget(null);
+    setEditAssignedEmployeeId("");
+  };
 
+  const runScheduleAction = async (action: "start" | "complete") => {
+    if (!editTarget) return;
     try {
+      setActionUpdatingId(editTarget.id);
       const res = await axios.put<ServiceSchedule>(
-        `${API_URL}/${id}/assign/${employee}`,
+        `${API_URL}/${editTarget.id}/${action}`,
         {},
         { headers }
       );
       updateSchedule(res.data);
-      setScheduleId("");
-      setEmployeeId("");
+      setEditTarget(res.data);
+      ToasterService.success(
+        `Schedule ${action === "start" ? "started" : "completed"} successfully`
+      );
+    } catch (error) {
+      ToasterService.error(
+        `Failed to ${action} schedule`,
+        getErrorMessage(error, "Please try again.")
+      );
+    } finally {
+      setActionUpdatingId(null);
+    }
+  };
+
+  const confirmAssign = async () => {
+    if (!editTarget || !editAssignedEmployeeId) {
+      ToasterService.error("Employee is required");
+      return;
+    }
+    try {
+      setActionUpdatingId(editTarget.id);
+      const res = await axios.put<ServiceSchedule>(
+        `${API_URL}/${editTarget.id}/assign/${editAssignedEmployeeId}`,
+        {},
+        { headers }
+      );
+      updateSchedule(res.data);
+      setEditTarget(res.data);
       ToasterService.success("Employee assigned successfully");
     } catch (error) {
       ToasterService.error("Failed to assign employee", getErrorMessage(error, "Please try again."));
+    } finally {
+      setActionUpdatingId(null);
     }
   };
 
-  const deleteSchedule = async (id = Number(scheduleId)) => {
-    if (!id) {
-      ToasterService.error("Schedule ID is required");
-      return;
-    }
-
+  const confirmDelete = async () => {
+    if (!deleteScheduleTarget) return;
     try {
-      await axios.delete(`${API_URL}/${id}`, { headers });
-      setSchedules((current) => current.filter((item) => item.id !== id));
-      setScheduleId("");
+      setActionUpdatingId(deleteScheduleTarget.id);
+      await axios.delete(`${API_URL}/${deleteScheduleTarget.id}`, { headers });
+      setSchedules((current) => current.filter((item) => item.id !== deleteScheduleTarget.id));
       ToasterService.success("Schedule deleted successfully");
     } catch (error) {
       ToasterService.error("Failed to delete schedule", getErrorMessage(error, "Please try again."));
+    } finally {
+      setActionUpdatingId(null);
+      setDeleteScheduleTarget(null);
     }
   };
 
-  const employeeOptions = users
-    .filter((user) => user.employeeId !== undefined && user.employeeId !== null)
-    .map((user) => ({
-      id: String(user.employeeId),
-      name: getEmployeeName(user),
-    }));
+  const employeeOptions = useMemo(
+    () =>
+      users
+        .filter(
+          (user) =>
+            user.employeeId !== undefined &&
+            user.employeeId !== null &&
+            Number(user.employeeId) > 0
+        )
+        .map((user) => ({
+          id: String(user.employeeId),
+          name: getEmployeeName(user),
+        })),
+    [users]
+  );
 
-  const filteredUsers = useMemo(() => {
-    const term = searchableText(search);
-    if (!term) return users;
+  const customerOptions = useMemo(
+    () =>
+      customers
+        .filter((c) => Number(c.id) > 0)
+        .map((c) => ({ id: String(c.id), name: customerLabel(c) })),
+    [customers]
+  );
 
-    return users.filter((user) => {
-      const haystack = [
-        user.userId,
-        user.username,
-        user.email,
-        user.firstName,
-        user.lastName,
-        getEmployeeName(user),
-        user.employeeId,
-        user.employeeCode,
-        user.role,
-        user.userType,
-        user.tenantId,
-        user.active ? "active true" : "inactive false",
-      ]
-        .map(searchableText)
-        .filter(Boolean)
-        .join(" ");
-
-      return haystack.includes(term);
-    });
-  }, [users, search]);
+  const serviceOrderOptions = useMemo(
+    () =>
+      scheduleOrders
+        .map((o) => ({
+          id: String(getScheduleOrderId(o)),
+          name: getScheduleOrderLabel(o),
+        }))
+        .filter((o) => Number(o.id) > 0),
+    [scheduleOrders]
+  );
 
   const stats = useMemo(
     () => ({
       users: users.length,
-      employees: users.filter((item) => item.employeeId !== undefined && item.employeeId !== null).length,
+      employees: users.filter(
+        (item) =>
+          item.employeeId !== undefined &&
+          item.employeeId !== null &&
+          Number(item.employeeId) > 0
+      ).length,
       active: users.filter((item) => item.active).length,
+      schedules: schedules.length,
     }),
-    [users]
+    [users, schedules]
   );
 
   const userColumns: ColumnDef<UserOption>[] = [
@@ -315,17 +478,18 @@ const ServiceScheduleNotify: React.FC = () => {
       key: "email",
       label: "Email",
       sortable: true,
-      render: (user) =>
-         <div className="max-w-[150px] truncate" title={user.email || ""}>
-      <span className="text-sm text-slate-700">{user.email || "--"}</span>
-    </div>
+      render: (user) => (
+        <div className="max-w-[150px] truncate" title={user.email || ""}>
+          <span className="text-sm text-slate-700">{user.email || "--"}</span>
+        </div>
+      ),
     },
     {
       key: "employeeId",
       label: "Employee",
       sortable: true,
       render: (user) => (
-        <div className="">
+        <div>
           <div className="text-sm font-medium text-slate-700">{user.employeeId ?? "--"}</div>
           <div className="text-xs text-slate-500">{user.employeeCode || "--"}</div>
         </div>
@@ -335,11 +499,11 @@ const ServiceScheduleNotify: React.FC = () => {
       key: "role",
       label: "Role",
       sortable: true,
-      render: (user) =>
+      render: (user) => (
         <div className="max-w-[150px] truncate" title={user.role || ""}>
-         <span className="text-sm text-slate-700">{user.role || user.userType || "--"}</span>,
-    </div>
-
+          <span className="text-sm text-slate-700">{user.role || user.userType || "--"}</span>
+        </div>
+      ),
     },
     {
       key: "tenantId",
@@ -359,17 +523,119 @@ const ServiceScheduleNotify: React.FC = () => {
     },
   ];
 
+  const scheduleColumns: ColumnDef<ServiceSchedule>[] = [
+    {
+      key: "scheduleNo",
+      label: "Schedule",
+      sortable: true,
+      render: (schedule) => (
+        <div>
+          <div className="text-sm font-semibold text-slate-900">
+            {schedule.scheduleNo || `Schedule #${schedule.id}`}
+          </div>
+          <div className="text-xs text-slate-500">Order ID: {schedule.serviceOrderId}</div>
+        </div>
+      ),
+    },
+    {
+      key: "customerId",
+      label: "Customer",
+      sortable: true,
+      render: (schedule) => {
+        const customer = customers.find((c) => Number(c.id) === Number(schedule.customerId));
+        return (
+          <span className="text-sm text-slate-700">
+            {customer ? customerLabel(customer) : `#${schedule.customerId}`}
+          </span>
+        );
+      },
+    },
+    {
+      key: "assignedEmployeeId",
+      label: "Assigned",
+      sortable: true,
+      render: (schedule) => {
+        const employee = users.find(
+          (u) => Number(u.employeeId) === Number(schedule.assignedEmployeeId)
+        );
+        return (
+          <span className="text-sm text-slate-700">
+            {employee
+              ? getEmployeeName(employee)
+              : schedule.assignedEmployeeId
+              ? `Employee #${schedule.assignedEmployeeId}`
+              : "--"}
+          </span>
+        );
+      },
+    },
+    {
+      key: "scheduledDate",
+      label: "Scheduled",
+      sortable: true,
+      render: (schedule) => (
+        <div>
+          <div className="text-sm text-slate-700">{schedule.scheduledDate || "--"}</div>
+          <div className="text-xs text-slate-500">
+            {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      render: (schedule) => (
+        <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">
+          {schedule.status || "N/A"}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      sortable: false,
+      headerClassName: "text-right",
+      className: "text-right",
+      render: (schedule) => (
+        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => openEdit(schedule)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            title="Edit / Actions"
+          >
+            <PencilSquareIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeleteScheduleTarget(schedule)}
+            disabled={actionUpdatingId === schedule.id}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+            title="Delete"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  const showingSchedules = schedules.length > 0;
+  const tableData = showingSchedules ? schedules : users;
+  const tableColumns = (showingSchedules ? scheduleColumns : userColumns) as ColumnDef<any>[];
+
   return (
     <>
       <PageMeta title="Service Schedule Notify" description="Manage service schedule notifications" />
-      <PageBreadcrumb pageTitle="Service Schedule Notify" />
+      <PageBreadcrumb
+        pageTitle="Service Schedule Notify"
+        actions={<AddButton onClick={() => setShowCreateModal(true)} label="Create Schedule" />}
+      />
 
       <div className="w-full max-w-none px-0 py-8">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={() => setShowCreateModal(true)} label="Create Schedule" />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Users" value={stats.users} icon={<CalendarDaysIcon />} />
           <StatsCard
             label="Employees"
@@ -387,138 +653,22 @@ const ServiceScheduleNotify: React.FC = () => {
             labelColor="text-purple-600"
             icon={<CheckCircleIcon />}
           />
-        </div>
-
-        <div className=" flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between md:-my-5 ">
-          <div className="relative w-full sm:max-w-md md:-mt-4">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search users..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 mt-6">
-            <ListingPdfExportButton
-  title="Service Schedule Notify"
-  subtitle="Filtered user notification listing"
-  reportLabel="Sales Report"
-  data={filteredUsers}
-  columns={[
-    {
-      key: "username",
-      header: "User",
-      accessor: (user) => getEmployeeName(user),
-    },
-    { key: "userId", header: "User ID" },
-    { key: "email", header: "Email" },
-    { key: "employeeId", header: "Employee ID" },
-    { key: "employeeCode", header: "Employee Code" },
-    {
-      key: "role",
-      header: "Role",
-      accessor: (user) => user.role || user.userType || "-",
-    },
-    { key: "tenantId", header: "Tenant" },
-    {
-      key: "active",
-      header: "Status",
-      accessor: (user) => (user.active ? "Active" : "Inactive"),
-    },
-  ]}
-  fileName="Service_Schedule_Notify"
-  metadata={(rows, rangeLabel) => [
-    { label: "Total", value: rows.length },
-    { label: "Range", value: rangeLabel },
-    { label: "Search", value: search || "None" },
-  ]}
-/>
-            <FilterPopover
-              title="Schedule Actions"
-              buttonLabel="Filters"
-              widthClassName="w-[20rem] sm:w-[22rem]"
-              showFooter={false}
-            >
-            <div className="space-y-3">
-              <FloatingInput
-                label="Schedule ID"
-                name="scheduleId"
-                type="number"
-                value={scheduleId}
-                onChange={(e) => setScheduleId(e.target.value)}
-              />
-              <FloatingSelect
-                label="Employee"
-                name="employeeId"
-                value={employeeId}
-                onChange={(e) => setEmployeeId(e.target.value)}
-                emptyOptionLabel=""
-                options={employeeOptions}
-              />
-              <div className="grid grid-cols-5 gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setScheduleId("");
-                    setEmployeeId("");
-                  }}
-                  className="h-10 rounded-lg bg-gray-100 px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
-                >
-                  Reset
-                </button>
-                <button
-                  type="button"
-                  onClick={() => runScheduleAction("start")}
-                  className="h-10 rounded-lg bg-green-600 px-3 text-sm font-medium text-white transition hover:bg-green-700"
-                >
-                  Start
-                </button>
-                <button
-                  type="button"
-                  onClick={() => runScheduleAction("complete")}
-                  className="h-10 rounded-lg bg-blue-600 px-3 text-sm font-medium text-white transition hover:bg-blue-700"
-                >
-                  Done
-                </button>
-                <button
-                  type="button"
-                  onClick={() => assignEmployee()}
-                  className="h-10 rounded-lg bg-cyan-600 px-3 text-sm font-medium text-white transition hover:bg-cyan-700"
-                >
-                  Assign
-                </button>
-                <button
-                  type="button"
-                  onClick={() => deleteSchedule()}
-                  className="flex h-10 items-center justify-center rounded-lg bg-red-600 px-3 text-sm font-medium text-white transition hover:bg-red-700"
-                  title="Delete schedule"
-                >
-                  <TrashIcon className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-            </FilterPopover>
-          </div>
+          <StatsCard
+            label="Schedules"
+            value={stats.schedules}
+            gradient="from-cyan-50 to-blue-50"
+            borderColor="border-cyan-100"
+            labelColor="text-cyan-600"
+            icon={<PaperAirplaneIcon />}
+          />
         </div>
 
         <ReusableTable
-          data={filteredUsers}
-          columns={userColumns}
+          data={tableData}
+          columns={tableColumns}
           pageSize={PAGE_SIZE}
-          defaultSortKey="username"
-          defaultSortOrder="asc"
+          defaultSortKey={showingSchedules ? "scheduledDate" : "username"}
+          defaultSortOrder={showingSchedules ? "desc" : "asc"}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <CalendarDaysIcon className="mb-3 h-12 w-12 text-gray-400" />
@@ -535,113 +685,279 @@ const ServiceScheduleNotify: React.FC = () => {
         />
       </div>
 
-      {showCreateModal &&
-        createPortal(
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-4 backdrop-blur-sm sm:items-center">
-            <div className="mx-auto max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl">
-              <div className="flex items-center justify-between border-b border-gray-100 p-5">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Create Schedule Notification</h3>
-                  <p className="mt-0.5 text-xs text-gray-500">Add service schedule details and notify the assigned employee</p>
+      {/* ── Create Schedule ─────────────────────────────────────────── */}
+      <PaginatedPopup
+        isOpen={showCreateModal}
+        title="Create Schedule Notification"
+        subtitle="Add service schedule details and notify the assigned employee"
+        onClose={closeCreateModal}
+        onSubmit={handleSubmit}
+        submitting={isSubmitting}
+        submitLabel="Create Schedule"
+        maxWidthClassName="max-w-2xl"
+        tabs={[
+          {
+            label: "Schedule Info",
+            fields: [
+              <FloatingSelect
+                key="serviceOrderId"
+                label="Sales Order"
+                name="serviceOrderId"
+                value={form.serviceOrderId}
+                onChange={handleServiceOrderChange}
+                emptyOptionLabel=""
+                options={serviceOrderOptions}
+                required
+              />,
+              <FloatingSelect
+                key="customerId"
+                label="Customer"
+                name="customerId"
+                value={form.customerId}
+                onChange={(v: any) => setField("customerId", readInputValue(v))}
+                emptyOptionLabel=""
+                options={customerOptions}
+                required
+              />,
+              <FloatingSelect
+                key="assignedEmployeeId"
+                label="Assigned Employee"
+                name="assignedEmployeeId"
+                value={form.assignedEmployeeId}
+                onChange={(v: any) => setField("assignedEmployeeId", readInputValue(v))}
+                emptyOptionLabel=""
+                options={employeeOptions}
+              />,
+              <FloatingDatePicker
+                key="scheduledDate"
+                label="Scheduled Date"
+                name="scheduledDate"
+                value={form.scheduledDate}
+                onChange={(v: any) => setField("scheduledDate", readInputValue(v))}
+                required
+              />,
+            ],
+          },
+        {
+  label: "Timing & Notes",
+  fields: [
+    <div key="startTime">
+      <label
+        htmlFor="startTime"
+        className="mb-2 block text-sm font-medium text-gray-700"
+      >
+        Start Time
+      </label>
+      <input
+        id="startTime"
+        type="time"
+        name="startTime"
+        value={form.startTime}
+        onChange={handleSimpleInputChange}
+        onFocus={openNativeTimePicker}
+        onClick={openNativeTimePicker}
+        className="h-[52px] w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+      />
+    </div>,
+    <div key="endTime">
+      <label
+        htmlFor="endTime"
+        className="mb-2 block text-sm font-medium text-gray-700"
+      >
+        End Time
+      </label>
+      <input
+        id="endTime"
+        type="time"
+        name="endTime"
+        value={form.endTime}
+        onChange={handleSimpleInputChange}
+        onFocus={openNativeTimePicker}
+        onClick={openNativeTimePicker}
+        className="h-[52px] w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+      />
+    </div>,
+    <div key="remarks" className="md:col-span-2">
+      <FloatingTextarea
+        label="Remarks"
+        name="remarks"
+        value={form.remarks}
+        onChange={handleSimpleInputChange}
+        rows={3}
+      />
+    </div>,
+  ],
+}
+        ]}
+      />
+
+      {/* ── Edit Schedule — 3 PUT actions ───────────────────────────── */}
+      <PaginatedPopup
+        isOpen={!!editTarget}
+        title="Edit Schedule"
+        subtitle={
+          editTarget
+            ? `${editTarget.scheduleNo || `Schedule #${editTarget.id}`} · Status: ${
+                editTarget.status || "N/A"
+              }`
+            : ""
+        }
+        onClose={closeEdit}
+        onSubmit={(e) => {
+          e.preventDefault();
+          closeEdit();
+        }}
+        submitting={false}
+        submitLabel="Close"
+        maxWidthClassName="max-w-3xl"
+        tabs={[
+          {
+            label: "Schedule Details",
+            fields: [
+              <div key="detailsGrid" className="md:col-span-2 grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                    Schedule No
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                    {editTarget?.scheduleNo || "--"}
+                  </div>
                 </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                    Status
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                    {editTarget?.status || "N/A"}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                    Sales Order
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                    {(() => {
+                      const o = scheduleOrders.find(
+                        (x) => getScheduleOrderId(x) === Number(editTarget?.serviceOrderId)
+                      );
+                      return o
+                        ? getScheduleOrderLabel(o)
+                        : editTarget?.serviceOrderId ?? "--";
+                    })()}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                    Customer
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                    {(() => {
+                      const c = customers.find(
+                        (x) => Number(x.id) === Number(editTarget?.customerId)
+                      );
+                      return c ? customerLabel(c) : `#${editTarget?.customerId ?? "--"}`;
+                    })()}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                    Scheduled
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                    {editTarget?.scheduledDate || "--"}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                    Time
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                    {formatTime(editTarget?.startTime)} - {formatTime(editTarget?.endTime)}
+                  </div>
+                </div>
+              </div>,
+
+              <div
+                key="actionButtons"
+                className="md:col-span-2 flex flex-wrap gap-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4"
+              >
                 <button
                   type="button"
-                  onClick={closeCreateModal}
-                  className="text-gray-400 transition hover:text-gray-600"
+                  onClick={() => void runScheduleAction("start")}
+                  disabled={actionUpdatingId === editTarget?.id}
+                  className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <XMarkIcon className="h-5 w-5" />
+                  <PlayIcon className="h-4 w-4" />
+                  Start Schedule
                 </button>
-              </div>
+                <button
+                  type="button"
+                  onClick={() => void runScheduleAction("complete")}
+                  disabled={actionUpdatingId === editTarget?.id}
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <CheckCircleIcon className="h-4 w-4" />
+                  Complete Schedule
+                </button>
+              </div>,
 
-              <form onSubmit={handleSubmit} className="p-5">
-                <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
-                  <FloatingInput
-                    label="Service Order ID"
-                    name="serviceOrderId"
-                    type="number"
-                    value={form.serviceOrderId}
-                    onChange={handleChange}
-                    required
-                  />
-                  <FloatingInput
-                    label="Customer ID"
-                    name="customerId"
-                    type="number"
-                    value={form.customerId}
-                    onChange={handleChange}
-                    required
-                  />
-                  <FloatingSelect
-                    label="Assigned Employee"
-                    name="assignedEmployeeId"
-                    value={form.assignedEmployeeId}
-                    onChange={handleChange}
-                    emptyOptionLabel=""
-                    options={employeeOptions}
-                  />
-                  <FloatingDatePicker
-                    label="Scheduled Date"
-                    name="scheduledDate"
-                    value={form.scheduledDate}
-                    onChange={handleChange}
-                    required
-                  />
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">Start Time</label>
-                    <input
-                      type="time"
-                      name="startTime"
-                      value={form.startTime}
-                      onChange={handleChange}
-                      onFocus={openNativeTimePicker}
-                      onClick={openNativeTimePicker}
-                      className="h-[52px] w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">End Time</label>
-                    <input
-                      type="time"
-                      name="endTime"
-                      value={form.endTime}
-                      onChange={handleChange}
-                      onFocus={openNativeTimePicker}
-                      onClick={openNativeTimePicker}
-                      className="h-[52px] w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                    />
-                  </div>
+              <div
+                key="assignBlock"
+                className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-4"
+              >
+                <div className="mb-2 flex items-center gap-2">
+                  <UserPlusIcon className="h-4 w-4 text-cyan-600" />
+                  <div className="text-sm font-semibold text-slate-900">Reassign Employee</div>
                 </div>
-
-                <FloatingTextarea
-                  label="Remarks"
-                  name="remarks"
-                  value={form.remarks}
-                  onChange={handleChange}
-                  rows={3}
-                />
-
-                <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <div className="flex-1">
+                    <FloatingSelect
+                      label="Employee"
+                      name="editAssignedEmployeeId"
+                      value={editAssignedEmployeeId}
+                      onChange={(v: any) => setEditAssignedEmployeeId(readInputValue(v))}
+                      emptyOptionLabel=""
+                      options={employeeOptions}
+                    />
+                  </div>
                   <button
                     type="button"
-                    onClick={closeCreateModal}
-                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
+                    onClick={() => void confirmAssign()}
+                    disabled={actionUpdatingId === editTarget?.id || !editAssignedEmployeeId}
+                    className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    <PaperAirplaneIcon className="h-4 w-4" />
-                    {isSubmitting ? "Creating..." : "Create Schedule"}
+                    <UserPlusIcon className="h-4 w-4" />
+                    Assign
                   </button>
                 </div>
-              </form>
-            </div>
-          </div>,
-          document.body
-        )}
+              </div>,
+            ],
+          },
+        ]}
+      />
+
+      {/* ── Delete Confirmation ─────────────────────────────────────── */}
+      <DynamicPopup
+        isPopupOpen={!!deleteScheduleTarget}
+        setIsPopupOpen={(open) => {
+          if (!open) setDeleteScheduleTarget(null);
+        }}
+        icon={<TrashIcon className="h-6 w-6 text-red-600" />}
+        iconBg="bg-red-100"
+        innerText="Delete Schedule"
+        subText={
+          deleteScheduleTarget
+            ? `Are you sure you want to delete schedule ${
+                deleteScheduleTarget.scheduleNo || `#${deleteScheduleTarget.id}`
+              }?`
+            : "Are you sure?"
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteScheduleTarget(null)}
+        confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
+      />
     </>
   );
 };

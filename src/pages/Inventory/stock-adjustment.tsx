@@ -3,20 +3,17 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowDownIcon,
+  ArrowPathIcon,
   ArrowUpIcon,
   ChartBarIcon,
   ClipboardDocumentCheckIcon,
-  MagnifyingGlassIcon,
+  EyeIcon,
   PencilSquareIcon,
   TrashIcon,
-  XCircleIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import { ListingPdfExportButton } from "../../components/common/export";
-import FilterPopover from "../../components/common/filter";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import DynamicPopup from "../../components/common/Popup";
@@ -97,9 +94,6 @@ enum AdjustmentType {
   NEGATIVE = "NEGATIVE",
 }
 
-// ---------- STATIC ADJUSTMENT REASON REMOVED ----------
-// No more enum AdjustmentReason, no ADJUSTMENT_REASON_LABELS
-
 interface StockAdjustment {
   id: number;
   createdDate?: string;
@@ -107,7 +101,7 @@ interface StockAdjustment {
   createdBy?: string;
   tenantId?: string;
   adjustmentDate: string;
-  reason: string; // now just a string, dynamic
+  reason: string;
   quantity: number;
   adjustmentType: AdjustmentType;
   productId?: number;
@@ -119,7 +113,7 @@ interface StockAdjustment {
 
 type StockAdjustmentForm = {
   adjustmentDate: string;
-  reason: string; // dynamic id
+  reason: string;
   quantity: string;
   adjustmentType: AdjustmentType;
   productId: string;
@@ -137,8 +131,8 @@ const WAREHOUSE_ROUTE = "/warehouse";
 const BATCH_ROUTE = "/batch";
 
 const emptyForm: StockAdjustmentForm = {
-  adjustmentDate: new Date().toISOString().split('T')[0],
-  reason: "", // no default static reason
+  adjustmentDate: new Date().toISOString().split("T")[0],
+  reason: "",
   quantity: "",
   adjustmentType: AdjustmentType.POSITIVE,
   productId: "",
@@ -157,11 +151,6 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
-function searchableText(value: unknown) {
-  if (value === null || value === undefined) return "";
-  return String(value).toLowerCase().trim();
-}
-
 function getTypeBadge(type: AdjustmentType) {
   if (type === "POSITIVE") {
     return "bg-green-50 text-green-700 border-green-200";
@@ -171,9 +160,9 @@ function getTypeBadge(type: AdjustmentType) {
 
 function getTypeIcon(type: AdjustmentType) {
   if (type === "POSITIVE") {
-    return <ArrowUpIcon className="h-3 w-3 mr-1" />;
+    return <ArrowUpIcon className="mr-1 h-3 w-3" />;
   }
-  return <ArrowDownIcon className="h-3 w-3 mr-1" />;
+  return <ArrowDownIcon className="mr-1 h-3 w-3" />;
 }
 
 function getBatchWarehouseId(batch?: Batch | null) {
@@ -189,7 +178,9 @@ function getSerialBatchId(serial?: SerialNumber | null) {
 }
 
 function getSerialWarehouseId(serial?: SerialNumber | null) {
-  return Number(serial?.warehouse && typeof serial.warehouse !== "string" ? serial.warehouse.id : 0);
+  return Number(
+    serial?.warehouse && typeof serial.warehouse !== "string" ? serial.warehouse.id : 0
+  );
 }
 
 function getSerialWarehouseName(serial?: SerialNumber | null) {
@@ -222,7 +213,9 @@ function normalizeEnumOptions(raw: any, fallback: EnumOption[]): EnumOption[] {
 // ========================== MAIN COMPONENT ==========================
 const StockAdjustmentManager: React.FC = () => {
   const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
+  const headers = token
+    ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
+    : undefined;
   const navigate = useNavigate();
 
   // ---------- State ----------
@@ -238,38 +231,23 @@ const StockAdjustmentManager: React.FC = () => {
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState("");
-  const [filterReason, setFilterReason] = useState("");
-  const [filterDateFrom, setFilterDateFrom] = useState("");
-  const [filterDateTo, setFilterDateTo] = useState("");
   const [deletingAdjustment, setDeletingAdjustment] = useState<StockAdjustment | null>(null);
   const [viewingAdjustment, setViewingAdjustment] = useState<StockAdjustment | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
 
   // ---------- Dynamic option states ----------
-  // NOTE: This default is a UI-availability fallback, not "static business data" —
-  // AdjustmentType is a fixed two-value domain enum (POSITIVE/NEGATIVE) that the
-  // rest of the component's logic (math, colors, stats) already depends on. Keeping
-  // a sane default means the create/edit form still works if the enums endpoint is
-  // slow or briefly unavailable. The *labels* shown to the user, however, always
-  // come from this state (via getTypeLabel), so if the API returns different
-  // labels they are reflected everywhere instead of being hardcoded per-usage.
   const [adjustmentTypeOptions, setAdjustmentTypeOptions] = useState<EnumOption[]>([
     { id: "POSITIVE", name: "Stock In" },
     { id: "NEGATIVE", name: "Stock Out" },
   ]);
 
-  // Reason options from API — genuinely open-ended/tenant-defined, so there is
-  // intentionally NO static fallback here. If the API fails, the list stays empty
-  // and the user is toasted, rather than risking a wrong/stale reason id.
   const [reasonOptions, setReasonOptions] = useState<EnumOption[]>([]);
 
   // ---------- Data fetching ----------
   useEffect(() => {
     fetchAllData();
     fetchAdjustmentTypeOptions();
-    fetchReasonOptions(); // fetch reasons
+    fetchReasonOptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -313,7 +291,10 @@ const StockAdjustmentManager: React.FC = () => {
       setAdjustments(data);
       if (data.length === 0) ToasterService.noData("No stock adjustments found");
     } catch (error) {
-      ToasterService.error("Failed to load stock adjustments", getErrorMessage(error, "Please try again."));
+      ToasterService.error(
+        "Failed to load stock adjustments",
+        getErrorMessage(error, "Please try again.")
+      );
       setAdjustments([]);
     }
   };
@@ -371,11 +352,9 @@ const StockAdjustmentManager: React.FC = () => {
     }
   };
 
-  // Fetch reason options from API
   const fetchReasonOptions = async () => {
     try {
       const res = await axios.get(`${API_URL}/enums?type=STOCKADJUSTMENT_REASON`, { headers });
-      // No static fallback – use empty array if API fails
       const normalized = normalizeEnumOptions(res.data, []);
       setReasonOptions(normalized);
       if (normalized.length === 0) {
@@ -384,33 +363,33 @@ const StockAdjustmentManager: React.FC = () => {
     } catch (error) {
       console.error("Failed to load adjustment reason enums", error);
       setReasonOptions([]);
-      ToasterService.error("Failed to load adjustment reasons", "Please refresh or contact support.");
+      ToasterService.error(
+        "Failed to load adjustment reasons",
+        "Please refresh or contact support."
+      );
     }
   };
 
   // ---------- Display helpers ----------
-  // Dynamic label lookup for reason
   const getReasonLabel = (reasonId?: string | null) => {
     if (!reasonId) return "-";
     const found = reasonOptions.find((opt) => opt.id === reasonId);
-    return found ? found.name : reasonId; // fallback to raw id
+    return found ? found.name : reasonId;
   };
 
-  // Dynamic label lookup for adjustment type — always reads from
-  // adjustmentTypeOptions instead of hardcoding "Stock In" / "Stock Out" per
-  // usage, so table, view modal, and PDF export all reflect whatever the
-  // enums API returns.
   const getTypeLabel = (typeId?: string | null) => {
     if (!typeId) return "-";
     const found = adjustmentTypeOptions.find((opt) => opt.id === typeId);
-    return found ? found.name : typeId; // fallback to raw id
+    return found ? found.name : typeId;
   };
 
   const getProductDisplayName = (adjustment: StockAdjustment) => {
     const productId = adjustment.productId ?? adjustment.product?.id;
     const product = products.find((p) => p.id === productId);
     if (product) {
-      return product.productCode ? `${product.productName} (${product.productCode})` : product.productName;
+      return product.productCode
+        ? `${product.productName} (${product.productCode})`
+        : product.productName;
     }
     return adjustment.product?.productName || "N/A";
   };
@@ -484,14 +463,16 @@ const StockAdjustmentManager: React.FC = () => {
   // ---------- CRUD ----------
   const buildPayload = () => {
     const selectedWarehouse = warehouses.find((item) => item.id === Number(form.warehouseId));
-    const selectedBatch = filteredBatches.find((item) => item.id === Number(form.batchId))
-      || batches.find((item) => item.id === Number(form.batchId));
-    const selectedSerial = filteredSerialNumbers.find((item) => item.id === Number(form.serialNumberId))
-      || serialNumbers.find((item) => item.id === Number(form.serialNumberId));
+    const selectedBatch =
+      filteredBatches.find((item) => item.id === Number(form.batchId)) ||
+      batches.find((item) => item.id === Number(form.batchId));
+    const selectedSerial =
+      filteredSerialNumbers.find((item) => item.id === Number(form.serialNumberId)) ||
+      serialNumbers.find((item) => item.id === Number(form.serialNumberId));
 
     const payload: Record<string, any> = {
       adjustmentDate: form.adjustmentDate,
-      reason: form.reason, // raw id from dropdown
+      reason: form.reason,
       quantity: Number(form.quantity),
       adjustmentType: form.adjustmentType,
       productId: Number(form.productId),
@@ -529,7 +510,10 @@ const StockAdjustmentManager: React.FC = () => {
       return;
     }
     if (!form.reason) {
-      ToasterService.error("Required field missing", "Please select a reason for the adjustment.");
+      ToasterService.error(
+        "Required field missing",
+        "Please select a reason for the adjustment."
+      );
       return;
     }
 
@@ -548,7 +532,10 @@ const StockAdjustmentManager: React.FC = () => {
       closeForm();
       fetchAdjustments();
     } catch (error) {
-      ToasterService.error("Failed to save stock adjustment", getErrorMessage(error, "Please try again."));
+      ToasterService.error(
+        "Failed to save stock adjustment",
+        getErrorMessage(error, "Please try again.")
+      );
     } finally {
       setSubmitting(false);
     }
@@ -558,7 +545,7 @@ const StockAdjustmentManager: React.FC = () => {
     setEditingId(null);
     setForm({
       ...emptyForm,
-      adjustmentDate: new Date().toISOString().split('T')[0],
+      adjustmentDate: new Date().toISOString().split("T")[0],
     });
     setFilteredBatches([]);
     setFilteredSerialNumbers([]);
@@ -569,8 +556,9 @@ const StockAdjustmentManager: React.FC = () => {
     const productId = adjustment.productId ?? adjustment.product?.id;
     setEditingId(adjustment.id);
     setForm({
-      adjustmentDate: adjustment.adjustmentDate?.split('T')[0] || new Date().toISOString().split('T')[0],
-      reason: adjustment.reason || "", // raw reason id
+      adjustmentDate:
+        adjustment.adjustmentDate?.split("T")[0] || new Date().toISOString().split("T")[0],
+      reason: adjustment.reason || "",
       quantity: String(adjustment.quantity || 0),
       adjustmentType: adjustment.adjustmentType || AdjustmentType.POSITIVE,
       productId: String(productId || ""),
@@ -584,7 +572,9 @@ const StockAdjustmentManager: React.FC = () => {
       setFilteredBatches(filtered);
     }
     if (adjustment.batch?.id) {
-      const filtered = serialNumbers.filter((sn) => getSerialBatchId(sn) === adjustment.batch?.id);
+      const filtered = serialNumbers.filter(
+        (sn) => getSerialBatchId(sn) === adjustment.batch?.id
+      );
       setFilteredSerialNumbers(filtered);
     }
 
@@ -610,52 +600,20 @@ const StockAdjustmentManager: React.FC = () => {
     try {
       await axios.delete(`${API_URL}/stock-adjustments/${deletingAdjustment.id}`, { headers });
       ToasterService.success("Stock adjustment deleted");
-      setAdjustments((current) => current.filter((item) => item.id !== deletingAdjustment.id));
+      setAdjustments((current) =>
+        current.filter((item) => item.id !== deletingAdjustment.id)
+      );
     } catch (error) {
-      ToasterService.error("Failed to delete stock adjustment", getErrorMessage(error, "Please try again."));
+      ToasterService.error(
+        "Failed to delete stock adjustment",
+        getErrorMessage(error, "Please try again.")
+      );
     } finally {
       setDeletingAdjustment(null);
     }
   };
 
-  // ---------- Filtering and computed data ----------
-  const filteredAdjustments = useMemo(() => {
-    const term = searchableText(search);
-
-    return adjustments.filter((adjustment) => {
-      if (filterType && adjustment.adjustmentType !== filterType) return false;
-      if (filterReason && adjustment.reason !== filterReason) return false;
-      if (filterDateFrom && new Date(adjustment.adjustmentDate) < new Date(filterDateFrom)) return false;
-      if (filterDateTo && new Date(adjustment.adjustmentDate) > new Date(filterDateTo)) return false;
-
-      if (!term) return true;
-
-      const haystack = [
-        getReasonLabel(adjustment.reason),
-        getTypeLabel(adjustment.adjustmentType),
-        adjustment.quantity,
-        getProductDisplayName(adjustment),
-        adjustment.warehouse?.name,
-        adjustment.warehouse?.code,
-        adjustment.batch?.batchNumber,
-        adjustment.serialNumber?.serial,
-        adjustment.id,
-      ]
-        .map(searchableText)
-        .filter(Boolean)
-        .join(" ");
-
-      return haystack.includes(term);
-    });
-  }, [adjustments, search, filterType, filterReason, filterDateFrom, filterDateTo, products, reasonOptions, adjustmentTypeOptions]);
-
-  const resetFilters = () => {
-    setFilterType("");
-    setFilterReason("");
-    setFilterDateFrom("");
-    setFilterDateTo("");
-  };
-
+  // ---------- Computed data ----------
   const stats = useMemo(
     () => ({
       total: adjustments.length,
@@ -677,7 +635,9 @@ const StockAdjustmentManager: React.FC = () => {
   const productOptions = useMemo(() => {
     return products.map((product) => ({
       id: String(product.id),
-      name: product.productCode ? `${product.productName} (${product.productCode})` : product.productName,
+      name: product.productCode
+        ? `${product.productName} (${product.productCode})`
+        : product.productName,
     }));
   }, [products]);
 
@@ -693,14 +653,19 @@ const StockAdjustmentManager: React.FC = () => {
     return filteredBatches.map((batch) => {
       const batchWarehouseId = getBatchWarehouseId(batch);
       const batchWarehouseName = getBatchWarehouseName(batch);
-      const mismatch = selectedWarehouseId > 0 && batchWarehouseId > 0 && batchWarehouseId !== selectedWarehouseId;
+      const mismatch =
+        selectedWarehouseId > 0 &&
+        batchWarehouseId > 0 &&
+        batchWarehouseId !== selectedWarehouseId;
 
       let label = batch.batchNumber;
       if (batch.expiryDate) {
         label += ` (Exp: ${new Date(batch.expiryDate).toLocaleDateString()})`;
       }
       if (mismatch) {
-        label += ` — warehouse: ${batchWarehouseName || `#${batchWarehouseId}`} ⚠️ differs from selected warehouse`;
+        label += ` — warehouse: ${
+          batchWarehouseName || `#${batchWarehouseId}`
+        } ⚠️ differs from selected warehouse`;
       }
 
       return { id: String(batch.id), name: label };
@@ -712,20 +677,23 @@ const StockAdjustmentManager: React.FC = () => {
     return filteredSerialNumbers.map((serial) => {
       const serialWarehouseId = getSerialWarehouseId(serial);
       const serialWarehouseName = getSerialWarehouseName(serial);
-      const mismatch = selectedWarehouseId > 0 && serialWarehouseId > 0 && serialWarehouseId !== selectedWarehouseId;
+      const mismatch =
+        selectedWarehouseId > 0 &&
+        serialWarehouseId > 0 &&
+        serialWarehouseId !== selectedWarehouseId;
 
       let label = serial.status ? `${serial.serial} (${serial.status})` : serial.serial;
       if (mismatch) {
-        label += ` — warehouse: ${serialWarehouseName || `#${serialWarehouseId}`} ⚠️ differs from selected warehouse`;
+        label += ` — warehouse: ${
+          serialWarehouseName || `#${serialWarehouseId}`
+        } ⚠️ differs from selected warehouse`;
       }
 
       return { id: String(serial.id), name: label };
     });
   }, [filteredSerialNumbers, form.warehouseId]);
 
-  // ---------- Dynamic option references ----------
   const typeOptions = adjustmentTypeOptions;
-  // reasonOptions is already dynamic
 
   // ---------- Table columns ----------
   const columns: ColumnDef<StockAdjustment>[] = [
@@ -757,7 +725,7 @@ const StockAdjustmentManager: React.FC = () => {
                 e.stopPropagation();
                 goToProduct(productId);
               }}
-              className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+              className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
               title="View product"
             >
               {getProductDisplayName(adjustment)}
@@ -780,7 +748,7 @@ const StockAdjustmentManager: React.FC = () => {
                 e.stopPropagation();
                 goToWarehouse(adjustment.warehouse);
               }}
-              className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+              className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
               title="View warehouse"
             >
               {adjustment.warehouse.name}
@@ -806,7 +774,7 @@ const StockAdjustmentManager: React.FC = () => {
               e.stopPropagation();
               goToBatch(adjustment.batch);
             }}
-            className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+            className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
             title="View batch"
           >
             {adjustment.batch.batchNumber}
@@ -821,7 +789,11 @@ const StockAdjustmentManager: React.FC = () => {
       sortable: true,
       sortValueGetter: (adjustment) => getTypeLabel(adjustment.adjustmentType),
       render: (adjustment) => (
-        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold border ${getTypeBadge(adjustment.adjustmentType)}`}>
+        <span
+          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${getTypeBadge(
+            adjustment.adjustmentType
+          )}`}
+        >
           {getTypeIcon(adjustment.adjustmentType)}
           {getTypeLabel(adjustment.adjustmentType)}
         </span>
@@ -832,8 +804,13 @@ const StockAdjustmentManager: React.FC = () => {
       label: "Quantity",
       sortable: true,
       render: (adjustment) => (
-        <span className={`text-sm font-semibold ${adjustment.adjustmentType === "POSITIVE" ? "text-green-600" : "text-red-600"}`}>
-          {adjustment.adjustmentType === "POSITIVE" ? "+" : "-"}{adjustment.quantity}
+        <span
+          className={`text-sm font-semibold ${
+            adjustment.adjustmentType === "POSITIVE" ? "text-green-600" : "text-red-600"
+          }`}
+        >
+          {adjustment.adjustmentType === "POSITIVE" ? "+" : "-"}
+          {adjustment.quantity}
         </span>
       ),
     },
@@ -843,7 +820,7 @@ const StockAdjustmentManager: React.FC = () => {
       sortable: true,
       sortValueGetter: (adjustment) => getReasonLabel(adjustment.reason),
       render: (adjustment) => (
-        <p className="text-sm text-gray-700 line-clamp-2">{getReasonLabel(adjustment.reason)}</p>
+        <p className="line-clamp-2 text-sm text-gray-700">{getReasonLabel(adjustment.reason)}</p>
       ),
     },
     {
@@ -860,10 +837,7 @@ const StockAdjustmentManager: React.FC = () => {
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
             title="View Details"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
+            <EyeIcon className="h-4 w-4" />
           </button>
           <button
             type="button"
@@ -890,14 +864,13 @@ const StockAdjustmentManager: React.FC = () => {
   return (
     <>
       <PageMeta title="Stock Adjustment" description="Manage inventory stock adjustments" />
-      <PageBreadcrumb pageTitle="Stock Adjustment" />
+      <PageBreadcrumb
+        pageTitle="Stock Adjustment"
+        actions={<AddButton onClick={openCreate} label="Add Adjustment" />}
+      />
 
       <div className="w-full max-w-none px-0 py-8">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Adjustment" />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
             label="Total Adjustments"
             value={stats.total}
@@ -929,115 +902,25 @@ const StockAdjustmentManager: React.FC = () => {
           />
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="relative w-full md:mt-1 sm:max-w-md">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by product or reason..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <ListingPdfExportButton
-              title="Stock Adjustments"
-              subtitle="Filtered stock adjustment listing"
-              reportLabel="Stock Adjustments Report"
-              data={filteredAdjustments}
-              fileName="Stock_Adjustments"
-              disabled={loading}
-              dateAccessor={(row) => row.adjustmentDate}
-              metadata={(rows, rangeLabel) => [
-                { label: "Total", value: rows.length },
-                { label: "Range", value: rangeLabel },
-                { label: "Search", value: search || "None" },
-                {
-                  label: "Net Change",
-                  value: rows.reduce((sum, a) => sum + (a.adjustmentType === "POSITIVE" ? a.quantity : -a.quantity), 0),
-                },
-              ]}
-              columns={[
-                { header: "Date", accessor: (row) => new Date(row.adjustmentDate).toLocaleDateString() },
-                { header: "Product", accessor: (row) => getProductDisplayName(row) },
-                { header: "Warehouse", accessor: (row) => row.warehouse?.name || "N/A" },
-                { header: "Batch", accessor: (row) => row.batch?.batchNumber || "N/A" },
-                { header: "Type", accessor: (row) => getTypeLabel(row.adjustmentType) },
-                {
-                  header: "Quantity",
-                  accessor: (row) => `${row.adjustmentType === "POSITIVE" ? "+" : "-"}${row.quantity}`,
-                },
-                { header: "Reason", accessor: (row) => getReasonLabel(row.reason) },
-              ]}
-            />
-            <FilterPopover
-              title="Filter Adjustments"
-              buttonLabel="Filters"
-              widthClassName="w-[21rem] sm:w-[23rem]"
-              showFooter={false}
-            >
-              <div className="space-y-3">
-                <FloatingSelect
-                  label="Adjustment Type"
-                  name="filterType"
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  options={typeOptions}
-                />
-                <FloatingSelect
-                  label="Reason"
-                  name="filterReason"
-                  value={filterReason}
-                  onChange={(e) => setFilterReason(e.target.value)}
-                  options={reasonOptions} // dynamic
-                />
-                <FloatingInput
-                  label="From Date"
-                  name="filterDateFrom"
-                  type="date"
-                  value={filterDateFrom}
-                  onChange={(e) => setFilterDateFrom(e.target.value)}
-                />
-                <FloatingInput
-                  label="To Date"
-                  name="filterDateTo"
-                  type="date"
-                  value={filterDateTo}
-                  onChange={(e) => setFilterDateTo(e.target.value)}
-                />
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={resetFilters}
-                    className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
-                  >
-                    Reset filters
-                  </button>
-                </div>
-              </div>
-            </FilterPopover>
-          </div>
-        </div>
+        {/* Toolbar — Refresh only */}
+        {/* <div className="mb-4 flex items-center justify-end">
+          <button
+            onClick={fetchAdjustments}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600"
+            title="Refresh"
+          >
+            <ArrowPathIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+        </div> */}
 
         <ReusableTable
-          data={filteredAdjustments}
+          data={adjustments}
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}
           defaultSortKey="adjustmentDate"
           defaultSortOrder="desc"
-          className="md:-mt-4"
           onRowClick={openView}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
@@ -1064,6 +947,7 @@ const StockAdjustmentManager: React.FC = () => {
         onSubmit={handleSubmit}
         submitting={submitting}
         submitLabel={editingId ? "Update Adjustment" : "Create Adjustment"}
+        maxWidthClassName="max-w-2xl"
         tabs={[
           {
             label: "Details",
@@ -1109,6 +993,7 @@ const StockAdjustmentManager: React.FC = () => {
                 label="Quantity"
                 name="quantity"
                 type="number"
+                min={1}
                 value={form.quantity}
                 onChange={handleChange}
                 required
@@ -1143,7 +1028,7 @@ const StockAdjustmentManager: React.FC = () => {
                 name="reason"
                 value={form.reason}
                 onChange={handleChange}
-                options={reasonOptions} // dynamic
+                options={reasonOptions}
                 required
               />,
             ],
@@ -1151,164 +1036,152 @@ const StockAdjustmentManager: React.FC = () => {
         ]}
       />
 
-      {/* ---------- View Modal ---------- */}
-      {showViewModal && viewingAdjustment && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-            <div
-              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-              onClick={() => {
-                setShowViewModal(false);
-                setViewingAdjustment(null);
-              }}
-            ></div>
-            <div className="inline-block transform overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:align-middle">
-              <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
-                <div className="w-full text-center sm:text-left">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-lg font-medium leading-6 text-gray-900">Adjustment Details</h3>
-                    <button
-                      onClick={() => {
-                        setShowViewModal(false);
-                        setViewingAdjustment(null);
-                      }}
-                      className="text-gray-400 hover:text-gray-500"
-                    >
-                      <XCircleIcon className="h-6 w-6" />
-                    </button>
-                  </div>
+      {/* ---------- View Modal — now using PaginatedPopup ---------- */}
+      <PaginatedPopup
+        isOpen={showViewModal && !!viewingAdjustment}
+        title="Adjustment Details"
+        subtitle={
+          viewingAdjustment
+            ? `Adjustment #${viewingAdjustment.id}`
+            : "Stock adjustment details"
+        }
+        onClose={() => {
+          setShowViewModal(false);
+          setViewingAdjustment(null);
+        }}
+        submitting={false}
+        maxWidthClassName="max-w-lg"
+        tabs={[
+          {
+            label: "Details",
+            fields: [
+              viewingAdjustment && (
+                <div key="view-content" className="space-y-3 text-sm">
+                  <div className="grid grid-cols-2 gap-4 rounded-lg bg-gray-50 p-4">
+                    <div>
+                      <p className="text-xs text-gray-500">Adjustment Date</p>
+                      <p className="text-sm text-gray-700">
+                        {new Date(viewingAdjustment.adjustmentDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Type</p>
+                      <span
+                        className={`mt-1 inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${getTypeBadge(
+                          viewingAdjustment.adjustmentType
+                        )}`}
+                      >
+                        {getTypeIcon(viewingAdjustment.adjustmentType)}
+                        {getTypeLabel(viewingAdjustment.adjustmentType)}
+                      </span>
+                    </div>
 
-                  <div className="mb-6 rounded-lg bg-gray-50 p-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-gray-500">Adjustment Date</p>
-                        <p className="text-sm text-gray-700">
-                          {new Date(viewingAdjustment.adjustmentDate).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Type</p>
-                        <span
-                          className={`mt-1 inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${getTypeBadge(viewingAdjustment.adjustmentType)}`}
-                        >
-                          {getTypeIcon(viewingAdjustment.adjustmentType)}
-                          {getTypeLabel(viewingAdjustment.adjustmentType)}
-                        </span>
-                      </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Product</p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          goToProduct(
+                            viewingAdjustment.productId ?? viewingAdjustment.product?.id
+                          )
+                        }
+                        className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
+                      >
+                        {getProductDisplayName(viewingAdjustment)}
+                      </button>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Quantity</p>
+                      <p
+                        className={`text-sm font-semibold ${
+                          viewingAdjustment.adjustmentType === "POSITIVE"
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {viewingAdjustment.adjustmentType === "POSITIVE" ? "+" : "-"}
+                        {viewingAdjustment.quantity}
+                      </p>
+                    </div>
 
-                      <div>
-                        <p className="text-xs text-gray-500">Product</p>
+                    <div>
+                      <p className="text-xs text-gray-500">Warehouse</p>
+                      {viewingAdjustment.warehouse?.id ? (
                         <button
                           type="button"
-                          onClick={() => goToProduct(viewingAdjustment.productId ?? viewingAdjustment.product?.id)}
-                          className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
+                          onClick={() => goToWarehouse(viewingAdjustment.warehouse)}
+                          className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
                         >
-                          {getProductDisplayName(viewingAdjustment)}
+                          {viewingAdjustment.warehouse.name || "N/A"}
                         </button>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Quantity</p>
-                        <p
-                          className={`text-sm font-semibold ${viewingAdjustment.adjustmentType === "POSITIVE" ? "text-green-600" : "text-red-600"}`}
-                        >
-                          {viewingAdjustment.adjustmentType === "POSITIVE" ? "+" : "-"}
-                          {viewingAdjustment.quantity}
+                      ) : (
+                        <p className="text-sm text-gray-700">N/A</p>
+                      )}
+                      {viewingAdjustment.warehouse?.code && (
+                        <p className="mt-1 text-xs text-gray-500">
+                          {viewingAdjustment.warehouse.code}
                         </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-gray-500">Warehouse</p>
-                        {viewingAdjustment.warehouse?.id ? (
-                          <button
-                            type="button"
-                            onClick={() => goToWarehouse(viewingAdjustment.warehouse)}
-                            className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
-                          >
-                            {viewingAdjustment.warehouse.name || "N/A"}
-                          </button>
-                        ) : (
-                          <p className="text-sm text-gray-700">N/A</p>
-                        )}
-                        {viewingAdjustment.warehouse?.code && (
-                          <p className="mt-1 text-xs text-gray-500">{viewingAdjustment.warehouse.code}</p>
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Batch</p>
-                        {viewingAdjustment.batch?.id ? (
-                          <button
-                            type="button"
-                            onClick={() => goToBatch(viewingAdjustment.batch)}
-                            className="text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline text-left"
-                          >
-                            {viewingAdjustment.batch.batchNumber || "N/A"}
-                          </button>
-                        ) : (
-                          <p className="text-sm text-gray-700">N/A</p>
-                        )}
-                        {viewingAdjustment.batch?.expiryDate && (
-                          <p className="mt-1 text-xs text-gray-500">
-                            Expires: {new Date(viewingAdjustment.batch.expiryDate).toLocaleDateString()}
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-gray-500">Serial Number</p>
-                        <p className="text-sm text-gray-700">
-                          {viewingAdjustment.serialNumber?.serial || "N/A"}
-                          {viewingAdjustment.serialNumber?.status ? ` (${viewingAdjustment.serialNumber.status})` : ""}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Created By</p>
-                        <p className="text-sm text-gray-700">{viewingAdjustment.createdBy || "N/A"}</p>
-                      </div>
-
-                      <div className="col-span-2">
-                        <p className="text-xs text-gray-500">Reason</p>
-                        <p className="text-sm text-gray-700">{getReasonLabel(viewingAdjustment.reason)}</p>
-                      </div>
-
-                      {viewingAdjustment.createdDate && (
-                        <div className="col-span-2">
-                          <p className="text-xs text-gray-500">Created At</p>
-                          <p className="text-sm text-gray-600">
-                            {new Date(viewingAdjustment.createdDate).toLocaleString()}
-                          </p>
-                        </div>
                       )}
                     </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Batch</p>
+                      {viewingAdjustment.batch?.id ? (
+                        <button
+                          type="button"
+                          onClick={() => goToBatch(viewingAdjustment.batch)}
+                          className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
+                        >
+                          {viewingAdjustment.batch.batchNumber || "N/A"}
+                        </button>
+                      ) : (
+                        <p className="text-sm text-gray-700">N/A</p>
+                      )}
+                      {viewingAdjustment.batch?.expiryDate && (
+                        <p className="mt-1 text-xs text-gray-500">
+                          Expires:{" "}
+                          {new Date(viewingAdjustment.batch.expiryDate).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-gray-500">Serial Number</p>
+                      <p className="text-sm text-gray-700">
+                        {viewingAdjustment.serialNumber?.serial || "N/A"}
+                        {viewingAdjustment.serialNumber?.status
+                          ? ` (${viewingAdjustment.serialNumber.status})`
+                          : ""}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Created By</p>
+                      <p className="text-sm text-gray-700">
+                        {viewingAdjustment.createdBy || "N/A"}
+                      </p>
+                    </div>
+
+                    <div className="col-span-2">
+                      <p className="text-xs text-gray-500">Reason</p>
+                      <p className="text-sm text-gray-700">
+                        {getReasonLabel(viewingAdjustment.reason)}
+                      </p>
+                    </div>
+
+                    {viewingAdjustment.createdDate && (
+                      <div className="col-span-2">
+                        <p className="text-xs text-gray-500">Created At</p>
+                        <p className="text-sm text-gray-600">
+                          {new Date(viewingAdjustment.createdDate).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-              <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowViewModal(false);
-                    openEdit(viewingAdjustment);
-                  }}
-                  className="inline-flex w-full justify-center rounded-md border border-transparent bg-cyan-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm"
-                >
-                  <PencilSquareIcon className="mr-2 h-4 w-4" />
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowViewModal(false);
-                    setViewingAdjustment(null);
-                  }}
-                  className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 sm:mt-0 sm:w-auto sm:text-sm"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+              ),
+            ],
+          },
+        ]}
+      />
 
       {/* ---------- Delete Confirmation Modal ---------- */}
       <DynamicPopup
@@ -1321,7 +1194,11 @@ const StockAdjustmentManager: React.FC = () => {
         innerText="Delete Adjustment"
         subText={
           deletingAdjustment
-            ? `Are you sure you want to delete the ${getTypeLabel(deletingAdjustment.adjustmentType).toLowerCase()} adjustment for "${getProductDisplayName(deletingAdjustment)}" (${deletingAdjustment.quantity} units)? This action cannot be undone.`
+            ? `Are you sure you want to delete the ${getTypeLabel(
+                deletingAdjustment.adjustmentType
+              ).toLowerCase()} adjustment for "${getProductDisplayName(
+                deletingAdjustment
+              )}" (${deletingAdjustment.quantity} units)? This action cannot be undone.`
             : "Are you sure you want to delete this adjustment?"
         }
         confirmLabel="Delete"

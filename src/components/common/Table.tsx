@@ -30,6 +30,19 @@ export interface ColumnDef<T> {
   filterOptions?: { label: string; value: string }[];
   /** Derives the value used by the column filter when the cell renders nested data. */
   filterValueGetter?: (row: T) => string | number | null | undefined;
+  /**
+   * Overrides how this column's value is shown in the row-details drawer
+   * (e.g. mapping a boolean to "Active"/"Inactive" instead of the generic
+   * "Yes"/"No"). Takes precedence over the raw value, render, and
+   * sortValueGetter when present.
+   */
+  detailFormatter?: (row: T, value: unknown) => React.ReactNode;
+  /**
+   * Set true to keep this column in the table but omit it from the
+   * row-details drawer — useful for columns that are guaranteed to
+   * duplicate another field's value there.
+   */
+  excludeFromDetails?: boolean;
 }
 
 export interface ReusableTableProps<T extends { id?: number | string }> {
@@ -48,6 +61,12 @@ export interface ReusableTableProps<T extends { id?: number | string }> {
   rowDetailsTitle?: string | ((row: T) => string);
   /** Optional supporting text shown beneath the drawer heading. */
   rowDetailsSubtitle?: string;
+  /**
+   * Raw field keys on the row object (not necessarily defined as columns)
+   * to omit from the row-details drawer entirely — e.g. an internal
+   * database id that isn't meant to be customer-facing.
+   */
+  hiddenDetailKeys?: string[];
   loading?: boolean;
   emptyState?: React.ReactNode;
   className?: string;
@@ -74,6 +93,30 @@ function getCellTitle(value: unknown): string | undefined {
     return String(value);
   }
   return undefined;
+}
+
+/**
+ * Matches internal foreign-key / primary-key style fields — "id", "productId",
+ * "categoryId", "employeeId", "salesPersonId", "serviceItemId", "userId", etc.
+ * These are never meaningful to an end user and should never be rendered in
+ * the row-details drawer, at any nesting depth (top-level fields, fields
+ * inside a nested object like `salesPerson`, or fields inside each item of
+ * an array like `items[]`).
+ */
+function isIdLikeKey(key: string): boolean {
+  return /^id$/i.test(key) || /Id$/.test(key);
+}
+
+/**
+ * Field-name based check used only to decide whether a nested numeric value
+ * inside an object (e.g. an item's `unitPrice`) should be a plain formatted
+ * number or an actual currency amount. This intentionally excludes rates,
+ * percentages and quantities, which are numeric but not money.
+ */
+function isMoneyLikeKey(key: string): boolean {
+  if (/percentage|percent|rate$|quantity|qty/i.test(key)) return false;
+  if (isIdLikeKey(key)) return false;
+  return /amount|price|total|cost|discount|tax/i.test(key);
 }
 
 function formatDetailLabel(key: string): string {
@@ -287,8 +330,12 @@ function renderDetailValue(
     }
 
     const entries = Object.entries(rec).filter(
-      ([_, v]) =>
-        v !== null && v !== undefined && v !== "" && typeof v !== "function",
+      ([k, v]) =>
+        v !== null &&
+        v !== undefined &&
+        v !== "" &&
+        typeof v !== "function" &&
+        !isIdLikeKey(k),
     );
 
     if (entries.length === 0) return <span className="text-gray-400">--</span>;
@@ -313,7 +360,7 @@ function renderDetailValue(
                   {formatDetailLabel(k)}
                 </span>
                 <span className="font-semibold text-cyan-700 dark:text-cyan-400 break-words sm:text-right shrink-0">
-                  {typeof v === "number"
+                  {typeof v === "number" && isMoneyLikeKey(k)
                     ? `₹${v.toLocaleString()}`
                     : formatPrimitiveValue(v)}
                 </span>
@@ -344,7 +391,11 @@ function renderDetailValue(
   return formatPrimitiveValue(value);
 }
 
-function getDetailEntries<T>(row: T, columns: ColumnDef<T>[]) {
+function getDetailEntries<T>(
+  row: T,
+  columns: ColumnDef<T>[],
+  hiddenDetailKeys: string[] = [],
+) {
   const record = row as Record<string, unknown>;
   const orderedKeys = [
     ...columns.map((column) => column.key),
@@ -356,16 +407,33 @@ function getDetailEntries<T>(row: T, columns: ColumnDef<T>[]) {
   return orderedKeys
     .filter((key, index, arr) => arr.indexOf(key) === index)
     .filter((key) => key !== "actions" && typeof record[key] !== "function")
+    .filter((key) => !hiddenDetailKeys.includes(key))
+    .filter((key) => !isIdLikeKey(key))
+    .filter((key) => {
+      const column = columns.find((item) => item.key === key);
+      return !column?.excludeFromDetails;
+    })
     .map((key) => {
       const column = columns.find((item) => item.key === key);
-      let val = record[key];
-      if ((val === undefined || val === null || val === "") && column) {
-        if (column.sortValueGetter) {
-          val = column.sortValueGetter(row) as any;
-        } else if (column.render) {
-          val = column.render(row, record[column.key]) as any;
+      let val: unknown;
+
+      if (column?.detailFormatter) {
+        // Column explicitly controls how it looks in the drawer — this
+        // takes priority over the raw value/render/sortValueGetter
+        // fallbacks below (e.g. a boolean "active" field rendering as
+        // "Active"/"Inactive" instead of the generic Yes/No).
+        val = column.detailFormatter(row, record[key]);
+      } else {
+        val = record[key];
+        if ((val === undefined || val === null || val === "") && column) {
+          if (column.sortValueGetter) {
+            val = column.sortValueGetter(row) as any;
+          } else if (column.render) {
+            val = column.render(row, record[column.key]) as any;
+          }
         }
       }
+
       return {
         key,
         label: column?.label || formatDetailLabel(key),
@@ -473,6 +541,7 @@ export function ReusableTable<T extends { id?: number | string }>({
   enableRowDetails = true,
   rowDetailsTitle = "Row Details",
   rowDetailsSubtitle = "Read-only record details",
+  hiddenDetailKeys = [],
   loading = false,
   emptyState,
   className = "",
@@ -709,7 +778,7 @@ export function ReusableTable<T extends { id?: number | string }>({
       : rowDetailsTitle
     : "Row Details";
   const selectedDetailEntries = selectedRow
-    ? getDetailEntries(selectedRow, columns)
+    ? getDetailEntries(selectedRow, columns, hiddenDetailKeys)
     : [];
   const summaryEntries = selectedDetailEntries
     .filter((entry) => isDashboardHighlight(entry.value))

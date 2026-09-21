@@ -4,6 +4,7 @@ import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
 import { ToasterService } from "../../Services/ToasterService";
+import placeholderImage from "../../images/img-placeholder.png";
 
 interface UserDetails {
   country?: string;
@@ -52,7 +53,7 @@ const generateInitialsImage = (fullName: string, size: number = 200): string => 
   canvas.height = size;
   const ctx = canvas.getContext('2d');
 
-  if (!ctx) return "src/images/img-placeholder.png";
+  if (!ctx) return placeholderImage;
 
   const tealColor = '#14B8A6'; // Beautiful teal color
 
@@ -92,7 +93,7 @@ export default function ResetPasswordCard() {
     country: "",
     city: ""
   });
-  const [profileImage, setProfileImage] = useState("src/images/img-placeholder.png");
+  const [profileImage, setProfileImage] = useState(placeholderImage);
   const [isFetchingLocation, setIsFetchingLocation] = useState(true);
   const [isDefaultImage, setIsDefaultImage] = useState(true);
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -400,7 +401,7 @@ export default function ResetPasswordCard() {
                     alt="user" 
                     className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-125"
                     onError={(e) => {
-                      e.currentTarget.src = "src/images/img-placeholder.png";
+                      e.currentTarget.src = placeholderImage;
                     }}
                   />
                 )}

@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useLayoutEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Link, useNavigate } from "react-router";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
@@ -13,8 +21,15 @@ type SearchResult = {
   icon?: React.ReactNode;
   path?: string;
   action?: () => void;
-  category: "page" | "action" | "recent";
+  category: "page" | "action";
   parent?: string;
+  children?: SearchResult[];
+};
+
+// Imperative handle so AppHeader can forward document-level keydown events
+// into the currently-mounted SearchBar (needed for keyboard-only usage).
+type SearchBarHandle = {
+  handleGlobalKey: (event: KeyboardEvent) => void;
 };
 
 // Shared icon-button style so every icon action in the header has the same footprint
@@ -35,58 +50,663 @@ const IconButton = ({
   </button>
 );
 
-const SearchBar = ({
-  className = "",
-  inputRef,
-}: {
-  className?: string;
-  inputRef?: React.RefObject<HTMLInputElement | null>;
-}) => {
+// ---------- Windows 11 context-menu styling primitives ----------
+// Rounded corners, hairline border, layered shadow, subtle hover fill.
+const MENU_WRAP =
+  "absolute top-full left-0 mt-2 z-[9999] " +
+  "min-w-[260px] p-1.5 rounded-lg " +
+  "bg-white/95 dark:bg-[#202020]/95 backdrop-blur-xl " +
+  "border border-black/5 dark:border-white/10 " +
+  "shadow-[0_8px_32px_rgba(0,0,0,0.18),0_0_0_1px_rgba(0,0,0,0.04)] " +
+  "text-[13px] text-gray-800 dark:text-gray-100";
+
+const MENU_ITEM =
+  "group flex items-center w-full h-8 px-3 rounded-[5px] " +
+  "text-left text-[13px] leading-none " +
+  "hover:bg-black/[0.05] dark:hover:bg-white/[0.06] " +
+  "focus:bg-black/[0.05] dark:focus:bg-white/[0.06] focus:outline-none " +
+  "transition-colors";
+
+const MENU_ITEM_ACTIVE = "bg-black/[0.05] dark:bg-white/[0.06]";
+
+const MENU_ICON =
+  "flex items-center justify-center w-4 h-4 mr-3 shrink-0 " +
+  "text-gray-600 dark:text-gray-300";
+
+const MENU_CHEVRON = (
+  <svg viewBox="0 0 12 12" className="w-3 h-3 ml-auto text-gray-500 dark:text-gray-400">
+    <path
+      d="M4.5 2.5 8 6l-3.5 3.5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+// Small monochrome icon slot — renders nothing when no icon is provided.
+const IconSlot = ({ children }: { children?: React.ReactNode }) => {
+  if (!children) return null;
+  return <span className={MENU_ICON}>{children}</span>;
+};
+
+// Fuzzy match: every character of `needle` must appear in `haystack` in order.
+// "sord" → matches "Sales Order". "emp" → matches "Add Employee".
+const fuzzyMatch = (haystack: string, needle: string): boolean => {
+  if (!needle) return true;
+  const h = haystack.toLowerCase();
+  const n = needle.toLowerCase();
+  let i = 0;
+  for (let j = 0; j < h.length && i < n.length; j++) {
+    if (h[j] === n[i]) i++;
+  }
+  return i === n.length;
+};
+
+// Recently picked items, persisted so the empty-query menu can show them.
+const RECENTS_KEY = "appheader:recents";
+const RECENTS_LIMIT = 5;
+
+const loadRecents = (): SearchResult[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(RECENTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as SearchResult[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveRecents = (items: SearchResult[]) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(RECENTS_KEY, JSON.stringify(items));
+  } catch {}
+};
+
+// Search bar — Win11-styled. Empty query shows only main modules (no scroll).
+// Typing shows a flat filtered list. Hovering a module opens a flyout submenu.
+//
+// Keyboard model (two focus levels):
+//   Level 0 (modules list):
+//     ↑ ↓  move between modules
+//     → or Enter  descend into a module that has children
+//     Enter on a leaf module  navigate
+//     Esc  close menu
+//   Level 1 (flyout):
+//     ↑ ↓  move between children
+//     ← or Esc  go back up to the parent module
+//     Enter  navigate to the highlighted child
+const SearchBar = forwardRef<
+  SearchBarHandle,
+  {
+    className?: string;
+    inputRef: React.RefObject<HTMLInputElement | null>;
+    containerRef: React.RefObject<HTMLDivElement | null>;
+    isOpen: boolean;
+    query: string;
+    onQueryChange: (v: string) => void;
+    onOpenChange: (v: boolean) => void;
+    mainModules: SearchResult[];
+    actions: SearchResult[];
+    recents: SearchResult[];
+    onPick: (r: SearchResult) => void;
+  }
+>(function SearchBar(
+  {
+    className = "",
+    inputRef,
+    containerRef,
+    isOpen,
+    query,
+    onQueryChange,
+    onOpenChange,
+    mainModules,
+    actions,
+    recents,
+    onPick,
+  },
+  ref
+) {
   const isMac =
     typeof navigator !== "undefined" && /Mac/i.test(navigator.platform);
 
+  // Which top-level module's flyout is open (by id)
+  const [openFlyoutId, setOpenFlyoutId] = useState<string | null>(null);
+  // Highlight in the modules list (level 0)
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  // Highlight inside the open flyout (level 1)
+  const [highlightedChildId, setHighlightedChildId] = useState<string | null>(null);
+  // Which level currently owns keyboard focus
+  const [level, setLevel] = useState<0 | 1>(0);
+   // Flyout placement — computed after mount by measuring the flyout
+   const flyoutRef = useRef<HTMLDivElement>(null);
+  const [flyoutPlacement, setFlyoutPlacement] = useState<"right" | "left">("right");
+  const [flyoutOffsetY, setFlyoutOffsetY] = useState(0);
+
+  // Reset flyout/highlight state every time the menu transitions to open,
+  // so ⌘K or tapping the input always starts fresh at level 0 with no
+  // stale submenu from the previous session.
+  useEffect(() => {
+    if (isOpen) {
+      setOpenFlyoutId(null);
+      setHighlightedId(null);
+      setHighlightedChildId(null);
+      setLevel(0);
+    }
+  }, [isOpen]);
+
+    // Measure the open flyout and decide where it fits. Runs on every open
+  // and whenever the list of open children changes so vertical overflow is
+  // recalculated too.
+  useLayoutEffect(() => {
+    if (!openFlyoutId || !flyoutRef.current) return;
+
+    const el = flyoutRef.current;
+    // Reset to defaults so measurement is unbiased from the previous open.
+    el.style.transform = "";
+    el.style.left = "";
+    el.style.right = "";
+
+    const rect = el.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const margin = 8;
+
+    // --- Horizontal: prefer right, flip to left if it doesn't fit ---
+    const parentRect = el.parentElement?.getBoundingClientRect();
+    const parentRight = parentRect?.right ?? rect.left;
+    const fitsRight = parentRight + rect.width + margin <= vw;
+    const fitsLeft = (parentRect?.left ?? rect.left) - rect.width - margin >= 0;
+
+    let nextPlacement: "right" | "left" = "right";
+    if (!fitsRight && fitsLeft) nextPlacement = "left";
+    else if (!fitsRight && !fitsLeft) {
+      // Neither side fits cleanly — pick the one with more room.
+      nextPlacement = parentRight + rect.width <= vw - parentRight ? "right" : "left";
+    }
+    setFlyoutPlacement(nextPlacement);
+
+    // --- Vertical: shift up if the flyout overflows the bottom ---
+      const overflowBottom = rect.bottom - (vh - margin);
+    const offsetY = overflowBottom > 0 ? -overflowBottom : 0;
+    setFlyoutOffsetY(offsetY);
+  }, [openFlyoutId, openFlyoutId ? mainModules.find((m) => m.id === openFlyoutId)?.children?.length : 0]);
+
+  const q = query.trim().toLowerCase();
+  const showingModulesOnly = !q;
+  
+  const flatFiltered = useMemo(() => {
+    if (!q) return [];
+
+    // Build a flat pool: each module, each child of each module, and actions.
+    const pool: SearchResult[] = [];
+    mainModules.forEach((mod) => {
+      // Include the module itself (path may be undefined — that's fine,
+      // picking it will just do nothing, which we guard in handlePick).
+      pool.push(mod);
+      (mod.children ?? []).forEach((child) => pool.push(child));
+    });
+    actions.forEach((a) => pool.push(a));
+
+    return pool.filter((r) => {
+      // Match against the item's own label
+      if (fuzzyMatch(r.label, q)) return true;
+      // Match against its parent breadcrumb
+      if (r.parent && fuzzyMatch(r.parent, q)) return true;
+      return false;
+    });
+  }, [q, mainModules, actions]);
+
+  // The list keyboard navigation walks over
+  const visibleList: SearchResult[] = showingModulesOnly
+    ? mainModules
+    : flatFiltered;
+
+  // Single source of truth for keyboard handling — used by both the
+  // input's own onKeyDown and the global document listener (via ref).
+  const runKey = (event: {
+    key: string;
+    preventDefault: () => void;
+    metaKey?: boolean;
+    ctrlKey?: boolean;
+    altKey?: boolean;
+  }) => {
+    if (!isOpen) return;
+
+    // ---- ESC ----
+    if (event.key === "Escape") {
+      event.preventDefault();
+      if (level === 1) {
+        setLevel(0);
+        setOpenFlyoutId(null);
+        setHighlightedChildId(null);
+        return;
+      }
+      onOpenChange(false);
+      onQueryChange("");
+      setOpenFlyoutId(null);
+      setHighlightedId(null);
+      setHighlightedChildId(null);
+      setLevel(0);
+      return;
+    }
+
+    // ============================================================
+    // Typing mode — flat list only, no flyouts
+    // ============================================================
+    if (!showingModulesOnly) {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        if (visibleList.length === 0) return;
+        const cur = visibleList.findIndex((r) => r.id === highlightedId);
+        const next =
+          event.key === "ArrowDown"
+            ? cur < visibleList.length - 1
+              ? cur + 1
+              : 0
+            : cur > 0
+            ? cur - 1
+            : visibleList.length - 1;
+        setHighlightedId(visibleList[next].id);
+        return;
+      }
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const explicit = visibleList.find((r) => r.id === highlightedId);
+        const fallback = query.trim() ? visibleList[0] : undefined;
+        const target = explicit ?? fallback;
+        if (target) onPick(target);
+      }
+      return;
+    }
+
+    // ============================================================
+    // Empty-query mode — modules list + flyouts (two levels)
+    // ============================================================
+
+    // -------- Level 1: inside the flyout --------
+    if (level === 1 && openFlyoutId) {
+      const children =
+        mainModules.find((m) => m.id === openFlyoutId)?.children ?? [];
+
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        if (children.length === 0) return;
+        const cur = children.findIndex((c) => c.id === highlightedChildId);
+        const next =
+          event.key === "ArrowDown"
+            ? cur < children.length - 1
+              ? cur + 1
+              : 0
+            : cur > 0
+            ? cur - 1
+            : children.length - 1;
+        setHighlightedChildId(children[next].id);
+        return;
+      }
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        setLevel(0);
+        setOpenFlyoutId(null);
+        setHighlightedChildId(null);
+        return;
+      }
+
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const target =
+          children.find((c) => c.id === highlightedChildId) ?? children[0];
+        if (target) onPick(target);
+        return;
+      }
+
+      return;
+    }
+
+    // -------- Level 0: modules list --------
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (visibleList.length === 0) return;
+      const cur = visibleList.findIndex((r) => r.id === highlightedId);
+      const next =
+        event.key === "ArrowDown"
+          ? cur < visibleList.length - 1
+            ? cur + 1
+            : 0
+          : cur > 0
+          ? cur - 1
+          : visibleList.length - 1;
+      setHighlightedId(visibleList[next].id);
+      // moving between modules closes any open flyout
+      setOpenFlyoutId(null);
+      setHighlightedChildId(null);
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      const cur = mainModules.find((r) => r.id === highlightedId);
+      if (cur?.children?.length) {
+        setOpenFlyoutId(cur.id);
+        setHighlightedChildId(cur.children[0].id);
+        setLevel(1);
+      }
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const cur = mainModules.find((r) => r.id === highlightedId);
+      if (cur?.children?.length) {
+        // descend instead of navigating
+        setOpenFlyoutId(cur.id);
+        setHighlightedChildId(cur.children[0].id);
+        setLevel(1);
+        return;
+      }
+      if (cur) onPick(cur);
+      return;
+    }
+  };
+
+  // Expose the same handler so AppHeader can forward document keys to us.
+  useImperativeHandle(
+    ref,
+    () => ({
+      handleGlobalKey: (event: KeyboardEvent) => runKey(event),
+    }),
+    [
+      isOpen,
+      visibleList,
+      highlightedId,
+      showingModulesOnly,
+      openFlyoutId,
+      highlightedChildId,
+      level,
+      query,
+      mainModules,
+    ]
+  );
+
   return (
-    <div className={`relative ${className}`}>
-      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-        <svg
-          className="w-5 h-5 text-gray-500 dark:text-gray-400"
-          fill="none"
-          viewBox="0 0 20 20"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            fillRule="evenodd"
-            clipRule="evenodd"
-            d="M9.375 16.708a7.333 7.333 0 1 0 0-14.667 7.333 7.333 0 0 0 0 14.667Zm7.815-1.358 2.94 2.94a.833.833 0 0 1-1.179 1.178l-2.94-2.94a9.167 9.167 0 1 1 1.18-1.18Z"
-            fill="currentColor"
-          />
-        </svg>
+    <div ref={containerRef} className={`relative ${className}`}>
+      {/* Search input */}
+      <div className="relative">
+        <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+          <svg
+            className="w-4 h-4 text-gray-500 dark:text-gray-400"
+            fill="none"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fillRule="evenodd"
+              clipRule="evenodd"
+              d="M9.375 16.708a7.333 7.333 0 1 0 0-14.667 7.333 7.333 0 0 0 0 14.667Zm7.815-1.358 2.94 2.94a.833.833 0 0 1-1.179 1.178l-2.94-2.94a9.167 9.167 0 1 1 1.18-1.18Z"
+              fill="currentColor"
+            />
+          </svg>
+        </span>
+
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder="Search or type command..."
+          value={query}
+          onChange={(e) => {
+            onQueryChange(e.target.value);
+            setHighlightedId(null);
+            setOpenFlyoutId(null);
+            setHighlightedChildId(null);
+            setLevel(0);
+            if (!isOpen) onOpenChange(true);
+          }}
+          // Toggle open/close when tapping the input directly.
+          onMouseDown={(e) => {
+            if (isOpen) {
+              e.preventDefault();
+              (e.currentTarget as HTMLInputElement).blur();
+              onOpenChange(false);
+              onQueryChange("");
+              setHighlightedId(null);
+              setOpenFlyoutId(null);
+              setHighlightedChildId(null);
+              setLevel(0);
+              return;
+            }
+            // Otherwise open fresh.
+            setHighlightedId(null);
+            setOpenFlyoutId(null);
+            setHighlightedChildId(null);
+            setLevel(0);
+            onOpenChange(true);
+          }}
+          onFocus={() => {
+            if (!isOpen) {
+              setHighlightedId(null);
+              setOpenFlyoutId(null);
+              setHighlightedChildId(null);
+              setLevel(0);
+              onOpenChange(true);
+            }
+          }}
+          className="w-full h-8 pl-9 pr-20 text-[13px] rounded-md
+                     bg-white dark:bg-[#2b2b2b]
+                     border border-black/10 dark:border-white/10
+                     text-gray-800 dark:text-gray-100
+                     placeholder:text-gray-500 dark:placeholder:text-gray-400
+                     focus:outline-none focus:border-blue-500/60
+                     focus:ring-2 focus:ring-blue-500/20 transition-colors"
+        />
+
+        <span className="absolute inset-y-0 right-0 flex items-center pr-2">
+          <kbd
+            className="inline-flex items-center justify-center h-5 px-1.5
+                       text-[11px] font-medium
+                       text-gray-600 dark:text-gray-300
+                       bg-black/[0.04] dark:bg-white/[0.06]
+                       border border-black/5 dark:border-white/10
+                       rounded"
+          >
+            {isMac ? "⌘K" : "Ctrl K"}
+          </kbd>
+        </span>
       </div>
 
-      <input
-        ref={inputRef}
-        type="text"
-        placeholder="Search or type command..."
-        className="w-full h-10 pl-10 pr-16 text-sm bg-white border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-colors"
-      />
+      {/* Win11-style menu */}
+      {isOpen && (
+        <div className={MENU_WRAP} role="listbox" aria-label="Search results">
+          {/* ---------- EMPTY QUERY: recent + main modules ---------- */}
+          {showingModulesOnly && (
+            <>
+              {/* Recent section (only when we have recents) */}
+              {recents.length > 0 && (
+                <>
+                  <div className="px-3 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Recent
+                  </div>
+                  {recents.map((r) => (
+                    <button
+                      key={`recent-${r.id}`}
+                      type="button"
+                      role="option"
+                      aria-selected={false}
+                      className={MENU_ITEM}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => onPick(r)}
+                    >
+                      <IconSlot>{r.icon}</IconSlot>
+                      <span className="truncate">{r.label}</span>
+                    </button>
+                  ))}
+                  <div className="my-1 h-px bg-black/[0.06] dark:bg-white/[0.08]" />
+                </>
+              )}
 
-      <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-        <kbd className="inline-flex items-center justify-center h-5 w-auto px-2 py-1 text-xs font-medium text-gray-500 bg-gray-100 border border-gray-300 rounded dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600">
-          {isMac ? "⌘K" : "Ctrl K"}
-        </kbd>
-      </div>
+              <div className="px-3 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Modules
+              </div>
+
+              {mainModules.map((mod) => {
+                const hasChildren = !!mod.children?.length;
+                const isHighlighted = highlightedId === mod.id;
+                const isFlyoutOpen = openFlyoutId === mod.id;
+
+                return (
+                  <div
+                    key={mod.id}
+                    className="relative"
+                    onMouseEnter={() => {
+                      setHighlightedId(mod.id);
+                      setOpenFlyoutId(hasChildren ? mod.id : null);
+                      setLevel(0);
+                      setHighlightedChildId(null);
+                    }}
+                    onMouseLeave={() => {
+                      setOpenFlyoutId((cur) => (cur === mod.id ? null : cur));
+                    }}
+                  >
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={isHighlighted}
+                      aria-haspopup={hasChildren || undefined}
+                      aria-expanded={isFlyoutOpen || undefined}
+                      className={`${MENU_ITEM} ${
+                        isHighlighted || isFlyoutOpen ? MENU_ITEM_ACTIVE : ""
+                      }`}
+                      // Prevent the input from losing focus on press; keeps
+                      // the menu open through the click so navigation fires.
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        if (hasChildren) {
+                          setOpenFlyoutId(isFlyoutOpen ? null : mod.id);
+                        } else {
+                          onPick(mod);
+                        }
+                      }}
+                    >
+                      <IconSlot>{mod.icon}</IconSlot>
+                      <span className="truncate">{mod.label}</span>
+                      {hasChildren && MENU_CHEVRON}
+                    </button>
+
+                    {/* Flyout submenu */}
+                                       {hasChildren && isFlyoutOpen && (
+                      <div
+                        ref={flyoutRef}
+                        className={`${MENU_WRAP} !top-[-6px] !mt-0 ${
+                          flyoutPlacement === "right"
+                            ? "!left-full ml-1"
+                            : "!right-full mr-1"
+                        }`}
+                        style={{ transform: `translateY(${flyoutOffsetY}px)` }}
+                        role="menu"
+                        onMouseEnter={() => setOpenFlyoutId(mod.id)}
+                      >
+                        {mod.children!.map((child) => {
+                          const isChildHighlighted =
+                            level === 1 && highlightedChildId === child.id;
+                          return (
+                            <div key={child.id} className="relative">
+                              <button
+                                type="button"
+                                role="menuitem"
+                                aria-selected={isChildHighlighted}
+                                className={`${MENU_ITEM} ${
+                                  isChildHighlighted ? MENU_ITEM_ACTIVE : ""
+                                }`}
+                                onMouseEnter={() => {
+                                  setLevel(1);
+                                  setHighlightedChildId(child.id);
+                                }}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => onPick(child)}
+                              >
+                                <IconSlot>{child.icon}</IconSlot>
+                                <span className="truncate">{child.label}</span>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          )}
+
+          {/* ---------- TYPING: flat filtered list ---------- */}
+          {!showingModulesOnly && (
+            <>
+              {flatFiltered.length === 0 ? (
+                <div className="px-3 py-6 text-center text-[13px] text-gray-500 dark:text-gray-400">
+                  No results for &ldquo;{query}&rdquo;
+                </div>
+              ) : (
+                <>
+                  <div className="px-3 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Results
+                  </div>
+
+                  {flatFiltered.map((r) => {
+                    const isHighlighted = highlightedId === r.id;
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        role="option"
+                        aria-selected={isHighlighted}
+                        className={`${MENU_ITEM} ${
+                          isHighlighted ? MENU_ITEM_ACTIVE : ""
+                        }`}
+                        onMouseEnter={() => setHighlightedId(r.id)}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => onPick(r)}
+                      >
+                        <IconSlot>{r.icon}</IconSlot>
+                        <span className="truncate">{r.label}</span>
+                        {r.parent && (
+                          <span className="ml-2 text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                            {r.parent}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
-};
+});
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [recents, setRecents] = useState<SearchResult[]>(() => loadRecents());
+
+  // Two refs — one per rendered SearchBar (desktop + mobile)
   const inputRef = useRef<HTMLInputElement>(null);
-  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const desktopSearchRef = useRef<HTMLDivElement>(null);
+  const mobileSearchRef = useRef<HTMLDivElement>(null);
+  const mobileInputRef = useRef<HTMLInputElement>(null);
+
+  // Imperative handles for forwarding global keydown into the active bar
+  const desktopSearchBarRef = useRef<SearchBarHandle>(null);
+  const mobileSearchBarRef = useRef<SearchBarHandle>(null);
+
   const navigate = useNavigate();
 
   const isMac = typeof navigator !== "undefined" && /Mac/i.test(navigator.platform);
@@ -118,144 +738,167 @@ const AppHeader: React.FC = () => {
     }
   };
 
-  // Build search results from navItems
-  const searchResults = useMemo<SearchResult[]>(() => {
-    const results: SearchResult[] = [];
+  // Build search results from navItems — main modules (top level) + children (sub-items)
+  const mainModules = useMemo<SearchResult[]>(() => {
+    return (navItems as any[]).map((item) => {
+      const children: SearchResult[] = [];
 
-    // Helper to flatten nav items
-    const flattenNavItems = (items: any[], parent?: string) => {
-      items.forEach((item) => {
-        // Add the main item if it has a path
-        if (item.path) {
-          results.push({
-            id: item.path.replace(/\//g, "_") || item.name.toLowerCase().replace(/\s+/g, "_"),
-            label: item.name,
-            path: item.path,
-            category: "page",
-            parent: parent,
-          });
-        }
-
-        // Process subItems
-        if (item.subItems) {
-          item.subItems.forEach((subItem: any) => {
-            // If subItem has its own subItems (nested)
-            if (subItem.subItems) {
-              subItem.subItems.forEach((nestedItem: any) => {
-                if (nestedItem.path) {
-                  results.push({
-                    id: nestedItem.path.replace(/\//g, "_") || nestedItem.name.toLowerCase().replace(/\s+/g, "_"),
-                    label: nestedItem.name,
-                    path: nestedItem.path,
-                    category: "page",
-                    parent: `${item.name} > ${subItem.name}`,
-                  });
-                }
-              });
-            } else if (subItem.path) {
-              results.push({
-                id: subItem.path.replace(/\//g, "_") || subItem.name.toLowerCase().replace(/\s+/g, "_"),
-                label: subItem.name,
-                path: subItem.path,
+      // Process subItems (one level or nested) into flyout children
+      (item.subItems ?? []).forEach((sub: any) => {
+        if (sub.subItems?.length) {
+          sub.subItems.forEach((leaf: any) => {
+            if (leaf.path) {
+              children.push({
+                id:
+                  leaf.path.replace(/\//g, "_") ||
+                  leaf.name.toLowerCase().replace(/\s+/g, "_"),
+                label: leaf.name,
+                path: leaf.path,
                 category: "page",
-                parent: item.name,
+                parent: `${item.name} > ${sub.name}`,
               });
             }
           });
+        } else if (sub.path) {
+          children.push({
+            id:
+              sub.path.replace(/\//g, "_") ||
+              sub.name.toLowerCase().replace(/\s+/g, "_"),
+            label: sub.name,
+            path: sub.path,
+            category: "page",
+            parent: item.name,
+          });
         }
       });
-    };
 
-    // Flatten all nav items
-    flattenNavItems(navItems);
+      return {
+        id:
+          item.path?.replace(/\//g, "_") ||
+          item.name.toLowerCase().replace(/\s+/g, "_"),
+        label: item.name,
+        path: item.path,
+        category: "page" as const,
+        children,
+      };
+    });
+  }, []);
 
-    // Add actions
-    results.push(
-      { 
-        id: "create-customer", 
-        label: "Add New Customer", 
-        category: "action",
-        action: () => navigate("/customer-management?action=create")
-      },
-      { 
-        id: "create-sales-order", 
-        label: "Create Sales Order", 
-        category: "action",
-        action: () => navigate("/sales-orders?action=create")
-      },
-      { 
-        id: "create-purchase-order", 
-        label: "Create Purchase Order", 
-        category: "action",
-        action: () => navigate("/purchase-orders?action=create")
-      },
-      { 
-        id: "create-invoice", 
-        label: "Create Invoice", 
-        category: "action",
-        action: () => navigate("/invoices?action=create")
-      },
-      { 
-        id: "create-batch", 
-        label: "Create New Batch", 
-        category: "action",
-        action: () => navigate("/batch?action=create")
-      },
-      { 
-        id: "create-warehouse", 
-        label: "Add Warehouse", 
-        category: "action",
-        action: () => navigate("/warehouse?action=create")
-      },
-      { 
-        id: "create-employee", 
-        label: "Add Employee", 
-        category: "action",
-        action: () => navigate("/employeeRecords?action=create")
-      },
-      { 
-        id: "create-leave", 
-        label: "Apply for Leave", 
-        category: "action",
-        action: () => navigate("/att_leaveRequest?action=create")
-      },
-      { 
-        id: "punch-attendance", 
-        label: "Punch Attendance", 
-        category: "action",
-        action: () => navigate("/att_punch")
-      },
-    );
+  // Actions — only shown while typing
+  const actions = useMemo<SearchResult[]>(
+    () => [
+      { id: "create-customer", label: "Add New Customer", category: "action",
+        action: () => navigate("/customer-management?action=create") },
+      { id: "create-sales-order", label: "Create Sales Order", category: "action",
+        action: () => navigate("/sales-orders?action=create") },
+      { id: "create-purchase-order", label: "Create Purchase Order", category: "action",
+        action: () => navigate("/purchase-orders?action=create") },
+      { id: "create-invoice", label: "Create Invoice", category: "action",
+        action: () => navigate("/invoices?action=create") },
+      { id: "create-batch", label: "Create New Batch", category: "action",
+        action: () => navigate("/batch?action=create") },
+      { id: "create-warehouse", label: "Add Warehouse", category: "action",
+        action: () => navigate("/warehouse?action=create") },
+      { id: "create-employee", label: "Add Employee", category: "action",
+        action: () => navigate("/employeeRecords?action=create") },
+      { id: "create-leave", label: "Apply for Leave", category: "action",
+        action: () => navigate("/att_leaveRequest?action=create") },
+      { id: "punch-attendance", label: "Punch Attendance", category: "action",
+        action: () => navigate("/att_punch") },
+    ],
+    [navigate]
+  );
 
-    if (!searchQuery.trim()) return results;
+  // Centralized pick handler so desktop and mobile behave identically.
+   const handlePick = (r: SearchResult) => {
+    setIsSearchOpen(false);
+    setApplicationMenuOpen(false); // close mobile menu after navigation
 
-    const query = searchQuery.toLowerCase().trim();
-    return results.filter(
-      (result) =>
-        result.label.toLowerCase().includes(query) ||
-        result.id.toLowerCase().includes(query) ||
-        result.category.toLowerCase().includes(query) ||
-        result.parent?.toLowerCase().includes(query)
-    );
-  }, [searchQuery, navigate]);
+    // If a main module with no path of its own was picked, fall through to
+    // its first navigable child. This makes typing "Sales" (or clicking the
+    // Sales module) land on Sales' first sub-page instead of doing nothing.
+    let target = r;
+    if (!r.path && !r.action && r.children?.length) {
+      const firstNavigable = r.children.find((c) => c.path);
+      if (firstNavigable) target = firstNavigable;
+    }
 
-  // Handle keyboard shortcuts
+    if (target.action) {
+      target.action();
+    } else if (target.path) {
+      navigate(target.path);
+    }
+
+    // Record this pick in recents (dedup by id, newest first, capped).
+    // Only store navigable entries so recents remain usable.
+    if (target.path) {
+      const next = [
+        {
+          id: target.id,
+          label: target.label,
+          path: target.path,
+          category: target.category,
+          parent: target.parent,
+        },
+        ...recents.filter((x) => x.id !== target.id),
+      ].slice(0, RECENTS_LIMIT);
+      setRecents(next);
+      saveRecents(next);
+    }
+
+    // Clear query on the next tick so the current render finishes cleanly.
+    setTimeout(() => setSearchQuery(""), 0);
+  };
+
+  // Handle keyboard shortcuts — ⌘K / Ctrl+K to open, ESC to close, and
+  // forward arrow/Enter keys to the active SearchBar for keyboard-only use.
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Open search: ⌘K or Ctrl K
-      if ((event.metaKey || event.ctrlKey) && event.key === "k") {
+      // ⌘K / Ctrl K — toggle the search menu
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
+
+        // If the menu is already open, close it and blur the input so
+        // focus doesn't keep re-opening it via the input's focus handler.
+        if (isSearchOpen) {
+          setIsSearchOpen(false);
+          setSearchQuery("");
+          (inputRef.current ?? mobileInputRef.current)?.blur();
+          return;
+        }
+
+        // Otherwise open fresh.
+        setApplicationMenuOpen(false);
         setIsSearchOpen(true);
         setSearchQuery("");
-        setSelectedIndex(-1);
-        setTimeout(() => inputRef.current?.focus(), 100);
+
+        // Focus the desktop input, retrying briefly in case the menu
+        // hasn't mounted yet on this tick. Falls back to the mobile input
+        // when the desktop bar isn't rendered (small viewport).
+        let tries = 0;
+        const focusInput = () => {
+          const el = inputRef.current ?? mobileInputRef.current;
+          if (el) {
+            el.focus();
+            const len = el.value.length;
+            try {
+              el.setSelectionRange(len, len);
+            } catch {}
+            return;
+          }
+          if (tries++ < 10) requestAnimationFrame(focusInput);
+        };
+        requestAnimationFrame(focusInput);
+        return;
       }
 
-      // Close search: ESC
-      if (event.key === "Escape" && isSearchOpen) {
-        setIsSearchOpen(false);
-        setSearchQuery("");
-        setSelectedIndex(-1);
+      // While the menu is open, forward navigation keys to whichever
+      // SearchBar is mounted. Skip modifier combos — those belong to the
+      // browser.
+      if (isSearchOpen && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        const handler =
+          desktopSearchBarRef.current ?? mobileSearchBarRef.current;
+        if (handler) handler.handleGlobalKey(event);
       }
     };
 
@@ -263,56 +906,32 @@ const AppHeader: React.FC = () => {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isSearchOpen]);
 
-  // Handle click outside
+  // Handle click outside — use `click` (not mousedown) so the input's
+  // own mousedown that opens the menu has already landed before we check
+  // whether the click was outside. This prevents the "needs multiple taps"
+  // race that happens right after navigation.
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        searchContainerRef.current &&
-        !searchContainerRef.current.contains(event.target as Node)
-      ) {
-        setIsSearchOpen(false);
-        setSearchQuery("");
-        setSelectedIndex(-1);
-      }
-    };
-
-    if (isSearchOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isSearchOpen]);
-
-  // Handle keyboard navigation in results
-  const handleKeyDown = (event: React.KeyboardEvent) => {
     if (!isSearchOpen) return;
 
-    switch (event.key) {
-      case "ArrowDown":
-        event.preventDefault();
-        setSelectedIndex((prev) =>
-          prev < searchResults.length - 1 ? prev + 1 : prev
-        );
-        break;
-      case "ArrowUp":
-        event.preventDefault();
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1));
-        break;
-      case "Enter":
-        event.preventDefault();
-        if (selectedIndex >= 0 && selectedIndex < searchResults.length) {
-          const result = searchResults[selectedIndex];
-          if (result.action) {
-            result.action();
-          } else if (result.path) {
-            navigate(result.path);
-          }
-          setIsSearchOpen(false);
-          setSearchQuery("");
-          setSelectedIndex(-1);
-        }
-        break;
-    }
-  };
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+
+      // If the click landed inside either search container, do nothing.
+      if (
+        desktopSearchRef.current?.contains(target) ||
+        mobileSearchRef.current?.contains(target)
+      ) {
+        return;
+      }
+
+      // Otherwise close and reset fully.
+      setIsSearchOpen(false);
+      setSearchQuery("");
+    };
+
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [isSearchOpen]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -344,126 +963,21 @@ const AppHeader: React.FC = () => {
               />
             </Link>
 
-            {/* Search Bar Container */}
-            <div className="hidden lg:block w-[50%] relative" ref={searchContainerRef}>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <svg
-                    className="w-4 h-4 text-gray-500 dark:text-gray-400"
-                    fill="none"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      clipRule="evenodd"
-                      d="M9.375 16.708a7.333 7.333 0 1 0 0-14.667 7.333 7.333 0 0 0 0 14.667Zm7.815-1.358 2.94 2.94a.833.833 0 0 1-1.179 1.178l-2.94-2.94a9.167 9.167 0 1 1 1.18-1.18Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                </div>
-
-                <input
-                  ref={inputRef}
-                  type="text"
-                  placeholder="Search or type command..."
-                  className="w-full h-8 pl-10 pr-24 text-sm bg-white border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-colors"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setSelectedIndex(-1);
-                    if (!isSearchOpen) setIsSearchOpen(true);
-                  }}
-                  onFocus={() => setIsSearchOpen(true)}
-                  onKeyDown={handleKeyDown}
-                />
-
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                  <kbd className="inline-flex items-center justify-center h-5 w-auto px-2 py-1 text-xs font-medium text-gray-500 bg-gray-100 border border-gray-300 rounded dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600">
-                    {isMac ? "⌘K" : "Ctrl K"}
-                  </kbd>
-                </div>
-              </div>
-
-              {/* Search Results Dropdown */}
-              {isSearchOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-[9999]">
-                  {searchResults.length > 0 && (
-                    <div className="max-h-64 overflow-y-auto">
-                      {searchResults.map((result, index) => (
-                        <button
-                          key={result.id}
-                          onClick={() => {
-                            if (result.action) {
-                              result.action();
-                            } else if (result.path) {
-                              navigate(result.path);
-                            }
-                            setIsSearchOpen(false);
-                            setSearchQuery("");
-                            setSelectedIndex(-1);
-                          }}
-                          className={`flex items-center w-full px-4 py-2.5 text-sm transition-colors ${
-                            index === selectedIndex
-                              ? "bg-blue-50 dark:bg-blue-900/30"
-                              : "hover:bg-gray-50 dark:hover:bg-gray-700"
-                          }`}
-                        >
-                          <div className="flex-1 text-left">
-                            <span className="text-gray-700 dark:text-gray-200">
-                              {result.label}
-                            </span>
-                            {result.parent && (
-                              <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
-                                {result.parent}
-                              </span>
-                            )}
-                            <span className="ml-2 text-xs text-gray-400 dark:text-gray-500 capitalize">
-                              {result.category}
-                            </span>
-                          </div>
-                          {result.path && (
-                            <svg
-                              className="w-4 h-4 text-gray-400"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 5l7 7-7 7"
-                              />
-                            </svg>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {searchResults.length === 0 && searchQuery && (
-                    <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                      No results found for "<span className="font-medium">{searchQuery}</span>"
-                    </div>
-                  )}
-
-                  {(searchResults.length > 0 || searchQuery) && (
-                    <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-2 flex justify-between items-center bg-gray-50 dark:bg-gray-700/50">
-                      <span className="text-xs text-gray-400">
-                        {searchResults.length > 0 ? (
-                          "↑↓ Navigate • Enter Select • ESC Close"
-                        ) : (
-                          "Type to search..."
-                        )}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        {searchResults.length} results
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            {/* Desktop Search Bar — own ref */}
+            <SearchBar
+              ref={desktopSearchBarRef}
+              className="hidden lg:block w-[50%]"
+              inputRef={inputRef}
+              containerRef={desktopSearchRef}
+              isOpen={isSearchOpen}
+              query={searchQuery}
+              onQueryChange={setSearchQuery}
+              onOpenChange={setIsSearchOpen}
+              mainModules={mainModules}
+              actions={actions}
+              recents={recents}
+              onPick={handlePick}
+            />
           </div>
 
           {/* Right Section */}
@@ -488,28 +1002,21 @@ const AppHeader: React.FC = () => {
                 isApplicationMenuOpen ? "flex" : "hidden"
               } lg:flex flex-col lg:flex-row items-stretch lg:items-center gap-3 lg:gap-4 absolute lg:static top-16 left-0 right-0 bg-white dark:bg-[#171717] shadow-lg lg:shadow-none border-t lg:border-t-0 border-gray-200 dark:border-[#292929] p-4 lg:p-0`}
             >
-              {/* Mobile Search */}
+              {/* Mobile Search — own ref + own input ref */}
               <div className="w-full mb-2 lg:hidden">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search..."
-                    className="w-full h-10 pl-4 pr-16 text-sm bg-gray-100 border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setSelectedIndex(-1);
-                      if (!isSearchOpen) setIsSearchOpen(true);
-                    }}
-                    onFocus={() => setIsSearchOpen(true)}
-                    onKeyDown={handleKeyDown}
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                    <kbd className="inline-flex items-center justify-center text-xs text-gray-500 h-6 w-auto px-2 bg-gray-200 dark:bg-gray-700 rounded dark:text-gray-400">
-                      {isMac ? "⌘K" : "Ctrl K"}
-                    </kbd>
-                  </div>
-                </div>
+                <SearchBar
+                  ref={mobileSearchBarRef}
+                  inputRef={mobileInputRef}
+                  containerRef={mobileSearchRef}
+                  isOpen={isSearchOpen}
+                  query={searchQuery}
+                  onQueryChange={setSearchQuery}
+                  onOpenChange={setIsSearchOpen}
+                  mainModules={mainModules}
+                  actions={actions}
+                  recents={recents}
+                  onPick={handlePick}
+                />
               </div>
 
               <div className="flex items-center justify-between lg:justify-start gap-3 sm:gap-4 text-sm w-full lg:w-auto">

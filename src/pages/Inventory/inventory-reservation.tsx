@@ -2,24 +2,21 @@ import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "rea
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import {
+  ArrowPathIcon,
+  BuildingOffice2Icon,
   CheckCircleIcon,
   ClockIcon,
-  ArrowPathIcon,
-  TrashIcon,
-  PencilIcon,
-  XCircleIcon,
-  MagnifyingGlassIcon,
-  XMarkIcon,
-  UserIcon,
   CubeIcon,
-  BuildingOffice2Icon,
+  PencilIcon,
   ShoppingBagIcon,
+  TrashIcon,
+  UserIcon,
+  XCircleIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import FilterPopover from "../../components/common/filter";
 import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
@@ -99,10 +96,10 @@ const SALES_ORDER_API_URL = "/v1/api/sales/sales-orders";
 const ENUM_API_URL = "/v1/api/inventory/enums";
 const PAGE_SIZE = 10;
 
-//  User can select these statuses in form (EXPIRED is auto-status)
+// User can select these statuses in form (EXPIRED is auto-status)
 const USER_SELECTABLE_STATUSES = ["RESERVED", "RELEASED", "CONSUMED", "CANCELLED"];
 
-//  All statuses including EXPIRED (for display/filter)
+// All statuses including EXPIRED (used for stats/display)
 const ALL_STATUSES = ["RESERVED", "RELEASED", "CONSUMED", "CANCELLED", "EXPIRED"];
 
 const emptyForm: InventoryForm = {
@@ -127,29 +124,16 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function searchableText(value: unknown) {
-  if (value === null || value === undefined) return "";
-  return String(value).toLowerCase().trim();
-}
-
 function getCustomerName(customer: Customer | undefined): string {
   if (!customer) return "--";
   return customer.customerName || customer.tradeName || `Customer #${customer.id}`;
 }
 
-function getProductName(product: Product | undefined): string {
-  if (!product) return "--";
-  return product.productName || product.name || `Product #${product.id}`;
-}
-
-function getProductCategory(product: Product | undefined): string {
-  if (!product) return "--";
-  return product.categoryName || product.productType || "--";
-}
-
 const InventoryReservationManager: React.FC = () => {
   const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
+  const headers = token
+    ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
+    : undefined;
   const navigate = useNavigate();
 
   const [reservations, setReservations] = useState<InventoryReservation[]>([]);
@@ -162,13 +146,10 @@ const InventoryReservationManager: React.FC = () => {
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [actionId, setActionId] = useState<number | null>(null);
   const [actionType, setActionType] = useState<"release" | "consume" | null>(null);
 
-  //  Status options from BE enum API
   const [statusOptions, setStatusOptions] = useState<string[]>(USER_SELECTABLE_STATUSES);
   const [enumLoading, setEnumLoading] = useState(false);
 
@@ -176,26 +157,25 @@ const InventoryReservationManager: React.FC = () => {
     fetchEnums();
     fetchReservations();
     fetchDropdowns();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch status from BE enum API
   const fetchEnums = async (): Promise<void> => {
     try {
       setEnumLoading(true);
       const response = await axios.get(`${ENUM_API_URL}?type=RESERVATION_STATUS`, { headers });
       const data = Array.isArray(response.data) ? response.data : [];
 
-      // Extract codes from response
-      const codes = data.map((item: any) => {
-        if (typeof item === "string") return item;
-        return item.code || item;
-      }).filter(Boolean) as string[];
+      const codes = data
+        .map((item: any) => {
+          if (typeof item === "string") return item;
+          return item.code || item;
+        })
+        .filter(Boolean) as string[];
 
-      // Only set USER_SELECTABLE_STATUSES from BE (EXPIRED is auto-status)
       const userSelectable = codes.filter((code) => code !== "EXPIRED");
       setStatusOptions(userSelectable.length > 0 ? userSelectable : USER_SELECTABLE_STATUSES);
 
-      // Set default form value
       setForm((prev) => ({
         ...prev,
         status: userSelectable.length > 0 ? userSelectable[0] : USER_SELECTABLE_STATUSES[0],
@@ -409,28 +389,6 @@ const InventoryReservationManager: React.FC = () => {
     }
   };
 
-  const getCustomerBySalesOrder = (salesOrderId: number): string => {
-    const order = salesOrders.find((o) => o.id === salesOrderId);
-    if (!order) return `Order #${salesOrderId}`;
-    const customer = customers.find((c) => c.id === order.customerId);
-    return getCustomerName(customer);
-  };
-
-  const filteredReservations = useMemo(() => {
-    const term = searchableText(search);
-
-    return reservations.filter((reservation) => {
-      const matchesStatus = statusFilter === "" || reservation.status === statusFilter;
-
-      const searchString =
-        `${reservation.id} ${reservation.reservationNo} ${reservation.salesOrderId} ${reservation.warehouseId} ${reservation.customerName || ""} ${reservation.productName || ""}`
-          .toLowerCase();
-      const matchesSearch = !term || searchString.includes(term);
-
-      return matchesStatus && matchesSearch;
-    });
-  }, [reservations, search, statusFilter]);
-
   const stats = useMemo(
     () => ({
       total: reservations.length,
@@ -442,7 +400,6 @@ const InventoryReservationManager: React.FC = () => {
     [reservations]
   );
 
-  // canDelete includes EXPIRED
   const canDelete = (status: string) =>
     status === "RESERVED" || status === "CANCELLED" || status === "EXPIRED";
   const canRelease = (status: string) => status === "RESERVED";
@@ -482,17 +439,6 @@ const InventoryReservationManager: React.FC = () => {
     }
   };
 
-  // Build status filter options (includes EXPIRED)
-  const statusFilterOptions = useMemo(() => {
-    return [
-      { label: "All Status", value: "" },
-      ...ALL_STATUSES.map((status) => ({
-        label: status,
-        value: status,
-      })),
-    ];
-  }, []);
-
   const columns: ColumnDef<InventoryReservation>[] = [
     {
       key: "reservationNo",
@@ -516,7 +462,7 @@ const InventoryReservationManager: React.FC = () => {
       sortable: true,
       render: (reservation) => (
         <button
-          className="flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 hover:underline transition-colors"
+          className="flex items-center gap-2 text-sm text-slate-700 transition-colors hover:text-cyan-600 hover:underline"
           onClick={() => {
             if (reservation.customerId) {
               navigate(`/customer-management/${reservation.customerId}`);
@@ -534,10 +480,10 @@ const InventoryReservationManager: React.FC = () => {
       sortable: true,
       render: (reservation) => (
         <button
-          className="flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 hover:underline transition-colors"
+          className="flex items-center gap-2 text-sm text-slate-700 transition-colors hover:text-cyan-600 hover:underline"
           onClick={() => {
             if (reservation.productId) {
-              navigate(`/products?productId=${reservation.productId}`);
+              navigate(`/products?productId=${reservation.productId}&productName=${encodeURIComponent(reservation.productName || `Product #${reservation.productId}`)}`);
             }
           }}
         >
@@ -559,7 +505,7 @@ const InventoryReservationManager: React.FC = () => {
         const orderId = reservation.salesOrderId;
         return (
           <button
-            className="flex items-center gap-2 text-sm text-cyan-600 hover:text-cyan-800 hover:underline transition-colors"
+            className="flex items-center gap-2 text-sm text-cyan-600 transition-colors hover:text-cyan-800 hover:underline"
             onClick={() => {
               if (orderId) {
                 navigate(`/sales-orders?orderId=${orderId}`);
@@ -581,10 +527,10 @@ const InventoryReservationManager: React.FC = () => {
         const warehouseId = reservation.warehouseId;
         return (
           <button
-            className="flex items-center gap-2 text-sm text-slate-700 hover:text-cyan-600 transition-colors"
+            className="flex items-center gap-2 text-sm text-slate-700 transition-colors hover:text-cyan-600 hover:underline"
             onClick={() => {
               if (warehouseId) {
-                navigate(`/warehouse?warehouseId=${warehouseId}`);
+                navigate(`/warehouse?warehouseId=${warehouseId}&warehouseName=${encodeURIComponent(warehouse?.name || `Warehouse #${warehouseId}`)}`);
               }
             }}
           >
@@ -600,7 +546,9 @@ const InventoryReservationManager: React.FC = () => {
       sortable: true,
       render: (reservation) => (
         <span
-          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusColor(reservation.status)}`}
+          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusColor(
+            reservation.status
+          )}`}
         >
           {getStatusIcon(reservation.status)}
           {reservation.status}
@@ -676,7 +624,7 @@ const InventoryReservationManager: React.FC = () => {
             className={`rounded-lg p-1.5 transition ${
               canDelete(reservation.status)
                 ? "text-slate-400 hover:bg-red-50 hover:text-red-600"
-                : "text-gray-300 cursor-not-allowed"
+                : "cursor-not-allowed text-gray-300"
             }`}
             title={canDelete(reservation.status) ? "Delete" : "Cannot delete"}
             disabled={!canDelete(reservation.status)}
@@ -691,14 +639,13 @@ const InventoryReservationManager: React.FC = () => {
   return (
     <>
       <PageMeta title="Inventory Reservations" description="Manage inventory reservations" />
-      <PageBreadcrumb pageTitle="Inventory Reservations" />
+      <PageBreadcrumb
+        pageTitle="Inventory Reservations"
+        actions={<AddButton onClick={openCreate} label="Add Reservation" />}
+      />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Reservation" />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="w-full max-w-none space-y-6 px-0 py-8">
+        <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
             label="Total Reservations"
             value={stats.total}
@@ -733,41 +680,8 @@ const InventoryReservationManager: React.FC = () => {
           />
         </div>
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-md md:-mt-4">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search reservations..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          <FilterPopover
-            title="Filter Reservations"
-            buttonLabel="Filters"
-            label="Status"
-            value={statusFilter}
-            options={statusFilterOptions}
-            onChange={setStatusFilter}
-            onReset={() => setStatusFilter("")}
-            onApply={() => undefined}
-          />
-        </div>
-
         <ReusableTable
-          data={filteredReservations}
+          data={reservations}
           columns={columns}
           loading={loading || enumLoading}
           pageSize={PAGE_SIZE}
@@ -779,10 +693,11 @@ const InventoryReservationManager: React.FC = () => {
               <p className="mb-2 text-sm text-gray-500">No reservations found</p>
               <button
                 type="button"
-                onClick={openCreate}
-                className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                onClick={() => fetchReservations()}
+                className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700"
               >
-                Create your first reservation
+                <ArrowPathIcon className="h-3.5 w-3.5" />
+                Reload all reservations
               </button>
             </div>
           }
@@ -803,6 +718,7 @@ const InventoryReservationManager: React.FC = () => {
             label: "Reservation Details",
             fields: [
               <FloatingSelect
+                key="salesOrderId"
                 label="Sales Order ID"
                 name="salesOrderId"
                 value={form.salesOrderId}
@@ -815,6 +731,7 @@ const InventoryReservationManager: React.FC = () => {
                 required
               />,
               <FloatingSelect
+                key="warehouseId"
                 label="Warehouse"
                 name="warehouseId"
                 value={form.warehouseId}
@@ -827,6 +744,7 @@ const InventoryReservationManager: React.FC = () => {
                 required
               />,
               <FloatingSelect
+                key="status"
                 label="Status"
                 name="status"
                 value={form.status}
@@ -838,6 +756,7 @@ const InventoryReservationManager: React.FC = () => {
                 }))}
               />,
               <FloatingInput
+                key="reservationDate"
                 label="Reservation Date"
                 name="reservationDate"
                 type="date"
@@ -846,6 +765,7 @@ const InventoryReservationManager: React.FC = () => {
                 required
               />,
               <FloatingSelect
+                key="productId"
                 label="Product"
                 name="productId"
                 value={form.productId}
@@ -858,9 +778,11 @@ const InventoryReservationManager: React.FC = () => {
                 required
               />,
               <FloatingInput
+                key="reservedQty"
                 label="Reserved Quantity"
                 name="reservedQty"
                 type="number"
+                min={1}
                 value={form.reservedQty}
                 onChange={handleChange}
                 required

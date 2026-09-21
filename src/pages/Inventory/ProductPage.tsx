@@ -10,7 +10,7 @@ import axios from 'axios';
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { CUSTOMER_UTILS } from '../../config/constants';
-import { Link } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 
 interface Product {
   id: number;
@@ -32,6 +32,11 @@ interface Category {
 const PAGE_SIZE = 10;
 
 const ProductPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const scopedProductId = Number(searchParams.get('productId')) || null;
+  const scopedProductName = searchParams.get('productName') || 'Selected product';
+  const isProductScoped = searchParams.has('productId');
   const token = localStorage.getItem("accessToken");
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -57,14 +62,14 @@ const ProductPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (selectedCategoryFilter === 'all') {
+    if (isProductScoped || selectedCategoryFilter === 'all') {
       fetchProducts();
     } else if (selectedCategoryFilter) {
       fetchProductsByCategory(selectedCategoryFilter);
     } else{
       setProducts([]);
     }
-  }, [selectedCategoryFilter]);
+  }, [selectedCategoryFilter, isProductScoped]);
 
   const fetchProducts = async () => {
     try {
@@ -231,7 +236,11 @@ const ProductPage: React.FC = () => {
     return path.split('.').reduce((acc, part) => acc && acc[part], obj);
   };
 
-  const filtered = products.filter((p) =>
+  const scopedProducts = isProductScoped
+    ? products.filter((product) => product.id === scopedProductId)
+    : products;
+
+  const filtered = scopedProducts.filter((p) =>
     [p.name, p.category.name, p.sku].some((field) =>
       field && field.toLowerCase().includes(search.toLowerCase())
     )
@@ -265,6 +274,7 @@ const ProductPage: React.FC = () => {
       <PageBreadcrumb pageTitle="Products" />
 
       <div className="max-w-6xl mx-auto p-6">
+        {isProductScoped && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>Showing product: <strong>{scopedProductName}</strong></span><button type="button" onClick={() => navigate('/products')} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all products</button></div>}
 
 
         {/* Search + Category Filter + Add */}

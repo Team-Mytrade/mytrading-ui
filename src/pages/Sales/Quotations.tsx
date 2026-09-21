@@ -7,7 +7,6 @@ import {
   CalendarDaysIcon,
   DocumentTextIcon,
   EyeIcon,
-  MagnifyingGlassIcon,
   PlusIcon,
   PencilSquareIcon,
   PrinterIcon,
@@ -18,19 +17,8 @@ import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import {
-  ListingPdfExportButton,
-  PdfExportColumn,
-} from "../../components/common/export";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
-import FilterPopover from "../../components/common/filter";
-import {
-  FloatingDatePicker,
-  FloatingInput,
-  FloatingSelect1 as FloatingSelect,
-  FloatingTextarea,
-} from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 import QuotationPreviewTemplate, {
   SellerProfile,
@@ -179,6 +167,10 @@ type Quotation = {
   versionNo: number;
 };
 
+// NOTE: subTotal / discountAmount / additionalDiscount / taxAmount / grandTotal are
+// intentionally NOT part of the editable form state anymore. They are always derived
+// from `lineItems` (+ the in-progress draft row) via `displayTotals`, so the sidebar
+// can never go stale the way it did when it only updated on a manual "Calculate Totals" click.
 type QuotationForm = {
   tenantId: string;
   customerId: string;
@@ -195,12 +187,7 @@ type QuotationForm = {
   quoteNumber: string;
   quoteDate: string;
   status: string;
-  subTotal: string;
-  discountAmount: string;
-  additionalDiscount: string;
   discountPercentage: string;
-  taxAmount: string;
-  grandTotal: string;
   salesPersonId: string;
   termsAndConditions: string;
   versionNo: string;
@@ -243,12 +230,7 @@ const quotationTypeOptions = ["PRODUCT", "SERVICE"];
 
 function getQuotationCustomerName(quotation: Quotation, customers: Customer[]) {
   const customer = customers.find((item) => Number(item.id) === Number(quotation.customerId));
-  return customer?.customerName || quotation.billingAddress?.customerName || `Customer #${quotation.customerId}`;
-}
-
-function getQuotationCustomerCode(quotation: Quotation, customers: Customer[]) {
-  const customer = customers.find((item) => Number(item.id) === Number(quotation.customerId));
-  return customer?.customerCode || quotation.billingAddress?.customerCode || `ID: ${quotation.customerId}`;
+  return customer?.customerName || quotation.billingAddress?.customerName || "Unknown Customer";
 }
 
 function getStoredTenantId() {
@@ -312,12 +294,7 @@ const emptyForm: QuotationForm = {
   quoteNumber: "",
   quoteDate: today,
   status: "DRAFT",
-  subTotal: "0",
-  discountAmount: "0",
-  additionalDiscount: "0",
   discountPercentage: "0",
-  taxAmount: "0",
-  grandTotal: "0",
   salesPersonId: "",
   termsAndConditions: "",
   versionNo: "0",
@@ -370,14 +347,9 @@ function money(value: number | string | undefined) {
   return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-function searchableText(value: unknown) {
-  if (value === null || value === undefined) return "";
-  return String(value).toLowerCase().trim();
-}
-
 function customerOptionLabel(customer: Customer) {
-  const name = customer.customerName || customer.tradeName || `Customer #${customer.id}`;
-  return `${customer.id} - ${name}`;
+  const name = customer.customerName || customer.tradeName || "Unnamed Customer";
+  return customer.customerCode ? `${name} (${customer.customerCode})` : name;
 }
 
 function isPositiveNumber(value: string) {
@@ -397,7 +369,10 @@ function isPercent(value: string) {
 function buildAddress(form: QuotationForm, type: "BILLING" | "SHIPPING"): Address {
   const prefix = type === "BILLING" ? "billing" : "shipping";
   return {
-    id: toNumber(form.customerId),
+    // This is a new address payload for the customer, not an existing address record,
+    // so it should not masquerade as having the customer's own id.
+    id: 0,
+    customerId: toNumber(form.customerId),
     customerName: form.customerName,
     customerCode: form.customerCode,
     type,
@@ -493,9 +468,6 @@ const Quotations: React.FC = () => {
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [lookupId, setLookupId] = useState("");
   const [deleteQuotation, setDeleteQuotation] = useState<Quotation | null>(null);
   const [previewQuotation, setPreviewQuotation] = useState<Quotation | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -527,6 +499,56 @@ const Quotations: React.FC = () => {
       Boolean(selectedCategoryName) && productCategoryName === selectedCategoryName
     );
   });
+
+  // Live, always-in-sync totals. Derived straight from lineItems (+ the current draft
+  // row being edited), so adding/removing a line item is reflected immediately without
+  // needing a manual "Calculate Totals" click.
+  const draftItemTotals = calculateItem(form);
+  const displayTotals = useMemo(() => {
+    const draftAsPayload: QuotationItemPayload = {
+      id: 0,
+      categoryName: form.itemCategoryName,
+      itemType: form.itemType,
+      productName: form.itemProductName,
+      description: form.itemDescription,
+      productCode: form.itemProductCode,
+      uom: form.itemUom,
+      quantity: toNumber(form.itemQuantity),
+      unitPrice: toNumber(form.itemUnitPrice),
+      discountPercentage: toNumber(form.itemDiscountPercentage),
+      discountAmount: draftItemTotals.discountAmount,
+      taxRate: toNumber(form.itemTaxRate),
+      taxCode: form.itemTaxCode,
+      remarks: form.itemRemarks,
+      additionalDiscount: toNumber(form.itemAdditionalDiscount),
+    };
+    const draftHasData =
+      isPositiveNumber(form.itemQuantity) &&
+      isPositiveNumber(form.itemUnitPrice) &&
+      (form.itemProductName.trim() || form.itemDescription.trim());
+    // Mirrors buildPayload's logic exactly: once at least one item has been added,
+    // a valid in-progress draft is shown as an extra pending line rather than
+    // replacing or hiding the already-added items — so what you see here is always
+    // what actually gets submitted.
+    const itemsForTotals =
+      lineItems.length > 0
+        ? draftHasData
+          ? [...lineItems, draftAsPayload]
+          : lineItems
+        : [draftAsPayload];
+    return calculateQuotationTotals(itemsForTotals);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    lineItems,
+    form.itemQuantity,
+    form.itemUnitPrice,
+    form.itemProductName,
+    form.itemDescription,
+    form.itemDiscountPercentage,
+    form.itemDiscountAmount,
+    form.itemTaxRate,
+    form.itemAdditionalDiscount,
+  ]);
 
   const fetchQuotations = async () => {
     try {
@@ -584,24 +606,6 @@ const Quotations: React.FC = () => {
     }
   };
 
-  const fetchById = async () => {
-    if (!lookupId) {
-      ToasterService.error("Quotation ID is required");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const res = await axios.get<Quotation>(`${API_URL}/${lookupId}`, { headers });
-      setQuotations([res.data]);
-      ToasterService.success("Quotation loaded");
-    } catch (error) {
-      ToasterService.error("Failed to load quotation", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
@@ -630,6 +634,8 @@ const Quotations: React.FC = () => {
       }
       if (name === "salesPersonId") {
         const person = salesPersons.find((item) => String(item.id) === value);
+        // email is derived from the chosen sales person; there is no independent
+        // email input in the form anymore.
         next.email = person?.email || "";
       }
       if (name === "itemType") {
@@ -678,6 +684,18 @@ const Quotations: React.FC = () => {
       }
       return next;
     });
+  };
+
+  // Detects whether the draft row (the still-being-typed item at the bottom of the
+  // Item Table) has enough data to count as a real item, even if the user never
+  // clicked the "+" button to formally add it. Used so a second/third item isn't
+  // silently dropped on submit if the user forgets that extra click.
+  const getPendingDraftItem = (): QuotationItemPayload | null => {
+    const hasValidDraft =
+      isPositiveNumber(form.itemQuantity) &&
+      isPositiveNumber(form.itemUnitPrice) &&
+      (form.itemProductName.trim() || form.itemDescription.trim());
+    return hasValidDraft ? buildItem() : null;
   };
 
   const buildItem = (): QuotationItemPayload => {
@@ -750,7 +768,18 @@ const Quotations: React.FC = () => {
   };
 
   const buildPayload = () => {
-    const payloadItems = lineItems.length > 0 ? lineItems : [buildItem()];
+    // Previously: `lineItems.length > 0 ? lineItems : [buildItem()]` — this only ever
+    // fell back to the draft row when the list was completely empty. If the user had
+    // already added one item and then typed a second item's details WITHOUT clicking
+    // "+" again, that second item vanished silently on submit. Now any valid pending
+    // draft is appended on top of the already-added items, so nothing typed is lost.
+    const pendingDraft = getPendingDraftItem();
+    const payloadItems =
+      lineItems.length > 0
+        ? pendingDraft
+          ? [...lineItems, pendingDraft]
+          : lineItems
+        : [buildItem()];
     const totals = calculateQuotationTotals(payloadItems);
 
     return {
@@ -791,7 +820,7 @@ const Quotations: React.FC = () => {
       return;
     }
     if (!isPositiveNumber(form.customerId) || !form.validUntil || !form.quoteDate) {
-      ToasterService.error("Required fields missing", "Customer ID, quote date, and valid until date are required.");
+      ToasterService.error("Required fields missing", "Customer, quote date, and valid until date are required.");
       return;
     }
     if (!isPositiveNumber(form.salesPersonId)) {
@@ -815,15 +844,6 @@ const Quotations: React.FC = () => {
     try {
       setSubmitting(true);
       const payload = buildPayload();
-      console.log("Quotation submit references", {
-        tenantIdParam: form.tenantId.trim(),
-        customerId: payload.customerId,
-        salesPersonId: payload.salesPersonId,
-        categoryId: payload.items?.[0]?.categoryId,
-        productId: payload.items?.[0]?.productId,
-        itemType: payload.items?.[0]?.itemType,
-        payload,
-      });
       const requestConfig = {
         headers,
         params: { tenantId: form.tenantId.trim() },
@@ -844,19 +864,6 @@ const Quotations: React.FC = () => {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const applyCalculatedTotals = () => {
-    const itemsForTotals = lineItems.length > 0 ? lineItems : [buildItem()];
-    const totals = calculateQuotationTotals(itemsForTotals);
-    setForm((current) => ({
-      ...current,
-      subTotal: String(Number(totals.subTotal.toFixed(2))),
-      discountAmount: String(Number(totals.discountAmount.toFixed(2))),
-      additionalDiscount: String(Number(totals.additionalDiscount.toFixed(2))),
-      taxAmount: String(Number(totals.taxAmount.toFixed(2))),
-      grandTotal: String(Number(totals.grandTotal.toFixed(2))),
-    }));
   };
 
   const openCreate = () => {
@@ -921,12 +928,7 @@ const Quotations: React.FC = () => {
         quoteNumber: full.quoteNumber || "",
         quoteDate: full.quoteDate || today,
         status: full.status || "DRAFT",
-        subTotal: String(full.subTotal || 0),
-        discountAmount: String(full.discountAmount || 0),
-        additionalDiscount: String(full.additionalDiscount || 0),
         discountPercentage: String(full.discountPercentage || 0),
-        taxAmount: String(full.taxAmount || 0),
-        grandTotal: String(full.grandTotal || 0),
         salesPersonId: String(full.salesPerson?.id || ""),
         termsAndConditions: full.termsAndConditions || "",
         versionNo: String(full.versionNo || 0),
@@ -1006,107 +1008,12 @@ const Quotations: React.FC = () => {
     }
   };
 
-  const filteredQuotations = useMemo(() => {
-    const term = searchableText(search);
-    return quotations.filter((quotation) => {
-      if (statusFilter && quotation.status !== statusFilter) {
-        return false;
-      }
-
-      if (!term) {
-        return true;
-      }
-
-      const customer = customers.find((item) => Number(item.id) === Number(quotation.customerId));
-      const haystack = [
-        quotation.id,
-        quotation.quoteNumber,
-        quotation.customerId,
-        customer?.customerName,
-        customer?.customerCode,
-        quotation.billingAddress?.customerName,
-        quotation.billingAddress?.customerCode,
-        quotation.subject,
-        quotation.email,
-        quotation.status,
-        quotation.salesPerson?.name,
-        quotation.salesPerson?.code,
-        quotation.quoteDate,
-        quotation.validUntil,
-        quotation.currencyCode,
-        quotation.grandTotal,
-        quotation.remarks,
-      ]
-        .map(searchableText)
-        .filter(Boolean)
-        .join(" ");
-
-      return haystack.includes(term);
-    });
-  }, [customers, quotations, search, statusFilter]);
-
   const stats = useMemo(() => ({
     total: quotations.length,
     draft: quotations.filter((item) => item.status === "DRAFT").length,
     accepted: quotations.filter((item) => item.status === "ACCEPTED").length,
-    grandTotal: quotations.reduce((sum, item) => sum + Number(item.grandTotal || 0), 0),
+    rejected: quotations.filter((item) => item.status === "REJECTED").length,
   }), [quotations]);
-
-  const pdfColumns = useMemo<PdfExportColumn<Quotation>[]>(() => [
-    {
-      header: "Quote No",
-      accessor: (quotation) => quotation.quoteNumber || `Quote #${quotation.id}`,
-      width: 36,
-    },
-    {
-      header: "Customer",
-      accessor: (quotation) => getQuotationCustomerName(quotation, customers),
-      width: 42,
-    },
-    {
-      header: "Customer Code",
-      accessor: (quotation) => getQuotationCustomerCode(quotation, customers),
-      width: 26,
-    },
-    {
-      header: "Quote Date",
-      accessor: (quotation) => quotation.quoteDate || "--",
-      width: 22,
-    },
-    {
-      header: "Valid Until",
-      accessor: (quotation) => quotation.validUntil || "--",
-      width: 22,
-    },
-    {
-      header: "Status",
-      accessor: (quotation) => quotation.status || "N/A",
-      width: 18,
-    },
-    {
-      header: "Sales Person",
-      accessor: (quotation) => quotation.salesPerson?.name || "--",
-      width: 30,
-    },
-    {
-      header: "Items",
-      accessor: (quotation) => quotation.items?.length || 0,
-      align: "center",
-      width: 14,
-    },
-    {
-      header: "Currency",
-      accessor: (quotation) => quotation.currencyCode || "--",
-      align: "center",
-      width: 20,
-    },
-    {
-      header: "Grand Total",
-      accessor: (quotation) => money(quotation.grandTotal),
-      align: "right",
-      width: 26,
-    },
-  ], [customers]);
 
   const columns: ColumnDef<Quotation>[] = [
     {
@@ -1115,7 +1022,7 @@ const Quotations: React.FC = () => {
       sortable: true,
       render: (quotation) => (
         <div>
-          <div className="font-medium text-cyan-700">{quotation.quoteNumber || `Quote #${quotation.id}`}</div>
+          <div className="font-medium text-cyan-700">{quotation.quoteNumber || "Untitled Quotation"}</div>
           <div className="text-xs text-slate-500">{quotation.subject || "No subject"}</div>
         </div>
       ),
@@ -1125,14 +1032,16 @@ const Quotations: React.FC = () => {
       label: "Customer",
       sortable: true,
       render: (quotation) => {
+        const code =
+          customers.find((c) => Number(c.id) === Number(quotation.customerId))?.customerCode ||
+          quotation.billingAddress?.customerCode ||
+          "";
         return (
           <div>
             <div className="text-sm font-semibold text-slate-900">
               {getQuotationCustomerName(quotation, customers)}
             </div>
-            <div className="text-xs text-slate-500">
-              {getQuotationCustomerCode(quotation, customers)}
-            </div>
+            {code && <div className="text-xs text-slate-500">{code}</div>}
           </div>
         );
       },
@@ -1142,8 +1051,10 @@ const Quotations: React.FC = () => {
       label: "Sales Person",
       sortable: true,
       render: (quotation) => {
-        const person = salesPersons.find(sp => sp.id === quotation.salesPerson?.id);
-        return person?.name || quotation.salesPerson?.name || `#${quotation.salesPerson?.id || "--"}`;
+        const person = salesPersons.find((sp) => sp.id === quotation.salesPerson?.id);
+        const salesPerson = person || quotation.salesPerson;
+        const name = salesPerson?.name || "Unassigned";
+        return salesPerson?.id ? <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/sales-persons?salesPersonId=${salesPerson.id}&salesPersonName=${encodeURIComponent(name)}`); }} className="max-w-[180px] truncate text-left text-cyan-700 hover:text-cyan-800 hover:underline" title={`View ${name}`}>{name}</button> : <span>{name}</span>;
       },
     },
     {
@@ -1206,14 +1117,14 @@ const Quotations: React.FC = () => {
   ];
 
   if (showFormModal) {
-    const itemTotals = calculateItem(form);
+    const itemTotals = draftItemTotals;
 
     return (
       <>
         <PageMeta title={editingId ? "Edit Quotation" : "Create New Quotation"} description="Manage sales quotations" />
         <PageBreadcrumb pageTitle={editingId ? "Edit Quotation" : "Create Quotation"} />
 
-        <div className="w-full max-w-none px-0 py-6">
+       <div className="h-[calc(100dvh-140px)] w-full max-w-none overflow-y-auto px-0 py-6">
           <div className="relative overflow-hidden rounded-3xl border border-slate-200/70 bg-gradient-to-br from-white via-slate-50/70 to-slate-100 p-6 shadow-xl shadow-slate-100/70 lg:p-8">
             <div className="absolute left-0 right-0 top-0 h-1.5 bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500" />
 
@@ -1258,7 +1169,7 @@ const Quotations: React.FC = () => {
                         {form.customerId &&
                           !customers.some((customer) => String(customer.id) === form.customerId) && (
                             <option value={form.customerId}>
-                              {form.customerName ? `${form.customerId} - ${form.customerName}` : `Customer #${form.customerId}`}
+                              {form.customerName || "Unknown Customer"}
                             </option>
                           )}
                         {customers.map((customer) => (
@@ -1330,18 +1241,22 @@ const Quotations: React.FC = () => {
                   <label className="shrink-0 text-[13px] font-bold uppercase tracking-wider text-slate-500 transition-colors group-focus-within:text-blue-600 md:w-48">
                     Sales Person <span className="text-red-500">*</span>
                   </label>
-                  <div className="grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2">
-                    <select name="salesPersonId" value={form.salesPersonId} onChange={handleChange} required className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+                  <div className="w-full max-w-3xl">
+                    <select name="salesPersonId" value={form.salesPersonId} onChange={handleChange} required className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
                       <option value="">Select sales person</option>
                       {form.salesPersonId &&
                         !salesPersons.some((person) => String(person.id) === form.salesPersonId) && (
-                          <option value={form.salesPersonId}>Sales Person #{form.salesPersonId}</option>
+                          <option value={form.salesPersonId}>Selected sales person</option>
                         )}
                       {salesPersons.map((person) => (
-                        <option key={person.id} value={person.id}>{person.name || `Person #${person.id}`}</option>
+                        <option key={person.id} value={person.id}>{person.name || "Unnamed sales person"}</option>
                       ))}
                     </select>
-                    <input name="email" type="email" value={form.email} onChange={handleChange} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" placeholder="Email" />
+                    {/* email is derived from the selected sales person above and sent with the
+                        payload automatically — no separate email input needed. */}
+                    {selectedSalesPerson?.email && (
+                      <p className="mt-1.5 text-xs text-slate-500">Contact: {selectedSalesPerson.email}</p>
+                    )}
                   </div>
                 </div>
 
@@ -1355,172 +1270,220 @@ const Quotations: React.FC = () => {
                     onChange={handleChange}
                     rows={2}
                     className="w-full max-w-xl resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[15px] font-medium text-slate-800 shadow-sm transition hover:bg-slate-100 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    placeholder="Sample purchase"
+                    placeholder="e.g., Quotation for Q3 office furniture supply"
                   />
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-                <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50/80 p-3">
-                  <h4 className="text-[13px] font-bold uppercase tracking-wider text-gray-800">Item Table</h4>
-                  <div className="flex flex-wrap items-center gap-2">
+              {/* ---- Add Item card: a standalone "add to cart" style panel, separate
+                   from the list of items already added below it. ---- */}
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-cyan-50/60 to-white px-5 py-4">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-100 text-cyan-700">
+                      <PlusIcon className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">Add Item</h4>
+                      <p className="text-xs text-slate-400">Fill in the details, then add it to this quotation</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/purchase-products")}
+                    className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-700 shadow-sm transition hover:bg-cyan-100"
+                  >
+                    Create Product Now
+                  </button>
+                </div>
+
+                <div className="space-y-4 p-5">
+                  {/* Item type toggle — previously there was no control for this at all,
+                      so an item's type silently defaulted to PRODUCT every time. */}
+                  <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+                    {(["PRODUCT", "SERVICE"] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() =>
+                          handleChange({
+                            target: { name: "itemType", value: type },
+                          } as ChangeEvent<HTMLInputElement>)
+                        }
+                        className={`rounded-lg px-4 py-1.5 text-xs font-bold transition ${
+                          form.itemType === type
+                            ? "bg-white text-cyan-700 shadow-sm"
+                            : "text-slate-500 hover:text-slate-700"
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Category / product (or service reference) */}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {form.itemType === "PRODUCT" ? (
+                      <>
+                        <select
+                          name="itemCategoryId"
+                          value={form.itemCategoryId}
+                          onChange={handleChange}
+                          className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                        >
+                          <option value="">Select category</option>
+                          {leafCategories.map((category) => (
+                            <option key={category.id} value={category.id}>
+                              {category.parentName ? `${category.parentName} / ${category.categoryName}` : category.categoryName}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          name="itemProductId"
+                          value={form.itemProductId}
+                          onChange={handleChange}
+                          className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                        >
+                          <option value="">Select product</option>
+                          {filteredProducts.map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.productName || product.shortName || "Unnamed product"}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    ) : (
+                      <>
+                        {editingId && (
+                          <input
+                            name="itemServiceItemId"
+                            type="number"
+                            value={form.itemServiceItemId}
+                            onChange={handleChange}
+                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                            placeholder="Service item reference"
+                          />
+                        )}
+                        <input
+                          name="itemProductName"
+                          value={form.itemProductName}
+                          onChange={handleChange}
+                          className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                          placeholder="Service name"
+                        />
+                      </>
+                    )}
+                  </div>
+
+                  {/* For PRODUCT items these three come straight from the selected
+                      product and are shown read-only, not editable — edits here never
+                      reach the backend once a real productId is attached. For SERVICE
+                      items (no linked product) they stay editable, since they ARE the
+                      source of truth. */}
+                  {form.itemType === "PRODUCT" ? (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500">
+                        {form.itemProductCode || "Product code"}
+                      </div>
+                      <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500">
+                        {form.itemDescription || "Description"}
+                      </div>
+                      <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500">
+                        {form.itemUom || "UOM"}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <input name="itemProductCode" value={form.itemProductCode} onChange={handleChange} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white" placeholder="Service code" />
+                      <input name="itemDescription" value={form.itemDescription} onChange={handleChange} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white" placeholder="Description" />
+                      <input name="itemUom" value={form.itemUom} onChange={handleChange} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white" placeholder="UOM" />
+                    </div>
+                  )}
+
+                  {/* Quantity / price / discount / tax */}
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Quantity</label>
+                      <input name="itemQuantity" type="number" min="1" value={form.itemQuantity} onChange={handleChange} required className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Rate</label>
+                      <input name="itemUnitPrice" type="number" min="0" step="0.01" value={form.itemUnitPrice} onChange={handleChange} required className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Discount %</label>
+                      <input name="itemDiscountPercentage" type="number" min="0" max="100" value={form.itemDiscountPercentage} onChange={handleChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Tax %</label>
+                      <input name="itemTaxRate" type="number" min="0" max="100" value={form.itemTaxRate} onChange={handleChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20" />
+                    </div>
+                  </div>
+
+                  {/* Live line-total preview + the single "add to cart" action */}
+                  <div className="flex flex-col gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm text-slate-500">
+                      Line total <span className="ml-2 text-base font-black text-slate-900">{money(itemTotals.lineTotal)}</span>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => navigate("/purchase-products")}
-                      className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-700 shadow-sm transition hover:bg-cyan-100"
+                      onClick={addCurrentItem}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-cyan-700"
                     >
-                      Create Product Now
-                    </button>
-                    <button type="button" onClick={applyCalculatedTotals} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700">
-                      Calculate Totals
+                      <PlusIcon className="h-4 w-4" />
+                      Add to Quotation
                     </button>
                   </div>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-left text-sm">
-                    <thead className="border-b border-gray-200 bg-white text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                      <tr>
-                        <th className="min-w-[300px] border-r border-gray-100 px-3 py-2">Item Details</th>
-                        <th className="w-28 border-r border-gray-100 px-3 py-2 text-right">Quantity</th>
-                        <th className="w-32 border-r border-gray-100 px-3 py-2 text-right">Rate</th>
-                        <th className="w-28 border-r border-gray-100 px-3 py-2 text-right">Discount %</th>
-                        <th className="w-28 border-r border-gray-100 px-3 py-2 text-right">Tax %</th>
-                        <th className="w-36 px-3 py-2 text-right">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lineItems.map((item, index) => (
-                        <tr key={`line-item-${index}`} className="bg-white transition hover:bg-gray-50/60">
-                          <td className="border-r border-gray-100 px-3 py-2 align-top">
-                            <div className="space-y-3">
-                              <div className="flex items-center gap-3">
-                                <button
-                                  type="button"
-                                  onClick={() => removeLineItem(index)}
-                                  className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-                                  title="Remove item"
-                                >
-                                  <TrashIcon className="h-4 w-4" />
-                                </button>
-                                <div className="flex-1 rounded-2xl bg-white px-4 py-3 text-[13px] font-medium text-gray-900 shadow-sm">
-                                  {item.productName || "--"}
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                <div className="rounded-2xl bg-white px-4 py-3 text-[12px] text-gray-500 shadow-sm">
-                                  {item.productCode || "Product code"}
-                                </div>
-                                <div className="rounded-2xl bg-white px-4 py-4 text-[12px] text-gray-500 shadow-sm">
-                                  {item.description || "Add a description to your item"}
-                                </div>
-                                <div className="rounded-2xl bg-white px-4 py-3 text-[12px] text-gray-500 shadow-sm">
-                                  {item.uom || "UOM"}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
-                            <div className="p-1 text-[13px] font-medium text-gray-900">{item.quantity}</div>
-                          </td>
-                          <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
-                            <div className="p-1 text-[13px] font-medium text-gray-900">{money(item.unitPrice)}</div>
-                          </td>
-                          <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
-                            <div className="p-1 text-[13px] font-medium text-gray-900">{item.discountPercentage}</div>
-                          </td>
-                          <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
-                            <div className="p-1 text-[13px] font-medium text-gray-900">{item.taxRate}</div>
-                          </td>
-                          <td className="bg-white px-3 py-2 text-right align-top">
-                            <div className="p-1 text-[13px] font-semibold text-gray-900">{money(calculateLineTotal(item))}</div>
-                          </td>
-                        </tr>
-                      ))}
-                      <tr className="bg-white transition hover:bg-gray-50/60">
-                        <td className="border-r border-gray-100 px-3 py-2 align-top">
-                          <div className="space-y-2">
-                            <div className="flex items-start gap-2">
-                              <button
-                                type="button"
-                                onClick={addCurrentItem}
-                                className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-cyan-700 transition hover:bg-cyan-50"
-                                title="Add product row"
-                              >
-                                <PlusIcon className="h-4 w-4" />
-                              </button>
-                              <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
-                                {form.itemType === "PRODUCT" ? (
-                                  <>
-                                    <select
-                                      name="itemCategoryId"
-                                      value={form.itemCategoryId}
-                                      onChange={handleChange}
-                                      className="min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                                    >
-                                      <option value="">Select category</option>
-                                      {leafCategories.map((category) => (
-                                        <option key={category.id} value={category.id}>
-                                          {category.parentName ? `${category.parentName} / ${category.categoryName}` : category.categoryName}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    <select
-                                      name="itemProductId"
-                                      value={form.itemProductId}
-                                      onChange={handleChange}
-                                      className="min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                                    >
-                                      <option value="">Select product</option>
-                                      {filteredProducts.map((product) => (
-                                        <option key={product.id} value={product.id}>
-                                          {product.productName || product.shortName || `Product #${product.id}`}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </>
-                                ) : (
-                                  <>
-                                    {editingId && (
-                                      <input
-                                        name="itemServiceItemId"
-                                        type="number"
-                                        value={form.itemServiceItemId}
-                                        onChange={handleChange}
-                                        className="rounded-lg border border-transparent bg-transparent p-1 text-[13px] font-medium text-gray-900 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white"
-                                        placeholder="Service item ID"
-                                      />
-                                    )}
-                                    <input name="itemProductName" value={form.itemProductName} onChange={handleChange} className="rounded-lg border border-transparent bg-transparent p-1 text-[13px] font-medium text-gray-900 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Product name" />
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                              <input name="itemProductCode" value={form.itemProductCode} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Product code" />
-                              <input name="itemDescription" value={form.itemDescription} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="Add a description to your item" />
-                              <input name="itemUom" value={form.itemUom} onChange={handleChange} className="rounded-lg border border-transparent bg-gray-50 p-1 text-[11px] text-gray-500 outline-none transition hover:border-gray-200 focus:border-blue-500 focus:bg-white" placeholder="UOM" />
+              </div>
+
+              {/* ---- Items already added — a separate list, not mixed in with the
+                   add-item card above. ---- */}
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                  <h4 className="text-sm font-bold text-slate-900">Items in this Quotation</h4>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                    {lineItems.length} {lineItems.length === 1 ? "item" : "items"}
+                  </span>
+                </div>
+
+                {lineItems.length === 0 ? (
+                  <div className="px-5 py-10 text-center text-sm text-slate-400">
+                    No items added yet — use the card above to add your first item.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {lineItems.map((item, index) => (
+                      <div key={`line-item-${index}`} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start gap-3">
+                          <button
+                            type="button"
+                            onClick={() => removeLineItem(index)}
+                            className="mt-0.5 rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                            title="Remove item"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                          <div>
+                            <div className="text-sm font-semibold text-slate-900">{item.productName || "--"}</div>
+                            <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
+                              {item.productCode && <span>{item.productCode}</span>}
+                              {item.description && <span>{item.description}</span>}
+                              {item.uom && <span>{item.uom}</span>}
                             </div>
                           </div>
-                        </td>
-                        <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
-                          <input name="itemQuantity" type="number" min="1" value={form.itemQuantity} onChange={handleChange} required className="w-full border-0 bg-transparent p-1 text-right text-[13px] font-medium text-gray-900 focus:ring-0" />
-                        </td>
-                        <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
-                          <input name="itemUnitPrice" type="number" min="0" step="0.01" value={form.itemUnitPrice} onChange={handleChange} required className="w-full border-0 bg-transparent p-1 text-right text-[13px] font-medium text-gray-900 focus:ring-0" />
-                        </td>
-                        <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
-                          <input name="itemDiscountPercentage" type="number" min="0" max="100" value={form.itemDiscountPercentage} onChange={handleChange} className="w-full border-0 bg-transparent p-1 text-right text-[13px] font-medium text-gray-900 focus:ring-0" />
-                        </td>
-                        <td className="border-r border-gray-100 px-3 py-2 align-top text-right">
-                          <input name="itemTaxRate" type="number" min="0" max="100" value={form.itemTaxRate} onChange={handleChange} className="w-full border-0 bg-transparent p-1 text-right text-[13px] font-medium text-gray-900 focus:ring-0" />
-                        </td>
-                        <td className="bg-white px-3 py-2 text-right align-top">
-                          <div className="p-1 text-[13px] font-semibold text-gray-900">{money(itemTotals.lineTotal)}</div>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-4 pl-9 text-xs text-slate-500 sm:pl-0">
+                          <span>Qty <strong className="text-slate-800">{item.quantity}</strong></span>
+                          <span>Rate <strong className="text-slate-800">{money(item.unitPrice)}</strong></span>
+                          <span>Disc <strong className="text-slate-800">{item.discountPercentage}%</strong></span>
+                          <span>Tax <strong className="text-slate-800">{item.taxRate}%</strong></span>
+                          <span className="rounded-lg bg-cyan-50 px-2.5 py-1 font-bold text-cyan-700">{money(calculateLineTotal(item))}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -1533,11 +1496,11 @@ const Quotations: React.FC = () => {
 
                 <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-6">
                   <div className="space-y-3 text-sm">
-                    <div className="flex justify-between"><span className="text-slate-500">Sub Total</span><span className="font-semibold text-slate-900">{money(form.subTotal)}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Discount</span><span className="font-semibold text-rose-600">-{money(form.discountAmount)}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Additional Discount</span><span className="font-semibold text-rose-600">-{money(form.additionalDiscount)}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Tax</span><span className="font-semibold text-slate-900">{money(form.taxAmount)}</span></div>
-                    <div className="flex justify-between border-t border-slate-200 pt-3 text-lg font-black"><span>Grand Total</span><span className="text-cyan-600">{money(form.grandTotal)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Sub Total</span><span className="font-semibold text-slate-900">{money(displayTotals.subTotal)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Discount</span><span className="font-semibold text-rose-600">-{money(displayTotals.discountAmount)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Additional Discount</span><span className="font-semibold text-rose-600">-{money(displayTotals.additionalDiscount)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Tax</span><span className="font-semibold text-slate-900">{money(displayTotals.taxAmount)}</span></div>
+                    <div className="flex justify-between border-t border-slate-200 pt-3 text-lg font-black"><span>Grand Total</span><span className="text-cyan-600">{money(displayTotals.grandTotal)}</span></div>
                   </div>
                   <div className="flex flex-col gap-2 border-t border-slate-200 pt-4">
                     <button type="submit" disabled={submitting} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">
@@ -1559,14 +1522,13 @@ const Quotations: React.FC = () => {
   return (
     <>
       <PageMeta title="Quotations" description="Manage sales quotations" />
-      <PageBreadcrumb pageTitle="Quotations" />
+      <PageBreadcrumb
+        pageTitle="Quotations"
+        actions={<AddButton onClick={openCreate} label="Add Quotation" />}
+      />
 
       <div className="w-full max-w-none px-0 py-8">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Quotation" />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Quotations" value={stats.total} icon={<DocumentTextIcon />} />
           <StatsCard
             label="Draft"
@@ -1585,84 +1547,17 @@ const Quotations: React.FC = () => {
             icon={<DocumentTextIcon />}
           />
           <StatsCard
-            label="Grand Total"
-            value={money(stats.grandTotal)}
-            gradient="from-purple-50 to-pink-50"
-            borderColor="border-purple-100"
-            labelColor="text-purple-600"
+            label="Rejected"
+            value={stats.rejected}
+            gradient="from-rose-50 to-red-50"
+            borderColor="border-rose-100"
+            labelColor="text-rose-600"
             icon={<BanknotesIcon />}
           />
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between md:-mb-5">
-          <div className="relative w-full sm:max-w-md mt-0.5">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search quotations..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <ListingPdfExportButton
-              title="Quotations"
-              subtitle="Filtered quotation listing"
-              reportLabel="Sales Report"
-              data={filteredQuotations}
-              columns={pdfColumns}
-              fileName="Quotations"
-              disabled={loading}
-              metadata={(rows, rangeLabel) => [
-                { label: "Total", value: rows.length },
-                { label: "Range", value: rangeLabel },
-                { label: "Status", value: statusFilter || "All" },
-                { label: "Search", value: search || "None" },
-              ]}
-            />
-            <FilterPopover
-              title="Filter Quotations"
-              widthClassName="w-[320px]"
-              onReset={() => setStatusFilter("")}
-            >
-              <div className="space-y-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">Status</label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
-                  >
-                    <option value="">All statuses</option>
-                    {statusOptions.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="rounded-lg border border-dashed border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-700">
-                  Filters apply live
-                </div>
-              </div>
-            </FilterPopover>
-          </div>
-        </div>
-
         <ReusableTable
-          data={filteredQuotations}
+          data={quotations}
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}
@@ -1688,7 +1583,11 @@ const Quotations: React.FC = () => {
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
         innerText="Delete Quotation"
-        subText={deleteQuotation ? `Are you sure you want to delete quotation #${deleteQuotation.id}?` : "Are you sure?"}
+        subText={
+          deleteQuotation
+            ? `Are you sure you want to delete "${deleteQuotation.quoteNumber || "this quotation"}"?`
+            : "Are you sure?"
+        }
         confirmLabel="Delete"
         cancelLabel="Cancel"
         onConfirm={confirmDelete}

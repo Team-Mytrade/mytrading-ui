@@ -1,11 +1,17 @@
-import { useEffect, useRef, useState, ChangeEvent, FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  ChangeEvent,
+  FormEvent,
+  useMemo,
+} from "react";
 import axios from "axios";
 import {
   PencilSquareIcon,
   TrashIcon,
   PlusIcon,
   UsersIcon,
-  MagnifyingGlassIcon,
   XMarkIcon,
   CalendarIcon,
   CurrencyDollarIcon,
@@ -17,14 +23,19 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import { ToasterService } from "../../Services/ToasterService";
 import DynamicPopup from "../../components/common/Popup";
-import { FloatingInput, FloatingSelect1 as FloatingSelect, FloatingDatePicker } from "../../components/inputfeild/FloatingInput";
+import {
+  FloatingInput,
+  FloatingSelect1 as FloatingSelect,
+  FloatingDatePicker,
+} from "../../components/inputfeild/FloatingInput";
 import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import FilterPopover from "../../components/common/filter";
 import StatsCard from "../../components/common/Statscard";
 import "./Deals.css";
 
 const API_URL = "/v1/api/crm/deals";
+const LEADS_API = "/v1/api/crm/leads";
+const CUSTOMERS_API = "/v1/api/crm/customers";
 const PAGE_SIZE = 10;
 
 const stageOptions = [
@@ -37,6 +48,8 @@ const stageOptions = [
 const normalizeStage = (stage?: string) =>
   stage ? stage.trim().toUpperCase().replace(/\s+/g, "_") : "PROSPECTING";
 
+type OwnerType = "LEAD" | "CUSTOMER";
+
 interface Opportunity {
   id: number;
   dealName: string;
@@ -44,17 +57,13 @@ interface Opportunity {
   expectedCloseDate: string;
   stage: string;
   status: "ACTIVE" | "INACTIVE";
-  lead?: { id: number; name: string };
-  customer?: { id: number; name?: string; customerName?: string };
+  lead?: { id: number; name: string } | null;
+  customer?: { id: number; name?: string; customerName?: string } | null;
 }
 
 interface Lead {
   id: number;
   name: string;
-  email?: string;
-  phone?: string;
-  status?: string;
-  converted?: boolean;
 }
 
 interface Customer {
@@ -63,21 +72,31 @@ interface Customer {
   customerName?: string;
 }
 
+const getToken = () => localStorage.getItem("accessToken") || "";
+
 export default function Deals() {
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+
   const [form, setForm] = useState<Partial<Opportunity>>({});
+  const [ownerType, setOwnerType] = useState<OwnerType>("LEAD");
   const [showForm, setShowForm] = useState(false);
-  const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [showDeletePopup, setShowDeletePopup] = useState(false);
-  const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState("ALL");
+  const [isSaving, setIsSaving] = useState(false);
   const [inlineUpdatingId, setInlineUpdatingId] = useState<number | null>(null);
 
-  const location = useLocation();
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [showDeletePopup, setShowDeletePopup] = useState(false);
+
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const authHeaders = useMemo(
+    () => ({ Authorization: `Bearer ${getToken()}` }),
+    []
+  );
 
   useEffect(() => {
     if (showForm || showDeletePopup) {
@@ -85,33 +104,34 @@ export default function Deals() {
     } else {
       document.body.style.overflow = "unset";
     }
-    return () => { document.body.style.overflow = "unset"; };
+    return () => {
+      document.body.style.overflow = "unset";
+    };
   }, [showForm, showDeletePopup]);
 
   useEffect(() => {
     fetchOpportunities();
     fetchLeads();
     fetchCustomers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (opportunities.length > 0) {
-      const searchParams = new URLSearchParams(location.search);
-      const editId = searchParams.get("editId");
-      if (editId) {
-        const oppToEdit = opportunities.find((o) => o.id === Number(editId));
-        if (oppToEdit) {
-          setForm(oppToEdit);
-          setShowForm(true);
-        }
-      }
+    if (opportunities.length === 0) return;
+    const editId = new URLSearchParams(location.search).get("editId");
+    if (!editId) return;
+    const opp = opportunities.find((o) => o.id === Number(editId));
+    if (opp) {
+      setForm(opp);
+      setOwnerType(opp.lead ? "LEAD" : "CUSTOMER");
+      setShowForm(true);
     }
   }, [opportunities, location.search]);
 
   const fetchOpportunities = async () => {
     try {
-      const res = await axios.get(API_URL);
-      setOpportunities(res.data);
+      const res = await axios.get(API_URL, { headers: authHeaders });
+      setOpportunities(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Error fetching opportunities", err);
     }
@@ -119,8 +139,8 @@ export default function Deals() {
 
   const fetchLeads = async () => {
     try {
-      const res = await axios.get("/v1/api/crm/leads");
-      setLeads(res.data);
+      const res = await axios.get(LEADS_API, { headers: authHeaders });
+      setLeads(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Error fetching leads", err);
     }
@@ -128,21 +148,36 @@ export default function Deals() {
 
   const fetchCustomers = async () => {
     try {
-      const res = await axios.get("/v1/api/crm/customers");
-      setCustomers(res.data);
+      const res = await axios.get(CUSTOMERS_API, { headers: authHeaders });
+      setCustomers(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Error fetching customers", err);
     }
   };
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: name === "amount" ? Number(value) : value }));
+    setForm((prev) => ({
+      ...prev,
+      [name]: name === "amount" ? Number(value) : value,
+    }));
   };
 
-  const buildDealPayload = () => {
-    const selectedLead = leads.find((lead) => lead.id === form.lead?.id);
-    const selectedCustomer = customers.find((customer) => customer.id === form.customer?.id);
+  const buildPayload = () => {
+    const selectedLead = leads.find((l) => l.id === form.lead?.id);
+    const selectedCustomer = customers.find(
+      (c) => c.id === form.customer?.id
+    );
+
+    // Enforce exclusivity
+    const owner =
+      ownerType === "LEAD" && selectedLead
+        ? { lead: { id: selectedLead.id, name: selectedLead.name }, customer: undefined }
+        : ownerType === "CUSTOMER" && selectedCustomer
+        ? { customer: { id: selectedCustomer.id }, lead: undefined }
+        : { lead: undefined, customer: undefined };
 
     return {
       dealName: form.dealName?.trim(),
@@ -150,60 +185,50 @@ export default function Deals() {
       stage: normalizeStage(form.stage),
       expectedCloseDate: form.expectedCloseDate || null,
       status: form.status || "ACTIVE",
-      lead: selectedLead
-        ? {
-            id: selectedLead.id,
-            name: selectedLead.name,
-            email: selectedLead.email,
-            phone: selectedLead.phone,
-            status: selectedLead.status,
-            converted: selectedLead.converted,
-          }
-        : { id: form.lead?.id },
-      customer: selectedCustomer ? { id: selectedCustomer.id } : undefined,
+      ...owner,
     };
   };
 
-  const buildOpportunityPayload = (opportunity: Opportunity) => ({
-    dealName: opportunity.dealName?.trim(),
-    amount: Number(opportunity.amount) || 0,
-    stage: normalizeStage(opportunity.stage),
-    expectedCloseDate: opportunity.expectedCloseDate || null,
-    status: opportunity.status || "ACTIVE",
-    lead: opportunity.lead ? { ...opportunity.lead } : undefined,
-    customer: opportunity.customer ? { id: opportunity.customer.id } : undefined,
+  const buildInlinePayload = (o: Opportunity) => ({
+    dealName: o.dealName?.trim(),
+    amount: Number(o.amount) || 0,
+    stage: normalizeStage(o.stage),
+    expectedCloseDate: o.expectedCloseDate || null,
+    status: o.status || "ACTIVE",
+    lead: o.lead ? { id: o.lead.id, name: o.lead.name } : undefined,
+    customer: o.customer ? { id: o.customer.id } : undefined,
   });
 
-  const handleInlineOpportunityChange = async (
-    opportunity: Opportunity,
+  const handleInlineChange = async (
+    o: Opportunity,
     changes: Partial<Pick<Opportunity, "stage" | "status">>
   ) => {
-    const nextOpportunity = {
-      ...opportunity,
+    const next = {
+      ...o,
       ...changes,
-      stage: changes.stage ? normalizeStage(changes.stage) : opportunity.stage,
+      stage: changes.stage ? normalizeStage(changes.stage) : o.stage,
     };
+    if (next.stage === o.stage && next.status === o.status) return;
 
-    if (
-      nextOpportunity.stage === opportunity.stage &&
-      nextOpportunity.status === opportunity.status
-    ) {
-      return;
-    }
-
-    const previousOpportunities = opportunities;
-    setOpportunities((current) =>
-      current.map((item) => (item.id === opportunity.id ? nextOpportunity : item))
+    const previous = opportunities;
+    setOpportunities((cur) =>
+      cur.map((item) => (item.id === o.id ? next : item))
     );
 
     try {
-      setInlineUpdatingId(opportunity.id);
-      await axios.put(`${API_URL}/${opportunity.id}`, buildOpportunityPayload(nextOpportunity));
+      setInlineUpdatingId(o.id);
+      await axios.put(
+        `${API_URL}/${o.id}`,
+        buildInlinePayload(next),
+        { headers: { ...authHeaders, "Content-Type": "application/json" } }
+      );
       ToasterService.success("Opportunity updated successfully!");
     } catch (err: any) {
       console.error("Error updating opportunity", err);
-      setOpportunities(previousOpportunities);
-      ToasterService.error(err.response?.data?.message || "Failed to update opportunity");
+      setOpportunities(previous);
+      ToasterService.error(
+        err.response?.data?.message || "Failed to update opportunity"
+      );
     } finally {
       setInlineUpdatingId(null);
     }
@@ -211,48 +236,71 @@ export default function Deals() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!form.dealName?.trim()) {
+      ToasterService.error("Deal name is required");
+      return;
+    }
+    if (!form.lead?.id && !form.customer?.id) {
+      ToasterService.error("Please link this deal to a lead or a customer");
+      return;
+    }
+
     try {
+      setIsSaving(true);
+      const payload = buildPayload();
       if (form.id) {
-        await axios.put(`${API_URL}/${form.id}`, buildDealPayload());
+        await axios.put(`${API_URL}/${form.id}`, payload, {
+          headers: { ...authHeaders, "Content-Type": "application/json" },
+        });
         ToasterService.success("Opportunity updated successfully!");
-      } else if (form.lead?.id) {
-        await axios.post(`${API_URL}/lead/${form.lead.id}`, buildDealPayload());
+      } else if (ownerType === "LEAD" && form.lead?.id) {
+        await axios.post(`${API_URL}/lead/${form.lead.id}`, payload, {
+          headers: { ...authHeaders, "Content-Type": "application/json" },
+        });
         ToasterService.success("Opportunity created successfully!");
       } else {
-        ToasterService.warning("Please select a lead before creating an opportunity");
-        return;
+        // Plain create endpoint (BE must add — see ticket P1 #4)
+        await axios.post(API_URL, payload, {
+          headers: { ...authHeaders, "Content-Type": "application/json" },
+        });
+        ToasterService.success("Opportunity created successfully!");
       }
-      fetchOpportunities();
+      await fetchOpportunities();
       setShowForm(false);
       setForm({});
     } catch (err: any) {
       console.error("Error saving opportunity", err);
-      ToasterService.error(err.response?.data?.message || "Failed to save opportunity");
+      ToasterService.error(
+        err.response?.data?.message || "Failed to save opportunity"
+      );
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleDeleteConfirm = async () => {
     if (!deleteId) return;
     try {
-      await axios.delete(`${API_URL}/${deleteId}`);
+      await axios.delete(`${API_URL}/${deleteId}`, { headers: authHeaders });
       ToasterService.success("Opportunity deleted successfully!");
-      fetchOpportunities();
+      await fetchOpportunities();
+    } catch (err: any) {
+      console.error("Error deleting opportunity", err);
+      ToasterService.error(
+        err.response?.data?.message || "Failed to delete opportunity"
+      );
+    } finally {
       setDeleteId(null);
       setShowDeletePopup(false);
-    } catch (err) {
-      console.error("Error deleting opportunity", err);
-      ToasterService.error("Failed to delete opportunity");
     }
   };
 
   const filtered = opportunities.filter((o) => {
-    const matchesSearch = [o.dealName, o.stage, o.status].some((field) =>
-      field?.toLowerCase().includes(search.toLowerCase())
+    const term = (searchInputRef.current?.value || "").toLowerCase();
+    if (!term) return true;
+    return [o.dealName, o.stage, o.status].some((f) =>
+      f?.toLowerCase().includes(term)
     );
-    let matchesFilter = true;
-    if (activeFilter === "ACTIVE") matchesFilter = o.status === "ACTIVE";
-    else if (activeFilter === "INACTIVE") matchesFilter = o.status === "INACTIVE";
-    return matchesSearch && matchesFilter;
   });
 
   const formatCurrency = (amount: number) =>
@@ -265,11 +313,16 @@ export default function Deals() {
 
   const getStageColor = (stage: string) => {
     switch (normalizeStage(stage)) {
-      case "PROSPECTING": return "border-blue-200 bg-blue-50 text-blue-700";
-      case "NEGOTIATION": return "border-yellow-200 bg-yellow-50 text-yellow-700";
-      case "CLOSED_WON": return "border-green-200 bg-green-50 text-green-700";
-      case "CLOSED_LOST": return "border-red-200 bg-red-50 text-red-700";
-      default: return "border-gray-200 bg-gray-50 text-gray-700";
+      case "PROSPECTING":
+        return "border-blue-200 bg-blue-50 text-blue-700";
+      case "NEGOTIATION":
+        return "border-yellow-200 bg-yellow-50 text-yellow-700";
+      case "CLOSED_WON":
+        return "border-green-200 bg-green-50 text-green-700";
+      case "CLOSED_LOST":
+        return "border-red-200 bg-red-50 text-red-700";
+      default:
+        return "border-gray-200 bg-gray-50 text-gray-700";
     }
   };
 
@@ -281,12 +334,21 @@ export default function Deals() {
       render: (o) => (
         <div className="flex items-center overflow-hidden">
           <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3 flex-shrink-0">
-            <span className="text-sm font-medium text-cyan-700">{o.dealName.charAt(0).toUpperCase()}</span>
+            <span className="text-sm font-medium text-cyan-700">
+              {o.dealName.charAt(0).toUpperCase()}
+            </span>
           </div>
           <div>
-            <div className="text-sm font-medium text-gray-900 truncate max-w-[150px]">{o.dealName}</div>
+            <div className="text-sm font-medium text-gray-900 truncate max-w-[150px]">
+              {o.dealName}
+            </div>
             {(o.lead || o.customer) && (
-              <div className="text-xs text-gray-500 truncate max-w-[150px]">{o.lead?.name || o.customer?.name || o.customer?.customerName}</div>
+              <div className="text-xs text-gray-500 truncate max-w-[150px]">
+                {o.lead?.name ||
+                  o.customer?.customerName ||
+                  o.customer?.name ||
+                  ""}
+              </div>
             )}
           </div>
         </div>
@@ -311,7 +373,11 @@ export default function Deals() {
         <div className="flex items-center text-xs text-gray-600">
           <CalendarIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
           {o.expectedCloseDate
-            ? new Date(o.expectedCloseDate).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
+            ? new Date(o.expectedCloseDate).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })
             : "-"}
         </div>
       ),
@@ -321,14 +387,20 @@ export default function Deals() {
       label: "Stage",
       sortable: true,
       render: (o) => (
-        <div onClick={(event) => event.stopPropagation()}>
+        <div onClick={(e) => e.stopPropagation()}>
           <select
             value={normalizeStage(o.stage)}
-            onChange={(event) => handleInlineOpportunityChange(o, { stage: event.target.value })}
+            onChange={(e) =>
+              handleInlineChange(o, { stage: e.target.value })
+            }
             disabled={inlineUpdatingId === o.id}
             className={`w-[118px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${getStageColor(
               o.stage
-            )} ${inlineUpdatingId === o.id ? "cursor-not-allowed opacity-70" : ""}`}
+            )} ${
+              inlineUpdatingId === o.id
+                ? "cursor-not-allowed opacity-70"
+                : "cursor-pointer"
+            }`}
           >
             {stageOptions.map((option) => (
               <option key={option.id} value={option.id}>
@@ -344,18 +416,24 @@ export default function Deals() {
       label: "Status",
       sortable: true,
       render: (o) => (
-        <div onClick={(event) => event.stopPropagation()}>
+        <div onClick={(e) => e.stopPropagation()}>
           <select
             value={o.status}
-            onChange={(event) =>
-              handleInlineOpportunityChange(o, { status: event.target.value as Opportunity["status"] })
+            onChange={(e) =>
+              handleInlineChange(o, {
+                status: e.target.value as Opportunity["status"],
+              })
             }
             disabled={inlineUpdatingId === o.id}
             className={`w-[88px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
               o.status === "ACTIVE"
                 ? "border-green-200 bg-green-50 text-green-700"
                 : "border-red-200 bg-red-50 text-red-700"
-            } ${inlineUpdatingId === o.id ? "cursor-not-allowed opacity-70" : ""}`}
+            } ${
+              inlineUpdatingId === o.id
+                ? "cursor-not-allowed opacity-70"
+                : "cursor-pointer"
+            }`}
           >
             <option value="ACTIVE">Active</option>
             <option value="INACTIVE">Inactive</option>
@@ -370,38 +448,82 @@ export default function Deals() {
       headerClassName: "text-right",
       className: "text-right",
       render: (o) => (
-        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <button type="button" onClick={() => { setForm(o); setShowForm(true); }}
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600" title="Edit">
+        <div
+          className="flex items-center justify-end gap-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setForm(o);
+              setOwnerType(o.lead ? "LEAD" : "CUSTOMER");
+              setShowForm(true);
+            }}
+            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+            title="Edit"
+          >
             <PencilSquareIcon className="h-4 w-4" />
           </button>
 
-          {!o.lead ? (
-            <button type="button" onClick={() => ToasterService.info("Add Lead functionality coming soon")}
-              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600" title="Add Lead">
-              <PlusIcon className="h-4 w-4" />
-            </button>
-          ) : (
-            <button type="button" onClick={() => navigate(`/crm-view/leads/${o.lead?.id}`, { state: { from: "opportunities" } })}
-              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600" title="View Lead">
+          {o.lead ? (
+            <button
+              type="button"
+              onClick={() =>
+                navigate(`/crm-view/leads/${o.lead!.id}`, {
+                  state: { from: "opportunities" },
+                })
+              }
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
+              title="View Lead"
+            >
               <UsersIcon className="h-4 w-4" />
             </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() =>
+                ToasterService.info("Add Lead functionality coming soon")
+              }
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
+              title="Add Lead"
+            >
+              <PlusIcon className="h-4 w-4" />
+            </button>
           )}
 
-          {!o.customer ? (
-            <button type="button" onClick={() => ToasterService.info("Add Customer functionality coming soon")}
-              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600" title="Add Customer">
+          {o.customer ? (
+            <button
+              type="button"
+              onClick={() =>
+                navigate(`/customer-management/${o.customer!.id}`)
+              }
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
+              title="View Customer"
+            >
               <BuildingOfficeIcon className="h-4 w-4" />
             </button>
           ) : (
-            <button type="button" onClick={() => navigate(`/customer-management/${o.customer?.id}`)}
-              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600" title="View Customer">
+            <button
+              type="button"
+              onClick={() =>
+                ToasterService.info("Add Customer functionality coming soon")
+              }
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
+              title="Add Customer"
+            >
               <BuildingOfficeIcon className="h-4 w-4" />
             </button>
           )}
 
-          <button type="button" onClick={() => { setDeleteId(o.id); setShowDeletePopup(true); }}
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600" title="Delete">
+          <button
+            type="button"
+            onClick={() => {
+              setDeleteId(o.id);
+              setShowDeletePopup(true);
+            }}
+            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+            title="Delete"
+          >
             <TrashIcon className="h-4 w-4" />
           </button>
         </div>
@@ -415,34 +537,46 @@ export default function Deals() {
       <PageBreadcrumb
         pageTitle="Deals"
         className="crm-report-breadcrumb"
-        actions={<><FilterPopover title="Filter Opportunities" buttonLabel="Deal Status" label="Filter by Status" value={activeFilter} options={[{ label: "All Opportunities", value: "ALL" }, { label: "Active", value: "ACTIVE" }, { label: "Inactive", value: "INACTIVE" }]} onChange={setActiveFilter} onReset={() => setActiveFilter("ALL")} onApply={() => undefined} /><AddButton onClick={() => { setForm({ status: "ACTIVE", stage: "PROSPECTING" }); setShowForm(true); }} label="Add Opportunity" /></>}
+        actions={
+          <>
+            <AddButton
+              onClick={() => {
+                setForm({ status: "ACTIVE", stage: "PROSPECTING" });
+                setOwnerType("LEAD");
+                setShowForm(true);
+              }}
+              label="Add Opportunity"
+            />
+          </>
+        }
       />
 
       <div className="crm-report-page w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
         <div className="mb-[17px]">
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
             <StatsCard label="Total Deals" value={opportunities.length} />
-            <StatsCard label="Active Deals" value={opportunities.filter((o) => o.status === "ACTIVE").length} />
-            <StatsCard label="Total Value" value={formatCurrency(opportunities.reduce((acc, o) => acc + (o.amount || 0), 0))} />
-            <StatsCard label="Average Deal Size" value={opportunities.length ? formatCurrency(opportunities.reduce((acc, o) => acc + (o.amount || 0), 0) / opportunities.length) : formatCurrency(0)} />
+            <StatsCard
+              label="Active Deals"
+              value={opportunities.filter((o) => o.status === "ACTIVE").length}
+            />
+            <StatsCard
+              label="Total Value"
+              value={formatCurrency(
+                opportunities.reduce((a, o) => a + (o.amount || 0), 0)
+              )}
+            />
+            <StatsCard
+              label="Average Deal Size"
+              value={
+                opportunities.length
+                  ? formatCurrency(
+                      opportunities.reduce((a, o) => a + (o.amount || 0), 0) /
+                        opportunities.length
+                    )
+                  : formatCurrency(0)
+              }
+            />
           </div>
-        </div>
-
-        <div className=" mt-2 mb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search opportunities by name, stage, or status..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
         </div>
 
         <ReusableTable<Opportunity>
@@ -451,39 +585,49 @@ export default function Deals() {
           pageSize={PAGE_SIZE}
           defaultSortKey="dealName"
           defaultSortOrder="asc"
-          rowDetailsTitle={(opportunity) => opportunity.dealName || "Deal details"}
+          rowDetailsTitle={(o) => o.dealName || "Deal details"}
           rowDetailsSubtitle="Opportunity details"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <TagIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No opportunities found</p>
-              {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => { setForm({ status: "ACTIVE", stage: "PROSPECTING" }); setShowForm(true); }}
-                  className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
-                >
-                  Add your first opportunity
-                </button>
-              )}
+              <p className="text-gray-500 text-sm mb-2">
+                No opportunities found
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setForm({ status: "ACTIVE", stage: "PROSPECTING" });
+                  setOwnerType("LEAD");
+                  setShowForm(true);
+                }}
+                className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
+              >
+                Add your first opportunity
+              </button>
             </div>
           }
         />
+
+        {/* Add/Edit Opportunity Modal */}
         {showForm && (
           <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl mx-auto overflow-y-auto max-h-[90vh]">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl mx-auto max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-gray-100">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
                     {form.id ? "Edit Opportunity" : "Create New Opportunity"}
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {form.id ? "Update opportunity details" : "Add a new sales opportunity"}
+                    {form.id
+                      ? "Update opportunity details"
+                      : "Add a new sales opportunity"}
                   </p>
                 </div>
-                <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <button
+                  onClick={() => !isSaving && setShowForm(false)}
+                  disabled={isSaving}
+                  className="text-gray-400 hover:text-gray-600 disabled:opacity-40"
+                >
                   <XMarkIcon className="h-5 w-5" />
                 </button>
               </div>
@@ -498,7 +642,6 @@ export default function Deals() {
                       onChange={handleChange}
                       required
                     />
-
                     <FloatingInput
                       label="Amount"
                       name="amount"
@@ -507,12 +650,22 @@ export default function Deals() {
                       onChange={handleChange}
                       required
                     />
-
                     <FloatingDatePicker
                       label="Expected Close Date"
                       name="expectedCloseDate"
-                      value={form.expectedCloseDate ? new Date(form.expectedCloseDate).toISOString().split('T')[0] : ""}
-                      onChange={(e) => setForm((prev) => ({ ...prev, expectedCloseDate: e.target.value }))}
+                      value={
+                        form.expectedCloseDate
+                          ? new Date(form.expectedCloseDate)
+                              .toISOString()
+                              .split("T")[0]
+                          : ""
+                      }
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          expectedCloseDate: e.target.value,
+                        }))
+                      }
                     />
                   </div>
 
@@ -524,7 +677,6 @@ export default function Deals() {
                       onChange={handleChange}
                       options={stageOptions}
                     />
-
                     <FloatingSelect
                       label="Status"
                       name="status"
@@ -532,37 +684,112 @@ export default function Deals() {
                       onChange={handleChange}
                       options={[
                         { id: "ACTIVE", name: "Active" },
-                        { id: "INACTIVE", name: "Inactive" }
+                        { id: "INACTIVE", name: "Inactive" },
                       ]}
                     />
 
-                    <FloatingSelect
-                      label="Lead"
-                      name="leadId"
-                      value={form.lead?.id || ""}
-                      onChange={(e) => setForm((prev) => ({ ...prev, lead: e.target.value ? { id: parseInt(e.target.value), name: "" } : undefined }))}
-                      options={leads.map(lead => ({ id: lead.id, name: lead.name }))}
-                      required={!form.id}
-                    />
+                    {/* Lead OR Customer — exclusive */}
+                    <div className="rounded-lg border border-gray-200 p-3">
+                      <div className="flex items-center gap-4 mb-3">
+                        <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="ownerType"
+                            value="LEAD"
+                            checked={ownerType === "LEAD"}
+                            onChange={() => {
+                              setOwnerType("LEAD");
+                              setForm((f) => ({ ...f, customer: undefined }));
+                            }}
+                          />
+                          Lead
+                        </label>
+                        <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="ownerType"
+                            value="CUSTOMER"
+                            checked={ownerType === "CUSTOMER"}
+                            onChange={() => {
+                              setOwnerType("CUSTOMER");
+                              setForm((f) => ({ ...f, lead: undefined }));
+                            }}
+                          />
+                          Customer
+                        </label>
+                      </div>
 
-                    <FloatingSelect
-                      label="Customer (Optional)"
-                      name="customerId"
-                      value={form.customer?.id || ""}
-                      onChange={(e) => setForm((prev) => ({ ...prev, customer: e.target.value ? { id: parseInt(e.target.value), name: "" } : undefined }))}
-                      options={customers.map(c => ({ id: c.id, name: c.customerName || c.name || `Customer #${c.id}` }))}
-                    />
+                      {ownerType === "LEAD" ? (
+                        <FloatingSelect
+                          label="Lead *"
+                          name="leadId"
+                          value={form.lead?.id || ""}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              lead: e.target.value
+                                ? {
+                                    id: parseInt(e.target.value),
+                                    name:
+                                      leads.find(
+                                        (l) => l.id === parseInt(e.target.value)
+                                      )?.name || "",
+                                  }
+                                : undefined,
+                            }))
+                          }
+                          options={leads.map((l) => ({
+                            id: l.id,
+                            name: l.name,
+                          }))}
+                          required={!form.id}
+                        />
+                      ) : (
+                        <FloatingSelect
+                          label="Customer *"
+                          name="customerId"
+                          value={form.customer?.id || ""}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              customer: e.target.value
+                                ? { id: parseInt(e.target.value) }
+                                : undefined,
+                            }))
+                          }
+                          options={customers.map((c) => ({
+                            id: c.id,
+                            name:
+                              c.customerName ||
+                              c.name ||
+                              `Customer #${c.id}`,
+                          }))}
+                          required={!form.id}
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                  <button type="button" onClick={() => setShowForm(false)}
-                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => setShowForm(false)}
+                    disabled={isSaving}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-50"
+                  >
                     Cancel
                   </button>
-                  <button type="submit"
-                    className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 transition-all duration-200 shadow-sm">
-                    {form.id ? "Update Opportunity" : "Create Opportunity"}
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 shadow-sm disabled:opacity-60"
+                  >
+                    {isSaving
+                      ? "Saving..."
+                      : form.id
+                      ? "Update Opportunity"
+                      : "Create Opportunity"}
                   </button>
                 </div>
               </form>
@@ -579,7 +806,10 @@ export default function Deals() {
         innerText="Delete Opportunity"
         subText={
           deleteId
-            ? `Are you sure you want to delete "${opportunities.find((o) => o.id === deleteId)?.dealName || "this opportunity"}"? This action cannot be undone.`
+            ? `Are you sure you want to delete "${
+                opportunities.find((o) => o.id === deleteId)?.dealName ||
+                "this opportunity"
+              }"? This action cannot be undone.`
             : "Are you sure you want to delete this opportunity?"
         }
         confirmLabel="Delete"
@@ -588,13 +818,6 @@ export default function Deals() {
         onCancel={() => setDeleteId(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
       />
-
-      <style>{`
-        @keyframes slide-up { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-slide-up { animation: slide-up 0.25s ease-out; }
-        tr { animation: fade-in 0.25s ease-out; cursor: pointer; }
-        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-      `}</style>
     </>
   );
 }
