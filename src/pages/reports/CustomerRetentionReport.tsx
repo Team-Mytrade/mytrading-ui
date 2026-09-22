@@ -1,4 +1,7 @@
 import React, { useState, useMemo } from "react";
+import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import ReportSummaryGrid from "../../components/common/ReportSummaryGrid";
+import ReportDataTable from "../../components/common/ReportDataTable";
 
 interface Customer {
   id: number;
@@ -33,22 +36,19 @@ const CustomerRetentionReport: React.FC = () => {
   }, [customers, page]);
 
   return (
-    <div className="max-w-7xl mx-auto p-6 bg-white dark:bg-boxdark border border-stroke rounded shadow">
+    <>
+    <PageBreadcrumb pageTitle="Customer Retention Report" />
+    <div className="reports-legacy max-w-7xl mx-auto p-6 bg-white dark:bg-boxdark border border-stroke rounded shadow">
       <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Customer Retention Report</h2>
 
       {/* Summary */}
-      <div className="mb-6 grid grid-cols-2 gap-4 text-center">
-        <div className="bg-blue-100 rounded p-4">
-          <div className="text-3xl font-bold">{customers.length}</div>
-          <div>Total Customers</div>
-        </div>
-        <div className="bg-green-100 rounded p-4">
-          <div className="text-3xl font-bold">{retentionRate.toFixed(2)}%</div>
-          <div>Retention Rate</div>
-        </div>
-      </div>
+      <ReportSummaryGrid items={[
+        { label: "Total Customers", value: customers.length, tone: "blue" },
+        { label: "Retention Rate", value: `${retentionRate.toFixed(2)}%`, tone: "green" },
+      ]} />
 
       {/* Customer Table */}
+      <ReportDataTable data={customers} />
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead className="bg-gray-100 dark:bg-meta-4">
@@ -107,6 +107,7 @@ const CustomerRetentionReport: React.FC = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

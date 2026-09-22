@@ -1,4 +1,7 @@
 import React, { useState, useMemo } from "react";
+import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import ReportSummaryGrid from "../../components/common/ReportSummaryGrid";
+import ReportDataTable from "../../components/common/ReportDataTable";
 
 interface Lead {
   id: number;
@@ -108,7 +111,9 @@ const LeadReports: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 bg-white dark:bg-boxdark border border-stroke rounded shadow">
+    <>
+    <PageBreadcrumb pageTitle="Lead Reports" />
+    <div className="reports-legacy max-w-7xl mx-auto p-6 bg-white dark:bg-boxdark border border-stroke rounded shadow">
       <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Lead Reports Analysis</h2>
 
       {/* Filters */}
@@ -166,28 +171,14 @@ const LeadReports: React.FC = () => {
       </div>
 
       {/* Summary */}
-      <div className="mb-6 grid grid-cols-3 gap-4 text-center">
-        <div className="bg-green-100 rounded p-4">
-          <div className="text-3xl font-bold">{totalLeads}</div>
-          <div>Total Leads</div>
-        </div>
-        <div className="bg-blue-100 rounded p-4">
-          <div className="text-3xl font-bold">${totalValue.toLocaleString()}</div>
-          <div>Total Potential Value</div>
-        </div>
-        <div className="bg-yellow-100 rounded p-4">
-          <div className="text-lg font-semibold mb-2">Leads by Status</div>
-          {Object.entries(leadsByStatus).map(([status, count]) => (
-            <div key={status} className="flex justify-between px-4">
-              <span>{status}</span>
-              <span>{count}</span>
-            </div>
-          ))}
-          {Object.keys(leadsByStatus).length === 0 && <div>No leads</div>}
-        </div>
-      </div>
+      <ReportSummaryGrid items={[
+        { label: "Total Leads", value: totalLeads, tone: "green" },
+        { label: "Total Potential Value", value: `$${totalValue.toLocaleString()}`, tone: "blue" },
+        { label: "Lead Statuses", value: Object.keys(leadsByStatus).length, tone: "yellow" },
+      ]} />
 
       {/* Lead Table */}
+      <ReportDataTable data={sortedLeads} />
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead className="bg-gray-100 dark:bg-meta-4 cursor-pointer select-none">
@@ -262,6 +253,7 @@ const LeadReports: React.FC = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

@@ -312,7 +312,6 @@ export const isSessionExpiredResponse = (
 
   return (
     status === 401 ||
-    status === 403 ||
     normalizedMessage.includes("token expired") ||
     normalizedMessage.includes("jwt expired") ||
     normalizedMessage.includes("session expired") ||
