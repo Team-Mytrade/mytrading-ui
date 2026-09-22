@@ -1133,13 +1133,13 @@ const Quotations: React.FC = () => {
         <PageMeta title={editingId ? "Edit Quotation" : "Create New Quotation"} description="Manage sales quotations" />
         <PageBreadcrumb pageTitle={editingId ? "Edit Quotation" : "Create Quotation"} />
 
-       <div className="h-[calc(100dvh-140px)] w-full max-w-none overflow-y-auto px-0 py-6">
-          <div className="relative overflow-hidden rounded-3xl border border-slate-200/70 bg-gradient-to-br from-white via-slate-50/70 to-slate-100 p-6 shadow-xl shadow-slate-100/70 lg:p-8">
+       <div className="w-full max-w-none px-0 py-4 sm:py-6">
+          <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-white via-slate-50/70 to-slate-100 p-4 shadow-xl shadow-slate-100/70 sm:rounded-3xl sm:p-6 lg:p-8">
             <div className="absolute left-0 right-0 top-0 h-1.5 bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500" />
 
-            <div className="mb-8 flex items-center justify-between border-b border-slate-200/70 pb-5">
+            <div className="mb-6 flex items-start justify-between gap-3 border-b border-slate-200/70 pb-4 sm:mb-8 sm:items-center sm:pb-5">
               <div>
-                <h2 className="flex items-center gap-3 text-2xl font-black tracking-tight text-slate-900">
+                <h2 className="flex items-center gap-2 text-xl font-black tracking-tight text-slate-900 sm:gap-3 sm:text-2xl">
                   <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
                     <DocumentTextIcon className="h-6 w-6" />
                   </span>

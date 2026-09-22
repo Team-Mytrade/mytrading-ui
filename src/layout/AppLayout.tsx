@@ -9,6 +9,7 @@ import { useContext } from "react";
 
 
 import { useState, useEffect } from "react";
+import "../pages/Sales/SalesDarkMode.css";
 
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, sidebarWidth, isResizing } = useSidebar();
@@ -31,6 +32,11 @@ const LayoutContent: React.FC = () => {
     location.pathname.startsWith("/payrollEngine") ||
     location.pathname.startsWith("/it-declaration") ||
     location.pathname.startsWith("/addEmployee");
+  const isSalesModule = [
+    "/sales-dashboard", "/sales-targets", "/sales-persons", "/sales-orders",
+    "/return-requests", "/refunds", "/quotations", "/quote-view", "/credit-limit",
+    "/sales-channels", "/service-schedules", "/service-schedule-notify",
+  ].some((path) => location.pathname.startsWith(path));
 
   useEffect(() => {
     const handleResize = () => {
@@ -61,7 +67,7 @@ const LayoutContent: React.FC = () => {
         <div className="shrink-0">
           <AppHeader />
         </div>
-        <div className={`app-content-tight min-h-0 flex-1 w-full px-2 py-[3px] md:px-3 md:py-[3px] ${isScrollablePage ? "overflow-x-hidden overflow-y-auto overscroll-contain no-scrollbar" : "overflow-hidden"}`}>
+        <div className={`app-content-tight min-h-0 flex-1 w-full px-2 py-[3px] md:px-3 md:py-[3px] ${isSalesModule ? "sales-module" : ""} ${isScrollablePage ? "overflow-x-hidden overflow-y-auto overscroll-contain no-scrollbar" : "overflow-hidden"}`}>
           <Outlet />
         </div>
       </div>

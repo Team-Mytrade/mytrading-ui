@@ -118,8 +118,13 @@
     padding: 8px 12px;
   }
   .page-breadcrumb__content {
+    align-items: stretch;
+    flex-direction: column;
     gap: 8px;
   }
+  .page-breadcrumb__trail-wrap { min-width: 0; }
+  .page-breadcrumb__actions { width: 100%; }
+  .page-breadcrumb__actions > button { width: 100%; justify-content: center; }
   .page-breadcrumb__trail ol {
     font-size: 13px;
   }

@@ -489,12 +489,9 @@ const ServiceSchedules: React.FC = () => {
   return (
     <>
       <PageMeta title="Service Schedules" description="Manage service schedules" />
-      <PageBreadcrumb pageTitle="Service Schedules" />
+      <PageBreadcrumb pageTitle="Service Schedules" actions={<AddButton onClick={openCreate} label="Add Service Schedule" />} />
 
-      <div className="w-full max-w-none px-0 py-8 ">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Service Schedule" />
-        </div>
+      <div className="w-full max-w-none px-0 py-6 sm:py-8">
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Schedules" value={stats.total} icon={<CalendarDaysIcon />} />
@@ -633,10 +630,10 @@ const ServiceSchedules: React.FC = () => {
 
       {showFormModal &&
         createPortal(
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-4 backdrop-blur-sm sm:items-center">
-            <div className="mx-auto max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl">
-              <div className="flex items-center justify-between border-b border-gray-100 p-5">
-                <div>
+          <div className="sales-modal fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-3 backdrop-blur-sm sm:items-center sm:p-4">
+            <div className="mx-auto max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl sm:max-h-[calc(100dvh-2rem)]">
+              <div className="flex items-start justify-between gap-3 border-b border-gray-100 p-4 sm:items-center sm:p-5">
+                <div className="min-w-0">
                   <h3 className="text-lg font-semibold text-gray-900">Create Service Schedule</h3>
                   <p className="mt-0.5 text-xs text-gray-500">Select a sales order and customer, then set the schedule</p>
                 </div>
@@ -645,7 +642,7 @@ const ServiceSchedules: React.FC = () => {
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-5">
+              <form onSubmit={handleSubmit} className="p-4 sm:p-5">
                 {/* Clean 2-column grid: order & customer up top, date spans full width, then start/end time */}
                 <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
                   <div className="w-full">

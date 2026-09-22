@@ -806,7 +806,7 @@ const CreditLimit: React.FC = () => {
       <PageMeta title="Credit Limit" description="Manage sales credit limit checks" />
       <PageBreadcrumb pageTitle="Credit Limit" />
 
-      <div className="-mt-3 max-h-[calc(100vh-140px)] w-full max-w-none space-y-3 overflow-y-auto px-0 pb-6 pt-4">
+      <div className="w-full max-w-none space-y-3 px-0 py-4 sm:py-6">
         {/*
           NOTE: 140px is an estimate for the fixed chrome above this page
           (top nav + breadcrumb). If content still gets clipped at the
