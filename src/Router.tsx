@@ -61,7 +61,7 @@ import Deliveries from "./pages/Purchase/Deliveries";
 import ApprovalStatus from "./pages/Purchase/ApprovalStatus";
 import GoodsReceiptNotes from "./pages/Purchase/GoodsReceiptNotes";
 import Inventory from "./pages/Purchase/Inventory";
-import PurchaseReports from "./pages/Reports/PurchaseReports";
+import PurchaseReports from "./pages/reports/PurchaseReports";
 import DeliveryOrderPage from "./pages/Delivery/DeliveryOrderPage";
 import TransporterPage from "./pages/Delivery/TransporterPage";
 import VehiclePage from "./pages/Delivery/VehiclePage";
@@ -207,7 +207,7 @@ import ExpenseRevenue from "./pages/Invoice/ExpenseRevenue";
 import AccountsReceivable from "./pages/Invoice/AccountsReceivable";
 import TaxReport from "./pages/reports/TaxReport";
 import FinanceReport from "./pages/reports/FinanceReport";
-import Reports from "./pages/Reports/CrmReports";
+import Reports from "./pages/reports/Reports";
 export default function AppRouter() {
   return (
     <BrowserRouter>

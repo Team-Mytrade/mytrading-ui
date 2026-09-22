@@ -64,13 +64,18 @@ const FIELD_ICONS: Record<string, any> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  ACTIVE: "bg-green-100 text-green-800 border-green-200",
-  INACTIVE: "bg-red-100 text-red-800 border-red-200",
-  PENDING: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  NEW: "bg-blue-100 text-blue-800 border-blue-200",
-  CONTACTED: "bg-purple-100 text-purple-800 border-purple-200",
-  QUALIFIED: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  LOST: "bg-gray-100 text-gray-800 border-gray-200",
+  ACTIVE:
+    "bg-green-100 text-green-800 border-green-200 dark:bg-green-950/40 dark:text-green-300 dark:border-green-800/60",
+  INACTIVE:
+    "bg-red-100 text-red-800 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800/60",
+  PENDING:
+    "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-950/40 dark:text-yellow-300 dark:border-yellow-800/60",
+  NEW: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/60",
+  CONTACTED:
+    "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/60",
+  QUALIFIED:
+    "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60",
+  LOST: "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
 };
 
 export default function CrmViewPage() {
@@ -97,10 +102,10 @@ export default function CrmViewPage() {
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return new Intl.DateTimeFormat('en-US', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
+    return new Intl.DateTimeFormat("en-US", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
     }).format(date);
   };
 
@@ -122,15 +127,15 @@ export default function CrmViewPage() {
 
   // Filter out hidden keys and system fields
   const filterDisplayData = (obj: any): any => {
-    if (!obj || typeof obj !== 'object') return obj;
+    if (!obj || typeof obj !== "object") return obj;
 
     if (Array.isArray(obj)) {
-      return obj.map(item => filterDisplayData(item));
+      return obj.map((item) => filterDisplayData(item));
     }
 
     return Object.fromEntries(
       Object.entries(obj)
-        .filter(([key]) => !HIDDEN_KEYS.includes(key) && !key.startsWith('_'))
+        .filter(([key]) => !HIDDEN_KEYS.includes(key) && !key.startsWith("_"))
         .map(([key, value]) => [key, filterDisplayData(value)])
     );
   };
@@ -141,21 +146,30 @@ export default function CrmViewPage() {
   };
 
   const renderStatusBadge = (status: string) => {
-    const colorClass = STATUS_COLORS[status.toUpperCase()] || "bg-gray-100 text-gray-800 border-gray-200";
+    const colorClass =
+      STATUS_COLORS[status.toUpperCase()] ||
+      "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700";
     return (
-      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${colorClass}`}>
+      <span
+        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${colorClass}`}
+      >
         {status}
       </span>
     );
   };
 
   const renderValue = (key: string, value: any) => {
-    if (value === null || value === "") return <span className="text-gray-400 italic">Not provided</span>;
+    if (value === null || value === "")
+      return (
+        <span className="text-gray-400 dark:text-gray-500 italic">
+          Not provided
+        </span>
+      );
 
     if (typeof value === "string" && key.toLowerCase().includes("date")) {
       return (
         <div className="flex items-center gap-2">
-          <CalendarIcon className="h-4 w-4 text-gray-400" />
+          <CalendarIcon className="h-4 w-4 text-gray-400 dark:text-gray-500" />
           <span>{formatDate(value)}</span>
         </div>
       );
@@ -167,7 +181,10 @@ export default function CrmViewPage() {
 
     if (key.toLowerCase().includes("email") && typeof value === "string") {
       return (
-        <a href={`mailto:${value}`} className="text-cyan-600 hover:text-cyan-700 hover:underline flex items-center gap-1">
+        <a
+          href={`mailto:${value}`}
+          className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 hover:underline flex items-center gap-1"
+        >
           <EnvelopeIcon className="h-4 w-4" />
           {value}
         </a>
@@ -176,7 +193,10 @@ export default function CrmViewPage() {
 
     if (key.toLowerCase().includes("phone") && typeof value === "string") {
       return (
-        <a href={`tel:${value}`} className="text-cyan-600 hover:text-cyan-700 hover:underline flex items-center gap-1">
+        <a
+          href={`tel:${value}`}
+          className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 hover:underline flex items-center gap-1"
+        >
           <PhoneIcon className="h-4 w-4" />
           {value}
         </a>
@@ -186,19 +206,24 @@ export default function CrmViewPage() {
     if (key.toLowerCase().includes("website") && typeof value === "string") {
       return (
         <a
-          href={value.startsWith('http') ? value : `https://${value}`}
+          href={value.startsWith("http") ? value : `https://${value}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-cyan-600 hover:text-cyan-700 hover:underline flex items-center gap-1"
+          className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 hover:underline flex items-center gap-1"
         >
           <GlobeAltIcon className="h-4 w-4" />
-          {value.replace(/^https?:\/\//, '')}
+          {value.replace(/^https?:\/\//, "")}
         </a>
       );
     }
 
     if (Array.isArray(value)) {
-      if (value.length === 0) return <span className="text-gray-400 italic">No items</span>;
+      if (value.length === 0)
+        return (
+          <span className="text-gray-400 dark:text-gray-500 italic">
+            No items
+          </span>
+        );
 
       if (typeof value[0] === "object") {
         const filteredArray = filterDisplayData(value);
@@ -207,13 +232,15 @@ export default function CrmViewPage() {
             {filteredArray.map((item: any, i: number) => (
               <div
                 key={i}
-                className="border border-gray-200 rounded-xl p-4 bg-white shadow-sm hover:shadow-md transition-shadow"
+                className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-white dark:bg-gray-900 shadow-sm hover:shadow-md transition-shadow"
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {Object.entries(item).map(([subKey, subValue]) => (
                     <div key={subKey} className="flex flex-col">
-                      <span className="text-xs text-gray-500 capitalize mb-1">{subKey}</span>
-                      <div className="text-sm font-medium text-gray-900">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 capitalize mb-1">
+                        {subKey}
+                      </span>
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {renderValue(subKey, subValue)}
                       </div>
                     </div>
@@ -227,7 +254,10 @@ export default function CrmViewPage() {
       return (
         <div className="flex flex-wrap gap-2">
           {value.map((item, i) => (
-            <span key={i} className="px-2 py-1 bg-gray-100 text-gray-700 rounded-lg text-xs">
+            <span
+              key={i}
+              className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg text-xs"
+            >
               {item}
             </span>
           ))}
@@ -240,11 +270,13 @@ export default function CrmViewPage() {
       if (Object.keys(filteredObject).length === 0) return null;
 
       return (
-        <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 space-y-2">
           {Object.entries(filteredObject).map(([subKey, subValue]) => (
             <div key={subKey} className="flex flex-col">
-              <span className="text-xs text-gray-500 capitalize">{subKey}</span>
-              <div className="text-sm font-medium text-gray-900 ml-2">
+              <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                {subKey}
+              </span>
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100 ml-2">
                 {renderValue(subKey, subValue)}
               </div>
             </div>
@@ -258,11 +290,11 @@ export default function CrmViewPage() {
 
   const getEntityIcon = () => {
     switch (requestFrom?.toLowerCase()) {
-      case 'customers':
+      case "customers":
         return BuildingOfficeIcon;
-      case 'contacts':
+      case "contacts":
         return UserIcon;
-      case 'leads':
+      case "leads":
         return BriefcaseIcon;
       default:
         return DocumentTextIcon;
@@ -276,20 +308,26 @@ export default function CrmViewPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <PageMeta title={`${requestFrom} View`} description={`${requestFrom} View`} />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <PageMeta
+          title={`${requestFrom} View`}
+          description={`${requestFrom} View`}
+        />
         <PageBreadcrumb pageTitle={requestFrom ?? "CRM"} />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-8">
             <div className="animate-pulse">
               <div className="flex items-center gap-4 mb-8">
-                <div className="h-10 w-24 bg-gray-200 rounded-lg"></div>
-                <div className="h-8 w-48 bg-gray-200 rounded-lg"></div>
+                <div className="h-10 w-24 bg-gray-200 dark:bg-gray-800 rounded-lg"></div>
+                <div className="h-8 w-48 bg-gray-200 dark:bg-gray-800 rounded-lg"></div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[...Array(6)].map((_, i) => (
-                  <div key={i} className="h-32 bg-gray-200 rounded-xl"></div>
+                  <div
+                    key={i}
+                    className="h-32 bg-gray-200 dark:bg-gray-800 rounded-xl"
+                  ></div>
                 ))}
               </div>
             </div>
@@ -301,15 +339,20 @@ export default function CrmViewPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <PageMeta title={`${requestFrom} View`} description={`${requestFrom} View`} />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <PageMeta
+          title={`${requestFrom} View`}
+          description={`${requestFrom} View`}
+        />
         <PageBreadcrumb pageTitle={requestFrom ?? "CRM"} />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-12 text-center">
             <div className="text-red-500 text-6xl mb-4">⚠️</div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Data</h3>
-            <p className="text-gray-500 mb-6">{error}</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              Error Loading Data
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-6">{error}</p>
             <button
               onClick={() => navigate(-1)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
@@ -325,15 +368,22 @@ export default function CrmViewPage() {
 
   if (!data || Object.keys(displayData).length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <PageMeta title={`${requestFrom} View`} description={`${requestFrom} View`} />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <PageMeta
+          title={`${requestFrom} View`}
+          description={`${requestFrom} View`}
+        />
         <PageBreadcrumb pageTitle={requestFrom ?? "CRM"} />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
-            <DocumentTextIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Available</h3>
-            <p className="text-gray-500 mb-6">The requested information could not be found.</p>
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-12 text-center">
+            <DocumentTextIcon className="h-16 w-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              No Data Available
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-6">
+              The requested information could not be found.
+            </p>
             <button
               onClick={() => navigate(-1)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
@@ -348,7 +398,12 @@ export default function CrmViewPage() {
   }
 
   // Extract key fields for header
-  const nameField = displayData.name || displayData.fullName || displayData.companyName || displayData.title || `${requestFrom} Details`;
+  const nameField =
+    displayData.name ||
+    displayData.fullName ||
+    displayData.companyName ||
+    displayData.title ||
+    `${requestFrom} Details`;
   const statusField = displayData.status || displayData.state;
 
   // Separate address and notes from other fields
@@ -356,23 +411,26 @@ export default function CrmViewPage() {
   const notesField = displayData.notes || displayData.description;
 
   // Get all other fields (excluding address, notes, and any object types for main grid)
-  const mainFields = Object.entries(displayData)
-    .filter(([key, value]) =>
-      key !== 'address' &&
-      key !== 'notes' &&
-      key !== 'description' &&
-      !key.toLowerCase().includes('address') &&
-      !key.toLowerCase().includes('note') &&
-      !key.toLowerCase().includes('description') &&
-      typeof value !== 'object'
-    );
+  const mainFields = Object.entries(displayData).filter(
+    ([key, value]) =>
+      key !== "address" &&
+      key !== "notes" &&
+      key !== "description" &&
+      !key.toLowerCase().includes("address") &&
+      !key.toLowerCase().includes("note") &&
+      !key.toLowerCase().includes("description") &&
+      typeof value !== "object"
+  );
 
   return (
     <>
-      <PageMeta title={`${requestFrom} View`} description={`${requestFrom} View`} />
+      <PageMeta
+        title={`${requestFrom} View`}
+        description={`${requestFrom} View`}
+      />
       <PageBreadcrumb pageTitle={requestFrom ?? "CRM"} />
 
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
           {/* Header with Gradient */}
           <div className="mb-6 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 p-4 text-white shadow-lg sm:p-6">
@@ -390,10 +448,16 @@ export default function CrmViewPage() {
                   </div>
                   <div>
                     <h1 className="flex flex-wrap items-center gap-2 text-xl font-bold !text-white sm:text-2xl">
-                      {typeof nameField === 'string' ? nameField : requestFrom}
+                      {typeof nameField === "string" ? nameField : requestFrom}
                       {statusField && (
-                        <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full border border-white/30 ${STATUS_COLORS[statusField.toUpperCase()]?.replace('text-', 'text-').replace('bg-', 'bg-') || 'bg-white/20 text-white'
-                          }`}>
+                        <span
+                          className={`ml-2 px-2 py-1 text-xs font-medium rounded-full border border-white/30 ${
+                            STATUS_COLORS[statusField.toUpperCase()]
+                              ?.replace("text-", "text-")
+                              .replace("bg-", "bg-") ||
+                            "bg-white/20 text-white"
+                          }`}
+                        >
                           {statusField}
                         </span>
                       )}
@@ -408,40 +472,49 @@ export default function CrmViewPage() {
               <div className="flex w-full items-center gap-3 sm:w-auto">
                 <button
                   onClick={() => {
-                    const sourcePath = requestFrom === 'leads' ? '/leads' :
-                      requestFrom === 'customers' ? '/customer-management' :
-                        requestFrom === 'contacts' ? '/contactPerson' :
-                          requestFrom === 'opportunities' ? '/opportunities' :
-                            requestFrom === 'segments' ? '/customer-segment' : '/';
+                    const sourcePath =
+                      requestFrom === "leads"
+                        ? "/leads"
+                        : requestFrom === "customers"
+                        ? "/customer-management"
+                        : requestFrom === "contacts"
+                        ? "/contactPerson"
+                        : requestFrom === "opportunities"
+                        ? "/opportunities"
+                        : requestFrom === "segments"
+                        ? "/customer-segment"
+                        : "/";
                     navigate(`${sourcePath}?editId=${id}`);
                   }}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 font-semibold text-cyan-700 shadow-md transition-all hover:bg-cyan-50 active:scale-95 sm:w-auto"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 font-semibold text-cyan-700 shadow-md transition-all hover:bg-cyan-50 active:scale-95 sm:w-auto dark:text-white/80"
                 >
                   <PencilSquareIcon className="h-4 w-4" />
-                  Edit {requestFrom?.replace('s', '')}
+                  Edit {requestFrom?.replace("/s$/", "")}
                 </button>
               </div>
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="bg-white rounded-t-xl border-b border-gray-200 px-4">
+          <div className="bg-white dark:bg-gray-900 rounded-t-xl border-b border-gray-200 dark:border-gray-800 px-4">
             <div className="flex gap-4 overflow-x-auto">
               <button
                 onClick={() => setActiveTab("details")}
-                className={`whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "details"
-                  ? "border-cyan-600 text-cyan-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-                  }`}
+                className={`whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === "details"
+                    ? "border-cyan-600 text-cyan-600 dark:text-cyan-400"
+                    : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                }`}
               >
                 Details
               </button>
               <button
                 onClick={() => setActiveTab("related")}
-                className={`whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "related"
-                  ? "border-cyan-600 text-cyan-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-                  }`}
+                className={`whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === "related"
+                    ? "border-cyan-600 text-cyan-600 dark:text-cyan-400"
+                    : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                }`}
               >
                 Related Items
               </button>
@@ -449,7 +522,7 @@ export default function CrmViewPage() {
           </div>
 
           {/* Content */}
-          <div className="rounded-b-xl border border-t-0 border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+          <div className="rounded-b-xl border border-t-0 border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 shadow-sm sm:p-6">
             {activeTab === "details" ? (
               <div className="space-y-6">
                 {/* Key Metrics Cards - Show important fields first */}
@@ -457,12 +530,17 @@ export default function CrmViewPage() {
                   {mainFields.slice(0, 4).map(([key, value]) => {
                     const Icon = getFieldIcon(key);
                     return (
-                      <div key={key} className="bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
-                        <div className="flex items-center gap-2 text-gray-500 mb-2">
+                      <div
+                        key={key}
+                        className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
                           <Icon className="h-4 w-4" />
-                          <span className="text-xs uppercase tracking-wider">{key}</span>
+                          <span className="text-xs uppercase tracking-wider">
+                            {key}
+                          </span>
                         </div>
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           {renderValue(key, value)}
                         </div>
                       </div>
@@ -475,22 +553,27 @@ export default function CrmViewPage() {
                   {/* Left Column - Main Info */}
                   {mainFields.length > 4 && (
                     <div className="space-y-4">
-                      <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                        <DocumentTextIcon className="h-5 w-5 text-cyan-600" />
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                        <DocumentTextIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
                         General Information
                       </h3>
 
-                      <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
                         {mainFields.slice(4).map(([key, value]) => {
                           const Icon = getFieldIcon(key);
                           return (
-                            <div key={key} className="flex min-w-0 items-start gap-3 rounded-lg p-2 transition-colors hover:bg-white">
-                              <div className="p-1.5 bg-white rounded-lg shadow-sm">
-                                <Icon className="h-4 w-4 text-gray-500" />
+                            <div
+                              key={key}
+                              className="flex min-w-0 items-start gap-3 rounded-lg p-2 transition-colors hover:bg-white dark:hover:bg-gray-800"
+                            >
+                              <div className="p-1.5 bg-white dark:bg-gray-900 rounded-lg shadow-sm">
+                                <Icon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                               </div>
                               <div className="min-w-0 flex-1">
-                                <p className="text-xs text-gray-500 capitalize mb-0.5">{key}</p>
-                                <div className="text-sm font-medium text-gray-900">
+                                <p className="text-xs text-gray-500 dark:text-gray-400 capitalize mb-0.5">
+                                  {key}
+                                </p>
+                                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                                   {renderValue(key, value)}
                                 </div>
                               </div>
@@ -507,22 +590,26 @@ export default function CrmViewPage() {
                 {/* Address Section */}
                 {addressField && (
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                      <MapPinIcon className="h-5 w-5 text-cyan-600" />
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                      <MapPinIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
                       Address Information
                     </h3>
 
-                    <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-6">
-                      {typeof addressField === 'string' ? (
-                        <p className="text-gray-900">{addressField}</p>
+                    <div className="rounded-xl border border-blue-100 dark:border-blue-900/50 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4 sm:p-6">
+                      {typeof addressField === "string" ? (
+                        <p className="text-gray-900 dark:text-gray-100">
+                          {addressField}
+                        </p>
                       ) : (
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                           {Object.entries(addressField)
                             .filter(([key]) => !HIDDEN_KEYS.includes(key))
                             .map(([key, value]) => (
                               <div key={key}>
-                                <p className="text-xs text-gray-500 capitalize mb-1">{key}</p>
-                                <p className="text-sm font-medium text-gray-900">
+                                <p className="text-xs text-gray-500 dark:text-gray-400 capitalize mb-1">
+                                  {key}
+                                </p>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                                   {renderValue(key, value)}
                                 </p>
                               </div>
@@ -536,13 +623,15 @@ export default function CrmViewPage() {
                 {/* Notes Section */}
                 {notesField && (
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                      <DocumentTextIcon className="h-5 w-5 text-cyan-600" />
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                      <DocumentTextIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
                       Notes
                     </h3>
 
-                    <div className="bg-gray-50 rounded-xl p-6">
-                      <p className="text-gray-700 whitespace-pre-wrap">{notesField}</p>
+                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6">
+                      <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                        {notesField}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -550,55 +639,88 @@ export default function CrmViewPage() {
             ) : (
               // Related Items Tab
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Related Items</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                  Related Items
+                </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Communications */}
-                  <div className="bg-gray-50 rounded-xl p-6 hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => navigate(`/communication-history?${requestFrom?.replace('s', '')}Id=${id}`)}>
+                  <div
+                    className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() =>
+                      navigate(
+                        `/communication-history?${requestFrom?.replace(
+                          "s",
+                          ""
+                        )}Id=${id}`
+                      )
+                    }
+                  >
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-cyan-100 rounded-lg">
-                          <EnvelopeIcon className="h-5 w-5 text-cyan-600" />
+                        <div className="p-2 bg-cyan-100 dark:bg-cyan-950/50 rounded-lg">
+                          <EnvelopeIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
                         </div>
-                        <h4 className="font-medium text-gray-900">Communications</h4>
+                        <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                          Communications
+                        </h4>
                       </div>
-                      <ChevronRightIcon className="h-5 w-5 text-gray-400" />
+                      <ChevronRightIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                     </div>
-                    <p className="text-sm text-gray-500">View all communications related to this {requestFrom}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      View all communications related to this {requestFrom}
+                    </p>
                   </div>
 
                   {/* Contacts (for Customers/Leads) */}
-                  {(requestFrom === 'customers' || requestFrom === 'leads') && (
-                    <div className="bg-gray-50 rounded-xl p-6 hover:shadow-md transition-shadow cursor-pointer"
-                      onClick={() => navigate(`/contactPerson?${requestFrom?.replace('s', '')}Id=${id}`)}>
+                  {(requestFrom === "customers" || requestFrom === "leads") && (
+                    <div
+                      className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() =>
+                        navigate(
+                          `/contactPerson?${requestFrom?.replace("s", "")}Id=${id}`
+                        )
+                      }
+                    >
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-purple-100 rounded-lg">
-                            <UserIcon className="h-5 w-5 text-purple-600" />
+                          <div className="p-2 bg-purple-100 dark:bg-purple-950/50 rounded-lg">
+                            <UserIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                           </div>
-                          <h4 className="font-medium text-gray-900">Contacts</h4>
+                          <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                            Contacts
+                          </h4>
                         </div>
-                        <ChevronRightIcon className="h-5 w-5 text-gray-400" />
+                        <ChevronRightIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                       </div>
-                      <p className="text-sm text-gray-500">View all contacts associated with this {requestFrom}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        View all contacts associated with this {requestFrom}
+                      </p>
                     </div>
                   )}
 
                   {/* Segments (for Customers) */}
-                  {requestFrom === 'customers' && (
-                    <div className="bg-gray-50 rounded-xl p-6 hover:shadow-md transition-shadow cursor-pointer"
-                      onClick={() => navigate(`/customer-segment?customerId=${id}`)}>
+                  {requestFrom === "customers" && (
+                    <div
+                      className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() =>
+                        navigate(`/customer-segment?customerId=${id}`)
+                      }
+                    >
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-green-100 rounded-lg">
-                            <TagIcon className="h-5 w-5 text-green-600" />
+                          <div className="p-2 bg-green-100 dark:bg-green-950/50 rounded-lg">
+                            <TagIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
                           </div>
-                          <h4 className="font-medium text-gray-900">Segments</h4>
+                          <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                            Segments
+                          </h4>
                         </div>
-                        <ChevronRightIcon className="h-5 w-5 text-gray-400" />
+                        <ChevronRightIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                       </div>
-                      <p className="text-sm text-gray-500">View customer segments and groupings</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        View customer segments and groupings
+                      </p>
                     </div>
                   )}
                 </div>

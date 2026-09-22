@@ -139,6 +139,7 @@ export type PurchaseResourceConfig = {
     refreshRows: () => Promise<void>;
   }) => Promise<void> | void;
 };
+const HIDDEN_KEYS = new Set(["id", "purchaseOrderId", "grnId", "deliveryId", "vendorId", "requisitionId", "tenantId"]);
 
 const asArray = (value: any): PurchaseRecord[] => {
   if (Array.isArray(value)) return value;
@@ -544,7 +545,9 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   };
 
   const tableColumns = useMemo<ColumnDef<PurchaseRecord>[]>(() => {
-    const cols = config.columns.map((column) => ({
+    const cols = config.columns
+  .filter((column) => !HIDDEN_KEYS.has(column.key))
+  .map((column) => ({
       key: column.key,
       label: column.label,
       sortable: column.sortable ?? true,
@@ -806,56 +809,6 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     labelColor="text-green-600"
   />
 </div>
-
-          <div className="my-3 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative w-full sm:max-w-md">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder={`Search ${config.title.toLowerCase()}...`}
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              {config.renderSearchExtras?.()}
-
-              {supportsActiveFilter ? (
-                <div className="flex items-center">
-                  <FilterPopover
-                    title={`Filter ${config.title}`}
-                    buttonLabel="Filter"
-                    label="Status"
-                    value={activeFilter}
-                    options={[
-                      { label: "All Statuses", value: "ALL" },
-                      { label: "Active", value: "ACTIVE" },
-                      { label: "Inactive", value: "INACTIVE" },
-                    ]}
-                    onChange={(value) =>
-                      setActiveFilter((value as "ALL" | "ACTIVE" | "INACTIVE") || "ALL")
-                    }
-                    onReset={() => setActiveFilter("ALL")}
-                    onApply={() => undefined}
-                  />
-                </div>
-              ) : (
-                <div className="md:h-5 md:w-5 md:my-1 lg:h-5 lg:w-5 lg:my-1"></div>
-              )}
-            </div>
-          </div>
-
           <div className="">
             <ReusableTable<PurchaseRecord>
               data={filteredRows}

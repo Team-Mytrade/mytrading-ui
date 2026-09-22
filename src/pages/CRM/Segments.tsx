@@ -13,11 +13,11 @@ import {
   UserGroupIcon,
   UserPlusIcon,
   BuildingOfficeIcon,
-  BriefcaseIcon,
   EnvelopeIcon,
   PhoneIcon,
   EyeIcon,
 } from "@heroicons/react/24/outline";
+import ManageCustomersDrawer from "./ManageCustomer";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -123,13 +123,17 @@ const Segments: React.FC = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
 
-  // Customer modal
+  // Customer modal (unchanged — still used for auto-open after create)
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [customerModalMode, setCustomerModalMode] = useState<"add" | "manage">("add");
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<number[]>([]);
   const [customerSearch, setCustomerSearch] = useState("");
   const [activeSegmentId, setActiveSegmentId] = useState<number | null>(null);
   const [isAssigning, setIsAssigning] = useState(false);
+
+  // NEW: Customer drawer (only opened from Actions column)
+  const [showCustomerDrawer, setShowCustomerDrawer] = useState(false);
+  const [drawerSegmentId, setDrawerSegmentId] = useState<number | null>(null);
 
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [segmentToDelete, setSegmentToDelete] = useState<CustomerSegment | null>(null);
@@ -151,6 +155,12 @@ const Segments: React.FC = () => {
     fetchSegments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Fetch customers when the drawer opens
+  useEffect(() => {
+    if (showCustomerDrawer) fetchCustomers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCustomerDrawer]);
 
   useEffect(() => {
     if (segments.length > 0) {
@@ -292,6 +302,18 @@ const Segments: React.FC = () => {
     }
   };
 
+  /* ---------------- Customer drawer ---------------- */
+
+  const openCustomerDrawer = (segmentId: number) => {
+    setDrawerSegmentId(segmentId);
+    setShowCustomerDrawer(true);
+  };
+
+  const closeCustomerDrawer = () => {
+    setShowCustomerDrawer(false);
+    setDrawerSegmentId(null);
+  };
+
   /* ---------------- Customer modal ---------------- */
 
   const openCustomerModal = (segmentId: number, mode: "add" | "manage" = "add") => {
@@ -316,7 +338,23 @@ const Segments: React.FC = () => {
     [segments, activeSegmentId]
   );
 
-  /* ---------------- Deduped assigned customers ---------------- */
+  /* ---------------- NEW: Drawer segment + assigned customers ---------------- */
+
+  const drawerSegment = useMemo(
+    () => segments.find((s) => s.id === drawerSegmentId) || null,
+    [segments, drawerSegmentId]
+  );
+
+  const drawerAssignedCustomers = useMemo<SegmentCustomer[]>(() => {
+    const seen = new Set<number>();
+    return (drawerSegment?.segmentCustomers || []).filter((c) => {
+      if (seen.has(c.customerId)) return false;
+      seen.add(c.customerId);
+      return true;
+    });
+  }, [drawerSegment]);
+
+  /* ---------------- Deduped assigned customers (for modal) ---------------- */
 
   const assignedCustomers = useMemo<SegmentCustomer[]>(() => {
     const seen = new Set<number>();
@@ -327,7 +365,7 @@ const Segments: React.FC = () => {
     });
   }, [activeSegment]);
 
-  /* ---------------- Available customers (not yet in segment) ---------------- */
+  /* ---------------- Available customers ---------------- */
 
   const availableCustomers = useMemo<Customer[]>(() => {
     const existingIds = new Set(
@@ -347,7 +385,6 @@ const Segments: React.FC = () => {
 
   const filteredCustomers = useMemo(() => {
     const q = customerSearch.trim().toLowerCase();
-    // In manage mode with no search → show all (no hidden rows)
     if (customerModalMode === "manage" && !q) return sourceList;
 
     return sourceList.filter((c) => {
@@ -506,9 +543,6 @@ const Segments: React.FC = () => {
     return ids.size;
   };
 
-  const getSafeString = (value: string | undefined, fallback = "N/A") =>
-    value && value.trim() ? value : fallback;
-
   const filteredSegments = useMemo(() => {
     return segments.filter((segment) => {
       let matches = true;
@@ -631,14 +665,15 @@ const Segments: React.FC = () => {
               <PencilSquareIcon className="h-4 w-4" />
             </button>
 
+            {/* ⭐ Opens the drawer */}
             <button
-  type="button"
-  onClick={() => openCustomerModal(segment.id, count > 0 ? "manage" : "add")}
-  className="rounded-lg p-2 text-slate-400 transition-all hover:bg-indigo-50 hover:text-indigo-600"
-  title={count > 0 ? "Manage Customers" : "Add Customers"}
->
-  {count > 0 ? <UsersIcon className="h-4 w-4" /> : <UserPlusIcon className="h-4 w-4" />}
-</button>
+              type="button"
+              onClick={() => openCustomerDrawer(segment.id)}
+              className="rounded-lg p-2 text-slate-400 transition-all hover:bg-indigo-50 hover:text-indigo-600"
+              title={count > 0 ? "Manage Customers" : "Add Customers"}
+            >
+              {count > 0 ? <UsersIcon className="h-4 w-4" /> : <UserPlusIcon className="h-4 w-4" />}
+            </button>
 
             <button
               type="button"
@@ -773,7 +808,7 @@ const Segments: React.FC = () => {
             document.body
           )}
 
-        {/* -------- Customer modal (Add / Manage) -------- */}
+        {/* -------- Customer modal (unchanged — used only for auto-open after create) -------- */}
         {showCustomerModal &&
           createPortal(
             <div
@@ -781,7 +816,6 @@ const Segments: React.FC = () => {
               className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center"
             >
               <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-auto animate-slide-up max-h-[90vh] flex flex-col">
-                {/* Header */}
                 <div className="flex items-center justify-between p-5 border-b border-gray-100">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
@@ -799,7 +833,6 @@ const Segments: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Tabs */}
                 <div className="flex border-b border-gray-100 px-5">
                   <button
                     type="button"
@@ -831,7 +864,6 @@ const Segments: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Search + Select All */}
                 <div className="p-5 border-b border-gray-100 space-y-3">
                   <div className="relative">
                     <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -870,7 +902,6 @@ const Segments: React.FC = () => {
                   )}
                 </div>
 
-                {/* List */}
                 <div className="flex-1 overflow-y-auto p-5">
                   {filteredCustomers.length === 0 ? (
                     <div className="text-center py-8">
@@ -889,88 +920,84 @@ const Segments: React.FC = () => {
                   ) : (
                     <div className="space-y-3">
                       {filteredCustomers.map((item) => {
-  const id = "customerId" in item ? item.customerId : (item as Customer).id;
-  const displayName =
-    ("customerName" in item && item.customerName) || "Unnamed Customer";
-  const email = item.email || "";
-  const phone = item.phone || "";
-  const code = "customerCode" in item ? item.customerCode : (item as Customer).customerCode;
-  const isSelected = selectedCustomerIds.includes(id);
+                        const id = "customerId" in item ? item.customerId : (item as Customer).id;
+                        const displayName =
+                          ("customerName" in item && item.customerName) || "Unnamed Customer";
+                        const email = item.email || "";
+                        const phone = item.phone || "";
+                        const code = "customerCode" in item ? item.customerCode : (item as Customer).customerCode;
+                        const isSelected = selectedCustomerIds.includes(id);
 
-  return (
-    <div
-      key={`customer-${id}`}
-      className={`border rounded-lg p-4 transition-all duration-200 ${
-        isSelected
-          ? "border-cyan-500 bg-cyan-50 shadow-md"
-          : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-      }`}
-    >
-      <div className="flex items-start gap-3">
-        {/* Checkbox — stops propagation so it doesn't trigger row click */}
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={() => toggleCustomer(id)}
-          onClick={(e) => e.stopPropagation()}
-          className="mt-1 h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500 flex-shrink-0"
-        />
+                        return (
+                          <div
+                            key={`customer-${id}`}
+                            className={`border rounded-lg p-4 transition-all duration-200 ${
+                              isSelected
+                                ? "border-cyan-500 bg-cyan-50 shadow-md"
+                                : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleCustomer(id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="mt-1 h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500 flex-shrink-0"
+                              />
 
-        {/* Clickable body → opens customer profile */}
-        <div
-          className="flex-1 min-w-0 cursor-pointer"
-          onClick={() => navigate(`/crm-view/customers/${id}`, { state: { from: "segments" } })}
-          title="View customer profile"
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <div className="h-8 w-8 rounded-md bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
-              {displayName.charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <h4 className="text-sm font-semibold text-gray-900 truncate">
-                {displayName}
-              </h4>
-              {code && (
-                <div className="text-xs text-gray-400 font-mono truncate">{code}</div>
-              )}
-            </div>
-          </div>
+                              <div
+                                className="flex-1 min-w-0 cursor-pointer"
+                                onClick={() => navigate(`/crm-view/customers/${id}`, { state: { from: "segments" } })}
+                                title="View customer profile"
+                              >
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="h-8 w-8 rounded-md bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
+                                    {displayName.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <h4 className="text-sm font-semibold text-gray-900 truncate">
+                                      {displayName}
+                                    </h4>
+                                    {code && (
+                                      <div className="text-xs text-gray-400 font-mono truncate">{code}</div>
+                                    )}
+                                  </div>
+                                </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-            <div className="flex items-center gap-2 text-xs text-gray-600">
-              <EnvelopeIcon className="h-3.5 w-3.5 text-gray-400" />
-              <span className="truncate">{email || "N/A"}</span>
-            </div>
-            {phone && (
-              <div className="flex items-center gap-2 text-xs text-gray-600">
-                <PhoneIcon className="h-3.5 w-3.5 text-gray-400" />
-                <span>{phone}</span>
-              </div>
-            )}
-          </div>
-        </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                                    <EnvelopeIcon className="h-3.5 w-3.5 text-gray-400" />
+                                    <span className="truncate">{email || "N/A"}</span>
+                                  </div>
+                                  {phone && (
+                                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                                      <PhoneIcon className="h-3.5 w-3.5 text-gray-400" />
+                                      <span>{phone}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
 
-        {/* Explicit eye icon (optional but clearer) */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/crm-view/customers/${id}`, { state: { from: "segments" } });
-          }}
-          className="rounded-lg p-1.5 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-all"
-          title="View customer profile"
-        >
-          <EyeIcon className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-  );
-})}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/crm-view/customers/${id}`, { state: { from: "segments" } });
+                                }}
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-all"
+                                title="View customer profile"
+                              >
+                                <EyeIcon className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
 
-                {/* Footer */}
                 <div className="flex flex-col gap-3 border-t border-gray-100 p-5 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-sm text-gray-600">
                     {selectedCustomerIds.length > 0 ? (
@@ -1031,6 +1058,22 @@ const Segments: React.FC = () => {
             document.body
           )}
       </div>
+
+      {/* ⭐ NEW: Manage Customers Drawer — opened only from the Actions column icon */}
+      <ManageCustomersDrawer
+        isOpen={showCustomerDrawer}
+        segmentId={drawerSegmentId}
+        segmentName={drawerSegment?.name}
+        segmentDescription={drawerSegment?.description}
+        segmentCode={drawerSegment?.code}
+        assignedCustomers={drawerAssignedCustomers}
+        allCustomers={customers}
+        onClose={closeCustomerDrawer}
+        onRefresh={fetchSegments}
+        onViewCustomer={(cid) =>
+          navigate(`/crm-view/customers/${cid}`, { state: { from: "segments" } })
+        }
+      />
 
       <DynamicPopup
         isPopupOpen={showDeletePopup}
