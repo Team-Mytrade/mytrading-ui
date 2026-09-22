@@ -1,4 +1,7 @@
 import React, { useState, useMemo } from "react";
+import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import ReportSummaryGrid from "../../components/common/ReportSummaryGrid";
+import ReportDataTable from "../../components/common/ReportDataTable";
 
 interface Sale {
   id: number;
@@ -78,7 +81,9 @@ const SalesReports: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 bg-white dark:bg-boxdark border border-stroke rounded shadow">
+    <>
+    <PageBreadcrumb pageTitle="Sales Reports" />
+    <div className="reports-legacy max-w-7xl mx-auto p-6 bg-white dark:bg-boxdark border border-stroke rounded shadow">
       <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Sales Reports</h2>
 
       {/* Filters */}
@@ -121,22 +126,14 @@ const SalesReports: React.FC = () => {
       </div>
 
       {/* Summary */}
-      <div className="mb-6 grid grid-cols-3 gap-4 text-center">
-        <div className="bg-green-100 rounded p-4">
-          <div className="text-3xl font-bold">${totalSalesAmount.toLocaleString()}</div>
-          <div>Total Sales Amount</div>
-        </div>
-        <div className="bg-blue-100 rounded p-4">
-          <div className="text-3xl font-bold">{totalDeals}</div>
-          <div>Total Deals</div>
-        </div>
-        <div className="bg-yellow-100 rounded p-4">
-          <div className="text-3xl font-bold">${averageDealSize.toFixed(2)}</div>
-          <div>Average Deal Size</div>
-        </div>
-      </div>
+      <ReportSummaryGrid items={[
+        { label: "Total Sales Amount", value: `$${totalSalesAmount.toLocaleString()}`, tone: "green" },
+        { label: "Total Deals", value: totalDeals, tone: "blue" },
+        { label: "Average Deal Size", value: `$${averageDealSize.toFixed(2)}`, tone: "yellow" },
+      ]} />
 
       {/* Sales Table */}
+      <ReportDataTable data={sortedSales} />
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead className="bg-gray-100 dark:bg-meta-4 cursor-pointer select-none">
@@ -214,6 +211,7 @@ const SalesReports: React.FC = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

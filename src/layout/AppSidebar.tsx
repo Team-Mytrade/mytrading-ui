@@ -558,7 +558,9 @@ const AppSidebar: React.FC = () => {
 
   const handlePanelToggle = () => {
     isSidebarManuallyToggledRef.current = true;
-    if (isMobileOpen) {
+    // On small screens `isExpanded` is deliberately forced off by the sidebar
+    // context, so the trigger must control the drawer state instead.
+    if (window.innerWidth < 1024) {
       toggleMobileSidebar();
       return;
     }

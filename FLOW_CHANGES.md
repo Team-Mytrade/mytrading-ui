@@ -12,6 +12,8 @@
 
 - Selecting a sales person in Quotations now opens the Sales Persons submodule scoped to that person.
 
+- Selecting a customer in Quotations now opens Customer Management scoped to that customer.
+
 - Selecting a customer or channel in Sales Orders now opens the respective Customer Management or Sales Channels submodule scoped to that record.
 
 - Selecting a warehouse in Batch Management now opens the Warehouses submodule scoped to that warehouse.
