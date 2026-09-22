@@ -665,7 +665,7 @@ const Segments: React.FC = () => {
               <PencilSquareIcon className="h-4 w-4" />
             </button>
 
-            {/* ⭐ Opens the drawer */}
+            {/* Opens the drawer */}
             <button
               type="button"
               onClick={() => openCustomerDrawer(segment.id)}
@@ -1059,7 +1059,7 @@ const Segments: React.FC = () => {
           )}
       </div>
 
-      {/* ⭐ NEW: Manage Customers Drawer — opened only from the Actions column icon */}
+      {/* NEW: Manage Customers Drawer — opened only from the Actions column icon */}
       <ManageCustomersDrawer
         isOpen={showCustomerDrawer}
         segmentId={drawerSegmentId}
