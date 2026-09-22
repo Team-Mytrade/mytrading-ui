@@ -8,6 +8,7 @@ import {
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
+import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 
 const CHECK_IN_URL = '/v1/api/attendance/records/check-in';
@@ -255,7 +256,7 @@ const AttendancePunchPage: React.FC = () => {
         timeout: 6000
       });
 
-      const empName = selectedEmployee ? selectedEmployee.name : `Employee #${payload.employeeId}`;
+      const empName = selectedEmployee ? selectedEmployee.name : (currentUser.name || 'Employee');
 
       const newEntry: PunchLogEntry = {
         id: Date.now(),
@@ -279,8 +280,8 @@ const AttendancePunchPage: React.FC = () => {
 
       ToasterService.success(
         type === 'CHECK_IN' 
-          ? `Check-In successfully recorded for ${empName} (#${payload.employeeId})!` 
-          : `Check-Out successfully recorded for ${empName} (#${payload.employeeId})!`
+          ? `Check-In successfully recorded for ${empName}!` 
+          : `Check-Out successfully recorded for ${empName}!`
       );
     } catch (err: any) {
       console.error(err);
@@ -336,10 +337,7 @@ const AttendancePunchPage: React.FC = () => {
           </div>
           <div>
             <div className="text-xs font-bold text-slate-900 dark:text-white">
-              {row.employeeName || `Employee #${row.employeeId}`}
-            </div>
-            <div className="text-[10px] font-mono text-slate-500 dark:text-gray-400">
-              ID: #{row.employeeId}
+              {row.employeeName || 'Employee'}
             </div>
           </div>
         </div>
@@ -428,9 +426,6 @@ const AttendancePunchPage: React.FC = () => {
                 <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white">
                   {selectedEmployee?.name || currentUser.name}
                 </h1>
-                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-[#222222] text-slate-600 dark:text-gray-300 font-semibold border border-slate-200 dark:border-[#303030]">
-                  #{currentUser.id}
-                </span>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] text-slate-600 dark:text-gray-300">
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -748,16 +743,8 @@ const AttendancePunchPage: React.FC = () => {
                 </button>
               </div>
 
-              {/* Refresh Button */}
-              <button
-                type="button"
-                onClick={() => fetchTodayPunchLogs()}
-                disabled={isRefreshingLogs}
-                className="p-2 rounded-xl bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition cursor-pointer disabled:opacity-50"
-                title="Refresh history"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingLogs ? 'animate-spin text-cyan-600' : ''}`} />
-              </button>
+              {/* Toolbar */}
+              <TableToolbar onRefresh={() => fetchTodayPunchLogs()} />
             </div>
           </div>
 
@@ -766,8 +753,6 @@ const AttendancePunchPage: React.FC = () => {
             data={filteredPunchLogs}
             columns={columns}
             loading={isRefreshingLogs}
-            searchable={true}
-            searchPlaceholder="Search employee, remarks, device..."
             pageSize={10}
             defaultSortKey="id"
             defaultSortOrder="desc"

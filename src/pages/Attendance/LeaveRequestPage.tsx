@@ -4,6 +4,7 @@ import { Calendar, User, Clock, CheckCircle2, AlertCircle, Plus, Send, FileText,
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import TableToolbar from "../../components/common/TableToolbar";
 import { ToasterService } from "../../Services/ToasterService";
 
 interface Employee {
@@ -352,11 +353,11 @@ const LeaveRequestPage: React.FC = () => {
       sortable: true, 
       render: (row) => {
         const st = String(row.status || 'PENDING').toUpperCase();
-        const badgeStyle = st.includes('APPROV') ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' :
-          st.includes('REJECT') ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800' :
-          'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800';
+        const badgeStyle = st.includes('APPROV') ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent' :
+          st.includes('REJECT') ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent' :
+          'bg-amber-50 text-amber-700 border-amber-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent';
         return (
-          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border shadow-2xs ${badgeStyle}`}>
+          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${badgeStyle}`}>
             {st}
           </span>
         );
@@ -372,7 +373,7 @@ const LeaveRequestPage: React.FC = () => {
       <div className="max-w-6xl mx-auto pb-4 animate-in fade-in duration-200 mt-1">
         
         {/* User Banner matching Punch Station theme */}
-        <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-[#303030] shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 transition-all">
+        <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:!border-transparent shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 transition-all">
           <div className="flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-xl bg-cyan-600 text-white font-bold text-sm shadow-2xs flex items-center justify-center shrink-0">
               {currentUser.name.charAt(0).toUpperCase()}
@@ -380,7 +381,7 @@ const LeaveRequestPage: React.FC = () => {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">{currentUser.name}</h2>
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border border-cyan-200/80 dark:border-cyan-800 uppercase tracking-wider">
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-cyan-50 dark:bg-transparent text-cyan-700 dark:text-gray-300 border border-cyan-200/80 dark:border-transparent uppercase tracking-wider">
                   {currentUser.role.replace(/_/g, " ")}
                 </span>
               </div>
@@ -392,12 +393,12 @@ const LeaveRequestPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab(activeTab === 'history' ? 'apply' : 'history')}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] border border-slate-200 dark:border-[#303030] text-slate-700 dark:text-gray-200 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] border border-slate-200 dark:!border-transparent text-slate-700 dark:text-gray-200 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
             >
               <FileText className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
               <span>{activeTab === 'history' ? 'Back to Apply' : `Request History (${myLeaves.length})`}</span>
             </button>
-            <div className="bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl px-3 py-1.5 text-right">
+            <div className="bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl px-3 py-1.5 text-right">
               <span className="text-[10px] text-slate-400 dark:text-gray-500 font-medium block uppercase tracking-wider">Employee ID</span>
               <span className="text-xs font-mono font-bold text-slate-700 dark:text-gray-200">#{employeeCode || `EMP-${selectedEmployeeId || 12}`}</span>
             </div>
@@ -411,11 +412,11 @@ const LeaveRequestPage: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start mb-4">
                 
                 {/* Left Column: Interactive Calendar */}
-                <div className="lg:col-span-5 bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] p-4 sm:p-5 flex flex-col justify-between min-h-[380px]">
+                <div className="lg:col-span-5 bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:!border-transparent p-4 sm:p-5 flex flex-col justify-between min-h-[380px]">
                   <div>
                     {/* Month Header */}
-                    <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:border-[#303030] pb-2.5">
-                      <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] px-2 py-1 rounded-xl border border-slate-200/80 dark:border-[#303030] shadow-2xs">
+                    <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:!border-transparent pb-2.5">
+                      <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] px-2 py-1 rounded-xl border border-slate-200/80 dark:!border-transparent shadow-2xs">
                         <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer">
                           <ChevronLeft className="w-4 h-4" />
                         </button>
@@ -441,7 +442,7 @@ const LeaveRequestPage: React.FC = () => {
                   </div>
 
                   {/* Bottom Legend */}
-                  <div className="mt-3 pt-3 border-t border-slate-100 dark:border-[#303030] space-y-1.5">
+                  <div className="mt-3 pt-3 border-t border-slate-100 dark:!border-transparent space-y-1.5">
                     <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-gray-400">
                       <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-cyan-500 bg-cyan-500/20 inline-block"></span> Today</span>
                       <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-rose-500 bg-rose-500/20 inline-block"></span> Absent</span>
@@ -454,7 +455,7 @@ const LeaveRequestPage: React.FC = () => {
                 </div>
 
                 {/* Right Column: Leave Application Desk */}
-                <div className="lg:col-span-7 bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] p-4 sm:p-5 flex flex-col justify-between min-h-[380px]">
+                <div className="lg:col-span-7 bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:!border-transparent p-4 sm:p-5 flex flex-col justify-between min-h-[380px]">
                   <div className="space-y-3">
                     {/* Leave Type Dropdown */}
                     <div>
@@ -462,7 +463,7 @@ const LeaveRequestPage: React.FC = () => {
                       <select
                         value={leaveTypeId}
                         onChange={(e) => setLeaveTypeId(e.target.value ? Number(e.target.value) : "")}
-                        className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-semibold text-slate-800 dark:text-white cursor-pointer"
+                        className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-semibold text-slate-800 dark:text-white cursor-pointer"
                         required
                       >
                         <option value="" className="dark:bg-[#222222] text-gray-400">-- Select Leave Type --</option>
@@ -479,11 +480,11 @@ const LeaveRequestPage: React.FC = () => {
                     </div>
 
                     {/* Duration Summary */}
-                    <div className="p-2.5 px-3.5 bg-slate-50/80 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030] flex items-center justify-between">
+                    <div className="p-2.5 px-3.5 bg-slate-50/80 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent flex items-center justify-between">
                       <span className="text-xs text-slate-600 dark:text-gray-300">
                         Duration: <strong className="text-slate-900 dark:text-white font-mono">{fromDate || '---'}</strong> to <strong className="text-slate-900 dark:text-white font-mono">{toDate || '---'}</strong>
                       </span>
-                      <span className="px-2.5 py-0.5 bg-white dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/30 rounded-lg text-[11px] font-bold shadow-2xs font-mono">
+                      <span className="px-2.5 py-0.5 bg-white dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:!border-transparent rounded-lg text-[11px] font-bold shadow-2xs font-mono">
                         {totalDays} {totalDays === 1 ? 'Day' : 'Days'}
                       </span>
                     </div>
@@ -496,7 +497,7 @@ const LeaveRequestPage: React.FC = () => {
                           type="date"
                           value={fromDate}
                           onChange={(e) => setFromDate(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-mono font-medium text-slate-800 dark:text-white"
+                          className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-mono font-medium text-slate-800 dark:text-white"
                           required
                         />
                       </div>
@@ -506,7 +507,7 @@ const LeaveRequestPage: React.FC = () => {
                           type="date"
                           value={toDate}
                           onChange={(e) => setToDate(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-mono font-medium text-slate-800 dark:text-white"
+                          className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-mono font-medium text-slate-800 dark:text-white"
                           required
                         />
                       </div>
@@ -524,10 +525,10 @@ const LeaveRequestPage: React.FC = () => {
                               <input 
                                 type="radio" 
                                 name="dayType" 
-                                value={type}
+                                value={type} 
                                 checked={dayType === type}
                                 onChange={(e) => setDayType(e.target.value)}
-                                className="text-cyan-600 focus:ring-cyan-500 dark:bg-[#222222] dark:border-[#303030] cursor-pointer"
+                                className="text-cyan-600 focus:ring-cyan-500 dark:bg-[#222222] dark:border-transparent cursor-pointer"
                               />
                               {type}
                             </label>
@@ -544,13 +545,13 @@ const LeaveRequestPage: React.FC = () => {
                         placeholder="Provide details for your leave request..."
                         value={comments}
                         onChange={(e) => setComments(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 resize-none"
+                        className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 resize-none"
                       />
                     </div>
                   </div>
 
                   {/* Footer Actions */}
-                  <div className="pt-3 border-t border-slate-100 dark:border-[#303030] flex items-center justify-end gap-2.5 shrink-0 mt-3">
+                  <div className="pt-3 border-t border-slate-100 dark:!border-transparent flex items-center justify-end gap-2.5 shrink-0 mt-3">
                     <button 
                       type="button"
                       onClick={() => {
@@ -580,13 +581,14 @@ const LeaveRequestPage: React.FC = () => {
 
         {/* HISTORY TAB USING COMMON ReusableTable */}
         {activeTab === 'history' && (
-          <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] overflow-hidden p-4 sm:p-5">
-            <h3 className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-3">My Leave History Log</h3>
+          <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:!border-transparent overflow-hidden p-4 sm:p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">My Leave History Log</h3>
+              <TableToolbar onRefresh={() => loadMyLeaves()} />
+            </div>
             <ReusableTable
               data={myLeaves}
               columns={historyColumns}
-              searchable={true}
-              searchPlaceholder="Search leave history..."
               pageSize={10}
               defaultSortKey="id"
               defaultSortOrder="desc"

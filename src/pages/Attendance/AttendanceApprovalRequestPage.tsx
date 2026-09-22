@@ -6,6 +6,7 @@ import {
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
+import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 
 // Relative API Base Endpoint (routing via Vite dev proxy)
@@ -251,7 +252,7 @@ const AttendanceApprovalRequestPage: React.FC = () => {
       label: 'Approval ID',
       sortable: true,
       render: (row) => (
-        <span className="font-mono font-bold text-xs text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
+        <span className="font-mono font-bold text-xs text-cyan-700 dark:text-gray-300 bg-cyan-50 dark:bg-transparent px-2 py-0.5 rounded border border-cyan-200 dark:border-transparent">
           #{row.id}
         </span>
       )
@@ -262,8 +263,8 @@ const AttendanceApprovalRequestPage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <div>
-          <span className="font-bold text-xs text-gray-900 block">{row.employeeName || row.employee || (row.employeeId ? `Employee #${row.employeeId}` : 'Employee')}</span>
-          <span className="text-[10px] text-gray-500 font-mono">{row.employeeCode || (row.employeeId ? `ID: #${row.employeeId}` : '—')}</span>
+          <span className="font-bold text-xs text-gray-900 dark:text-white block">{row.employeeName || row.employee || (row.employeeId ? `Employee #${row.employeeId}` : 'Employee')}</span>
+          <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">{row.employeeCode || (row.employeeId ? `ID: #${row.employeeId}` : '—')}</span>
         </div>
       )
     },
@@ -272,7 +273,7 @@ const AttendanceApprovalRequestPage: React.FC = () => {
       label: 'Request Type',
       sortable: true,
       render: (row) => (
-        <span className="font-bold text-xs text-slate-800 uppercase">
+        <span className="font-bold text-xs text-slate-800 dark:text-gray-300 uppercase">
           {(row.requestType || 'WORK_FROM_HOME').replace(/_/g, ' ')}
         </span>
       )
@@ -283,12 +284,20 @@ const AttendanceApprovalRequestPage: React.FC = () => {
       sortable: true,
       render: (row) => {
         const status = (row.status || activeTab).toUpperCase();
-        let colorClass = 'bg-amber-50 text-amber-700 border-amber-200';
-        if (status === 'APPROVED') colorClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-        if (status === 'REJECTED') colorClass = 'bg-rose-50 text-rose-700 border-rose-200';
+        let colorClass = 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent';
+        let dotClass = 'bg-amber-500';
+        if (status === 'APPROVED') {
+          colorClass = 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent';
+          dotClass = 'bg-emerald-500';
+        }
+        if (status === 'REJECTED') {
+          colorClass = 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent';
+          dotClass = 'bg-rose-500';
+        }
 
         return (
-          <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap ${colorClass}`}>
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap ${colorClass}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
             {status}
           </span>
         );
@@ -302,7 +311,7 @@ const AttendanceApprovalRequestPage: React.FC = () => {
           <button
             type="button"
             onClick={() => openActionModal(row, 'view')}
-            className="p-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-gray-600 transition-colors"
+            className="p-1.5 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] border border-gray-200 dark:border-[#303030] rounded-lg text-gray-600 dark:text-gray-300 transition-colors"
             title="Inspect Request"
           >
             <Eye className="w-3.5 h-3.5" />
@@ -312,7 +321,7 @@ const AttendanceApprovalRequestPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => openActionModal(row, 'approve')}
-                className="p-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-emerald-700 transition-colors"
+                className="p-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/60 rounded-lg text-emerald-700 dark:text-emerald-300 transition-colors"
                 title="Approve Request"
               >
                 <Check className="w-3.5 h-3.5" />
@@ -320,7 +329,7 @@ const AttendanceApprovalRequestPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => openActionModal(row, 'reject')}
-                className="p-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg text-rose-600 transition-colors"
+                className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800/60 rounded-lg text-rose-600 dark:text-rose-300 transition-colors"
                 title="Reject Request"
               >
                 <X className="w-3.5 h-3.5" />
@@ -340,29 +349,29 @@ const AttendanceApprovalRequestPage: React.FC = () => {
       <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
         
         {/* Header Bar */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 transition-all duration-200 hover:shadow-xs">
+        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 flex flex-col sm:flex-row items-center justify-between gap-3 transition-all duration-200 hover:shadow-xs">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-cyan-50 text-cyan-700 rounded-lg border border-cyan-200 transition-transform duration-200 hover:scale-105">
+            <div className="p-2 bg-cyan-50 dark:bg-[#222222] text-cyan-700 dark:text-cyan-400 rounded-lg border border-cyan-200 dark:border-transparent transition-transform duration-200 hover:scale-105">
               <FileCheck className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Attendance Approval Desk</h2>
-              <p className="text-xs text-gray-500">Review, approve, or reject employee attendance requests</p>
+              <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Attendance Approval Desk</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Review, approve, or reject employee attendance requests</p>
             </div>
           </div>
 
           <button
             type="button"
             onClick={() => fetchApprovalRequests(activeTab)}
-            className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 self-end sm:self-center"
+            className="p-2 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-transparent rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 self-end sm:self-center"
             title="Refresh Approvals"
           >
-            <RotateCw className={`w-3.5 h-3.5 transition-transform duration-500 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
+            <RotateCw className={`w-3.5 h-3.5 transition-transform duration-500 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
           </button>
         </div>
 
         {/* Tab Navigation with Smooth Transitions */}
-        <div className="flex items-center gap-2 border-b border-gray-200/80 pb-2">
+        <div className="flex items-center gap-2 border-b border-gray-200/80 dark:border-[#2a2a2a] pb-2">
           {(['pending', 'approved', 'rejected'] as const).map((tab) => (
             <button
               key={tab}
@@ -370,7 +379,7 @@ const AttendanceApprovalRequestPage: React.FC = () => {
               className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all duration-200 ease-in-out transform active:scale-95 ${
                 activeTab === tab 
                 ? 'bg-cyan-600 text-white shadow-xs scale-102' 
-                : 'bg-white text-gray-600 hover:bg-gray-100/80 border border-gray-200/80 hover:text-gray-900'
+                : 'bg-white dark:bg-[#191919] text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-[#222222] border border-gray-200/80 dark:border-transparent hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               {tab} Approvals
@@ -379,14 +388,18 @@ const AttendanceApprovalRequestPage: React.FC = () => {
         </div>
 
         {/* Approvals Table with Responsive Horizontal Scroll */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 transition-all duration-300 overflow-x-auto">
+        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 transition-all duration-300 overflow-x-auto">
           <div className="min-w-[600px]">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                {activeTab} Approvals
+              </h3>
+              <TableToolbar onRefresh={() => fetchApprovalRequests(activeTab)} />
+            </div>
             <ReusableTable
               data={requests}
               columns={columns}
               loading={loading}
-              searchable={true}
-              searchPlaceholder="Search by employee name or request type..."
               pageSize={5}
               defaultSortKey="id"
               defaultSortOrder="desc"
@@ -400,19 +413,19 @@ const AttendanceApprovalRequestPage: React.FC = () => {
 
       {/* ── MODAL: APPROVE / REJECT / VIEW ACTION WITH SMOOTH POPUP ─────────────────────────── */}
       {selectedRequest && actionType && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity duration-300 ease-out animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-gray-100 space-y-4 transition-all duration-300 ease-out transform animate-in zoom-in-95">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs transition-opacity duration-300 ease-out animate-in fade-in">
+          <div className="bg-white dark:bg-[#191919] rounded-2xl max-w-md w-full p-5 shadow-2xl border border-gray-100 dark:border-transparent space-y-4 text-slate-900 dark:text-white transition-all duration-300 ease-out transform animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#2a2a2a]">
               <div className="flex items-center gap-2">
-                <FileCheck className="w-5 h-5 text-cyan-600 transition-transform duration-200 hover:rotate-6" />
-                <h3 className="text-sm font-bold text-gray-900 uppercase">
+                <FileCheck className="w-5 h-5 text-cyan-600 dark:text-cyan-400 transition-transform duration-200 hover:rotate-6" />
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
                   {actionType === 'view' ? `Request #${selectedRequest.id} Details` : `${actionType.toUpperCase()} Request #${selectedRequest.id}`}
                 </h3>
               </div>
               <button 
                 type="button" 
                 onClick={() => setActionType(null)} 
-                className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all duration-200 active:scale-90"
+                className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#222222] rounded-lg transition-all duration-200 active:scale-90"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -420,53 +433,53 @@ const AttendanceApprovalRequestPage: React.FC = () => {
 
             {actionType === 'view' ? (
               <div className="space-y-3 text-xs">
-                <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+                <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-[#222222] p-3 rounded-xl border border-slate-200/80 dark:border-[#303030]">
                   <div>
-                    <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">EMPLOYEE NAME</span>
-                    <span className="font-bold text-slate-900">{selectedRequest.employeeName || (selectedRequest.employeeId ? `Employee #${selectedRequest.employeeId}` : 'Employee')}</span>
+                    <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">EMPLOYEE NAME</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{selectedRequest.employeeName || (selectedRequest.employeeId ? `Employee #${selectedRequest.employeeId}` : 'Employee')}</span>
                   </div>
                   <div>
-                    <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">EMPLOYEE ID</span>
-                    <span className="font-bold font-mono text-cyan-800">{selectedRequest.employeeId ? `#EMP-${selectedRequest.employeeId}` : '—'}</span>
+                    <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">EMPLOYEE ID</span>
+                    <span className="font-bold font-mono text-cyan-800 dark:text-cyan-400">{selectedRequest.employeeId ? `#EMP-${selectedRequest.employeeId}` : '—'}</span>
                   </div>
                   <div>
-                    <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">REQUEST TYPE</span>
-                    <span className="font-bold text-slate-800 uppercase">{(selectedRequest.requestType || 'WORK_FROM_HOME').replace(/_/g, ' ')}</span>
+                    <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">REQUEST TYPE</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200 uppercase">{(selectedRequest.requestType || 'WORK_FROM_HOME').replace(/_/g, ' ')}</span>
                   </div>
                   <div>
-                    <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">STATUS</span>
+                    <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">STATUS</span>
                     <span className={`font-bold inline-block px-2 py-0.5 rounded text-[10px] ${
-                      selectedRequest.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
-                      selectedRequest.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
+                      selectedRequest.status === 'APPROVED' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300' :
+                      selectedRequest.status === 'REJECTED' ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300' : 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
                     }`}>
                       {selectedRequest.status || activeTab.toUpperCase()}
                     </span>
                   </div>
                 </div>
 
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-2">
-                  <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
-                    <span className="text-slate-500 font-medium">Applied Date:</span>
-                    <span className="font-mono font-bold text-slate-800">{selectedRequest.appliedDate || new Date().toISOString().split('T')[0]}</span>
+                <div className="bg-slate-50 dark:bg-[#222222] p-3 rounded-xl border border-slate-200/80 dark:border-[#303030] space-y-2">
+                  <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-[#303030] pb-1.5">
+                    <span className="text-slate-500 dark:text-gray-400 font-medium">Applied Date:</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-white">{selectedRequest.appliedDate || new Date().toISOString().split('T')[0]}</span>
                   </div>
-                  <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
-                    <span className="text-slate-500 font-medium">Approval Category:</span>
-                    <span className="font-bold text-cyan-700">Attendance & Regularization Desk</span>
+                  <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-[#303030] pb-1.5">
+                    <span className="text-slate-500 dark:text-gray-400 font-medium">Approval Category:</span>
+                    <span className="font-bold text-cyan-700 dark:text-cyan-400">Attendance & Regularization Desk</span>
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
-                  <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">REMARKS / JUSTIFICATION</span>
-                  <p className="font-semibold text-slate-800 leading-relaxed">
+                <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030] space-y-1">
+                  <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">REMARKS / JUSTIFICATION</span>
+                  <p className="font-semibold text-slate-800 dark:text-slate-200 leading-relaxed">
                     {selectedRequest.remarks || 'No specific remarks provided for this attendance approval request.'}
                   </p>
                 </div>
 
-                <div className="pt-3 border-t border-gray-100 flex items-center justify-end">
+                <div className="pt-3 border-t border-gray-100 dark:border-[#2a2a2a] flex items-center justify-end">
                   <button
                     type="button"
                     onClick={() => setActionType(null)}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all"
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-slate-700 dark:text-gray-300 rounded-xl text-xs font-bold transition-all"
                   >
                     Close Details
                   </button>
@@ -475,22 +488,22 @@ const AttendanceApprovalRequestPage: React.FC = () => {
             ) : (
               <form onSubmit={handleProcessAction} className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Approval Remarks</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Approval Remarks</label>
                   <textarea
                     rows={3}
                     value={actionRemarks}
                     onChange={(e) => setActionRemarks(e.target.value)}
-                    className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none resize-none"
+                    className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-md text-xs text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none resize-none"
                     placeholder="Enter approval or rejection remarks..."
                     required
                   />
                 </div>
 
-                <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+                <div className="pt-3 border-t border-gray-100 dark:border-[#2a2a2a] flex items-center justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setActionType(null)}
-                    className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                    className="px-4 py-2 border border-gray-200 dark:border-transparent bg-white dark:bg-[#222222] rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors"
                   >
                     Cancel
                   </button>

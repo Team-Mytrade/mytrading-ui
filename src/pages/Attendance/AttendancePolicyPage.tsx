@@ -5,6 +5,7 @@ import { Clock, ShieldCheck, Settings2, Plus, RotateCw, Eye, Edit, Trash2, X, Ch
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
+import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 
 const ATTENDANCE_POLICY_URL = '/v1/api/attendance/attendance-policies';
@@ -371,7 +372,7 @@ const AttendancePolicyPage: React.FC = () => {
       label: 'Full Day Min', 
       sortable: true, 
       render: (row) => (
-        <span className="font-mono text-xs font-bold text-cyan-800 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-800 px-2 py-0.5 rounded whitespace-nowrap">
+        <span className="font-mono text-xs font-bold text-cyan-800 dark:text-gray-300 bg-cyan-50 dark:bg-transparent border border-cyan-200 dark:border-transparent px-2 py-0.5 rounded whitespace-nowrap">
           {row.fullDayMinimumMinutes / 60} hrs ({row.fullDayMinimumMinutes}m)
         </span>
       ) 
@@ -401,9 +402,9 @@ const AttendancePolicyPage: React.FC = () => {
       label: 'Permissions (WFH/OD)', 
       render: (row) => (
         <div className="flex items-center gap-1 flex-wrap">
-          {row.allowWorkFromHome && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded">WFH</span>}
-          {row.allowOnDuty && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded">OD</span>}
-          {row.allowRegularization && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded">REG</span>}
+          {row.allowWorkFromHome && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-blue-50 dark:bg-transparent text-blue-700 dark:text-gray-300 border border-blue-200 dark:border-transparent rounded">WFH</span>}
+          {row.allowOnDuty && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-purple-50 dark:bg-transparent text-purple-700 dark:text-gray-300 border border-purple-200 dark:border-transparent rounded">OD</span>}
+          {row.allowRegularization && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-emerald-50 dark:bg-transparent text-emerald-700 dark:text-gray-300 border border-emerald-200 dark:border-transparent rounded">REG</span>}
         </div>
       ) 
     },
@@ -412,8 +413,10 @@ const AttendancePolicyPage: React.FC = () => {
       label: 'Status', 
       sortable: true, 
       render: (row) => (
-        <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold shadow-2xs whitespace-nowrap ${
-          row.active !== false ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+        <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold shadow-2xs whitespace-nowrap border ${
+          row.active !== false 
+            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent' 
+            : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent'
         }`}>
           {row.active !== false ? 'Active' : 'Inactive'}
         </span>
@@ -427,7 +430,7 @@ const AttendancePolicyPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setViewingPolicy(row)}
-            className="p-1.5 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] border border-gray-200/80 dark:border-[#303030] rounded-lg text-gray-600 dark:text-gray-300 transition-colors"
+            className="p-1.5 bg-gray-50 hover:bg-gray-100 dark:bg-transparent dark:hover:bg-[#222222] border border-gray-200/80 dark:!border-transparent rounded-lg text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
             title="View Policy Details"
           >
             <Eye className="w-3.5 h-3.5" />
@@ -435,7 +438,7 @@ const AttendancePolicyPage: React.FC = () => {
           <button
             type="button"
             onClick={() => openEditModal(row)}
-            className="p-1.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-950/40 dark:hover:bg-cyan-900/50 border border-cyan-200/80 dark:border-cyan-800 rounded-lg text-cyan-700 dark:text-cyan-300 transition-colors"
+            className="p-1.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-transparent dark:hover:bg-[#222222] border border-cyan-200/80 dark:!border-transparent rounded-lg text-cyan-700 dark:text-gray-400 dark:hover:text-cyan-400 transition-colors"
             title="Edit Policy"
           >
             <Edit className="w-3.5 h-3.5" />
@@ -444,7 +447,7 @@ const AttendancePolicyPage: React.FC = () => {
             <button
               type="button"
               onClick={() => handleSoftDelete(row)}
-              className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200/80 dark:border-rose-800 rounded-lg text-rose-600 dark:text-rose-300 transition-colors"
+              className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-transparent dark:hover:bg-[#222222] border border-rose-200/80 dark:!border-transparent rounded-lg text-rose-600 dark:text-gray-400 dark:hover:text-rose-400 transition-colors"
               title="Deactivate Policy"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -470,7 +473,7 @@ const AttendancePolicyPage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-cyan-100 dark:bg-cyan-950/60 text-cyan-800 dark:text-cyan-300 flex items-center justify-center font-bold text-xs">
+          <div className="w-7 h-7 rounded-full bg-cyan-100 dark:bg-[#222222] text-cyan-800 dark:text-gray-300 flex items-center justify-center font-bold text-xs">
             {row.employeeId}
           </div>
           <div>
@@ -518,7 +521,7 @@ const AttendancePolicyPage: React.FC = () => {
         <button
           type="button"
           onClick={() => row.id && setDeletingAssignmentId(row.id)}
-          className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-300 border border-rose-200/80 dark:border-rose-900/50 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs"
+          className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-transparent dark:hover:bg-[#222222] text-rose-600 dark:text-gray-400 dark:hover:text-rose-400 border border-rose-200/80 dark:!border-transparent rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs"
           title="Delete Assignment"
         >
           <Trash2 className="w-3.5 h-3.5" /> Remove
@@ -538,9 +541,9 @@ const AttendancePolicyPage: React.FC = () => {
       <div className="max-w-7xl mx-auto pb-4 space-y-2.5 animate-in fade-in duration-200 mt-0.5">
         
         {/* Top Header Card */}
-        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-2.5 px-3.5 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-2.5 px-3.5 flex flex-col sm:flex-row items-center justify-between gap-2.5">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-cyan-50 dark:bg-[#222222] text-cyan-600 dark:text-cyan-400 rounded-lg border border-cyan-100/80 dark:border-[#303030] shadow-2xs">
+            <div className="p-2 bg-cyan-50 dark:bg-[#222222] text-cyan-600 dark:text-cyan-400 rounded-lg border border-cyan-100/80 dark:!border-transparent shadow-2xs">
               <UserCheck className="w-4 h-4" />
             </div>
             <div>
@@ -550,7 +553,7 @@ const AttendancePolicyPage: React.FC = () => {
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex items-center bg-gray-100/80 dark:bg-[#222222] p-0.5 rounded-lg border border-gray-200/70 dark:border-[#303030] text-[11px] font-semibold">
+          <div className="flex items-center bg-gray-100/80 dark:bg-[#222222] p-0.5 rounded-lg border border-gray-200/70 dark:!border-transparent text-[11px] font-semibold">
             <button
               type="button"
               onClick={() => setActiveTab('assignments')}
@@ -581,7 +584,7 @@ const AttendancePolicyPage: React.FC = () => {
           <div className="space-y-2.5 animate-in fade-in duration-150">
             
             {/* Quick Action & Lookup Bar */}
-            <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-2.5">
+            <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-2.5">
               <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
                 
                 {/* Left Side: Search Input with Action Query Buttons */}
@@ -596,7 +599,7 @@ const AttendancePolicyPage: React.FC = () => {
                         if (e.key === 'Enter') handleFetchEmployeeAssignments();
                       }}
                       placeholder="Enter Employee ID (e.g. 12)..."
-                      className="w-full pl-9 pr-3 h-8 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-semibold text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:bg-white dark:focus:bg-[#191919] focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all"
+                      className="w-full pl-9 pr-3 h-8 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-lg text-xs font-semibold text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:bg-white dark:focus:bg-[#191919] focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all"
                     />
                   </div>
 
@@ -605,7 +608,7 @@ const AttendancePolicyPage: React.FC = () => {
                       type="button"
                       onClick={handleFetchEmployeeAssignments}
                       disabled={isQuerying}
-                      className="h-8 px-3 bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-950/40 dark:hover:bg-cyan-900/50 text-cyan-700 dark:text-cyan-300 border border-cyan-200/80 dark:border-cyan-800 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
+                      className="h-8 px-3 bg-cyan-50 hover:bg-cyan-100 dark:bg-transparent dark:hover:bg-[#222222] text-cyan-700 dark:text-gray-300 border border-cyan-200/80 dark:!border-transparent rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
                       title="Fetch All Policy History for Employee ID"
                     >
                       <FileText className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
@@ -616,7 +619,7 @@ const AttendancePolicyPage: React.FC = () => {
                       type="button"
                       onClick={handleFetchCurrentEmployeePolicy}
                       disabled={isQuerying}
-                      className="h-8 px-3 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
+                      className="h-8 px-3 bg-emerald-50 hover:bg-emerald-100 dark:bg-transparent dark:hover:bg-[#222222] text-emerald-700 dark:text-gray-300 border border-emerald-200/80 dark:!border-transparent rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
                       title="Fetch Active Policy Today for Employee ID"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -632,7 +635,7 @@ const AttendancePolicyPage: React.FC = () => {
                           setQueryError(null);
                           setSearchEmployeeId('');
                         }}
-                        className="h-8 w-8 flex items-center justify-center text-slate-400 dark:text-gray-400 hover:text-slate-600 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg transition-all"
+                        className="h-8 w-8 flex items-center justify-center text-slate-400 dark:text-gray-400 hover:text-slate-600 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-lg transition-all"
                         title="Clear Filter"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -663,14 +666,14 @@ const AttendancePolicyPage: React.FC = () => {
 
               {/* Single Result View for /current */}
               {currentPolicyResult && (
-                <div className="p-4 bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-xl space-y-2 animate-in fade-in duration-200">
+                <div className="p-4 bg-emerald-50/80 dark:bg-emerald-950/20 border border-emerald-200 dark:!border-transparent rounded-xl space-y-2 animate-in fade-in duration-200">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold text-xs uppercase tracking-wider">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Current Active Policy for Employee #{currentPolicyResult.employeeId}
                     </div>
                     <span className="px-2 py-0.5 bg-emerald-600 text-white rounded text-[10px] font-bold uppercase">Active Today</span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs bg-white dark:bg-[#222222] p-3 rounded-lg border border-emerald-100 dark:border-[#303030] font-mono">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs bg-white dark:bg-[#222222] p-3 rounded-lg border border-emerald-100 dark:!border-transparent font-mono">
                     <div>
                       <span className="text-gray-400 dark:text-gray-500 block text-[10px]">ASSIGNMENT ID</span>
                       <span className="font-bold text-slate-800 dark:text-white">#{currentPolicyResult.id}</span>
@@ -693,7 +696,7 @@ const AttendancePolicyPage: React.FC = () => {
 
               {/* Error Box for lookup */}
               {queryError && (
-                <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-lg text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:!border-transparent rounded-lg text-xs text-rose-700 dark:text-rose-400 flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{queryError}</span>
                 </div>
@@ -701,22 +704,23 @@ const AttendancePolicyPage: React.FC = () => {
             </div>
 
             {/* Assignments Table */}
-            <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-4 space-y-3">
+            <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase text-gray-800 dark:text-white tracking-wider">
                   {queriedAssignments ? `Filtered Assignments (${queriedAssignments.length})` : 'All Employee Policy Assignments'}
                 </h3>
-                <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                  Total: {(queriedAssignments || assignments).length} record(s)
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                    Total: {(queriedAssignments || assignments).length} record(s)
+                  </span>
+                  <TableToolbar onRefresh={loadAssignments} />
+                </div>
               </div>
 
               <ReusableTable
                 data={queriedAssignments || assignments}
                 columns={assignmentColumns}
                 loading={loading || isQuerying}
-                searchable={true}
-                searchPlaceholder="Search assignment records..."
                 pageSize={5}
                 defaultSortKey="id"
                 defaultSortOrder="desc"
@@ -729,7 +733,7 @@ const AttendancePolicyPage: React.FC = () => {
         {/* ── TAB 2: ATTENDANCE POLICY MASTER ────────────────────────────── */}
         {activeTab === 'policies' && (
           <div className="space-y-4 animate-in fade-in duration-150">
-            <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-4 flex items-center justify-between gap-3">
+            <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-4 flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-xs font-bold uppercase text-gray-800 dark:text-white tracking-wider">Configured Policy Rules</h3>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400">Define working hours, grace period, overtime, and permission parameters</p>
@@ -746,7 +750,7 @@ const AttendancePolicyPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={loadPolicies}
-                  className="p-2 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#303030] rounded-lg transition-all"
+                  className="p-2 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border border-gray-200 dark:!border-transparent rounded-lg transition-all"
                   title="Refresh Policies"
                 >
                   <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
@@ -754,13 +758,15 @@ const AttendancePolicyPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-4">
+            <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-bold uppercase text-gray-800 dark:text-white tracking-wider">Configured Policy Rules</h3>
+                <TableToolbar onRefresh={loadPolicies} />
+              </div>
               <ReusableTable
                 data={savedPolicies}
                 columns={policyColumns}
                 loading={loading}
-                searchable={true}
-                searchPlaceholder="Search policies by name..."
                 pageSize={5}
                 defaultSortKey="policyName"
                 defaultSortOrder="asc"
@@ -774,8 +780,8 @@ const AttendancePolicyPage: React.FC = () => {
       {/* ── ASSIGN POLICY MODAL ───────────────────────────────────────── */}
       {isAssignModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-[#191919] rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] space-y-4 text-slate-900 dark:text-white">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030]">
+          <div className="bg-white dark:bg-[#191919] rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 dark:!border-transparent space-y-4 text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:!border-transparent">
               <div className="flex items-center gap-2">
                 <UserCheck className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
@@ -795,7 +801,7 @@ const AttendancePolicyPage: React.FC = () => {
                   type="number"
                   value={assignForm.employeeId}
                   onChange={(e) => setAssignForm(p => ({ ...p, employeeId: e.target.value }))}
-                  className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-md text-xs font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
+                  className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-md text-xs font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                   placeholder="e.g. 12"
                   required
                 />
@@ -806,7 +812,7 @@ const AttendancePolicyPage: React.FC = () => {
                 <select
                   value={assignForm.attendancePolicyId}
                   onChange={(e) => setAssignForm(p => ({ ...p, attendancePolicyId: e.target.value }))}
-                  className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-md text-xs font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
+                  className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-md text-xs font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                   required
                 >
                   {savedPolicies.map(pol => (
@@ -824,7 +830,7 @@ const AttendancePolicyPage: React.FC = () => {
                     type="date"
                     value={assignForm.effectiveFrom}
                     onChange={(e) => setAssignForm(p => ({ ...p, effectiveFrom: e.target.value }))}
-                    className="w-full py-2 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-md text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
+                    className="w-full py-2 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-md text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                     required
                   />
                 </div>
@@ -834,17 +840,17 @@ const AttendancePolicyPage: React.FC = () => {
                     type="date"
                     value={assignForm.effectiveTo}
                     onChange={(e) => setAssignForm(p => ({ ...p, effectiveTo: e.target.value }))}
-                    className="w-full py-2 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-md text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
+                    className="w-full py-2 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-md text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                     required
                   />
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-gray-100 dark:border-[#303030] flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-gray-100 dark:!border-transparent flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsAssignModalOpen(false)}
-                  className="px-4 py-2 border border-gray-200 dark:border-[#303030] rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222]"
+                  className="px-4 py-2 border border-gray-200 dark:!border-transparent rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222]"
                 >
                   Cancel
                 </button>
@@ -864,8 +870,8 @@ const AttendancePolicyPage: React.FC = () => {
       {/* ── CREATE / EDIT ATTENDANCE POLICY MODAL ───────────────────────── */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-[#191919] rounded-xl max-w-xl w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] space-y-4 text-slate-900 dark:text-white">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030]">
+          <div className="bg-white dark:bg-[#191919] rounded-xl max-w-xl w-full p-5 shadow-2xl border border-gray-100 dark:!border-transparent space-y-4 text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:!border-transparent">
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
@@ -887,7 +893,7 @@ const AttendancePolicyPage: React.FC = () => {
                     type="text"
                     value={form.policyName}
                     onChange={(e) => setForm(p => ({ ...p, policyName: e.target.value }))}
-                    className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-md text-xs font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
+                    className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-md text-xs font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                     placeholder="e.g. Standard HQ Policy"
                     required
                   />
@@ -907,7 +913,7 @@ const AttendancePolicyPage: React.FC = () => {
               </div>
 
               {/* Time Thresholds */}
-              <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-[#303030]">
+              <div className="space-y-2 pt-2 border-t border-gray-100 dark:!border-transparent">
                 <span className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider block">Time Thresholds (Minutes)</span>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div>
@@ -916,7 +922,7 @@ const AttendancePolicyPage: React.FC = () => {
                       type="number"
                       value={form.fullDayMinimumMinutes}
                       onChange={(e) => setForm(p => ({ ...p, fullDayMinimumMinutes: Number(e.target.value) }))}
-                      className="w-full py-1.5 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
+                      className="w-full py-1.5 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                     />
                   </div>
                   <div>
@@ -925,7 +931,7 @@ const AttendancePolicyPage: React.FC = () => {
                       type="number"
                       value={form.halfDayMinimumMinutes}
                       onChange={(e) => setForm(p => ({ ...p, halfDayMinimumMinutes: Number(e.target.value) }))}
-                      className="w-full py-1.5 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
+                      className="w-full py-1.5 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                     />
                   </div>
                   <div>
@@ -934,7 +940,7 @@ const AttendancePolicyPage: React.FC = () => {
                       type="number"
                       value={form.gracePeriodMinutes}
                       onChange={(e) => setForm(p => ({ ...p, gracePeriodMinutes: Number(e.target.value) }))}
-                      className="w-full py-1.5 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
+                      className="w-full py-1.5 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                     />
                   </div>
                   <div>
@@ -943,7 +949,7 @@ const AttendancePolicyPage: React.FC = () => {
                       type="number"
                       value={form.maxBreakMinutes}
                       onChange={(e) => setForm(p => ({ ...p, maxBreakMinutes: Number(e.target.value) }))}
-                      className="w-full py-1.5 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
+                      className="w-full py-1.5 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                     />
                   </div>
                   <div>
@@ -952,7 +958,7 @@ const AttendancePolicyPage: React.FC = () => {
                       type="number"
                       value={form.overtimeAfterMinutes}
                       onChange={(e) => setForm(p => ({ ...p, overtimeAfterMinutes: Number(e.target.value) }))}
-                      className="w-full py-1.5 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
+                      className="w-full py-1.5 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                     />
                   </div>
                   <div>
@@ -961,17 +967,17 @@ const AttendancePolicyPage: React.FC = () => {
                       type="number"
                       value={form.permissionHoursPerMonth}
                       onChange={(e) => setForm(p => ({ ...p, permissionHoursPerMonth: Number(e.target.value) }))}
-                      className="w-full py-1.5 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
+                      className="w-full py-1.5 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Rules & Permissions */}
-              <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-[#303030]">
+              <div className="space-y-2 pt-2 border-t border-gray-100 dark:!border-transparent">
                 <span className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider block">Rules & Permissions</span>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <label className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-lg cursor-pointer">
+                  <label className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-lg cursor-pointer">
                     <input
                       type="checkbox"
                       checked={form.allowWorkFromHome}
@@ -981,7 +987,7 @@ const AttendancePolicyPage: React.FC = () => {
                     <span className="text-xs font-bold text-gray-800 dark:text-white">Allow WFH</span>
                   </label>
 
-                  <label className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-lg cursor-pointer">
+                  <label className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-lg cursor-pointer">
                     <input
                       type="checkbox"
                       checked={form.allowRegularization}
@@ -991,7 +997,7 @@ const AttendancePolicyPage: React.FC = () => {
                     <span className="text-xs font-bold text-gray-800 dark:text-white">Allow Regularization</span>
                   </label>
 
-                  <label className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-lg cursor-pointer">
+                  <label className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-lg cursor-pointer">
                     <input
                       type="checkbox"
                       checked={form.allowOnDuty}
@@ -1003,11 +1009,11 @@ const AttendancePolicyPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-gray-100 dark:border-[#303030] flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-gray-100 dark:!border-transparent flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-gray-200 dark:border-[#303030] rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222]"
+                  className="px-4 py-2 border border-gray-200 dark:!border-transparent rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222]"
                 >
                   Cancel
                 </button>
@@ -1027,8 +1033,8 @@ const AttendancePolicyPage: React.FC = () => {
       {/* ── VIEW POLICY DETAILS MODAL ────────────────────────────────────── */}
       {viewingPolicy && (
         <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-[#191919] rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] space-y-4 text-slate-900 dark:text-white">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030]">
+          <div className="bg-white dark:bg-[#191919] rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 dark:!border-transparent space-y-4 text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:!border-transparent">
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 <div>
@@ -1042,7 +1048,7 @@ const AttendancePolicyPage: React.FC = () => {
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-2 bg-gray-50 dark:bg-[#222222] p-3 rounded-lg border border-gray-200/70 dark:border-[#303030] font-mono">
+              <div className="grid grid-cols-2 gap-2 bg-gray-50 dark:bg-[#222222] p-3 rounded-lg border border-gray-200/70 dark:!border-transparent font-mono">
                 <div>
                   <span className="text-gray-400 dark:text-gray-500 block text-[10px]">FULL DAY MIN</span>
                   <span className="font-bold text-gray-900 dark:text-white">{viewingPolicy.fullDayMinimumMinutes / 60}h ({viewingPolicy.fullDayMinimumMinutes}m)</span>
@@ -1061,7 +1067,7 @@ const AttendancePolicyPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-gray-50 dark:bg-[#222222] p-3 rounded-lg border border-gray-200/70 dark:border-[#303030] space-y-1.5">
+              <div className="bg-gray-50 dark:bg-[#222222] p-3 rounded-lg border border-gray-200/70 dark:!border-transparent space-y-1.5">
                 <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">PERMISSIONS & ALLOWANCES</span>
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-gray-700 dark:text-gray-300">Work From Home (WFH)</span>
@@ -1084,11 +1090,11 @@ const AttendancePolicyPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-gray-100 dark:border-[#303030] flex items-center justify-end">
+            <div className="pt-3 border-t border-gray-100 dark:!border-transparent flex items-center justify-end">
               <button
                 type="button"
                 onClick={() => setViewingPolicy(null)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 rounded-lg text-xs font-bold border border-gray-200 dark:border-[#303030]"
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 rounded-lg text-xs font-bold border border-gray-200 dark:!border-transparent"
               >
                 Close
               </button>
@@ -1100,8 +1106,8 @@ const AttendancePolicyPage: React.FC = () => {
       {/* ── CUSTOM DELETE ASSIGNMENT CONFIRMATION MODAL ────────────────── */}
       {deletingAssignmentId && (
         <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-[#191919] rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] space-y-4 text-center text-slate-900 dark:text-white">
-            <div className="mx-auto w-12 h-12 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center border border-rose-100 dark:border-rose-900/50 shadow-2xs">
+          <div className="bg-white dark:bg-[#191919] rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 dark:!border-transparent space-y-4 text-center text-slate-900 dark:text-white">
+            <div className="mx-auto w-12 h-12 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center border border-rose-100 dark:!border-transparent shadow-2xs">
               <AlertCircle className="w-6 h-6" />
             </div>
             
@@ -1112,11 +1118,11 @@ const AttendancePolicyPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex items-center justify-center gap-2.5 pt-2 border-t border-gray-100 dark:border-[#303030]">
+            <div className="flex items-center justify-center gap-2.5 pt-2 border-t border-gray-100 dark:!border-transparent">
               <button
                 type="button"
                 onClick={() => setDeletingAssignmentId(null)}
-                className="px-4 py-2 border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] transition-all"
+                className="px-4 py-2 border border-gray-200 dark:!border-transparent rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] transition-all"
               >
                 Cancel
               </button>

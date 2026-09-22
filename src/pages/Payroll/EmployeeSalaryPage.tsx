@@ -258,18 +258,18 @@ const EmployeeSalaryPage: React.FC = () => {
             sortable: true,
             render: (row) => (
                 <div className="flex items-center justify-center mx-auto max-w-max">
-                    <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3 shrink-0">
-                        <span className="text-xs font-medium text-cyan-700">
+                    <div className="h-8 w-8 rounded-full bg-cyan-100 dark:bg-[#222222] flex items-center justify-center mr-3 shrink-0">
+                        <span className="text-xs font-medium text-cyan-700 dark:text-gray-300">
                             {row.employeeName?.charAt(0) || row.employeeCode?.charAt(0) || 'E'}
                         </span>
                     </div>
                     <div className="text-left">
-                        <div className="text-xs font-medium text-gray-900" title={row.employeeName}>
+                        <div className="text-xs font-medium text-gray-900 dark:text-white" title={row.employeeName}>
                             {(row.employeeName || '').trim().length > 15
                                 ? `${(row.employeeName || '').trim().substring(0, 15)}...`
                                 : row.employeeName}
                         </div>
-                        <div className="text-[10px] text-gray-500" title={row.employeeCode}>
+                        <div className="text-[10px] text-gray-500 dark:text-gray-400" title={row.employeeCode}>
                             {row.employeeCode}
                         </div>
                     </div>
@@ -282,8 +282,8 @@ const EmployeeSalaryPage: React.FC = () => {
             sortable: true,
             render: (row) => (
                 <div className="flex items-center justify-center mx-auto">
-                    <CalendarIcon className="h-4 w-4 text-gray-400 mr-2" />
-                    <span className="text-xs font-medium text-gray-900">{row.month}</span>
+                    <CalendarIcon className="h-4 w-4 text-gray-400 dark:text-gray-500 mr-2" />
+                    <span className="text-xs font-medium text-gray-900 dark:text-gray-300">{row.month}</span>
                 </div>
             )
         },
@@ -291,13 +291,13 @@ const EmployeeSalaryPage: React.FC = () => {
             key: "basic",
             label: "Basic",
             sortable: true,
-            render: (row) => <span className="text-xs text-gray-900 whitespace-nowrap">₹{row.basic.toLocaleString()}</span>
+            render: (row) => <span className="text-xs text-gray-900 dark:text-gray-300 font-mono whitespace-nowrap">₹{row.basic.toLocaleString()}</span>
         },
         {
             key: "netSalary",
             label: "Net Salary",
             sortable: true,
-            render: (row) => <span className="text-xs font-bold text-cyan-600 whitespace-nowrap">₹{row.netSalary.toLocaleString()}</span>
+            render: (row) => <span className="text-xs font-bold text-cyan-600 dark:text-gray-200 font-mono whitespace-nowrap">₹{row.netSalary.toLocaleString()}</span>
         },
         {
             key: "status",
@@ -305,12 +305,13 @@ const EmployeeSalaryPage: React.FC = () => {
             sortable: true,
             sortValueGetter: (row) => row.isProcessed ? 1 : 0,
             render: (row) => row.isProcessed ? (
-                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                    <CheckCircleIcon className="h-3 w-3 mr-1" />
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-transparent dark:text-gray-300 dark:border dark:border-transparent">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 shrink-0" />
                     Processed
                 </span>
             ) : (
-                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-transparent dark:text-gray-300 dark:border dark:border-transparent">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 shrink-0" />
                     Pending
                 </span>
             )
@@ -327,18 +328,16 @@ const EmployeeSalaryPage: React.FC = () => {
                     <AddButton label="Refresh Salaries" onClick={fetchAllSalaries} />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 [&_.stats-card]:dark:!border-transparent [&_.stats-card]:dark:!bg-[#191919] [&_.stats-card__icon]:dark:!bg-[#222222] [&_.stats-card__icon]:dark:!text-gray-300 [&_.stats-card__value]:dark:!text-white [&_.stats-card__label]:dark:!text-gray-400">
                     <StatsCard label="Total Records" value={totalRecords} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-6 w-6" />} />
                     <StatsCard label="Processed Records" value={totalProcessed} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
                     <StatsCard label="Total Paid" value={"Rs " + (totalPaid / 1000).toFixed(1) + "K"} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CurrencyDollarIcon className="h-6 w-6" />} />
                     <StatsCard label="Average Net Salary" value={"Rs " + Math.round(averageNet).toLocaleString()} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-6 w-6" />} />
                 </div>
 
-
-
                 {/* Table */}
                 <ReusableTable
-                    className="[&_th]:!px-2 [&_td]:!px-2"
+                    className="[&_th]:!px-2 [&_td]:!px-2 dark:border-transparent [&_.common-data-table]:dark:!border-transparent"
                     data={filteredSalaries}
                     columns={columns}
                     loading={loading}

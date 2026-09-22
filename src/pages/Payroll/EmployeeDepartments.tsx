@@ -216,7 +216,7 @@ const EmployeeDepartmentsPage: React.FC = () => {
       label: "ID",
       sortable: true,
       render: (row) => (
-        <span className="pl-2 font-mono font-bold text-xs text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
+        <span className="pl-2 font-mono font-bold text-xs text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-transparent px-2 py-0.5 rounded border border-cyan-200 dark:border-transparent">
           {row.id}
         </span>
       )
@@ -227,13 +227,13 @@ const EmployeeDepartmentsPage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <div className="flex items-center">
-          <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3 shrink-0">
-            <span className="text-xs font-medium text-cyan-700">
+          <div className="h-8 w-8 rounded-full bg-cyan-100 dark:bg-[#222222] flex items-center justify-center mr-3 shrink-0">
+            <span className="text-xs font-medium text-cyan-700 dark:text-cyan-300">
               {String(row.name).charAt(0).toUpperCase()}
             </span>
           </div>
           <div>
-            <div className="text-xs font-semibold text-gray-900">
+            <div className="text-xs font-semibold text-gray-900 dark:text-white">
               {row.name}
             </div>
           </div>
@@ -246,8 +246,8 @@ const EmployeeDepartmentsPage: React.FC = () => {
       sortable: true,
       sortValueGetter: (row) => parseInt(String(row.employees)) || 0,
       render: (row) => (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-cyan-50 text-cyan-700 border border-cyan-100">
-          <UserGroupIcon className="h-3 w-3 mr-1 shrink-0" />
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-cyan-50 dark:bg-transparent text-cyan-700 dark:text-gray-300 border border-cyan-100 dark:border-transparent">
+          <UserGroupIcon className="h-3 w-3 mr-1 shrink-0 text-cyan-600 dark:text-gray-400" />
           {row.employees}
         </span>
       )
@@ -257,7 +257,7 @@ const EmployeeDepartmentsPage: React.FC = () => {
       label: "Created Date",
       sortable: true,
       render: (row) => (
-        <span className="text-xs text-gray-500 font-mono">
+        <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
           {row.createdDate}
         </span>
       )
@@ -272,14 +272,14 @@ const EmployeeDepartmentsPage: React.FC = () => {
         <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => openEditModal(row._raw || { id: row.numericId, name: row.name })}
-            className="text-cyan-600 hover:text-cyan-900 bg-cyan-50 hover:bg-cyan-100 p-1.5 rounded-md transition-colors"
+            className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-900 dark:hover:text-cyan-300 bg-cyan-50 dark:bg-[#222222] hover:bg-cyan-100 dark:hover:bg-[#2a2a2a] p-1.5 rounded-md transition-colors cursor-pointer"
             title="Edit Department"
           >
             <PencilSquareIcon className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={() => handleDelete(row.numericId, row.name)}
-            className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 p-1.5 rounded-md transition-colors"
+            className="text-red-600 dark:text-rose-400 hover:text-red-900 dark:hover:text-rose-300 bg-red-50 dark:bg-[#222222] hover:bg-red-100 dark:hover:bg-[#2a2a2a] p-1.5 rounded-md transition-colors cursor-pointer"
             title="Delete Department"
           >
             <TrashIcon className="h-3.5 w-3.5" />
@@ -297,11 +297,11 @@ const EmployeeDepartmentsPage: React.FC = () => {
   return (
     <>
       <PageMeta title="Departments" description="Manage employee departments" />
-      <PageBreadcrumb pageTitle="Departments" />
+      <PageBreadcrumb pageTitle="Departments" showAddButton={true} addButtonLabel="Add Department" onAddClick={openCreateModal} />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 [&_.stats-card]:dark:!border-transparent [&_.stats-card]:dark:!bg-[#191919] [&_.stats-card__icon]:dark:!bg-[#222222] [&_.stats-card__icon]:dark:!text-gray-300 [&_.stats-card__value]:dark:!text-white [&_.stats-card__label]:dark:!text-gray-400 [&_.stats-card-actions__button]:dark:!text-gray-400 [&_.stats-card-actions__button]:dark:hover:!text-white [&_.stats-card-actions__button]:dark:hover:!bg-[#222222]">
           <StatsCard label="Total Departments" value={departments.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<BuildingOfficeIcon className="h-6 w-6" />} />
           <StatsCard label="Total Employees" value={totalEmployees} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<UserGroupIcon className="h-6 w-6" />} />
           <StatsCard label="Average per Dept" value={avgEmployeesPerDept} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BriefcaseIcon className="h-6 w-6" />} />
@@ -310,6 +310,7 @@ const EmployeeDepartmentsPage: React.FC = () => {
 
         {/* Table */}
         <ReusableTable
+          className="dark:border-transparent [&_.common-data-table]:dark:!border-transparent"
           data={normalizedDepartments}
           columns={columns}
           loading={loading}
@@ -318,11 +319,11 @@ const EmployeeDepartmentsPage: React.FC = () => {
           rowDetailsSubtitle="Department profile, headcount, and operational status"
           emptyState={
             <div className="flex flex-col items-center">
-              <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No departments found</p>
+              <BuildingOfficeIcon className="h-12 w-12 text-gray-400 dark:text-gray-600 mb-3" />
+              <p className="text-gray-500 dark:text-gray-400 text-sm mb-2">No departments found</p>
               <button
                 onClick={openCreateModal}
-                className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
+                className="mt-1 text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 text-xs font-medium cursor-pointer"
               >
                 Create your first department
               </button>
@@ -334,22 +335,22 @@ const EmployeeDepartmentsPage: React.FC = () => {
         <AnimatePresence>
           {showForm && (
             <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto p-4"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs overflow-y-auto p-4 animate-in fade-in duration-150"
               onClick={closeModal}
             >
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto"
+                className="bg-white dark:bg-[#191919] text-gray-900 dark:text-white rounded-xl shadow-2xl border border-gray-200 dark:!border-transparent w-full max-w-md mx-auto"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center justify-between p-5 border-b border-gray-100">
+                <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:!border-transparent">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                       {editingDept ? "Edit Department" : "Create New Department"}
                     </h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       {editingDept
                         ? "Update department information"
                         : "Add a new department to the organization"}
@@ -357,7 +358,7 @@ const EmployeeDepartmentsPage: React.FC = () => {
                   </div>
                   <button
                     onClick={closeModal}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
                   >
                     <XMarkIcon className="h-5 w-5" />
                   </button>
@@ -365,7 +366,7 @@ const EmployeeDepartmentsPage: React.FC = () => {
 
                 <div className="p-5">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                       Department Name <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -378,26 +379,26 @@ const EmployeeDepartmentsPage: React.FC = () => {
                         }
                       }}
                       placeholder="e.g., Engineering, Marketing, Sales"
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all"
+                      className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all"
                       autoFocus
                     />
-                    <p className="text-xs text-gray-500 mt-1.5">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
                       Departments help organize your team structure
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-end gap-3 pt-4 mt-4 border-t border-gray-100">
+                  <div className="flex items-center justify-end gap-3 pt-4 mt-4 border-t border-gray-100 dark:!border-transparent">
                     <button
                       type="button"
                       onClick={closeModal}
-                      className="inline-flex items-center justify-center h-10 px-5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 border border-transparent transition-all duration-200 focus:outline-none"
+                      className="inline-flex items-center justify-center h-10 px-5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-[#222222] rounded-lg hover:bg-gray-200 dark:hover:bg-[#2a2a2a] border border-transparent transition-all duration-200 focus:outline-none cursor-pointer"
                     >
                       Cancel
                     </button>
                     <button
                       type="button"
                       onClick={editingDept ? handleUpdate : handleCreate}
-                      className="inline-flex items-center justify-center h-10 px-5 text-sm font-medium !text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 rounded-lg border border-transparent shadow-sm transition-all duration-200 focus:outline-none gap-2"
+                      className="inline-flex items-center justify-center h-10 px-5 text-sm font-medium !text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 rounded-lg border border-transparent shadow-sm transition-all duration-200 focus:outline-none gap-2 cursor-pointer"
                     >
                       <CheckCircleIcon className="w-4 h-4 !text-white shrink-0" />
                       <span className="!text-white whitespace-nowrap">{editingDept ? "Update Department" : "Create Department"}</span>

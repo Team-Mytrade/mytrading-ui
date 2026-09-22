@@ -105,42 +105,42 @@ const PayrollSummaryPage: React.FC = () => {
                 {/* Header Area */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Payroll Summary</h2>
-                        <p className="text-sm text-gray-500 mt-1">Comprehensive view of your organization's payroll metrics.</p>
+                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Payroll Summary</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Comprehensive view of your organization's payroll metrics.</p>
                     </div>
                     <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2 bg-white px-3 py-2 border border-gray-200 rounded-lg shadow-sm">
-                            <CalendarIcon className="h-5 w-5 text-gray-400" />
+                        <div className="flex items-center gap-2 bg-white dark:bg-[#191919] px-3 py-2 border border-gray-200 dark:!border-transparent rounded-lg shadow-sm">
+                            <CalendarIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                             <input
                                 type="month"
                                 value={salaryMonth}
                                 onChange={(e) => setSalaryMonth(e.target.value)}
-                                className="text-sm font-medium text-gray-700 focus:outline-none bg-transparent"
+                                className="text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none bg-transparent cursor-pointer [color-scheme:dark]"
                             />
                         </div>
                         <button
                             onClick={handleExportDetailedReport}
-                            className="flex items-center gap-2 bg-white px-4 py-2 border border-gray-200 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                            className="flex items-center gap-2 bg-white dark:bg-[#191919] dark:hover:bg-[#222222] px-4 py-2 border border-gray-200 dark:!border-transparent rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
                         >
-                            <DocumentArrowDownIcon className="h-5 w-5 text-green-600" />
+                            <DocumentArrowDownIcon className="h-5 w-5 text-green-600 dark:text-gray-400" />
                             Export Excel
                         </button>
                     </div>
                 </div>
 
                 {loading ? (
-                    <div className="text-sm text-gray-500 py-12 text-center">Loading summary...</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 py-12 text-center">Loading summary...</div>
                 ) : error ? (
-                    <div className="text-sm text-red-500 py-12 text-center bg-red-50 rounded-xl">{error}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 py-12 text-center bg-gray-50 dark:bg-[#191919] border border-gray-200 dark:!border-transparent rounded-xl">{error}</div>
                 ) : (!overallSalarySummary || Object.keys(overallSalarySummary).length === 0) ? (
-                    <div className="text-sm text-gray-400 py-16 text-center bg-gray-50 rounded-3xl border border-gray-200 shadow-inner flex flex-col items-center justify-center">
-                        <ChartBarIcon className="h-16 w-16 text-gray-300 mb-6" />
-                        <span className="font-medium text-lg text-gray-500">No summary data available for {salaryMonth}.</span>
+                    <div className="text-sm text-gray-400 dark:text-gray-500 py-16 text-center bg-gray-50 dark:bg-[#191919] rounded-2xl border border-gray-200 dark:!border-transparent shadow-inner flex flex-col items-center justify-center">
+                        <ChartBarIcon className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-6" />
+                        <span className="font-medium text-lg text-gray-500 dark:text-gray-400">No summary data available for {salaryMonth}.</span>
                     </div>
                 ) : (
                     <div className="space-y-6">
                         {/* Top 3 Metric Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 [&_.stats-card]:dark:!border-transparent [&_.stats-card]:dark:!bg-[#191919] [&_.stats-card__icon]:dark:!bg-[#222222] [&_.stats-card__icon]:dark:!text-gray-300 [&_.stats-card__value]:dark:!text-white [&_.stats-card__label]:dark:!text-gray-400">
                             <StatsCard
                                 label="Total Gross"
                                 value={formatCurrency(overallSalarySummary.totalGrossSalary)}
@@ -170,8 +170,8 @@ const PayrollSummaryPage: React.FC = () => {
                         {/* Charts Section */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                             {/* Salary Overview Bar Chart */}
-                            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-                                <h3 className="text-lg font-medium text-gray-900 mb-6">Earnings vs Deductions</h3>
+                            <div className="bg-white dark:bg-[#191919] border border-gray-200 dark:!border-transparent rounded-xl p-6 shadow-sm">
+                                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-6">Earnings vs Deductions</h3>
                                 <div className="h-80 w-full">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart
@@ -182,12 +182,12 @@ const PayrollSummaryPage: React.FC = () => {
                                             ]}
                                             margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                                         >
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" className="dark:stroke-[#2a2a2a]" />
                                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
                                             <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={(val) => `₹${val/1000}k`} />
                                             <Tooltip 
                                                 formatter={(value: any) => formatCurrency(value)}
-                                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                                contentStyle={{ borderRadius: '8px', border: 'none', backgroundColor: '#191919', color: '#fff', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.2)' }}
                                             />
                                             <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={60}>
                                                 {
@@ -202,8 +202,8 @@ const PayrollSummaryPage: React.FC = () => {
                             </div>
 
                             {/* Deductions Breakdown Pie Chart */}
-                            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-                                <h3 className="text-lg font-medium text-gray-900 mb-6">Deductions Breakdown</h3>
+                            <div className="bg-white dark:bg-[#191919] border border-gray-200 dark:!border-transparent rounded-xl p-6 shadow-sm">
+                                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-6">Deductions Breakdown</h3>
                                 <div className="h-80 w-full flex items-center justify-center">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
@@ -226,7 +226,7 @@ const PayrollSummaryPage: React.FC = () => {
                                             </Pie>
                                             <Tooltip 
                                                 formatter={(value: any) => formatCurrency(value)}
-                                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                                contentStyle={{ borderRadius: '8px', border: 'none', backgroundColor: '#191919', color: '#fff', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.2)' }}
                                             />
                                             <Legend verticalAlign="bottom" height={36}/>
                                         </PieChart>
@@ -236,44 +236,44 @@ const PayrollSummaryPage: React.FC = () => {
                         </div>
 
                         {/* Secondary Metrics Grid */}
-                        <div className="bg-white rounded-xl border border-gray-200 p-6 mt-6 shadow-sm">
-                            <h3 className="text-base font-medium text-gray-900 mb-6">Detailed Breakdown</h3>
+                        <div className="bg-white dark:bg-[#191919] rounded-xl border border-gray-200 dark:!border-transparent p-6 mt-6 shadow-sm">
+                            <h3 className="text-base font-medium text-gray-900 dark:text-white mb-6">Detailed Breakdown</h3>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-6">
                                 <div>
-                                    <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Earnings</div>
-                                    <div className="text-xl font-medium text-gray-900">{formatCurrency(overallSalarySummary.totalEarnings)}</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total Earnings</div>
+                                    <div className="text-xl font-medium text-gray-900 dark:text-white">{formatCurrency(overallSalarySummary.totalEarnings)}</div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Deductions</div>
-                                    <div className="text-xl font-medium text-gray-900">{formatCurrency(overallSalarySummary.totalDeductions)}</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total Deductions</div>
+                                    <div className="text-xl font-medium text-gray-900 dark:text-white">{formatCurrency(overallSalarySummary.totalDeductions)}</div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">PF (Employee)</div>
-                                    <div className="text-xl font-medium text-gray-900">{formatCurrency(overallSalarySummary.totalPfEmployee)}</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">PF (Employee)</div>
+                                    <div className="text-xl font-medium text-gray-900 dark:text-white">{formatCurrency(overallSalarySummary.totalPfEmployee)}</div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">PF (Employer)</div>
-                                    <div className="text-xl font-medium text-gray-900">{formatCurrency(overallSalarySummary.totalPfEmployer)}</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">PF (Employer)</div>
+                                    <div className="text-xl font-medium text-gray-900 dark:text-white">{formatCurrency(overallSalarySummary.totalPfEmployer)}</div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">TDS</div>
-                                    <div className="text-xl font-medium text-gray-900">{formatCurrency(overallSalarySummary.totalTds)}</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">TDS</div>
+                                    <div className="text-xl font-medium text-gray-900 dark:text-white">{formatCurrency(overallSalarySummary.totalTds)}</div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Professional Tax</div>
-                                    <div className="text-xl font-medium text-gray-900">{formatCurrency(overallSalarySummary.totalProfessionalTax)}</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Professional Tax</div>
+                                    <div className="text-xl font-medium text-gray-900 dark:text-white">{formatCurrency(overallSalarySummary.totalProfessionalTax)}</div>
                                 </div>
                                 
                                 {overallSalarySummary.totalWorkingDays !== undefined && (
                                     <div>
-                                        <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Working Days</div>
-                                        <div className="text-xl font-medium text-gray-900">{formatNumber(overallSalarySummary.totalWorkingDays)}</div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Working Days</div>
+                                        <div className="text-xl font-medium text-gray-900 dark:text-white">{formatNumber(overallSalarySummary.totalWorkingDays)}</div>
                                     </div>
                                 )}
                                 {overallSalarySummary.totalLossOfPayDays !== undefined && (
                                     <div>
-                                        <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Loss of Pay Days</div>
-                                        <div className="text-xl font-medium text-gray-900">{formatNumber(overallSalarySummary.totalLossOfPayDays)}</div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Loss of Pay Days</div>
+                                        <div className="text-xl font-medium text-gray-900 dark:text-white">{formatNumber(overallSalarySummary.totalLossOfPayDays)}</div>
                                     </div>
                                 )}
                             </div>

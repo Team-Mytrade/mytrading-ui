@@ -330,7 +330,7 @@ const AttendanceTrackingPage: React.FC = () => {
     for (let i = firstDayWeekday - 1; i >= 0; i--) {
       const pDay = prevMonthDays - i;
       cells.push(
-        <div key={`prev-${i}`} className="p-1 text-[11px] text-slate-300 dark:text-gray-600 bg-slate-50/50 dark:bg-[#191919]/40 rounded-lg border border-slate-100 dark:border-[#303030]/60 flex items-start justify-center font-medium h-full min-h-0 pointer-events-none">
+        <div key={`prev-${i}`} className="p-1 text-[11px] text-slate-300 dark:text-gray-600 bg-slate-50/50 dark:bg-[#191919]/40 rounded-lg border border-slate-100 dark:border-transparent flex items-start justify-center font-medium h-full min-h-0 pointer-events-none">
           {pDay}
         </div>
       );
@@ -357,22 +357,22 @@ const AttendanceTrackingPage: React.FC = () => {
       const hasWorked = dayData && dayData.workedMinutes && dayData.workedMinutes > 0;
       const hasPunch = dayData && (dayData.inTime || dayData.outTime);
 
-      let cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-slate-300 dark:hover:border-gray-600 hover:shadow-2xs text-slate-700 dark:text-gray-200';
+      let cardStyle = 'border-slate-200/80 dark:border-transparent bg-white dark:bg-[#222222] hover:border-slate-300 dark:hover:border-transparent dark:hover:bg-[#262626] hover:shadow-2xs text-slate-700 dark:text-gray-200';
       let numBadgeStyle = 'text-slate-700 dark:text-gray-200 font-medium text-[11px]';
 
       if (isToday) {
-        cardStyle = 'border-sky-300 dark:border-sky-500/80 bg-sky-50/40 dark:bg-sky-950/40 ring-1 ring-sky-200 dark:ring-sky-500/30 text-sky-900 dark:text-sky-300 shadow-2xs';
-        numBadgeStyle = 'w-5 h-5 rounded-full bg-sky-600 text-white font-semibold text-[10px] flex items-center justify-center shrink-0 shadow-2xs';
+        cardStyle = 'border-sky-300 dark:border-transparent bg-sky-50/40 dark:bg-[#282828] ring-1 ring-sky-200 dark:ring-0 text-sky-900 dark:text-white shadow-2xs';
+        numBadgeStyle = 'w-5 h-5 rounded-full bg-sky-600 dark:bg-white/15 dark:text-white font-semibold text-[10px] flex items-center justify-center shrink-0 shadow-2xs';
       } else if (isPresent) {
-        cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-emerald-300 dark:hover:border-emerald-700 shadow-2xs';
+        cardStyle = 'border-slate-200/80 dark:border-transparent bg-white dark:bg-[#222222] hover:border-emerald-300 dark:hover:border-transparent dark:hover:bg-[#262626] shadow-2xs';
       } else if (isLate) {
-        cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-amber-300 dark:hover:border-amber-700 shadow-2xs';
+        cardStyle = 'border-slate-200/80 dark:border-transparent bg-white dark:bg-[#222222] hover:border-amber-300 dark:hover:border-transparent dark:hover:bg-[#262626] shadow-2xs';
       } else if (isLeave) {
-        cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-purple-300 dark:hover:border-purple-700 shadow-2xs';
+        cardStyle = 'border-slate-200/80 dark:border-transparent bg-white dark:bg-[#222222] hover:border-purple-300 dark:hover:border-transparent dark:hover:bg-[#262626] shadow-2xs';
       } else if (isAbsent) {
-        cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-rose-300 dark:hover:border-rose-700 shadow-2xs';
+        cardStyle = 'border-slate-200/80 dark:border-transparent bg-white dark:bg-[#222222] hover:border-rose-300 dark:hover:border-transparent dark:hover:bg-[#262626] shadow-2xs';
       } else if (isWeekend && !dayData) {
-        cardStyle = 'border-slate-100 dark:border-[#303030]/60 bg-slate-50/50 dark:bg-[#1a1a1a] text-slate-400 dark:text-gray-500';
+        cardStyle = 'border-slate-100 dark:border-transparent bg-slate-50/50 dark:bg-[#1a1a1a] text-slate-400 dark:text-gray-500';
         numBadgeStyle = 'text-slate-400 dark:text-gray-500 font-normal text-[11px]';
       }
 
@@ -390,14 +390,20 @@ const AttendanceTrackingPage: React.FC = () => {
               {dayNum}
             </span>
             {dayData?.status && String(dayData.status).trim() !== '' && (
-              <span className={`text-[8px] font-semibold px-1.5 py-0.5 rounded-full uppercase leading-none truncate max-w-[65px] ${
-                isLeave ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-400 border border-purple-200/80' :
-                isPresent ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200/80' :
-                isAbsent ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400 border border-rose-200/80' : 
-                isLate ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200/80' :
-                'bg-slate-100 dark:bg-[#222222] text-slate-500 dark:text-gray-400 border border-slate-200'
+              <span className={`inline-flex items-center gap-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase leading-none truncate max-w-[70px] border ${
+                isLeave ? 'bg-purple-50 text-purple-700 border-purple-200/80 dark:bg-transparent dark:text-gray-300 dark:border-transparent' :
+                isPresent ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80 dark:bg-transparent dark:text-gray-300 dark:border-transparent' :
+                isAbsent ? 'bg-rose-50 text-rose-700 border-rose-200/80 dark:bg-transparent dark:text-gray-400 dark:border-transparent' : 
+                isLate ? 'bg-amber-50 text-amber-700 border-amber-200/80 dark:bg-transparent dark:text-gray-300 dark:border-transparent' :
+                'bg-slate-100 text-slate-500 border-slate-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent'
               }`}>
-                {dayData.status}
+                <span className={`w-1 h-1 rounded-full shrink-0 ${
+                  isLeave ? 'bg-purple-500' :
+                  isPresent ? 'bg-emerald-500' :
+                  isAbsent ? 'bg-rose-500' :
+                  isLate ? 'bg-amber-500' : 'bg-gray-400'
+                }`} />
+                <span className="truncate">{dayData.status === 'CHECKED_IN' ? 'Checked In' : dayData.status}</span>
               </span>
             )}
           </div>
@@ -421,22 +427,22 @@ const AttendanceTrackingPage: React.FC = () => {
                 {/* Compact Badges */}
                 <div className="flex items-center gap-0.5 overflow-hidden">
                   {isLate && (
-                    <span className="px-1 py-0.2 rounded text-[7.5px] font-medium bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200/80 truncate">
+                    <span className="px-1 py-0.2 rounded text-[7.5px] font-medium bg-amber-50 text-amber-700 border border-amber-200/80 dark:bg-transparent dark:text-gray-400 dark:border-transparent truncate">
                       -{dayData.lateMinutes}m
                     </span>
                   )}
                   {isOvertime && (
-                    <span className="px-1 py-0.2 rounded text-[7.5px] font-medium bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200/80 truncate">
+                    <span className="px-1 py-0.2 rounded text-[7.5px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-transparent dark:text-gray-400 dark:border-transparent truncate">
                       +{dayData.overtimeMinutes}m
                     </span>
                   )}
                   {dayData.holidayName && (
-                    <span className="px-1 py-0.2 rounded text-[7.5px] font-medium bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200/80 truncate max-w-[50px]">
+                    <span className="px-1 py-0.2 rounded text-[7.5px] font-medium bg-amber-50 text-amber-700 border border-amber-200/80 dark:bg-transparent dark:text-gray-400 dark:border-transparent truncate max-w-[50px]">
                       {dayData.holidayName}
                     </span>
                   )}
                   {dayData.leaveType && (
-                    <span className="px-1 py-0.2 rounded text-[7.5px] font-medium bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-400 border border-purple-200/80 truncate max-w-[50px]">
+                    <span className="px-1 py-0.2 rounded text-[7.5px] font-medium bg-purple-50 text-purple-700 border border-purple-200/80 dark:bg-transparent dark:text-gray-400 dark:border-transparent truncate max-w-[50px]">
                       {dayData.leaveType}
                     </span>
                   )}
@@ -456,7 +462,7 @@ const AttendanceTrackingPage: React.FC = () => {
       const trailingCount = 7 - remainder;
       for (let j = 1; j <= trailingCount; j++) {
         cells.push(
-          <div key={`next-${j}`} className="p-1 text-[11px] text-slate-300 dark:text-gray-600 bg-slate-50/50 dark:bg-[#191919]/40 rounded-lg border border-slate-100 dark:border-[#303030]/60 flex items-start justify-center font-medium h-full min-h-0 pointer-events-none">
+          <div key={`next-${j}`} className="p-1 text-[11px] text-slate-300 dark:text-gray-600 bg-slate-50/50 dark:bg-[#191919]/40 rounded-lg border border-slate-100 dark:border-transparent flex items-start justify-center font-medium h-full min-h-0 pointer-events-none">
             {j}
           </div>
         );
@@ -477,9 +483,9 @@ const AttendanceTrackingPage: React.FC = () => {
       <div className="flex-1 min-h-0 flex flex-col space-y-1.5 pb-0.5">
         
         {/* ── TOP BANNER & MONTH NAVIGATION ───────────────────────────── */}
-        <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] py-2 px-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+        <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-transparent py-2 px-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-[#222222] border border-slate-200/80 dark:border-[#303030] flex items-center justify-center text-slate-700 dark:text-gray-200 font-bold text-xs shrink-0 shadow-2xs">
+            <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-[#222222] border border-slate-200/80 dark:border-transparent flex items-center justify-center text-slate-700 dark:text-gray-200 font-bold text-xs shrink-0 shadow-2xs">
               {currentUser.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
             </div>
             <div className="min-w-0">
@@ -488,7 +494,7 @@ const AttendanceTrackingPage: React.FC = () => {
                   <select
                     value={selectedEmpId}
                     onChange={(e) => setSelectedEmpId(Number(e.target.value))}
-                    className="py-1 px-2.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-slate-400 outline-none cursor-pointer max-w-[260px] truncate shadow-2xs"
+                    className="py-1 px-2.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-transparent rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-slate-400 outline-none cursor-pointer max-w-[260px] truncate shadow-2xs"
                   >
                     {employeeList.map(emp => (
                       <option key={emp.id} value={emp.id} className="dark:bg-[#222222]">
@@ -499,7 +505,7 @@ const AttendanceTrackingPage: React.FC = () => {
                 ) : (
                   <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">{currentUser.name}</h2>
                 )}
-                <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#222222] text-slate-600 dark:text-gray-300 border border-slate-200/60 dark:border-[#303030]">
+                <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#222222] text-slate-600 dark:text-gray-300 border border-slate-200/60 dark:border-transparent">
                   EMP-#{calendarData?.employeeId || selectedEmpId || currentUser.id}
                 </span>
               </div>
@@ -508,7 +514,7 @@ const AttendanceTrackingPage: React.FC = () => {
 
           {/* Controls: Month Navigator & Export */}
           <div className="flex items-center gap-2 shrink-0">
-            <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] px-2 py-1 rounded-xl border border-slate-200/60 dark:border-[#303030]">
+            <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] px-2 py-1 rounded-xl border border-slate-200/60 dark:border-transparent">
               <button
                 type="button"
                 onClick={handlePrevMonth}
@@ -546,20 +552,20 @@ const AttendanceTrackingPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleExportCSV}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white transition shadow-xs cursor-pointer"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-700 dark:bg-[#222222] dark:hover:bg-[#282828] dark:text-gray-200 dark:border dark:border-transparent active:scale-95 text-white transition shadow-xs cursor-pointer"
                 title="Export Excel"
               >
-                <Download className="w-3.5 h-3.5 text-white" />
+                <Download className="w-3.5 h-3.5 text-white dark:text-gray-300" />
                 <span>Excel</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleExportPDF}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white transition shadow-xs cursor-pointer"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-700 dark:bg-[#222222] dark:hover:bg-[#282828] dark:text-gray-200 dark:border dark:border-transparent active:scale-95 text-white transition shadow-xs cursor-pointer"
                 title="Export PDF"
               >
-                <FileText className="w-3.5 h-3.5 text-white" />
+                <FileText className="w-3.5 h-3.5 text-white dark:text-gray-300" />
                 <span>PDF</span>
               </button>
             </div>
@@ -568,8 +574,8 @@ const AttendanceTrackingPage: React.FC = () => {
 
         {/* ── KPI METRICS CHIPS ────────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 shrink-0">
-          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-[#303030] rounded-xl px-3 py-2 shadow-2xs">
-            <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-transparent rounded-xl px-3 py-2 shadow-2xs">
+            <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-[#222222] text-sky-600 dark:text-gray-400 flex items-center justify-center shrink-0">
               <Clock className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0">
@@ -578,8 +584,8 @@ const AttendanceTrackingPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-[#303030] rounded-xl px-3 py-2 shadow-2xs">
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-transparent rounded-xl px-3 py-2 shadow-2xs">
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-[#222222] text-emerald-600 dark:text-gray-400 flex items-center justify-center shrink-0">
               <UserCheck className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0">
@@ -588,8 +594,8 @@ const AttendanceTrackingPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-[#303030] rounded-xl px-3 py-2 shadow-2xs">
-            <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-transparent rounded-xl px-3 py-2 shadow-2xs">
+            <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-[#222222] text-amber-600 dark:text-gray-400 flex items-center justify-center shrink-0">
               <AlertTriangle className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0">
@@ -598,8 +604,8 @@ const AttendanceTrackingPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-[#303030] rounded-xl px-3 py-2 shadow-2xs">
-            <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-transparent rounded-xl px-3 py-2 shadow-2xs">
+            <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-[#222222] text-sky-600 dark:text-gray-400 flex items-center justify-center shrink-0">
               <TrendingUp className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0">
@@ -608,8 +614,8 @@ const AttendanceTrackingPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-[#303030] rounded-xl px-3 py-2 shadow-2xs">
-            <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-transparent rounded-xl px-3 py-2 shadow-2xs">
+            <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-[#222222] text-rose-600 dark:text-gray-400 flex items-center justify-center shrink-0">
               <Gift className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0">
@@ -620,7 +626,7 @@ const AttendanceTrackingPage: React.FC = () => {
         </div>
 
         {/* ── EXCLUSIVE INTERACTIVE 7-COLUMN MONTHLY CALENDAR GRID ───────── */}
-        <div className="flex-1 min-h-0 max-h-[calc(100vh-200px)] flex flex-col bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] p-3 space-y-1.5">
+        <div className="flex-1 min-h-0 max-h-[calc(100vh-200px)] flex flex-col bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-transparent p-3 space-y-1.5">
           {/* Weekday Headers matching SelfService Page */}
           <div className="grid grid-cols-7 gap-1 text-center text-[10.5px] font-medium text-slate-400 dark:text-gray-500 py-1 px-1 shrink-0">
             <span>Su</span>
@@ -647,53 +653,54 @@ const AttendanceTrackingPage: React.FC = () => {
       {/* ── MODAL 1: DETAILED MINUTE BREAKDOWN DAY INSPECTOR ─────────────── */}
       {selectedDayRecord && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl shadow-xl border border-slate-200 dark:border-[#303030] w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
-            <div className="p-4 bg-cyan-600 text-white flex items-center justify-between">
+          <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl shadow-xl border border-slate-200 dark:border-transparent w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="p-4 bg-cyan-600 dark:bg-[#222222] text-white flex items-center justify-between border-b border-transparent dark:border-[#2a2a2a]">
               <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-white" />
+                <Calendar className="w-5 h-5 text-white dark:text-gray-300" />
                 <div>
-                  <h3 className="text-xs font-bold text-white uppercase">Attendance Log Details</h3>
-                  <span className="text-[10px] text-cyan-100 font-mono block">{selectedDayRecord.date}</span>
+                  <h3 className="text-xs font-bold text-white dark:text-gray-200 uppercase">Attendance Log Details</h3>
+                  <span className="text-[10px] text-cyan-100 dark:text-gray-400 font-mono block">{selectedDayRecord.date}</span>
                 </div>
               </div>
-              <button type="button" onClick={() => setSelectedDayRecord(null)} className="p-1 text-white/80 hover:bg-white/10 rounded-lg cursor-pointer">
+              <button type="button" onClick={() => setSelectedDayRecord(null)} className="p-1 text-white/80 dark:text-gray-400 hover:bg-white/10 dark:hover:bg-[#2a2a2a] rounded-lg cursor-pointer">
                 <X className="w-4.5 h-4.5" />
               </button>
             </div>
 
             <div className="p-5 space-y-4 text-xs">
-              <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200 dark:border-[#303030]">
+              <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200 dark:border-transparent">
                 <span className="text-slate-600 dark:text-gray-400 font-bold uppercase tracking-wider text-[10px]">ATTENDANCE STATUS</span>
-                <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
                   String(selectedDayRecord.status).toUpperCase() === 'PRESENT' 
-                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' 
-                    : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-transparent dark:text-emerald-400 dark:border-transparent' 
+                    : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-transparent dark:text-rose-400 dark:border-transparent'
                 }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${String(selectedDayRecord.status).toUpperCase() === 'PRESENT' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                   {selectedDayRecord.status}
                 </span>
               </div>
 
               {/* Exact Minute Breakdown Table */}
-              <div className="bg-slate-50 dark:bg-[#222222] p-3.5 rounded-xl border border-slate-200/80 dark:border-[#303030] space-y-2 font-mono">
-                <div className="flex justify-between border-b border-slate-200/60 dark:border-[#303030] pb-1.5">
+              <div className="bg-slate-50 dark:bg-[#222222] p-3.5 rounded-xl border border-slate-200/80 dark:border-transparent space-y-2 font-mono">
+                <div className="flex justify-between border-b border-slate-200/60 dark:border-[#2a2a2a] pb-1.5">
                   <span className="text-slate-500 dark:text-gray-400 font-sans font-medium">Check-In Timestamp:</span>
                   <span className="font-bold text-emerald-700 dark:text-emerald-400">{formatDisplayTime(selectedDayRecord.inTime)}</span>
                 </div>
-                <div className="flex justify-between border-b border-slate-200/60 dark:border-[#303030] pb-1.5">
+                <div className="flex justify-between border-b border-slate-200/60 dark:border-[#2a2a2a] pb-1.5">
                   <span className="text-slate-500 dark:text-gray-400 font-sans font-medium">Check-Out Timestamp:</span>
                   <span className="font-bold text-slate-800 dark:text-gray-200">{formatDisplayTime(selectedDayRecord.outTime)}</span>
                 </div>
-                <div className="flex justify-between border-b border-slate-200/60 dark:border-[#303030] pb-1.5">
+                <div className="flex justify-between border-b border-slate-200/60 dark:border-[#2a2a2a] pb-1.5">
                   <span className="text-slate-500 dark:text-gray-400 font-sans font-medium">Worked Minutes:</span>
-                  <span className="font-bold text-cyan-800 dark:text-cyan-400">{selectedDayRecord.workedMinutes || 0} mins ({formatMinutesToHoursStr(selectedDayRecord.workedMinutes)})</span>
+                  <span className="font-bold text-cyan-800 dark:text-gray-200">{selectedDayRecord.workedMinutes || 0} mins ({formatMinutesToHoursStr(selectedDayRecord.workedMinutes)})</span>
                 </div>
-                <div className="flex justify-between border-b border-slate-200/60 dark:border-[#303030] pb-1.5">
+                <div className="flex justify-between border-b border-slate-200/60 dark:border-[#2a2a2a] pb-1.5">
                   <span className="text-slate-500 dark:text-gray-400 font-sans font-medium">Late Minutes Penalty:</span>
                   <span className={`font-bold ${selectedDayRecord.lateMinutes ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-gray-300'}`}>
                     {selectedDayRecord.lateMinutes || 0} mins
                   </span>
                 </div>
-                <div className="flex justify-between border-b border-slate-200/60 dark:border-[#303030] pb-1.5">
+                <div className="flex justify-between border-b border-slate-200/60 dark:border-[#2a2a2a] pb-1.5">
                   <span className="text-slate-500 dark:text-gray-400 font-sans font-medium">Overtime Minutes:</span>
                   <span className="font-bold text-emerald-700 dark:text-emerald-400">+{selectedDayRecord.overtimeMinutes || 0} mins</span>
                 </div>
@@ -704,7 +711,7 @@ const AttendanceTrackingPage: React.FC = () => {
               </div>
 
               {selectedDayRecord.holidayName && (
-                <div className="p-3 bg-rose-50 dark:bg-rose-950/30 rounded-xl border border-rose-200 dark:border-rose-800/80 flex items-center gap-2">
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/20 rounded-xl border border-rose-200 dark:border-transparent flex items-center gap-2">
                   <Gift className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
                   <div>
                     <span className="text-[10px] text-rose-600 dark:text-rose-400 font-bold uppercase block">Official Company Holiday</span>
@@ -714,7 +721,7 @@ const AttendanceTrackingPage: React.FC = () => {
               )}
 
               {selectedDayRecord.leaveType && (
-                <div className="p-3 bg-cyan-50 dark:bg-cyan-950/30 rounded-xl border border-cyan-200 dark:border-cyan-800/80 flex items-center gap-2">
+                <div className="p-3 bg-cyan-50 dark:bg-cyan-950/20 rounded-xl border border-cyan-200 dark:border-transparent flex items-center gap-2">
                   <Briefcase className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
                   <div>
                     <span className="text-[10px] text-cyan-700 dark:text-cyan-400 font-bold uppercase block">Leave Application</span>
@@ -723,11 +730,11 @@ const AttendanceTrackingPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 dark:border-[#303030]">
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 dark:border-[#2a2a2a]">
                 <button
                   type="button"
                   onClick={() => setSelectedDayRecord(null)}
-                  className="px-4 py-2 border border-slate-200 dark:border-[#303030] rounded-xl text-xs font-semibold text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-[#222222] cursor-pointer transition-colors"
+                  className="px-4 py-2 border border-slate-200 dark:border-transparent bg-white dark:bg-[#222222] rounded-xl text-xs font-semibold text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-[#282828] cursor-pointer transition-colors"
                 >
                   Close
                 </button>
@@ -740,13 +747,13 @@ const AttendanceTrackingPage: React.FC = () => {
       {/* ── MODAL 2: CUSTOM DELETE CONFIRMATION MODAL ───────────────────── */}
       {deleteConfirmDay && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl shadow-xl border border-slate-200 dark:border-[#303030] w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150">
-            <div className="p-3.5 bg-rose-600 text-white flex items-center justify-between">
+          <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl shadow-xl border border-slate-200 dark:border-transparent w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="p-3.5 bg-rose-600 dark:bg-[#222222] text-white flex items-center justify-between border-b border-transparent dark:border-[#2a2a2a]">
               <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-white" />
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider">Confirm Deletion</h3>
+                <AlertCircle className="w-4 h-4 text-white dark:text-gray-300" />
+                <h3 className="text-xs font-bold text-white dark:text-gray-200 uppercase tracking-wider">Confirm Deletion</h3>
               </div>
-              <button type="button" onClick={() => setDeleteConfirmDay(null)} className="p-1 text-white/80 hover:bg-white/10 rounded-lg cursor-pointer">
+              <button type="button" onClick={() => setDeleteConfirmDay(null)} className="p-1 text-white/80 dark:text-gray-400 hover:bg-white/10 dark:hover:bg-[#2a2a2a] rounded-lg cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -756,7 +763,7 @@ const AttendanceTrackingPage: React.FC = () => {
                 Are you sure you want to remove the attendance log for date <span className="text-rose-700 dark:text-rose-400 font-bold font-mono">{deleteConfirmDay.date}</span>?
               </p>
 
-              <div className="bg-slate-50 dark:bg-[#222222] p-2.5 rounded-xl border border-slate-200 dark:border-[#303030] space-y-1.5 font-mono text-[11px]">
+              <div className="bg-slate-50 dark:bg-[#222222] p-2.5 rounded-xl border border-slate-200 dark:border-transparent space-y-1.5 font-mono text-[11px]">
                 <div className="flex justify-between">
                   <span className="text-slate-500 dark:text-gray-400 font-sans font-medium">Status:</span>
                   <span className="font-bold text-slate-800 dark:text-gray-200">{deleteConfirmDay.status}</span>
@@ -767,11 +774,11 @@ const AttendanceTrackingPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 dark:border-[#303030]">
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 dark:border-[#2a2a2a]">
                 <button
                   type="button"
                   onClick={() => setDeleteConfirmDay(null)}
-                  className="px-3.5 py-1.5 border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-semibold text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-[#222222] cursor-pointer transition-colors"
+                  className="px-3.5 py-1.5 border border-slate-200 dark:border-transparent bg-white dark:bg-[#222222] rounded-lg text-xs font-semibold text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-[#282828] cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>

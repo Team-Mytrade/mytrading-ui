@@ -342,11 +342,11 @@ const EmployeeCompensationPage: React.FC = () => {
             sortable: true,
             render: (row) => (
                 <div className="flex items-center gap-2">
-                    <BriefcaseIcon className="h-5 w-5 text-cyan-600 flex-shrink-0" />
+                    <BriefcaseIcon className="h-5 w-5 text-cyan-600 dark:text-gray-400 flex-shrink-0" />
                     <div>
-                        <span className="font-semibold text-gray-900">{row.employeeRole}</span>
+                        <span className="font-semibold text-gray-900 dark:text-white">{row.employeeRole}</span>
                         {row.isDefaultComponent && (
-                            <span className="ml-2 text-xs bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full font-medium">
+                            <span className="ml-2 text-xs bg-cyan-100 dark:bg-[#222222] text-cyan-700 dark:text-gray-300 px-2 py-0.5 rounded-full font-medium">
                                 Default
                             </span>
                         )}
@@ -363,8 +363,8 @@ const EmployeeCompensationPage: React.FC = () => {
                 return (
                     <div className="flex flex-wrap gap-1.5 py-1">
                         {entries.map(([name, pct]) => (
-                            <span key={name} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-50 text-gray-800 border border-gray-200 shadow-2xsm">
-                                <span className="font-semibold text-gray-600 mr-1">{name}:</span> {String(pct).endsWith('%') ? pct : `${pct}%`}
+                            <span key={name} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-50 dark:bg-[#222222] text-gray-800 dark:text-gray-300 border border-gray-200 dark:border-transparent shadow-2xsm">
+                                <span className="font-semibold text-gray-600 dark:text-gray-400 mr-1">{name}:</span> {String(pct).endsWith('%') ? pct : `${pct}%`}
                             </span>
                         ))}
                     </div>
@@ -377,7 +377,7 @@ const EmployeeCompensationPage: React.FC = () => {
             sortable: true,
             sortValueGetter: (row) => parseFloat(String(row.total)) || 0,
             render: (row) => (
-                <span className="font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full text-xs border border-cyan-100">
+                <span className="font-bold text-cyan-700 dark:text-gray-300 bg-cyan-50 dark:bg-transparent px-2.5 py-1 rounded-full text-xs border border-cyan-100 dark:border-transparent">
                     {row.total}
                 </span>
             ),
@@ -391,14 +391,14 @@ const EmployeeCompensationPage: React.FC = () => {
                 <div className="flex items-center justify-end gap-2">
                     <button
                         onClick={() => handleEdit(row.rawItem)}
-                        className="p-1.5 text-gray-500 hover:text-cyan-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-1.5 text-gray-500 hover:text-cyan-600 hover:bg-gray-100 dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-gray-200 rounded-lg transition-colors cursor-pointer"
                         title="Edit"
                     >
                         <PencilSquareIcon className="h-4 w-4" />
                     </button>
                     <button
                         onClick={() => handleDelete(row.employeeRole)}
-                        className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
                         title="Delete"
                     >
                         <TrashIcon className="h-4 w-4" />
@@ -426,7 +426,7 @@ const EmployeeCompensationPage: React.FC = () => {
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 [&_.stats-card]:dark:!border-transparent [&_.stats-card]:dark:!bg-[#191919] [&_.stats-card__icon]:dark:!bg-[#222222] [&_.stats-card__icon]:dark:!text-gray-300 [&_.stats-card__value]:dark:!text-white [&_.stats-card__label]:dark:!text-gray-400">
                     <StatsCard label="Roles Configured" value={totalRoles} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<BriefcaseIcon className="h-6 w-6" />} />
                     <StatsCard label="Components Mapped" value={totalComponents} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckIcon className="h-6 w-6" />} />
                     <StatsCard label="Default Configs" value={defaultConfigurations} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<InformationCircleIcon className="h-6 w-6" />} />
@@ -440,25 +440,25 @@ const EmployeeCompensationPage: React.FC = () => {
                             <div className="relative flex h-10 items-center">
                                 <button
                                     onClick={() => setShowExportMenu(!showExportMenu)}
-                                    className="h-10 w-10 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
+                                    className="h-10 w-10 border border-gray-300 dark:border-transparent bg-white dark:bg-[#191919] dark:hover:bg-[#222222] rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center cursor-pointer"
                                     disabled={compensations.length === 0}
                                 >
-                                    <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
+                                    <DocumentArrowDownIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                                 </button>
                                 {showExportMenu && (
-                                    <div className="absolute right-0 mt-1 w-40 bg-white shadow-lg rounded-md border border-gray-200 z-50">
+                                    <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-[#191919] shadow-lg rounded-md border border-gray-200 dark:border-transparent z-50 py-1">
                                         <button
                                             onClick={exportPDF}
-                                            className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
+                                            className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] cursor-pointer"
                                         >
-                                            <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
+                                            <DocumentArrowDownIcon className="h-4 w-4 text-red-600 dark:text-gray-400" />
                                             PDF
                                         </button>
                                         <button
                                             onClick={exportExcel}
-                                            className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
+                                            className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] cursor-pointer"
                                         >
-                                            <TableCellsIcon className="h-4 w-4 text-green-600" />
+                                            <TableCellsIcon className="h-4 w-4 text-green-600 dark:text-gray-400" />
                                             Excel
                                         </button>
                                     </div>
@@ -470,22 +470,22 @@ const EmployeeCompensationPage: React.FC = () => {
 
                 {/* Add/Edit Form */}
                 {showForm && (
-                    <div className="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                        <div className="px-4 sm:px-6 py-4 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div className="mb-8 bg-white dark:bg-[#191919] rounded-lg border border-gray-200 dark:border-transparent shadow-sm overflow-hidden">
+                        <div className="px-4 sm:px-6 py-4 bg-gray-50 dark:bg-[#222222] border-b border-gray-200 dark:border-transparent flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                             <div className="flex items-center gap-3 w-full sm:w-auto">
                                 <button
                                     onClick={resetForm}
-                                    className="text-gray-500 hover:text-gray-700 sm:hidden"
+                                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 sm:hidden cursor-pointer"
                                 >
                                     <ArrowLeftIcon className="h-5 w-5" />
                                 </button>
-                                <h3 className="text-md font-medium text-gray-900">
+                                <h3 className="text-md font-medium text-gray-900 dark:text-white">
                                     {editingRole ? `Edit Compensation: ${editingRole}` : "Configure New Role Compensation"}
                                 </h3>
                             </div>
                             <button
                                 onClick={resetForm}
-                                className="hidden sm:block text-gray-400 hover:text-gray-600"
+                                className="hidden sm:block text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 cursor-pointer"
                             >
                                 <XMarkIcon className="h-5 w-5" />
                             </button>
@@ -494,7 +494,7 @@ const EmployeeCompensationPage: React.FC = () => {
                         <div className="p-4 sm:p-6">
                             {/* Role Input */}
                             <div className="mb-6">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Employee Role <span className="text-red-500">*</span>
                                 </label>
                                 <input
@@ -502,22 +502,22 @@ const EmployeeCompensationPage: React.FC = () => {
                                     value={formData.employeeRole}
                                     onChange={handleRoleChange}
                                     placeholder="e.g., Senior Software Engineer, Technical Lead, Lead Architect"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                                    className="w-full px-4 py-2 border border-gray-300 dark:border-transparent rounded-lg bg-white dark:bg-[#222222] text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                                     disabled={!!editingRole}
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Enter the employee role name</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Enter the employee role name</p>
                             </div>
 
                             {/* Components Table */}
                             <div className="mb-6">
                                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
-                                    <label className="block text-sm font-medium text-gray-700">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Compensation Components
                                     </label>
                                     <button
                                         type="button"
                                         onClick={addComponent}
-                                        className="text-sm text-cyan-600 hover:text-cyan-700 flex items-center gap-1"
+                                        className="text-sm text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 flex items-center gap-1 cursor-pointer"
                                     >
                                         <PlusIcon className="h-4 w-4" />
                                         Add Component
@@ -525,21 +525,21 @@ const EmployeeCompensationPage: React.FC = () => {
                                 </div>
 
                                 <div className="hidden md:block overflow-x-auto">
-                                    <table className="min-w-full border border-gray-200 rounded-lg">
-                                        <thead className="bg-gray-50">
+                                    <table className="min-w-full border border-gray-200 dark:border-transparent rounded-lg">
+                                        <thead className="bg-gray-50 dark:bg-[#222222]">
                                             <tr>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                                     Component Name
                                                 </th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                                     Percentage (%)
                                                 </th>
-                                                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                                                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-16">
                                                     Action
                                                 </th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-200">
+                                        <tbody className="divide-y divide-gray-200 dark:divide-transparent">
                                             {formData.components.map((comp, idx) => (
                                                 <tr key={idx}>
                                                     <td className="px-4 py-2">
@@ -548,7 +548,7 @@ const EmployeeCompensationPage: React.FC = () => {
                                                             value={comp.name}
                                                             onChange={(e) => handleComponentChange(idx, "name", e.target.value)}
                                                             placeholder="e.g., Basic, HRA, Special Allowances"
-                                                            className="w-full px-3 py-1 border border-gray-300 rounded-md focus:ring-1 focus:ring-cyan-500"
+                                                            className="w-full px-3 py-1 border border-gray-300 dark:border-transparent rounded-md bg-white dark:bg-[#222222] text-gray-900 dark:text-white focus:ring-1 focus:ring-cyan-500"
                                                         />
                                                     </td>
                                                     <td className="px-4 py-2">
@@ -560,13 +560,13 @@ const EmployeeCompensationPage: React.FC = () => {
                                                             min="0"
                                                             max="100"
                                                             step="1"
-                                                            className="w-24 px-3 py-1 border border-gray-300 rounded-md focus:ring-1 focus:ring-cyan-500"
+                                                            className="w-24 px-3 py-1 border border-gray-300 dark:border-transparent rounded-md bg-white dark:bg-[#222222] text-gray-900 dark:text-white focus:ring-1 focus:ring-cyan-500"
                                                         />
                                                     </td>
                                                     <td className="px-4 py-2 text-center">
                                                         <button
                                                             onClick={() => removeComponent(idx)}
-                                                            className="text-red-500 hover:text-red-700"
+                                                            className="text-red-500 hover:text-red-700 dark:text-rose-400 dark:hover:text-rose-300 cursor-pointer"
                                                         >
                                                             <TrashIcon className="h-4 w-4" />
                                                         </button>
@@ -574,12 +574,12 @@ const EmployeeCompensationPage: React.FC = () => {
                                                 </tr>
                                             ))}
                                         </tbody>
-                                        <tfoot className="bg-gray-50">
+                                        <tfoot className="bg-gray-50 dark:bg-[#222222]">
                                             <tr>
-                                                <td colSpan={2} className="px-4 py-2 text-right text-sm font-medium text-gray-700">
+                                                <td colSpan={2} className="px-4 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">
                                                     Total:
                                                 </td>
-                                                <td className="px-4 py-2 text-center text-sm font-semibold">
+                                                <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 dark:text-white">
                                                     {formData.components.reduce((sum, c) => sum + c.percentage, 0)}%
                                                 </td>
                                             </tr>
@@ -589,19 +589,19 @@ const EmployeeCompensationPage: React.FC = () => {
 
                                 <div className="md:hidden space-y-4">
                                     {formData.components.map((comp, idx) => (
-                                        <div key={idx} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                        <div key={idx} className="bg-gray-50 dark:bg-[#222222] rounded-lg p-4 border border-gray-200 dark:border-transparent">
                                             <div className="flex justify-between items-start mb-3">
-                                                <span className="text-xs font-medium text-gray-500">Component #{idx + 1}</span>
+                                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Component #{idx + 1}</span>
                                                 <button
                                                     onClick={() => removeComponent(idx)}
-                                                    className="text-red-500 hover:text-red-700"
+                                                    className="text-red-500 hover:text-red-700 dark:text-rose-400 dark:hover:text-rose-300 cursor-pointer"
                                                 >
                                                     <TrashIcon className="h-4 w-4" />
                                                 </button>
                                             </div>
                                             <div className="space-y-3">
                                                 <div>
-                                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                                                         Component Name
                                                     </label>
                                                     <input
@@ -609,11 +609,11 @@ const EmployeeCompensationPage: React.FC = () => {
                                                         value={comp.name}
                                                         onChange={(e) => handleComponentChange(idx, "name", e.target.value)}
                                                         placeholder="e.g., Basic, HRA, Special Allowances"
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-cyan-500 text-sm"
+                                                        className="w-full px-3 py-2 border border-gray-300 dark:border-transparent rounded-md bg-white dark:bg-[#1e1e1e] text-gray-900 dark:text-white focus:ring-1 focus:ring-cyan-500 text-sm"
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                                                         Percentage (%)
                                                     </label>
                                                     <input
@@ -624,62 +624,34 @@ const EmployeeCompensationPage: React.FC = () => {
                                                         min="0"
                                                         max="100"
                                                         step="1"
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-cyan-500 text-sm"
+                                                        className="w-full px-3 py-2 border border-gray-300 dark:border-transparent rounded-md bg-white dark:bg-[#1e1e1e] text-gray-900 dark:text-white focus:ring-1 focus:ring-cyan-500 text-sm"
                                                     />
                                                 </div>
                                             </div>
                                         </div>
                                     ))}
                                     <div className="flex justify-between items-center pt-2">
-                                        <span className="text-sm font-medium text-gray-700">Total:</span>
-                                        <span className="text-sm font-semibold text-gray-900">
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total:</span>
+                                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
                                             {formData.components.reduce((sum, c) => sum + c.percentage, 0)}%
                                         </span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Toggle Switch Section - Commented out until backend processing for default component is supported */}
-                            {/* <div className="mb-6 p-4 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-lg border border-cyan-200">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <InformationCircleIcon className="h-5 w-5 text-cyan-600" />
-                                        <div>
-                                            <label className="text-sm font-medium text-gray-700">
-                                                Apply as Default Component
-                                            </label>
-                                            <p className="text-xs text-gray-500 mt-0.5">
-                                                When enabled, this component will be applied to all new employees irrespective of roles
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={handleToggleChange}
-                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 ${formData.isDefaultComponent ? "bg-cyan-600" : "bg-gray-200"
-                                            }`}
-                                    >
-                                        <span
-                                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.isDefaultComponent ? "translate-x-6" : "translate-x-1"
-                                                }`}
-                                        />
-                                    </button>
-                                </div>
-                            </div> */}
-
                             {/* Form Actions */}
-                            <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+                            <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100 dark:border-transparent">
                                 <button
                                     type="button"
                                     onClick={resetForm}
-                                    className="inline-flex items-center justify-center h-10 px-5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 border border-transparent transition-all duration-200 focus:outline-none"
+                                    className="inline-flex items-center justify-center h-10 px-5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-[#222222] rounded-lg hover:bg-gray-200 dark:hover:bg-[#2a2a2a] border border-transparent transition-all duration-200 focus:outline-none cursor-pointer"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="button"
                                     onClick={handleSubmit}
-                                    className="inline-flex items-center justify-center h-10 px-5 text-sm font-semibold !text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg border border-transparent shadow-sm transition-all duration-200 focus:outline-none gap-2"
+                                    className="inline-flex items-center justify-center h-10 px-5 text-sm font-semibold !text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg border border-transparent shadow-sm transition-all duration-200 focus:outline-none gap-2 cursor-pointer"
                                 >
                                     <CheckIcon className="w-4 h-4 !text-white shrink-0" />
                                     <span className="!text-white whitespace-nowrap">{editingRole ? "Update" : "Save"} Configuration</span>
@@ -699,6 +671,7 @@ const EmployeeCompensationPage: React.FC = () => {
                         pageSize={10}
                         rowDetailsTitle={(row) => `${row.employeeRole} Compensation`}
                         rowDetailsSubtitle="Role-based salary component percentage allocation"
+                        className="dark:border-transparent [&_.common-data-table]:dark:!border-transparent"
                     />
                 )}
 
@@ -712,20 +685,20 @@ const EmployeeCompensationPage: React.FC = () => {
                         }}
                     >
                         <div
-                            className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto"
+                            className="bg-white dark:bg-[#191919] rounded-xl shadow-xl w-full max-w-md mx-auto border border-gray-200 dark:border-transparent"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+                            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-transparent">
                                 <div className="flex items-center gap-2">
-                                    <InformationCircleIcon className="h-6 w-6 text-amber-600" />
-                                    <h3 className="text-lg font-semibold text-gray-900">Important Disclaimer</h3>
+                                    <InformationCircleIcon className="h-6 w-6 text-amber-600 dark:text-gray-400" />
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Important Disclaimer</h3>
                                 </div>
                                 <button
                                     onClick={() => {
                                         setShowDisclaimerModal(false);
                                         setPendingSubmit(null);
                                     }}
-                                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                                    className="text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
                                 >
                                     <XMarkIcon className="h-5 w-5" />
                                 </button>
@@ -733,24 +706,24 @@ const EmployeeCompensationPage: React.FC = () => {
 
                             <div className="p-5">
                                 <div className="space-y-4">
-                                    <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
-                                        <p className="text-sm text-amber-800 font-medium mb-2">
+                                    <div className="bg-amber-50 dark:bg-[#222222] p-4 rounded-lg border border-amber-200 dark:border-transparent">
+                                        <p className="text-sm text-amber-800 dark:text-gray-300 font-medium mb-2">
                                             You have enabled the "Apply as Default Component" option:
                                         </p>
-                                        <p className="text-sm text-amber-700">
+                                        <p className="text-sm text-amber-700 dark:text-gray-400">
                                             <strong>This component/s will be applied to All New employees irrespective of Roles.</strong>
                                         </p>
                                     </div>
 
-                                    <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                                        <p className="text-sm text-yellow-800">
+                                    <div className="bg-yellow-50 dark:bg-[#222222] p-4 rounded-lg border border-yellow-200 dark:border-transparent">
+                                        <p className="text-sm text-yellow-800 dark:text-gray-300">
                                             ⚠️ <strong>Warning:</strong> Enabling this option will set this compensation structure as the default template.
                                             All new employees created after this change will automatically have these component percentages applied.
                                         </p>
                                     </div>
 
-                                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                                        <p className="text-sm text-blue-800">
+                                    <div className="bg-blue-50 dark:bg-[#222222] p-4 rounded-lg border border-blue-200 dark:border-transparent">
+                                        <p className="text-sm text-blue-800 dark:text-gray-300">
                                             ℹ️ <strong>Note:</strong>
                                             <br />- This change will affect all future employee creations
                                             <br />- Existing employees will not be affected
@@ -760,14 +733,14 @@ const EmployeeCompensationPage: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+                                <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-transparent">
                                     <button
                                         type="button"
                                         onClick={() => {
                                             setShowDisclaimerModal(false);
                                             setPendingSubmit(null);
                                         }}
-                                        className="inline-flex items-center justify-center h-10 px-5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 border border-transparent transition-all duration-200 focus:outline-none"
+                                        className="inline-flex items-center justify-center h-10 px-5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-[#222222] rounded-lg hover:bg-gray-200 dark:hover:bg-[#2a2a2a] border border-transparent transition-all duration-200 focus:outline-none cursor-pointer"
                                     >
                                         Cancel
                                     </button>
@@ -780,7 +753,7 @@ const EmployeeCompensationPage: React.FC = () => {
                                                 setPendingSubmit(null);
                                             }
                                         }}
-                                        className="inline-flex items-center justify-center h-10 px-5 text-sm font-semibold !text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg border border-transparent shadow-sm transition-all duration-200 focus:outline-none gap-2"
+                                        className="inline-flex items-center justify-center h-10 px-5 text-sm font-semibold !text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg border border-transparent shadow-sm transition-all duration-200 focus:outline-none gap-2 cursor-pointer"
                                     >
                                         <CheckIcon className="w-4 h-4 !text-white shrink-0" />
                                         <span className="!text-white whitespace-nowrap">I Understand, Proceed</span>

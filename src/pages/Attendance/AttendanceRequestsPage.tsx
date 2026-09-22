@@ -6,6 +6,7 @@ import {
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
+import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 
 // Relative API Base Endpoint (routing via Vite dev proxy)
@@ -562,7 +563,7 @@ const AttendanceRequestsPage: React.FC = () => {
       label: 'Req ID',
       sortable: true,
       render: (row) => (
-        <span className="font-mono font-bold text-xs text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
+        <span className="font-mono font-bold text-xs text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-transparent px-2 py-0.5 rounded border border-cyan-200 dark:border-transparent">
           #{row.id || 'NEW'}
         </span>
       )
@@ -575,7 +576,7 @@ const AttendanceRequestsPage: React.FC = () => {
         const detail = row.requestDetails?.[0];
         const type = row.requestType || detail?.requestType || 'WORK_FROM_HOME';
         return (
-          <span className="font-bold text-xs text-slate-800 uppercase tracking-wide">
+          <span className="font-bold text-xs text-slate-800 dark:text-white uppercase tracking-wide">
             {type.replace(/_/g, ' ')}
           </span>
         );
@@ -602,13 +603,13 @@ const AttendanceRequestsPage: React.FC = () => {
       sortable: true,
       render: (row) => {
         const status = (row.status || 'PENDING').toUpperCase();
-        let colorClass = 'bg-amber-50 text-amber-700 border-amber-200';
-        if (status === 'APPROVED') colorClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-        if (status === 'REJECTED') colorClass = 'bg-rose-50 text-rose-700 border-rose-200';
-        if (status === 'CANCELLED') colorClass = 'bg-gray-100 text-gray-600 border-gray-200';
+        let colorClass = 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent';
+        if (status === 'APPROVED') colorClass = 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent';
+        if (status === 'REJECTED') colorClass = 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent';
+        if (status === 'CANCELLED') colorClass = 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent';
 
         return (
-          <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap ${colorClass}`}>
+          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap ${colorClass}`}>
             {status}
           </span>
         );
@@ -622,7 +623,7 @@ const AttendanceRequestsPage: React.FC = () => {
           <button
             type="button"
             onClick={() => handleInspectRequest(row)}
-            className="p-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-gray-600 transition-colors"
+            className="p-1.5 bg-gray-50 dark:bg-[#222222] hover:bg-gray-100 dark:hover:bg-[#2a2a2a] border border-gray-200 dark:!border-transparent rounded-lg text-gray-600 dark:text-gray-300 transition-colors cursor-pointer"
             title="Inspect Request"
           >
             <Eye className="w-3.5 h-3.5" />
@@ -631,7 +632,7 @@ const AttendanceRequestsPage: React.FC = () => {
             <button
               type="button"
               onClick={() => handleCancelRequest(row.id!)}
-              className="p-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg text-rose-600 transition-colors"
+              className="p-1.5 bg-rose-50 dark:bg-[#222222] hover:bg-rose-100 dark:hover:bg-[#2a2a2a] border border-rose-200 dark:!border-transparent rounded-lg text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
               title="Cancel Request"
             >
               <XCircle className="w-3.5 h-3.5" />
@@ -650,7 +651,7 @@ const AttendanceRequestsPage: React.FC = () => {
       <div className="max-w-6xl mx-auto pb-2 animate-in fade-in duration-200 mt-0.5">
         
         {/* User Banner matching Punch Station theme - Ultra-Compact */}
-        <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl p-2.5 sm:px-4 sm:py-2.5 border border-slate-200/80 dark:border-[#303030] shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 mb-2.5 transition-all">
+        <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl p-2.5 sm:px-4 sm:py-2.5 border border-slate-200/80 dark:!border-transparent shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 mb-2.5 transition-all">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-cyan-600 text-white font-bold text-sm shadow-2xs flex items-center justify-center shrink-0">
               {currentUser.name.charAt(0).toUpperCase()}
@@ -658,7 +659,7 @@ const AttendanceRequestsPage: React.FC = () => {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">{currentUser.name}</h2>
-                <span className="px-1.5 py-0.2 rounded-md text-[9.5px] font-bold bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border border-cyan-200/80 dark:border-cyan-800 uppercase tracking-wider">
+                <span className="px-1.5 py-0.2 rounded-md text-[9.5px] font-bold bg-cyan-50 dark:bg-transparent text-cyan-700 dark:text-gray-300 border border-cyan-200/80 dark:border-transparent uppercase tracking-wider">
                   {currentUser.role.replace(/_/g, " ")}
                 </span>
               </div>
@@ -673,12 +674,12 @@ const AttendanceRequestsPage: React.FC = () => {
                 setActiveTab(activeTab === 'history' ? 'apply' : 'history');
                 setFormStep('form');
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] border border-slate-200 dark:border-[#303030] text-slate-700 dark:text-gray-200 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] border border-slate-200 dark:!border-transparent text-slate-700 dark:text-gray-200 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
             >
               <FileText className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
               <span>{activeTab === 'history' ? 'Back to Apply' : `Request History (${requests.length})`}</span>
             </button>
-            <div className="bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl px-2.5 py-1 text-right">
+            <div className="bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl px-2.5 py-1 text-right">
               <span className="text-[9px] text-slate-400 dark:text-gray-500 font-medium block uppercase tracking-wider">Employee ID</span>
               <span className="text-xs font-mono font-bold text-slate-700 dark:text-gray-200">#{employeeCode}</span>
             </div>
@@ -694,11 +695,11 @@ const AttendanceRequestsPage: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch mb-2">
                   
                   {/* Left Column: Interactive Calendar */}
-                  <div className="lg:col-span-5 bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] p-3 sm:p-3.5 flex flex-col justify-between">
+                  <div className="lg:col-span-5 bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:!border-transparent p-3 sm:p-3.5 flex flex-col justify-between">
                     <div>
                       {/* Month Header */}
-                      <div className="flex items-center justify-between mb-2 border-b border-slate-100 dark:border-[#303030] pb-2">
-                        <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] px-1.5 py-0.5 rounded-xl border border-slate-200/80 dark:border-[#303030] shadow-2xs">
+                      <div className="flex items-center justify-between mb-2 border-b border-slate-100 dark:!border-transparent pb-2">
+                        <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] px-1.5 py-0.5 rounded-xl border border-slate-200/80 dark:!border-transparent shadow-2xs">
                           <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer">
                             <ChevronLeft className="w-3.5 h-3.5" />
                           </button>
@@ -724,7 +725,7 @@ const AttendanceRequestsPage: React.FC = () => {
                     </div>
 
                     {/* Bottom Legend */}
-                    <div className="mt-2 pt-2 border-t border-slate-100 dark:border-[#303030] space-y-1">
+                    <div className="mt-2 pt-2 border-t border-slate-100 dark:!border-transparent space-y-1">
                       <div className="flex items-center justify-between text-[10.5px] text-slate-500 dark:text-gray-400">
                         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-cyan-500 bg-cyan-500/20 inline-block"></span> Today</span>
                         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-rose-500 bg-rose-500/20 inline-block"></span> Absent</span>
@@ -737,7 +738,7 @@ const AttendanceRequestsPage: React.FC = () => {
                   </div>
 
                   {/* Right Column: Request Configuration Desk (Ultra-Compact No-Scroll Design) */}
-                  <div className="lg:col-span-7 bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] p-3 sm:p-3.5 flex flex-col justify-between">
+                  <div className="lg:col-span-7 bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:!border-transparent p-3 sm:p-3.5 flex flex-col justify-between">
                     <div className="space-y-2">
                       {/* Row 1: Request Type + Duration Pill */}
                       <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
@@ -746,7 +747,7 @@ const AttendanceRequestsPage: React.FC = () => {
                           <select
                             value={form.requestType}
                             onChange={(e) => setForm(p => ({ ...p, requestType: e.target.value }))}
-                            className="w-full h-8 px-2.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-semibold text-slate-800 dark:text-white cursor-pointer"
+                            className="w-full h-8 px-2.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-semibold text-slate-800 dark:text-white cursor-pointer"
                             required
                           >
                             <option value="WORK_FROM_HOME" className="dark:bg-[#222222]">WORK FROM HOME</option>
@@ -755,9 +756,9 @@ const AttendanceRequestsPage: React.FC = () => {
                           </select>
                         </div>
                         <div className="sm:col-span-5">
-                          <div className="h-8 px-2.5 bg-slate-50/80 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030] flex items-center justify-between">
+                          <div className="h-8 px-2.5 bg-slate-50/80 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent flex items-center justify-between">
                             <span className="text-[10.5px] text-slate-500 dark:text-gray-400 font-medium truncate">Duration</span>
-                            <span className="px-2 py-0.5 bg-white dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/30 rounded-md text-[10px] font-bold font-mono shadow-2xs shrink-0">
+                            <span className="px-2 py-0.5 bg-white dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:!border-transparent rounded-md text-[10px] font-bold font-mono shadow-2xs shrink-0">
                               {totalDays} {totalDays === 1 ? 'Day' : 'Days'}
                             </span>
                           </div>
@@ -772,7 +773,7 @@ const AttendanceRequestsPage: React.FC = () => {
                             type="date"
                             value={form.fromDate}
                             onChange={(e) => setForm(p => ({ ...p, fromDate: e.target.value, shiftDate: e.target.value }))}
-                            className="w-full h-8 px-2.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 transition-all outline-none text-xs font-mono font-medium text-slate-800 dark:text-white cursor-pointer"
+                            className="w-full h-8 px-2.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 transition-all outline-none text-xs font-mono font-medium text-slate-800 dark:text-white cursor-pointer"
                             required
                           />
                         </div>
@@ -782,7 +783,7 @@ const AttendanceRequestsPage: React.FC = () => {
                             type="date"
                             value={form.toDate}
                             onChange={(e) => setForm(p => ({ ...p, toDate: e.target.value }))}
-                            className="w-full h-8 px-2.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 transition-all outline-none text-xs font-mono font-medium text-slate-800 dark:text-white cursor-pointer"
+                            className="w-full h-8 px-2.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 transition-all outline-none text-xs font-mono font-medium text-slate-800 dark:text-white cursor-pointer"
                             required
                           />
                         </div>
@@ -790,7 +791,7 @@ const AttendanceRequestsPage: React.FC = () => {
 
                       {/* Row 3: Conditional Fields based on Request Type */}
                       {form.requestType === "ON_DUTY" ? (
-                        <div className="p-2 bg-slate-50/50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030]">
+                        <div className="p-2 bg-slate-50/50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent">
                           <div className="grid grid-cols-3 gap-2">
                             <div>
                               <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 mb-0.5 truncate">Client Name</label>
@@ -798,7 +799,7 @@ const AttendanceRequestsPage: React.FC = () => {
                                 type="text"
                                 value={form.clientName || ''}
                                 onChange={(e) => setForm(p => ({ ...p, clientName: e.target.value }))}
-                                className="w-full h-7.5 px-2 bg-white dark:bg-[#191919] border border-slate-200 dark:border-[#303030] rounded-lg text-xs text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500"
+                                className="w-full h-7.5 px-2 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500"
                                 placeholder="e.g. Acme Corp"
                               />
                             </div>
@@ -808,7 +809,7 @@ const AttendanceRequestsPage: React.FC = () => {
                                 type="text"
                                 value={form.visitLocation || ''}
                                 onChange={(e) => setForm(p => ({ ...p, visitLocation: e.target.value }))}
-                                className="w-full h-7.5 px-2 bg-white dark:bg-[#191919] border border-slate-200 dark:border-[#303030] rounded-lg text-xs text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500"
+                                className="w-full h-7.5 px-2 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500"
                                 placeholder="e.g. Downtown Office"
                               />
                             </div>
@@ -818,7 +819,7 @@ const AttendanceRequestsPage: React.FC = () => {
                                 type="text"
                                 value={form.purpose || ''}
                                 onChange={(e) => setForm(p => ({ ...p, purpose: e.target.value }))}
-                                className="w-full h-7.5 px-2 bg-white dark:bg-[#191919] border border-slate-200 dark:border-[#303030] rounded-lg text-xs text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500"
+                                className="w-full h-7.5 px-2 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500"
                                 placeholder="Deployment & visit"
                               />
                             </div>
@@ -831,7 +832,7 @@ const AttendanceRequestsPage: React.FC = () => {
                             type="text"
                             value={form.projectTaskName || ''}
                             onChange={(e) => setForm(p => ({ ...p, projectTaskName: e.target.value }))}
-                            className="w-full h-8 px-2.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 transition-all outline-none text-xs text-slate-800 dark:text-white"
+                            className="w-full h-8 px-2.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 transition-all outline-none text-xs text-slate-800 dark:text-white"
                             placeholder="Attendance Module Development"
                           />
                         </div>
@@ -844,7 +845,7 @@ const AttendanceRequestsPage: React.FC = () => {
                           type="text"
                           value={form.remarks || ''}
                           onChange={(e) => setForm(p => ({ ...p, remarks: e.target.value, reason: e.target.value }))}
-                          className="w-full h-8 px-2.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 transition-all outline-none text-xs text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-gray-500"
+                          className="w-full h-8 px-2.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 transition-all outline-none text-xs text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-gray-500"
                           placeholder="Provide details for your request..."
                           required
                         />
@@ -852,7 +853,7 @@ const AttendanceRequestsPage: React.FC = () => {
                     </div>
 
                     {/* Form Action Footer */}
-                    <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-[#303030] shrink-0 mt-1.5">
+                    <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 dark:!border-transparent shrink-0 mt-1.5">
                       <button
                         type="button"
                         onClick={handleClearForm}
@@ -877,9 +878,9 @@ const AttendanceRequestsPage: React.FC = () => {
 
             {/* ── STEP 2: ON DUTY DATES BREAKDOWN TABLE DESK ───────────────────── */}
             {formStep === 'datesBreakdown' && (
-              <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] p-4 sm:p-5 space-y-4 animate-in fade-in duration-150">
+              <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:!border-transparent p-4 sm:p-5 space-y-4 animate-in fade-in duration-150">
                 {/* Header & Add Button */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#303030]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:!border-transparent">
                   <div>
                     <h3 className="text-sm font-bold text-slate-900 dark:text-white">On duty dates</h3>
                     <p className="text-xs text-slate-500 dark:text-gray-400">Configure check-in/out, shift times, and comments for each date</p>
@@ -895,7 +896,7 @@ const AttendanceRequestsPage: React.FC = () => {
 
                 {/* Week Off Alert Banner if any date is a week off */}
                 {onDutyDateRows.some(r => isWeekOffDate(r.date)) && (
-                  <div className="p-3 bg-cyan-50/50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800 rounded-xl flex items-center gap-2.5 text-xs text-cyan-900 dark:text-cyan-200 animate-in fade-in duration-150 shadow-2xs">
+                  <div className="p-3 bg-cyan-50/50 dark:bg-cyan-950/30 border border-cyan-200 dark:!border-transparent rounded-xl flex items-center gap-2.5 text-xs text-cyan-900 dark:text-cyan-200 animate-in fade-in duration-150 shadow-2xs">
                     <CheckCircle2 className="w-4.5 h-4.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
                     <div>
                       <span className="font-bold text-[11px] uppercase tracking-wider block text-cyan-800 dark:text-cyan-300">Week Off Date Allowed:</span>
@@ -905,9 +906,9 @@ const AttendanceRequestsPage: React.FC = () => {
                 )}
 
                 {/* Dates Table */}
-                <div className="overflow-x-auto border border-slate-200 dark:border-[#303030] rounded-xl">
+                <div className="overflow-x-auto border border-slate-200 dark:!border-transparent rounded-xl">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 dark:bg-[#222222] text-slate-500 dark:text-gray-400 font-semibold border-b border-slate-200 dark:border-[#303030]">
+                    <thead className="bg-slate-50 dark:bg-[#222222] text-slate-500 dark:text-gray-400 font-semibold border-b border-slate-200 dark:!border-transparent">
                       <tr>
                         <th className="py-2.5 px-3">Date</th>
                         <th className="py-2.5 px-3">Check in-out</th>
@@ -917,7 +918,7 @@ const AttendanceRequestsPage: React.FC = () => {
                         <th className="py-2.5 px-3 text-center">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-[#303030] font-medium text-slate-800 dark:text-slate-200">
+                    <tbody className="divide-y divide-slate-100 dark:divide-transparent font-medium text-slate-800 dark:text-slate-200">
                       {onDutyDateRows.length === 0 ? (
                         <tr>
                           <td colSpan={6} className="py-6 text-center text-slate-400 dark:text-gray-500">
@@ -945,7 +946,7 @@ const AttendanceRequestsPage: React.FC = () => {
                               </td>
                               <td className="py-2.5 px-3 font-mono text-slate-700 dark:text-gray-300">
                                 {row.checkInTimeStr === '-' ? '-' : (
-                                  <span className="bg-cyan-50 dark:bg-cyan-950/50 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 px-1.5 py-0.5 rounded font-mono font-bold">
+                                  <span className="bg-cyan-50 dark:bg-[#222222] text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:!border-transparent px-1.5 py-0.5 rounded font-mono font-bold">
                                     {row.checkInTimeStr}
                                   </span>
                                 )}
@@ -996,11 +997,11 @@ const AttendanceRequestsPage: React.FC = () => {
                 </div>
 
                 {/* Footer Action Buttons */}
-                <div className="pt-3 border-t border-slate-100 dark:border-[#303030] flex items-center justify-between gap-3">
+                <div className="pt-3 border-t border-slate-100 dark:!border-transparent flex items-center justify-between gap-3">
                   <button
                     type="button"
                     onClick={() => setFormStep('form')}
-                    className="px-4 py-2 border border-slate-200 dark:border-[#303030] hover:bg-slate-50 dark:hover:bg-[#222222] rounded-xl text-xs font-semibold text-slate-700 dark:text-gray-200 flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="px-4 py-2 border border-slate-200 dark:!border-transparent hover:bg-slate-50 dark:hover:bg-[#222222] rounded-xl text-xs font-semibold text-slate-700 dark:text-gray-200 flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" /> Back to Form
                   </button>
@@ -1022,13 +1023,15 @@ const AttendanceRequestsPage: React.FC = () => {
 
         {/* HISTORY TAB */}
         {activeTab === 'history' && (
-          <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] p-4 sm:p-5 animate-in fade-in duration-150 overflow-x-auto">
+          <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:!border-transparent p-4 sm:p-5 animate-in fade-in duration-150 overflow-x-auto">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">My Attendance Requests</h3>
+              <TableToolbar onRefresh={() => fetchMyRequests(currentEmployeeId)} />
+            </div>
             <ReusableTable
               data={requests}
               columns={columns}
               loading={loading}
-              searchable={true}
-              searchPlaceholder="Search by request type or status..."
               pageSize={5}
               defaultSortKey="id"
               defaultSortOrder="desc"
@@ -1043,8 +1046,8 @@ const AttendanceRequestsPage: React.FC = () => {
       {/* ── MODAL: EDIT DATE ROW ───────────────────────────────────────────── */}
       {editingRow && (
         <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 dark:border-[#303030] space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#303030]">
+          <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 dark:!border-transparent space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:!border-transparent">
               <div className="flex items-center gap-2">
                 <Pencil className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">Edit Entry for {formatDateDisplay(editingRow.date)}</h3>
@@ -1061,7 +1064,7 @@ const AttendanceRequestsPage: React.FC = () => {
                   type="text"
                   value={editingRow.checkInTimeStr}
                   onChange={(e) => setEditingRow({ ...editingRow, checkInTimeStr: e.target.value })}
-                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl font-mono text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl font-mono text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500"
                   placeholder="e.g. 13:00 - 22:00"
                 />
               </div>
@@ -1072,7 +1075,7 @@ const AttendanceRequestsPage: React.FC = () => {
                   type="text"
                   value={editingRow.shiftStr}
                   onChange={(e) => setEditingRow({ ...editingRow, shiftStr: e.target.value })}
-                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl font-mono text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl font-mono text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500"
                   placeholder="e.g. 09:00 - 18:00"
                 />
               </div>
@@ -1083,7 +1086,7 @@ const AttendanceRequestsPage: React.FC = () => {
                   type="text"
                   value={editingRow.reason}
                   onChange={(e) => setEditingRow({ ...editingRow, reason: e.target.value })}
-                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500"
                 />
               </div>
 
@@ -1093,15 +1096,15 @@ const AttendanceRequestsPage: React.FC = () => {
                   rows={2}
                   value={editingRow.comment}
                   onChange={(e) => setEditingRow({ ...editingRow, comment: e.target.value })}
-                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500 resize-none"
+                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500 resize-none"
                 />
               </div>
 
-              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-[#303030]">
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100 dark:!border-transparent">
                 <button
                   type="button"
                   onClick={() => setEditingRow(null)}
-                  className="px-3.5 py-2 border border-slate-200 dark:border-[#303030] rounded-xl font-semibold text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-[#222222] cursor-pointer transition-colors"
+                  className="px-3.5 py-2 border border-slate-200 dark:!border-transparent rounded-xl font-semibold text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-[#222222] cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
@@ -1120,8 +1123,8 @@ const AttendanceRequestsPage: React.FC = () => {
       {/* ── MODAL: ADD CUSTOM DATE ENTRY ──────────────────────────────────── */}
       {isAddDateModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 dark:border-[#303030] space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#303030]">
+          <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 dark:!border-transparent space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:!border-transparent">
               <div className="flex items-center gap-2">
                 <Plus className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">Add On Duty Date Entry</h3>
@@ -1138,15 +1141,15 @@ const AttendanceRequestsPage: React.FC = () => {
                   type="date"
                   value={newDateInput}
                   onChange={(e) => setNewDateInput(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl font-mono outline-none focus:ring-1 focus:ring-cyan-500 font-bold text-slate-800 dark:text-white"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl font-mono outline-none focus:ring-1 focus:ring-cyan-500 font-bold text-slate-800 dark:text-white"
                 />
               </div>
 
-              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-[#303030]">
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100 dark:!border-transparent">
                 <button
                   type="button"
                   onClick={() => setIsAddDateModalOpen(false)}
-                  className="px-3.5 py-2 border border-slate-200 dark:border-[#303030] rounded-xl font-semibold text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-[#222222] cursor-pointer transition-colors"
+                  className="px-3.5 py-2 border border-slate-200 dark:!border-transparent rounded-xl font-semibold text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-[#222222] cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
@@ -1167,20 +1170,20 @@ const AttendanceRequestsPage: React.FC = () => {
       {viewingRequest && (() => {
         const detail = (viewingRequest.requestDetails?.[0] || (viewingRequest as any).responseDetails?.[0] || {}) as Partial<RequestDetailItem>;
         const status = (viewingRequest.status || 'PENDING').toUpperCase();
-        let statusBadgeClass = 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800';
-        if (status === 'APPROVED') statusBadgeClass = 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800';
-        if (status === 'REJECTED') statusBadgeClass = 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800';
-        if (status === 'CANCELLED') statusBadgeClass = 'bg-gray-100 dark:bg-[#222222] text-gray-600 dark:text-gray-400 border-gray-200 dark:border-[#303030]';
+        let statusBadgeClass = 'bg-amber-50 dark:bg-transparent text-amber-700 dark:text-gray-300 border-amber-200 dark:border-transparent';
+        if (status === 'APPROVED') statusBadgeClass = 'bg-emerald-50 dark:bg-transparent text-emerald-700 dark:text-gray-300 border-emerald-200 dark:border-transparent';
+        if (status === 'REJECTED') statusBadgeClass = 'bg-rose-50 dark:bg-transparent text-rose-700 dark:text-gray-400 border-rose-200 dark:border-transparent';
+        if (status === 'CANCELLED') statusBadgeClass = 'bg-gray-100 dark:bg-transparent text-gray-600 dark:text-gray-400 border-gray-200 dark:border-transparent';
 
         const requestTypeLabel = (viewingRequest.requestType || detail.requestType || 'WORK_FROM_HOME').replace(/_/g, ' ');
 
         return (
           <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
-            <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-slate-200 dark:border-[#303030] space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-slate-200 dark:!border-transparent space-y-4 max-h-[90vh] overflow-y-auto">
               {/* Modal Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#303030]">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:!border-transparent">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="p-2 bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 rounded-xl border border-cyan-200 dark:border-cyan-800 shrink-0">
+                  <div className="p-2 bg-cyan-50 dark:bg-[#222222] text-cyan-700 dark:text-cyan-300 rounded-xl border border-cyan-200 dark:!border-transparent shrink-0">
                     <FileText className="w-5 h-5" />
                   </div>
                   <div className="min-w-0">
@@ -1203,7 +1206,7 @@ const AttendanceRequestsPage: React.FC = () => {
               {/* Grid Information */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 text-xs">
                 {/* Request Type */}
-                <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030]">
+                <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent">
                   <span className="text-slate-500 dark:text-gray-400 font-semibold flex items-center gap-1 text-[11px] mb-1">
                     <Tag className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Request Type
                   </span>
@@ -1213,7 +1216,7 @@ const AttendanceRequestsPage: React.FC = () => {
                 </div>
 
                 {/* Dates */}
-                <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030]">
+                <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent">
                   <span className="text-slate-500 dark:text-gray-400 font-semibold flex items-center gap-1 text-[11px] mb-1">
                     <Calendar className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Date Range
                   </span>
@@ -1224,7 +1227,7 @@ const AttendanceRequestsPage: React.FC = () => {
 
                 {/* Project Task */}
                 {(detail.projectTaskName || detail.projectTaskId) && (
-                  <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030] col-span-1 sm:col-span-2">
+                  <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent col-span-1 sm:col-span-2">
                     <span className="text-slate-500 dark:text-gray-400 font-semibold flex items-center gap-1 text-[11px] mb-1">
                       <Briefcase className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Project / Task
                     </span>
@@ -1236,7 +1239,7 @@ const AttendanceRequestsPage: React.FC = () => {
 
                 {/* Timings */}
                 {(detail.checkInTime || detail.checkOutTime) && (
-                  <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030]">
+                  <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent">
                     <span className="text-slate-500 dark:text-gray-400 font-semibold flex items-center gap-1 text-[11px] mb-1">
                       <Clock className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Check In / Out
                     </span>
@@ -1250,7 +1253,7 @@ const AttendanceRequestsPage: React.FC = () => {
                 )}
 
                 {(detail.shiftInTime || detail.shiftOutTime) && (
-                  <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030]">
+                  <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent">
                     <span className="text-slate-500 dark:text-gray-400 font-semibold flex items-center gap-1 text-[11px] mb-1">
                       <Clock className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Shift Timings
                     </span>
@@ -1265,7 +1268,7 @@ const AttendanceRequestsPage: React.FC = () => {
 
                 {/* Client Visit Information */}
                 {(detail.clientName || detail.visitLocation || detail.purpose) && (
-                  <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030] col-span-1 sm:col-span-2 space-y-1">
+                  <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent col-span-1 sm:col-span-2 space-y-1">
                     <span className="text-slate-500 dark:text-gray-400 font-semibold flex items-center gap-1 text-[11px] mb-1">
                       <MapPin className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> On Duty Visit Details
                     </span>
@@ -1282,7 +1285,7 @@ const AttendanceRequestsPage: React.FC = () => {
                 )}
 
                 {/* Reason & Remarks */}
-                <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030] col-span-1 sm:col-span-2">
+                <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent col-span-1 sm:col-span-2">
                   <span className="text-slate-500 dark:text-gray-400 font-semibold block text-[11px] mb-1">Remarks & Reason:</span>
                   <p className="font-semibold text-slate-800 dark:text-white leading-relaxed text-xs">
                     {detail.remarks || detail.reason || viewingRequest.requestDetails?.[0]?.remarks || 'No remarks provided.'}
@@ -1291,7 +1294,7 @@ const AttendanceRequestsPage: React.FC = () => {
               </div>
 
               {/* Modal Footer */}
-              <div className="pt-3 border-t border-slate-100 dark:border-[#303030] flex items-center justify-end">
+              <div className="pt-3 border-t border-slate-100 dark:!border-transparent flex items-center justify-end">
                 <button
                   type="button"
                   onClick={() => setViewingRequest(null)}
