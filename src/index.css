@@ -4,6 +4,25 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    /* Keep content scrollable while never exposing browser scrollbars. */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar,
+  *::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
   body {
     @apply relative text-base font-normal z-1 bg-gray-50 font-nunito dark:bg-gray-950;
     background-color: #e7e9ee;
@@ -676,11 +695,11 @@ span.flatpickr-weekday,
 }
 
 .simplebar-scrollbar:before {
-  @apply bg-gray-200 rounded-full dark:bg-gray-700 opacity-100 !important;
+  display: none !important;
 }
 
-.simplebar-scrollbar.simplebar-visible:before {
-  @apply opacity-100;
+.simplebar-track {
+  display: none !important;
 }
 
 /* Modal & Dialog Animations */
@@ -726,6 +745,157 @@ span.flatpickr-weekday,
 .dark .bg-gray-100 {
   background-color: #2a2a2a;
 }
+
+/* Sales and other legacy pages predominantly use the slate palette without
+   dark variants. Keep their surfaces and copy readable in dark mode. */
+.dark .bg-slate-50 { background-color: #202020; }
+.dark .bg-slate-100 { background-color: #2a2a2a; }
+.dark .bg-slate-200 { background-color: #343434; }
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-300 { border-color: #374151; }
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: #374151; }
+.dark .text-slate-950,
+.dark .text-slate-900,
+.dark .text-slate-800 { color: #f8fafc; }
+.dark .text-slate-700,
+.dark .text-slate-600 { color: #e2e8f0; }
+.dark .text-slate-500 { color: #cbd5e1; }
+.dark .text-slate-400 { color: #94a3b8; }
+.dark .hover\:bg-slate-50:hover { background-color: #252525; }
+.dark .hover\:bg-slate-100:hover { background-color: #303030; }
+.dark .hover\:text-slate-900:hover,
+.dark .hover\:text-slate-800:hover,
+.dark .hover\:text-slate-700:hover { color: #fff; }
+
+/* Consistent presentation for the older report screens. These pages used
+   DaisyUI-style class names, but DaisyUI is not part of this application. */
+.reports-legacy {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: none;
+  padding: 2rem 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.reports-legacy > h2 {
+  display: none;
+}
+.reports-legacy > .flex.flex-wrap.items-center {
+  display: none;
+}
+.reports-legacy > .grid.text-center {
+  order: 1;
+  margin-bottom: 1.5rem;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 1rem;
+}
+.reports-legacy > .grid.grid-cols-1 {
+  order: 1;
+  margin-bottom: 1.5rem;
+}
+@media (min-width: 640px) {
+  .reports-legacy > .grid.text-center { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1280px) {
+  .reports-legacy > .grid.text-center { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.reports-legacy > .grid.text-center > div {
+  position: relative;
+  min-height: 94px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #fff;
+  padding: 1rem 1.25rem;
+  text-align: left;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+}
+.reports-legacy > .grid.text-center > div::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: #06b6d4;
+  content: "";
+}
+.reports-legacy > .grid.text-center > div > div:first-child {
+  color: #0f172a;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 2rem;
+}
+.reports-legacy > .grid.text-center > div > div:not(:first-child) {
+  margin-top: 0.25rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.reports-legacy > .overflow-x-auto {
+  display: none;
+}
+.reports-legacy > .flex.justify-between.items-center {
+  display: none;
+}
+.reports-legacy > .report-reusable-table {
+  order: 3;
+}
+.reports-legacy .input,
+.reports-legacy .form-input,
+.reports-legacy .form-select {
+  min-height: 2.625rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background: #fff;
+  padding: 0.55rem 0.85rem;
+  color: #0f172a;
+  outline: none;
+}
+.reports-legacy .input:focus,
+.reports-legacy .form-input:focus,
+.reports-legacy .form-select:focus {
+  border-color: #06b6d4;
+  box-shadow: 0 0 0 3px rgb(6 182 212 / 0.15);
+}
+.reports-legacy .btn {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.65rem;
+  background: #fff;
+  padding: 0.4rem 0.9rem;
+  color: #334155;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.reports-legacy .btn:hover:not(:disabled) { background: #f1f5f9; border-color: #94a3b8; }
+.reports-legacy .btn:disabled { cursor: not-allowed; opacity: 0.5; }
+.reports-legacy table { overflow: hidden; border: 1px solid #e2e8f0; border-radius: 0.5rem; }
+.reports-legacy th { color: #475569; font-weight: 600; }
+.reports-legacy td { color: #334155; }
+.dark .reports-legacy { border-color: transparent; background: transparent; color: #e5e7eb; }
+.dark .reports-legacy .input,
+.dark .reports-legacy .form-input,
+.dark .reports-legacy .form-select { border-color: #4b5563; background: #111827; color: #f9fafb; }
+.dark .reports-legacy .btn { border-color: #4b5563; background: #222; color: #f8fafc; }
+.dark .reports-legacy .btn:hover:not(:disabled) { background: #303030; }
+.dark .reports-legacy table { border-color: #374151; }
+.dark .reports-legacy th { color: #e2e8f0; }
+.dark .reports-legacy td { color: #f1f5f9; }
+.dark .reports-legacy > .overflow-x-auto,
+.dark .reports-legacy > .grid.text-center > div { border-color: #374151; background: #191919; }
+.dark .reports-legacy > .grid.text-center > div > div:first-child { color: #f8fafc; }
+.dark .reports-legacy > .grid.text-center > div > div:not(:first-child) { color: #cbd5e1; }
+.dark .reports-legacy .bg-green-100 { background: rgb(22 163 74 / 0.18); }
+.dark .reports-legacy .bg-blue-100 { background: rgb(37 99 235 / 0.18); }
+.dark .reports-legacy .bg-yellow-100 { background: rgb(217 119 6 / 0.18); }
+.dark .reports-legacy .bg-purple-100 { background: rgb(124 58 237 / 0.18); }
 
 /* Normalize Tailwind's explicit dark utilities to the app's charcoal theme. */
 .dark .dark\:bg-gray-900 { background-color: #191919; }

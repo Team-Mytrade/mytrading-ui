@@ -57,7 +57,11 @@ const FinanceReport: React.FC = () => {
   const fetchReport = async () => {
     try {
       setIsLoading(true);
-      const res = await axios.get(API_BASE, { headers });
+      const res = await axios.get(API_BASE, {
+        headers,
+        // A 403 here is a report permission failure, not an expired login.
+        skipSessionExpiredHandling: true,
+      } as any);
       if (res.data && typeof res.data === "object" && !Array.isArray(res.data)) {
         setReport(res.data as FinanceReportData);
       } else {
@@ -65,7 +69,15 @@ const FinanceReport: React.FC = () => {
       }
     } catch (err) {
       console.error("Error fetching finance report", err);
-      ToasterService.error("Failed to load finance report");
+      const status = axios.isAxiosError(err) ? err.response?.status : undefined;
+      if (status === 403) {
+        ToasterService.error(
+          "Access Denied",
+          "You do not have permission to view the finance report."
+        );
+      } else {
+        ToasterService.error("Failed to load finance report");
+      }
       setReport({});
     } finally {
       setIsLoading(false);

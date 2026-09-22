@@ -97,6 +97,22 @@
   flex: 0 0 auto;
   color: #9ba4b2;
 }
+.dark .page-breadcrumb__back,
+.dark .page-breadcrumb__trail ol,
+.dark .page-breadcrumb__link,
+.dark .page-breadcrumb__home,
+.dark .page-breadcrumb__home svg,
+.dark .page-breadcrumb__current,
+.dark .page-breadcrumb__current svg,
+.dark .page-breadcrumb__separator,
+.dark .page-breadcrumb__link svg {
+  color: #fff;
+}
+.dark .page-breadcrumb__back:hover,
+.dark .page-breadcrumb__home:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
 @media (max-width: 640px) {
   .page-breadcrumb {
     padding: 8px 12px;

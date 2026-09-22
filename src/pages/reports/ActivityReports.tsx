@@ -1,4 +1,7 @@
 import React, { useState, useMemo } from "react";
+import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import ReportSummaryGrid from "../../components/common/ReportSummaryGrid";
+import ReportDataTable from "../../components/common/ReportDataTable";
 
 interface Activity {
   id: number;
@@ -118,7 +121,9 @@ const ActivityReports: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6 bg-white dark:bg-boxdark border border-stroke rounded shadow">
+    <>
+    <PageBreadcrumb pageTitle="Activity Reports" />
+    <div className="reports-legacy max-w-7xl mx-auto p-6 bg-white dark:bg-boxdark border border-stroke rounded shadow">
       <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Activity Reports</h2>
 
       {/* Filters */}
@@ -174,22 +179,14 @@ const ActivityReports: React.FC = () => {
       </div>
 
       {/* Summary */}
-      <div className="mb-6 grid grid-cols-3 gap-4 text-center">
-        <div className="bg-green-100 rounded p-4">
-          <div className="text-3xl font-bold">{totalActivities}</div>
-          <div>Total Activities</div>
-        </div>
-        <div className="bg-blue-100 rounded p-4">
-          <div className="text-3xl font-bold">{completedCount}</div>
-          <div>Completed</div>
-        </div>
-        <div className="bg-yellow-100 rounded p-4">
-          <div className="text-3xl font-bold">{totalDuration} mins</div>
-          <div>Total Duration</div>
-        </div>
-      </div>
+      <ReportSummaryGrid items={[
+        { label: "Total Activities", value: totalActivities, tone: "green" },
+        { label: "Completed", value: completedCount, tone: "blue" },
+        { label: "Total Duration", value: `${totalDuration} mins`, tone: "yellow" },
+      ]} />
 
       {/* Activity Table */}
+      <ReportDataTable data={sortedActivities} />
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead className="bg-gray-100 dark:bg-meta-4 cursor-pointer select-none">
@@ -260,6 +257,7 @@ const ActivityReports: React.FC = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

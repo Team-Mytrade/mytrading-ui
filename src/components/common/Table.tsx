@@ -71,6 +71,7 @@ export interface ReusableTableProps<T extends { id?: number | string }> {
   emptyState?: React.ReactNode;
   className?: string;
   align?: "left" | "center" | "right";
+  showColumnFiltersInitially?: boolean;
 }
 
 type SortOrder = "asc" | "desc";
@@ -546,6 +547,7 @@ export function ReusableTable<T extends { id?: number | string }>({
   emptyState,
   className = "",
   align = "left",
+  showColumnFiltersInitially = false,
 }: ReusableTableProps<T>) {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<string | undefined>(defaultSortKey);
@@ -558,7 +560,7 @@ export function ReusableTable<T extends { id?: number | string }>({
   });
   const [isDrawerResizing, setIsDrawerResizing] = useState(false);
   const [isTableFullscreen, setIsTableFullscreen] = useState(false);
-  const [showColumnFilters, setShowColumnFilters] = useState(false);
+  const [showColumnFilters, setShowColumnFilters] = useState(showColumnFiltersInitially);
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [showColumnPicker, setShowColumnPicker] = useState(false);
   const [columnPickerPosition, setColumnPickerPosition] = useState<{ left: number; top: number } | null>(null);
