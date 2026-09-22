@@ -1,5 +1,27 @@
 # Flow Changes
 
+## 2026-09-21
+
+- Selecting a segment's customer count now opens Customer Management scoped to that segment; users can return to the complete customer list from the scoped view.
+
+- Selecting a named customer in Communication History now opens Customer Management scoped to that customer.
+
+- Selecting a named lead in Communication History now opens the Leads submodule scoped to that lead.
+
+- Selecting a sales person in Sales Targets now opens the Sales Persons submodule scoped to that person.
+
+- Selecting a sales person in Quotations now opens the Sales Persons submodule scoped to that person.
+
+- Selecting a customer in Quotations now opens Customer Management scoped to that customer.
+
+- Selecting a customer or channel in Sales Orders now opens the respective Customer Management or Sales Channels submodule scoped to that record.
+
+- Selecting a warehouse in Batch Management now opens the Warehouses submodule scoped to that warehouse.
+
+- Selecting a warehouse or product in Inventory Reservations now opens the respective Warehouses or Products submodule scoped to that record.
+
+- Selecting a vendor in Purchase Orders now opens the Vendors submodule scoped to that vendor.
+
 ## 2026-09-17
 
 - Role Directory now paginates assignments based on available viewport height, with Previous/Next navigation and page reset when search or role filters change.

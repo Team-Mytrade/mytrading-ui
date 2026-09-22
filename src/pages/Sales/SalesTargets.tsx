@@ -1,5 +1,6 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowPathIcon,
   BanknotesIcon,
@@ -212,6 +213,7 @@ function deriveStatusFromAmounts(
 }
 
 const SalesTargets: React.FC = () => {
+  const navigate = useNavigate();
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
@@ -583,7 +585,7 @@ const SalesTargets: React.FC = () => {
               <UserIcon className="h-4 w-4 text-cyan-700" />
             </div>
             <div>
-              <div className="text-sm font-semibold text-slate-900">{name}</div>
+              <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/sales-persons?salesPersonId=${target.salesPersonId}&salesPersonName=${encodeURIComponent(name)}`); }} className="max-w-[190px] truncate text-left text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline" title={`View ${name}`}>{name}</button>
               <div className="text-xs text-slate-500">{code || `ID: ${target.salesPersonId}`}</div>
             </div>
           </div>

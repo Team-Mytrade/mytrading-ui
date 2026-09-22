@@ -13,6 +13,7 @@ import StatsCard from '../../components/common/Statscard';
 import { useNavigate } from 'react-router-dom';
 import { ToasterService } from '../../Services/ToasterService';
 import { AuthContext } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 interface ManagerDashboardModel {
   totalEmployees?: number;
@@ -54,6 +55,8 @@ const MANAGER_DASHBOARD_CANDIDATES = [
 const LeaveManagerDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
 
   const currentUser = useMemo(() => {
     const userStr = localStorage.getItem('user');
@@ -279,7 +282,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
         const formatted = isNaN(d.getTime())
           ? raw
           : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        return <span className="text-xs text-gray-600 whitespace-nowrap">{formatted}</span>;
+        return <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{formatted}</span>;
       }
     },
     {
@@ -288,8 +291,8 @@ const LeaveManagerDashboardPage: React.FC = () => {
         const empName = row.employeeName || employeeMap[row.employeeId] || (row.employeeId === currentUser?.id ? currentUser?.name : `Employee #${row.employeeId}`);
         return (
           <div className="flex flex-col whitespace-nowrap">
-            <span className="font-semibold text-gray-900 text-xs">{empName}</span>
-            <span className="text-[10px] text-gray-400 font-mono">#{row.employeeId}</span>
+            <span className="font-semibold text-gray-900 dark:text-gray-200 text-xs">{empName}</span>
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">#{row.employeeId}</span>
           </div>
         );
       }
@@ -297,7 +300,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
     {
       key: 'leaveType', label: 'Category', sortable: true,
       render: (row) => (
-        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 whitespace-nowrap">
+        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 whitespace-nowrap">
           {row.leaveType}
         </span>
       )
@@ -307,8 +310,8 @@ const LeaveManagerDashboardPage: React.FC = () => {
       render: (row) => (
         <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border whitespace-nowrap ${
           row.adjustmentLeaves >= 0
-            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-            : 'bg-rose-50 text-rose-700 border-rose-200'
+            ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+            : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
         }`}>
           {row.adjustmentLeaves >= 0 ? `+${row.adjustmentLeaves}d` : `${row.adjustmentLeaves}d`}
         </span>
@@ -317,7 +320,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
     {
       key: 'balanceAfter', label: 'New Balance', sortable: true,
       render: (row) => (
-        <span className="font-bold text-gray-900 font-mono text-xs whitespace-nowrap">
+        <span className="font-bold text-gray-900 dark:text-gray-200 font-mono text-xs whitespace-nowrap">
           {row.balanceAfter ?? (10 + row.adjustmentLeaves)}d
         </span>
       )
@@ -325,7 +328,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
     {
       key: 'remarks', label: 'Remarks',
       render: (row) => (
-        <span className="text-xs text-gray-500 truncate max-w-[180px] block" title={row.remarks}>
+        <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[180px] block" title={row.remarks}>
           {row.remarks || '—'}
         </span>
       )
@@ -333,25 +336,25 @@ const LeaveManagerDashboardPage: React.FC = () => {
   ];
 
   return (
-    <div className="p-4 sm:p-6 space-y-5 bg-gray-50/50 min-h-screen">
+    <div className="p-3 sm:p-4 md:p-5 space-y-4 bg-transparent min-h-screen animate-in fade-in duration-200">
       <PageMeta title="Manager Leave Dashboard | MyTrading" description="Manager Leave Analytics & Approvals Queue" />
       <PageBreadcrumb pageTitle="Manager Leave Dashboard" />
 
       {/* Header Container */}
-      <div className="bg-white rounded-2xl shadow-2xs border border-gray-200/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-3.5 sm:p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-700 shadow-2xs font-extrabold text-sm">
+            <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-[#222222] border border-cyan-100 dark:border-[#303030] flex items-center justify-center text-cyan-700 dark:text-cyan-400 shadow-2xs font-extrabold text-sm">
               MGR
             </div>
             <div>
-              <h1 className="text-lg font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
+              <h1 className="text-base sm:text-lg font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
                 <span>Manager Leave Dashboard & Analytics</span>
-                <span className="text-[11px] px-2 py-0.5 rounded-full font-mono bg-cyan-50 text-cyan-800 border border-cyan-200 font-bold">
+                <span className="text-[10.5px] px-2 py-0.5 rounded-md font-mono bg-cyan-50 dark:bg-cyan-950/50 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 uppercase font-bold">
                   {currentUser.role}
                 </span>
               </h1>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                 Overview of team leave requests, approvals distribution, and leave adjustments
               </p>
             </div>
@@ -362,16 +365,16 @@ const LeaveManagerDashboardPage: React.FC = () => {
           <button
             type="button"
             onClick={loadData}
-            className="p-2 border border-gray-200 hover:bg-gray-100 rounded-xl text-gray-600 transition-colors shadow-2xs"
+            className="p-2 border border-gray-200 dark:border-[#303030] hover:bg-gray-100 dark:hover:bg-[#222222] rounded-xl text-gray-600 dark:text-gray-300 transition-colors shadow-2xs cursor-pointer"
             title="Refresh Data"
           >
-            <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
+            <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
           </button>
         </div>
       </div>
 
       {/* Manager Summary Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <StatsCard
           label="Total Team Staff"
           value={String(managerDashboard?.totalEmployees ?? 18)}
@@ -395,16 +398,16 @@ const LeaveManagerDashboardPage: React.FC = () => {
       </div>
 
       {/* Interactive Manager Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
         
         {/* 1. Request Status Donut Chart */}
-        <div className="lg:col-span-5 bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 space-y-2">
-          <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+        <div className="lg:col-span-5 bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-4 space-y-2">
+          <div className="flex items-center justify-between border-b border-gray-100 dark:border-[#303030] pb-2">
             <div className="flex items-center gap-2">
-              <PieChart className="w-4 h-4 text-cyan-600" />
-              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Leave Request Status</h3>
+              <PieChart className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+              <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Leave Request Status</h3>
             </div>
-            <span className="text-[10px] font-bold text-gray-400 font-mono">Real-Time Distribution</span>
+            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 font-mono">Real-Time Distribution</span>
           </div>
 
           <div className="pt-2">
@@ -415,32 +418,45 @@ const LeaveManagerDashboardPage: React.FC = () => {
                 series={[
                   managerDashboard?.requestSummary?.pending ?? 4,
                   managerDashboard?.requestSummary?.approved ?? 12,
-                  (managerDashboard?.requestSummary?.rejected ?? 2) + (managerDashboard?.requestSummary?.cancelled ?? 1),
-                  managerDashboard?.employeesOnLeaveToday ?? 2
+                  managerDashboard?.requestSummary?.rejected ?? 3,
+                  managerDashboard?.requestSummary?.onLeaveToday ?? 2
                 ]}
                 options={{
-                  chart: { type: 'donut', fontFamily: 'inherit' },
+                  chart: { type: 'donut', fontFamily: 'inherit', foreColor: isDark ? '#94a3b8' : '#64748b' },
                   labels: ['Pending', 'Approved', 'Rejected', 'On Leave Today'],
                   colors: ['#f59e0b', '#10b981', '#f43f5e', '#06b6d4'],
-                  legend: { position: 'bottom', fontSize: '11px', fontWeight: 600 },
-                  dataLabels: { enabled: true, formatter: (val: number) => `${Math.round(val)}%` },
+                  theme: { mode: isDark ? 'dark' : 'light' },
+                  stroke: { colors: [isDark ? '#191919' : '#ffffff'], width: 2 },
+                  legend: { 
+                    position: 'bottom', 
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    labels: { colors: isDark ? '#cbd5e1' : '#475569' }
+                  },
                   plotOptions: {
                     pie: {
                       donut: {
-                        size: '68%',
+                        size: '70%',
                         labels: {
                           show: true,
                           total: {
                             show: true,
                             label: 'Total Requests',
                             fontSize: '11px',
-                            fontWeight: 700,
-                            color: '#64748b'
+                            fontWeight: 600,
+                            color: isDark ? '#94a3b8' : '#64748b',
+                            formatter: () => '21'
+                          },
+                          value: {
+                            fontSize: '18px',
+                            fontWeight: 800,
+                            color: isDark ? '#ffffff' : '#0f172a'
                           }
                         }
                       }
                     }
-                  }
+                  },
+                  dataLabels: { enabled: true, formatter: (val: any) => `${Math.round(val)}%` }
                 }}
               />
             ) : (
@@ -450,13 +466,13 @@ const LeaveManagerDashboardPage: React.FC = () => {
         </div>
 
         {/* 2. Monthly Team Leave Category Trends (Bar Chart) */}
-        <div className="lg:col-span-7 bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 space-y-2">
-          <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+        <div className="lg:col-span-7 bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-4 space-y-2">
+          <div className="flex items-center justify-between border-b border-gray-100 dark:border-[#303030] pb-2">
             <div className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-cyan-600" />
-              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Monthly Team Leave Trends</h3>
+              <BarChart3 className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+              <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Monthly Team Leave Trends</h3>
             </div>
-            <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200 font-mono">FY 2026</span>
+            <span className="text-[10px] font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/50 px-2 py-0.5 rounded border border-cyan-200 dark:border-cyan-800 font-mono">FY 2026</span>
           </div>
 
           <div className="pt-2">
@@ -470,12 +486,27 @@ const LeaveManagerDashboardPage: React.FC = () => {
                   { name: 'Earned Leave', data: [1, 2, 4, 3, 5, 4] }
                 ]}
                 options={{
-                  chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'inherit' },
+                  chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'inherit', foreColor: isDark ? '#94a3b8' : '#64748b' },
+                  theme: { mode: isDark ? 'dark' : 'light' },
                   colors: ['#06b6d4', '#10b981', '#6366f1'],
                   plotOptions: { bar: { borderRadius: 4, columnWidth: '45%' } },
-                  xaxis: { categories: ['Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'], labels: { style: { fontSize: '11px', fontWeight: 600 } } },
-                  legend: { position: 'top', horizontalAlign: 'right', fontSize: '11px', fontWeight: 600 },
-                  grid: { borderColor: '#f1f5f9' },
+                  xaxis: { 
+                    categories: ['Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'], 
+                    labels: { style: { colors: isDark ? '#94a3b8' : '#64748b', fontSize: '11px', fontWeight: 600 } },
+                    axisBorder: { color: isDark ? '#303030' : '#e2e8f0' },
+                    axisTicks: { color: isDark ? '#303030' : '#e2e8f0' }
+                  },
+                  yaxis: {
+                    labels: { style: { colors: isDark ? '#94a3b8' : '#64748b', fontSize: '11px' } }
+                  },
+                  legend: { 
+                    position: 'top', 
+                    horizontalAlign: 'right', 
+                    fontSize: '11px', 
+                    fontWeight: 600,
+                    labels: { colors: isDark ? '#cbd5e1' : '#475569' }
+                  },
+                  grid: { borderColor: isDark ? '#303030' : '#f1f5f9' },
                   dataLabels: { enabled: false }
                 }}
               />
@@ -488,15 +519,15 @@ const LeaveManagerDashboardPage: React.FC = () => {
       </div>
 
       {/* Multi-Queue Pending Approvals Section */}
-      <div className="bg-white rounded-xl shadow-2xs border border-amber-200/80 p-4 space-y-3">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
+      <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-amber-200/80 dark:border-[#303030] p-4 space-y-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-gray-100 dark:border-[#303030] pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-amber-50 text-amber-700 rounded-lg border border-amber-200 shrink-0">
+            <div className="p-2 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 rounded-xl border border-amber-200 dark:border-amber-800/80 shrink-0">
               <Clock className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Pending Approval Queues</h3>
-              <p className="text-xs text-gray-500">Review and action pending requests across all 3 attendance approval streams</p>
+              <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Pending Approval Queues</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Review and action pending requests across all 3 attendance approval streams</p>
             </div>
           </div>
 
@@ -504,7 +535,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsAdjustmentModalOpen(true)}
-              className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
+              className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" /> Post Adjustment
             </button>
@@ -517,19 +548,21 @@ const LeaveManagerDashboardPage: React.FC = () => {
           {/* Queue 1: Leave Approvals */}
           <div 
             onClick={() => navigate('/att_attendanceApproval')}
-            className="bg-emerald-50/50 hover:bg-emerald-50 rounded-xl p-3.5 border border-emerald-200/80 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
+            className="bg-emerald-50/50 hover:bg-emerald-50 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/35 rounded-xl p-3.5 border border-emerald-200/80 dark:border-emerald-800/50 transition-all cursor-pointer group flex flex-col justify-between space-y-2 shadow-2xs"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-emerald-700" />
-                <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider">Leave Approvals</span>
+                <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <span className="font-bold text-xs text-gray-900 dark:text-white">Leave Approvals</span>
               </div>
               <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-emerald-600 text-white shadow-2xs">
                 {pendingQueueCounts.leave} Pending
               </span>
             </div>
-            <p className="text-[11px] text-gray-600">Employee leave applications & balances</p>
-            <div className="flex items-center gap-1 text-xs font-bold text-emerald-700 group-hover:translate-x-0.5 transition-transform pt-1">
+            <p className="text-[11px] text-gray-600 dark:text-gray-400">Casual, sick & earned leave applications</p>
+            <div className="flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400 group-hover:translate-x-0.5 transition-transform pt-1">
               <span>Manage Leave Queue</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </div>
@@ -537,20 +570,22 @@ const LeaveManagerDashboardPage: React.FC = () => {
 
           {/* Queue 2: Regularization Approvals */}
           <div 
-            onClick={() => navigate('/att_regularizationApproval')}
-            className="bg-amber-50/50 hover:bg-amber-50 rounded-xl p-3.5 border border-amber-200/80 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
+            onClick={() => navigate('/att_requests')}
+            className="bg-amber-50/50 hover:bg-amber-50 dark:bg-amber-950/20 dark:hover:bg-amber-950/35 rounded-xl p-3.5 border border-amber-200/80 dark:border-amber-800/50 transition-all cursor-pointer group flex flex-col justify-between space-y-2 shadow-2xs"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <FileCheck className="w-4 h-4 text-amber-700" />
-                <span className="text-xs font-bold text-amber-900 uppercase tracking-wider">Regularization</span>
+                <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300">
+                  <Clock className="w-4 h-4" />
+                </div>
+                <span className="font-bold text-xs text-gray-900 dark:text-white">Regularizations</span>
               </div>
-              <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-amber-600 text-white shadow-2xs">
+              <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-amber-500 text-slate-950 shadow-2xs">
                 {pendingQueueCounts.regularization} Pending
               </span>
             </div>
-            <p className="text-[11px] text-gray-600">Punch corrections & missed time logs</p>
-            <div className="flex items-center gap-1 text-xs font-bold text-amber-700 group-hover:translate-x-0.5 transition-transform pt-1">
+            <p className="text-[11px] text-gray-600 dark:text-gray-400">Missed punches and attendance overrides</p>
+            <div className="flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform pt-1">
               <span>Manage Regularization Queue</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </div>
@@ -558,20 +593,22 @@ const LeaveManagerDashboardPage: React.FC = () => {
 
           {/* Queue 3: On Duty Approvals */}
           <div 
-            onClick={() => navigate('/att_onDutyApproval')}
-            className="bg-cyan-50/50 hover:bg-cyan-50 rounded-xl p-3.5 border border-cyan-200/80 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
+            onClick={() => navigate('/att_attendanceRequests')}
+            className="bg-cyan-50/50 hover:bg-cyan-50 dark:bg-cyan-950/20 dark:hover:bg-cyan-950/35 rounded-xl p-3.5 border border-cyan-200/80 dark:border-cyan-800/50 transition-all cursor-pointer group flex flex-col justify-between space-y-2 shadow-2xs"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-cyan-700" />
-                <span className="text-xs font-bold text-cyan-900 uppercase tracking-wider">On Duty Approvals</span>
+                <div className="p-1.5 rounded-lg bg-cyan-100 dark:bg-cyan-900/60 text-cyan-700 dark:text-cyan-300">
+                  <Briefcase className="w-4 h-4" />
+                </div>
+                <span className="font-bold text-xs text-gray-900 dark:text-white">On-Duty Requests</span>
               </div>
               <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-cyan-600 text-white shadow-2xs">
                 {pendingQueueCounts.onDuty} Pending
               </span>
             </div>
-            <p className="text-[11px] text-gray-600">Business trip & client visit applications</p>
-            <div className="flex items-center gap-1 text-xs font-bold text-cyan-700 group-hover:translate-x-0.5 transition-transform pt-1">
+            <p className="text-[11px] text-gray-600 dark:text-gray-400">Business trip & client visit applications</p>
+            <div className="flex items-center gap-1 text-xs font-bold text-cyan-700 dark:text-cyan-400 group-hover:translate-x-0.5 transition-transform pt-1">
               <span>Manage On-Duty Queue</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </div>
@@ -581,11 +618,11 @@ const LeaveManagerDashboardPage: React.FC = () => {
       </div>
 
       {/* Adjustment Log Table */}
-      <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 space-y-3">
-        <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+      <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-4 space-y-3">
+        <div className="flex items-center justify-between border-b border-gray-100 dark:border-[#303030] pb-2.5">
           <div>
-            <h3 className="text-sm font-bold text-gray-900">Leave Adjustments Log</h3>
-            <p className="text-xs text-gray-500">History of manual leave quota adjustments posted by HR / Managers</p>
+            <h3 className="text-sm font-bold text-gray-900 dark:text-white">Leave Adjustments Log</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">History of manual leave quota adjustments posted by HR / Managers</p>
           </div>
         </div>
 
@@ -603,8 +640,8 @@ const LeaveManagerDashboardPage: React.FC = () => {
 
       {/* ── LEAVE ADJUSTMENT MODAL DIALOG ─────────────────────────────────── */}
       {isAdjustmentModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-xl border border-gray-200 dark:border-[#303030] w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 text-slate-900 dark:text-white">
             <div className="p-4 bg-cyan-600 !text-white flex items-center justify-between">
               <h3 className="text-sm font-bold flex items-center gap-2 !text-white text-white">
                 <Plus className="w-4 h-4 !text-white text-white" />
@@ -613,7 +650,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsAdjustmentModalOpen(false)}
-                className="p-1 rounded-lg !text-white hover:bg-white/15 transition-colors"
+                className="p-1 rounded-lg !text-white hover:bg-white/15 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4 !text-white text-white" />
               </button>
@@ -621,71 +658,71 @@ const LeaveManagerDashboardPage: React.FC = () => {
 
             <form onSubmit={handlePostAdjustment} className="p-5 space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-1.5">Target Employee</label>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">Target Employee</label>
                 <select
                   value={adjustmentForm.employeeId}
                   onChange={(e) => setAdjustmentForm(p => ({ ...p, employeeId: Number(e.target.value) }))}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-cyan-500 outline-none"
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-[#222222] border border-gray-300 dark:border-[#303030] rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                 >
                   {Object.entries(employeeMap).map(([id, name]) => (
-                    <option key={id} value={id}>{name} (#{id})</option>
+                    <option key={id} value={id} className="dark:bg-[#222222]">{name} (#{id})</option>
                   ))}
                   {Object.keys(employeeMap).length === 0 && (
-                    <option value={activeEmployeeId}>{currentUser.name} (#{activeEmployeeId})</option>
+                    <option value={activeEmployeeId} className="dark:bg-[#222222]">{currentUser.name} (#{activeEmployeeId})</option>
                   )}
                 </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-1.5">Leave Category</label>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">Leave Category</label>
                   <select
                     value={adjustmentForm.leaveType}
                     onChange={(e) => setAdjustmentForm(p => ({ ...p, leaveType: e.target.value as any }))}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-cyan-500 outline-none"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-[#222222] border border-gray-300 dark:border-[#303030] rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                   >
-                    <option value="CASUAL">Casual Leave</option>
-                    <option value="SICK">Sick Leave</option>
-                    <option value="EARNED">Earned Leave</option>
+                    <option value="CASUAL" className="dark:bg-[#222222]">Casual Leave</option>
+                    <option value="SICK" className="dark:bg-[#222222]">Sick Leave</option>
+                    <option value="EARNED" className="dark:bg-[#222222]">Earned Leave</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-1.5">Days (+ or -)</label>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">Days (+ or -)</label>
                   <input
                     type="number"
                     step="0.5"
                     value={adjustmentForm.adjustmentLeaves}
                     onChange={(e) => setAdjustmentForm(p => ({ ...p, adjustmentLeaves: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-mono font-bold text-gray-900 focus:bg-white focus:ring-2 focus:ring-cyan-500 outline-none"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-[#222222] border border-gray-300 dark:border-[#303030] rounded-xl text-xs font-mono font-bold text-gray-900 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
                     placeholder="e.g. 2 or -1"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-1.5">Adjustment Reason / Remarks</label>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">Adjustment Reason / Remarks</label>
                 <textarea
                   rows={3}
                   value={adjustmentForm.remarks}
                   onChange={(e) => setAdjustmentForm(p => ({ ...p, remarks: e.target.value }))}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:bg-white focus:ring-2 focus:ring-cyan-500 outline-none resize-none"
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-[#222222] border border-gray-300 dark:border-[#303030] rounded-xl text-xs text-gray-900 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none resize-none"
                   placeholder="Explain why this leave quota is being adjusted..."
                   required
                 />
               </div>
 
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-gray-100 dark:border-[#303030] flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsAdjustmentModalOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-xl text-sm font-semibold text-gray-800 hover:bg-gray-100 transition-colors"
+                  className="px-4 py-2 border border-gray-300 dark:border-[#303030] rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#222222] transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-sm font-bold shadow-xs disabled:opacity-50 transition-colors"
+                  className="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
                 >
                   {isSubmitting ? 'Posting...' : 'Confirm Adjustment'}
                 </button>

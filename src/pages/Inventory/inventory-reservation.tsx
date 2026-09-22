@@ -483,7 +483,7 @@ const InventoryReservationManager: React.FC = () => {
           className="flex items-center gap-2 text-sm text-slate-700 transition-colors hover:text-cyan-600 hover:underline"
           onClick={() => {
             if (reservation.productId) {
-              navigate(`/products?productId=${reservation.productId}`);
+              navigate(`/products?productId=${reservation.productId}&productName=${encodeURIComponent(reservation.productName || `Product #${reservation.productId}`)}`);
             }
           }}
         >
@@ -527,10 +527,10 @@ const InventoryReservationManager: React.FC = () => {
         const warehouseId = reservation.warehouseId;
         return (
           <button
-            className="flex items-center gap-2 text-sm text-slate-700 transition-colors hover:text-cyan-600"
+            className="flex items-center gap-2 text-sm text-slate-700 transition-colors hover:text-cyan-600 hover:underline"
             onClick={() => {
               if (warehouseId) {
-                navigate(`/warehouse?warehouseId=${warehouseId}`);
+                navigate(`/warehouse?warehouseId=${warehouseId}&warehouseName=${encodeURIComponent(warehouse?.name || `Warehouse #${warehouseId}`)}`);
               }
             }}
           >

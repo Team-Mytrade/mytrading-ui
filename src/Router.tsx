@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import SessionDraftRestorer from "./components/common/SessionDraftRestorer";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
@@ -61,7 +61,7 @@ import Deliveries from "./pages/Purchase/Deliveries";
 import ApprovalStatus from "./pages/Purchase/ApprovalStatus";
 import GoodsReceiptNotes from "./pages/Purchase/GoodsReceiptNotes";
 import Inventory from "./pages/Purchase/Inventory";
-import PurchaseReports from "./pages/reports/PurchaseReports";
+import PurchaseReports from "./pages/Reports/PurchaseReports";
 import DeliveryOrderPage from "./pages/Delivery/DeliveryOrderPage";
 import TransporterPage from "./pages/Delivery/TransporterPage";
 import VehiclePage from "./pages/Delivery/VehiclePage";
@@ -207,7 +207,7 @@ import ExpenseRevenue from "./pages/Invoice/ExpenseRevenue";
 import AccountsReceivable from "./pages/Invoice/AccountsReceivable";
 import TaxReport from "./pages/reports/TaxReport";
 import FinanceReport from "./pages/reports/FinanceReport";
-
+import Reports from "./pages/Reports/CrmReports";
 export default function AppRouter() {
   return (
     <BrowserRouter>
@@ -238,7 +238,8 @@ export default function AppRouter() {
           <Route path="/crm_dashboard" element={<CrmDashboardPage />} />
           <Route path="/customers/new" element={<CustomerFormPage />} />
           <Route path="/customers/edit/:id" element={<CustomerFormPage />} />
-
+          <Route path="/crm-reports" element={<Reports />} />
+          
           <Route path="/role_config" element={<Mainrole />} />
 
           <Route path="/service-schedule-notify" element={<ServiceScheduleNotify />} />
@@ -363,7 +364,7 @@ export default function AppRouter() {
           <Route path="/att_leaveBalance" element={<LeaveBalancePage />} />
           <Route path="/att_leaveRequest" element={<LeaveRequestPage />} />
           <Route path="/att_leavePolicy" element={<LeavePolicyPage />} />
-          <Route path="/att_leaveDashboard" element={<LeaveDashboardPage />} />
+          <Route path="/att_leaveDashboard" element={<Navigate to="/att_selfService" replace />} />
           <Route path="/att_selfService" element={<EmployeeSelfServicePage />} />
           <Route path="/att_leaveManagerDashboard" element={<LeaveManagerDashboardPage />} />
           <Route path="/att_attendanceTracking" element={<AttendanceTrackingPage />} />

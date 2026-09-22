@@ -1,5 +1,6 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   CheckCircleIcon,
   PencilSquareIcon,
@@ -107,6 +108,11 @@ function getUserFullName(user?: UserOption) {
 }
 
 const SalesPersons: React.FC = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const scopedSalesPersonId = Number(searchParams.get("salesPersonId")) || null;
+  const scopedSalesPersonName = searchParams.get("salesPersonName") || "Selected sales person";
+  const isSalesPersonScoped = searchParams.has("salesPersonId");
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
 
@@ -398,13 +404,18 @@ const SalesPersons: React.FC = () => {
   // instead, since past Sales Orders still reference salesPersonId and a
   // hard delete would orphan that history anyway.
 
+  const displayedSalesPersons = useMemo(
+    () => isSalesPersonScoped ? salesPersons.filter((person) => person.id === scopedSalesPersonId) : salesPersons,
+    [salesPersons, isSalesPersonScoped, scopedSalesPersonId]
+  );
+
   const stats = useMemo(
     () => ({
-      total: salesPersons.length,
-      active: salesPersons.filter((person) => person.active).length,
-      inactive: salesPersons.filter((person) => !person.active).length,
+      total: displayedSalesPersons.length,
+      active: displayedSalesPersons.filter((person) => person.active).length,
+      inactive: displayedSalesPersons.filter((person) => !person.active).length,
     }),
-    [salesPersons]
+    [displayedSalesPersons]
   );
 
   const columns: ColumnDef<SalesPerson>[] = [
@@ -493,6 +504,7 @@ const SalesPersons: React.FC = () => {
       />
 
       <div className="w-full max-w-none px-0 py-8">
+        {isSalesPersonScoped && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>Showing sales person: <strong>{scopedSalesPersonName}</strong></span><button type="button" onClick={() => navigate("/sales-persons")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all sales persons</button></div>}
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-3">
           <StatsCard label="Sales Persons" value={stats.total} icon={<UserGroupIcon />} />
           <StatsCard
@@ -514,7 +526,7 @@ const SalesPersons: React.FC = () => {
         </div>
 
         <ReusableTable
-          data={salesPersons}
+          data={displayedSalesPersons}
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}

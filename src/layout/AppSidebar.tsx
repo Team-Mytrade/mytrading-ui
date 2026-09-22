@@ -69,6 +69,7 @@ export const navItems: NavItem[] = [
       { name: "Deals", path: "/opportunities" },
       { name: "Interactions", path: "/communication-history" },
       { name: "Tasks", path: "/activities" },
+      { name: "Reports", path:"/crm-reports"},
     ],
   },
 
@@ -198,7 +199,6 @@ export const navItems: NavItem[] = [
     name: "Attendance",
     subItems: [
       // 1. Dashboards & Calendars
-      { name: "My Leave Calendar", path: "/att_leaveDashboard" },
       { name: "Employee Self Service", path: "/att_selfService" },
       { name: "Manager Leave Dashboard", path: "/att_leaveManagerDashboard", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
       { name: "Attendance Tracking", path: "/att_attendanceTracking" },
@@ -558,7 +558,9 @@ const AppSidebar: React.FC = () => {
 
   const handlePanelToggle = () => {
     isSidebarManuallyToggledRef.current = true;
-    if (isMobileOpen) {
+    // On small screens `isExpanded` is deliberately forced off by the sidebar
+    // context, so the trigger must control the drawer state instead.
+    if (window.innerWidth < 1024) {
       toggleMobileSidebar();
       return;
     }

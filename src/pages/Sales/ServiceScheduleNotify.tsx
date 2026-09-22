@@ -25,12 +25,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
-type LocalTime = {
-  hour: number;
-  minute: number;
-  second: number;
-  nano: number;
-};
+type LocalTime = { hour: number; minute: number; second: number; nano: number };
 
 type ServiceSchedule = {
   id: number;
@@ -70,7 +65,21 @@ type UserOption = {
   active?: boolean;
 };
 
+type CustomerOption = { id: number; customerName?: string; tradeName?: string; email?: string };
+
+type ScheduleOrderOption = {
+  id?: number;
+  salesOrderId?: number;
+  orderId?: number;
+  orderNumber?: string;
+  salesOrderNumber?: string;
+  customerId?: number;
+  customerName?: string;
+};
+
 const API_URL = "/v1/api/sales/service-schedule-notify";
+const CUSTOMERS_API = "/v1/api/crm/customers";
+const SCHEDULE_ORDERS_API = "/v1/api/sales/sales-orders/schedule/orders";
 const PAGE_SIZE = 10;
 
 const emptyForm: ScheduleForm = {
@@ -83,16 +92,49 @@ const emptyForm: ScheduleForm = {
   remarks: "",
 };
 
+// ── Normalizers — accept any shape a custom input might emit ────────────
+
+// Reads a string from an onChange payload. Handles:
+//   • standard event  { target: { value: "..." } }
+//   • raw string      "..."
+//   • raw number      123
+//   • Date            Date
+//   • range tuple     [start, end]
+function readInputValue(input: unknown): string {
+  if (input == null) return "";
+  if (typeof input === "string") return input;
+  if (typeof input === "number") return String(input);
+  if (input instanceof Date) {
+    const y = input.getFullYear();
+    const m = String(input.getMonth() + 1).padStart(2, "0");
+    const d = String(input.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  if (Array.isArray(input)) {
+    return readInputValue(input[1] ?? input[0]);
+  }
+  if (typeof input === "object" && "target" in input) {
+    const target = (input as { target?: { value?: unknown } }).target;
+    return readInputValue(target?.value);
+  }
+  return "";
+}
+
 function formatTime(time?: LocalTime | string) {
   if (!time) return "--";
   if (typeof time === "string") return time.slice(0, 5);
   return `${String(time.hour).padStart(2, "0")}:${String(time.minute).padStart(2, "0")}`;
 }
 
-function formatRequestTime(value: string) {
-  if (!value) return "00:00:00";
-  const [hour = "00", minute = "00"] = value.split(":");
-  return `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}:00`;
+function toLocalTimeObject(value: string): LocalTime {
+  if (!value) return { hour: 0, minute: 0, second: 0, nano: 0 };
+  const [hour = "0", minute = "0", second = "0"] = value.split(":");
+  return {
+    hour: Number(hour) || 0,
+    minute: Number(minute) || 0,
+    second: Number(second) || 0,
+    nano: 0,
+  };
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -103,10 +145,33 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 function getEmployeeName(user: UserOption) {
-  return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.username || user.userId;
+  return (
+    [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+    user.username ||
+    user.userId
+  );
 }
 
-function openNativeTimePicker(event: React.FocusEvent<HTMLInputElement> | React.MouseEvent<HTMLInputElement>) {
+function customerLabel(c: CustomerOption) {
+  return c.customerName || c.tradeName || `Customer #${c.id}`;
+}
+
+function getScheduleOrderId(o: ScheduleOrderOption) {
+  const numeric = Number(o.id ?? o.salesOrderId ?? o.orderId ?? 0);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : 0;
+}
+
+function getScheduleOrderLabel(o: ScheduleOrderOption) {
+  const id = getScheduleOrderId(o);
+  const number = o.orderNumber || o.salesOrderNumber;
+  if (number) return number;
+  if (o.customerName) return `Order #${id} — ${o.customerName}`;
+  return `Order #${id}`;
+}
+
+function openNativeTimePicker(
+  event: React.FocusEvent<HTMLInputElement> | React.MouseEvent<HTMLInputElement>
+) {
   const input = event.currentTarget;
   if (typeof input.showPicker === "function") {
     input.showPicker();
@@ -115,20 +180,33 @@ function openNativeTimePicker(event: React.FocusEvent<HTMLInputElement> | React.
 
 const ServiceScheduleNotify: React.FC = () => {
   const token = localStorage.getItem("accessToken");
+  const headers = useMemo(
+    () =>
+      token
+        ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
+        : undefined,
+    [token]
+  );
+
   const [schedules, setSchedules] = useState<ServiceSchedule[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
+  const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [scheduleOrders, setScheduleOrders] = useState<ScheduleOrderOption[]>([]);
+
   const [form, setForm] = useState<ScheduleForm>(emptyForm);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionUpdatingId, setActionUpdatingId] = useState<number | null>(null);
-  const [assignTarget, setAssignTarget] = useState<ServiceSchedule | null>(null);
-  const [assignEmployeeId, setAssignEmployeeId] = useState("");
-  const [deleteScheduleTarget, setDeleteScheduleTarget] = useState<ServiceSchedule | null>(null);
 
-  const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
+  const [editTarget, setEditTarget] = useState<ServiceSchedule | null>(null);
+  const [editAssignedEmployeeId, setEditAssignedEmployeeId] = useState("");
+
+  const [deleteScheduleTarget, setDeleteScheduleTarget] = useState<ServiceSchedule | null>(null);
 
   useEffect(() => {
     fetchUsers();
+    fetchCustomers();
+    fetchScheduleOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -141,21 +219,74 @@ const ServiceScheduleNotify: React.FC = () => {
     }
   };
 
+  const fetchCustomers = async () => {
+    try {
+      const res = await axios.get<CustomerOption[] | { data?: CustomerOption[] }>(
+        CUSTOMERS_API,
+        { headers }
+      );
+      const list = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.data)
+        ? res.data.data
+        : [];
+      setCustomers(list);
+    } catch (error) {
+      ToasterService.error("Failed to load customers", getErrorMessage(error, "Please try again."));
+    }
+  };
+
+  const fetchScheduleOrders = async () => {
+    try {
+      const res = await axios.get<
+        ScheduleOrderOption[] | { data?: ScheduleOrderOption[] }
+      >(SCHEDULE_ORDERS_API, { headers });
+      const list = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.data)
+        ? res.data.data
+        : [];
+      setScheduleOrders(list);
+    } catch (error) {
+      ToasterService.error(
+        "Failed to load sales order numbers",
+        getErrorMessage(error, "Please try again.")
+      );
+    }
+  };
+
   const updateSchedule = (schedule: ServiceSchedule) => {
     setSchedules((current) => {
       const exists = current.some((item) => item.id === schedule.id);
-      if (exists) {
-        return current.map((item) => (item.id === schedule.id ? schedule : item));
-      }
+      if (exists) return current.map((item) => (item.id === schedule.id ? schedule : item));
       return [schedule, ...current];
     });
   };
 
-  const handleChange = (
+  // ── Field setters — each one is explicit and normalized ───────────────
+
+  const setField = <K extends keyof ScheduleForm>(name: K, value: ScheduleForm[K]) => {
+    setForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const handleSimpleInputChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
     setForm((current) => ({ ...current, [name]: value }));
+  };
+
+  // Sales order change also auto-fills the customer when the order carries one.
+  const handleServiceOrderChange = (input: unknown) => {
+    const value = readInputValue(input);
+    setForm((current) => {
+      const next = { ...current, serviceOrderId: value };
+      const picked = scheduleOrders.find((o) => String(getScheduleOrderId(o)) === value);
+      if (picked?.customerId) {
+        next.customerId = String(picked.customerId);
+      }
+      return next;
+    });
   };
 
   const closeCreateModal = () => {
@@ -166,8 +297,16 @@ const ServiceScheduleNotify: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
+    // eslint-disable-next-line no-console
+    console.log("[create schedule] submit", form);
+
     if (!form.serviceOrderId || !form.customerId || !form.scheduledDate) {
-      ToasterService.error("Required fields missing", "Service order, customer, and scheduled date are required.");
+      ToasterService.error(
+        "Required fields missing",
+        `Sales order (${form.serviceOrderId || "missing"}), customer (${
+          form.customerId || "missing"
+        }), and scheduled date (${form.scheduledDate || "missing"}) are required.`
+      );
       return;
     }
 
@@ -178,60 +317,79 @@ const ServiceScheduleNotify: React.FC = () => {
         customerId: Number(form.customerId),
         assignedEmployeeId: Number(form.assignedEmployeeId || 0),
         scheduledDate: form.scheduledDate,
-        startTime: formatRequestTime(form.startTime),
-        endTime: formatRequestTime(form.endTime),
+        startTime: toLocalTimeObject(form.startTime),
+        endTime: toLocalTimeObject(form.endTime),
         remarks: form.remarks,
       };
+
+      // eslint-disable-next-line no-console
+      console.log("[create schedule] payload", payload);
 
       const res = await axios.post<ServiceSchedule>(API_URL, payload, { headers });
       updateSchedule(res.data);
       ToasterService.success("Schedule notification created successfully");
       closeCreateModal();
     } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("[create schedule] error", error);
       ToasterService.error("Failed to create schedule", getErrorMessage(error, "Please try again."));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const runScheduleAction = async (action: "start" | "complete", schedule: ServiceSchedule) => {
+  // ── Edit modal ────────────────────────────────────────────────────────
+
+  const openEdit = (schedule: ServiceSchedule) => {
+    setEditTarget(schedule);
+    setEditAssignedEmployeeId(String(schedule.assignedEmployeeId || ""));
+  };
+
+  const closeEdit = () => {
+    if (actionUpdatingId !== null) return;
+    setEditTarget(null);
+    setEditAssignedEmployeeId("");
+  };
+
+  const runScheduleAction = async (action: "start" | "complete") => {
+    if (!editTarget) return;
     try {
-      setActionUpdatingId(schedule.id);
-      const res = await axios.put<ServiceSchedule>(`${API_URL}/${schedule.id}/${action}`, {}, { headers });
+      setActionUpdatingId(editTarget.id);
+      const res = await axios.put<ServiceSchedule>(
+        `${API_URL}/${editTarget.id}/${action}`,
+        {},
+        { headers }
+      );
       updateSchedule(res.data);
-      ToasterService.success(`Schedule ${action === "start" ? "started" : "completed"} successfully`);
+      setEditTarget(res.data);
+      ToasterService.success(
+        `Schedule ${action === "start" ? "started" : "completed"} successfully`
+      );
     } catch (error) {
-      ToasterService.error(`Failed to ${action} schedule`, getErrorMessage(error, "Please try again."));
+      ToasterService.error(
+        `Failed to ${action} schedule`,
+        getErrorMessage(error, "Please try again.")
+      );
     } finally {
       setActionUpdatingId(null);
     }
   };
 
-  const openAssign = (schedule: ServiceSchedule) => {
-    setAssignTarget(schedule);
-    setAssignEmployeeId(String(schedule.assignedEmployeeId || ""));
-  };
-
-  const closeAssign = () => {
-    setAssignTarget(null);
-    setAssignEmployeeId("");
-  };
-
   const confirmAssign = async () => {
-    if (!assignTarget || !assignEmployeeId) {
+    if (!editTarget || !editAssignedEmployeeId) {
       ToasterService.error("Employee is required");
       return;
     }
     try {
-      setActionUpdatingId(assignTarget.id);
+      setActionUpdatingId(editTarget.id);
       const res = await axios.put<ServiceSchedule>(
-        `${API_URL}/${assignTarget.id}/assign/${assignEmployeeId}`,
+        `${API_URL}/${editTarget.id}/assign/${editAssignedEmployeeId}`,
         {},
         { headers }
       );
       updateSchedule(res.data);
+      setEditTarget(res.data);
       ToasterService.success("Employee assigned successfully");
-      closeAssign();
     } catch (error) {
       ToasterService.error("Failed to assign employee", getErrorMessage(error, "Please try again."));
     } finally {
@@ -257,7 +415,12 @@ const ServiceScheduleNotify: React.FC = () => {
   const employeeOptions = useMemo(
     () =>
       users
-        .filter((user) => user.employeeId !== undefined && user.employeeId !== null)
+        .filter(
+          (user) =>
+            user.employeeId !== undefined &&
+            user.employeeId !== null &&
+            Number(user.employeeId) > 0
+        )
         .map((user) => ({
           id: String(user.employeeId),
           name: getEmployeeName(user),
@@ -265,13 +428,38 @@ const ServiceScheduleNotify: React.FC = () => {
     [users]
   );
 
+  const customerOptions = useMemo(
+    () =>
+      customers
+        .filter((c) => Number(c.id) > 0)
+        .map((c) => ({ id: String(c.id), name: customerLabel(c) })),
+    [customers]
+  );
+
+  const serviceOrderOptions = useMemo(
+    () =>
+      scheduleOrders
+        .map((o) => ({
+          id: String(getScheduleOrderId(o)),
+          name: getScheduleOrderLabel(o),
+        }))
+        .filter((o) => Number(o.id) > 0),
+    [scheduleOrders]
+  );
+
   const stats = useMemo(
     () => ({
       users: users.length,
-      employees: users.filter((item) => item.employeeId !== undefined && item.employeeId !== null).length,
+      employees: users.filter(
+        (item) =>
+          item.employeeId !== undefined &&
+          item.employeeId !== null &&
+          Number(item.employeeId) > 0
+      ).length,
       active: users.filter((item) => item.active).length,
+      schedules: schedules.length,
     }),
-    [users]
+    [users, schedules]
   );
 
   const userColumns: ColumnDef<UserOption>[] = [
@@ -353,17 +541,30 @@ const ServiceScheduleNotify: React.FC = () => {
       key: "customerId",
       label: "Customer",
       sortable: true,
-      render: (schedule) => <span className="text-sm text-slate-700">#{schedule.customerId}</span>,
+      render: (schedule) => {
+        const customer = customers.find((c) => Number(c.id) === Number(schedule.customerId));
+        return (
+          <span className="text-sm text-slate-700">
+            {customer ? customerLabel(customer) : `#${schedule.customerId}`}
+          </span>
+        );
+      },
     },
     {
       key: "assignedEmployeeId",
       label: "Assigned",
       sortable: true,
       render: (schedule) => {
-        const employee = users.find((u) => Number(u.employeeId) === Number(schedule.assignedEmployeeId));
+        const employee = users.find(
+          (u) => Number(u.employeeId) === Number(schedule.assignedEmployeeId)
+        );
         return (
           <span className="text-sm text-slate-700">
-            {employee ? getEmployeeName(employee) : schedule.assignedEmployeeId ? `Employee #${schedule.assignedEmployeeId}` : "--"}
+            {employee
+              ? getEmployeeName(employee)
+              : schedule.assignedEmployeeId
+              ? `Employee #${schedule.assignedEmployeeId}`
+              : "--"}
           </span>
         );
       },
@@ -401,30 +602,11 @@ const ServiceScheduleNotify: React.FC = () => {
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
-            onClick={() => void runScheduleAction("start", schedule)}
-            disabled={actionUpdatingId === schedule.id}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-60"
-            title="Start"
+            onClick={() => openEdit(schedule)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            title="Edit / Actions"
           >
-            <PlayIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => void runScheduleAction("complete", schedule)}
-            disabled={actionUpdatingId === schedule.id}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
-            title="Complete"
-          >
-            <CheckCircleIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => openAssign(schedule)}
-            disabled={actionUpdatingId === schedule.id}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 disabled:cursor-not-allowed disabled:opacity-60"
-            title="Assign employee"
-          >
-            <UserPlusIcon className="h-4 w-4" />
+            <PencilSquareIcon className="h-4 w-4" />
           </button>
           <button
             type="button"
@@ -440,7 +622,6 @@ const ServiceScheduleNotify: React.FC = () => {
     },
   ];
 
-  // Show schedules table when we have data; otherwise show users (original fallback behaviour).
   const showingSchedules = schedules.length > 0;
   const tableData = showingSchedules ? schedules : users;
   const tableColumns = (showingSchedules ? scheduleColumns : userColumns) as ColumnDef<any>[];
@@ -474,7 +655,7 @@ const ServiceScheduleNotify: React.FC = () => {
           />
           <StatsCard
             label="Schedules"
-            value={schedules.length}
+            value={stats.schedules}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
             labelColor="text-cyan-600"
@@ -504,6 +685,7 @@ const ServiceScheduleNotify: React.FC = () => {
         />
       </div>
 
+      {/* ── Create Schedule ─────────────────────────────────────────── */}
       <PaginatedPopup
         isOpen={showCreateModal}
         title="Create Schedule Notification"
@@ -517,22 +699,24 @@ const ServiceScheduleNotify: React.FC = () => {
           {
             label: "Schedule Info",
             fields: [
-              <FloatingInput
+              <FloatingSelect
                 key="serviceOrderId"
-                label="Service Order ID"
+                label="Sales Order"
                 name="serviceOrderId"
-                type="number"
                 value={form.serviceOrderId}
-                onChange={handleChange}
+                onChange={handleServiceOrderChange}
+                emptyOptionLabel=""
+                options={serviceOrderOptions}
                 required
               />,
-              <FloatingInput
+              <FloatingSelect
                 key="customerId"
-                label="Customer ID"
+                label="Customer"
                 name="customerId"
-                type="number"
                 value={form.customerId}
-                onChange={handleChange}
+                onChange={(v: any) => setField("customerId", readInputValue(v))}
+                emptyOptionLabel=""
+                options={customerOptions}
                 required
               />,
               <FloatingSelect
@@ -540,7 +724,7 @@ const ServiceScheduleNotify: React.FC = () => {
                 label="Assigned Employee"
                 name="assignedEmployeeId"
                 value={form.assignedEmployeeId}
-                onChange={handleChange}
+                onChange={(v: any) => setField("assignedEmployeeId", readInputValue(v))}
                 emptyOptionLabel=""
                 options={employeeOptions}
               />,
@@ -549,89 +733,210 @@ const ServiceScheduleNotify: React.FC = () => {
                 label="Scheduled Date"
                 name="scheduledDate"
                 value={form.scheduledDate}
-                onChange={handleChange}
+                onChange={(v: any) => setField("scheduledDate", readInputValue(v))}
                 required
               />,
             ],
           },
-          {
-            label: "Timing & Notes",
-            fields: [
-              <div key="startTime">
-                <label className="mb-2 block text-sm font-medium text-gray-700">Start Time</label>
-                <input
-                  type="time"
-                  name="startTime"
-                  value={form.startTime}
-                  onChange={handleChange}
-                  onFocus={openNativeTimePicker}
-                  onClick={openNativeTimePicker}
-                  className="h-[52px] w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                />
-              </div>,
-              <div key="endTime">
-                <label className="mb-2 block text-sm font-medium text-gray-700">End Time</label>
-                <input
-                  type="time"
-                  name="endTime"
-                  value={form.endTime}
-                  onChange={handleChange}
-                  onFocus={openNativeTimePicker}
-                  onClick={openNativeTimePicker}
-                  className="h-[52px] w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                />
-              </div>,
-              <div key="remarks" className="md:col-span-2">
-                <FloatingTextarea
-                  label="Remarks"
-                  name="remarks"
-                  value={form.remarks}
-                  onChange={handleChange}
-                  rows={3}
-                />
-              </div>,
-            ],
-          },
+        {
+  label: "Timing & Notes",
+  fields: [
+    <div key="startTime">
+      <label
+        htmlFor="startTime"
+        className="mb-2 block text-sm font-medium text-gray-700"
+      >
+        Start Time
+      </label>
+      <input
+        id="startTime"
+        type="time"
+        name="startTime"
+        value={form.startTime}
+        onChange={handleSimpleInputChange}
+        onFocus={openNativeTimePicker}
+        onClick={openNativeTimePicker}
+        className="h-[52px] w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+      />
+    </div>,
+    <div key="endTime">
+      <label
+        htmlFor="endTime"
+        className="mb-2 block text-sm font-medium text-gray-700"
+      >
+        End Time
+      </label>
+      <input
+        id="endTime"
+        type="time"
+        name="endTime"
+        value={form.endTime}
+        onChange={handleSimpleInputChange}
+        onFocus={openNativeTimePicker}
+        onClick={openNativeTimePicker}
+        className="h-[52px] w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+      />
+    </div>,
+    <div key="remarks" className="md:col-span-2">
+      <FloatingTextarea
+        label="Remarks"
+        name="remarks"
+        value={form.remarks}
+        onChange={handleSimpleInputChange}
+        rows={3}
+      />
+    </div>,
+  ],
+}
         ]}
       />
 
-      {/* Assign Employee Modal */}
+      {/* ── Edit Schedule — 3 PUT actions ───────────────────────────── */}
       <PaginatedPopup
-        isOpen={!!assignTarget}
-        title="Assign Employee"
+        isOpen={!!editTarget}
+        title="Edit Schedule"
         subtitle={
-          assignTarget
-            ? `Assign an employee to schedule ${assignTarget.scheduleNo || `#${assignTarget.id}`}`
+          editTarget
+            ? `${editTarget.scheduleNo || `Schedule #${editTarget.id}`} · Status: ${
+                editTarget.status || "N/A"
+              }`
             : ""
         }
-        onClose={closeAssign}
+        onClose={closeEdit}
         onSubmit={(e) => {
           e.preventDefault();
-          void confirmAssign();
+          closeEdit();
         }}
-        submitting={actionUpdatingId === assignTarget?.id}
-        submitLabel="Assign"
-        maxWidthClassName="max-w-lg"
+        submitting={false}
+        submitLabel="Close"
+        maxWidthClassName="max-w-3xl"
         tabs={[
           {
-            label: "Assignment",
+            label: "Schedule Details",
             fields: [
-              <FloatingSelect
-                key="assignEmployeeId"
-                label="Employee"
-                name="assignEmployeeId"
-                value={assignEmployeeId}
-                onChange={(e) => setAssignEmployeeId(e.target.value)}
-                emptyOptionLabel=""
-                options={employeeOptions}
-                required
-              />,
+              <div key="detailsGrid" className="md:col-span-2 grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                    Schedule No
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                    {editTarget?.scheduleNo || "--"}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                    Status
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                    {editTarget?.status || "N/A"}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                    Sales Order
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                    {(() => {
+                      const o = scheduleOrders.find(
+                        (x) => getScheduleOrderId(x) === Number(editTarget?.serviceOrderId)
+                      );
+                      return o
+                        ? getScheduleOrderLabel(o)
+                        : editTarget?.serviceOrderId ?? "--";
+                    })()}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                    Customer
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                    {(() => {
+                      const c = customers.find(
+                        (x) => Number(x.id) === Number(editTarget?.customerId)
+                      );
+                      return c ? customerLabel(c) : `#${editTarget?.customerId ?? "--"}`;
+                    })()}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                    Scheduled
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                    {editTarget?.scheduledDate || "--"}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                    Time
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                    {formatTime(editTarget?.startTime)} - {formatTime(editTarget?.endTime)}
+                  </div>
+                </div>
+              </div>,
+
+              <div
+                key="actionButtons"
+                className="md:col-span-2 flex flex-wrap gap-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4"
+              >
+                <button
+                  type="button"
+                  onClick={() => void runScheduleAction("start")}
+                  disabled={actionUpdatingId === editTarget?.id}
+                  className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <PlayIcon className="h-4 w-4" />
+                  Start Schedule
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void runScheduleAction("complete")}
+                  disabled={actionUpdatingId === editTarget?.id}
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <CheckCircleIcon className="h-4 w-4" />
+                  Complete Schedule
+                </button>
+              </div>,
+
+              <div
+                key="assignBlock"
+                className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-4"
+              >
+                <div className="mb-2 flex items-center gap-2">
+                  <UserPlusIcon className="h-4 w-4 text-cyan-600" />
+                  <div className="text-sm font-semibold text-slate-900">Reassign Employee</div>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <div className="flex-1">
+                    <FloatingSelect
+                      label="Employee"
+                      name="editAssignedEmployeeId"
+                      value={editAssignedEmployeeId}
+                      onChange={(v: any) => setEditAssignedEmployeeId(readInputValue(v))}
+                      emptyOptionLabel=""
+                      options={employeeOptions}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void confirmAssign()}
+                    disabled={actionUpdatingId === editTarget?.id || !editAssignedEmployeeId}
+                    className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <UserPlusIcon className="h-4 w-4" />
+                    Assign
+                  </button>
+                </div>
+              </div>,
             ],
           },
         ]}
       />
 
-      {/* Delete Confirmation */}
+      {/* ── Delete Confirmation ─────────────────────────────────────── */}
       <DynamicPopup
         isPopupOpen={!!deleteScheduleTarget}
         setIsPopupOpen={(open) => {
@@ -642,7 +947,9 @@ const ServiceScheduleNotify: React.FC = () => {
         innerText="Delete Schedule"
         subText={
           deleteScheduleTarget
-            ? `Are you sure you want to delete schedule ${deleteScheduleTarget.scheduleNo || `#${deleteScheduleTarget.id}`}?`
+            ? `Are you sure you want to delete schedule ${
+                deleteScheduleTarget.scheduleNo || `#${deleteScheduleTarget.id}`
+              }?`
             : "Are you sure?"
         }
         confirmLabel="Delete"

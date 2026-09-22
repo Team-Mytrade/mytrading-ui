@@ -361,8 +361,8 @@ const AttendancePolicyPage: React.FC = () => {
       sortable: true, 
       render: (row) => (
         <div>
-          <span className="font-bold text-xs text-gray-900 block">{row.policyName}</span>
-          <span className="text-[10px] text-gray-400 font-mono">ID: #{row.id || 1}</span>
+          <span className="font-bold text-xs text-gray-900 dark:text-white block">{row.policyName}</span>
+          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">ID: #{row.id || 1}</span>
         </div>
       ) 
     },
@@ -371,7 +371,7 @@ const AttendancePolicyPage: React.FC = () => {
       label: 'Full Day Min', 
       sortable: true, 
       render: (row) => (
-        <span className="font-mono text-xs font-bold text-cyan-800 bg-cyan-50 border border-cyan-200 px-2 py-0.5 rounded whitespace-nowrap">
+        <span className="font-mono text-xs font-bold text-cyan-800 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-800 px-2 py-0.5 rounded whitespace-nowrap">
           {row.fullDayMinimumMinutes / 60} hrs ({row.fullDayMinimumMinutes}m)
         </span>
       ) 
@@ -381,7 +381,7 @@ const AttendancePolicyPage: React.FC = () => {
       label: 'Grace Period', 
       sortable: true, 
       render: (row) => (
-        <span className="font-mono text-xs font-medium text-gray-700 whitespace-nowrap">
+        <span className="font-mono text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
           {row.gracePeriodMinutes} mins
         </span>
       ) 
@@ -391,7 +391,7 @@ const AttendancePolicyPage: React.FC = () => {
       label: 'Max Break', 
       sortable: true, 
       render: (row) => (
-        <span className="font-mono text-xs font-medium text-gray-700 whitespace-nowrap">
+        <span className="font-mono text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
           {row.maxBreakMinutes} mins
         </span>
       ) 
@@ -401,9 +401,9 @@ const AttendancePolicyPage: React.FC = () => {
       label: 'Permissions (WFH/OD)', 
       render: (row) => (
         <div className="flex items-center gap-1 flex-wrap">
-          {row.allowWorkFromHome && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded">WFH</span>}
-          {row.allowOnDuty && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-200 rounded">OD</span>}
-          {row.allowRegularization && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded">REG</span>}
+          {row.allowWorkFromHome && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded">WFH</span>}
+          {row.allowOnDuty && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded">OD</span>}
+          {row.allowRegularization && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded">REG</span>}
         </div>
       ) 
     },
@@ -413,7 +413,7 @@ const AttendancePolicyPage: React.FC = () => {
       sortable: true, 
       render: (row) => (
         <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold shadow-2xs whitespace-nowrap ${
-          row.active !== false ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+          row.active !== false ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
         }`}>
           {row.active !== false ? 'Active' : 'Inactive'}
         </span>
@@ -427,7 +427,7 @@ const AttendancePolicyPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setViewingPolicy(row)}
-            className="p-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200/80 rounded-lg text-gray-600 transition-colors"
+            className="p-1.5 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] border border-gray-200/80 dark:border-[#303030] rounded-lg text-gray-600 dark:text-gray-300 transition-colors"
             title="View Policy Details"
           >
             <Eye className="w-3.5 h-3.5" />
@@ -435,7 +435,7 @@ const AttendancePolicyPage: React.FC = () => {
           <button
             type="button"
             onClick={() => openEditModal(row)}
-            className="p-1.5 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200/80 rounded-lg text-cyan-700 transition-colors"
+            className="p-1.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-950/40 dark:hover:bg-cyan-900/50 border border-cyan-200/80 dark:border-cyan-800 rounded-lg text-cyan-700 dark:text-cyan-300 transition-colors"
             title="Edit Policy"
           >
             <Edit className="w-3.5 h-3.5" />
@@ -444,7 +444,7 @@ const AttendancePolicyPage: React.FC = () => {
             <button
               type="button"
               onClick={() => handleSoftDelete(row)}
-              className="p-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 rounded-lg text-rose-600 transition-colors"
+              className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200/80 dark:border-rose-800 rounded-lg text-rose-600 dark:text-rose-300 transition-colors"
               title="Deactivate Policy"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -461,7 +461,7 @@ const AttendancePolicyPage: React.FC = () => {
       label: 'Assignment ID',
       sortable: true,
       render: (row) => (
-        <span className="font-mono text-xs font-bold text-slate-700">#{row.id || '-'}</span>
+        <span className="font-mono text-xs font-bold text-slate-700 dark:text-gray-300">#{row.id || '-'}</span>
       )
     },
     {
@@ -470,14 +470,14 @@ const AttendancePolicyPage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-cyan-100 text-cyan-800 flex items-center justify-center font-bold text-xs">
+          <div className="w-7 h-7 rounded-full bg-cyan-100 dark:bg-cyan-950/60 text-cyan-800 dark:text-cyan-300 flex items-center justify-center font-bold text-xs">
             {row.employeeId}
           </div>
           <div>
-            <span className="font-bold text-xs text-gray-900 block">
+            <span className="font-bold text-xs text-gray-900 dark:text-white block">
               {row.employeeName || `Employee #${row.employeeId}`}
             </span>
-            <span className="text-[10px] text-gray-500 font-mono">ID: {row.employeeId}</span>
+            <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">ID: {row.employeeId}</span>
           </div>
         </div>
       )
@@ -490,10 +490,10 @@ const AttendancePolicyPage: React.FC = () => {
         const matchedPol = savedPolicies.find(p => p.id === row.attendancePolicyId);
         return (
           <div>
-            <span className="font-bold text-xs text-cyan-900 block">
+            <span className="font-bold text-xs text-cyan-900 dark:text-cyan-300 block">
               {row.policyName || matchedPol?.policyName || `Policy #${row.attendancePolicyId}`}
             </span>
-            <span className="text-[10px] text-gray-400 font-mono">Policy ID: #{row.attendancePolicyId}</span>
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">Policy ID: #{row.attendancePolicyId}</span>
           </div>
         );
       }
@@ -503,10 +503,10 @@ const AttendancePolicyPage: React.FC = () => {
       label: 'Effective Period',
       sortable: true,
       render: (row) => (
-        <div className="flex items-center gap-1 text-xs font-mono text-gray-700">
-          <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+        <div className="flex items-center gap-1 text-xs font-mono text-gray-700 dark:text-gray-300">
+          <Calendar className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 shrink-0" />
           <span>{row.effectiveFrom}</span>
-          <span className="text-gray-400">→</span>
+          <span className="text-gray-400 dark:text-gray-500">→</span>
           <span>{row.effectiveTo}</span>
         </div>
       )
@@ -518,7 +518,7 @@ const AttendancePolicyPage: React.FC = () => {
         <button
           type="button"
           onClick={() => row.id && setDeletingAssignmentId(row.id)}
-          className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/80 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs"
+          className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-300 border border-rose-200/80 dark:border-rose-900/50 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs"
           title="Delete Assignment"
         >
           <Trash2 className="w-3.5 h-3.5" /> Remove
@@ -538,26 +538,26 @@ const AttendancePolicyPage: React.FC = () => {
       <div className="max-w-7xl mx-auto pb-4 space-y-2.5 animate-in fade-in duration-200 mt-0.5">
         
         {/* Top Header Card */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-2.5 px-3.5 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-2.5 px-3.5 flex flex-col sm:flex-row items-center justify-between gap-2.5">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-cyan-50 text-cyan-600 rounded-lg border border-cyan-100/80 shadow-2xs">
+            <div className="p-2 bg-cyan-50 dark:bg-[#222222] text-cyan-600 dark:text-cyan-400 rounded-lg border border-cyan-100/80 dark:border-[#303030] shadow-2xs">
               <UserCheck className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-xs font-bold text-gray-900 tracking-tight">Attendance Policy & Assignments</h2>
-              <p className="text-[11px] text-gray-500">Manage policy thresholds and assign active working policies to employees</p>
+              <h2 className="text-xs font-bold text-gray-900 dark:text-white tracking-tight">Attendance Policy & Assignments</h2>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400">Manage policy thresholds and assign active working policies to employees</p>
             </div>
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex items-center bg-gray-100/80 p-0.5 rounded-lg border border-gray-200/70 text-[11px] font-semibold">
+          <div className="flex items-center bg-gray-100/80 dark:bg-[#222222] p-0.5 rounded-lg border border-gray-200/70 dark:border-[#303030] text-[11px] font-semibold">
             <button
               type="button"
               onClick={() => setActiveTab('assignments')}
               className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 ${
                 activeTab === 'assignments'
-                  ? 'bg-white text-cyan-700 shadow-2xs font-bold'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white dark:bg-[#191919] text-cyan-700 dark:text-cyan-400 shadow-2xs font-bold'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               <UserCheck className="w-3 h-3" /> Policy Assignments
@@ -567,8 +567,8 @@ const AttendancePolicyPage: React.FC = () => {
               onClick={() => setActiveTab('policies')}
               className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 ${
                 activeTab === 'policies'
-                  ? 'bg-white text-cyan-700 shadow-2xs font-bold'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white dark:bg-[#191919] text-cyan-700 dark:text-cyan-400 shadow-2xs font-bold'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               <Clock className="w-3 h-3" /> Policy Master
@@ -581,13 +581,13 @@ const AttendancePolicyPage: React.FC = () => {
           <div className="space-y-2.5 animate-in fade-in duration-150">
             
             {/* Quick Action & Lookup Bar */}
-            <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-2.5">
+            <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-2.5">
               <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
                 
                 {/* Left Side: Search Input with Action Query Buttons */}
                 <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                   <div className="relative flex-1">
-                    <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-cyan-600" />
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-cyan-600 dark:text-cyan-400" />
                     <input
                       type="number"
                       value={searchEmployeeId}
@@ -596,7 +596,7 @@ const AttendancePolicyPage: React.FC = () => {
                         if (e.key === 'Enter') handleFetchEmployeeAssignments();
                       }}
                       placeholder="Enter Employee ID (e.g. 12)..."
-                      className="w-full pl-9 pr-3 h-8 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all"
+                      className="w-full pl-9 pr-3 h-8 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-semibold text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:bg-white dark:focus:bg-[#191919] focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all"
                     />
                   </div>
 
@@ -605,10 +605,10 @@ const AttendancePolicyPage: React.FC = () => {
                       type="button"
                       onClick={handleFetchEmployeeAssignments}
                       disabled={isQuerying}
-                      className="h-8 px-3 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200/80 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
+                      className="h-8 px-3 bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-950/40 dark:hover:bg-cyan-900/50 text-cyan-700 dark:text-cyan-300 border border-cyan-200/80 dark:border-cyan-800 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
                       title="Fetch All Policy History for Employee ID"
                     >
-                      <FileText className="w-3.5 h-3.5 text-cyan-600" />
+                      <FileText className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                       <span>All History</span>
                     </button>
 
@@ -616,10 +616,10 @@ const AttendancePolicyPage: React.FC = () => {
                       type="button"
                       onClick={handleFetchCurrentEmployeePolicy}
                       disabled={isQuerying}
-                      className="h-8 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
+                      className="h-8 px-3 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
                       title="Fetch Active Policy Today for Employee ID"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       <span>Current Active</span>
                     </button>
 
@@ -632,7 +632,7 @@ const AttendancePolicyPage: React.FC = () => {
                           setQueryError(null);
                           setSearchEmployeeId('');
                         }}
-                        className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 border border-slate-200 rounded-lg transition-all"
+                        className="h-8 w-8 flex items-center justify-center text-slate-400 dark:text-gray-400 hover:text-slate-600 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg transition-all"
                         title="Clear Filter"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -663,29 +663,29 @@ const AttendancePolicyPage: React.FC = () => {
 
               {/* Single Result View for /current */}
               {currentPolicyResult && (
-                <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-xl space-y-2 animate-in fade-in duration-200">
+                <div className="p-4 bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-xl space-y-2 animate-in fade-in duration-200">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs uppercase tracking-wider">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Current Active Policy for Employee #{currentPolicyResult.employeeId}
+                    <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold text-xs uppercase tracking-wider">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Current Active Policy for Employee #{currentPolicyResult.employeeId}
                     </div>
                     <span className="px-2 py-0.5 bg-emerald-600 text-white rounded text-[10px] font-bold uppercase">Active Today</span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs bg-white p-3 rounded-lg border border-emerald-100 font-mono">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs bg-white dark:bg-[#222222] p-3 rounded-lg border border-emerald-100 dark:border-[#303030] font-mono">
                     <div>
-                      <span className="text-gray-400 block text-[10px]">ASSIGNMENT ID</span>
-                      <span className="font-bold text-slate-800">#{currentPolicyResult.id}</span>
+                      <span className="text-gray-400 dark:text-gray-500 block text-[10px]">ASSIGNMENT ID</span>
+                      <span className="font-bold text-slate-800 dark:text-white">#{currentPolicyResult.id}</span>
                     </div>
                     <div>
-                      <span className="text-gray-400 block text-[10px]">EMPLOYEE ID</span>
-                      <span className="font-bold text-slate-800">#{currentPolicyResult.employeeId}</span>
+                      <span className="text-gray-400 dark:text-gray-500 block text-[10px]">EMPLOYEE ID</span>
+                      <span className="font-bold text-slate-800 dark:text-white">#{currentPolicyResult.employeeId}</span>
                     </div>
                     <div>
-                      <span className="text-gray-400 block text-[10px]">POLICY ID</span>
-                      <span className="font-bold text-emerald-700">#{currentPolicyResult.attendancePolicyId} ({currentPolicyResult.policyName || 'Assigned Policy'})</span>
+                      <span className="text-gray-400 dark:text-gray-500 block text-[10px]">POLICY ID</span>
+                      <span className="font-bold text-emerald-700 dark:text-emerald-400">#{currentPolicyResult.attendancePolicyId} ({currentPolicyResult.policyName || 'Assigned Policy'})</span>
                     </div>
                     <div>
-                      <span className="text-gray-400 block text-[10px]">EFFECTIVE DATES</span>
-                      <span className="font-bold text-slate-800">{currentPolicyResult.effectiveFrom} to {currentPolicyResult.effectiveTo}</span>
+                      <span className="text-gray-400 dark:text-gray-500 block text-[10px]">EFFECTIVE DATES</span>
+                      <span className="font-bold text-slate-800 dark:text-white">{currentPolicyResult.effectiveFrom} to {currentPolicyResult.effectiveTo}</span>
                     </div>
                   </div>
                 </div>
@@ -693,7 +693,7 @@ const AttendancePolicyPage: React.FC = () => {
 
               {/* Error Box for lookup */}
               {queryError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 flex items-center gap-2">
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-lg text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{queryError}</span>
                 </div>
@@ -701,12 +701,12 @@ const AttendancePolicyPage: React.FC = () => {
             </div>
 
             {/* Assignments Table */}
-            <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 space-y-3">
+            <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase text-gray-800 tracking-wider">
+                <h3 className="text-xs font-bold uppercase text-gray-800 dark:text-white tracking-wider">
                   {queriedAssignments ? `Filtered Assignments (${queriedAssignments.length})` : 'All Employee Policy Assignments'}
                 </h3>
-                <span className="text-xs text-gray-500 font-mono">
+                <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
                   Total: {(queriedAssignments || assignments).length} record(s)
                 </span>
               </div>
@@ -729,10 +729,10 @@ const AttendancePolicyPage: React.FC = () => {
         {/* ── TAB 2: ATTENDANCE POLICY MASTER ────────────────────────────── */}
         {activeTab === 'policies' && (
           <div className="space-y-4 animate-in fade-in duration-150">
-            <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 flex items-center justify-between gap-3">
+            <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-4 flex items-center justify-between gap-3">
               <div>
-                <h3 className="text-xs font-bold uppercase text-gray-800 tracking-wider">Configured Policy Rules</h3>
-                <p className="text-[11px] text-gray-500">Define working hours, grace period, overtime, and permission parameters</p>
+                <h3 className="text-xs font-bold uppercase text-gray-800 dark:text-white tracking-wider">Configured Policy Rules</h3>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">Define working hours, grace period, overtime, and permission parameters</p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -746,15 +746,15 @@ const AttendancePolicyPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={loadPolicies}
-                  className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg transition-all"
+                  className="p-2 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#303030] rounded-lg transition-all"
                   title="Refresh Policies"
                 >
-                  <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
+                  <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
                 </button>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4">
+            <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-4">
               <ReusableTable
                 data={savedPolicies}
                 columns={policyColumns}
@@ -773,16 +773,16 @@ const AttendancePolicyPage: React.FC = () => {
 
       {/* ── ASSIGN POLICY MODAL ───────────────────────────────────────── */}
       {isAssignModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#191919] rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] space-y-4 text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030]">
               <div className="flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-cyan-600" />
-                <h3 className="text-sm font-bold text-gray-900 uppercase">
+                <UserCheck className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
                   Assign Attendance Policy
                 </h3>
               </div>
-              <button type="button" onClick={() => setIsAssignModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600">
+              <button type="button" onClick={() => setIsAssignModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -790,23 +790,23 @@ const AttendancePolicyPage: React.FC = () => {
             <form onSubmit={handleAssignPolicySubmit} className="space-y-3.5 text-xs">
               
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Employee ID *</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Employee ID *</label>
                 <input
                   type="number"
                   value={assignForm.employeeId}
                   onChange={(e) => setAssignForm(p => ({ ...p, employeeId: e.target.value }))}
-                  className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-bold text-gray-800"
+                  className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-md text-xs font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                   placeholder="e.g. 12"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Select Attendance Policy *</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Select Attendance Policy *</label>
                 <select
                   value={assignForm.attendancePolicyId}
                   onChange={(e) => setAssignForm(p => ({ ...p, attendancePolicyId: e.target.value }))}
-                  className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-bold text-gray-800"
+                  className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-md text-xs font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                   required
                 >
                   {savedPolicies.map(pol => (
@@ -819,32 +819,32 @@ const AttendancePolicyPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Effective From *</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Effective From *</label>
                   <input
                     type="date"
                     value={assignForm.effectiveFrom}
                     onChange={(e) => setAssignForm(p => ({ ...p, effectiveFrom: e.target.value }))}
-                    className="w-full py-2 px-2.5 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold text-gray-800"
+                    className="w-full py-2 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-md text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Effective To *</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Effective To *</label>
                   <input
                     type="date"
                     value={assignForm.effectiveTo}
                     onChange={(e) => setAssignForm(p => ({ ...p, effectiveTo: e.target.value }))}
-                    className="w-full py-2 px-2.5 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold text-gray-800"
+                    className="w-full py-2 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-md text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                     required
                   />
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-gray-100 dark:border-[#303030] flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsAssignModalOpen(false)}
-                  className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 border border-gray-200 dark:border-[#303030] rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222]"
                 >
                   Cancel
                 </button>
@@ -863,16 +863,16 @@ const AttendancePolicyPage: React.FC = () => {
 
       {/* ── CREATE / EDIT ATTENDANCE POLICY MODAL ───────────────────────── */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-xl w-full p-5 shadow-2xl border border-gray-100 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#191919] rounded-xl max-w-xl w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] space-y-4 text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030]">
               <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-cyan-600" />
-                <h3 className="text-sm font-bold text-gray-900 uppercase">
+                <Clock className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
                   {editingPolicy ? 'Edit Attendance Policy' : 'Create Attendance Policy'}
                 </h3>
               </div>
-              <button type="button" onClick={() => setIsModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600">
+              <button type="button" onClick={() => setIsModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -882,12 +882,12 @@ const AttendancePolicyPage: React.FC = () => {
               {/* Basic Details */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Policy Name *</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Policy Name *</label>
                   <input
                     type="text"
                     value={form.policyName}
                     onChange={(e) => setForm(p => ({ ...p, policyName: e.target.value }))}
-                    className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-bold text-gray-800"
+                    className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-md text-xs font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                     placeholder="e.g. Standard HQ Policy"
                     required
                   />
@@ -899,115 +899,115 @@ const AttendancePolicyPage: React.FC = () => {
                       type="checkbox"
                       checked={form.active}
                       onChange={(e) => setForm(p => ({ ...p, active: e.target.checked }))}
-                      className="rounded border-gray-300 text-cyan-600 focus:ring-cyan-500 w-4 h-4"
+                      className="rounded border-gray-300 dark:border-gray-600 text-cyan-600 focus:ring-cyan-500 w-4 h-4"
                     />
-                    <span className="text-xs font-bold text-gray-700">Active Policy</span>
+                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Active Policy</span>
                   </label>
                 </div>
               </div>
 
               {/* Time Thresholds */}
-              <div className="space-y-2 pt-2 border-t border-gray-100">
-                <span className="text-xs font-bold text-gray-700 uppercase tracking-wider block">Time Thresholds (Minutes)</span>
+              <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-[#303030]">
+                <span className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider block">Time Thresholds (Minutes)</span>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">Full Day Min (mins)</label>
+                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Full Day Min (mins)</label>
                     <input
                       type="number"
                       value={form.fullDayMinimumMinutes}
                       onChange={(e) => setForm(p => ({ ...p, fullDayMinimumMinutes: Number(e.target.value) }))}
-                      className="w-full py-1.5 px-2.5 bg-gray-50 border border-gray-200 rounded text-xs font-mono font-bold text-gray-800"
+                      className="w-full py-1.5 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">Half Day Min (mins)</label>
+                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Half Day Min (mins)</label>
                     <input
                       type="number"
                       value={form.halfDayMinimumMinutes}
                       onChange={(e) => setForm(p => ({ ...p, halfDayMinimumMinutes: Number(e.target.value) }))}
-                      className="w-full py-1.5 px-2.5 bg-gray-50 border border-gray-200 rounded text-xs font-mono font-bold text-gray-800"
+                      className="w-full py-1.5 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">Grace Period (mins)</label>
+                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Grace Period (mins)</label>
                     <input
                       type="number"
                       value={form.gracePeriodMinutes}
                       onChange={(e) => setForm(p => ({ ...p, gracePeriodMinutes: Number(e.target.value) }))}
-                      className="w-full py-1.5 px-2.5 bg-gray-50 border border-gray-200 rounded text-xs font-mono font-bold text-gray-800"
+                      className="w-full py-1.5 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">Max Break (mins)</label>
+                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Max Break (mins)</label>
                     <input
                       type="number"
                       value={form.maxBreakMinutes}
                       onChange={(e) => setForm(p => ({ ...p, maxBreakMinutes: Number(e.target.value) }))}
-                      className="w-full py-1.5 px-2.5 bg-gray-50 border border-gray-200 rounded text-xs font-mono font-bold text-gray-800"
+                      className="w-full py-1.5 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">Overtime After (mins)</label>
+                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Overtime After (mins)</label>
                     <input
                       type="number"
                       value={form.overtimeAfterMinutes}
                       onChange={(e) => setForm(p => ({ ...p, overtimeAfterMinutes: Number(e.target.value) }))}
-                      className="w-full py-1.5 px-2.5 bg-gray-50 border border-gray-200 rounded text-xs font-mono font-bold text-gray-800"
+                      className="w-full py-1.5 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">Permission (Hrs/Mo)</label>
+                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Permission (Hrs/Mo)</label>
                     <input
                       type="number"
                       value={form.permissionHoursPerMonth}
                       onChange={(e) => setForm(p => ({ ...p, permissionHoursPerMonth: Number(e.target.value) }))}
-                      className="w-full py-1.5 px-2.5 bg-gray-50 border border-gray-200 rounded text-xs font-mono font-bold text-gray-800"
+                      className="w-full py-1.5 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Rules & Permissions */}
-              <div className="space-y-2 pt-2 border-t border-gray-100">
-                <span className="text-xs font-bold text-gray-700 uppercase tracking-wider block">Rules & Permissions</span>
+              <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-[#303030]">
+                <span className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider block">Rules & Permissions</span>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <label className="flex items-center gap-2 p-2 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer">
+                  <label className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-lg cursor-pointer">
                     <input
                       type="checkbox"
                       checked={form.allowWorkFromHome}
                       onChange={(e) => setForm(p => ({ ...p, allowWorkFromHome: e.target.checked }))}
                       className="rounded text-cyan-600 w-4 h-4"
                     />
-                    <span className="text-xs font-bold text-gray-800">Allow WFH</span>
+                    <span className="text-xs font-bold text-gray-800 dark:text-white">Allow WFH</span>
                   </label>
 
-                  <label className="flex items-center gap-2 p-2 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer">
+                  <label className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-lg cursor-pointer">
                     <input
                       type="checkbox"
                       checked={form.allowRegularization}
                       onChange={(e) => setForm(p => ({ ...p, allowRegularization: e.target.checked }))}
                       className="rounded text-cyan-600 w-4 h-4"
                     />
-                    <span className="text-xs font-bold text-gray-800">Allow Regularization</span>
+                    <span className="text-xs font-bold text-gray-800 dark:text-white">Allow Regularization</span>
                   </label>
 
-                  <label className="flex items-center gap-2 p-2 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer">
+                  <label className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-lg cursor-pointer">
                     <input
                       type="checkbox"
                       checked={form.allowOnDuty}
                       onChange={(e) => setForm(p => ({ ...p, allowOnDuty: e.target.checked }))}
                       className="rounded text-cyan-600 w-4 h-4"
                     />
-                    <span className="text-xs font-bold text-gray-800">Allow On Duty</span>
+                    <span className="text-xs font-bold text-gray-800 dark:text-white">Allow On Duty</span>
                   </label>
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-gray-100 dark:border-[#303030] flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 border border-gray-200 dark:border-[#303030] rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222]"
                 >
                   Cancel
                 </button>
@@ -1026,69 +1026,69 @@ const AttendancePolicyPage: React.FC = () => {
 
       {/* ── VIEW POLICY DETAILS MODAL ────────────────────────────────────── */}
       {viewingPolicy && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#191919] rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] space-y-4 text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030]">
               <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-cyan-600" />
+                <Clock className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900 uppercase">{viewingPolicy.policyName}</h3>
-                  <span className="text-[11px] font-mono text-gray-500">ID: #{viewingPolicy.id || 1}</span>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">{viewingPolicy.policyName}</h3>
+                  <span className="text-[11px] font-mono text-gray-500 dark:text-gray-400">ID: #{viewingPolicy.id || 1}</span>
                 </div>
               </div>
-              <button type="button" onClick={() => setViewingPolicy(null)} className="p-1 text-gray-400 hover:text-gray-600">
+              <button type="button" onClick={() => setViewingPolicy(null)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200/70 font-mono">
+              <div className="grid grid-cols-2 gap-2 bg-gray-50 dark:bg-[#222222] p-3 rounded-lg border border-gray-200/70 dark:border-[#303030] font-mono">
                 <div>
-                  <span className="text-gray-400 block text-[10px]">FULL DAY MIN</span>
-                  <span className="font-bold text-gray-900">{viewingPolicy.fullDayMinimumMinutes / 60}h ({viewingPolicy.fullDayMinimumMinutes}m)</span>
+                  <span className="text-gray-400 dark:text-gray-500 block text-[10px]">FULL DAY MIN</span>
+                  <span className="font-bold text-gray-900 dark:text-white">{viewingPolicy.fullDayMinimumMinutes / 60}h ({viewingPolicy.fullDayMinimumMinutes}m)</span>
                 </div>
                 <div>
-                  <span className="text-gray-400 block text-[10px]">HALF DAY MIN</span>
-                  <span className="font-bold text-gray-900">{viewingPolicy.halfDayMinimumMinutes / 60}h ({viewingPolicy.halfDayMinimumMinutes}m)</span>
+                  <span className="text-gray-400 dark:text-gray-500 block text-[10px]">HALF DAY MIN</span>
+                  <span className="font-bold text-gray-900 dark:text-white">{viewingPolicy.halfDayMinimumMinutes / 60}h ({viewingPolicy.halfDayMinimumMinutes}m)</span>
                 </div>
                 <div>
-                  <span className="text-gray-400 block text-[10px]">GRACE PERIOD</span>
-                  <span className="font-bold text-gray-900">{viewingPolicy.gracePeriodMinutes} mins</span>
+                  <span className="text-gray-400 dark:text-gray-500 block text-[10px]">GRACE PERIOD</span>
+                  <span className="font-bold text-gray-900 dark:text-white">{viewingPolicy.gracePeriodMinutes} mins</span>
                 </div>
                 <div>
-                  <span className="text-gray-400 block text-[10px]">MAX BREAK</span>
-                  <span className="font-bold text-gray-900">{viewingPolicy.maxBreakMinutes} mins</span>
+                  <span className="text-gray-400 dark:text-gray-500 block text-[10px]">MAX BREAK</span>
+                  <span className="font-bold text-gray-900 dark:text-white">{viewingPolicy.maxBreakMinutes} mins</span>
                 </div>
               </div>
 
-              <div className="bg-gray-50 p-3 rounded-lg border border-gray-200/70 space-y-1.5">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">PERMISSIONS & ALLOWANCES</span>
+              <div className="bg-gray-50 dark:bg-[#222222] p-3 rounded-lg border border-gray-200/70 dark:border-[#303030] space-y-1.5">
+                <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">PERMISSIONS & ALLOWANCES</span>
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-gray-700">Work From Home (WFH)</span>
-                  <span className={`font-bold ${viewingPolicy.allowWorkFromHome ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  <span className="font-medium text-gray-700 dark:text-gray-300">Work From Home (WFH)</span>
+                  <span className={`font-bold ${viewingPolicy.allowWorkFromHome ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                     {viewingPolicy.allowWorkFromHome ? 'Allowed' : 'Not Allowed'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-gray-700">Attendance Regularization</span>
-                  <span className={`font-bold ${viewingPolicy.allowRegularization ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  <span className="font-medium text-gray-700 dark:text-gray-300">Attendance Regularization</span>
+                  <span className={`font-bold ${viewingPolicy.allowRegularization ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                     {viewingPolicy.allowRegularization ? 'Allowed' : 'Not Allowed'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-gray-700">On Duty (OD) Request</span>
-                  <span className={`font-bold ${viewingPolicy.allowOnDuty ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  <span className="font-medium text-gray-700 dark:text-gray-300">On Duty (OD) Request</span>
+                  <span className={`font-bold ${viewingPolicy.allowOnDuty ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                     {viewingPolicy.allowOnDuty ? 'Allowed' : 'Not Allowed'}
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-gray-100 flex items-center justify-end">
+            <div className="pt-3 border-t border-gray-100 dark:border-[#303030] flex items-center justify-end">
               <button
                 type="button"
                 onClick={() => setViewingPolicy(null)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold"
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 rounded-lg text-xs font-bold border border-gray-200 dark:border-[#303030]"
               >
                 Close
               </button>
@@ -1099,24 +1099,24 @@ const AttendancePolicyPage: React.FC = () => {
 
       {/* ── CUSTOM DELETE ASSIGNMENT CONFIRMATION MODAL ────────────────── */}
       {deletingAssignmentId && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 space-y-4 text-center">
-            <div className="mx-auto w-12 h-12 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center border border-rose-100 shadow-2xs">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#191919] rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] space-y-4 text-center text-slate-900 dark:text-white">
+            <div className="mx-auto w-12 h-12 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center border border-rose-100 dark:border-rose-900/50 shadow-2xs">
               <AlertCircle className="w-6 h-6" />
             </div>
             
             <div>
-              <h3 className="text-sm font-bold text-gray-900">Remove Policy Assignment?</h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Are you sure you want to remove policy assignment <span className="font-mono font-bold text-slate-800">#{deletingAssignmentId}</span>? This action cannot be undone.
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white">Remove Policy Assignment?</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Are you sure you want to remove policy assignment <span className="font-mono font-bold text-slate-800 dark:text-white">#{deletingAssignmentId}</span>? This action cannot be undone.
               </p>
             </div>
 
-            <div className="flex items-center justify-center gap-2.5 pt-2 border-t border-gray-100">
+            <div className="flex items-center justify-center gap-2.5 pt-2 border-t border-gray-100 dark:border-[#303030]">
               <button
                 type="button"
                 onClick={() => setDeletingAssignmentId(null)}
-                className="px-4 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all"
+                className="px-4 py-2 border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] transition-all"
               >
                 Cancel
               </button>
