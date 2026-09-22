@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from "react";
+import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import ReportSummaryGrid from "../../components/common/ReportSummaryGrid";
+import ReportDataTable from "../../components/common/ReportDataTable";
 
 type ReportType = "leads" | "sales" | "customers";
 
@@ -139,7 +142,9 @@ const CustomReports: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6 bg-white border border-stroke rounded shadow">
+    <>
+    <PageBreadcrumb pageTitle="Custom Reports" />
+    <div className="reports-legacy max-w-7xl mx-auto p-6 bg-white border border-stroke rounded shadow">
       <h2 className="text-2xl font-bold mb-6">Custom Reports</h2>
 
       {/* Filters */}
@@ -179,7 +184,15 @@ const CustomReports: React.FC = () => {
         />
       </div>
 
+      <ReportSummaryGrid items={[
+        { label: "Total Records", value: Object.values(mockData).flat().length, tone: "blue" },
+        { label: "Report Types", value: Object.keys(mockData).length, tone: "cyan" },
+      ]} />
+
       {/* Report Table */}
+      <ReportDataTable data={Object.entries(mockData).flatMap(([type, rows]) =>
+        rows.map((row) => ({ ...row, reportType: type }))
+      )} />
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead className="bg-gray-100">{renderTableHeaders()}</thead>
@@ -187,6 +200,7 @@ const CustomReports: React.FC = () => {
         </table>
       </div>
     </div>
+    </>
   );
 };
 
