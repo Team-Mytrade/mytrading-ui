@@ -92,14 +92,6 @@ const emptyForm: ScheduleForm = {
   remarks: "",
 };
 
-// ── Normalizers — accept any shape a custom input might emit ────────────
-
-// Reads a string from an onChange payload. Handles:
-//   • standard event  { target: { value: "..." } }
-//   • raw string      "..."
-//   • raw number      123
-//   • Date            Date
-//   • range tuple     [start, end]
 function readInputValue(input: unknown): string {
   if (input == null) return "";
   if (typeof input === "string") return input;
@@ -167,6 +159,42 @@ function getScheduleOrderLabel(o: ScheduleOrderOption) {
   if (number) return number;
   if (o.customerName) return `Order #${id} — ${o.customerName}`;
   return `Order #${id}`;
+}
+
+// ✅ Robust employee-name resolver. The `assignedEmployeeId` stored on a
+// schedule can line up with any of a user's id fields depending on how the
+// record was originally created — try every plausible match before falling
+// back to a plain "Employee #<id>".
+function getAssignedEmployeeName(
+  assignedEmployeeId: number | string | undefined | null,
+  users: UserOption[]
+): string {
+  if (
+    assignedEmployeeId === null ||
+    assignedEmployeeId === undefined ||
+    Number(assignedEmployeeId) <= 0
+  ) {
+    return "--";
+  }
+
+  const numericId = Number(assignedEmployeeId);
+
+  const match = users.find((user) => {
+    const byEmployeeId =
+      user.employeeId !== null &&
+      user.employeeId !== undefined &&
+      Number(user.employeeId) === numericId;
+    const byId = user.id !== null && user.id !== undefined && Number(user.id) === numericId;
+    const byUserId = user.userId !== null && user.userId !== undefined && Number(user.userId) === numericId;
+    return byEmployeeId || byId || byUserId;
+  });
+
+  if (match) {
+    const name = getEmployeeName(match);
+    if (name) return name;
+  }
+
+  return `Employee #${assignedEmployeeId}`;
 }
 
 function openNativeTimePicker(
@@ -263,8 +291,6 @@ const ServiceScheduleNotify: React.FC = () => {
     });
   };
 
-  // ── Field setters — each one is explicit and normalized ───────────────
-
   const setField = <K extends keyof ScheduleForm>(name: K, value: ScheduleForm[K]) => {
     setForm((current) => ({ ...current, [name]: value }));
   };
@@ -276,7 +302,6 @@ const ServiceScheduleNotify: React.FC = () => {
     setForm((current) => ({ ...current, [name]: value }));
   };
 
-  // Sales order change also auto-fills the customer when the order carries one.
   const handleServiceOrderChange = (input: unknown) => {
     const value = readInputValue(input);
     setForm((current) => {
@@ -296,9 +321,6 @@ const ServiceScheduleNotify: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-
-    // eslint-disable-next-line no-console
-    console.log("[create schedule] submit", form);
 
     if (!form.serviceOrderId || !form.customerId || !form.scheduledDate) {
       ToasterService.error(
@@ -322,23 +344,16 @@ const ServiceScheduleNotify: React.FC = () => {
         remarks: form.remarks,
       };
 
-      // eslint-disable-next-line no-console
-      console.log("[create schedule] payload", payload);
-
       const res = await axios.post<ServiceSchedule>(API_URL, payload, { headers });
       updateSchedule(res.data);
       ToasterService.success("Schedule notification created successfully");
       closeCreateModal();
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("[create schedule] error", error);
       ToasterService.error("Failed to create schedule", getErrorMessage(error, "Please try again."));
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  // ── Edit modal ────────────────────────────────────────────────────────
 
   const openEdit = (schedule: ServiceSchedule) => {
     setEditTarget(schedule);
@@ -469,8 +484,10 @@ const ServiceScheduleNotify: React.FC = () => {
       sortable: true,
       render: (user) => (
         <div>
-          <div className="text-sm font-semibold text-slate-900">{getEmployeeName(user)}</div>
-          <div className="text-xs text-slate-500">{user.userId || "--"}</div>
+          <div className="text-sm font-semibold text-slate-900 dark:text-white">
+            {getEmployeeName(user)}
+          </div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">{user.userId || "--"}</div>
         </div>
       ),
     },
@@ -480,7 +497,9 @@ const ServiceScheduleNotify: React.FC = () => {
       sortable: true,
       render: (user) => (
         <div className="max-w-[150px] truncate" title={user.email || ""}>
-          <span className="text-sm text-slate-700">{user.email || "--"}</span>
+          <span className="text-sm text-slate-700 dark:text-slate-300">
+            {user.email || "--"}
+          </span>
         </div>
       ),
     },
@@ -490,8 +509,12 @@ const ServiceScheduleNotify: React.FC = () => {
       sortable: true,
       render: (user) => (
         <div>
-          <div className="text-sm font-medium text-slate-700">{user.employeeId ?? "--"}</div>
-          <div className="text-xs text-slate-500">{user.employeeCode || "--"}</div>
+          <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            {user.employeeId ?? "--"}
+          </div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            {user.employeeCode || "--"}
+          </div>
         </div>
       ),
     },
@@ -501,7 +524,9 @@ const ServiceScheduleNotify: React.FC = () => {
       sortable: true,
       render: (user) => (
         <div className="max-w-[150px] truncate" title={user.role || ""}>
-          <span className="text-sm text-slate-700">{user.role || user.userType || "--"}</span>
+          <span className="text-sm text-slate-700 dark:text-slate-300">
+            {user.role || user.userType || "--"}
+          </span>
         </div>
       ),
     },
@@ -509,14 +534,18 @@ const ServiceScheduleNotify: React.FC = () => {
       key: "tenantId",
       label: "Tenant",
       sortable: true,
-      render: (user) => <span className="text-sm text-slate-700">{user.tenantId || "--"}</span>,
+      render: (user) => (
+        <span className="text-sm text-slate-700 dark:text-slate-300">
+          {user.tenantId || "--"}
+        </span>
+      ),
     },
     {
       key: "active",
       label: "Status",
       sortable: true,
       render: (user) => (
-        <span className="inline-flex rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">
+        <span className="inline-flex rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
           {user.active ? "Active" : "Inactive"}
         </span>
       ),
@@ -530,10 +559,12 @@ const ServiceScheduleNotify: React.FC = () => {
       sortable: true,
       render: (schedule) => (
         <div>
-          <div className="text-sm font-semibold text-slate-900">
+          <div className="text-sm font-semibold text-slate-900 dark:text-white">
             {schedule.scheduleNo || `Schedule #${schedule.id}`}
           </div>
-          <div className="text-xs text-slate-500">Order ID: {schedule.serviceOrderId}</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            Order ID: {schedule.serviceOrderId}
+          </div>
         </div>
       ),
     },
@@ -544,30 +575,24 @@ const ServiceScheduleNotify: React.FC = () => {
       render: (schedule) => {
         const customer = customers.find((c) => Number(c.id) === Number(schedule.customerId));
         return (
-          <span className="text-sm text-slate-700">
+          <span className="text-sm text-slate-700 dark:text-slate-300">
             {customer ? customerLabel(customer) : `#${schedule.customerId}`}
           </span>
         );
       },
     },
     {
+      // ✅ Assigned now resolves to the employee's name via the robust helper.
       key: "assignedEmployeeId",
       label: "Assigned",
       sortable: true,
-      render: (schedule) => {
-        const employee = users.find(
-          (u) => Number(u.employeeId) === Number(schedule.assignedEmployeeId)
-        );
-        return (
-          <span className="text-sm text-slate-700">
-            {employee
-              ? getEmployeeName(employee)
-              : schedule.assignedEmployeeId
-              ? `Employee #${schedule.assignedEmployeeId}`
-              : "--"}
-          </span>
-        );
-      },
+      sortValueGetter: (schedule) =>
+        getAssignedEmployeeName(schedule.assignedEmployeeId, users),
+      render: (schedule) => (
+        <span className="text-sm text-slate-700 dark:text-slate-300">
+          {getAssignedEmployeeName(schedule.assignedEmployeeId, users)}
+        </span>
+      ),
     },
     {
       key: "scheduledDate",
@@ -575,8 +600,10 @@ const ServiceScheduleNotify: React.FC = () => {
       sortable: true,
       render: (schedule) => (
         <div>
-          <div className="text-sm text-slate-700">{schedule.scheduledDate || "--"}</div>
-          <div className="text-xs text-slate-500">
+          <div className="text-sm text-slate-700 dark:text-slate-300">
+            {schedule.scheduledDate || "--"}
+          </div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">
             {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
           </div>
         </div>
@@ -587,7 +614,7 @@ const ServiceScheduleNotify: React.FC = () => {
       label: "Status",
       sortable: true,
       render: (schedule) => (
-        <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">
+        <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
           {schedule.status || "N/A"}
         </span>
       ),
@@ -603,7 +630,7 @@ const ServiceScheduleNotify: React.FC = () => {
           <button
             type="button"
             onClick={() => openEdit(schedule)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit / Actions"
           >
             <PencilSquareIcon className="h-4 w-4" />
@@ -612,7 +639,7 @@ const ServiceScheduleNotify: React.FC = () => {
             type="button"
             onClick={() => setDeleteScheduleTarget(schedule)}
             disabled={actionUpdatingId === schedule.id}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
@@ -631,10 +658,12 @@ const ServiceScheduleNotify: React.FC = () => {
       <PageMeta title="Service Schedule Notify" description="Manage service schedule notifications" />
       <PageBreadcrumb
         pageTitle="Service Schedule Notify"
-        actions={<AddButton onClick={() => setShowCreateModal(true)} label="Create Schedule" />}
+        actions={
+          <AddButton onClick={() => setShowCreateModal(true)} label="Add Notify" />
+        }
       />
 
-      <div className="w-full max-w-none px-0 py-8">
+      <div className="w-full max-w-none space-y-6 bg-slate-50 px-0 py-8 dark:bg-slate-950">
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Users" value={stats.users} icon={<CalendarDaysIcon />} />
           <StatsCard
@@ -671,12 +700,12 @@ const ServiceScheduleNotify: React.FC = () => {
           defaultSortOrder={showingSchedules ? "desc" : "asc"}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
-              <CalendarDaysIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">No users found</p>
+              <CalendarDaysIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No users found</p>
               <button
                 type="button"
                 onClick={() => fetchUsers()}
-                className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 Reload users
               </button>
@@ -685,15 +714,15 @@ const ServiceScheduleNotify: React.FC = () => {
         />
       </div>
 
-      {/* ── Create Schedule ─────────────────────────────────────────── */}
+      {/* ── Create Notification ─────────────────────────────────── */}
       <PaginatedPopup
         isOpen={showCreateModal}
-        title="Create Schedule Notification"
+        title="Add Notify"
         subtitle="Add service schedule details and notify the assigned employee"
         onClose={closeCreateModal}
         onSubmit={handleSubmit}
         submitting={isSubmitting}
-        submitLabel="Create Schedule"
+        submitLabel="Create Notification"
         maxWidthClassName="max-w-2xl"
         tabs={[
           {
@@ -738,60 +767,60 @@ const ServiceScheduleNotify: React.FC = () => {
               />,
             ],
           },
-        {
-  label: "Timing & Notes",
-  fields: [
-    <div key="startTime">
-      <label
-        htmlFor="startTime"
-        className="mb-2 block text-sm font-medium text-gray-700"
-      >
-        Start Time
-      </label>
-      <input
-        id="startTime"
-        type="time"
-        name="startTime"
-        value={form.startTime}
-        onChange={handleSimpleInputChange}
-        onFocus={openNativeTimePicker}
-        onClick={openNativeTimePicker}
-        className="h-[52px] w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-      />
-    </div>,
-    <div key="endTime">
-      <label
-        htmlFor="endTime"
-        className="mb-2 block text-sm font-medium text-gray-700"
-      >
-        End Time
-      </label>
-      <input
-        id="endTime"
-        type="time"
-        name="endTime"
-        value={form.endTime}
-        onChange={handleSimpleInputChange}
-        onFocus={openNativeTimePicker}
-        onClick={openNativeTimePicker}
-        className="h-[52px] w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-      />
-    </div>,
-    <div key="remarks" className="md:col-span-2">
-      <FloatingTextarea
-        label="Remarks"
-        name="remarks"
-        value={form.remarks}
-        onChange={handleSimpleInputChange}
-        rows={3}
-      />
-    </div>,
-  ],
-}
+          {
+            label: "Timing & Notes",
+            fields: [
+              <div key="startTime">
+                <label
+                  htmlFor="startTime"
+                  className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300"
+                >
+                  Start Time
+                </label>
+                <input
+                  id="startTime"
+                  type="time"
+                  name="startTime"
+                  value={form.startTime}
+                  onChange={handleSimpleInputChange}
+                  onFocus={openNativeTimePicker}
+                  onClick={openNativeTimePicker}
+                  className="h-[52px] w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-cyan-400 dark:focus:ring-cyan-900/40"
+                />
+              </div>,
+              <div key="endTime">
+                <label
+                  htmlFor="endTime"
+                  className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300"
+                >
+                  End Time
+                </label>
+                <input
+                  id="endTime"
+                  type="time"
+                  name="endTime"
+                  value={form.endTime}
+                  onChange={handleSimpleInputChange}
+                  onFocus={openNativeTimePicker}
+                  onClick={openNativeTimePicker}
+                  className="h-[52px] w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-cyan-400 dark:focus:ring-cyan-900/40"
+                />
+              </div>,
+              <div key="remarks" className="md:col-span-2">
+                <FloatingTextarea
+                  label="Remarks"
+                  name="remarks"
+                  value={form.remarks}
+                  onChange={handleSimpleInputChange}
+                  rows={3}
+                />
+              </div>,
+            ],
+          },
         ]}
       />
 
-      {/* ── Edit Schedule — 3 PUT actions ───────────────────────────── */}
+      {/* ── Edit Schedule ───────────────────────────────────────────── */}
       <PaginatedPopup
         isOpen={!!editTarget}
         title="Edit Schedule"
@@ -815,27 +844,27 @@ const ServiceScheduleNotify: React.FC = () => {
             label: "Schedule Details",
             fields: [
               <div key="detailsGrid" className="md:col-span-2 grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
                     Schedule No
                   </div>
-                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                  <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
                     {editTarget?.scheduleNo || "--"}
                   </div>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
                     Status
                   </div>
-                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                  <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
                     {editTarget?.status || "N/A"}
                   </div>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
                     Sales Order
                   </div>
-                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                  <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
                     {(() => {
                       const o = scheduleOrders.find(
                         (x) => getScheduleOrderId(x) === Number(editTarget?.serviceOrderId)
@@ -846,11 +875,11 @@ const ServiceScheduleNotify: React.FC = () => {
                     })()}
                   </div>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
                     Customer
                   </div>
-                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                  <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
                     {(() => {
                       const c = customers.find(
                         (x) => Number(x.id) === Number(editTarget?.customerId)
@@ -859,33 +888,42 @@ const ServiceScheduleNotify: React.FC = () => {
                     })()}
                   </div>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
                     Scheduled
                   </div>
-                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                  <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
                     {editTarget?.scheduledDate || "--"}
                   </div>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
                     Time
                   </div>
-                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                  <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
                     {formatTime(editTarget?.startTime)} - {formatTime(editTarget?.endTime)}
+                  </div>
+                </div>
+                {/* ✅ Assigned employee is now shown here by NAME, not ID. */}
+                <div className="col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+                    Assigned Employee
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                    {getAssignedEmployeeName(editTarget?.assignedEmployeeId, users)}
                   </div>
                 </div>
               </div>,
 
               <div
                 key="actionButtons"
-                className="md:col-span-2 flex flex-wrap gap-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4"
+                className="md:col-span-2 flex flex-wrap gap-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/60"
               >
                 <button
                   type="button"
                   onClick={() => void runScheduleAction("start")}
                   disabled={actionUpdatingId === editTarget?.id}
-                  className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-green-500 dark:hover:bg-green-600"
                 >
                   <PlayIcon className="h-4 w-4" />
                   Start Schedule
@@ -894,7 +932,7 @@ const ServiceScheduleNotify: React.FC = () => {
                   type="button"
                   onClick={() => void runScheduleAction("complete")}
                   disabled={actionUpdatingId === editTarget?.id}
-                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-500 dark:hover:bg-blue-600"
                 >
                   <CheckCircleIcon className="h-4 w-4" />
                   Complete Schedule
@@ -903,11 +941,13 @@ const ServiceScheduleNotify: React.FC = () => {
 
               <div
                 key="assignBlock"
-                className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-4"
+                className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
               >
                 <div className="mb-2 flex items-center gap-2">
-                  <UserPlusIcon className="h-4 w-4 text-cyan-600" />
-                  <div className="text-sm font-semibold text-slate-900">Reassign Employee</div>
+                  <UserPlusIcon className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+                  <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                    Reassign Employee
+                  </div>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                   <div className="flex-1">
@@ -924,7 +964,7 @@ const ServiceScheduleNotify: React.FC = () => {
                     type="button"
                     onClick={() => void confirmAssign()}
                     disabled={actionUpdatingId === editTarget?.id || !editAssignedEmployeeId}
-                    className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-cyan-500 dark:hover:bg-cyan-600"
                   >
                     <UserPlusIcon className="h-4 w-4" />
                     Assign

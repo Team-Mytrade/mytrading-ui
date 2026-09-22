@@ -75,6 +75,13 @@ type ExportFormat = "EXCEL" | "PDF";
 const API_URL = "/v1/api/sales/credit";
 const PAGE_SIZE = 10;
 
+// Number fields that must never accept a negative value
+const NON_NEGATIVE_FIELDS: Array<keyof CreditForm> = [
+  "orderAmount",
+  "outstandingAmount",
+  "clearingBalance",
+];
+
 function getStoredTenantId() {
   try {
     const user = JSON.parse(localStorage.getItem("user") || "null");
@@ -112,37 +119,42 @@ const methodConfig: Record<
   check: {
     title: "Credit check",
     buttonLabel: "Run Credit Check",
-    buttonClassName: "bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-200",
+    buttonClassName: "bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-200 dark:focus:ring-cyan-900",
     icon: CheckBadgeIcon,
-    toneClassName: "border-cyan-100 bg-cyan-50 text-cyan-700",
+    toneClassName:
+      "border-cyan-100 bg-cyan-50 text-cyan-700 dark:border-cyan-900 dark:bg-cyan-950/40 dark:text-cyan-300",
   },
   available: {
     title: "Available credit",
     buttonLabel: "Load Available Credit",
-    buttonClassName: "bg-teal-600 hover:bg-teal-700 focus:ring-teal-200",
+    buttonClassName: "bg-teal-600 hover:bg-teal-700 focus:ring-teal-200 dark:focus:ring-teal-900",
     icon: EyeIcon,
-    toneClassName: "border-teal-100 bg-teal-50 text-teal-700",
+    toneClassName:
+      "border-teal-100 bg-teal-50 text-teal-700 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-300",
   },
   addOutstanding: {
     title: "Add outstanding",
     buttonLabel: "Add Outstanding",
-    buttonClassName: "bg-blue-600 hover:bg-blue-700 focus:ring-blue-200",
+    buttonClassName: "bg-blue-600 hover:bg-blue-700 focus:ring-blue-200 dark:focus:ring-blue-900",
     icon: BanknotesIcon,
-    toneClassName: "border-blue-100 bg-blue-50 text-blue-700",
+    toneClassName:
+      "border-blue-100 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300",
   },
   clearOutstanding: {
     title: "Clear outstanding",
     buttonLabel: "Clear Outstanding",
-    buttonClassName: "bg-rose-600 hover:bg-rose-700 focus:ring-rose-200",
+    buttonClassName: "bg-rose-600 hover:bg-rose-700 focus:ring-rose-200 dark:focus:ring-rose-900",
     icon: TrashIcon,
-    toneClassName: "border-rose-100 bg-rose-50 text-rose-700",
+    toneClassName:
+      "border-rose-100 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300",
   },
   create: {
     title: "Create clear entry",
     buttonLabel: "Create Entry",
-    buttonClassName: "bg-amber-500 hover:bg-amber-600 focus:ring-amber-200",
+    buttonClassName: "bg-amber-500 hover:bg-amber-600 focus:ring-amber-200 dark:focus:ring-amber-900",
     icon: InboxStackIcon,
-    toneClassName: "border-amber-100 bg-amber-50 text-amber-700",
+    toneClassName:
+      "border-amber-100 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
   },
 };
 
@@ -230,7 +242,11 @@ function extractFileName(contentDisposition?: string) {
   return match?.[1]?.replace(/"/g, "").trim() || null;
 }
 
-function mapTransaction(raw: RawCreditTransaction, fallbackCustomerId: number, index: number): CreditLog {
+function mapTransaction(
+  raw: RawCreditTransaction,
+  fallbackCustomerId: number,
+  index: number
+): CreditLog {
   const nestedCustomer = raw.customer as Record<string, unknown> | undefined;
   const customerId =
     toNumberValue(raw.customerId) ??
@@ -340,8 +356,25 @@ const CreditLimit: React.FC = () => {
     fetchCustomers();
   }, [headers]);
 
+  // ✅ Blocks negative values for amount fields by rejecting "-" at the
+  // keystroke level. Also strips an accidental "-" pasted into the field.
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+
+    if (NON_NEGATIVE_FIELDS.includes(name as keyof CreditForm)) {
+      if (value.startsWith("-")) {
+        ToasterService.error(
+          "Invalid amount",
+          "Negative values are not allowed. Enter a positive amount."
+        );
+        return;
+      }
+      if (/[^0-9.]/.test(value) && value !== "") {
+        // Reject any char that isn't a digit or a decimal point
+        return;
+      }
+    }
+
     setForm((current) => ({ ...current, [name]: value }));
   };
 
@@ -425,16 +458,26 @@ const CreditLimit: React.FC = () => {
           { headers }
         );
 
-        const payload = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
+        const payload = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.data)
+          ? res.data.data
+          : [];
         const mapped = payload.map((item, index) => mapTransaction(item, customerId, index));
         setRecentTransactions(mapped);
 
         if (!mapped.length && !silent) {
-          ToasterService.noData("No recent transactions", "The selected customer has no recent credit transactions.");
+          ToasterService.noData(
+            "No recent transactions",
+            "The selected customer has no recent credit transactions."
+          );
         }
       } catch (error) {
         if (!silent) {
-          ToasterService.error("Failed to load recent transactions", getErrorMessage(error, "Please try again."));
+          ToasterService.error(
+            "Failed to load recent transactions",
+            getErrorMessage(error, "Please try again.")
+          );
         }
       } finally {
         setHistoryLoading(false);
@@ -509,7 +552,10 @@ const CreditLimit: React.FC = () => {
       }
     } catch (error) {
       if (!silent) {
-        ToasterService.error("Failed to load available credit", getErrorMessage(error, "Please try again."));
+        ToasterService.error(
+          "Failed to load available credit",
+          getErrorMessage(error, "Please try again.")
+        );
       }
     } finally {
       setLoading(false);
@@ -576,7 +622,9 @@ const CreditLimit: React.FC = () => {
         customerId,
         amount: clearingBalance,
       });
-      ToasterService.success(selectedMethod === "create" ? "Clear entry created" : "Outstanding amount cleared");
+      ToasterService.success(
+        selectedMethod === "create" ? "Clear entry created" : "Outstanding amount cleared"
+      );
       void getAvailableCredit(true);
       void fetchRecentTransactions(true);
       setForm((current) => ({ ...current, clearingBalance: "" }));
@@ -622,7 +670,10 @@ const CreditLimit: React.FC = () => {
 
       ToasterService.success("Credit history export started");
     } catch (error) {
-      ToasterService.error("Failed to export credit history", getErrorMessage(error, "Please try again."));
+      ToasterService.error(
+        "Failed to export credit history",
+        getErrorMessage(error, "Please try again.")
+      );
     } finally {
       setExportLoading(false);
     }
@@ -650,7 +701,10 @@ const CreditLimit: React.FC = () => {
         : filteredLogs;
 
       if (!exportRows.length) {
-        ToasterService.noData("No records to export", "No credit history found for the selected date range.");
+        ToasterService.noData(
+          "No records to export",
+          "No credit history found for the selected date range."
+        );
         return;
       }
 
@@ -661,7 +715,10 @@ const CreditLimit: React.FC = () => {
         data: exportRows,
         fileName: "Credit_History",
         metadata: [
-          { label: "Customer", value: selectedCustomer ? customerOptionLabel(selectedCustomer) : form.customerId || "Unknown" },
+          {
+            label: "Customer",
+            value: selectedCustomer ? customerOptionLabel(selectedCustomer) : form.customerId || "Unknown",
+          },
           {
             label: "Range",
             value:
@@ -681,7 +738,8 @@ const CreditLimit: React.FC = () => {
           { header: "Credit Limit", key: "creditLimit" },
           {
             header: "Sufficient",
-            accessor: (row) => (row.sufficient === undefined ? "--" : row.sufficient ? "Sufficient" : "Insufficient"),
+            accessor: (row) =>
+              row.sufficient === undefined ? "--" : row.sufficient ? "Sufficient" : "Insufficient",
           },
           { header: "Created At", key: "createdAt" },
         ],
@@ -745,7 +803,10 @@ const CreditLimit: React.FC = () => {
       ToasterService.success("Credit history purged");
       void fetchRecentTransactions(true);
     } catch (error) {
-      ToasterService.error("Failed to purge credit history", getErrorMessage(error, "Please try again."));
+      ToasterService.error(
+        "Failed to purge credit history",
+        getErrorMessage(error, "Please try again.")
+      );
     } finally {
       setPurging(false);
     }
@@ -758,7 +819,14 @@ const CreditLimit: React.FC = () => {
     if (!term) return baseLogs;
     return baseLogs.filter((log) => {
       const customer = customers.find((item) => Number(item.id) === Number(log.customerId));
-      return [log.action, log.customerId, customerDisplayName(customer), log.amount, log.availableCredit, log.sufficient]
+      return [
+        log.action,
+        log.customerId,
+        customerDisplayName(customer),
+        log.amount,
+        log.availableCredit,
+        log.sufficient,
+      ]
         .filter((value) => value !== undefined && value !== null)
         .some((value) => String(value).toLowerCase().includes(term));
     });
@@ -787,7 +855,9 @@ const CreditLimit: React.FC = () => {
         .map((log, index) => ({
           name: (() => {
             const parsed = new Date(log.createdAt);
-            return Number.isNaN(parsed.getTime()) ? `Txn ${index + 1}` : parsed.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+            return Number.isNaN(parsed.getTime())
+              ? `Txn ${index + 1}`
+              : parsed.toLocaleDateString(undefined, { month: "short", day: "numeric" });
           })(),
           available: Number(log.availableCredit || 0),
           outstanding: Number(log.outstandingBalance || 0),
@@ -796,7 +866,8 @@ const CreditLimit: React.FC = () => {
     [baseLogs]
   );
 
-  const canPurgeDialogDescribeTarget = isPositiveNumber(form.customerId) && Boolean(historyFrom && historyTo);
+  const canPurgeDialogDescribeTarget =
+    isPositiveNumber(form.customerId) && Boolean(historyFrom && historyTo);
   const activeMethod = methodConfig[selectedMethod];
   const ActiveMethodIcon = activeMethod.icon;
   const latestOutstanding = baseLogs[0]?.outstandingBalance;
@@ -806,86 +877,108 @@ const CreditLimit: React.FC = () => {
       <PageMeta title="Credit Limit" description="Manage sales credit limit checks" />
       <PageBreadcrumb pageTitle="Credit Limit" />
 
-      <div className="w-full max-w-none space-y-3 px-0 py-4 sm:py-6">
-        {/*
-          NOTE: 140px is an estimate for the fixed chrome above this page
-          (top nav + breadcrumb). If content still gets clipped at the
-          bottom, or there's a visible gap before scrolling kicks in,
-          adjust that number to match your actual header height — this
-          uses viewport units (vh) rather than h-full specifically because
-          it doesn't depend on any ancestor having a bounded height, which
-          is what broke the earlier attempt.
-        */}
-        <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-cyan-50 via-white to-slate-50 p-3 shadow-sm sm:p-4">
+      <div className="w-full max-w-none space-y-3 bg-slate-50 px-0 py-4 dark:bg-slate-950 sm:py-6">
+        {/* HERO / SUMMARY */}
+        <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-cyan-50 via-white to-slate-50 p-3 shadow-sm dark:border-slate-700 dark:from-cyan-950/30 dark:via-slate-900 dark:to-slate-900 sm:p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-cyan-100 bg-white/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-700">
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-cyan-100 bg-white/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-700 dark:border-cyan-800 dark:bg-slate-900/80 dark:text-cyan-300">
                 <CreditCardIcon className="h-3 w-3" />
                 Sales Credit Control
               </div>
-              <h2 className="text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">
+              <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white sm:text-xl">
                 Customer credit
               </h2>
             </div>
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-            <div className="rounded-lg border border-white/70 bg-white/90 p-2 shadow-sm">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">Customer</div>
-              <div className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-900">
-                <UserCircleIcon className="h-3.5 w-3.5 shrink-0 text-cyan-600" />
-                <span className="truncate">{selectedCustomer ? customerOptionLabel(selectedCustomer) : "None"}</span>
+            <div className="rounded-lg border border-white/70 bg-white/90 p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900/90">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+                Customer
+              </div>
+              <div className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-900 dark:text-white">
+                <UserCircleIcon className="h-3.5 w-3.5 shrink-0 text-cyan-600 dark:text-cyan-400" />
+                <span className="truncate">
+                  {selectedCustomer ? customerOptionLabel(selectedCustomer) : "None"}
+                </span>
               </div>
             </div>
-            <div className="rounded-lg border border-white/70 bg-white/90 p-2 shadow-sm">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">Action</div>
-              <div className="mt-1 truncate text-xs font-semibold text-slate-900">{activeMethod.title}</div>
+            <div className="rounded-lg border border-white/70 bg-white/90 p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900/90">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+                Action
+              </div>
+              <div className="mt-1 truncate text-xs font-semibold text-slate-900 dark:text-white">
+                {activeMethod.title}
+              </div>
             </div>
-            <div className="rounded-lg border border-white/70 bg-white/90 p-2 shadow-sm">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">History</div>
-              <div className="mt-1 truncate text-xs font-semibold text-slate-900">
+            <div className="rounded-lg border border-white/70 bg-white/90 p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900/90">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+                History
+              </div>
+              <div className="mt-1 truncate text-xs font-semibold text-slate-900 dark:text-white">
                 {historyFrom && historyTo
                   ? `${historyFrom.toLocaleDateString()} - ${historyTo.toLocaleDateString()}`
                   : "None"}
               </div>
             </div>
-            <div className="rounded-lg border border-cyan-100 bg-white p-2 shadow-sm">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">Credit Limit</div>
-              <div className="mt-1 text-sm font-semibold text-slate-900">
+            <div className="rounded-lg border border-cyan-100 bg-white p-2 shadow-sm dark:border-cyan-900 dark:bg-slate-900">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+                Credit Limit
+              </div>
+              <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
                 {money(lastCreditLimit ?? baseLogs[0]?.creditLimit)}
               </div>
             </div>
-            <div className="rounded-lg border border-emerald-100 bg-white p-2 shadow-sm">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">Available</div>
-              <div className="mt-1 text-sm font-semibold text-emerald-700">{money(stats.availableCredit)}</div>
+            <div className="rounded-lg border border-emerald-100 bg-white p-2 shadow-sm dark:border-emerald-900 dark:bg-slate-900">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+                Available
+              </div>
+              <div className="mt-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                {money(stats.availableCredit)}
+              </div>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">Actions</div>
-              <div className="mt-1 text-sm font-semibold text-slate-900">{stats.actions}</div>
+            <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+                Actions
+              </div>
+              <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                {stats.actions}
+              </div>
             </div>
-            <div className="rounded-lg border border-amber-100 bg-white p-2 shadow-sm">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">Outstanding</div>
-              <div className="mt-1 text-sm font-semibold text-amber-700">
+            <div className="rounded-lg border border-amber-100 bg-white p-2 shadow-sm dark:border-amber-900 dark:bg-slate-900">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+                Outstanding
+              </div>
+              <div className="mt-1 text-sm font-semibold text-amber-700 dark:text-amber-400">
                 {latestOutstanding === undefined ? "--" : money(latestOutstanding)}
               </div>
             </div>
           </div>
         </section>
 
-        <form onSubmit={handleMethodSubmit} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3.5 sm:px-5">
+        {/* CREDIT ACTIONS FORM */}
+        <form
+          onSubmit={handleMethodSubmit}
+          className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900"
+        >
+          <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800 sm:px-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-base font-semibold text-slate-900">Credit actions</h3>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                Credit actions
+              </h3>
               <div className="flex items-center gap-2">
-                <div className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                <div className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                   {activeMethod.title}
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowCreditActions((current) => !current)}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 transition hover:bg-slate-50"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
-                  <ChevronDownIcon className={`h-3.5 w-3.5 transition ${showCreditActions ? "rotate-180" : ""}`} />
+                  <ChevronDownIcon
+                    className={`h-3.5 w-3.5 transition ${showCreditActions ? "rotate-180" : ""}`}
+                  />
                 </button>
               </div>
             </div>
@@ -893,7 +986,7 @@ const CreditLimit: React.FC = () => {
 
           <div className={`${showCreditActions ? "block" : "hidden"} p-4 sm:p-5`}>
             <div className="grid gap-3 xl:grid-cols-[280px_1fr]">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/60">
                 <FloatingSelect
                   label="Customer"
                   name="customerId"
@@ -918,7 +1011,7 @@ const CreditLimit: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setForm(emptyForm)}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
                     Reset
@@ -926,10 +1019,12 @@ const CreditLimit: React.FC = () => {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <div className="mb-3 flex items-start justify-between gap-3">
-                  <div className="text-sm font-semibold text-slate-900">Choose action</div>
-                  <div className="rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                  <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                    Choose action
+                  </div>
+                  <div className="rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                     {methodOptions.length} actions
                   </div>
                 </div>
@@ -947,23 +1042,27 @@ const CreditLimit: React.FC = () => {
                         onClick={() => setSelectedMethod(option.id)}
                         className={`group rounded-xl border p-2.5 text-left transition ${
                           isActive
-                            ? "border-cyan-300 bg-cyan-50/70 shadow-sm ring-2 ring-cyan-100"
-                            : "border-slate-200 bg-white hover:border-cyan-200 hover:bg-slate-50"
+                            ? "border-cyan-300 bg-cyan-50/70 shadow-sm ring-2 ring-cyan-100 dark:border-cyan-700 dark:bg-cyan-950/40 dark:ring-cyan-900"
+                            : "border-slate-200 bg-white hover:border-cyan-200 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-cyan-700 dark:hover:bg-slate-800"
                         }`}
                       >
                         <div className="flex items-center gap-2.5">
                           <div
                             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition ${
-                              isActive ? optionConfig.toneClassName : "border-slate-200 bg-slate-50 text-slate-500"
+                              isActive
+                                ? optionConfig.toneClassName
+                                : "border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
                             }`}
                           >
                             <OptionIcon className="h-4 w-4" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <h4 className="text-xs font-semibold text-slate-900">{option.name}</h4>
+                              <h4 className="text-xs font-semibold text-slate-900 dark:text-white">
+                                {option.name}
+                              </h4>
                               {isActive && (
-                                <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold text-cyan-700 shadow-sm">
+                                <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold text-cyan-700 shadow-sm dark:bg-slate-900 dark:text-cyan-300">
                                   Active
                                 </span>
                               )}
@@ -977,29 +1076,36 @@ const CreditLimit: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4">
+            <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/60">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                   Required Input
                 </div>
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border bg-white ${activeMethod.toneClassName}`}>
+                <div
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border bg-white dark:bg-slate-900 ${activeMethod.toneClassName}`}
+                >
                   <ActiveMethodIcon className="h-4 w-4" />
                 </div>
               </div>
 
               {(selectedMethod === "clearOutstanding" || selectedMethod === "create") && (
-                <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-800">
+                <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
                   <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>The backend currently uses the same amount for both `clearingBalance` and `orderAmount`.</span>
+                  <span>
+                    The backend currently uses the same amount for both `clearingBalance` and
+                    `orderAmount`.
+                  </span>
                 </div>
               )}
 
-              <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
+              <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 {selectedMethod === "clearOutstanding" && (
                   <FloatingInput
                     label="Clear Amount"
                     name="clearingBalance"
                     type="number"
+                    min={0}
+                    step="0.01"
                     value={form.clearingBalance}
                     onChange={handleChange}
                   />
@@ -1009,6 +1115,8 @@ const CreditLimit: React.FC = () => {
                     label="Create Amount"
                     name="clearingBalance"
                     type="number"
+                    min={0}
+                    step="0.01"
                     value={form.clearingBalance}
                     onChange={handleChange}
                   />
@@ -1018,6 +1126,8 @@ const CreditLimit: React.FC = () => {
                     label="Order Amount"
                     name="orderAmount"
                     type="number"
+                    min={0}
+                    step="0.01"
                     value={form.orderAmount}
                     onChange={handleChange}
                   />
@@ -1027,12 +1137,14 @@ const CreditLimit: React.FC = () => {
                     label="Outstanding Amount"
                     name="outstandingAmount"
                     type="number"
+                    min={0}
+                    step="0.01"
                     value={form.outstandingAmount}
                     onChange={handleChange}
                   />
                 )}
                 {selectedMethod === "available" && (
-                  <div className="rounded-xl border border-teal-100 bg-teal-50/40 px-3.5 py-3.5 text-sm leading-6 text-slate-600">
+                  <div className="rounded-xl border border-teal-100 bg-teal-50/40 px-3.5 py-3.5 text-sm leading-6 text-slate-700 dark:border-teal-900 dark:bg-teal-950/30 dark:text-slate-200">
                     No input required
                   </div>
                 )}
@@ -1040,10 +1152,12 @@ const CreditLimit: React.FC = () => {
             </div>
 
             <div className="mt-3">
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <div className="mb-2.5 flex items-center justify-between gap-3">
-                  <h4 className="text-sm font-semibold text-slate-900">Credit trend</h4>
-                  <div className="rounded-full bg-slate-50 px-2.5 py-0.5 text-[11px] font-medium text-slate-500">
+                  <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+                    Credit trend
+                  </h4>
+                  <div className="rounded-full bg-slate-50 px-2.5 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                     Last {trendChartData.length || 0} records
                   </div>
                 </div>
@@ -1052,16 +1166,42 @@ const CreditLimit: React.FC = () => {
                   {trendChartData.length ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={trendChartData} barGap={8}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                        <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                        <Tooltip />
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="currentColor"
+                          className="text-slate-200 dark:text-slate-700"
+                          vertical={false}
+                        />
+                        <XAxis
+                          dataKey="name"
+                          stroke="currentColor"
+                          className="text-slate-500 dark:text-slate-400"
+                          fontSize={11}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis
+                          stroke="currentColor"
+                          className="text-slate-500 dark:text-slate-400"
+                          fontSize={11}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "rgb(15 23 42)",
+                            borderColor: "rgb(51 65 85)",
+                            color: "rgb(241 245 249)",
+                            borderRadius: 8,
+                            fontSize: 12,
+                          }}
+                        />
                         <Bar dataKey="available" fill="#0f766e" radius={[6, 6, 0, 0]} />
                         <Bar dataKey="outstanding" fill="#38bdf8" radius={[6, 6, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="flex h-full items-center justify-center rounded-xl bg-slate-50 text-xs text-slate-500">
+                    <div className="flex h-full items-center justify-center rounded-xl bg-slate-50 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                       No chart data yet
                     </div>
                   )}
@@ -1073,30 +1213,35 @@ const CreditLimit: React.FC = () => {
           {!showCreditActions && (
             <div className="px-4 py-4 sm:px-5">
               <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                     Selected Customer
                   </div>
-                  <div className="mt-0.5 text-sm font-semibold text-slate-900">
+                  <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
                     {selectedCustomer ? customerOptionLabel(selectedCustomer) : "Choose customer"}
                   </div>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                     Selected Action
                   </div>
-                  <div className="mt-0.5 text-sm font-semibold text-slate-900">{activeMethod.buttonLabel}</div>
+                  <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
+                    {activeMethod.buttonLabel}
+                  </div>
                 </div>
               </div>
             </div>
           )}
         </form>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        {/* RECENT ACTIONS */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-5">
           <div className="mb-3 flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-2.5">
-              <h3 className="text-base font-semibold text-slate-900">Recent credit actions</h3>
-              <div className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                Recent credit actions
+              </h3>
+              <div className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                 {filteredLogs.length} items
               </div>
             </div>
@@ -1106,7 +1251,7 @@ const CreditLimit: React.FC = () => {
                 type="button"
                 onClick={() => void fetchRecentTransactions()}
                 disabled={historyLoading || !isPositiveNumber(form.customerId)}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 <ArrowPathIcon className="h-4 w-4" />
               </button>
@@ -1114,7 +1259,7 @@ const CreditLimit: React.FC = () => {
                 type="button"
                 onClick={openExportPopup}
                 disabled={exportLoading || !isPositiveNumber(form.customerId)}
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-emerald-500 dark:hover:bg-emerald-600"
               >
                 <ArrowDownTrayIcon className="h-4 w-4" />
               </button>
@@ -1122,7 +1267,7 @@ const CreditLimit: React.FC = () => {
                 type="button"
                 onClick={() => setShowPurgeConfirm(true)}
                 disabled={purging || !isPositiveNumber(form.customerId)}
-                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-red-500 dark:hover:bg-red-600"
               >
                 <TrashIcon className="h-4 w-4" />
               </button>
@@ -1130,73 +1275,94 @@ const CreditLimit: React.FC = () => {
           </div>
 
           {historyLoading ? (
-            <div className="py-10 text-center text-sm text-slate-500">Loading recent credit activity...</div>
+            <div className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+              Loading recent credit activity...
+            </div>
           ) : filteredLogs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <CreditCardIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">No credit actions yet</p>
+              <CreditCardIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
+                No credit actions yet
+              </p>
             </div>
           ) : (
-            // Self-contained scroll region — safe regardless of the parent
-            // shell, since it doesn't depend on any ancestor's height. Do
-            // not add h-full/overflow-y-auto to the page root above; that
-            // was tried before and clipped the hero section because this
-            // shell has no bounded-height ancestor for it to size against.
             <div className="max-h-[22rem] space-y-2.5 overflow-y-auto pr-1">
               {filteredLogs.slice(0, PAGE_SIZE).map((log) => (
                 <div
                   key={log.id}
-                  className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5 transition hover:border-cyan-200 hover:bg-cyan-50/40 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5 transition hover:border-cyan-200 hover:bg-cyan-50/40 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-cyan-700 dark:hover:bg-cyan-950/30 sm:flex-row sm:items-center sm:justify-between"
                 >
                   {(() => {
-                    const customer = customers.find((item) => Number(item.id) === Number(log.customerId));
+                    const customer = customers.find(
+                      (item) => Number(item.id) === Number(log.customerId)
+                    );
                     return (
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-cyan-100 px-2.5 py-0.5 text-[11px] font-semibold text-cyan-700">
+                          <span className="rounded-full bg-cyan-100 px-2.5 py-0.5 text-[11px] font-semibold text-cyan-700 dark:bg-cyan-900/60 dark:text-cyan-300">
                             {log.action}
                           </span>
-                          <span className="text-sm font-medium text-slate-900">{customerDisplayName(customer)}</span>
+                          <span className="text-sm font-medium text-slate-900 dark:text-white">
+                            {customerDisplayName(customer)}
+                          </span>
                         </div>
-                        <div className="mt-1 text-xs text-slate-500">{log.createdAt}</div>
+                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          {log.createdAt}
+                        </div>
                       </div>
                     );
                   })()}
 
                   <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-5">
                     <div>
-                      <div className="text-[10px] uppercase tracking-[0.12em] text-slate-400">Amount</div>
-                      <div className="mt-0.5 text-sm font-semibold text-slate-900">
+                      <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                        Amount
+                      </div>
+                      <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
                         {log.amount === undefined ? "--" : money(log.amount)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] uppercase tracking-[0.12em] text-slate-400">Available</div>
-                      <div className="mt-0.5 text-sm font-semibold text-slate-900">
+                      <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                        Available
+                      </div>
+                      <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
                         {log.availableCredit === undefined ? "--" : money(log.availableCredit)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] uppercase tracking-[0.12em] text-slate-400">Outstanding</div>
-                      <div className="mt-0.5 text-sm font-semibold text-slate-900">
-                        {log.outstandingBalance === undefined ? "--" : money(log.outstandingBalance)}
+                      <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                        Outstanding
+                      </div>
+                      <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
+                        {log.outstandingBalance === undefined
+                          ? "--"
+                          : money(log.outstandingBalance)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] uppercase tracking-[0.12em] text-slate-400">Credit Limit</div>
-                      <div className="mt-0.5 text-sm font-semibold text-slate-900">
+                      <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                        Credit Limit
+                      </div>
+                      <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
                         {log.creditLimit === undefined ? "--" : money(log.creditLimit)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] uppercase tracking-[0.12em] text-slate-400">Result</div>
+                      <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                        Result
+                      </div>
                       <div className="mt-0.5">
                         {log.sufficient === undefined ? (
-                          <span className="text-sm font-semibold text-slate-900">--</span>
+                          <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                            --
+                          </span>
                         ) : (
                           <span
                             className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                              log.sufficient ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+                              log.sufficient
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300"
+                                : "bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300"
                             }`}
                           >
                             {log.sufficient ? "Sufficient" : "Insufficient"}
@@ -1241,6 +1407,7 @@ const CreditLimit: React.FC = () => {
             label: "Export Options",
             fields: [
               <FloatingDateRangePicker
+                key="exportDateRange"
                 label="Export Date Range"
                 startDate={exportFrom}
                 endDate={exportTo}
@@ -1251,6 +1418,7 @@ const CreditLimit: React.FC = () => {
                 placeholder=""
               />,
               <FloatingSelect
+                key="exportFormat"
                 label="Export Format"
                 value={exportFormat}
                 onChange={(event) => setExportFormat(event.target.value as ExportFormat)}
@@ -1260,7 +1428,10 @@ const CreditLimit: React.FC = () => {
                   { id: "PDF", name: "PDF Export" },
                 ]}
               />,
-              <div className="md:col-span-2 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-4 text-sm leading-6 text-cyan-900">
+              <div
+                key="exportSummary"
+                className="md:col-span-2 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-4 text-sm leading-6 text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-200"
+              >
                 {exportFrom && exportTo
                   ? `Exporting ${exportFormat === "PDF" ? "PDF" : "Excel"} for ${exportFrom.toLocaleDateString()} to ${exportTo.toLocaleDateString()}.`
                   : `Exporting ${exportFormat === "PDF" ? "PDF" : "Excel"} for all available records.`}

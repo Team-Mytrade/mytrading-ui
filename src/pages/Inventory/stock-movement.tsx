@@ -2,7 +2,6 @@ import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "rea
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowPathIcon,
   ArrowRightIcon,
   ArrowsRightLeftIcon,
   CalendarIcon,
@@ -25,6 +24,37 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
+/**
+ * =====================================================================================
+ * WHAT CHANGED IN THIS VERSION (in plain terms):
+ *
+ * 1. "From Location" and "To Location" used to be free-text boxes where you could
+ *    type anything (e.g. "ch", "tvm"). If what you typed didn't match a real
+ *    warehouse, the backend crashed with "No value present". They are now
+ *    WAREHOUSE DROPDOWNS instead — showing "Name (CODE) — LOCATION_TYPE" — so you
+ *    can only pick a warehouse that actually exists.
+ *
+ * 2. Both dropdowns are filtered to only show warehouses where the SELECTED
+ *    PRODUCT actually has a Stock Level record. This is built from the real
+ *    Stock Levels data (productId + warehouse.id pairs), not guessed. If a
+ *    product has no stock level at any warehouse yet, both dropdowns fall back
+ *    to showing every warehouse (with a warning note) so the form isn't
+ *    completely unusable — but you should create a stock level first.
+ *
+ * 3. The separate "Warehouse" field (which duplicated what From/To Location
+ *    should already tell you) has been REMOVED. To Warehouse is now sent as the
+ *    payload's single `warehouse` field, since that's the warehouse actually
+ *    receiving/holding the stock after the movement. FLAG FOR BACKEND: confirm
+ *    this assumption — if `warehouse` on a movement is meant to represent the
+ *    SOURCE warehouse instead, this needs to send fromWarehouseId there instead.
+ *
+ * 4. fromLocation/toLocation are sent to the backend as the selected warehouse's
+ *    `code` (falling back to `name` if no code exists) — plain strings, matching
+ *    the schema's existing fromLocation/toLocation string fields. No backend
+ *    schema change is required for this version.
+ * =====================================================================================
+ */
+
 // ======================== ENUM TYPE ========================
 interface EnumOption {
   id: string;
@@ -45,6 +75,7 @@ type Warehouse = {
   id: number;
   name?: string;
   code?: string;
+  locationType?: string;
 };
 
 type Batch = {
@@ -63,6 +94,16 @@ type SerialNumber = {
   productNumber?: string;
   warehouse?: string;
   batch?: Batch | string;
+};
+
+// Only the fields we actually need from a StockLevel record for this page.
+type StockLevel = {
+  id: number;
+  productId?: number;
+  warehouse?: Warehouse | string;
+  quantity?: number;
+  reserved?: number;
+  available?: number;
 };
 
 type StockMovement = {
@@ -88,11 +129,10 @@ type MovementForm = {
   movementDate: string;
   movementType: string;
   quantity: string;
-  fromLocation: string;
-  toLocation: string;
+  fromWarehouseId: string;
+  toWarehouseId: string;
   reference: string;
   productId: string;
-  warehouseId: string;
   batchId: string;
   serialNumberId: string;
 };
@@ -103,6 +143,7 @@ const PRODUCTS_API_URL = "/v1/api/purchase/products";
 const WAREHOUSES_API_URL = "/v1/api/inventory/warehouses";
 const BATCHES_API_URL = "/v1/api/inventory/batches";
 const SERIALS_API_URL = "/v1/api/inventory/serial-numbers";
+const STOCK_LEVELS_API_URL = "/v1/api/inventory/stock-levels";
 const PAGE_SIZE = 10;
 const MOVEMENT_TYPE_ENUM = "MOVEMENT_TYPE";
 
@@ -112,11 +153,10 @@ const emptyForm: MovementForm = {
   movementDate: new Date().toISOString().split("T")[0],
   movementType: "",
   quantity: "",
-  fromLocation: "",
-  toLocation: "",
+  fromWarehouseId: "",
+  toWarehouseId: "",
   reference: "",
   productId: "",
-  warehouseId: "",
   batchId: "",
   serialNumberId: "",
 };
@@ -161,19 +201,58 @@ function getProductName(product?: Product | null): string {
   return product.productName || product.name || "";
 }
 
-function getWarehouseValue(warehouse?: Warehouse | string | null) {
-  if (!warehouse) return "";
-  if (typeof warehouse === "string") return warehouse;
-  return warehouse.code || warehouse.name || String(warehouse.id);
-}
-
-function getWarehouseId(
-  warehouse: Warehouse | string | null | undefined,
-  warehouses: Warehouse[]
+// NOTE: the backend often returns warehouse/batch/serialNumber as a nested
+// object with ONLY `id` populated (code/name/batchNumber/serial all null) —
+// it doesn't fully hydrate the related entity in the movement response. So
+// these resolvers always fall back to looking the id up in the already-fetched
+// full list (warehouses/batches/serialNumbers), the same pattern already used
+// for product display, rather than trusting the nested object's own fields.
+function getWarehouseValue(
+  warehouse?: Warehouse | string | null,
+  warehouses: Warehouse[] = []
 ) {
   if (!warehouse) return "";
-  if (typeof warehouse !== "string") return warehouse.id != null ? String(warehouse.id) : "";
-  const match = warehouses.find((item) => item.code === warehouse || item.name === warehouse);
+  if (typeof warehouse === "string") return warehouse;
+  if (warehouse.code || warehouse.name) return warehouse.code || warehouse.name || "";
+  const match = warehouses.find((w) => w.id === warehouse.id);
+  if (match) return match.code || match.name || String(match.id);
+  return warehouse.id != null ? `Warehouse #${warehouse.id}` : "";
+}
+
+function getBatchValue(
+  batch?: Batch | string | null,
+  batches: Batch[] = []
+) {
+  if (!batch) return "";
+  if (typeof batch === "string") return batch;
+  if (batch.batchNumber) return batch.batchNumber;
+  const match = batches.find((b) => b.id === batch.id);
+  if (match) return match.batchNumber || `Batch #${match.id}`;
+  return batch.id != null ? `Batch #${batch.id}` : "";
+}
+
+function getSerialValue(
+  serialNumber?: SerialNumber | string | null,
+  serialNumbers: SerialNumber[] = []
+) {
+  if (!serialNumber) return "";
+  if (typeof serialNumber === "string") return serialNumber;
+  if (serialNumber.serial) return serialNumber.serial;
+  const match = serialNumbers.find((s) => s.id === serialNumber.id);
+  if (match) return match.serial || `Serial #${match.id}`;
+  return serialNumber.id != null ? `Serial #${serialNumber.id}` : "";
+}
+
+// Resolves a Warehouse | string field down to a numeric warehouse id (as a
+// string), used to reverse-map a movement's existing warehouse/from/to data
+// back into a dropdown selection when editing.
+function resolveWarehouseId(
+  value: Warehouse | string | null | undefined,
+  warehouses: Warehouse[]
+): string {
+  if (!value) return "";
+  if (typeof value !== "string") return value.id != null ? String(value.id) : "";
+  const match = warehouses.find((w) => w.code === value || w.name === value);
   return match?.id != null ? String(match.id) : "";
 }
 
@@ -196,7 +275,6 @@ function getSerialId(
 }
 
 // ======================== HELPER: ENUM NORMALIZATION ========================
-// IDs are kept exactly as the API returns them — no .toUpperCase() transform.
 function normalizeEnumOptions(raw: any): EnumOption[] {
   const list = Array.isArray(raw) ? raw : raw?.content || raw?.data || raw?.result || [];
   if (!Array.isArray(list)) return [];
@@ -217,10 +295,7 @@ function normalizeEnumOptions(raw: any): EnumOption[] {
     .filter((option): option is EnumOption => option !== null);
 }
 
-function getMovementTypeLabel(
-  type: string | undefined | null,
-  options: EnumOption[]
-) {
+function getMovementTypeLabel(type: string | undefined | null, options: EnumOption[]) {
   if (!type) return "-";
   const match = options.find((option) => option.id === type);
   return match?.name || type;
@@ -239,6 +314,7 @@ const StockMovementsManager: React.FC = () => {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [serialNumbers, setSerialNumbers] = useState<SerialNumber[]>([]);
+  const [stockLevels, setStockLevels] = useState<StockLevel[]>([]);
   const [movementTypeOptions, setMovementTypeOptions] = useState<EnumOption[]>([]);
   const [lookupsLoaded, setLookupsLoaded] = useState(false);
   const [form, setForm] = useState<MovementForm>(emptyForm);
@@ -280,12 +356,14 @@ const StockMovementsManager: React.FC = () => {
 
   const fetchLookups = async () => {
     try {
-      const [productsRes, warehousesRes, batchesRes, serialsRes] = await Promise.all([
-        axios.get<Product[]>(PRODUCTS_API_URL, { headers }),
-        axios.get<Warehouse[]>(WAREHOUSES_API_URL, { headers }),
-        axios.get<Batch[]>(BATCHES_API_URL, { headers }),
-        axios.get<SerialNumber[]>(SERIALS_API_URL, { headers }),
-      ]);
+      const [productsRes, warehousesRes, batchesRes, serialsRes, stockLevelsRes] =
+        await Promise.all([
+          axios.get<Product[]>(PRODUCTS_API_URL, { headers }),
+          axios.get<Warehouse[]>(WAREHOUSES_API_URL, { headers }),
+          axios.get<Batch[]>(BATCHES_API_URL, { headers }),
+          axios.get<SerialNumber[]>(SERIALS_API_URL, { headers }),
+          axios.get<StockLevel[]>(STOCK_LEVELS_API_URL, { headers }),
+        ]);
 
       setProducts(
         Array.isArray(productsRes.data)
@@ -306,6 +384,11 @@ const StockMovementsManager: React.FC = () => {
         Array.isArray(serialsRes.data)
           ? serialsRes.data
           : (serialsRes.data as any)?.content || (serialsRes.data as any)?.data || []
+      );
+      setStockLevels(
+        Array.isArray(stockLevelsRes.data)
+          ? stockLevelsRes.data
+          : (stockLevelsRes.data as any)?.content || (stockLevelsRes.data as any)?.data || []
       );
     } catch (error) {
       ToasterService.error(
@@ -348,18 +431,25 @@ const StockMovementsManager: React.FC = () => {
       if (name === "productId" && value !== current.productId) {
         next.batchId = "";
         next.serialNumberId = "";
+        next.fromWarehouseId = "";
+        next.toWarehouseId = "";
       }
       return next;
     });
   };
 
   const buildPayload = () => {
+    const fromWarehouse = warehouses.find((w) => String(w.id) === form.fromWarehouseId);
+    const toWarehouse = warehouses.find((w) => String(w.id) === form.toWarehouseId);
+
     const payload: Record<string, unknown> = {
       movementDate: form.movementDate,
       movementType: form.movementType,
       quantity: toNumber(form.quantity),
-      fromLocation: form.fromLocation,
-      toLocation: form.toLocation,
+      // Sent as the warehouse's code (falling back to name) — a real string
+      // that matches an actual warehouse, instead of arbitrary typed text.
+      fromLocation: fromWarehouse ? fromWarehouse.code || fromWarehouse.name || "" : "",
+      toLocation: toWarehouse ? toWarehouse.code || toWarehouse.name || "" : "",
       reference: form.reference,
       productId: toNumber(form.productId),
     };
@@ -368,8 +458,12 @@ const StockMovementsManager: React.FC = () => {
       payload.id = editingId;
     }
 
-    if (form.warehouseId) {
-      payload.warehouse = { id: toNumber(form.warehouseId) };
+    // ASSUMPTION (flag for backend): the single `warehouse` field on a
+    // movement represents the destination/receiving warehouse. If this is
+    // supposed to be the source warehouse instead, swap toWarehouseId for
+    // fromWarehouseId here.
+    if (form.toWarehouseId) {
+      payload.warehouse = { id: toNumber(form.toWarehouseId) };
     }
     if (form.batchId) {
       payload.batch = { id: toNumber(form.batchId) };
@@ -397,8 +491,11 @@ const StockMovementsManager: React.FC = () => {
       ToasterService.error("Required field missing", "Movement type is required.");
       return;
     }
-    if (!form.fromLocation || !form.toLocation) {
-      ToasterService.error("Required field missing", "From and to locations are required.");
+    if (!form.fromWarehouseId || !form.toWarehouseId) {
+      ToasterService.error(
+        "Required field missing",
+        "From and to warehouse are both required."
+      );
       return;
     }
     if (!form.productId) {
@@ -452,11 +549,15 @@ const StockMovementsManager: React.FC = () => {
       movementDate: movement.movementDate || emptyForm.movementDate,
       movementType: movement.movementType || "",
       quantity: String(movement.quantity || 0),
-      fromLocation: movement.fromLocation || "",
-      toLocation: movement.toLocation || "",
+      // Legacy data may have fromLocation/toLocation as free text that
+      // doesn't match any real warehouse — resolveWarehouseId returns "" in
+      // that case, so the dropdown just shows unselected rather than crashing.
+      fromWarehouseId: resolveWarehouseId(movement.fromLocation, warehouses),
+      toWarehouseId:
+        resolveWarehouseId(movement.toLocation, warehouses) ||
+        resolveWarehouseId(movement.warehouse, warehouses),
       reference: movement.reference || "",
       productId: String(movement.productId || movement.product?.id || ""),
-      warehouseId: getWarehouseId(movement.warehouse, warehouses),
       batchId: getBatchId(movement.batch, batches),
       serialNumberId: getSerialId(movement.serialNumber, serialNumbers),
     });
@@ -497,20 +598,14 @@ const StockMovementsManager: React.FC = () => {
   const stats = useMemo(() => {
     const transferOptionIds = new Set(
       movementTypeOptions
-        .filter(
-          (option) => /transfer/i.test(option.name) || /transfer/i.test(option.id)
-        )
+        .filter((option) => /transfer/i.test(option.name) || /transfer/i.test(option.id))
         .map((option) => option.id)
     );
 
     return {
       total: stockMovements.length,
-      totalQuantity: stockMovements.reduce(
-        (sum, sm) => sum + (Number(sm.quantity) || 0),
-        0
-      ),
-      transfers: stockMovements.filter((sm) => transferOptionIds.has(sm.movementType))
-        .length,
+      totalQuantity: stockMovements.reduce((sum, sm) => sum + (Number(sm.quantity) || 0), 0),
+      transfers: stockMovements.filter((sm) => transferOptionIds.has(sm.movementType)).length,
       uniqueProducts: new Set(
         stockMovements.map((sm) => sm.productId || sm.product?.id).filter(Boolean)
       ).size,
@@ -518,24 +613,101 @@ const StockMovementsManager: React.FC = () => {
   }, [stockMovements, movementTypeOptions]);
 
   // ---------- Dropdown options ----------
+
+  // Product IDs that actually have at least one StockLevel record.
+  const productIdsWithStockLevel = useMemo(() => {
+    const set = new Set<string>();
+    stockLevels.forEach((level) => {
+      if (level.productId != null) set.add(String(level.productId));
+    });
+    return set;
+  }, [stockLevels]);
+
   const productOptions = useMemo(() => {
-    return products.map((product) => {
+    const filtered = products.filter((product) => {
+      const id = product.id ?? product.productId;
+      return id != null && productIdsWithStockLevel.has(String(id));
+    });
+
+    const currentId = form.productId;
+    const alreadyIncluded = filtered.some((p) => String(p.id ?? p.productId) === currentId);
+    const extra =
+      !alreadyIncluded && currentId
+        ? products.filter((p) => String(p.id ?? p.productId) === currentId)
+        : [];
+
+    return [...filtered, ...extra].map((product) => {
       const id = product.id ?? product.productId;
       return {
         id: id != null ? String(id) : "",
         name: getProductName(product) || `Product #${id ?? "?"}`,
       };
     });
-  }, [products]);
+  }, [products, productIdsWithStockLevel, form.productId]);
 
-  const warehouseOptions = useMemo(() => {
-    return warehouses.map((warehouse) => ({
+  // Which warehouse IDs have a Stock Level for a given product — built from
+  // real data, not guessed. Used to filter the From/To Warehouse dropdowns.
+  const warehouseIdsByProduct = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    stockLevels.forEach((level) => {
+      if (level.productId == null) return;
+      const pid = String(level.productId);
+      const wid = resolveWarehouseId(level.warehouse, warehouses);
+      if (!wid) return;
+      if (!map.has(pid)) map.set(pid, new Set());
+      map.get(pid)!.add(wid);
+    });
+    return map;
+  }, [stockLevels, warehouses]);
+
+  // Label shows Name (CODE) — LOCATION_TYPE so the location type is visible
+  // right in the dropdown, as requested.
+  const formatWarehouseLabel = (warehouse: Warehouse) => {
+    const namePart = warehouse.name || `Warehouse #${warehouse.id}`;
+    const codePart = warehouse.code ? ` (${warehouse.code})` : "";
+    const typePart = warehouse.locationType ? ` — ${warehouse.locationType}` : "";
+    return `${namePart}${codePart}${typePart}`;
+  };
+
+  // Shared warehouse-dropdown builder for From/To. Filters down to warehouses
+  // where the selected product has a real stock level; if the product has no
+  // stock level anywhere yet, falls back to the full warehouse list (with a
+  // hint shown in the form) so the form isn't a dead end.
+  const buildWarehouseOptions = (selectedId: string) => {
+    const productId = form.productId;
+    const allowedIds = productId ? warehouseIdsByProduct.get(productId) : undefined;
+    const hasRestriction = !!allowedIds && allowedIds.size > 0;
+
+    const list = hasRestriction
+      ? warehouses.filter((w) => allowedIds!.has(String(w.id)))
+      : warehouses;
+
+    const alreadyIncluded = list.some((w) => String(w.id) === selectedId);
+    const extra =
+      !alreadyIncluded && selectedId
+        ? warehouses.filter((w) => String(w.id) === selectedId)
+        : [];
+
+    return [...list, ...extra].map((warehouse) => ({
       id: String(warehouse.id),
-      name: warehouse.code
-        ? `${warehouse.name || `Warehouse #${warehouse.id}`} (${warehouse.code})`
-        : warehouse.name || `Warehouse #${warehouse.id}`,
+      name: formatWarehouseLabel(warehouse),
     }));
-  }, [warehouses]);
+  };
+
+  const fromWarehouseOptions = useMemo(
+    () => buildWarehouseOptions(form.fromWarehouseId),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [warehouses, warehouseIdsByProduct, form.productId, form.fromWarehouseId]
+  );
+
+  const toWarehouseOptions = useMemo(
+    () => buildWarehouseOptions(form.toWarehouseId),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [warehouses, warehouseIdsByProduct, form.productId, form.toWarehouseId]
+  );
+
+  const productHasNoStockLevelAnywhere =
+    !!form.productId && !warehouseIdsByProduct.get(form.productId)?.size;
 
   const batchOptions = useMemo(() => {
     const selectedProductId = toNumber(form.productId);
@@ -559,9 +731,7 @@ const StockMovementsManager: React.FC = () => {
 
   const getProductDisplayName = (movement: StockMovement) => {
     const productId = movement.productId ?? movement.product?.id;
-    const product = products.find(
-      (p) => p.id === productId || p.productId === productId
-    );
+    const product = products.find((p) => p.id === productId || p.productId === productId);
     const name = getProductName(product) || getProductName(movement.product);
     return name || "N/A";
   };
@@ -591,8 +761,7 @@ const StockMovementsManager: React.FC = () => {
       key: "movementType",
       label: "Type",
       sortable: true,
-      sortValueGetter: (movement) =>
-        getMovementTypeLabel(movement.movementType, movementTypeOptions),
+      sortValueGetter: (movement) => getMovementTypeLabel(movement.movementType, movementTypeOptions),
       render: (movement) => (
         <span
           className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${getMovementTypeBadge(
@@ -711,10 +880,7 @@ const StockMovementsManager: React.FC = () => {
   // ======================== RENDER ========================
   return (
     <>
-      <PageMeta
-        title="Stock Movements"
-        description="Track and manage inventory stock movements"
-      />
+      <PageMeta title="Stock Movements" description="Track and manage inventory stock movements" />
       <PageBreadcrumb
         pageTitle="Stock Movements"
         actions={<AddButton onClick={openCreate} label="Add Stock Movement" />}
@@ -755,18 +921,6 @@ const StockMovementsManager: React.FC = () => {
             icon={<ClipboardDocumentListIcon className="h-5 w-5" />}
           />
         </div>
-
-        {/* Toolbar — Refresh only */}
-        {/* <div className="mb-4 flex items-center justify-end">
-          <button
-            onClick={fetchStockMovements}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600"
-            title="Refresh"
-          >
-            <ArrowPathIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
-        </div> */}
 
         <ReusableTable
           data={stockMovements}
@@ -833,6 +987,11 @@ const StockMovementsManager: React.FC = () => {
                 options={productOptions}
                 required
               />,
+              <p key="product-hint" className="text-xs text-gray-500">
+                Only products with an existing stock level are shown. To move a
+                product that isn't listed here, create a stock level for it
+                first on the Stock Levels page.
+              </p>,
               <FloatingInput
                 key="quantity"
                 label="Quantity"
@@ -843,23 +1002,32 @@ const StockMovementsManager: React.FC = () => {
                 onChange={handleChange}
                 required
               />,
-              <FloatingInput
-                key="fromLocation"
-                label="From Location"
-                name="fromLocation"
-                value={form.fromLocation}
+              <FloatingSelect
+                key="fromWarehouseId"
+                label="From Warehouse"
+                name="fromWarehouseId"
+                value={form.fromWarehouseId}
                 onChange={handleChange}
+                options={fromWarehouseOptions}
                 required
               />,
-              <FloatingInput
-                key="toLocation"
-                label="To Location"
-                name="toLocation"
-                value={form.toLocation}
+              <FloatingSelect
+                key="toWarehouseId"
+                label="To Warehouse"
+                name="toWarehouseId"
+                value={form.toWarehouseId}
                 onChange={handleChange}
+                options={toWarehouseOptions}
                 required
               />,
-            ],
+              productHasNoStockLevelAnywhere && (
+                <p key="no-stock-warning" className="text-xs text-amber-600">
+                  ⚠ This product has no stock level at any warehouse yet, so
+                  every warehouse is shown. Creating this movement may fail —
+                  set up a stock level for this product first.
+                </p>
+              ),
+            ].filter(Boolean),
           },
           {
             label: "Additional",
@@ -870,14 +1038,6 @@ const StockMovementsManager: React.FC = () => {
                 name="reference"
                 value={form.reference}
                 onChange={handleChange}
-              />,
-              <FloatingSelect
-                key="warehouseId"
-                label="Warehouse"
-                name="warehouseId"
-                value={form.warehouseId}
-                onChange={handleChange}
-                options={warehouseOptions}
               />,
               <FloatingSelect
                 key="batchId"
@@ -902,13 +1062,11 @@ const StockMovementsManager: React.FC = () => {
         ]}
       />
 
-      {/* View Details Modal — now using PaginatedPopup for consistency */}
+      {/* View Details Modal */}
       <PaginatedPopup
         isOpen={showViewModal && !!viewingMovement}
         title="Movement Details"
-        subtitle={
-          viewingMovement ? `Stock movement #${viewingMovement.id}` : "Stock movement"
-        }
+        subtitle={viewingMovement ? `Stock movement #${viewingMovement.id}` : "Stock movement"}
         onClose={() => {
           setShowViewModal(false);
           setViewingMovement(null);
@@ -935,10 +1093,7 @@ const StockMovementsManager: React.FC = () => {
                           viewingMovement.movementType
                         )}`}
                       >
-                        {getMovementTypeLabel(
-                          viewingMovement.movementType,
-                          movementTypeOptions
-                        )}
+                        {getMovementTypeLabel(viewingMovement.movementType, movementTypeOptions)}
                       </span>
                     </div>
 
@@ -947,9 +1102,7 @@ const StockMovementsManager: React.FC = () => {
                       <button
                         type="button"
                         onClick={() =>
-                          goToProduct(
-                            viewingMovement.productId ?? viewingMovement.product?.id
-                          )
+                          goToProduct(viewingMovement.productId ?? viewingMovement.product?.id)
                         }
                         className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
                       >
@@ -965,9 +1118,7 @@ const StockMovementsManager: React.FC = () => {
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Reference</p>
-                      <p className="text-sm text-gray-700">
-                        {viewingMovement.reference || "N/A"}
-                      </p>
+                      <p className="text-sm text-gray-700">{viewingMovement.reference || "N/A"}</p>
                     </div>
 
                     <div>
@@ -978,41 +1129,33 @@ const StockMovementsManager: React.FC = () => {
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">To Location</p>
-                      <p className="text-sm text-gray-700">
-                        {viewingMovement.toLocation || "N/A"}
-                      </p>
+                      <p className="text-sm text-gray-700">{viewingMovement.toLocation || "N/A"}</p>
                     </div>
 
                     <div>
                       <p className="text-xs text-gray-500">Warehouse</p>
                       <p className="text-sm text-gray-700">
-                        {getWarehouseValue(viewingMovement.warehouse) || "N/A"}
+                        {getWarehouseValue(viewingMovement.warehouse, warehouses) || "N/A"}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Batch</p>
                       <p className="text-sm text-gray-700">
-                        {typeof viewingMovement.batch === "string"
-                          ? viewingMovement.batch
-                          : viewingMovement.batch?.batchNumber || "N/A"}
+                        {getBatchValue(viewingMovement.batch, batches) || "N/A"}
                       </p>
                     </div>
 
                     <div className="col-span-2">
                       <p className="text-xs text-gray-500">Serial Number</p>
                       <p className="text-sm text-gray-700">
-                        {typeof viewingMovement.serialNumber === "string"
-                          ? viewingMovement.serialNumber
-                          : viewingMovement.serialNumber?.serial || "N/A"}
+                        {getSerialValue(viewingMovement.serialNumber, serialNumbers) || "N/A"}
                       </p>
                     </div>
 
                     {viewingMovement.createdBy && (
                       <div>
                         <p className="text-xs text-gray-500">Created By</p>
-                        <p className="text-sm text-gray-700">
-                          {viewingMovement.createdBy}
-                        </p>
+                        <p className="text-sm text-gray-700">{viewingMovement.createdBy}</p>
                       </div>
                     )}
                     {viewingMovement.createdDate && (

@@ -7,7 +7,6 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   PencilSquareIcon,
-  PlusIcon,
   ShoppingCartIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
@@ -172,9 +171,6 @@ type QuotationOption = {
   items?: QuotationItemOption[];
 };
 
-// One row in the "Items" tab. Product identity + pricing come straight from
-// the quotation and are NOT re-editable — the user can only adjust quantity,
-// discounts, tax, and remarks on top of the quotation's baseline.
 type OrderItemForm = {
   key: string;
   quotationItemId: string;
@@ -245,8 +241,6 @@ const PAGE_SIZE = 10;
 
 const quotationTypeOptions = ["PRODUCT", "SERVICE"];
 
-// STOPGAP: backend still requires tenantId as a query param. Read at call
-// time only, never exposed in the UI. Move server-side when backend supports.
 function getStoredTenantId() {
   try {
     const user = JSON.parse(localStorage.getItem("user") || "null");
@@ -495,9 +489,9 @@ const SalesOrders: React.FC = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem("accessToken");
   const headers = useMemo(
-  () => (token ? { Authorization: `Bearer ${token}` } : undefined),
-  [token]
-);
+    () => (token ? { Authorization: `Bearer ${token}` } : undefined),
+    [token]
+  );
 
   const [orders, setOrders] = useState<SalesOrder[]>([]);
   const [form, setForm] = useState<OrderForm>(emptyForm);
@@ -510,9 +504,6 @@ const SalesOrders: React.FC = () => {
   const [salesChannels, setSalesChannels] = useState<SalesChannelOption[]>([]);
   const [quotations, setQuotations] = useState<QuotationOption[]>([]);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
-  // Existing orders for the currently-selected customer — reference panel
-  // only, fetched from /sales-orders/customer/{customerId}. Never used to
-  // build the order itself.
   const [customerOrders, setCustomerOrders] = useState<SalesOrder[]>([]);
   const [creditCheck, setCreditCheck] = useState<{
     status: "idle" | "checking" | "ok" | "insufficient" | "error";
@@ -526,10 +517,6 @@ const SalesOrders: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Order-level totals are always summed from the items in this order.
-  // Never copied from the quotation's own total, because an order's items
-  // can legitimately diverge from the quotation (adjusted qty/price, or
-  // only some items included).
   useEffect(() => {
     const totalsPerItem = form.items.map(computeItemTotals);
     const subTotal = totalsPerItem.reduce((sum, t) => sum + t.grossAmount, 0);
@@ -538,7 +525,9 @@ const SalesOrders: React.FC = () => {
     const taxAmount = Number(totalsPerItem.reduce((sum, t) => sum + t.taxAmount, 0).toFixed(2));
     const grandTotal = Number(totalsPerItem.reduce((sum, t) => sum + t.lineTotal, 0).toFixed(2));
     const discountPercentage =
-      subTotal > 0 ? Number((((discountAmount + additionalDiscount) / subTotal) * 100).toFixed(2)) : 0;
+      subTotal > 0
+        ? Number((((discountAmount + additionalDiscount) / subTotal) * 100).toFixed(2))
+        : 0;
 
     setForm((current) => {
       const next = {
@@ -557,7 +546,6 @@ const SalesOrders: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.items]);
 
-  // Paid / Balance are fully derived from the Paid toggle and grand total.
   useEffect(() => {
     const isPaid = form.paid === "true";
     const nextPaidAmount = isPaid ? form.grandTotal : "0";
@@ -571,8 +559,6 @@ const SalesOrders: React.FC = () => {
     });
   }, [form.paid, form.grandTotal]);
 
-  // Fetch this customer's existing orders for the reference panel. Uses the
-  // dedicated per-customer endpoint instead of filtering the full list.
   useEffect(() => {
     const customerId = Number(form.customerId);
     if (!Number.isFinite(customerId) || customerId <= 0) {
@@ -595,12 +581,16 @@ const SalesOrders: React.FC = () => {
     };
   }, [form.customerId, headers]);
 
-  // Proactive credit check — same endpoint the Credit Limit page uses.
   useEffect(() => {
     const customerId = Number(form.customerId);
     const orderAmount = Number(form.grandTotal);
 
-    if (!Number.isFinite(customerId) || customerId <= 0 || !Number.isFinite(orderAmount) || orderAmount <= 0) {
+    if (
+      !Number.isFinite(customerId) ||
+      customerId <= 0 ||
+      !Number.isFinite(orderAmount) ||
+      orderAmount <= 0
+    ) {
       setCreditCheck({ status: "idle" });
       return;
     }
@@ -618,7 +608,10 @@ const SalesOrders: React.FC = () => {
           availableCredit: Number(res.data.availableCredit || 0),
         });
       } catch (error) {
-        setCreditCheck({ status: "error", message: getErrorMessage(error, "Could not verify credit.") });
+        setCreditCheck({
+          status: "error",
+          message: getErrorMessage(error, "Could not verify credit."),
+        });
       }
     }, 500);
 
@@ -641,7 +634,10 @@ const SalesOrders: React.FC = () => {
       setOrders(data);
       if (data.length === 0) ToasterService.noData("No sales orders found");
     } catch (error) {
-      ToasterService.error("Failed to load sales orders", getErrorMessage(error, "Please try again."));
+      ToasterService.error(
+        "Failed to load sales orders",
+        getErrorMessage(error, "Please try again.")
+      );
       setOrders([]);
     } finally {
       setLoading(false);
@@ -660,28 +656,40 @@ const SalesOrders: React.FC = () => {
       setSalesPersons(Array.isArray(personsRes.value.data) ? personsRes.value.data : []);
     } else {
       console.error("Failed to load sales persons:", personsRes.reason);
-      ToasterService.error("Failed to load sales persons", getErrorMessage(personsRes.reason, "Please try again."));
+      ToasterService.error(
+        "Failed to load sales persons",
+        getErrorMessage(personsRes.reason, "Please try again.")
+      );
     }
 
     if (channelsRes.status === "fulfilled") {
       setSalesChannels(Array.isArray(channelsRes.value.data) ? channelsRes.value.data : []);
     } else {
       console.error("Failed to load sales channels:", channelsRes.reason);
-      ToasterService.error("Failed to load sales channels", getErrorMessage(channelsRes.reason, "Please try again."));
+      ToasterService.error(
+        "Failed to load sales channels",
+        getErrorMessage(channelsRes.reason, "Please try again.")
+      );
     }
 
     if (quotationsRes.status === "fulfilled") {
       setQuotations(Array.isArray(quotationsRes.value.data) ? quotationsRes.value.data : []);
     } else {
       console.error("Failed to load quotations:", quotationsRes.reason);
-      ToasterService.error("Failed to load quotations", getErrorMessage(quotationsRes.reason, "Please try again."));
+      ToasterService.error(
+        "Failed to load quotations",
+        getErrorMessage(quotationsRes.reason, "Please try again.")
+      );
     }
 
     if (customersRes.status === "fulfilled") {
       setCustomers(Array.isArray(customersRes.value.data) ? customersRes.value.data : []);
     } else {
       console.error("Failed to load customers:", customersRes.reason);
-      ToasterService.error("Failed to load customers", getErrorMessage(customersRes.reason, "Please try again."));
+      ToasterService.error(
+        "Failed to load customers",
+        getErrorMessage(customersRes.reason, "Please try again.")
+      );
     }
   };
 
@@ -696,25 +704,27 @@ const SalesOrders: React.FC = () => {
         const quotation = quotations.find((item) => String(getQuotationId(item)) === value);
         if (quotation) {
           next.quotationNumber = quotation.quoteNumber || quotation.quotationNumber || "";
-          next.quotationVersionNo = String(quotation.versionNo ?? quotation.quotationVersionNo ?? 0);
+          next.quotationVersionNo = String(
+            quotation.versionNo ?? quotation.quotationVersionNo ?? 0
+          );
           next.quotationDate = quotation.quoteDate || quotation.quotationDate || "";
-          next.quotationValidUntil = quotation.validUntil || quotation.quotationValidUntil || "";
+          next.quotationValidUntil =
+            quotation.validUntil || quotation.quotationValidUntil || "";
 
           const quotationCustomerId = quotation.customerId ?? quotation.customer?.id;
           next.customerId = String(quotationCustomerId ?? next.customerId);
-       const matchedCustomer = customers.find((c) => Number(c.id) === Number(quotationCustomerId));
-next.email = matchedCustomer?.email || quotation.customer?.email || quotation.email || "";
+          const matchedCustomer = customers.find(
+            (c) => Number(c.id) === Number(quotationCustomerId)
+          );
+          next.email =
+            matchedCustomer?.email || quotation.customer?.email || quotation.email || "";
           next.subject = quotation.subject || next.subject;
 
-          // Load ALL quotation items as read-only rows. Product identity and
-          // pricing come from the quotation — the user does not re-pick them.
           next.items =
             quotation.items && quotation.items.length > 0
               ? quotation.items.map(itemFromQuotationItem)
               : [];
         } else {
-          // Quotation cleared — drop items so they can't linger from a
-          // previous quotation.
           next.items = [];
         }
       }
@@ -731,9 +741,6 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
     });
   };
 
-  // Item edits are limited to values that are legitimately negotiable on
-  // top of the quotation — quantity, discounts, tax, remarks. Product
-  // identity, unit price, and quotation item linkage are locked.
   const updateItemField = (index: number, patch: Partial<OrderItemForm>) => {
     setForm((current) => ({
       ...current,
@@ -799,7 +806,9 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
     if (creditCheck.status === "insufficient") {
       ToasterService.error(
         "Insufficient credit",
-        `Available: ${money(creditCheck.availableCredit)}, required: ${money(form.grandTotal)}. Reduce the order, clear the customer's outstanding balance, or raise their credit limit before submitting.`
+        `Available: ${money(creditCheck.availableCredit)}, required: ${money(
+          form.grandTotal
+        )}. Reduce the order, clear the customer's outstanding balance, or raise their credit limit before submitting.`
       );
       return;
     }
@@ -854,7 +863,10 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
         return;
       }
       if (!isPercent(item.discountPercentage) || !isPercent(item.taxRate)) {
-        ToasterService.error("Invalid percentage", "Discount and tax percentages must be between 0 and 100.");
+        ToasterService.error(
+          "Invalid percentage",
+          "Discount and tax percentages must be between 0 and 100."
+        );
         return;
       }
     }
@@ -871,7 +883,10 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
       ToasterService.success(editingId ? "Sales order updated" : "Sales order created");
       closeForm();
     } catch (error) {
-      ToasterService.error("Failed to save sales order", getErrorMessage(error, "Please try again."));
+      ToasterService.error(
+        "Failed to save sales order",
+        getErrorMessage(error, "Please try again.")
+      );
     } finally {
       setSubmitting(false);
     }
@@ -958,7 +973,10 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
       setOrders((current) => current.filter((order) => Number(order.id) !== orderId));
       ToasterService.success("Sales order deleted");
     } catch (error) {
-      ToasterService.error("Failed to delete sales order", getErrorMessage(error, "Please try again."));
+      ToasterService.error(
+        "Failed to delete sales order",
+        getErrorMessage(error, "Please try again.")
+      );
     } finally {
       setDeleteOrder(null);
     }
@@ -986,10 +1004,10 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
       sortable: true,
       render: (order) => (
         <div>
-          <div className="text-sm font-semibold text-slate-900">
+          <div className="text-sm font-semibold text-slate-900 dark:text-white">
             {order.orderNumber || `Order #${order.id}`}
           </div>
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
             {order.subject || order.quotationNumber || "No subject"}
           </div>
         </div>
@@ -1001,8 +1019,30 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
       sortable: true,
       render: (order) => {
         const customer = customers.find((item) => Number(item.id) === Number(order.customerId));
-        const name = customer ? customerOptionLabel(customer) : order.customerId ? `Customer #${order.customerId}` : "--";
-        return order.customerId ? <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/customer-management?customerIds=${order.customerId}&customerName=${encodeURIComponent(name)}`); }} className="max-w-[220px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline" title={`View ${name}`}>{name}</button> : <span className="text-sm text-slate-700">{name}</span>;
+        const name = customer
+          ? customerOptionLabel(customer)
+          : order.customerId
+          ? `Customer #${order.customerId}`
+          : "--";
+        return order.customerId ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              navigate(
+                `/customer-management?customerIds=${order.customerId}&customerName=${encodeURIComponent(
+                  name
+                )}`
+              );
+            }}
+            className="max-w-[220px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            title={`View ${name}`}
+          >
+            {name}
+          </button>
+        ) : (
+          <span className="text-sm text-slate-700 dark:text-slate-300">{name}</span>
+        );
       },
     },
     {
@@ -1013,22 +1053,45 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
         const channel = salesChannels.find(
           (item) => Number(getSalesChannelId(item)) === Number(order.salesChannelId)
         );
-        const name = channel?.name || (order.salesChannelId ? `Channel #${order.salesChannelId}` : "--");
-        return order.salesChannelId ? <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/sales-channels?channelId=${order.salesChannelId}&channelName=${encodeURIComponent(name)}`); }} className="max-w-[180px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline" title={`View ${name}`}>{name}</button> : <span className="text-sm text-slate-700">{name}</span>;
+        const name =
+          channel?.name || (order.salesChannelId ? `Channel #${order.salesChannelId}` : "--");
+        return order.salesChannelId ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              navigate(
+                `/sales-channels?channelId=${order.salesChannelId}&channelName=${encodeURIComponent(
+                  name
+                )}`
+              );
+            }}
+            className="max-w-[180px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            title={`View ${name}`}
+          >
+            {name}
+          </button>
+        ) : (
+          <span className="text-sm text-slate-700 dark:text-slate-300">{name}</span>
+        );
       },
     },
     {
       key: "orderDate",
       label: "Order Date",
       sortable: true,
-      render: (order) => <span className="text-sm text-slate-700">{order.orderDate || "--"}</span>,
+      render: (order) => (
+        <span className="text-sm text-slate-700 dark:text-slate-300">
+          {order.orderDate || "--"}
+        </span>
+      ),
     },
     {
       key: "status",
       label: "Status",
       sortable: true,
       render: (order) => (
-        <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">
+        <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
           {order.status || "N/A"}
         </span>
       ),
@@ -1037,7 +1100,11 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
       key: "grandTotal",
       label: "Grand Total",
       sortable: true,
-      render: (order) => <span className="font-semibold text-slate-900">{money(order.grandTotal)}</span>,
+      render: (order) => (
+        <span className="font-semibold text-slate-900 dark:text-white">
+          {money(order.grandTotal)}
+        </span>
+      ),
     },
     {
       key: "paid",
@@ -1056,7 +1123,7 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
           <button
             type="button"
             onClick={() => openEdit(order)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
@@ -1064,7 +1131,7 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
           <button
             type="button"
             onClick={() => setDeleteOrder(order)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
@@ -1074,12 +1141,13 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
     },
   ];
 
+  // ✅ Dark variants added to the shared class strings used inside the Items tab.
   const inputClass =
-    "w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20";
+    "w-full rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-cyan-500";
   const readOnlyClass =
-    "w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-sm text-slate-700";
+    "w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300";
   const miniLabelClass =
-    "mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400"
+    "mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400";
 
   return (
     <>
@@ -1089,7 +1157,7 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
         actions={<AddButton onClick={openCreate} label="Add Sales Order" />}
       />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
+      <div className="w-full max-w-none space-y-6 bg-slate-50 px-0 py-8 dark:bg-slate-950">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Orders" value={stats.total} icon={<ShoppingCartIcon />} />
           <StatsCard
@@ -1127,12 +1195,14 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
           defaultSortOrder="desc"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
-              <ShoppingCartIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">No sales orders found</p>
+              <ShoppingCartIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
+                No sales orders found
+              </p>
               <button
                 type="button"
                 onClick={openCreate}
-                className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 Create your first sales order
               </button>
@@ -1227,28 +1297,28 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
               />,
               ...(isPositiveNumber(form.quotationId)
                 ? [
-                    <p key="customerLockedHint" className="md:col-span-2 -mt-2 text-xs text-slate-400">
+                    <p
+                      key="customerLockedHint"
+                      className="md:col-span-2 -mt-2 text-xs text-slate-400 dark:text-slate-500"
+                    >
                       Customer follows the selected quotation. Clear the Quotation above to pick a
                       different customer.
                     </p>,
                   ]
                 : []),
 
-              // Existing orders for this customer — reference only. Uses the
-              // dedicated per-customer endpoint rather than filtering all
-              // orders client-side.
               ...(customerOrders.length > 0
                 ? [
                     <div
                       key="customerOrdersPanel"
-                      className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/70 p-3"
+                      className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-800/60"
                     >
-                      <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                      <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                         Existing orders for this customer
                       </div>
-                      <div className="text-xs text-slate-600">
+                      <div className="text-xs text-slate-600 dark:text-slate-300">
                         {customerOrders.length} order(s) · Outstanding balance{" "}
-                        <span className="font-semibold text-slate-900">
+                        <span className="font-semibold text-slate-900 dark:text-white">
                           {money(customerOutstanding)}
                         </span>
                       </div>
@@ -1258,30 +1328,31 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
 
               <div key="creditCheckBanner" className="md:col-span-2">
                 {creditCheck.status === "checking" && (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                     Checking available credit for this customer…
                   </div>
                 )}
                 {creditCheck.status === "ok" && (
-                  <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                    Credit check passed — {money(creditCheck.availableCredit)} available against this order.
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                    Credit check passed — {money(creditCheck.availableCredit)} available against
+                    this order.
                   </div>
                 )}
                 {creditCheck.status === "insufficient" && (
-                  <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                  <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
                     <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
                       Insufficient credit for this customer. Available:{" "}
                       {money(creditCheck.availableCredit)}, this order requires{" "}
-                      {money(form.grandTotal)}. The backend will reject this order as-is — reduce the
-                      order, clear outstanding balance, or raise the credit limit first.
+                      {money(form.grandTotal)}. The backend will reject this order as-is — reduce
+                      the order, clear outstanding balance, or raise the credit limit first.
                     </span>
                   </div>
                 )}
                 {creditCheck.status === "error" && (
-                  <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    Could not verify credit automatically ({creditCheck.message}). The order may still be
-                    rejected on submit if credit is insufficient.
+                  <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+                    Could not verify credit automatically ({creditCheck.message}). The order may
+                    still be rejected on submit if credit is insufficient.
                   </div>
                 )}
               </div>,
@@ -1399,9 +1470,10 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
             fields: [
               <div key="itemsList" className="md:col-span-2 space-y-3">
                 {form.items.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-6 text-center text-sm text-slate-500">
-                    Select a quotation on the Quotation tab to load its items here. Items are inherited
-                    from the quotation and cannot be swapped out — change the quotation instead.
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400">
+                    Select a quotation on the Quotation tab to load its items here. Items are
+                    inherited from the quotation and cannot be swapped out — change the quotation
+                    instead.
                   </div>
                 ) : (
                   form.items.map((item, index) => {
@@ -1409,44 +1481,41 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
                     return (
                       <div
                         key={item.key}
-                        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900"
                       >
                         <div className="mb-3 flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
-                            <span className="text-sm font-semibold text-slate-900">
+                            <span className="text-sm font-semibold text-slate-900 dark:text-white">
                               Item {index + 1}
                             </span>
-                            <span className="text-xs text-slate-400">
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
                               Quotation item #{item.quotationItemId}
                             </span>
                           </div>
                           <button
                             type="button"
                             onClick={() => removeItem(index)}
-                            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
                             title="Remove item from this order"
                           >
                             <TrashIcon className="h-4 w-4" />
                           </button>
                         </div>
 
-                        {/* Product identity is read-only — inherited from the
-                            quotation. Swapping it here would silently detach
-                            the order from its quotation item. */}
-                        <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                        <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800">
                           <div>
-                            <div className="text-sm font-medium text-slate-900">
+                            <div className="text-sm font-medium text-slate-900 dark:text-white">
                               {item.productName ||
                                 item.productCode ||
                                 `Product #${item.productId}`}
                             </div>
-                            <div className="text-xs text-slate-500">
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
                               {item.uom ? `${item.uom} · ` : ""}
                               Qty {item.quantity} × {money(item.unitPrice)}
                               {item.taxRate ? ` · Tax ${item.taxRate}%` : ""}
                             </div>
                           </div>
-                          <div className="text-sm font-semibold text-slate-900">
+                          <div className="text-sm font-semibold text-slate-900 dark:text-white">
                             {money(lineTotals.lineTotal)}
                           </div>
                         </div>
@@ -1463,7 +1532,9 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
                             />
                           </div>
                           <div>
-                            <label className={miniLabelClass}>Unit Price (from quotation)</label>
+                            <label className={miniLabelClass}>
+                              Unit Price (from quotation)
+                            </label>
                             <input className={readOnlyClass} value={item.unitPrice} readOnly />
                           </div>
 
@@ -1535,35 +1606,35 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
                         </div>
 
                         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                          <div className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs">
-                            <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                          <div className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs dark:bg-slate-800">
+                            <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
                               Gross
                             </div>
-                            <div className="font-semibold text-slate-700">
+                            <div className="font-semibold text-slate-700 dark:text-slate-200">
                               {money(lineTotals.grossAmount)}
                             </div>
                           </div>
-                          <div className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs">
-                            <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                          <div className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs dark:bg-slate-800">
+                            <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
                               Taxable
                             </div>
-                            <div className="font-semibold text-slate-700">
+                            <div className="font-semibold text-slate-700 dark:text-slate-200">
                               {money(lineTotals.taxableAmount)}
                             </div>
                           </div>
-                          <div className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs">
-                            <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                          <div className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs dark:bg-slate-800">
+                            <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
                               Tax
                             </div>
-                            <div className="font-semibold text-slate-700">
+                            <div className="font-semibold text-slate-700 dark:text-slate-200">
                               {money(lineTotals.taxAmount)}
                             </div>
                           </div>
-                          <div className="rounded-lg bg-cyan-50 px-2.5 py-1.5 text-xs">
-                            <div className="text-[10px] uppercase tracking-[0.1em] text-cyan-600">
+                          <div className="rounded-lg bg-cyan-50 px-2.5 py-1.5 text-xs dark:bg-cyan-950/40">
+                            <div className="text-[10px] uppercase tracking-[0.1em] text-cyan-600 dark:text-cyan-400">
                               Line Total
                             </div>
-                            <div className="font-semibold text-cyan-800">
+                            <div className="font-semibold text-cyan-800 dark:text-cyan-300">
                               {money(lineTotals.lineTotal)}
                             </div>
                           </div>
@@ -1573,7 +1644,7 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
                   })
                 )}
 
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Items are inherited from the selected quotation. To change which products appear
                   on this order, change the quotation — not the rows below.
                 </p>
@@ -1581,39 +1652,41 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
 
               <div
                 key="itemTotalsSummary"
-                className="md:col-span-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4"
+                className="md:col-span-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/60"
               >
-                <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                   Order totals (summed from all items above)
                 </div>
                 <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                  <div className="rounded-xl border border-slate-200 bg-white p-2.5">
-                    <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                  <div className="rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
                       Sub Total
                     </div>
-                    <div className="mt-1 text-sm font-semibold text-slate-900">
+                    <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
                       {money(form.subTotal)}
                     </div>
                   </div>
-                  <div className="rounded-xl border border-slate-200 bg-white p-2.5">
-                    <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">
+                  <div className="rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
                       Discount ({form.discountPercentage || 0}%)
                     </div>
-                    <div className="mt-1 text-sm font-semibold text-slate-900">
+                    <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
                       {money(toNumber(form.discountAmount) + toNumber(form.additionalDiscount))}
                     </div>
                   </div>
-                  <div className="rounded-xl border border-slate-200 bg-white p-2.5">
-                    <div className="text-[10px] uppercase tracking-[0.1em] text-slate-400">Tax</div>
-                    <div className="mt-1 text-sm font-semibold text-slate-900">
+                  <div className="rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+                      Tax
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
                       {money(form.taxAmount)}
                     </div>
                   </div>
-                  <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-2.5">
-                    <div className="text-[10px] uppercase tracking-[0.1em] text-cyan-600">
+                  <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-2.5 dark:border-cyan-800 dark:bg-cyan-950/40">
+                    <div className="text-[10px] uppercase tracking-[0.1em] text-cyan-600 dark:text-cyan-400">
                       Grand Total
                     </div>
-                    <div className="mt-1 text-sm font-semibold text-cyan-800">
+                    <div className="mt-1 text-sm font-semibold text-cyan-800 dark:text-cyan-300">
                       {money(form.grandTotal)}
                     </div>
                   </div>
@@ -1651,9 +1724,13 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
                   { id: "false", name: "No — unpaid" },
                 ]}
               />,
-              <div key="settlementNote" className="md:col-span-2 text-xs text-slate-400">
-                Paid Amount and Balance Amount follow this setting automatically. True partial payments
-                would need a real payment-status field from backend rather than a strict yes/no flag.
+              <div
+                key="settlementNote"
+                className="md:col-span-2 text-xs text-slate-500 dark:text-slate-400"
+              >
+                Paid Amount and Balance Amount follow this setting automatically. True partial
+                payments would need a real payment-status field from backend rather than a strict
+                yes/no flag.
               </div>,
               <FloatingInput
                 key="paidAmount"
@@ -1678,9 +1755,13 @@ next.email = matchedCustomer?.email || quotation.customer?.email || quotation.em
           {
             label: "Addresses",
             fields: [
-              <p key="addressesHint" className="md:col-span-2 text-xs text-slate-400">
+              <p
+                key="addressesHint"
+                className="md:col-span-2 text-xs text-slate-500 dark:text-slate-400"
+              >
                 Both addresses belong to the customer — Billing is where the invoice is addressed,
-                Shipping is where goods/services are delivered. Neither is your company's own address.
+                Shipping is where goods/services are delivered. Neither is your company's own
+                address.
               </p>,
               <FloatingInput
                 key="billingAddressLine1"

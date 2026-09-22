@@ -1,22 +1,19 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import axios from "axios";
 import {
+  ArrowPathIcon,
   CalendarDaysIcon,
   CheckCircleIcon,
   ClockIcon,
-  MagnifyingGlassIcon,
   PencilSquareIcon,
   TrashIcon,
   UserIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import { ListingPdfExportButton } from "../../components/common/export";
-import FilterPopover from "../../components/common/filter";
+import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import {
@@ -54,25 +51,21 @@ type SalesPersonOption = {
   employeeId?: number | null;
 };
 
-// Sales order option returned by /v1/api/sales/sales-orders/schedule/orders
 type SalesOrderOption = {
   id: number;
   orderNo?: string;
   soNumber?: string;
   orderNumber?: string;
   customerId?: number;
-  // Not yet confirmed present in the actual API response — see the
-  // filtering note near salesOrderOptions below. Added defensively so
-  // filtering works automatically the moment backend starts returning it.
   quotationType?: "PRODUCT" | "SERVICE" | string;
 };
 
-// Customer option returned by /v1/api/sales/quotations/getCustomers
 type CustomerOption = {
   id: number;
   name?: string;
   customerName?: string;
   companyName?: string;
+  tradeName?: string;
 };
 
 type ScheduleForm = {
@@ -89,7 +82,14 @@ const API_URL = "/v1/api/sales/service-schedules";
 const SALES_ORDERS_URL = "/v1/api/sales/sales-orders/schedule/orders";
 const CUSTOMERS_URL = "/v1/api/sales/quotations/getCustomers";
 const PAGE_SIZE = 10;
-const statusOptions = ["PENDING", "ASSIGNED", "ACCEPTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
+const statusOptions = [
+  "PENDING",
+  "ASSIGNED",
+  "ACCEPTED",
+  "IN_PROGRESS",
+  "COMPLETED",
+  "CANCELLED",
+];
 
 const emptyForm: ScheduleForm = {
   serviceOrderId: "",
@@ -113,7 +113,9 @@ function getErrorMessage(error: unknown, fallback: string) {
 function formatTime(value: LocalTime | string | undefined) {
   if (!value) return "--";
   if (typeof value === "string") return value;
-  return `${String(value.hour).padStart(2, "0")}:${String(value.minute).padStart(2, "0")}:${String(value.second || 0).padStart(2, "0")}`;
+  return `${String(value.hour).padStart(2, "0")}:${String(value.minute).padStart(2, "0")}:${String(
+    value.second || 0
+  ).padStart(2, "0")}`;
 }
 
 function requestTime(value: string) {
@@ -129,14 +131,26 @@ function isPositiveNumber(value: string) {
   return Number.isFinite(Number(value)) && Number(value) > 0;
 }
 
-function searchableText(value: unknown) {
-  if (value === null || value === undefined) return "";
-  return String(value).toLowerCase().trim();
+// Resolves a customer ID to a friendly display name using the loaded list.
+// Falls back gracefully when the customer isn't in the list (e.g. a brand-new
+// order whose customer hasn't been loaded yet).
+function getCustomerDisplayName(customerId: number, customers: CustomerOption[]): string {
+  const customer = customers.find((item) => Number(item.id) === Number(customerId));
+  if (!customer) return `Customer #${customerId}`;
+  return (
+    customer.customerName ||
+    customer.name ||
+    customer.tradeName ||
+    customer.companyName ||
+    `Customer #${customer.id}`
+  );
 }
 
 const ServiceSchedules: React.FC = () => {
   const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
+  const headers = token
+    ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
+    : undefined;
 
   const [schedules, setSchedules] = useState<ServiceSchedule[]>([]);
   const [salesPersons, setSalesPersons] = useState<SalesPersonOption[]>([]);
@@ -146,11 +160,10 @@ const ServiceSchedules: React.FC = () => {
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [search, setSearch] = useState("");
-  const [employeeLookupId, setEmployeeLookupId] = useState("");
-  const [statusScheduleId, setStatusScheduleId] = useState("");
-  const [nextStatus, setNextStatus] = useState("PENDING");
   const [deleteSchedule, setDeleteSchedule] = useState<ServiceSchedule | null>(null);
+  const [statusTarget, setStatusTarget] = useState<ServiceSchedule | null>(null);
+  const [statusValue, setStatusValue] = useState("PENDING");
+  const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchSchedules();
@@ -176,7 +189,10 @@ const ServiceSchedules: React.FC = () => {
       setSchedules(data);
       if (data.length === 0) ToasterService.noData("No service schedules found");
     } catch (error) {
-      ToasterService.error("Failed to load service schedules", getErrorMessage(error, "Please try again."));
+      ToasterService.error(
+        "Failed to load service schedules",
+        getErrorMessage(error, "Please try again.")
+      );
       setSchedules([]);
     } finally {
       setLoading(false);
@@ -210,30 +226,24 @@ const ServiceSchedules: React.FC = () => {
     }
   };
 
-  const fetchByEmployee = async () => {
-    if (!employeeLookupId) {
-      ToasterService.error("Employee ID is required");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const res = await axios.get<ServiceSchedule[]>(`${API_URL}/employee/${employeeLookupId}`, { headers });
-      const data = Array.isArray(res.data) ? res.data : [];
-      setSchedules(data);
-      data.length ? ToasterService.success("Employee schedules loaded") : ToasterService.noData("No schedules found");
-    } catch (error) {
-      ToasterService.error("Failed to load employee schedules", getErrorMessage(error, "Please try again."));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setForm((current) => ({ ...current, [name]: value }));
+    setForm((current) => {
+      const next = { ...current, [name]: value };
+
+      // Auto-fill customer when a service order is picked — but the user can
+      // still change it afterwards if the order's customer is wrong.
+      if (name === "serviceOrderId") {
+        const order = salesOrders.find((item) => String(item.id) === value);
+        if (order?.customerId) {
+          next.customerId = String(order.customerId);
+        }
+      }
+
+      return next;
+    });
   };
 
   const buildPayload = () => ({
@@ -249,12 +259,22 @@ const ServiceSchedules: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!isPositiveNumber(form.serviceOrderId) || !isPositiveNumber(form.customerId)) {
-      ToasterService.error("Required fields missing", "Service order and customer are required.");
+    if (!isPositiveNumber(form.serviceOrderId)) {
+      ToasterService.error(
+        "Service order required",
+        "Select the service order this schedule belongs to."
+      );
+      return;
+    }
+    if (!isPositiveNumber(form.customerId)) {
+      ToasterService.error("Customer required", "Select the customer for this schedule.");
       return;
     }
     if (!form.scheduledDate || !form.startTime || !form.endTime) {
-      ToasterService.error("Schedule time required", "Scheduled date, start time, and end time are required.");
+      ToasterService.error(
+        "Schedule time required",
+        "Scheduled date, start time, and end time are required."
+      );
       return;
     }
 
@@ -265,27 +285,12 @@ const ServiceSchedules: React.FC = () => {
       ToasterService.success("Service schedule created");
       closeForm();
     } catch (error) {
-      ToasterService.error("Failed to save service schedule", getErrorMessage(error, "Please try again."));
+      ToasterService.error(
+        "Failed to save service schedule",
+        getErrorMessage(error, "Please try again.")
+      );
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const updateStatus = async () => {
-    if (!statusScheduleId || !nextStatus) {
-      ToasterService.error("Schedule ID and status are required");
-      return;
-    }
-
-    try {
-      const res = await axios.patch<ServiceSchedule>(`${API_URL}/${statusScheduleId}/status`, null, {
-        headers,
-        params: { status: nextStatus },
-      });
-      upsertSchedule(res.data);
-      ToasterService.success("Schedule status updated");
-    } catch (error) {
-      ToasterService.error("Failed to update status", getErrorMessage(error, "Please try again."));
     }
   };
 
@@ -312,6 +317,38 @@ const ServiceSchedules: React.FC = () => {
     setShowFormModal(true);
   };
 
+  const openStatusModal = (schedule: ServiceSchedule) => {
+    setStatusTarget(schedule);
+    setStatusValue(schedule.status || "PENDING");
+  };
+
+  const closeStatusModal = () => {
+    setStatusTarget(null);
+    setStatusValue("PENDING");
+  };
+
+  const confirmStatusUpdate = async () => {
+    if (!statusTarget || !statusValue) {
+      ToasterService.error("Status is required");
+      return;
+    }
+    try {
+      setStatusUpdatingId(statusTarget.id);
+      const res = await axios.patch<ServiceSchedule>(
+        `${API_URL}/${statusTarget.id}/status`,
+        null,
+        { headers, params: { status: statusValue } }
+      );
+      upsertSchedule(res.data);
+      ToasterService.success("Schedule status updated");
+      closeStatusModal();
+    } catch (error) {
+      ToasterService.error("Failed to update status", getErrorMessage(error, "Please try again."));
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
   const confirmDelete = async () => {
     if (!deleteSchedule) return;
 
@@ -323,81 +360,71 @@ const ServiceSchedules: React.FC = () => {
       setSchedules((current) => current.filter((item) => item.id !== deleteSchedule.id));
       ToasterService.success("Service schedule deleted");
     } catch (error) {
-      ToasterService.error("Failed to delete schedule", getErrorMessage(error, "Please try again."));
+      ToasterService.error(
+        "Failed to delete schedule",
+        getErrorMessage(error, "Please try again.")
+      );
     } finally {
       setDeleteSchedule(null);
     }
   };
 
-  const filteredSchedules = useMemo(() => {
-    const term = searchableText(search);
-    if (!term) return schedules;
+  const stats = useMemo(
+    () => ({
+      total: schedules.length,
+      pending: schedules.filter((item) => item.status === "PENDING").length,
+      inProgress: schedules.filter((item) => item.status === "IN_PROGRESS").length,
+      completed: schedules.filter((item) => item.status === "COMPLETED").length,
+    }),
+    [schedules]
+  );
 
-    return schedules.filter((schedule) => {
-      const employeeName = getEmployeeDisplayName(schedule.assignedEmployeeId);
-      const haystack = [
-        schedule.id,
-        schedule.scheduleNo,
-        schedule.serviceOrderId,
-        schedule.customerId,
-        schedule.assignedEmployeeId,
-        employeeName,
-        schedule.status,
-        schedule.remarks,
-        schedule.scheduledDate,
-        formatTime(schedule.startTime),
-        formatTime(schedule.endTime),
-        `schedule ${schedule.id}`,
-        `customer ${schedule.customerId}`,
-        `employee ${schedule.assignedEmployeeId}`,
-        `service order ${schedule.serviceOrderId}`,
-      ]
-        .map(searchableText)
-        .filter(Boolean)
-        .join(" ");
+  const employeeOptions = useMemo(
+    () =>
+      salesPersons
+        .map((person) => ({
+          id: String(person.employeeId || person.id),
+          name: person.name || `Person #${person.id}`,
+        }))
+        .filter((item) => Number(item.id) > 0),
+    [salesPersons]
+  );
 
-      return haystack.includes(term);
-    });
-  }, [schedules, search, salesPersons]);
+  // ✅ Customer dropdown shows names, not IDs.
+  const customerOptions = useMemo(
+    () =>
+      customers
+        .map((customer) => ({
+          id: String(customer.id),
+          name:
+            customer.customerName ||
+            customer.name ||
+            customer.tradeName ||
+            customer.companyName ||
+            `Customer #${customer.id}`,
+        }))
+        .filter((item) => Number(item.id) > 0),
+    [customers]
+  );
 
-  const stats = useMemo(() => ({
-    total: schedules.length,
-    pending: schedules.filter((item) => item.status === "PENDING").length,
-    inProgress: schedules.filter((item) => item.status === "IN_PROGRESS").length,
-    completed: schedules.filter((item) => item.status === "COMPLETED").length,
-  }), [schedules]);
-
-  const employeeOptions = salesPersons
-    .map((person) => ({
-      id: String(person.employeeId || person.id),
-      name: person.name || `Person #${person.id}`,
-    }))
-    .filter((item) => Number(item.id) > 0);
-
-  // Service Schedules should only offer SERVICE-type orders — a product
-  // order isn't something you "schedule" the way a service visit is.
-  // Filters only if quotationType is actually present in the response;
-  // if backend hasn't added that field yet, this shows every order rather
-  // than silently filtering everything out (which would look like "no
-  // orders exist" when really the field just isn't there yet).
   const hasOrderTypeInfo = salesOrders.some((order) => Boolean(order.quotationType));
-  const salesOrderOptions = salesOrders
-    .filter((order) => !hasOrderTypeInfo || order.quotationType === "SERVICE")
-    .map((order) => ({
-      id: String(order.id),
-      name: order.orderNo || order.soNumber || order.orderNumber || `Order #${order.id}`,
-    }))
-    .filter((item) => Number(item.id) > 0);
-
-  const customerOptions = customers
-    .map((customer) => ({
-      id: String(customer.id),
-      name: customer.name || customer.customerName || customer.companyName || `Customer #${customer.id}`,
-    }))
-    .filter((item) => Number(item.id) > 0);
+  const salesOrderOptions = useMemo(
+    () =>
+      salesOrders
+        .filter((order) => !hasOrderTypeInfo || order.quotationType === "SERVICE")
+        .map((order) => ({
+          id: String(order.id),
+          name:
+            order.orderNo || order.soNumber || order.orderNumber || `Order #${order.id}`,
+        }))
+        .filter((item) => Number(item.id) > 0),
+    [salesOrders, hasOrderTypeInfo]
+  );
 
   const getEmployeeDisplayName = (employeeId: number) => {
-    const person = salesPersons.find((item) => Number(item.employeeId || item.id) === Number(employeeId));
+    const person = salesPersons.find(
+      (item) => Number(item.employeeId || item.id) === Number(employeeId)
+    );
     return person?.name || `Employee #${employeeId}`;
   };
 
@@ -408,32 +435,55 @@ const ServiceSchedules: React.FC = () => {
       sortable: true,
       render: (schedule) => (
         <div>
-          <div className="font-medium text-cyan-700">{schedule.scheduleNo || `Schedule #${schedule.id}`}</div>
-          <div className="text-xs text-slate-500">Service Order: {schedule.serviceOrderId}</div>
+          <div className="font-medium text-cyan-700 dark:text-cyan-400">
+            {schedule.scheduleNo || `Schedule #${schedule.id}`}
+          </div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            Service Order: {schedule.serviceOrderId}
+          </div>
         </div>
       ),
     },
-    { key: "customerId", label: "Customer", sortable: true },
+    {
+      // ✅ Customer column now shows the resolved customer name instead of a number.
+      key: "customerId",
+      label: "Customer",
+      sortable: true,
+      sortValueGetter: (schedule) => getCustomerDisplayName(schedule.customerId, customers),
+      render: (schedule) => (
+        <span className="text-sm text-slate-700 dark:text-slate-300">
+          {getCustomerDisplayName(schedule.customerId, customers)}
+        </span>
+      ),
+    },
     {
       key: "assignedEmployeeId",
       label: "Employee",
       sortable: true,
-      render: (schedule) => getEmployeeDisplayName(schedule.assignedEmployeeId),
+      render: (schedule) => (
+        <span className="text-sm text-slate-700 dark:text-slate-300">
+          {getEmployeeDisplayName(schedule.assignedEmployeeId)}
+        </span>
+      ),
     },
     {
       key: "scheduledDate",
       label: "Date",
       sortable: true,
-      render: (schedule) => schedule.scheduledDate || "--",
+      render: (schedule) => (
+        <span className="text-sm text-slate-700 dark:text-slate-300">
+          {schedule.scheduledDate || "--"}
+        </span>
+      ),
     },
     {
       key: "startTime",
       label: "Time",
       sortable: false,
       render: (schedule) => (
-        <div className="-ml-4 md:ml-2">
+        <span className="text-sm text-slate-700 dark:text-slate-300">
           {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
-        </div>
+        </span>
       ),
     },
     {
@@ -441,7 +491,7 @@ const ServiceSchedules: React.FC = () => {
       label: "Status",
       sortable: true,
       render: (schedule) => (
-        <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">
+        <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
           {schedule.status || "N/A"}
         </span>
       ),
@@ -457,18 +507,15 @@ const ServiceSchedules: React.FC = () => {
           <button
             type="button"
             onClick={() => openFromSchedule(schedule)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Copy to create"
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>
           <button
             type="button"
-            onClick={() => {
-              setStatusScheduleId(String(schedule.id));
-              setNextStatus(schedule.status || "PENDING");
-            }}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600"
+            onClick={() => openStatusModal(schedule)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600 dark:text-slate-500 dark:hover:bg-green-950/40 dark:hover:text-green-400"
             title="Set status"
           >
             <CheckCircleIcon className="h-4 w-4" />
@@ -476,7 +523,7 @@ const ServiceSchedules: React.FC = () => {
           <button
             type="button"
             onClick={() => setDeleteSchedule(schedule)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
@@ -489,128 +536,54 @@ const ServiceSchedules: React.FC = () => {
   return (
     <>
       <PageMeta title="Service Schedules" description="Manage service schedules" />
-      <PageBreadcrumb pageTitle="Service Schedules" actions={<AddButton onClick={openCreate} label="Add Service Schedule" />} />
+      <PageBreadcrumb
+        pageTitle="Service Schedules"
+        actions={<AddButton onClick={openCreate} label="Add schedule" />}
+      />
 
-      <div className="w-full max-w-none px-0 py-6 sm:py-8">
-
+      <div className="w-full max-w-none space-y-6 bg-slate-50 px-0 py-6 dark:bg-slate-950 sm:py-8">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Schedules" value={stats.total} icon={<CalendarDaysIcon />} />
-          <StatsCard label="Pending" value={stats.pending} icon={<ClockIcon />} gradient="from-orange-50 to-yellow-50" borderColor="border-orange-100" labelColor="text-orange-600" />
-          <StatsCard label="In Progress" value={stats.inProgress} icon={<UserIcon />} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" />
-          <StatsCard label="Completed" value={stats.completed} icon={<CheckCircleIcon />} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard
+            label="Pending"
+            value={stats.pending}
+            icon={<ClockIcon />}
+            gradient="from-orange-50 to-yellow-50"
+            borderColor="border-orange-100"
+            labelColor="text-orange-600"
+          />
+          <StatsCard
+            label="In Progress"
+            value={stats.inProgress}
+            icon={<UserIcon />}
+            gradient="from-blue-50 to-cyan-50"
+            borderColor="border-blue-100"
+            labelColor="text-blue-600"
+          />
+          <StatsCard
+            label="Completed"
+            value={stats.completed}
+            icon={<CheckCircleIcon />}
+            gradient="from-green-50 to-emerald-50"
+            borderColor="border-green-100"
+            labelColor="text-green-600"
+          />
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between md:-mb-4">
-          <div className="relative w-full sm:max-w-md md:mt-1">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search service schedules..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-            />
-            {search && (
-              <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-        <ListingPdfExportButton
-  title="Service Schedules"
-  subtitle="Filtered service schedule listing"
-  reportLabel="Sales Report"
-  data={filteredSchedules}
-  dateAccessor={(schedule) => schedule.scheduledDate}
-  columns={[
-    { key: "scheduleNo", header: "Schedule No" },
-    { key: "serviceOrderId", header: "Service Order" },
-    { key: "customerId", header: "Customer" },
-    {
-      key: "assignedEmployeeId",
-      header: "Employee",
-      accessor: (schedule) => getEmployeeDisplayName(schedule.assignedEmployeeId),
-    },
-    { key: "scheduledDate", header: "Date" },
-    {
-      key: "startTime",
-      header: "Time",
-      accessor: (schedule) => `${formatTime(schedule.startTime)} - ${formatTime(schedule.endTime)}`,
-    },
-    { key: "status", header: "Status" },
-    { key: "remarks", header: "Remarks" },
-  ]}
-  fileName="Service_Schedules"
-  disabled={loading}
-  metadata={(rows, rangeLabel) => [
-    { label: "Total", value: rows.length },
-    { label: "Range", value: rangeLabel },
-    { label: "Status", value: nextStatus || "All" },
-    { label: "Search", value: search || "None" },
-  ]}
-/>
-            
-            <FilterPopover title="Filter Schedules" buttonLabel="Filters" widthClassName="w-[20rem] sm:w-[22rem]" showFooter={false}>
-              <div className="space-y-3">
-                <FloatingSelect
-                  label="Employee"
-                  value={employeeLookupId}
-                  onChange={(e) => setEmployeeLookupId(e.target.value)}
-                  emptyOptionLabel=""
-                  options={employeeOptions}
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <FloatingInput
-                    label="Status Schedule ID"
-                    type="number"
-                    value={statusScheduleId}
-                    onChange={(e) => setStatusScheduleId(e.target.value)}
-                  />
-                  <FloatingSelect
-                    label="Status"
-                    value={nextStatus}
-                    onChange={(e) => setNextStatus(e.target.value)}
-                    includeEmptyOption={false}
-                    options={statusOptions.map((status) => ({ id: status, name: status }))}
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmployeeLookupId("");
-                      setStatusScheduleId("");
-                      setNextStatus("PENDING");
-                      void fetchSchedules();
-                    }}
-                    className="h-10 rounded-lg bg-gray-100 px-3 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                  >
-                    Reset
-                  </button>
-                  <button
-                    type="button"
-                    onClick={fetchByEmployee}
-                    className="h-10 rounded-lg bg-cyan-600 px-3 text-sm font-medium text-white hover:bg-cyan-700"
-                  >
-                    Employee
-                  </button>
-                  <button
-                    type="button"
-                    onClick={updateStatus}
-                    className="h-10 rounded-lg bg-green-600 px-3 text-sm font-medium text-white hover:bg-green-700"
-                  >
-                    Update
-                  </button>
-                </div>
-              </div>
-            </FilterPopover>
-          </div>
+        {/* Toolbar — Refresh only */}
+        <div className="flex items-center justify-end">
+          <button
+            onClick={fetchSchedules}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-cyan-400"
+            title="Refresh"
+          >
+            <ArrowPathIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
         </div>
 
         <ReusableTable
-          data={filteredSchedules}
+          data={schedules}
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}
@@ -618,9 +591,15 @@ const ServiceSchedules: React.FC = () => {
           defaultSortOrder="desc"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
-              <CalendarDaysIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">No service schedules found</p>
-              <button type="button" onClick={openCreate} className="text-xs font-medium text-cyan-600 hover:text-cyan-700">
+              <CalendarDaysIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
+                No service schedules found
+              </p>
+              <button
+                type="button"
+                onClick={openCreate}
+                className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
+              >
                 Create your first service schedule
               </button>
             </div>
@@ -628,103 +607,128 @@ const ServiceSchedules: React.FC = () => {
         />
       </div>
 
-      {showFormModal &&
-        createPortal(
-          <div className="sales-modal fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-3 backdrop-blur-sm sm:items-center sm:p-4">
-            <div className="mx-auto max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl sm:max-h-[calc(100dvh-2rem)]">
-              <div className="flex items-start justify-between gap-3 border-b border-gray-100 p-4 sm:items-center sm:p-5">
-                <div className="min-w-0">
-                  <h3 className="text-lg font-semibold text-gray-900">Create Service Schedule</h3>
-                  <p className="mt-0.5 text-xs text-gray-500">Select a sales order and customer, then set the schedule</p>
-                </div>
-                <button type="button" onClick={closeForm} className="text-gray-400 hover:text-gray-600">
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
+      {/* Create modal — Customer field is back, showing names */}
+      <PaginatedPopup
+        isOpen={showFormModal}
+        title="Create Service Schedule"
+        subtitle="Select a sales order and customer, then set the schedule"
+        onClose={closeForm}
+        onSubmit={handleSubmit}
+        submitting={submitting}
+        submitLabel="Create Service Schedule"
+        maxWidthClassName="max-w-2xl"
+        tabs={[
+          {
+            label: "Schedule Info",
+            fields: [
+              <FloatingSelect
+                key="serviceOrderId"
+                label="Service Order"
+                name="serviceOrderId"
+                value={form.serviceOrderId}
+                onChange={handleChange}
+                emptyOptionLabel="Select service order"
+                options={salesOrderOptions}
+                required
+              />,
+              <FloatingSelect
+                key="customerId"
+                label="Customer"
+                name="customerId"
+                value={form.customerId}
+                onChange={handleChange}
+                emptyOptionLabel="Select customer"
+                options={customerOptions}
+                required
+              />,
+              <FloatingSelect
+                key="assignedEmployeeId"
+                label="Assigned Employee"
+                name="assignedEmployeeId"
+                value={form.assignedEmployeeId}
+                onChange={handleChange}
+                emptyOptionLabel=""
+                options={employeeOptions}
+              />,
+              <div key="scheduledDate" className="md:col-span-2">
+                <FloatingDatePicker
+                  label="Scheduled Date"
+                  name="scheduledDate"
+                  value={form.scheduledDate}
+                  onChange={handleChange}
+                  required
+                />
+              </div>,
+            ],
+          },
+          {
+            label: "Timing & Notes",
+            fields: [
+              <FloatingInput
+                key="startTime"
+                label="Start Time"
+                name="startTime"
+                type="time"
+                value={form.startTime}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingInput
+                key="endTime"
+                label="End Time"
+                name="endTime"
+                type="time"
+                value={form.endTime}
+                onChange={handleChange}
+                required
+              />,
+              <div key="remarks" className="md:col-span-2">
+                <FloatingTextarea
+                  label="Remarks"
+                  name="remarks"
+                  value={form.remarks}
+                  onChange={handleChange}
+                  rows={3}
+                />
+              </div>,
+            ],
+          },
+        ]}
+      />
 
-              <form onSubmit={handleSubmit} className="p-4 sm:p-5">
-                {/* Clean 2-column grid: order & customer up top, date spans full width, then start/end time */}
-                <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
-                  <div className="w-full">
-                    <FloatingSelect
-                      label="Service Order"
-                      name="serviceOrderId"
-                      value={form.serviceOrderId}
-                      onChange={handleChange}
-                      emptyOptionLabel="Select service order"
-                      options={salesOrderOptions}
-                      required
-                    />
-                  </div>
-                  <div className="w-full">
-                    <FloatingSelect
-                      label="Customer"
-                      name="customerId"
-                      value={form.customerId}
-                      onChange={handleChange}
-                      emptyOptionLabel="Select customer"
-                      options={customerOptions}
-                      required
-                    />
-                  </div>
-                  <div className="w-full md:col-span-2">
-                    <FloatingDatePicker
-                      label="Scheduled Date"
-                      name="scheduledDate"
-                      value={form.scheduledDate}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                  <div className="w-full">
-                    <FloatingInput
-                      label="Start Time"
-                      name="startTime"
-                      type="time"
-                      value={form.startTime}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                  <div className="w-full">
-                    <FloatingInput
-                      label="End Time"
-                      name="endTime"
-                      type="time"
-                      value={form.endTime}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                </div>
-                {/* Remarks spans full width */}
-                <div className="mt-4 w-full">
-                  <FloatingTextarea
-                    label="Remarks"
-                    name="remarks"
-                    value={form.remarks}
-                    onChange={handleChange}
-                    rows={3}
-                  />
-                </div>
-
-                <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                  <button type="button" onClick={closeForm} className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200">
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    {submitting ? "Saving..." : "Create Service Schedule"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>,
-          document.body
-        )}
+      {/* Status Update Modal */}
+      <PaginatedPopup
+        isOpen={!!statusTarget}
+        title="Update Schedule Status"
+        subtitle={
+          statusTarget ? `Schedule ${statusTarget.scheduleNo || `#${statusTarget.id}`}` : ""
+        }
+        onClose={closeStatusModal}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void confirmStatusUpdate();
+        }}
+        submitting={statusUpdatingId === statusTarget?.id}
+        submitLabel="Update Status"
+        maxWidthClassName="max-w-lg"
+        tabs={[
+          {
+            label: "Status",
+            fields: [
+              <FloatingSelect
+                key="statusValue"
+                label="Status"
+                name="statusValue"
+                value={statusValue}
+                onChange={(e) => setStatusValue(e.target.value)}
+                includeEmptyOption={false}
+                options={statusOptions.map((status) => ({ id: status, name: status }))}
+                required
+              />,
+            ],
+          },
+        ]}
+      />
 
       <DynamicPopup
         isPopupOpen={!!deleteSchedule}
@@ -734,7 +738,11 @@ const ServiceSchedules: React.FC = () => {
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
         innerText="Delete Service Schedule"
-        subText={deleteSchedule ? `Are you sure you want to delete schedule #${deleteSchedule.id}?` : "Are you sure?"}
+        subText={
+          deleteSchedule
+            ? `Are you sure you want to delete schedule #${deleteSchedule.id}?`
+            : "Are you sure?"
+        }
         confirmLabel="Delete"
         cancelLabel="Cancel"
         onConfirm={confirmDelete}
