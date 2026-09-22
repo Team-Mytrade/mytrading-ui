@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -20,6 +20,21 @@ interface OffboardingTask {
 
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 
+const EXIT_REASONS = [
+    'Transfer/Inter Company Movement/India',
+    'Involuntary/Disciplinary/Not Served Notice Period',
+    'Contract/Contract Termination',
+    'Contract/Internship Termination',
+    'Involuntary/Deceased',
+    'Voluntary/No projects',
+    'Better Career Opportunity',
+    'Personal / Family Reasons',
+    'Higher Studies',
+    'Relocation',
+    'Health Issues',
+    'Other'
+];
+
 const ExitManagementPage: React.FC = () => {
     const { user } = useContext(AuthContext);
     const [resolvedEmployeeId, setResolvedEmployeeId] = useState<number | null>(null);
@@ -34,10 +49,33 @@ const ExitManagementPage: React.FC = () => {
     ]);
 
     const [isResigning, setIsResigning] = useState(false);
-    const [formData, setFormData] = useState<{reason: string, lastWorkingDay: Date | null}>({
+    const [formData, setFormData] = useState<{
+        resignationDate: Date;
+        noticePeriod: number;
+        reason: string;
+        proposedLWD: Date | null;
+        comment: string;
+        attachment: File | null;
+    }>({
+        resignationDate: new Date(),
+        noticePeriod: 90,
         reason: '',
-        lastWorkingDay: null,
+        proposedLWD: null,
+        comment: '',
+        attachment: null,
     });
+
+    const calculatedLWD = useMemo(() => {
+        if (!formData.resignationDate) return null;
+        const d = new Date(formData.resignationDate);
+        d.setDate(d.getDate() + (Number(formData.noticePeriod) || 0));
+        return d;
+    }, [formData.resignationDate, formData.noticePeriod]);
+
+    const calculatedDayName = useMemo(() => {
+        if (!calculatedLWD) return '';
+        return calculatedLWD.toLocaleDateString('en-US', { weekday: 'long' });
+    }, [calculatedLWD]);
 
     useEffect(() => {
         if (user) resolveEmployee();
@@ -82,10 +120,12 @@ const ExitManagementPage: React.FC = () => {
         e.preventDefault();
         
         if (!formData.reason.trim()) {
-            ToasterService.error("Please provide a reason for leaving.");
+            ToasterService.error("Please select a reason for leaving.");
             return;
         }
-        if (!formData.lastWorkingDay) {
+
+        const effectiveLWD = formData.proposedLWD || calculatedLWD;
+        if (!effectiveLWD) {
             ToasterService.error("Please select your proposed last working day.");
             return;
         }
@@ -98,9 +138,10 @@ const ExitManagementPage: React.FC = () => {
         
         try {
             const payload = {
-                resignationDate: new Date().toISOString().split('T')[0],
-                lastWorkingDay: formData.lastWorkingDay ? formData.lastWorkingDay.toISOString().split('T')[0] : '',
-                reason: formData.reason,
+                resignationDate: formData.resignationDate ? formData.resignationDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                lastWorkingDay: effectiveLWD.toISOString().split('T')[0],
+                reason: formData.reason + (formData.comment.trim() ? ` - ${formData.comment.trim()}` : ''),
+                noticePeriod: Number(formData.noticePeriod) || 90,
                 status: 'SUBMITTED' as const,
                 employeeId: resolvedEmployeeId,
             };
@@ -165,45 +206,142 @@ const ExitManagementPage: React.FC = () => {
                     </button>
                 </div>
             ) : isResigning ? (
-                <div className="bg-white p-8 rounded-lg border border-gray-200 shadow-sm max-w-2xl mx-auto">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-6">Resignation Form</h3>
-                    <form onSubmit={handleResignSubmit} className="space-y-6">
+                <div className="bg-white p-5 sm:p-6 rounded-xl border border-gray-200 shadow-sm max-w-2xl mx-auto">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-2.5 mb-3.5">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Reason for leaving <span className="text-red-500">*</span></label>
+                            <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-none">Resignation Form</h3>
+                            <p className="text-xs text-gray-500 mt-1">Initiate offboarding request and select separation details</p>
+                        </div>
+                    </div>
+
+                    <form onSubmit={handleResignSubmit} className="space-y-3">
+                        
+                        {/* Row 1: Resignation Request Date & Notice Period */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                    Resignation Request Date <span className="text-red-500">*</span>
+                                </label>
+                                <DatePicker
+                                    selected={formData.resignationDate}
+                                    onChange={(date: Date | null) => setFormData({ ...formData, resignationDate: date || new Date() })}
+                                    className="w-full border border-gray-300 rounded-md py-1.5 px-2.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                    wrapperClassName="w-full"
+                                    dateFormat="dd/MM/yyyy"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                    Notice Period (In Days) <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    required
+                                    value={formData.noticePeriod}
+                                    onChange={e => setFormData({ ...formData, noticePeriod: Math.max(0, Number(e.target.value)) })}
+                                    className="w-full border border-gray-300 rounded-md py-1.5 px-2.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono"
+                                    placeholder="90"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Row 2: Compact Calculated Last Working Date (LWD) Banner */}
+                        {calculatedLWD && (
+                            <div className="py-2 px-3 bg-slate-50 border border-slate-200/80 rounded-md flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-gray-500 text-[11px]">Last Working Date (LWD):</span>
+                                    <span className="font-bold text-gray-900 font-mono text-xs">
+                                        {calculatedLWD.toLocaleDateString('en-GB')}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-gray-500 text-[11px]">Calendar Day:</span>
+                                    <span className="font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded text-[10.5px]">
+                                        {calculatedDayName}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Row 3: Reason & Proposed Last Working Day in 2 Columns */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                    Reason <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    required
+                                    value={formData.reason}
+                                    onChange={e => setFormData({ ...formData, reason: e.target.value })}
+                                    className="w-full border border-gray-300 rounded-md py-1.5 px-2.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white cursor-pointer"
+                                >
+                                    <option value="">Select a reason...</option>
+                                    {EXIT_REASONS.map(r => (
+                                        <option key={r} value={r}>{r}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                    Proposed Last Working Day (Proposed LWD) <span className="text-red-500">*</span>
+                                </label>
+                                <DatePicker
+                                    selected={formData.proposedLWD || calculatedLWD}
+                                    onChange={(date: Date | null) => setFormData({ ...formData, proposedLWD: date })}
+                                    className="w-full border border-gray-300 rounded-md py-1.5 px-2.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                    wrapperClassName="w-full"
+                                    dateFormat="dd/MM/yyyy"
+                                    placeholderText="Select a date"
+                                    minDate={formData.resignationDate}
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        {/* Row 4: Comment */}
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                Comment <span className="text-red-500">*</span>
+                            </label>
                             <textarea
                                 required
-                                className="w-full border border-gray-300 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                rows={4}
-                                value={formData.reason}
-                                onChange={e => setFormData({ ...formData, reason: e.target.value })}
+                                className="w-full border border-gray-300 rounded-md p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                rows={2}
+                                placeholder="Enter detailed comments or handover details..."
+                                value={formData.comment}
+                                onChange={e => setFormData({ ...formData, comment: e.target.value })}
                             />
                         </div>
+
+                        {/* Row 5: Attachment */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Proposed Last Working Day <span className="text-red-500">*</span></label>
-                            <DatePicker
-                                selected={formData.lastWorkingDay}
-                                onChange={(date: Date | null) => setFormData({ ...formData, lastWorkingDay: date })}
-                                className="w-full border border-gray-300 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                wrapperClassName="w-full"
-                                dateFormat="dd-MM-yyyy"
-                                placeholderText="Select a date"
-                                minDate={new Date()}
-                                required
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                Attachment
+                            </label>
+                            <input
+                                type="file"
+                                onChange={e => setFormData({ ...formData, attachment: e.target.files?.[0] || null })}
+                                className="w-full border border-gray-300 rounded-md py-1 px-2 text-xs text-gray-600 file:mr-2.5 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
                             />
                         </div>
                         
-                        <div className="flex gap-4 pt-4">
+                        {/* Row 6: Action Buttons */}
+                        <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
                             <button
                                 type="button"
                                 onClick={() => setIsResigning(false)}
-                                className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                                className="px-4 py-1.5 border border-gray-300 rounded-md text-gray-700 text-xs font-semibold hover:bg-gray-50 transition-colors"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="px-6 py-2 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center min-w-[120px]"
+                                className="px-5 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center min-w-[110px]"
                             >
                                 {loading ? 'Submitting...' : 'Submit Request'}
                             </button>

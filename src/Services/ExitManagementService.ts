@@ -23,6 +23,9 @@ export interface ExitRequest {
     approvedDate?: string | null;
     noticePeriodStartDate?: string | null;
     relievedDate?: string | null;
+    noticePeriod?: number | string;
+    comment?: string;
+    proposedLastWorkingDay?: string;
 }
 
 const EXIT_API_URL = "/v1/api/payroll/exit";

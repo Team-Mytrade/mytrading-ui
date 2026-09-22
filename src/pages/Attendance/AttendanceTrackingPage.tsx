@@ -5,15 +5,13 @@ import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { 
-  Users, UserCheck, Clock, AlertCircle, Search, Plus, X, 
-  FileText, Download, Printer, Edit, Trash2, MapPin, RotateCw, Calendar,
-  LayoutGrid, List, Eye, Laptop, ArrowRight, TrendingUp, AlertTriangle, Gift, Briefcase,
+  UserCheck, Clock, AlertCircle, X, 
+  FileText, Download, RotateCw, Calendar,
+  TrendingUp, AlertTriangle, Gift, Briefcase,
   ChevronLeft, ChevronRight
 } from 'lucide-react';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
-import ReusableTable, { ColumnDef } from '../../components/common/Table';
-import StatsCard from '../../components/common/Statscard';
 import { ToasterService } from '../../Services/ToasterService';
 import { AuthContext } from '../../context/AuthContext';
 
@@ -93,19 +91,7 @@ const AttendanceTrackingPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT' | 'LATE' | 'LEAVE'>('ALL');
-  const [viewDisplayMode, setViewDisplayMode] = useState<'calendar' | 'table' | 'grid'>('calendar');
-
-  // Modals & Action States
   const [deleteConfirmDay, setDeleteConfirmDay] = useState<CalendarDayModel | null>(null);
-  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
-  const [editingDay, setEditingDay] = useState<CalendarDayModel | null>(null);
-  const [form, setForm] = useState({
-    date: new Date().toISOString().split('T')[0],
-    inTime: '',
-    outTime: '',
-    status: 'PRESENT',
-    reason: ''
-  });
 
   const selectedYear = currentDate.getFullYear();
   const selectedMonth = currentDate.getMonth() + 1; // 1-12
@@ -316,6 +302,15 @@ const AttendanceTrackingPage: React.FC = () => {
     return set;
   }, [calendarData, searchQuery, statusFilter]);
 
+  const totalWeeks = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDayWeekday = new Date(year, month, 1).getDay();
+    const totalDays = firstDayWeekday + daysInMonth;
+    return Math.ceil(totalDays / 7);
+  }, [currentDate]);
+
   // ── Render Ultra-Compact Interactive Monthly 7-Column Calendar Grid ─────
   const renderInteractiveMonthCalendar = () => {
     const year = currentDate.getFullYear();
@@ -335,8 +330,8 @@ const AttendanceTrackingPage: React.FC = () => {
     for (let i = firstDayWeekday - 1; i >= 0; i--) {
       const pDay = prevMonthDays - i;
       cells.push(
-        <div key={`prev-${i}`} className="bg-slate-50/40 dark:bg-[#191919]/40 p-1 border border-slate-100/60 dark:border-[#303030]/60 h-[44px] text-slate-300 dark:text-gray-600 pointer-events-none rounded-md">
-          <span className="font-mono text-[9px] font-medium">{pDay}</span>
+        <div key={`prev-${i}`} className="p-1 text-[11px] text-slate-300 dark:text-gray-600 bg-slate-50/50 dark:bg-[#191919]/40 rounded-lg border border-slate-100 dark:border-[#303030]/60 flex items-start justify-center font-medium h-full min-h-0 pointer-events-none">
+          {pDay}
         </div>
       );
     }
@@ -348,6 +343,8 @@ const AttendanceTrackingPage: React.FC = () => {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
       const dayData = dayMap.get(dateStr);
       const isToday = dateStr === todayStr;
+      const dayOfWeek = new Date(year, month, dayNum).getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
       const isFilteredMatch = statusFilter === 'ALL' || (dayData && filteredDaysSet.has(dateStr));
 
@@ -360,35 +357,45 @@ const AttendanceTrackingPage: React.FC = () => {
       const hasWorked = dayData && dayData.workedMinutes && dayData.workedMinutes > 0;
       const hasPunch = dayData && (dayData.inTime || dayData.outTime);
 
+      let cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-slate-300 dark:hover:border-gray-600 hover:shadow-2xs text-slate-700 dark:text-gray-200';
+      let numBadgeStyle = 'text-slate-700 dark:text-gray-200 font-medium text-[11px]';
+
+      if (isToday) {
+        cardStyle = 'border-sky-300 dark:border-sky-500/80 bg-sky-50/40 dark:bg-sky-950/40 ring-1 ring-sky-200 dark:ring-sky-500/30 text-sky-900 dark:text-sky-300 shadow-2xs';
+        numBadgeStyle = 'w-5 h-5 rounded-full bg-sky-600 text-white font-semibold text-[10px] flex items-center justify-center shrink-0 shadow-2xs';
+      } else if (isPresent) {
+        cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-emerald-300 dark:hover:border-emerald-700 shadow-2xs';
+      } else if (isLate) {
+        cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-amber-300 dark:hover:border-amber-700 shadow-2xs';
+      } else if (isLeave) {
+        cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-purple-300 dark:hover:border-purple-700 shadow-2xs';
+      } else if (isAbsent) {
+        cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-rose-300 dark:hover:border-rose-700 shadow-2xs';
+      } else if (isWeekend && !dayData) {
+        cardStyle = 'border-slate-100 dark:border-[#303030]/60 bg-slate-50/50 dark:bg-[#1a1a1a] text-slate-400 dark:text-gray-500';
+        numBadgeStyle = 'text-slate-400 dark:text-gray-500 font-normal text-[11px]';
+      }
+
       cells.push(
         <div
           key={dateStr}
           onClick={() => dayData && setSelectedDayRecord(dayData)}
-          className={`p-1 border transition-all h-[44px] flex flex-col justify-between cursor-pointer rounded-md overflow-hidden ${
-            !isFilteredMatch
-              ? 'opacity-25 grayscale border-dashed border-gray-200 dark:border-[#303030] bg-gray-50/50 dark:bg-[#191919]/40 hover:opacity-100'
-              : isToday 
-              ? 'bg-cyan-50/90 dark:bg-cyan-950/40 border-cyan-400 dark:border-cyan-500 ring-2 ring-cyan-400/20 dark:ring-cyan-500/30 shadow-2xs' 
-              : isLeave
-              ? 'bg-purple-50/40 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900/50 hover:border-purple-400 dark:hover:border-purple-600 hover:bg-purple-50/70 dark:hover:bg-purple-950/40'
-              : isPresent 
-              ? 'bg-emerald-50/30 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/50 hover:border-emerald-400 dark:hover:border-emerald-600 hover:bg-emerald-50/70 dark:hover:bg-emerald-950/40' 
-              : isAbsent 
-              ? 'bg-rose-50/30 dark:bg-rose-950/20 border-rose-200/80 dark:border-rose-900/50 hover:border-rose-400 dark:hover:border-rose-600 hover:bg-rose-50/70 dark:hover:bg-rose-950/40' 
-              : 'bg-white dark:bg-[#222222] border-gray-200/80 dark:border-[#303030] hover:border-cyan-300 dark:hover:border-gray-600 hover:shadow-2xs'
-          }`}
+          className={`p-1.5 border rounded-lg transition-all h-full min-h-0 flex flex-col justify-between cursor-pointer overflow-hidden ${
+            !isFilteredMatch ? 'opacity-25 grayscale border-dashed' : ''
+          } ${cardStyle}`}
         >
-          {/* Top Row: Date & Status Badge */}
+          {/* Top Row: Date Badge & Status Badge */}
           <div className="flex items-center justify-between gap-1 leading-none">
-            <span className={`font-mono text-[10px] font-extrabold ${isToday ? 'bg-cyan-600 text-white px-1 rounded-full' : 'text-slate-800 dark:text-gray-200'}`}>
+            <span className={numBadgeStyle}>
               {dayNum}
             </span>
-            {dayData && (
-              <span className={`px-1 py-0 rounded text-[7.5px] font-bold border truncate max-w-[50px] ${
-                isLeave ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800' :
-                isPresent ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' :
-                isAbsent ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800' : 
-                'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'
+            {dayData?.status && String(dayData.status).trim() !== '' && (
+              <span className={`text-[8px] font-semibold px-1.5 py-0.5 rounded-full uppercase leading-none truncate max-w-[65px] ${
+                isLeave ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-400 border border-purple-200/80' :
+                isPresent ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200/80' :
+                isAbsent ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400 border border-rose-200/80' : 
+                isLate ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200/80' :
+                'bg-slate-100 dark:bg-[#222222] text-slate-500 dark:text-gray-400 border border-slate-200'
               }`}>
                 {dayData.status}
               </span>
@@ -397,16 +404,16 @@ const AttendanceTrackingPage: React.FC = () => {
 
           {/* Compact Punch Info */}
           {dayData && (hasPunch || hasWorked || dayData.holidayName || dayData.leaveType) ? (
-            <div className="space-y-0.2 font-mono text-[7.5px] leading-tight">
+            <div className="space-y-0.5 font-mono text-[8.5px] leading-tight">
               {hasPunch && (
-                <div className="text-slate-700 dark:text-gray-300 font-medium truncate text-[7.5px]">
+                <div className="text-slate-500 dark:text-gray-400 font-medium truncate">
                   {formatDisplayTime(dayData.inTime)} {dayData.outTime ? `- ${formatDisplayTime(dayData.outTime)}` : ''}
                 </div>
               )}
 
               <div className="flex items-center justify-between gap-1">
                 {hasWorked ? (
-                  <span className="font-extrabold text-cyan-800 dark:text-cyan-400 text-[8px]">
+                  <span className="font-semibold text-slate-800 dark:text-gray-200">
                     {formatMinutesToHoursStr(dayData.workedMinutes)}
                   </span>
                 ) : <span />}
@@ -414,22 +421,22 @@ const AttendanceTrackingPage: React.FC = () => {
                 {/* Compact Badges */}
                 <div className="flex items-center gap-0.5 overflow-hidden">
                   {isLate && (
-                    <span className="px-0.5 rounded text-[7px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 truncate">
+                    <span className="px-1 py-0.2 rounded text-[7.5px] font-medium bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200/80 truncate">
                       -{dayData.lateMinutes}m
                     </span>
                   )}
                   {isOvertime && (
-                    <span className="px-0.5 rounded text-[7px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 truncate">
+                    <span className="px-1 py-0.2 rounded text-[7.5px] font-medium bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200/80 truncate">
                       +{dayData.overtimeMinutes}m
                     </span>
                   )}
                   {dayData.holidayName && (
-                    <span className="px-0.5 rounded text-[7px] font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 truncate max-w-[45px]">
+                    <span className="px-1 py-0.2 rounded text-[7.5px] font-medium bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200/80 truncate max-w-[50px]">
                       {dayData.holidayName}
                     </span>
                   )}
                   {dayData.leaveType && (
-                    <span className="px-0.5 rounded text-[7px] font-bold bg-cyan-50 dark:bg-cyan-950/60 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 truncate max-w-[45px]">
+                    <span className="px-1 py-0.2 rounded text-[7.5px] font-medium bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-400 border border-purple-200/80 truncate max-w-[50px]">
                       {dayData.leaveType}
                     </span>
                   )}
@@ -443,197 +450,45 @@ const AttendanceTrackingPage: React.FC = () => {
       );
     }
 
+    // 3. Trailing padding days for next month to complete the week
+    const remainder = cells.length % 7;
+    if (remainder !== 0) {
+      const trailingCount = 7 - remainder;
+      for (let j = 1; j <= trailingCount; j++) {
+        cells.push(
+          <div key={`next-${j}`} className="p-1 text-[11px] text-slate-300 dark:text-gray-600 bg-slate-50/50 dark:bg-[#191919]/40 rounded-lg border border-slate-100 dark:border-[#303030]/60 flex items-start justify-center font-medium h-full min-h-0 pointer-events-none">
+            {j}
+          </div>
+        );
+      }
+    }
+
     return cells;
   };
 
-  // Table Column Definitions
-  const columns: ColumnDef<CalendarDayModel>[] = [
-    {
-      key: 'date',
-      label: 'Date',
-      sortable: true,
-      render: (row) => (
-        <div 
-          onClick={() => setSelectedDayRecord(row)}
-          className="flex items-center gap-2 cursor-pointer group whitespace-nowrap"
-        >
-          <div className="w-8 h-8 rounded-lg bg-cyan-50 dark:bg-cyan-950/50 text-cyan-800 dark:text-cyan-300 font-mono font-extrabold text-xs flex items-center justify-center border border-cyan-200 dark:border-cyan-800 group-hover:bg-cyan-600 group-hover:text-white transition-all shadow-2xs">
-            {row.date.split('-')[2]}
-          </div>
-          <div>
-            <span className="font-mono font-bold text-xs text-gray-900 dark:text-gray-100 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors block">
-              {row.date}
-            </span>
-            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
-              {new Date(row.date).toLocaleDateString('en-US', { weekday: 'short' })}
-            </span>
-          </div>
-        </div>
-      )
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      sortable: true,
-      render: (row) => {
-        const st = String(row.status).toUpperCase();
-        let badgeStyle = "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800";
-        if (st === 'ABSENT') badgeStyle = "bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800";
-        if (row.lateMinutes && row.lateMinutes > 0) badgeStyle = "bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800";
-        if (row.leaveType) badgeStyle = "bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800";
-
-        return (
-          <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap ${badgeStyle}`}>
-            {st}
-          </span>
-        );
-      }
-    },
-    {
-      key: 'inTime',
-      label: 'Check-In',
-      sortable: true,
-      render: (row) => (
-        <span className={`font-mono text-xs font-bold whitespace-nowrap ${row.lateMinutes ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-gray-200'}`}>
-          {formatDisplayTime(row.inTime)}
-        </span>
-      )
-    },
-    {
-      key: 'outTime',
-      label: 'Check-Out',
-      sortable: true,
-      render: (row) => (
-        <span className="font-mono text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
-          {formatDisplayTime(row.outTime)}
-        </span>
-      )
-    },
-    {
-      key: 'workedMinutes',
-      label: 'Worked Duration',
-      sortable: true,
-      render: (row) => (
-        <div className="whitespace-nowrap">
-          <span className="font-mono text-xs font-extrabold text-cyan-800 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/50 px-2 py-0.5 rounded border border-cyan-200 dark:border-cyan-800">
-            {formatMinutesToHoursStr(row.workedMinutes)}
-          </span>
-        </div>
-      )
-    },
-    {
-      key: 'lateMinutes',
-      label: 'Late Penalty',
-      sortable: true,
-      render: (row) => (
-        row.lateMinutes && row.lateMinutes > 0 ? (
-          <span className="font-mono text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800 whitespace-nowrap flex items-center gap-1 w-fit">
-            <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400" /> {row.lateMinutes}m Late
-          </span>
-        ) : (
-          <span className="text-gray-400 dark:text-gray-500 font-mono text-xs">-</span>
-        )
-      )
-    },
-    {
-      key: 'overtimeMinutes',
-      label: 'Overtime',
-      sortable: true,
-      render: (row) => (
-        row.overtimeMinutes && row.overtimeMinutes > 0 ? (
-          <span className="font-mono text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800 whitespace-nowrap flex items-center gap-1 w-fit">
-            <TrendingUp className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> +{row.overtimeMinutes}m OT
-          </span>
-        ) : (
-          <span className="text-gray-400 dark:text-gray-500 font-mono text-xs">-</span>
-        )
-      )
-    },
-    {
-      key: 'notes',
-      label: 'Holiday / Leave',
-      render: (row) => {
-        if (row.holidayName) {
-          return (
-            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 whitespace-nowrap flex items-center gap-1 w-fit">
-              <Gift className="w-3 h-3 text-rose-600 dark:text-rose-400" /> {row.holidayName}
-            </span>
-          );
-        }
-        if (row.leaveType) {
-          return (
-            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-cyan-50 dark:bg-cyan-950/50 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 whitespace-nowrap flex items-center gap-1 w-fit">
-              <Briefcase className="w-3 h-3 text-cyan-600 dark:text-cyan-400" /> {row.leaveType}
-            </span>
-          );
-        }
-        return <span className="text-gray-400 dark:text-gray-500 text-xs italic">-</span>;
-      }
-    },
-    {
-      key: 'actions',
-      label: 'Actions',
-      render: (row) => (
-        <div className="flex items-center gap-1 whitespace-nowrap">
-          <button
-            type="button"
-            onClick={() => setSelectedDayRecord(row)}
-            className="p-1.5 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors cursor-pointer"
-            title="Inspect Minute Breakdown"
-          >
-            <Eye className="w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400" />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setEditingDay(row);
-              setForm({
-                date: row.date,
-                inTime: row.inTime ? row.inTime.substring(11, 16) : '09:00',
-                outTime: row.outTime ? row.outTime.substring(11, 16) : '18:00',
-                status: row.status,
-                reason: row.holidayName || row.leaveType || ''
-              });
-              setIsManualModalOpen(true);
-            }}
-            className="p-1.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-950/50 dark:hover:bg-cyan-900/50 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 rounded-lg transition-colors cursor-pointer"
-            title="Edit Punch"
-          >
-            <Edit className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setDeleteConfirmDay(row)}
-            className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-lg transition-colors cursor-pointer"
-            title="Delete Record"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )
-    }
-  ];
-
   return (
     <>
-      <PageMeta title="Attendance Tracking & Calendar Records" description="Live monthly attendance calendar logs, minute breakdowns, and punch audit trails" />
-      <PageBreadcrumb pageTitle="Attendance Tracking & Calendar Records" />
+      <div className="h-full flex flex-col min-h-0 w-full animate-in fade-in duration-200">
+      <div className="shrink-0 mb-1">
+        <PageMeta title="Attendance Tracking & Calendar Records" description="Live monthly attendance calendar logs, minute breakdowns, and punch audit trails" />
+        <PageBreadcrumb pageTitle="Attendance Tracking & Calendar Records" />
+      </div>
 
-      <div className="max-w-7xl mx-auto pb-2 space-y-2 animate-in fade-in duration-200">
+      <div className="flex-1 min-h-0 flex flex-col space-y-1.5 pb-0.5">
         
         {/* ── TOP BANNER & MONTH NAVIGATION ───────────────────────────── */}
-        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-2.5 px-3 flex flex-col md:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-cyan-600 text-white flex items-center justify-center font-extrabold text-xs shadow-2xs border border-cyan-500 shrink-0">
-              {currentUser.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2)}
+        <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] py-2 px-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-[#222222] border border-slate-200/80 dark:border-[#303030] flex items-center justify-center text-slate-700 dark:text-gray-200 font-bold text-xs shrink-0 shadow-2xs">
+              {currentUser.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 {employeeList.length > 0 ? (
                   <select
                     value={selectedEmpId}
                     onChange={(e) => setSelectedEmpId(Number(e.target.value))}
-                    className="py-0.5 px-2 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-lg text-xs font-bold text-gray-900 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
+                    className="py-1 px-2.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-slate-400 outline-none cursor-pointer max-w-[260px] truncate shadow-2xs"
                   >
                     {employeeList.map(emp => (
                       <option key={emp.id} value={emp.id} className="dark:bg-[#222222]">
@@ -642,156 +497,152 @@ const AttendanceTrackingPage: React.FC = () => {
                     ))}
                   </select>
                 ) : (
-                  <h2 className="text-xs font-extrabold text-gray-900 dark:text-white">{currentUser.name}</h2>
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">{currentUser.name}</h2>
                 )}
-                <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-cyan-50 dark:bg-cyan-950/50 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
-                  ID #{calendarData?.employeeId || selectedEmpId || currentUser.id}
+                <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#222222] text-slate-600 dark:text-gray-300 border border-slate-200/60 dark:border-[#303030]">
+                  EMP-#{calendarData?.employeeId || selectedEmpId || currentUser.id}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Month Navigator Controls */}
-          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-[#222222] p-1 rounded-lg border border-slate-200 dark:border-[#303030]">
-            <button
-              type="button"
-              onClick={handlePrevMonth}
-              className="p-1 rounded hover:bg-white dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-200 font-bold transition-all shadow-2xs text-xs cursor-pointer"
-              title="Previous Month"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-            <div className="px-2 text-center min-w-[110px]">
-              <span className="text-[11px] font-bold text-gray-900 dark:text-white uppercase tracking-wider block">
-                {monthNames[selectedMonth - 1]} {selectedYear}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={handleNextMonth}
-              className="p-1 rounded hover:bg-white dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-200 font-bold transition-all shadow-2xs text-xs cursor-pointer"
-              title="Next Month"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-            
-            <button
-              type="button"
-              onClick={fetchMyCalendarAttendance}
-              className="p-1 text-cyan-700 dark:text-cyan-400 hover:bg-white dark:hover:bg-[#2a2a2a] rounded transition-all ml-0.5 cursor-pointer"
-              title="Refresh Calendar API"
-            >
-              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
-            </button>
-          </div>
-        </div>
-
-        {/* ── KPI METRICS CARDS USING REUSABLE StatsCard COMPONENT ────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-          <StatsCard
-            label="Total Worked"
-            value={formatMinutesToHoursStr(kpiStats.totalWorkedMinutes)}
-            gradient="cyan"
-            borderColor="border-cyan-200"
-            labelColor="text-cyan-800"
-            icon={<Clock className="w-4 h-4 text-cyan-600" />}
-          />
-          <StatsCard
-            label="Present"
-            value={`${kpiStats.presentDays}/${kpiStats.totalDays}`}
-            gradient="emerald"
-            borderColor="border-emerald-200"
-            labelColor="text-emerald-700"
-            icon={<UserCheck className="w-4 h-4 text-emerald-600" />}
-          />
-          <StatsCard
-            label="Late"
-            value={kpiStats.lateCount}
-            gradient="amber"
-            borderColor="border-amber-200"
-            labelColor="text-amber-700"
-            icon={<AlertTriangle className="w-4 h-4 text-amber-600" />}
-          />
-          <StatsCard
-            label="Overtime"
-            value={`+${formatMinutesToHoursStr(kpiStats.totalOvertimeMinutes)}`}
-            gradient="emerald"
-            borderColor="border-emerald-200"
-            labelColor="text-emerald-700"
-            icon={<TrendingUp className="w-4 h-4 text-emerald-600" />}
-          />
-          <StatsCard
-            label="Absent"
-            value={kpiStats.absentDays}
-            gradient="rose"
-            borderColor="border-rose-200"
-            labelColor="text-rose-700"
-            icon={<Gift className="w-4 h-4 text-rose-600" />}
-          />
-        </div>
-
-        {/* ── FILTER TOOLBAR & VIEW CONTROLS ─────────────────────────────── */}
-        <div className="bg-white dark:bg-[#191919] p-2 px-3 rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] flex flex-wrap items-center justify-between gap-2">
-          
-          {/* Status Filter Pills */}
-          <div className="flex items-center gap-1 flex-wrap">
-            <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mr-1">Filter Status:</span>
-            {(['ALL', 'PRESENT', 'ABSENT', 'LATE', 'LEAVE'] as const).map(st => (
+          {/* Controls: Month Navigator & Export */}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] px-2 py-1 rounded-xl border border-slate-200/60 dark:border-[#303030]">
               <button
-                key={st}
                 type="button"
-                onClick={() => setStatusFilter(st)}
-                className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                  statusFilter === st 
-                    ? 'bg-cyan-600 text-white shadow-2xs' 
-                    : 'bg-gray-100 dark:bg-[#222222] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#2a2a2a] border border-transparent dark:border-[#303030]'
-                }`}
+                onClick={handlePrevMonth}
+                className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer"
+                title="Previous Month"
               >
-                {st}
+                <ChevronLeft className="w-3.5 h-3.5" />
               </button>
-            ))}
+              <div className="px-2 text-center min-w-[110px]">
+                <span className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider block">
+                  {monthNames[selectedMonth - 1]} {selectedYear}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleNextMonth}
+                className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer"
+                title="Next Month"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+              
+              <button
+                type="button"
+                onClick={fetchMyCalendarAttendance}
+                className="p-1 text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md transition ml-0.5 cursor-pointer"
+                title="Refresh Calendar API"
+              >
+                <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-slate-600 dark:text-gray-300' : ''}`} />
+              </button>
+            </div>
+
+            {/* Export Controls */}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white transition shadow-xs cursor-pointer"
+                title="Export Excel"
+              >
+                <Download className="w-3.5 h-3.5 text-white" />
+                <span>Excel</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportPDF}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white transition shadow-xs cursor-pointer"
+                title="Export PDF"
+              >
+                <FileText className="w-3.5 h-3.5 text-white" />
+                <span>PDF</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── KPI METRICS CHIPS ────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 shrink-0">
+          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-[#303030] rounded-xl px-3 py-2 shadow-2xs">
+            <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+              <Clock className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider block truncate leading-tight">Total Worked</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-white font-mono block leading-tight">{formatMinutesToHoursStr(kpiStats.totalWorkedMinutes)}</span>
+            </div>
           </div>
 
-          {/* Export Controls */}
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={handleExportCSV}
-              className="px-2.5 py-1 bg-cyan-50 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 rounded-md text-[11px] font-bold shadow-2xs flex items-center gap-1 cursor-pointer transition-colors"
-            >
-              <Download className="w-3 h-3" /> Excel
-            </button>
+          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-[#303030] rounded-xl px-3 py-2 shadow-2xs">
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <UserCheck className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider block truncate leading-tight">Present</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-white font-mono block leading-tight">{kpiStats.presentDays}/{kpiStats.totalDays}</span>
+            </div>
+          </div>
 
-            <button
-              type="button"
-              onClick={handleExportPDF}
-              className="px-2.5 py-1 bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800 hover:bg-rose-100 dark:hover:bg-rose-900/50 rounded-md text-[11px] font-bold shadow-2xs flex items-center gap-1 cursor-pointer transition-colors"
-            >
-              <FileText className="w-3 h-3" /> PDF
-            </button>
+          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-[#303030] rounded-xl px-3 py-2 shadow-2xs">
+            <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider block truncate leading-tight">Late</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-white font-mono block leading-tight">{kpiStats.lateCount}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-[#303030] rounded-xl px-3 py-2 shadow-2xs">
+            <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+              <TrendingUp className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider block truncate leading-tight">Overtime</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-white font-mono block leading-tight">+{formatMinutesToHoursStr(kpiStats.totalOvertimeMinutes)}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-[#303030] rounded-xl px-3 py-2 shadow-2xs">
+            <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+              <Gift className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider block truncate leading-tight">Absent</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-white font-mono block leading-tight">{kpiStats.absentDays}</span>
+            </div>
           </div>
         </div>
 
         {/* ── EXCLUSIVE INTERACTIVE 7-COLUMN MONTHLY CALENDAR GRID ───────── */}
-        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-2.5 space-y-1.5">
-          {/* Weekday Headers */}
-          <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-extrabold text-gray-600 dark:text-gray-400 uppercase tracking-wider py-0.5 border-b border-gray-100 dark:border-[#303030]">
-            <span className="text-rose-600 dark:text-rose-400">Sun</span>
-            <span>Mon</span>
-            <span>Tue</span>
-            <span>Wed</span>
-            <span>Thu</span>
-            <span>Fri</span>
-            <span className="text-cyan-700 dark:text-cyan-400">Sat</span>
+        <div className="flex-1 min-h-0 max-h-[calc(100vh-200px)] flex flex-col bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] p-3 space-y-1.5">
+          {/* Weekday Headers matching SelfService Page */}
+          <div className="grid grid-cols-7 gap-1 text-center text-[10.5px] font-medium text-slate-400 dark:text-gray-500 py-1 px-1 shrink-0">
+            <span>Su</span>
+            <span>Mo</span>
+            <span>Tu</span>
+            <span>We</span>
+            <span>Th</span>
+            <span>Fr</span>
+            <span>Sa</span>
           </div>
 
           {/* Calendar Days Matrix */}
-          <div className="grid grid-cols-7 gap-1.5">
+          <div 
+            className="flex-1 min-h-0 grid grid-cols-7 gap-1.5"
+            style={{ gridTemplateRows: `repeat(${totalWeeks}, minmax(0, 1fr))` }}
+          >
             {renderInteractiveMonthCalendar()}
           </div>
         </div>
 
       </div>
+    </div>
 
       {/* ── MODAL 1: DETAILED MINUTE BREAKDOWN DAY INSPECTOR ─────────────── */}
       {selectedDayRecord && (
