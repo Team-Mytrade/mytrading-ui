@@ -1032,17 +1032,26 @@ const Quotations: React.FC = () => {
       label: "Customer",
       sortable: true,
       render: (quotation) => {
+        const name = getQuotationCustomerName(quotation, customers);
         const code =
           customers.find((c) => Number(c.id) === Number(quotation.customerId))?.customerCode ||
           quotation.billingAddress?.customerCode ||
           "";
         return (
-          <div>
-            <div className="text-sm font-semibold text-slate-900">
-              {getQuotationCustomerName(quotation, customers)}
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              navigate(`/customer-management?customerIds=${quotation.customerId}&customerName=${encodeURIComponent(name)}`);
+            }}
+            className="max-w-[220px] text-left"
+            title={`View ${name}`}
+          >
+            <div className="truncate text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline">
+              {name}
             </div>
             {code && <div className="text-xs text-slate-500">{code}</div>}
-          </div>
+          </button>
         );
       },
     },
