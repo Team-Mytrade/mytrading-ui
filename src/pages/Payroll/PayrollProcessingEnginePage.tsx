@@ -260,27 +260,27 @@ const PayrollProcessingEnginePage: React.FC = () => {
             <PageBreadcrumb pageTitle="Payroll Engine" />
 
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-0 -mt-2">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="px-6 py-5 border-b border-gray-200 bg-gray-50 flex items-center gap-3">
-                        <CogIcon className="h-6 w-6 text-cyan-600" />
-                        <h3 className="text-xl leading-6 font-bold text-gray-900">
+                <div className="bg-white dark:bg-[#191919] rounded-xl shadow-sm border border-gray-200 dark:!border-transparent overflow-hidden">
+                    <div className="px-6 py-5 border-b border-gray-200 dark:border-transparent bg-gray-50 dark:bg-[#222222] flex items-center gap-3">
+                        <CogIcon className="h-6 w-6 text-cyan-600 dark:text-gray-400" />
+                        <h3 className="text-xl leading-6 font-bold text-gray-900 dark:text-white">
                             Payroll Processing Engine
                         </h3>
                     </div>
 
                     <div className="p-4 sm:p-6">
                         {/* Tabs */}
-                        <div className="border-b border-gray-200 mb-4">
+                        <div className="border-b border-gray-200 dark:border-transparent mb-4">
                             <nav className="-mb-px flex space-x-8" aria-label="Tabs">
                                 <button
                                     onClick={() => setActiveTab('process')}
-                                    className={`${activeTab === 'process' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors`}
+                                    className={`${activeTab === 'process' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-transparent'} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors cursor-pointer`}
                                 >
                                     Process Payroll
                                 </button>
                                 <button
                                     onClick={() => { setActiveTab('history'); fetchBatchInfo(); }}
-                                    className={`${activeTab === 'history' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors`}
+                                    className={`${activeTab === 'history' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-transparent'} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors cursor-pointer`}
                                 >
                                     Batch History
                                 </button>
@@ -292,12 +292,12 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                 {/* Stepper */}
                                 <div className="mb-6 relative max-w-3xl mx-auto">
                                     <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                                        <div className="w-full border-t-2 border-gray-200"></div>
+                                        <div className="w-full border-t-2 border-gray-200 dark:border-[#2a2a2a]"></div>
                                     </div>
                                     <div className="relative flex justify-between">
                                         {[1, 2, 3, 4].map((step) => (
-                                            <div key={step} className="bg-white px-4">
-                                                <span className={`h-10 w-10 rounded-full flex items-center justify-center ring-4 ring-white font-semibold text-lg ${workflowStep >= step ? 'bg-cyan-600 text-white shadow-md' : 'bg-gray-100 text-gray-500'}`}>
+                                            <div key={step} className="bg-white dark:bg-[#191919] px-4">
+                                                <span className={`h-10 w-10 rounded-full flex items-center justify-center ring-4 ring-white dark:ring-[#191919] font-semibold text-lg ${workflowStep >= step ? 'bg-cyan-600 text-white shadow-md' : 'bg-gray-100 dark:bg-[#222222] text-gray-500 dark:text-gray-400'}`}>
                                                     {step}
                                                 </span>
                                             </div>
@@ -306,37 +306,39 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                 </div>
 
                                 {/* Step 1 */}
-                                {workflowStep === 1 && (
-                                    <div className="text-center py-4">
-                                        <CloudArrowDownIcon className="mx-auto h-12 w-12 text-cyan-500 mb-3" />
-                                        <h4 className="text-2xl font-semibold text-gray-900 mb-2">Download Employee Template</h4>
-                                        <p className="text-base text-gray-600 mb-4 max-w-xl mx-auto">
-                                            First, download the Excel sheet containing basic info of all employees. After downloading, you can add different deductions/earnings for each employee.
-                                        </p>
+                                <div className="text-center py-4">
+                                    {workflowStep === 1 && (
+                                        <>
+                                            <CloudArrowDownIcon className="mx-auto h-12 w-12 text-cyan-500 dark:text-gray-400 mb-3" />
+                                            <h4 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Download Employee Template</h4>
+                                            <p className="text-base text-gray-600 dark:text-gray-400 mb-4 max-w-xl mx-auto">
+                                                First, download the Excel sheet containing basic info of all employees. After downloading, you can add different deductions/earnings for each employee.
+                                            </p>
 
-                                        <button
-                                            onClick={handleDownloadTemplate}
-                                            className="inline-flex items-center px-6 py-3 border border-transparent shadow-md text-base font-medium rounded-lg text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-all hover:scale-105"
-                                        >
-                                            <CloudArrowDownIcon className="-ml-1 mr-2 h-6 w-6" />
-                                            Download Template
-                                        </button>
-
-                                        <div className="mt-4 flex justify-center">
-                                            <button onClick={() => setWorkflowStep(2)} className="text-gray-500 hover:text-cyan-600 text-sm font-medium flex items-center">
-                                                Skip to Upload Step <ArrowRightIcon className="ml-1 w-4 h-4" />
+                                            <button
+                                                onClick={handleDownloadTemplate}
+                                                className="inline-flex items-center px-6 py-3 border border-transparent shadow-md text-base font-medium rounded-lg text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-all hover:scale-105 cursor-pointer"
+                                            >
+                                                <CloudArrowDownIcon className="-ml-1 mr-2 h-6 w-6" />
+                                                Download Template
                                             </button>
-                                        </div>
-                                    </div>
-                                )}
+
+                                            <div className="mt-4 flex justify-center">
+                                                <button onClick={() => setWorkflowStep(2)} className="text-gray-500 hover:text-cyan-600 dark:text-gray-400 dark:hover:text-cyan-400 text-sm font-medium flex items-center cursor-pointer">
+                                                    Skip to Upload Step <ArrowRightIcon className="ml-1 w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
 
                                 {/* Step 2: Upload Files */}
                                 {workflowStep === 2 && (
                                     <div className="py-4">
                                         <div className="text-center mb-8">
-                                            <DocumentTextIcon className="mx-auto h-16 w-16 text-cyan-500 mb-4" />
-                                            <h4 className="text-2xl font-semibold text-gray-900 mb-2">Upload and Review Processed Templates</h4>
-                                            <p className="text-gray-600 max-w-xl mx-auto text-sm">
+                                            <DocumentTextIcon className="mx-auto h-16 w-16 text-cyan-500 dark:text-gray-400 mb-4" />
+                                            <h4 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Upload and Review Processed Templates</h4>
+                                            <p className="text-gray-600 dark:text-gray-400 max-w-xl mx-auto text-sm">
                                                 Upload the updated Excel sheet containing deductions/earnings, and ensure all files are validated successfully without missing columns.
                                             </p>
 
@@ -346,7 +348,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                         type="month"
                                                         value={salaryMonth}
                                                         onChange={(e) => setSalaryMonth(e.target.value)}
-                                                        className="block w-full text-sm text-gray-700 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-cyan-500 focus:border-cyan-500"
+                                                        className="block w-full text-sm text-gray-700 dark:text-gray-200 px-3 py-2 border border-gray-300 dark:border-transparent rounded-md shadow-sm focus:ring-cyan-500 focus:border-cyan-500 bg-white dark:bg-[#222222] cursor-pointer [color-scheme:dark]"
                                                     />
                                                 </div>
                                                 <div className="max-w-md w-full">
@@ -355,18 +357,18 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                         ref={fileInputRef}
                                                         accept=".xls,.xlsx"
                                                         onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                                                        className="block w-full text-sm text-gray-500
+                                                        className="block w-full text-sm text-gray-500 dark:text-gray-400
                                                     file:mr-4 file:py-2 file:px-4
                                                     file:rounded-md file:border-0
                                                     file:text-sm file:font-semibold
-                                                    file:bg-cyan-50 file:text-cyan-700
-                                                    hover:file:bg-cyan-100 border border-gray-300 rounded-md shadow-sm"
+                                                    file:bg-cyan-50 dark:file:bg-[#222222] file:text-cyan-700 dark:file:text-gray-200
+                                                    hover:file:bg-cyan-100 dark:hover:file:bg-[#2a2a2a] border border-gray-300 dark:border-transparent rounded-md shadow-sm bg-white dark:bg-[#191919]"
                                                     />
                                                 </div>
                                                 <button
                                                     onClick={handleFileUpload}
                                                     disabled={isUploading || !selectedFile}
-                                                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50"
+                                                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 cursor-pointer"
                                                 >
                                                     {isUploading ? <ArrowPathIcon className="animate-spin -ml-1 mr-2 h-5 w-5" /> : <DocumentPlusIcon className="-ml-1 mr-2 h-5 w-5" />}
                                                     Upload File
@@ -376,22 +378,22 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                             <button
                                                 onClick={fetchFiles}
                                                 disabled={isFetching}
-                                                className="mt-4 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                                                className="mt-4 inline-flex items-center px-4 py-2 border border-gray-300 dark:border-transparent shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-[#222222] hover:bg-gray-50 dark:hover:bg-[#2a2a2a] cursor-pointer"
                                             >
-                                                <ArrowPathIcon className={`-ml-1 mr-2 h-5 w-5 text-gray-500 ${isFetching ? 'animate-spin' : ''}`} />
+                                                <ArrowPathIcon className={`-ml-1 mr-2 h-5 w-5 text-gray-500 dark:text-gray-400 ${isFetching ? 'animate-spin' : ''}`} />
                                                 Refresh Server Files
                                             </button>
                                         </div>
 
                                         {fetchError && (
-                                            <div className="mb-8 bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
+                                            <div className="mb-8 bg-red-50 dark:bg-[#222222] border-l-4 border-red-500 p-4 rounded-md">
                                                 <div className="flex">
                                                     <div className="flex-shrink-0">
                                                         <XCircleIcon className="h-5 w-5 text-red-500" />
                                                     </div>
                                                     <div className="ml-3">
-                                                        <h3 className="text-sm font-medium text-red-800">Validation Error</h3>
-                                                        <div className="mt-2 text-sm text-red-700">
+                                                        <h3 className="text-sm font-medium text-red-800 dark:text-red-400">Validation Error</h3>
+                                                        <div className="mt-2 text-sm text-red-700 dark:text-gray-300">
                                                             <p>{fetchError}</p>
                                                         </div>
                                                     </div>
@@ -411,7 +413,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                             render: (row) => (
                                                                 <div className="flex items-center gap-3 min-w-0">
                                                                     <DocumentTextIcon className="h-5 w-5 text-gray-400 shrink-0" />
-                                                                    <span className="text-sm font-medium text-gray-900 truncate max-w-[220px] block" title={row.fileName}>
+                                                                    <span className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[220px] block" title={row.fileName}>
                                                                         {row.fileName}
                                                                     </span>
                                                                 </div>
@@ -421,7 +423,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                             key: "type",
                                                             label: "Type",
                                                             render: (row) => (
-                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${row.type?.toLowerCase() === 'earnings' ? 'bg-green-100 text-green-800' : row.type?.toLowerCase() === 'deductions' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
+                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium dark:bg-transparent dark:border-transparent ${row.type?.toLowerCase() === 'earnings' ? 'bg-green-100 text-green-800 dark:text-gray-300' : row.type?.toLowerCase() === 'deductions' ? 'bg-red-100 text-red-800 dark:text-gray-300' : 'bg-gray-100 text-gray-800 dark:text-gray-300'}`}>
                                                                     {row.type}
                                                                 </span>
                                                             )
@@ -433,27 +435,28 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                             headerClassName: "text-center",
                                                             render: () => (
                                                                 <div className="flex flex-col items-center">
-                                                                    <CheckCircleIcon className="h-5 w-5 text-green-500" />
-                                                                    <span className="text-xs text-green-600 mt-1">Valid</span>
+                                                                    <CheckCircleIcon className="h-5 w-5 text-green-500 dark:text-gray-400" />
+                                                                    <span className="text-xs text-green-600 dark:text-gray-400 mt-1">Valid</span>
                                                                 </div>
                                                             )
                                                         },
                                                         {
                                                             key: "totalAmount",
                                                             label: "Total Amount",
-                                                            className: "text-right font-medium text-gray-900",
+                                                            className: "text-right font-medium text-gray-900 dark:text-white",
                                                             headerClassName: "text-right",
                                                             render: (row) => `₹${row.totalAmount?.toLocaleString()}`
                                                         }
                                                     ]}
                                                     searchable={false}
                                                     pageSize={10}
+                                                    className="dark:border-transparent [&_.common-data-table]:dark:!border-transparent"
                                                 />
                                             </div>
                                         )}
 
                                         {!fetchError && uploadedFiles.length === 0 && !isFetching && (
-                                            <div className="text-center py-12 text-gray-500">
+                                            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                                                 No files found in the server folder. Please upload templates to the server and click Refresh.
                                             </div>
                                         )}
@@ -461,14 +464,14 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                         <div className="flex justify-center gap-4 mt-8">
                                             <button
                                                 onClick={() => setWorkflowStep(1)}
-                                                className="inline-flex items-center px-6 py-2.5 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50"
+                                                className="inline-flex items-center px-6 py-2.5 border border-gray-300 dark:border-transparent shadow-sm text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-[#222222] hover:bg-gray-50 dark:hover:bg-[#2a2a2a] cursor-pointer"
                                             >
                                                 Back
                                             </button>
                                             <button
                                                 onClick={() => setWorkflowStep(3)}
                                                 disabled={uploadedFiles.length === 0 || fetchError !== null}
-                                                className="inline-flex items-center px-6 py-2.5 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="inline-flex items-center px-6 py-2.5 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                             >
                                                 Review Summary
                                             </button>
@@ -480,30 +483,30 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                 {workflowStep === 3 && (
                                     <div className="py-6">
                                         <div className="text-center mb-8">
-                                            <h4 className="text-2xl font-semibold text-gray-900 mb-2">Review Summary</h4>
-                                            <p className="text-gray-600 text-sm">Please verify the total calculated amounts from your validated files before triggering the payroll engine.</p>
+                                            <h4 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Review Summary</h4>
+                                            <p className="text-gray-600 dark:text-gray-400 text-sm">Please verify the total calculated amounts from your validated files before triggering the payroll engine.</p>
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto mb-10">
-                                            <div className="bg-red-50 rounded-xl p-6 border border-red-100 text-center shadow-sm">
-                                                <h5 className="text-sm font-semibold text-red-800 uppercase tracking-wide mb-2">Total Deductions</h5>
-                                                <span className="text-3xl font-bold text-red-600">₹{summaryData.totalDeductions.toLocaleString()}</span>
+                                            <div className="bg-red-50 dark:bg-[#222222] rounded-xl p-6 border border-red-100 dark:!border-transparent text-center shadow-sm">
+                                                <h5 className="text-sm font-semibold text-red-800 dark:text-gray-400 uppercase tracking-wide mb-2">Total Deductions</h5>
+                                                <span className="text-3xl font-bold text-red-600 dark:text-white">₹{summaryData.totalDeductions.toLocaleString()}</span>
                                             </div>
-                                            <div className="bg-green-50 rounded-xl p-6 border border-green-100 text-center shadow-sm">
-                                                <h5 className="text-sm font-semibold text-green-800 uppercase tracking-wide mb-2">Total Earnings</h5>
-                                                <span className="text-3xl font-bold text-green-600">₹{summaryData.totalEarnings.toLocaleString()}</span>
+                                            <div className="bg-green-50 dark:bg-[#222222] rounded-xl p-6 border border-green-100 dark:!border-transparent text-center shadow-sm">
+                                                <h5 className="text-sm font-semibold text-green-800 dark:text-gray-400 uppercase tracking-wide mb-2">Total Earnings</h5>
+                                                <span className="text-3xl font-bold text-green-600 dark:text-white">₹{summaryData.totalEarnings.toLocaleString()}</span>
                                             </div>
                                         </div>
 
                                         <div className="text-center">
                                             <div className="max-w-xs mx-auto mb-6 text-left">
-                                                <label htmlFor="salaryMonth" className="block text-sm font-medium text-gray-700 mb-1">
+                                                <label htmlFor="salaryMonth" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                                     Salary Month <span className="text-red-500">*</span>
                                                 </label>
                                                 <input
                                                     type="month"
                                                     id="salaryMonth"
-                                                    className="shadow-sm focus:ring-cyan-500 focus:border-cyan-500 block w-full sm:text-sm border-gray-300 rounded-md py-2 px-3 border bg-white"
+                                                    className="shadow-sm focus:ring-cyan-500 focus:border-cyan-500 block w-full sm:text-sm border-gray-300 dark:border-transparent rounded-md py-2 px-3 border bg-white dark:bg-[#222222] text-gray-900 dark:text-white [color-scheme:dark]"
                                                     value={salaryMonth}
                                                     onChange={(e) => setSalaryMonth(e.target.value)}
                                                     max={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
@@ -512,7 +515,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                             <button
                                                 onClick={handleProcessAll}
                                                 disabled={isProcessing}
-                                                className="inline-flex items-center px-8 py-3.5 border border-transparent shadow-lg text-base font-medium rounded-xl text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 disabled:opacity-50 transition-all hover:scale-105"
+                                                className="inline-flex items-center px-8 py-3.5 border border-transparent shadow-lg text-base font-medium rounded-xl text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 disabled:opacity-50 transition-all hover:scale-105 cursor-pointer"
                                             >
                                                 {isProcessing ? (
                                                     <><ArrowPathIcon className="animate-spin -ml-1 mr-3 h-5 w-5" /> Processing Engine...</>
@@ -521,7 +524,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                         </div>
 
                                         <div className="flex justify-center mt-12">
-                                            <button onClick={() => setWorkflowStep(2)} className="text-gray-500 hover:text-gray-700 text-sm font-medium">
+                                            <button onClick={() => setWorkflowStep(2)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-sm font-medium cursor-pointer">
                                                 ← Back to File Upload
                                             </button>
                                         </div>
@@ -534,13 +537,13 @@ const PayrollProcessingEnginePage: React.FC = () => {
                         {activeTab === 'history' && (
                             <div>
                                 <div className="flex justify-between items-center mb-6">
-                                    <h4 className="text-xl font-semibold text-gray-900">Batch Processing Status</h4>
+                                    <h4 className="text-xl font-semibold text-gray-900 dark:text-white">Batch Processing Status</h4>
                                     <div className="flex gap-3">
                                         <button
                                             onClick={fetchBatchInfo}
-                                            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                                            className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-transparent shadow-sm text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-[#222222] hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors cursor-pointer"
                                         >
-                                            <ArrowPathIcon className="-ml-1 mr-2 h-5 w-5" />
+                                            <ArrowPathIcon className="-ml-1 mr-2 h-5 w-5 text-gray-500 dark:text-gray-400" />
                                             Refresh
                                         </button>
                                     </div>
@@ -562,7 +565,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                             key: "totalSalaryAmount",
                                             label: "Total Amount",
                                             sortable: true,
-                                            className: "text-center font-semibold",
+                                            className: "text-center font-semibold text-gray-900 dark:text-white",
                                             headerClassName: "text-center",
                                             render: (row: any) => `₹${row.totalSalaryAmount?.toLocaleString() || 0}`
                                         },
@@ -571,7 +574,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                             label: "Status",
                                             sortable: true,
                                             render: (row: any) => (
-                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${row.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold dark:bg-transparent dark:border-transparent ${row.status === 'COMPLETED' ? 'bg-green-100 text-green-800 dark:text-gray-300' : 'bg-yellow-100 text-yellow-800 dark:text-gray-400'}`}>
                                                     {row.status}
                                                 </span>
                                             )
@@ -584,7 +587,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                             render: (row: any) => (
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleDownloadReport(row.batchReference, row.salaryMonth); }}
-                                                    className="text-cyan-600 hover:text-cyan-900 bg-cyan-50 p-2.5 rounded-full transition-colors inline-block"
+                                                    className="text-cyan-600 hover:text-cyan-900 dark:text-gray-400 dark:hover:text-gray-200 bg-cyan-50 dark:bg-[#222222] p-2.5 rounded-full transition-colors inline-block cursor-pointer"
                                                     title="Download Bank Report"
                                                 >
                                                     <DocumentArrowDownIcon className="h-5 w-5" />
@@ -594,9 +597,10 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                     ]}
                                     searchable={false}
                                     pageSize={10}
+                                    className="dark:border-transparent [&_.common-data-table]:dark:!border-transparent"
                                     emptyState={
-                                        <div className="flex flex-col items-center py-12 text-gray-500">
-                                            <ArrowPathIcon className="h-8 w-8 text-gray-400 mb-3 animate-spin" />
+                                        <div className="flex flex-col items-center py-12 text-gray-500 dark:text-gray-400">
+                                            <ArrowPathIcon className="h-8 w-8 text-gray-400 dark:text-gray-500 mb-3 animate-spin" />
                                             <p className="text-sm">Waiting for batch information to appear...</p>
                                         </div>
                                     }

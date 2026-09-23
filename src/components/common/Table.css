@@ -76,3 +76,10 @@
 .dark .common-data-table__column-picker p,
 .dark .common-data-table__column-picker label { color: #d6deea; }
 .dark .common-data-table__column-picker label:hover { background: #252525; }
+
+@media (max-width: 639px) {
+  .common-data-table { border-radius: 8px; }
+  .common-data-table > div::-webkit-scrollbar { height: 6px; }
+  .common-data-table > div::-webkit-scrollbar-thumb { border-radius: 999px; background: #cbd5e1; }
+  .common-data-table th { white-space: nowrap; }
+}

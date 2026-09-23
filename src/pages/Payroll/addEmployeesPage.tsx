@@ -857,24 +857,24 @@ const AddEmployeePage: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => navigate(-1)}
-                className="p-1 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+                className="p-1 hover:bg-gray-100 dark:hover:bg-[#222222] rounded-lg transition-colors flex-shrink-0 text-gray-600 dark:text-gray-400 cursor-pointer"
               >
-                <ChevronLeft className="w-4 h-4 text-gray-600" />
+                <ChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-400" />
               </button>
               <div>
-                <h1 className="text-base sm:text-lg font-bold text-gray-900">
+                <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
                   {editId ? "Edit Employee" : "Add New Employee"}
                 </h1>
-                <p className="text-[11px] text-gray-500">
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">
                   Complete all sections to onboard employee
                 </p>
               </div>
             </div>
             <button
               onClick={() => navigate(-1)}
-              className="p-1 hover:bg-gray-100 rounded-lg transition-colors w-fit"
+              className="p-1 hover:bg-gray-100 dark:hover:bg-[#222222] rounded-lg transition-colors w-fit text-gray-600 dark:text-gray-400 cursor-pointer"
             >
-              <X className="w-4 h-4 text-gray-600" />
+              <X className="w-4 h-4 text-gray-600 dark:text-gray-400" />
             </button>
           </div>
 
@@ -893,15 +893,15 @@ const AddEmployeePage: React.FC = () => {
                         className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 ${isComplete
                           ? "bg-cyan-600 text-white"
                           : isCurrent
-                            ? "bg-white border-2 border-cyan-600 text-cyan-600"
-                            : "bg-gray-100 text-gray-400"
+                            ? "bg-white dark:bg-[#191919] border-2 border-cyan-600 text-cyan-600"
+                            : "bg-gray-100 dark:bg-[#222222] text-gray-400 dark:text-gray-500"
                           }`}
                       >
                         <Icon className="w-3.5 h-3.5" />
                       </div>
                     </div>
                     {!isLast && (
-                      <div className="flex-1 h-0.5 bg-gray-200 mx-2">
+                      <div className="flex-1 h-0.5 bg-gray-200 dark:bg-[#2a2a2a] mx-2">
                         <div className={`h-full bg-cyan-600 transition-all duration-300 ${isComplete ? "w-full" : "w-0"}`} />
                       </div>
                     )}
@@ -909,9 +909,9 @@ const AddEmployeePage: React.FC = () => {
                 );
               })}
             </div>
-            <div className="flex justify-between text-[11px] text-gray-500 px-1">
+            <div className="flex justify-between text-[11px] text-gray-500 dark:text-gray-400 px-1">
               {steps.map((step) => (
-                <span key={step.num}>{step.label}</span>
+                <span key={step.num} className={currentStep === step.num ? "text-gray-900 dark:text-gray-200 font-medium" : ""}>{step.label}</span>
               ))}
             </div>
           </div>
@@ -923,13 +923,13 @@ const AddEmployeePage: React.FC = () => {
                 <div className="w-7 h-7 rounded-full bg-cyan-600 text-white flex items-center justify-center text-xs font-semibold">
                   {currentStep}
                 </div>
-                <span className="text-xs font-medium text-gray-900">
+                <span className="text-xs font-medium text-gray-900 dark:text-white">
                   {steps[currentStep - 1].label}
                 </span>
               </div>
-              <div className="text-[11px] text-gray-500">Step {currentStep} of {steps.length}</div>
+              <div className="text-[11px] text-gray-500 dark:text-gray-400">Step {currentStep} of {steps.length}</div>
             </div>
-            <div className="mt-2 h-1 bg-gray-200 rounded-full overflow-hidden">
+            <div className="mt-2 h-1 bg-gray-200 dark:bg-[#2a2a2a] rounded-full overflow-hidden">
               <div
                 className="h-full bg-cyan-600 rounded-full transition-all duration-300"
                 style={{ width: `${(currentStep / steps.length) * 100}%` }}
@@ -947,14 +947,14 @@ const AddEmployeePage: React.FC = () => {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
           >
-            <div className="bg-white rounded-xl border border-gray-200/80 p-3 sm:p-4 mb-3 shadow-2xs">
+            <div className="bg-white dark:bg-[#191919] rounded-xl border border-gray-200/80 dark:!border-transparent p-3 sm:p-4 mb-3 shadow-2xs">
 
               {/* Step 1: Personal Information */}
               {currentStep === 1 && (
                 <div className="space-y-3">
                   <div className="mb-2">
-                    <h2 className="text-sm font-bold text-gray-900">Personal Information</h2>
-                    <p className="text-[11px] text-gray-500">Basic employee details</p>
+                    <h2 className="text-sm font-bold text-gray-900 dark:text-white">Personal Information</h2>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">Basic employee details</p>
                   </div>
 
                   <div className="space-y-2">
@@ -1139,8 +1139,8 @@ const AddEmployeePage: React.FC = () => {
               {currentStep === 2 && (
                 <div className="space-y-3">
                   <div className="mb-2">
-                    <h2 className="text-sm font-bold text-gray-900">Employment Details</h2>
-                    <p className="text-[11px] text-gray-500">Job role and department information</p>
+                    <h2 className="text-sm font-bold text-gray-900 dark:text-white">Employment Details</h2>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">Job role and department information</p>
                   </div>
 
                   <div className="space-y-2">
@@ -1323,15 +1323,15 @@ const AddEmployeePage: React.FC = () => {
               {currentStep === 3 && (
                 <div className="space-y-6">
                   <div className="mb-6">
-                    <h2 className="text-lg font-semibold text-gray-900">Address Information</h2>
-                    <p className="text-sm text-gray-500 mt-1">Residential addresses</p>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Address Information</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Residential addresses</p>
                   </div>
 
                   {/* Permanent Address */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-4">
-                      <Home className="w-4 h-4 text-cyan-600" />
-                      <h3 className="text-sm font-semibold text-gray-900">Permanent Address</h3>
+                      <Home className="w-4 h-4 text-cyan-600 dark:text-gray-400" />
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Permanent Address</h3>
                     </div>
 
                     <div>
@@ -1584,15 +1584,15 @@ const AddEmployeePage: React.FC = () => {
               {currentStep === 4 && (
                 <div className="space-y-8">
                   <div className="mb-6">
-                    <h2 className="text-lg font-semibold text-gray-900">Banking & Salary Details</h2>
-                    <p className="text-sm text-gray-500 mt-1">Compensation and bank information</p>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Banking & Salary Details</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Compensation and bank information</p>
                   </div>
 
                   {/* Banking */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-4">
-                      <CreditCard className="w-4 h-4 text-cyan-600" />
-                      <h3 className="text-sm font-semibold text-gray-900">Bank Account Details</h3>
+                      <CreditCard className="w-4 h-4 text-cyan-600 dark:text-gray-400" />
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Bank Account Details</h3>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1904,21 +1904,21 @@ const AddEmployeePage: React.FC = () => {
               {currentStep === 5 && (
                 <div className="space-y-6">
                   <div className="mb-6">
-                    <h2 className="text-lg font-semibold text-gray-900">Review & Confirm</h2>
-                    <p className="text-sm text-gray-500 mt-1">Verify all information before submitting</p>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Review & Confirm</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Verify all information before submitting</p>
                   </div>
 
-                  <div className="bg-gray-50 rounded-xl p-5 mb-6">
+                  <div className="bg-gray-50 dark:bg-[#222222] rounded-xl p-5 mb-6">
                     <div className="flex items-center gap-4 flex-wrap">
                       <div className="w-12 h-12 rounded-full bg-cyan-600 text-white flex items-center justify-center text-base font-semibold">
                         {form.firstName.charAt(0)}{form.lastName.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-[200px]">
-                        <h3 className="text-base font-semibold text-gray-900">
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-white">
                           {form.firstName} {form.lastName}
                         </h3>
-                        <p className="text-sm text-gray-600">{form.designation} • {form.department.name}</p>
-                        <span className="text-xs text-gray-500 mt-1 block">{form.employmentType}</span>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">{form.designation} • {form.department.name}</p>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 block">{form.employmentType}</span>
                       </div>
                     </div>
                   </div>
@@ -2085,12 +2085,12 @@ const AddEmployeePage: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="mt-6 p-4 bg-cyan-50 border border-cyan-100 rounded-lg">
+                  <div className="mt-6 p-4 bg-cyan-50 dark:bg-[#222222] border border-cyan-100 dark:!border-transparent rounded-lg">
                     <div className="flex items-start gap-3">
-                      <CheckCircle className="w-5 h-5 text-cyan-600 flex-shrink-0 mt-0.5" />
+                      <CheckCircle className="w-5 h-5 text-cyan-600 dark:text-cyan-400 flex-shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-sm font-medium text-cyan-900">Ready to submit</p>
-                        <p className="text-sm text-cyan-700 mt-1">
+                        <p className="text-sm font-medium text-cyan-900 dark:text-white">Ready to submit</p>
+                        <p className="text-sm text-cyan-700 dark:text-gray-300 mt-1">
                           Verify all information is correct before creating employee record.
                         </p>
                       </div>
@@ -2107,7 +2107,7 @@ const AddEmployeePage: React.FC = () => {
           <button
             onClick={prevStep}
             disabled={currentStep === 1}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed transition w-full sm:w-auto justify-center"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition w-full sm:w-auto justify-center cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             Previous
@@ -2116,7 +2116,7 @@ const AddEmployeePage: React.FC = () => {
           {currentStep < 5 ? (
             <button
               onClick={nextStep}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-cyan-600 !text-white text-xs font-medium rounded-lg hover:bg-cyan-700 transition w-full sm:w-auto justify-center shadow-2xs"
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-cyan-600 !text-white text-xs font-medium rounded-lg hover:bg-cyan-700 transition w-full sm:w-auto justify-center shadow-2xs cursor-pointer"
             >
               Continue
               <ArrowRight className="w-3.5 h-3.5" />
@@ -2125,7 +2125,7 @@ const AddEmployeePage: React.FC = () => {
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="px-5 py-1.5 bg-cyan-600 !text-white text-xs font-medium rounded-lg hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1.5 w-full sm:w-auto justify-center shadow-2xs"
+              className="px-5 py-1.5 bg-cyan-600 !text-white text-xs font-medium rounded-lg hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1.5 w-full sm:w-auto justify-center shadow-2xs cursor-pointer"
             >
               {isSubmitting ? (
                 <>
@@ -2162,6 +2162,49 @@ const AddEmployeePage: React.FC = () => {
         }
         .react-select-container .react-select__menu {
           z-index: 50;
+        }
+        .dark .react-select-container .react-select__control {
+          background-color: #111827;
+          border-color: #374151;
+          color: #f9fafb;
+        }
+        .dark .react-select-container .react-select__single-value {
+          color: #f9fafb;
+        }
+        .dark .react-select-container .react-select__menu {
+          background-color: #191919;
+          border-color: transparent;
+        }
+        .dark .react-select-container .react-select__option {
+          background-color: #191919;
+          color: #f9fafb;
+        }
+        .dark .react-select-container .react-select__option--is-focused {
+          background-color: #222222;
+        }
+        .dark .react-select-container .react-select__option--is-selected {
+          background-color: #06b6d4;
+          color: #ffffff;
+        }
+        .dark .react-tel-input .country-list {
+          background-color: #191919 !important;
+          border-color: #374151 !important;
+          color: #f9fafb !important;
+        }
+        .dark .react-tel-input .country-list .country:hover,
+        .dark .react-tel-input .country-list .country.highlight {
+          background-color: #222222 !important;
+        }
+        .dark .react-tel-input .country-list .country .country-name {
+          color: #f9fafb !important;
+        }
+        .dark .react-tel-input .country-list .search {
+          background-color: #111827 !important;
+        }
+        .dark .react-tel-input .country-list .search-box {
+          background-color: #191919 !important;
+          color: #f9fafb !important;
+          border-color: #374151 !important;
         }
         @media (max-width: 640px) {
           .react-select-container .react-select__control {

@@ -129,6 +129,19 @@ const floatingStyles = `
     color: transparent !important;
   }
 
+  /* Native date/time controls otherwise retain Chrome's dark calendar glyph. */
+  .dark input[type="date"]::-webkit-calendar-picker-indicator,
+  .dark input[type="time"]::-webkit-calendar-picker-indicator,
+  .dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 1;
+  }
+
+  /* FloatingDatePicker uses its own SVG rather than the native glyph. */
+  .dark .floating-datepicker ~ svg {
+    color: #fff !important;
+  }
+
   .dark .floating-input:disabled,
   .dark .floating-select:disabled {
     background-color: #1f2937 !important;
@@ -166,6 +179,13 @@ const floatingStyles = `
     cursor: pointer;
   }
 
+  /* ✅ FIX: dark trigger button */
+  .dark .floating-range-trigger {
+    background-color: #111827 !important;
+    border-color: #374151 !important;
+    color: #f9fafb !important;
+  }
+
   .floating-range-trigger:focus {
     border-color: #2563eb;
     outline: none;
@@ -180,6 +200,13 @@ const floatingStyles = `
     background-color: #f3f4f6;
     color: #94a3b8;
     cursor: not-allowed;
+  }
+
+  /* ✅ FIX: dark disabled trigger */
+  .dark .floating-range-trigger:disabled {
+    background-color: #1f2937 !important;
+    color: #94a3b8 !important;
+    border-color: #374151 !important;
   }
 
   .floating-range-value {
@@ -203,6 +230,13 @@ const floatingStyles = `
     overflow: hidden;
   }
 
+  /* ✅ FIX: dark popover shell */
+  .dark .floating-range-popover {
+    background: #111827 !important;
+    border-color: #374151 !important;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6) !important;
+  }
+
   .floating-range-popover.upward {
     top: auto;
     bottom: calc(100% + 8px);
@@ -216,6 +250,12 @@ const floatingStyles = `
     font-family: inherit;
   }
 
+  /* ✅ FIX: dark calendar shell */
+  .dark .floating-range-picker.react-datepicker {
+    background: #111827 !important;
+    color: #f9fafb !important;
+  }
+
   .floating-range-picker .react-datepicker__month-container {
     float: none;
   }
@@ -226,11 +266,22 @@ const floatingStyles = `
     padding-top: 12px;
   }
 
+  /* ✅ FIX: dark calendar header */
+  .dark .floating-range-picker .react-datepicker__header {
+    background: #111827 !important;
+    border-bottom-color: #374151 !important;
+  }
+
   .floating-range-picker .react-datepicker__current-month {
     color: #111827;
     font-size: 16px;
     font-weight: 700;
     margin-bottom: 10px;
+  }
+
+  /* ✅ FIX: dark current month */
+  .dark .floating-range-picker .react-datepicker__current-month {
+    color: #f9fafb !important;
   }
 
   .floating-range-picker .react-datepicker__day-name,
@@ -243,9 +294,21 @@ const floatingStyles = `
     font-size: 13px;
   }
 
+  /* ✅ FIX: dark day text */
+  .dark .floating-range-picker .react-datepicker__day-name,
+  .dark .floating-range-picker .react-datepicker__day,
+  .dark .floating-range-picker .react-datepicker__time-name {
+    color: #f9fafb !important;
+  }
+
   .floating-range-picker .react-datepicker__day-name {
     font-weight: 700;
     color: #6b7280;
+  }
+
+  /* ✅ FIX: dark day-of-week header */
+  .dark .floating-range-picker .react-datepicker__day-name {
+    color: #94a3b8 !important;
   }
 
   .floating-range-picker .react-datepicker__day {
@@ -258,11 +321,25 @@ const floatingStyles = `
     color: #111827;
   }
 
+  /* ✅ FIX: dark day hover */
+  .dark .floating-range-picker .react-datepicker__day:hover,
+  .dark .floating-range-picker .react-datepicker__day--keyboard-selected {
+    background: #1f2937 !important;
+    color: #f9fafb !important;
+  }
+
   .floating-range-picker .react-datepicker__day--in-range,
   .floating-range-picker .react-datepicker__day--in-selecting-range {
     background: #dbeafe;
     color: #1e3a8a;
     border-radius: 9999px;
+  }
+
+  /* ✅ FIX: dark in-range day */
+  .dark .floating-range-picker .react-datepicker__day--in-range,
+  .dark .floating-range-picker .react-datepicker__day--in-selecting-range {
+    background: #1e40af !important;
+    color: #dbeafe !important;
   }
 
   .floating-range-picker .react-datepicker__day--range-start,
@@ -278,9 +355,19 @@ const floatingStyles = `
     color: #6b7280;
   }
 
+  /* ✅ FIX: dark outside-month day */
+  .dark .floating-range-picker .react-datepicker__day--outside-month {
+    color: #4b5563 !important;
+  }
+
   .floating-range-picker .react-datepicker__day--disabled {
     color: #4b5563;
     cursor: not-allowed;
+  }
+
+  /* ✅ FIX: dark disabled day */
+  .dark .floating-range-picker .react-datepicker__day--disabled {
+    color: #374151 !important;
   }
 
   .floating-range-picker .react-datepicker__navigation {
@@ -289,6 +376,11 @@ const floatingStyles = `
 
   .floating-range-picker .react-datepicker__navigation-icon::before {
     border-color: #d1d5db;
+  }
+
+  /* ✅ FIX: dark navigation arrows */
+  .dark .floating-range-picker .react-datepicker__navigation-icon::before {
+    border-color: #94a3b8 !important;
   }
 
   .floating-range-picker .react-datepicker__month {
@@ -302,6 +394,46 @@ const floatingStyles = `
     font-size: 12px;
     line-height: 1.4;
     background: #ffffff;
+  }
+
+  /* ✅ FIX: dark helper text */
+  .dark .floating-range-helper {
+    background: #111827 !important;
+    border-top-color: #374151 !important;
+    color: #94a3b8 !important;
+  }
+
+  /* ✅ FIX: dark time-select column (react-datepicker ships one) */
+  .dark .floating-range-picker .react-datepicker__time-container {
+    border-left-color: #374151 !important;
+  }
+
+  .dark .floating-range-picker .react-datepicker__time-container .react-datepicker__time,
+  .dark .floating-range-picker .react-datepicker__time-container .react-datepicker__time-box {
+    background-color: #111827 !important;
+    color: #f9fafb !important;
+  }
+
+  .dark .floating-range-picker .react-datepicker__time-list-item {
+    color: #f9fafb !important;
+  }
+
+  .dark .floating-range-picker .react-datepicker__time-list-item:hover {
+    background-color: #1f2937 !important;
+  }
+
+  .dark .floating-range-picker .react-datepicker__time-list-item--selected {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+  }
+
+  .dark .floating-range-picker .react-datepicker__time-container .react-datepicker__header {
+    background-color: #1f2937 !important;
+    border-bottom-color: #374151 !important;
+  }
+
+  .dark .floating-range-picker .react-datepicker-time__header {
+    color: #f9fafb !important;
   }
 `;
 
@@ -567,7 +699,6 @@ export const FloatingDatePicker: React.FC<FloatingDatePickerProps> = ({
       >
         {getFloatingLabel(label, required)}
       </label>
-      {/* Calendar icon */}
       <svg 
         style={styles.calendarIcon}
         width="20" 
@@ -709,7 +840,11 @@ export const FloatingDateRangePicker: React.FC<FloatingDateRangePickerProps> = (
           fontSize: labelActive ? "12px" : "16px",
           margin: 0,
           padding: "0 4px",
-          backgroundColor: labelActive ? "white" : "transparent",
+          // ✅ FIX: use "var(--label-bg)" driven by CSS class, or simply
+          // pass transparent here and let the CSS classes handle the bg.
+          // We use an inline conditional so light/dark both work via the
+          // floating-label / floating-label-active CSS rules defined above.
+          backgroundColor: labelActive ? "var(--floating-label-bg, white)" : "transparent",
           transition: "all 0.2s ease-in-out",
           color: error ? "#dc2626" : (labelActive ? "#2563eb" : "#6b7280"),
           pointerEvents: "none",
@@ -843,7 +978,8 @@ export const FloatingSelect: React.FC<FloatingSelectProps> = ({
       fontSize: isActive ? '12px' : '16px',
       margin: 0,
       padding: '0 4px',
-      backgroundColor: isActive ? 'white' : 'transparent',
+      // ✅ FIX: CSS var so dark mode can override
+      backgroundColor: isActive ? 'var(--floating-label-bg, white)' : 'transparent',
       transition: 'all 0.2s ease-in-out',
       color: error ? '#dc2626' : (isActive ? '#2563eb' : '#6b7280'),
       pointerEvents: 'none' as const,
@@ -965,7 +1101,8 @@ export const FloatingSelect1: React.FC<FloatingSelectProps1> = ({
           fontSize: isActive ? "12px" : "16px",
           margin: 0,
           padding: "0 4px",
-          backgroundColor: isActive ? "white" : "transparent",
+          // ✅ FIX: CSS var so dark mode can override
+          backgroundColor: isActive ? "var(--floating-label-bg, white)" : "transparent",
           transition: "all 0.2s ease-in-out",
           color: isActive ? "#2563eb" : "#6b7280",
           pointerEvents: "none",
@@ -979,4 +1116,4 @@ export const FloatingSelect1: React.FC<FloatingSelectProps1> = ({
       </label>
     </div>
   );
-};  
+};

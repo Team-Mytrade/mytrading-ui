@@ -1,0 +1,74 @@
+/* Sales pages use several legacy utility combinations without dark variants.
+   This scoped layer keeps all readable text, controls, cards and tables coherent. */
+.dark .sales-module { color: #dbe7f5; }
+
+.dark .sales-module .bg-white,
+.dark .sales-module .bg-gray-50,
+.dark .sales-module .bg-slate-50,
+.dark .sales-module .bg-slate-100,
+.dark .sales-module .bg-white\/90,
+.dark .sales-module .bg-white\/80 { background-color: #172033 !important; }
+
+.dark .sales-module .bg-gray-100,
+.dark .sales-module .bg-slate-200,
+.dark .sales-module .bg-slate-50\/60 { background-color: #202c40 !important; }
+
+.dark .sales-module .border-gray-100,
+.dark .sales-module .border-gray-200,
+.dark .sales-module .border-gray-300,
+.dark .sales-module .border-slate-100,
+.dark .sales-module .border-slate-200,
+.dark .sales-module .border-slate-200\/70 { border-color: #334155 !important; }
+
+.dark .sales-module .text-black,
+.dark .sales-module .text-gray-900,
+.dark .sales-module .text-slate-900,
+.dark .sales-module .text-slate-800 { color: #f1f5f9 !important; }
+
+.dark .sales-module .text-gray-800,
+.dark .sales-module .text-gray-700,
+.dark .sales-module .text-slate-700,
+.dark .sales-module .text-slate-600 { color: #d0dbea !important; }
+
+.dark .sales-module .text-gray-600,
+.dark .sales-module .text-gray-500,
+.dark .sales-module .text-slate-500,
+.dark .sales-module .text-slate-400 { color: #aebed1 !important; }
+
+.dark .sales-module .text-gray-400,
+.dark .sales-module .text-slate-300 { color: #94a3b8 !important; }
+
+.dark .sales-module .text-cyan-600,
+.dark .sales-module .text-cyan-700,
+.dark .sales-module .text-blue-600 { color: #67e8f9 !important; }
+.dark .sales-module .text-green-600,
+.dark .sales-module .text-emerald-600 { color: #6ee7b7 !important; }
+.dark .sales-module .text-red-600,
+.dark .sales-module .text-rose-600 { color: #fda4af !important; }
+.dark .sales-module .text-amber-700,
+.dark .sales-module .text-orange-600 { color: #fcd34d !important; }
+.dark .sales-module .text-white { color: #fff !important; }
+
+.dark .sales-module input,
+.dark .sales-module select,
+.dark .sales-module textarea { color: #e5edf8; border-color: #475569; background-color: #172033; }
+.dark .sales-module input::placeholder,
+.dark .sales-module textarea::placeholder { color: #94a3b8; }
+.dark .sales-module input:focus,
+.dark .sales-module select:focus,
+.dark .sales-module textarea:focus { border-color: #22d3ee; }
+
+.dark .sales-module .hover\:bg-gray-50:hover,
+.dark .sales-module .hover\:bg-slate-50:hover,
+.dark .sales-module .hover\:bg-slate-100:hover { background-color: #26354b !important; }
+
+/* Standard sales create/edit dialogs are portalled to document.body. */
+.dark .sales-modal > div { background-color: #172033 !important; }
+.dark .sales-modal .border-gray-100,
+.dark .sales-modal .border-gray-200 { border-color: #334155 !important; }
+.dark .sales-modal .text-gray-900 { color: #f1f5f9 !important; }
+.dark .sales-modal .text-gray-500,
+.dark .sales-modal .text-gray-400 { color: #aebed1 !important; }
+.dark .sales-modal input,
+.dark .sales-modal select,
+.dark .sales-modal textarea { color: #e5edf8; border-color: #475569; background-color: #172033; }

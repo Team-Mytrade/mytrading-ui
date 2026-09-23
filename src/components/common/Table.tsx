@@ -893,7 +893,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                 : "relative overflow-x-auto overflow-y-visible"
             }
           >
-            <table className="min-w-full table-fixed divide-y divide-gray-200 dark:divide-gray-800">
+            <table className="min-w-[680px] table-fixed divide-y divide-gray-200 sm:min-w-full dark:divide-gray-800">
               <thead className="bg-gray-50 dark:bg-gray-800/70">
                 <tr>
                   {visibleColumns.map((col, index) => (
@@ -1017,7 +1017,7 @@ export function ReusableTable<T extends { id?: number | string }>({
           </div>
 
           {!loading && sorted.length > 0 && (
-            <div className="px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 border-t border-gray-100 dark:border-gray-800">
+            <div className="flex flex-col items-center justify-between gap-2.5 px-4 py-3 sm:flex-row sm:items-center border-t border-gray-100 dark:border-gray-800">
               <p className="text-xs text-gray-500 shrink-0 dark:text-gray-400">
                 Showing{" "}
                 <span className="font-medium text-gray-700 dark:text-gray-200">
@@ -1030,7 +1030,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                 results
               </p>
 
-              <div className="flex items-center gap-1">
+              <div className="flex max-w-full items-center gap-1 overflow-x-auto pb-0.5">
                 {/* First */}
                 <button
                   onClick={() => setPage(1)}

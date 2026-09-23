@@ -575,7 +575,7 @@ const EmployeeSelfServicePage: React.FC = () => {
             ) : (
               <button
                 onClick={() => navigate('/att_punch')}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 active:scale-95 text-white transition shadow-2xs cursor-pointer"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white transition shadow-xs cursor-pointer"
                 title="Clock In"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -767,7 +767,7 @@ const EmployeeSelfServicePage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/att_leaveRequest')}
-                  className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-[10px] font-semibold transition shadow-2xs shrink-0 cursor-pointer"
+                  className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-[10px] font-semibold transition shadow-xs shrink-0 cursor-pointer"
                 >
                   + Apply
                 </button>
@@ -927,36 +927,13 @@ const EmployeeSelfServicePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Minimalist Segmented Filter & Legend Bar */}
-              <div className="px-6 py-2 bg-slate-50/50 dark:bg-[#222222] border-b border-slate-100 dark:border-[#303030] flex items-center justify-between flex-wrap gap-2 text-xs shrink-0">
-                <div className="flex items-center bg-slate-200/60 dark:bg-[#191919] p-0.5 rounded-lg border border-transparent dark:border-[#303030]">
-                  {(['ALL', 'PRESENT', 'ABSENT', 'LATE', 'LEAVE', 'HOLIDAY'] as const).map(filter => {
-                    const isActive = activeRequestFilter === filter;
-                    const label = filter === 'ALL' ? 'All' : filter.charAt(0) + filter.slice(1).toLowerCase();
-                    return (
-                      <button
-                        key={filter}
-                        type="button"
-                        onClick={() => setActiveRequestFilter(filter)}
-                        className={`px-3 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
-                          isActive
-                            ? 'bg-white dark:bg-[#2a2a2a] text-slate-900 dark:text-white shadow-2xs font-semibold'
-                            : 'text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="flex items-center gap-3.5 text-[11px] text-slate-500 dark:text-gray-400 font-normal flex-wrap">
-                  <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span> Today</div>
-                  <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Present</div>
-                  <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span> Leave</div>
-                  <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Absent</div>
-                  <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Holiday</div>
-                </div>
+              {/* Minimalist Legend Bar */}
+              <div className="px-6 py-2 bg-slate-50/50 dark:bg-[#222222] border-b border-slate-100 dark:border-[#303030] flex items-center justify-end flex-wrap gap-3.5 text-[11px] text-slate-500 dark:text-gray-400 font-normal shrink-0">
+                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span> Today</div>
+                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Present</div>
+                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span> Leave</div>
+                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Absent</div>
+                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Holiday</div>
               </div>
 
               {/* Minimal Calendar Grid Container */}

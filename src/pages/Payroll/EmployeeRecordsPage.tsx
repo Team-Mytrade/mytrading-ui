@@ -235,7 +235,7 @@ const EmployeeRecordsPage: React.FC = () => {
             label: "Code",
             sortable: true,
             render: (row) => (
-                <span className="text-xs font-mono font-medium text-gray-900">
+                <span className="text-xs font-mono font-medium text-gray-900 dark:text-gray-300">
                     {row.employeeCode}
                 </span>
             )
@@ -250,16 +250,16 @@ const EmployeeRecordsPage: React.FC = () => {
                 const initials = `${row.firstName?.charAt(0) || ''}${row.lastName?.charAt(0) || ''}`.toUpperCase() || 'E';
                 return (
                     <div className="flex items-center">
-                        <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3 shrink-0">
-                            <span className="text-xs font-medium text-cyan-700">
+                        <div className="h-8 w-8 rounded-full bg-cyan-100 dark:bg-[#222222] flex items-center justify-center mr-3 shrink-0">
+                            <span className="text-xs font-medium text-cyan-700 dark:text-gray-300">
                                 {initials}
                             </span>
                         </div>
                         <div>
-                            <div className="text-xs font-medium text-gray-900">
+                            <div className="text-xs font-medium text-gray-900 dark:text-white">
                                 {fullName}
                             </div>
-                            <div className="text-[10px] text-gray-500 mt-0.5">
+                            <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
                                 {row.designation || "—"}
                             </div>
                         </div>
@@ -272,12 +272,12 @@ const EmployeeRecordsPage: React.FC = () => {
             label: "Contact",
             render: (row) => (
                 <div className="space-y-1 max-w-[120px]">
-                    <div className="flex items-center text-[10px] text-gray-600" title={row.officialEmail || ""}>
-                        <EnvelopeIcon className="h-3 w-3 mr-1 text-gray-400 shrink-0" />
+                    <div className="flex items-center text-[10px] text-gray-600 dark:text-gray-400" title={row.officialEmail || ""}>
+                        <EnvelopeIcon className="h-3 w-3 mr-1 text-gray-400 dark:text-gray-500 shrink-0" />
                         <span className="truncate">{row.officialEmail || "—"}</span>
                     </div>
-                    <div className="flex items-center text-[10px] text-gray-600" title={row.phone || ""}>
-                        <PhoneIcon className="h-3 w-3 mr-1 text-gray-400 shrink-0" />
+                    <div className="flex items-center text-[10px] text-gray-600 dark:text-gray-400" title={row.phone || ""}>
+                        <PhoneIcon className="h-3 w-3 mr-1 text-gray-400 dark:text-gray-500 shrink-0" />
                         <span className="truncate">{row.phone || "—"}</span>
                     </div>
                 </div>
@@ -289,8 +289,8 @@ const EmployeeRecordsPage: React.FC = () => {
             sortable: true,
             sortValueGetter: (row) => row.department?.name || "",
             render: (row) => (
-                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                    <BuildingOfficeIcon className="h-3 w-3 mr-1 shrink-0" />
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-transparent dark:text-gray-300 dark:border dark:border-transparent">
+                    <BuildingOfficeIcon className="h-3 w-3 mr-1 shrink-0 text-blue-600 dark:text-gray-400" />
                     {row.department?.name || "—"}
                 </span>
             )
@@ -300,13 +300,13 @@ const EmployeeRecordsPage: React.FC = () => {
             label: "Status",
             sortable: true,
             render: (row) => row.active ? (
-                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                    <CheckCircleIcon className="h-3 w-3 mr-1 shrink-0" />
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-transparent dark:text-gray-300 dark:border dark:border-transparent">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 shrink-0" />
                     Active
                 </span>
             ) : (
-                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                    <XCircleIcon className="h-3 w-3 mr-1 shrink-0" />
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 dark:bg-transparent dark:text-gray-400 dark:border dark:border-transparent">
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-500 mr-1.5 shrink-0" />
                     Inactive
                 </span>
             )
@@ -317,24 +317,24 @@ const EmployeeRecordsPage: React.FC = () => {
             headerClassName: "text-right w-36",
             className: "text-right w-36",
             render: (row) => (
-                <div className="flex items-center justify-end gap-3" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-end gap-1.5" onClick={e => e.stopPropagation()}>
                     <button
                         onClick={() => navigate(`/employee-view/${row.id}`)}
-                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-1 rounded-md transition-colors"
+                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-gray-200 p-1.5 rounded-md transition-colors cursor-pointer"
                         title="View Details"
                     >
                         <EyeIcon className="h-3.5 w-3.5" />
                     </button>
                     <button
                         onClick={() => navigate(`/addEmployee?editId=${row.id}`)}
-                        className="text-cyan-600 hover:text-cyan-900 bg-cyan-50 hover:bg-cyan-100 p-1 rounded-md transition-colors"
+                        className="text-cyan-600 hover:text-cyan-900 bg-cyan-50 hover:bg-cyan-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-gray-200 p-1.5 rounded-md transition-colors cursor-pointer"
                         title="Edit"
                     >
                         <PencilSquareIcon className="h-3.5 w-3.5" />
                     </button>
                     <button
                         onClick={() => handleDelete(row.id)}
-                        className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 p-1 rounded-md transition-colors"
+                        className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-rose-400 p-1.5 rounded-md transition-colors cursor-pointer"
                         title="Delete"
                     >
                         <TrashIcon className="h-3.5 w-3.5" />
@@ -354,7 +354,7 @@ const EmployeeRecordsPage: React.FC = () => {
                     <AddButton label="Add Employee" onClick={() => navigate("/addEmployee")} />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 [&_.stats-card]:dark:!border-transparent [&_.stats-card]:dark:!bg-[#191919] [&_.stats-card__icon]:dark:!bg-[#222222] [&_.stats-card__icon]:dark:!text-gray-300 [&_.stats-card__value]:dark:!text-white [&_.stats-card__label]:dark:!text-gray-400">
                     <StatsCard label="Total Employees" value={safeEmployees.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<UserGroupIcon className="h-6 w-6" />} />
                     <StatsCard label="Active Employees" value={activeEmployees} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
                     <StatsCard label="Departments" value={(Array.isArray(departments) ? departments : []).length} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BuildingOfficeIcon className="h-6 w-6" />} />
@@ -380,23 +380,23 @@ const EmployeeRecordsPage: React.FC = () => {
                         <button
                             type="button"
                             onClick={() => setShowExportMenu(!showExportMenu)}
-                            className="h-10 w-10 border border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 rounded-lg transition-colors inline-flex items-center justify-center focus:outline-none shrink-0"
+                            className="h-10 w-10 border border-cyan-200 dark:border-transparent bg-cyan-50 dark:bg-[#191919] dark:hover:bg-[#222222] text-cyan-700 dark:text-gray-300 hover:bg-cyan-100 rounded-lg transition-colors inline-flex items-center justify-center focus:outline-none shrink-0 cursor-pointer"
                             title="Export"
                         >
-                            <DocumentArrowDownIcon className="h-4 w-4 text-cyan-700" />
+                            <DocumentArrowDownIcon className="h-4 w-4 text-cyan-700 dark:text-gray-300" />
                         </button>
 
                         {showExportMenu && (
-                            <div className="absolute right-0 top-12 w-40 bg-white shadow-lg rounded-md border border-gray-200 z-50 py-1">
+                            <div className="absolute right-0 top-12 w-40 bg-white dark:bg-[#191919] shadow-lg rounded-md border border-gray-200 dark:border-transparent z-50 py-1">
                                 <button
                                     type="button"
                                     onClick={() => {
                                         setShowExportMenu(false);
                                         exportPDF();
                                     }}
-                                    className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
+                                    className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] cursor-pointer"
                                 >
-                                    <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
+                                    <DocumentArrowDownIcon className="h-4 w-4 text-red-600 dark:text-gray-400" />
                                     PDF
                                 </button>
                                 <button
@@ -406,12 +406,12 @@ const EmployeeRecordsPage: React.FC = () => {
                                         exportEmployees();
                                     }}
                                     disabled={loading}
-                                    className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                 >
                                     {loading ? (
                                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
                                     ) : (
-                                        <TableCellsIcon className="h-4 w-4 text-green-600" />
+                                        <TableCellsIcon className="h-4 w-4 text-green-600 dark:text-gray-400" />
                                     )}
                                     {loading ? 'Exporting...' : 'Export Excel'}
                                 </button>
@@ -422,7 +422,7 @@ const EmployeeRecordsPage: React.FC = () => {
 
                 {/* Table */}
                 <ReusableTable
-                    className="[&_th]:!px-2 [&_td]:!px-2"
+                    className="[&_th]:!px-2 [&_td]:!px-2 dark:border-transparent [&_.common-data-table]:dark:!border-transparent"
                     data={filtered}
                     columns={columns}
                     loading={loading}
