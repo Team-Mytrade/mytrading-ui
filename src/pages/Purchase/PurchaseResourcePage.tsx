@@ -139,6 +139,7 @@ export type PurchaseResourceConfig = {
     refreshRows: () => Promise<void>;
   }) => Promise<void> | void;
 };
+const HIDDEN_KEYS = new Set(["id", "purchaseOrderId", "grnId", "deliveryId", "vendorId", "requisitionId", "tenantId"]);
 
 const asArray = (value: any): PurchaseRecord[] => {
   if (Array.isArray(value)) return value;
@@ -146,6 +147,7 @@ const asArray = (value: any): PurchaseRecord[] => {
   if (Array.isArray(value?.content)) return value.content;
   return [];
 };
+
 
 const getValue = (row: PurchaseRecord, path: string): any => {
   return path.split(".").reduce((acc, key) => acc?.[key], row);
@@ -544,7 +546,9 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   };
 
   const tableColumns = useMemo<ColumnDef<PurchaseRecord>[]>(() => {
-    const cols = config.columns.map((column) => ({
+    const cols = config.columns
+  .filter((column) => !HIDDEN_KEYS.has(column.key))
+  .map((column) => ({
       key: column.key,
       label: column.label,
       sortable: column.sortable ?? true,
@@ -715,7 +719,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           onChange={(event) => setField(field, event.target.value)}
           options={floatingOptions}
           required={field.required}
-          emptyOptionLabel={field.placeholderOption || `Select ${field.label}`}
+          emptyOptionLabel={field.placeholderOption ?? " "}
         />
       );
     } else if (field.type === "checkbox") {
@@ -739,6 +743,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       );
     } else if (field.type === "date") {
       control = (
+        
         <FloatingDatePicker
           label={field.label}
           value={value}
@@ -790,86 +795,22 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         {isScoped && config.scope && <div className="mx-3 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>Showing {config.scope.label.toLowerCase()}: <strong>{scopeName}</strong></span><button type="button" onClick={() => navigate(location.pathname)} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all {config.scope.label.toLowerCase()}s</button></div>}
 
         <div className="py-5 px-3">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-[17px]">
-            <StatsCard
-              label="Total Records"
-              value={rows.length}
-              gradient="from-cyan-50 to-blue-50"
-              borderColor="border-cyan-100"
-              labelColor="text-cyan-600"
-            />
-            <StatsCard
-              label="Active Records"
-              value={activeCount || "--"}
-              gradient="from-green-50 to-emerald-50"
-              borderColor="border-green-100"
-              labelColor="text-green-600"
-            />
-            <StatsCard
-              label="Loaded From API"
-              value={loading ? "..." : apiFailed ? "API failed" : "Ready"}
-              gradient={apiFailed ? "from-red-50 to-rose-50" : "from-purple-50 to-pink-50"}
-              borderColor={apiFailed ? "border-red-100" : "border-purple-100"}
-              labelColor={apiFailed ? "text-red-600" : "text-purple-600"}
-              icon={
-                apiFailed ? (
-                  <XCircleIcon className="h-5 w-5" />
-                ) : (
-                  <CheckCircleIcon className="h-5 w-5" />
-                )
-              }
-            />
-          </div>
-
-          <div className="my-3 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative w-full sm:max-w-md">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder={`Search ${config.title.toLowerCase()}...`}
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-transparent focus:ring-2 focus:ring-cyan-500"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              {config.renderSearchExtras?.()}
-
-              {supportsActiveFilter ? (
-                <div className="flex items-center">
-                  <FilterPopover
-                    title={`Filter ${config.title}`}
-                    buttonLabel="Filter"
-                    label="Status"
-                    value={activeFilter}
-                    options={[
-                      { label: "All Statuses", value: "ALL" },
-                      { label: "Active", value: "ACTIVE" },
-                      { label: "Inactive", value: "INACTIVE" },
-                    ]}
-                    onChange={(value) =>
-                      setActiveFilter((value as "ALL" | "ACTIVE" | "INACTIVE") || "ALL")
-                    }
-                    onReset={() => setActiveFilter("ALL")}
-                    onApply={() => undefined}
-                  />
-                </div>
-              ) : (
-                <div className="md:h-5 md:w-5 md:my-1 lg:h-5 lg:w-5 lg:my-1"></div>
-              )}
-            </div>
-          </div>
-
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-[17px]">
+  <StatsCard
+    label="Total Records"
+    value={rows.length}
+    gradient="from-cyan-50 to-blue-50"
+    borderColor="border-cyan-100"
+    labelColor="text-cyan-600"
+  />
+  <StatsCard
+    label="Active Records"
+    value={activeCount || "--"}
+    gradient="from-green-50 to-emerald-50"
+    borderColor="border-green-100"
+    labelColor="text-green-600"
+  />
+</div>
           <div className="">
             <ReusableTable<PurchaseRecord>
               data={filteredRows}

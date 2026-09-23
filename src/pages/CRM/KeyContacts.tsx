@@ -690,7 +690,22 @@ const handleEditContact = async (e: FormEvent) => {
               pageSize={PAGE_SIZE}
               defaultSortKey="fullName"
               defaultSortOrder="asc"
-              onRowClick={handleRowClick}
+              enableRowDetails={true}
+               rowDetailsTitle={(row: any) =>
+               row.fullName || row.name || `Contact #${row.id}`
+                 }
+             rowDetailsSubtitle="Contact details"
+             hiddenDetailKeys={[
+               "id",
+               "tenantId",
+              "createdBy",
+                       "updatedBy",
+                     "deletedBy",
+                     "createdAt",
+                    "updatedAt",
+                    "deletedAt",
+  ]}
+              // onRowClick={handleRowClick}
               emptyState={
                 <div className="flex flex-col items-center justify-center">
                   <UserGroupIcon className="h-12 w-12 text-gray-400 mb-3" />

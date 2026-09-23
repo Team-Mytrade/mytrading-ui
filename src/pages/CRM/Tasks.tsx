@@ -590,10 +590,24 @@ const Tasks: React.FC = () => {
             pageSize={PAGE_SIZE}
             defaultSortKey="title"
             defaultSortOrder="asc"
-            onRowClick={(a) => {
-              setSelectedActivity(a);
-              setShowViewModal(true);
-            }}
+           loading={false}
+           enableRowDetails={true}
+           rowDetailsTitle={(row: any) =>
+             row.title || row.taskName || row.subject || `Task #${row.id}`
+             }
+             rowDetailsSubtitle="Task details"
+              hiddenDetailKeys={[
+    "id",
+    "tenantId",
+    // "createdBy",
+    // "updatedBy",
+    // "deletedBy",
+    // "createdAt",
+    // "updatedAt",
+    // "deletedAt",
+  ]}
+
+
             emptyState={
               <div className="flex flex-col items-center justify-center py-12">
                 <CalendarIcon className="h-12 w-12 text-gray-400 mb-3" />

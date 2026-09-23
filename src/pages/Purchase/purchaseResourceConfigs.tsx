@@ -65,7 +65,6 @@ export const vendorConfig: PurchaseResourceConfig = {
   description: "Create and manage purchase vendors from the Purchase Service vendor controller.",
   endpoint: `${PURCHASE}/vendors`,
   allowInlineActiveToggle: true,
-  scope: { idParam: "vendorId", nameParam: "vendorName", label: "Vendor" },
   columns: [
     { key: "name", label: "Vendor Name" },
     { key: "contactName", label: "Contact" },
@@ -283,7 +282,7 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
     },
   ],
   columns: [
-    { key: "id", label: "ID" },
+    // { key: "id", label: "ID" },
     { key: "notes", label: "Notes" },
     { key: "requiredByDate", label: "Required By" },
     { key: "status", label: "Status", render: (row) => statusBadge(row.status) },
@@ -406,8 +405,8 @@ export const requisitionLineItemConfig: PurchaseResourceConfig = {
   description: "Manage line items for purchase requisitions.",
   endpoint: `${PURCHASE}/requisition-line-items`,
   columns: [
-    { key: "id", label: "ID" },
-    { key: "requisition.id", label: "Requisition" },
+    // { key: "id", label: "ID" },
+    // { key: "requisition.id", label: "Requisition" },
     { key: "product.productName", label: "Product" },
     { key: "category.categoryName", label: "Category" },
     { key: "quantity", label: "Quantity" },
@@ -489,7 +488,7 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
   ],
   columns: [
     { key: "poNumber", label: "PO Number" },
-    { key: "vendor.name", label: "Vendor", link: (row) => row.vendor?.id ? { to: `/vendors?vendorId=${row.vendor.id}&vendorName=${encodeURIComponent(row.vendor.name || `Vendor #${row.vendor.id}`)}`, title: `View ${row.vendor.name || "vendor"}` } : null },
+    { key: "vendor.name", label: "Vendor" },
     { key: "orderDate", label: "Order Date" },
     { key: "expectedDeliveryDate", label: "Expected Delivery" },
     { key: "status", label: "Status", render: (row) => statusBadge(row.status) },
@@ -630,7 +629,7 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
   endpoint: `${PURCHASE}/grns`,
   getByIdEndpoint: (row) => `${PURCHASE}/grns/${row.id}`,
   columns: [
-    { key: "id", label: "GRN ID" },
+    // { key: "id", label: "GRN ID" },
     { key: "poNumber", label: "PO Number" },
     { key: "receiptDate", label: "Receipt Date" },
     { key: "receivedQuantity", label: "Received Quantity" },
@@ -684,7 +683,7 @@ export const deliveryConfig: PurchaseResourceConfig = {
   description: "Manage purchase deliveries by vendor, order, and delivery date.",
   endpoint: `${PURCHASE}/deliveries`,
   columns: [
-    { key: "id", label: "Delivery ID" },
+    // { key: "id", label: "Delivery ID" },
     { key: "purchaseOrder.poNumber", label: "PO Number" },
     { key: "vendor.name", label: "Vendor" },
     { key: "deliveryDate", label: "Delivery Date" },
@@ -748,10 +747,28 @@ export const approvalStatusConfig: PurchaseResourceConfig = {
   ],
   columns: [
     { key: "poNumber", label: "PO Number" },
-    { key: "purchaseOrderId", label: "Purchase Order ID" },
+    // { key: "purchaseOrderId", label: "Purchase Order ID" },
     { key: "status", label: "Status", render: (row) => statusBadge(row.status) },
     { key: "approvedBy", label: "Approved By" },
-    { key: "approvalDate", label: "Approval Date" },
+    { key: "approvalDate", label: "Approval Date",
+       render: (row) => {
+    const raw = row.approvalDate;
+    if (!raw) return <span className="text-gray-400">--</span>;
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return <span>{String(raw)}</span>;
+    return (
+      <span>
+        {d.toLocaleString("en-IN", {
+          year: "numeric",
+          month: "short",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </span>
+    );
+  },
+     },
   ],
   fields: [
     {
@@ -777,7 +794,7 @@ export const approvalStatusConfig: PurchaseResourceConfig = {
       name: "approvalDate",
       label: "Approval Date",
       type: "datetime-local",
-      defaultValue: new Date().toISOString().slice(0, 16),
+      defaultValue: new Date().toISOString().slice(0, 10),
     },
   ],
   searchFields: ["poNumber", "purchaseOrderId", "status", "approvedBy"],

@@ -538,7 +538,11 @@ const Interactions: React.FC = () => {
             pageSize={PAGE_SIZE}
             defaultSortKey="communicationTime"
             defaultSortOrder="desc"
-            onRowClick={openNotesModal}
+             enableRowDetails={true}
+            rowDetailsTitle={(row) => row.subject || `Communication #${row.id}`}
+             rowDetailsSubtitle="Communication details"
+             hiddenDetailKeys={["id", "tenantId",]}
+
             emptyState={
               <div className="flex flex-col items-center justify-center py-12">
                 <ChatBubbleLeftIcon className="h-12 w-12 text-gray-400 mb-3" />
