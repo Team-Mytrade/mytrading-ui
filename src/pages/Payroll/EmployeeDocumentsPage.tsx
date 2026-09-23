@@ -272,7 +272,7 @@ const EmployeeDocumentsPage: React.FC = () => {
             render: (row) => (
                 <div className="flex items-center gap-2.5">
                     {getFileIcon(row.fileType)}
-                    <span className="font-semibold text-gray-900 text-xs">{row.documentType}</span>
+                    <span className="font-semibold text-gray-900 dark:text-white text-xs">{row.documentType}</span>
                 </div>
             )
         },
@@ -280,25 +280,25 @@ const EmployeeDocumentsPage: React.FC = () => {
             key: "fileName",
             label: "File Name",
             sortable: true,
-            render: (row) => <span className="text-xs text-gray-700 font-mono truncate max-w-[220px] block">{row.fileName}</span>
+            render: (row) => <span className="text-xs text-gray-700 dark:text-gray-300 font-mono truncate max-w-[220px] block">{row.fileName}</span>
         },
         {
             key: "fileSize",
             label: "File Size",
             sortable: true,
-            render: (row) => <span className="text-xs text-gray-600">{formatFileSize(row.fileSize)}</span>
+            render: (row) => <span className="text-xs text-gray-600 dark:text-gray-400">{formatFileSize(row.fileSize)}</span>
         },
         {
             key: "verified",
             label: "Status",
             sortable: true,
             render: (row) => row.verified ? (
-                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-transparent dark:text-gray-300 border border-transparent">
                     <CheckCircleIcon className="h-3 w-3 mr-1 shrink-0" />
                     Verified
                 </span>
             ) : (
-                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-transparent dark:text-gray-400 border border-transparent">
                     <ClockIcon className="h-3 w-3 mr-1 shrink-0" />
                     Pending
                 </span>
@@ -308,7 +308,7 @@ const EmployeeDocumentsPage: React.FC = () => {
             key: "uploadedAt",
             label: "Uploaded Date",
             sortable: true,
-            render: (row) => <span className="text-xs text-gray-500">{row.uploadedAt ? new Date(row.uploadedAt).toLocaleDateString() : "-"}</span>
+            render: (row) => <span className="text-xs text-gray-500 dark:text-gray-400">{row.uploadedAt ? new Date(row.uploadedAt).toLocaleDateString() : "-"}</span>
         },
         {
             key: "actions",
@@ -319,28 +319,28 @@ const EmployeeDocumentsPage: React.FC = () => {
                 <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                     <button
                         onClick={() => { setSelectedDocument(row); setViewModalOpen(true); }}
-                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-1 rounded-md transition-colors"
+                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-blue-400 p-1 rounded-md transition-colors border border-transparent dark:!border-transparent"
                         title="View Details"
                     >
                         <EyeIcon className="h-3.5 w-3.5" />
                     </button>
                     <button
                         onClick={() => handlePreview(row)}
-                        className="text-cyan-600 hover:text-cyan-900 bg-cyan-50 hover:bg-cyan-100 p-1 rounded-md transition-colors"
+                        className="text-cyan-600 hover:text-cyan-900 bg-cyan-50 hover:bg-cyan-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-cyan-400 p-1 rounded-md transition-colors border border-transparent dark:!border-transparent"
                         title="Preview"
                     >
                         <EyeIcon className="h-3.5 w-3.5" />
                     </button>
                     <button
                         onClick={() => handleDownload(row)}
-                        className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 p-1 rounded-md transition-colors"
+                        className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-green-400 p-1 rounded-md transition-colors border border-transparent dark:!border-transparent"
                         title="Download"
                     >
                         <ArrowCircleDownRounded className="h-3.5 w-3.5" />
                     </button>
                     <button
                         onClick={() => handleDelete(row.id, row.fileName)}
-                        className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 p-1 rounded-md transition-colors"
+                        className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-rose-400 p-1 rounded-md transition-colors border border-transparent dark:!border-transparent"
                         title="Delete"
                     >
                         <TrashIcon className="h-3.5 w-3.5" />
@@ -357,11 +357,11 @@ const EmployeeDocumentsPage: React.FC = () => {
 
             <div className="max-w-7xl mx-auto p-6">
                 {/* Employee Header */}
-                <div className="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                <div className="mb-6 bg-white dark:bg-[#191919] rounded-lg border border-gray-200 dark:!border-transparent shadow-sm p-6">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
-                            <p className="text-sm text-gray-500">Employee ID</p>
-                            <h2 className="text-2xl font-bold text-gray-900">
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Employee ID</p>
+                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                                 {!employeeId || isNaN(Number(employeeId)) ? "All Employees" : `EMP-${Number(employeeId).toString().padStart(3, '0')}`}
                             </h2>
                         </div>
@@ -413,26 +413,26 @@ const EmployeeDocumentsPage: React.FC = () => {
                         <div className="relative">
                             <button
                                 onClick={() => setShowExportMenu(!showExportMenu)}
-                                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                                className="p-2 rounded-lg border border-gray-300 dark:!border-transparent bg-white dark:bg-[#222222] hover:bg-gray-50 dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 transition-colors"
                                 disabled={documents.length === 0}
                             >
-                                <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
+                                <DocumentArrowDownIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
                             </button>
 
                             {showExportMenu && (
-                                <div className="absolute right-0 mt-1 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50">
+                                <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-[#191919] shadow-lg rounded-md border border-gray-200 dark:!border-transparent z-50">
                                     <button
                                         onClick={exportPDF}
-                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
+                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-[#222222]"
                                     >
-                                        <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
+                                        <DocumentArrowDownIcon className="h-4 w-4 text-red-600 dark:text-red-400" />
                                         Export PDF
                                     </button>
                                     <button
                                         onClick={exportExcel}
-                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
+                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-[#222222]"
                                     >
-                                        <TableCellsIcon className="h-4 w-4 text-green-600" />
+                                        <TableCellsIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
                                         Export Excel
                                     </button>
                                 </div>
@@ -442,18 +442,18 @@ const EmployeeDocumentsPage: React.FC = () => {
                         {/* Print Button */}
                         <button
                             onClick={() => window.print()}
-                            className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                            className="p-2 rounded-lg border border-gray-300 dark:!border-transparent bg-white dark:bg-[#222222] hover:bg-gray-50 dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 transition-colors"
                             disabled={documents.length === 0}
                         >
-                            <PrinterIcon className="h-5 w-5 text-gray-600" />
+                            <PrinterIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
                         </button>
 
                         {/* Refresh Button */}
                         <button
                             onClick={loadDocs}
-                            className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                            className="p-2 rounded-lg border border-gray-300 dark:!border-transparent bg-white dark:bg-[#222222] hover:bg-gray-50 dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 transition-colors"
                         >
-                            <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="h-5 w-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                         </button>
@@ -470,9 +470,9 @@ const EmployeeDocumentsPage: React.FC = () => {
                         pageSize={10}
                         emptyState={
                             <div className="flex flex-col items-center">
-                                <DocumentTextIcon className="h-12 w-12 text-gray-400 mb-3" />
-                                <p className="text-gray-500 text-sm mb-2">No documents found</p>
-                                <p className="text-gray-400 text-xs">Click "Upload Document" to add one</p>
+                                <DocumentTextIcon className="h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
+                                <p className="text-gray-500 dark:text-gray-400 text-sm mb-2">No documents found</p>
+                                <p className="text-gray-400 dark:text-gray-500 text-xs">Click "Upload Document" to add one</p>
                             </div>
                         }
                     />
@@ -489,36 +489,36 @@ const EmployeeDocumentsPage: React.FC = () => {
                     }}
                     submitLabel={loading ? "Uploading..." : "Upload"}
                     cancelLabel="Cancel"
-                    maxWidthClassName="max-w-lg"
+                    maxWidthClassName="max-w-lg dark:!border-transparent"
                     submitting={loading}
                     fields={[
                         <div key="doc-type">
-                            <label className="block text-sm font-medium text-gray-700">Document Type</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Document Type</label>
                             <select
                                 value={documentType}
                                 onChange={e => setDocumentType(e.target.value)}
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
+                                className="mt-1 block w-full border border-gray-300 dark:!border-transparent rounded-md shadow-sm p-2 bg-white dark:bg-[#222222] text-gray-900 dark:text-white focus:ring-cyan-500 focus:border-cyan-500 outline-none"
                                 required
                             >
-                                <option value="">Select Document Type</option>
-                                <option value="PAN">PAN Card</option>
-                                <option value="AADHAAR">Aadhaar Card</option>
-                                <option value="PASSPORT">Passport</option>
-                                <option value="WORK_PERMIT">Work Permit</option>
-                                <option value="EDUCATION">Education Certificate</option>
-                                <option value="EXPERIENCE">Experience Letter</option>
-                                <option value="PHOTO">Photograph</option>
-                                <option value="SIGNATURE">Signature</option>
-                                <option value="OTHER">Other</option>
+                                <option value="" className="dark:bg-[#222222] dark:text-gray-400">Select Document Type</option>
+                                <option value="PAN" className="dark:bg-[#222222] dark:text-white">PAN Card</option>
+                                <option value="AADHAAR" className="dark:bg-[#222222] dark:text-white">Aadhaar Card</option>
+                                <option value="PASSPORT" className="dark:bg-[#222222] dark:text-white">Passport</option>
+                                <option value="WORK_PERMIT" className="dark:bg-[#222222] dark:text-white">Work Permit</option>
+                                <option value="EDUCATION" className="dark:bg-[#222222] dark:text-white">Education Certificate</option>
+                                <option value="EXPERIENCE" className="dark:bg-[#222222] dark:text-white">Experience Letter</option>
+                                <option value="PHOTO" className="dark:bg-[#222222] dark:text-white">Photograph</option>
+                                <option value="SIGNATURE" className="dark:bg-[#222222] dark:text-white">Signature</option>
+                                <option value="OTHER" className="dark:bg-[#222222] dark:text-white">Other</option>
                             </select>
                         </div>,
                         <div key="file-upload">
-                            <label className="block text-sm font-medium text-gray-700">File</label>
-                            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">File</label>
+                            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-700/60 border-dashed rounded-lg bg-gray-50/50 dark:bg-[#222222]/40">
                                 <div className="space-y-1 text-center">
-                                    <ArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
-                                    <div className="flex text-sm text-gray-600">
-                                        <label className="relative cursor-pointer bg-white rounded-md font-medium text-cyan-600 hover:text-cyan-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-cyan-500">
+                                    <ArrowUpIcon className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
+                                    <div className="flex text-sm text-gray-600 dark:text-gray-400 justify-center">
+                                        <label className="relative cursor-pointer bg-white dark:bg-transparent rounded-md font-medium text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-cyan-500">
                                             <span>Upload a file</span>
                                             <input
                                                 type="file"
@@ -529,20 +529,20 @@ const EmployeeDocumentsPage: React.FC = () => {
                                         </label>
                                         <p className="pl-1">or drag and drop</p>
                                     </div>
-                                    <p className="text-xs text-gray-500">
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
                                         PDF, PNG, JPG, DOC up to 10MB
                                     </p>
                                     {file && (
-                                        <p className="text-xs text-cyan-600 mt-2">
+                                        <p className="text-xs text-cyan-600 dark:text-cyan-400 mt-2 font-medium">
                                             Selected: {file.name} ({(file.size / 1024).toFixed(2)} KB)
                                         </p>
                                     )}
                                 </div>
                             </div>
                         </div>,
-                        <div key="note-box" className="col-span-2 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                            <p className="text-sm text-blue-800">
-                                <strong>Note:</strong> Encrypted assets take 24-48 hours for auditing. 
+                        <div key="note-box" className="col-span-2 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:!border-transparent">
+                            <p className="text-sm text-blue-800 dark:text-gray-300">
+                                <strong className="dark:text-white">Note:</strong> Encrypted assets take 24-48 hours for auditing. 
                                 Ensure clarity in source scans for faster verification.
                             </p>
                         </div>
@@ -553,58 +553,58 @@ const EmployeeDocumentsPage: React.FC = () => {
                 {viewModalOpen && selectedDocument && (
                     <div className="fixed inset-0 z-50 overflow-y-auto">
                         <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setViewModalOpen(false)}></div>
-                            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                            <div className="fixed inset-0 transition-opacity bg-black/60 backdrop-blur-xs" onClick={() => setViewModalOpen(false)}></div>
+                            <div className="inline-block align-bottom bg-white dark:bg-[#191919] rounded-lg text-left overflow-hidden shadow-xl border border-gray-100 dark:!border-transparent transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                                <div className="bg-white dark:bg-[#191919] px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                                     <div className="sm:flex sm:items-start">
                                         <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                                             <div className="flex justify-between items-center mb-4">
-                                                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                                                <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
                                                     Document Details
                                                 </h3>
                                                 <button
                                                     onClick={() => setViewModalOpen(false)}
-                                                    className="text-gray-400 hover:text-gray-500"
+                                                    className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
                                                 >
                                                     <XCircleIcon className="h-6 w-6" />
                                                 </button>
                                             </div>
 
-                                            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                                            <div className="mb-6 p-4 bg-gray-50 dark:bg-[#222222] rounded-lg border border-gray-100 dark:!border-transparent">
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Document Type</p>
-                                                        <p className="text-sm font-medium text-gray-900">{selectedDocument.documentType}</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Document Type</p>
+                                                        <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedDocument.documentType}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Status</p>
-                                                        <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full mt-1 ${selectedDocument.verified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Status</p>
+                                                        <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full mt-1 border border-transparent ${selectedDocument.verified ? 'bg-green-100 text-green-800 dark:bg-transparent dark:text-gray-300' : 'bg-yellow-100 text-yellow-800 dark:bg-transparent dark:text-gray-400'}`}>
                                                             {selectedDocument.verified ? <CheckCircleIcon className="h-3 w-3 mr-1" /> : <ClockIcon className="h-3 w-3 mr-1" />}
                                                             {selectedDocument.verified ? 'Verified' : 'Pending'}
                                                         </span>
                                                     </div>
                                                     <div className="col-span-2">
-                                                        <p className="text-xs text-gray-500">File Name</p>
-                                                        <p className="text-sm text-gray-700 break-all">{selectedDocument.fileName}</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">File Name</p>
+                                                        <p className="text-sm text-gray-700 dark:text-gray-300 break-all font-mono">{selectedDocument.fileName}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-500">File Type</p>
-                                                        <p className="text-sm text-gray-700">{selectedDocument.fileType}</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">File Type</p>
+                                                        <p className="text-sm text-gray-700 dark:text-gray-300">{selectedDocument.fileType}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-500">File Size</p>
-                                                        <p className="text-sm text-gray-700">{formatFileSize(selectedDocument.fileSize)}</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">File Size</p>
+                                                        <p className="text-sm text-gray-700 dark:text-gray-300">{formatFileSize(selectedDocument.fileSize)}</p>
                                                     </div>
                                                     {selectedDocument.uploadedAt && (
                                                         <div className="col-span-2">
-                                                            <p className="text-xs text-gray-500">Uploaded Date</p>
-                                                            <p className="text-sm text-gray-600">{new Date(selectedDocument.uploadedAt).toLocaleString()}</p>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400">Uploaded Date</p>
+                                                            <p className="text-sm text-gray-600 dark:text-gray-400">{new Date(selectedDocument.uploadedAt).toLocaleString()}</p>
                                                         </div>
                                                     )}
                                                     {selectedDocument.remarks && (
                                                         <div className="col-span-2">
-                                                            <p className="text-xs text-gray-500">Remarks</p>
-                                                            <p className="text-sm text-gray-700">{selectedDocument.remarks}</p>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400">Remarks</p>
+                                                            <p className="text-sm text-gray-700 dark:text-gray-300">{selectedDocument.remarks}</p>
                                                         </div>
                                                     )}
                                                 </div>
@@ -612,7 +612,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                                <div className="bg-gray-50 dark:bg-[#191919] px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-gray-100 dark:!border-transparent gap-2">
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -630,7 +630,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                                             setViewModalOpen(false);
                                             handleDownload(selectedDocument);
                                         }}
-                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:!border-transparent shadow-sm px-4 py-2 bg-white dark:bg-[#222222] text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
                                         <ArrowCircleDownRounded className="h-4 w-4 mr-2" />
                                         Download
@@ -638,7 +638,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                                     <button
                                         type="button"
                                         onClick={() => setViewModalOpen(false)}
-                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:!border-transparent shadow-sm px-4 py-2 bg-white dark:bg-[#222222] text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
                                         Close
                                     </button>
@@ -652,16 +652,16 @@ const EmployeeDocumentsPage: React.FC = () => {
                 {previewUrl && (
                     <div className="fixed inset-0 z-50 overflow-y-auto">
                         <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => {
+                            <div className="fixed inset-0 transition-opacity bg-black/60 backdrop-blur-xs" onClick={() => {
                                 URL.revokeObjectURL(previewUrl);
                                 setPreviewUrl(null);
                             }}></div>
-                            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-                                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                            <div className="inline-block align-bottom bg-white dark:bg-[#191919] rounded-lg text-left overflow-hidden shadow-xl border border-gray-100 dark:!border-transparent transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+                                <div className="bg-white dark:bg-[#191919] px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                                     <div className="sm:flex sm:items-start">
                                         <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                                             <div className="flex justify-between items-center mb-4">
-                                                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                                                <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
                                                     Document Preview
                                                 </h3>
                                                 <button
@@ -669,20 +669,20 @@ const EmployeeDocumentsPage: React.FC = () => {
                                                         URL.revokeObjectURL(previewUrl);
                                                         setPreviewUrl(null);
                                                     }}
-                                                    className="text-gray-400 hover:text-gray-500"
+                                                    className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
                                                 >
                                                     <XCircleIcon className="h-6 w-6" />
                                                 </button>
                                             </div>
-                                            <div className="bg-gray-100 rounded-lg p-4 min-h-[500px] flex items-center justify-center">
+                                            <div className="bg-gray-100 dark:bg-[#222222] rounded-lg p-4 min-h-[500px] flex items-center justify-center">
                                                 {previewFileType.includes('image') ? (
                                                     <img src={previewUrl} alt="Preview" className="max-w-full max-h-[70vh] object-contain" />
                                                 ) : previewFileType.includes('pdf') ? (
                                                     <iframe src={previewUrl} className="w-full h-[70vh]" title="PDF Preview" />
                                                 ) : (
                                                     <div className="text-center">
-                                                        <DocumentTextIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                                                        <p className="text-gray-500">Preview not available for this file type</p>
+                                                        <DocumentTextIcon className="h-16 w-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                                                        <p className="text-gray-500 dark:text-gray-400">Preview not available for this file type</p>
                                                         <button
                                                             onClick={() => {
                                                                 const link = document.createElement("a");
@@ -700,7 +700,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                                <div className="bg-gray-50 dark:bg-[#191919] px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-gray-100 dark:!border-transparent gap-2">
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -720,7 +720,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                                             URL.revokeObjectURL(previewUrl);
                                             setPreviewUrl(null);
                                         }}
-                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:!border-transparent shadow-sm px-4 py-2 bg-white dark:bg-[#222222] text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
                                         Close
                                     </button>

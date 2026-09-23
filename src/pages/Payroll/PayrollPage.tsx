@@ -76,6 +76,11 @@ interface EmployeeSalary {
     employee: Employee | null;
     createdAt?: string;
     updatedAt?: string;
+    status?: string;
+    employeeName?: string;
+    employeeCode?: string;
+    otherAllowances?: number;
+    [key: string]: any;
 }
 
 const PayrollPage: React.FC = () => {
@@ -146,21 +151,66 @@ const PayrollPage: React.FC = () => {
                 employeeMap.set(emp.id, emp);
             });
 
-            const merged = salaryData.map((s: any, index: number) => ({
-                id: s.employeeSalaryId || s.employeeId || index,
-                month: s.month || filterMonth,
-                grossSalary: s.grossSalary || 0,
-                netSalary: s.netSalary || 0,
-                basic: s.basic || 0,
-                hra: s.hra || 0,
-                bonus: s.bonus || 0,
-                currency: s.currency || 'INR',
-                isProcessed: !!s.processedDate,
-                processedDate: s.processedDate || null,
-                totalEarnings: s.totalEarnings || s.grossSalary || 0,
-                totalDeductions: s.totalDeductions || 0,
-                employee: employeeMap.get(s.employeeId) || null,
-            }));
+            const merged = salaryData.map((s: any, index: number) => {
+                const emp = employeeMap.get(s.employeeId) || s.employee || null;
+                const empName = emp ? `${emp.firstName || ''} ${emp.lastName || ''}`.trim() : `Employee #${s.employeeId || index}`;
+                const empCode = emp?.employeeCode || (s.employeeId ? `EMP-${String(s.employeeId).padStart(4, '0')}` : '');
+                const empLabel = `${empName}${empCode ? ` (${empCode})` : ''}`;
+
+                const gross = s.grossSalary || 0;
+                const net = s.netSalary || 0;
+                const basic = s.basic || 0;
+                const hra = s.hra || 0;
+                const bonus = s.bonus || 0;
+                const deductions = s.totalDeductions || 0;
+                const isProc = !!s.processedDate || Boolean(s.isProcessed);
+                const procDateStr = s.processedDate
+                    ? new Date(s.processedDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : "Pending Processing";
+
+                // Enumerable properties visible in Table & drawer:
+                // Columns order: employee, month, grossSalary, netSalary -> top 4 summary metric cards
+                const rowItem: Record<string, any> = {
+                    employee: empLabel,
+                    month: s.month || filterMonth,
+                    grossSalary: gross,
+                    netSalary: net,
+                    status: isProc ? "PROCESSED" : "DRAFT",
+                    basic: basic,
+                    hra: hra,
+                    totalDeductions: deductions,
+                    processedDate: procDateStr,
+                };
+
+                if (bonus > 0) {
+                    rowItem.bonus = bonus;
+                }
+
+                const otherAllowances = (s.specialAllowance || 0) + (s.allowance || 0);
+                if (otherAllowances > 0) {
+                    rowItem.otherAllowances = otherAllowances;
+                }
+
+                // Non-enumerable properties: accessible by code, modals, actions, and downloads
+                Object.defineProperties(rowItem, {
+                    id: { value: s.employeeSalaryId || s.employeeId || index, enumerable: false, writable: true },
+                    isProcessed: { value: isProc, enumerable: false, writable: true },
+                    currency: { value: s.currency || 'INR', enumerable: false, writable: true },
+                    totalEarnings: { value: s.totalEarnings || gross, enumerable: false, writable: true },
+                    employee: { value: emp, enumerable: false, writable: true },
+                    rawEmployee: { value: emp, enumerable: false, writable: true },
+                    employeeName: { value: empName, enumerable: false, writable: true },
+                    employeeCode: { value: empCode, enumerable: false, writable: true },
+                    tds: { value: s.tds || 0, enumerable: false, writable: true },
+                    professionalTax: { value: s.professionalTax || 0, enumerable: false, writable: true },
+                    pfEmployee: { value: s.pfEmployee || 0, enumerable: false, writable: true },
+                    otherDeductions: { value: s.otherDeductions || 0, enumerable: false, writable: true },
+                    paymentMode: { value: s.paymentMode || 'BANK_TRANSFER', enumerable: false, writable: true },
+                    _raw: { value: s, enumerable: false, writable: true },
+                });
+
+                return rowItem as EmployeeSalary;
+            });
 
             setSalaries(merged);
         } catch (err) {
@@ -399,16 +449,16 @@ const PayrollPage: React.FC = () => {
                 const initials = row.employee ? `${row.employee.firstName?.charAt(0) || ''}${row.employee?.lastName?.charAt(0) || ''}`.toUpperCase() : 'E';
                 return (
                     <div className="flex items-center">
-                        <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3 shrink-0">
-                            <span className="text-xs font-medium text-cyan-700">
+                        <div className="h-8 w-8 rounded-full bg-cyan-100 dark:bg-[#222222] flex items-center justify-center mr-3 shrink-0">
+                            <span className="text-xs font-medium text-cyan-700 dark:text-gray-300">
                                 {initials}
                             </span>
                         </div>
                         <div>
-                            <div className="text-xs font-medium text-gray-900">
+                            <div className="text-xs font-medium text-gray-900 dark:text-white">
                                 {fullName}
                             </div>
-                            <div className="text-[10px] text-gray-500 mt-0.5">
+                            <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
                                 {row.employee?.employeeCode || "—"}
                             </div>
                         </div>
@@ -422,8 +472,8 @@ const PayrollPage: React.FC = () => {
             sortable: true,
             render: (row) => (
                 <div className="flex items-center">
-                    <CalendarIcon className="h-4 w-4 text-gray-400 mr-2 shrink-0" />
-                    <span className="text-xs font-medium text-gray-900">{row.month}</span>
+                    <CalendarIcon className="h-4 w-4 text-gray-400 dark:text-gray-500 mr-2 shrink-0" />
+                    <span className="text-xs font-medium text-gray-900 dark:text-gray-300">{row.month}</span>
                 </div>
             )
         },
@@ -431,26 +481,27 @@ const PayrollPage: React.FC = () => {
             key: "grossSalary",
             label: "Gross Salary",
             sortable: true,
-            render: (row) => <span className="text-xs text-gray-900">₹{row.grossSalary.toLocaleString()}</span>
+            render: (row) => <span className="text-xs text-gray-900 dark:text-gray-300 font-mono">₹{row.grossSalary.toLocaleString()}</span>
         },
         {
             key: "netSalary",
             label: "Net Payable",
             sortable: true,
-            render: (row) => <span className="text-xs font-bold text-cyan-600">₹{row.netSalary.toLocaleString()}</span>
+            render: (row) => <span className="text-xs font-bold text-cyan-600 dark:text-gray-200 font-mono">₹{row.netSalary.toLocaleString()}</span>
         },
         {
-            key: "isProcessed",
+            key: "status",
             label: "Status",
             sortable: true,
+            sortValueGetter: (row) => row.isProcessed ? 1 : 0,
             render: (row) => row.isProcessed ? (
-                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                    <CheckCircleIcon className="h-3 w-3 mr-1 shrink-0" />
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-transparent dark:text-gray-300 dark:border dark:border-transparent">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 shrink-0" />
                     Processed
                 </span>
             ) : (
-                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                    <ClockIcon className="h-3 w-3 mr-1 shrink-0" />
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-transparent dark:text-gray-300 dark:border dark:border-transparent">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 shrink-0" />
                     Draft
                 </span>
             )
@@ -464,14 +515,14 @@ const PayrollPage: React.FC = () => {
                 <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                     <button
                         onClick={() => handleViewDetails(row)}
-                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-1 rounded-md transition-colors"
+                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-gray-200 p-1.5 rounded-md transition-colors cursor-pointer"
                         title="View Details"
                     >
                         <EyeIcon className="h-3.5 w-3.5" />
                     </button>
                     <button
                         onClick={() => downloadPayslip(row.employee?.id as number, row.month, `${row.employee?.firstName} ${row.employee?.lastName}`)}
-                        className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 p-1 rounded-md transition-colors"
+                        className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-gray-200 p-1.5 rounded-md transition-colors cursor-pointer"
                         title="Download Payslip"
                     >
                         <DocumentArrowDownIcon className="h-3.5 w-3.5" />
@@ -481,7 +532,7 @@ const PayrollPage: React.FC = () => {
                             setZipEmployee({ id: row.employee?.id as number, name: `${row.employee?.firstName} ${row.employee?.lastName}` });
                             setIsZipModalOpen(true);
                         }}
-                        className="text-purple-600 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 p-1 rounded-md transition-colors"
+                        className="text-purple-600 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-gray-200 p-1.5 rounded-md transition-colors cursor-pointer"
                         title="Download Range (ZIP)"
                     >
                         <FolderArrowDownIcon className="h-3.5 w-3.5" />
@@ -489,7 +540,7 @@ const PayrollPage: React.FC = () => {
                     {row.isProcessed && (
                         <button
                             onClick={() => rollback(row.id, `${row.employee?.firstName} ${row.employee?.lastName}`)}
-                            className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 p-1 rounded-md transition-colors"
+                            className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-rose-400 p-1.5 rounded-md transition-colors cursor-pointer"
                             title="Rollback"
                         >
                             <ArrowPathIcon className="h-3.5 w-3.5" />
@@ -518,7 +569,7 @@ const PayrollPage: React.FC = () => {
                     <AddButton label={actionButtonLabel} onClick={() => setIsProcessModalOpen(true)} />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 [&_.stats-card]:dark:!border-transparent [&_.stats-card]:dark:!bg-[#191919] [&_.stats-card__icon]:dark:!bg-[#222222] [&_.stats-card__icon]:dark:!text-gray-300 [&_.stats-card__value]:dark:!text-white [&_.stats-card__label]:dark:!text-gray-400">
                     <StatsCard label="Total Records" value={salaries.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-6 w-6" />} />
                     <StatsCard label="Processed" value={totalProcessed} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
                     <StatsCard label="Draft" value={totalDraft} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ClockIcon className="h-6 w-6" />} />
@@ -528,12 +579,12 @@ const PayrollPage: React.FC = () => {
                 {/* Toolbar */}
                 <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="relative w-48">
-                        <CalendarIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <CalendarIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
                         <input
                             type="month"
                             value={filterMonth}
                             onChange={e => { setFilterMonth(e.target.value); }}
-                            className="h-10 pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                            className="h-10 pl-10 pr-4 py-2 w-full border border-gray-300 dark:border-transparent bg-white dark:bg-[#191919] text-gray-900 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                         />
                     </div>
 
@@ -543,24 +594,24 @@ const PayrollPage: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={() => setShowExportMenu(!showExportMenu)}
-                                className="h-10 w-10 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center focus:outline-none"
+                                className="h-10 w-10 border border-gray-300 dark:border-transparent bg-white dark:bg-[#191919] dark:hover:bg-[#222222] rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center focus:outline-none cursor-pointer"
                                 disabled={salaries.length === 0}
                                 title="Export options"
                             >
-                                <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
+                                <DocumentArrowDownIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                             </button>
 
                             {showExportMenu && (
-                                <div className="absolute right-0 top-12 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50 py-1">
+                                <div className="absolute right-0 top-12 w-48 bg-white dark:bg-[#191919] shadow-lg rounded-md border border-gray-200 dark:border-transparent z-50 py-1">
                                     <button
                                         type="button"
                                         onClick={() => {
                                             setShowExportMenu(false);
                                             exportPDF();
                                         }}
-                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
+                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] cursor-pointer"
                                     >
-                                        <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
+                                        <DocumentArrowDownIcon className="h-4 w-4 text-red-600 dark:text-gray-400" />
                                         Export PDF
                                     </button>
                                     <button
@@ -569,9 +620,9 @@ const PayrollPage: React.FC = () => {
                                             setShowExportMenu(false);
                                             exportExcel();
                                         }}
-                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
+                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] cursor-pointer"
                                     >
-                                        <TableCellsIcon className="h-4 w-4 text-green-600" />
+                                        <TableCellsIcon className="h-4 w-4 text-green-600 dark:text-gray-400" />
                                         Export Excel
                                     </button>
                                 </div>
@@ -581,18 +632,18 @@ const PayrollPage: React.FC = () => {
                         {/* Print Button */}
                         <button
                             onClick={handlePrint}
-                            className="h-10 w-10 flex items-center justify-center border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors !my-0"
+                            className="h-10 w-10 flex items-center justify-center border border-gray-300 dark:border-transparent bg-white dark:bg-[#191919] dark:hover:bg-[#222222] rounded-lg hover:bg-gray-50 transition-colors !my-0 cursor-pointer"
                             disabled={salaries.length === 0}
                         >
-                            <PrinterIcon className="h-5 w-5 text-gray-600" />
+                            <PrinterIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                         </button>
 
                         {/* Refresh Button */}
                         <button
                             onClick={fetchAll}
-                            className={`h-10 w-10 flex items-center justify-center border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors !my-0 ${loading ? 'animate-spin' : ''}`}
+                            className={`h-10 w-10 flex items-center justify-center border border-gray-300 dark:border-transparent bg-white dark:bg-[#191919] dark:hover:bg-[#222222] rounded-lg hover:bg-gray-50 transition-colors !my-0 cursor-pointer ${loading ? 'animate-spin' : ''}`}
                         >
-                            <ArrowPathIcon className="h-5 w-5 text-gray-600" />
+                            <ArrowPathIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                         </button>
                     </div>
                 </div>
@@ -600,7 +651,7 @@ const PayrollPage: React.FC = () => {
                 {/* Table */}
                 <div ref={printRef}>
                     <ReusableTable
-                        className="[&_th]:!px-2 [&_td]:!px-2"
+                        className="[&_th]:!px-2 [&_td]:!px-2 dark:border-transparent [&_.common-data-table]:dark:!border-transparent"
                         data={filtered}
                         columns={columns}
                         loading={loading}
@@ -608,6 +659,8 @@ const PayrollPage: React.FC = () => {
                         pageSize={PAGE_SIZE}
                         defaultSortKey="month"
                         defaultSortOrder="desc"
+                        rowDetailsTitle={(row) => `${row.employeeName || row.employee?.firstName || 'Employee'} - ${row.month} Payslip`}
+                        rowDetailsSubtitle="Salary breakdown and net disbursement status"
                         emptyState={
                             <div className="flex flex-col items-center">
                                 <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />

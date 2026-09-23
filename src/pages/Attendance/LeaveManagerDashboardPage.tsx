@@ -9,6 +9,7 @@ import {
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
+import TableToolbar from '../../components/common/TableToolbar';
 import StatsCard from '../../components/common/Statscard';
 import { useNavigate } from 'react-router-dom';
 import { ToasterService } from '../../Services/ToasterService';
@@ -300,7 +301,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
     {
       key: 'leaveType', label: 'Category', sortable: true,
       render: (row) => (
-        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 whitespace-nowrap">
+        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent whitespace-nowrap">
           {row.leaveType}
         </span>
       )
@@ -310,8 +311,8 @@ const LeaveManagerDashboardPage: React.FC = () => {
       render: (row) => (
         <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border whitespace-nowrap ${
           row.adjustmentLeaves >= 0
-            ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-            : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-transparent dark:text-emerald-400 dark:border-transparent'
+            : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-transparent dark:text-rose-400 dark:border-transparent'
         }`}>
           {row.adjustmentLeaves >= 0 ? `+${row.adjustmentLeaves}d` : `${row.adjustmentLeaves}d`}
         </span>
@@ -341,16 +342,16 @@ const LeaveManagerDashboardPage: React.FC = () => {
       <PageBreadcrumb pageTitle="Manager Leave Dashboard" />
 
       {/* Header Container */}
-      <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-3.5 sm:p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all">
+      <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-gray-200/80 dark:border-transparent p-3.5 sm:p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-[#222222] border border-cyan-100 dark:border-[#303030] flex items-center justify-center text-cyan-700 dark:text-cyan-400 shadow-2xs font-extrabold text-sm">
+            <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-[#222222] border border-cyan-100 dark:border-transparent flex items-center justify-center text-cyan-700 dark:text-cyan-400 shadow-2xs font-extrabold text-sm">
               MGR
             </div>
             <div>
               <h1 className="text-base sm:text-lg font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
                 <span>Manager Leave Dashboard & Analytics</span>
-                <span className="text-[10.5px] px-2 py-0.5 rounded-md font-mono bg-cyan-50 dark:bg-cyan-950/50 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 uppercase font-bold">
+                <span className="text-[10.5px] px-2 py-0.5 rounded-md font-mono bg-cyan-50 dark:bg-transparent text-cyan-800 dark:text-gray-300 border border-cyan-200 dark:border-transparent uppercase font-bold">
                   {currentUser.role}
                 </span>
               </h1>
@@ -365,7 +366,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
           <button
             type="button"
             onClick={loadData}
-            className="p-2 border border-gray-200 dark:border-[#303030] hover:bg-gray-100 dark:hover:bg-[#222222] rounded-xl text-gray-600 dark:text-gray-300 transition-colors shadow-2xs cursor-pointer"
+            className="p-2 border border-gray-200 dark:border-transparent hover:bg-gray-100 dark:hover:bg-[#222222] rounded-xl text-gray-600 dark:text-gray-300 transition-colors shadow-2xs cursor-pointer"
             title="Refresh Data"
           >
             <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
@@ -401,8 +402,8 @@ const LeaveManagerDashboardPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
         
         {/* 1. Request Status Donut Chart */}
-        <div className="lg:col-span-5 bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-4 space-y-2">
-          <div className="flex items-center justify-between border-b border-gray-100 dark:border-[#303030] pb-2">
+        <div className="lg:col-span-5 bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 space-y-2">
+          <div className="flex items-center justify-between border-b border-gray-100 dark:border-[#2a2a2a] pb-2">
             <div className="flex items-center gap-2">
               <PieChart className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
               <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Leave Request Status</h3>
@@ -466,13 +467,13 @@ const LeaveManagerDashboardPage: React.FC = () => {
         </div>
 
         {/* 2. Monthly Team Leave Category Trends (Bar Chart) */}
-        <div className="lg:col-span-7 bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-4 space-y-2">
-          <div className="flex items-center justify-between border-b border-gray-100 dark:border-[#303030] pb-2">
+        <div className="lg:col-span-7 bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 space-y-2">
+          <div className="flex items-center justify-between border-b border-gray-100 dark:border-[#2a2a2a] pb-2">
             <div className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
               <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Monthly Team Leave Trends</h3>
             </div>
-            <span className="text-[10px] font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/50 px-2 py-0.5 rounded border border-cyan-200 dark:border-cyan-800 font-mono">FY 2026</span>
+            <span className="text-[10px] font-bold text-cyan-700 dark:text-gray-400 bg-cyan-50 dark:bg-transparent px-2 py-0.5 rounded border border-cyan-200 dark:border-transparent font-mono">FY 2026</span>
           </div>
 
           <div className="pt-2">
@@ -519,10 +520,10 @@ const LeaveManagerDashboardPage: React.FC = () => {
       </div>
 
       {/* Multi-Queue Pending Approvals Section */}
-      <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-amber-200/80 dark:border-[#303030] p-4 space-y-3">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-gray-100 dark:border-[#303030] pb-3">
+      <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-amber-200/80 dark:border-transparent p-4 space-y-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-gray-100 dark:border-[#2a2a2a] pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 rounded-xl border border-amber-200 dark:border-amber-800/80 shrink-0">
+            <div className="p-2 bg-amber-50 dark:bg-[#222222] text-amber-700 dark:text-amber-400 rounded-xl border border-amber-200 dark:border-transparent shrink-0">
               <Clock className="w-5 h-5" />
             </div>
             <div>
@@ -548,21 +549,22 @@ const LeaveManagerDashboardPage: React.FC = () => {
           {/* Queue 1: Leave Approvals */}
           <div 
             onClick={() => navigate('/att_attendanceApproval')}
-            className="bg-emerald-50/50 hover:bg-emerald-50 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/35 rounded-xl p-3.5 border border-emerald-200/80 dark:border-emerald-800/50 transition-all cursor-pointer group flex flex-col justify-between space-y-2 shadow-2xs"
+            className="bg-emerald-50/50 hover:bg-emerald-50 dark:bg-[#222222] dark:hover:bg-[#262626] rounded-xl p-3.5 border border-emerald-200/80 dark:border-transparent transition-all cursor-pointer group flex flex-col justify-between space-y-2 shadow-2xs"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">
+                <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-[#191919] text-emerald-700 dark:text-gray-300">
                   <CheckCircle2 className="w-4 h-4" />
                 </div>
                 <span className="font-bold text-xs text-gray-900 dark:text-white">Leave Approvals</span>
               </div>
-              <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-emerald-600 text-white shadow-2xs">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-600 text-white dark:bg-transparent dark:text-emerald-400 dark:border dark:border-emerald-500/20 shadow-2xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 hidden dark:inline-block" />
                 {pendingQueueCounts.leave} Pending
               </span>
             </div>
             <p className="text-[11px] text-gray-600 dark:text-gray-400">Casual, sick & earned leave applications</p>
-            <div className="flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400 group-hover:translate-x-0.5 transition-transform pt-1">
+            <div className="flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-gray-300 dark:group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all pt-1">
               <span>Manage Leave Queue</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </div>
@@ -571,21 +573,22 @@ const LeaveManagerDashboardPage: React.FC = () => {
           {/* Queue 2: Regularization Approvals */}
           <div 
             onClick={() => navigate('/att_requests')}
-            className="bg-amber-50/50 hover:bg-amber-50 dark:bg-amber-950/20 dark:hover:bg-amber-950/35 rounded-xl p-3.5 border border-amber-200/80 dark:border-amber-800/50 transition-all cursor-pointer group flex flex-col justify-between space-y-2 shadow-2xs"
+            className="bg-amber-50/50 hover:bg-amber-50 dark:bg-[#222222] dark:hover:bg-[#262626] rounded-xl p-3.5 border border-amber-200/80 dark:border-transparent transition-all cursor-pointer group flex flex-col justify-between space-y-2 shadow-2xs"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300">
+                <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-[#191919] text-amber-700 dark:text-gray-300">
                   <Clock className="w-4 h-4" />
                 </div>
                 <span className="font-bold text-xs text-gray-900 dark:text-white">Regularizations</span>
               </div>
-              <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-amber-500 text-slate-950 shadow-2xs">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-slate-950 dark:bg-transparent dark:text-amber-400 dark:border dark:border-amber-500/20 shadow-2xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 hidden dark:inline-block" />
                 {pendingQueueCounts.regularization} Pending
               </span>
             </div>
             <p className="text-[11px] text-gray-600 dark:text-gray-400">Missed punches and attendance overrides</p>
-            <div className="flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform pt-1">
+            <div className="flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-gray-300 dark:group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all pt-1">
               <span>Manage Regularization Queue</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </div>
@@ -594,21 +597,22 @@ const LeaveManagerDashboardPage: React.FC = () => {
           {/* Queue 3: On Duty Approvals */}
           <div 
             onClick={() => navigate('/att_attendanceRequests')}
-            className="bg-cyan-50/50 hover:bg-cyan-50 dark:bg-cyan-950/20 dark:hover:bg-cyan-950/35 rounded-xl p-3.5 border border-cyan-200/80 dark:border-cyan-800/50 transition-all cursor-pointer group flex flex-col justify-between space-y-2 shadow-2xs"
+            className="bg-cyan-50/50 hover:bg-cyan-50 dark:bg-[#222222] dark:hover:bg-[#262626] rounded-xl p-3.5 border border-cyan-200/80 dark:border-transparent transition-all cursor-pointer group flex flex-col justify-between space-y-2 shadow-2xs"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-cyan-100 dark:bg-cyan-900/60 text-cyan-700 dark:text-cyan-300">
+                <div className="p-1.5 rounded-lg bg-cyan-100 dark:bg-[#191919] text-cyan-700 dark:text-gray-300">
                   <Briefcase className="w-4 h-4" />
                 </div>
                 <span className="font-bold text-xs text-gray-900 dark:text-white">On-Duty Requests</span>
               </div>
-              <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-cyan-600 text-white shadow-2xs">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-600 text-white dark:bg-transparent dark:text-cyan-400 dark:border dark:border-cyan-500/20 shadow-2xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 hidden dark:inline-block" />
                 {pendingQueueCounts.onDuty} Pending
               </span>
             </div>
             <p className="text-[11px] text-gray-600 dark:text-gray-400">Business trip & client visit applications</p>
-            <div className="flex items-center gap-1 text-xs font-bold text-cyan-700 dark:text-cyan-400 group-hover:translate-x-0.5 transition-transform pt-1">
+            <div className="flex items-center gap-1 text-xs font-bold text-cyan-700 dark:text-gray-300 dark:group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-all pt-1">
               <span>Manage On-Duty Queue</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </div>
@@ -618,20 +622,19 @@ const LeaveManagerDashboardPage: React.FC = () => {
       </div>
 
       {/* Adjustment Log Table */}
-      <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#303030] p-4 space-y-3">
-        <div className="flex items-center justify-between border-b border-gray-100 dark:border-[#303030] pb-2.5">
+      <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 space-y-3">
+        <div className="flex items-center justify-between border-b border-gray-100 dark:!border-transparent pb-2.5">
           <div>
             <h3 className="text-sm font-bold text-gray-900 dark:text-white">Leave Adjustments Log</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">History of manual leave quota adjustments posted by HR / Managers</p>
           </div>
+          <TableToolbar onRefresh={loadData} />
         </div>
 
         <ReusableTable
           data={adjustments}
           columns={adjustmentColumns}
           loading={loading}
-          searchable={true}
-          searchPlaceholder="Search adjustments by leave category or remarks..."
           pageSize={5}
           defaultSortKey="leaveType"
           defaultSortOrder="asc"

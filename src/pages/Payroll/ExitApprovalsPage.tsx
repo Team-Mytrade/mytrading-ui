@@ -87,8 +87,8 @@ const ExitApprovalsPage: React.FC = () => {
             sortValueGetter: (row) => row.employeeName || `EMP-${row.employeeId}`,
             render: (row) => (
                 <div className="flex flex-col">
-                    <span className="font-semibold text-gray-900">{row.employeeName || `EMP-${row.employeeId}`}</span>
-                    <span className="text-[10px] text-gray-500 font-medium">{row.designation || '—'} • {row.location || '—'}</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">{row.employeeName || `EMP-${row.employeeId}`}</span>
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">{row.designation || '—'} • {row.location || '—'}</span>
                 </div>
             )
         },
@@ -98,8 +98,8 @@ const ExitApprovalsPage: React.FC = () => {
             sortable: true,
             render: (row) => (
                 <div className="flex flex-col">
-                    <span className="text-xs font-semibold text-gray-700">LWD: {row.lastWorkingDay}</span>
-                    <span className="text-[10px] text-gray-400">Resigned: {row.resignationDate}</span>
+                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">LWD: {row.lastWorkingDay}</span>
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500">Resigned: {row.resignationDate}</span>
                 </div>
             )
         },
@@ -107,7 +107,7 @@ const ExitApprovalsPage: React.FC = () => {
             key: "reason",
             label: "Reason",
             render: (row) => (
-                <p className="text-xs text-gray-600 max-w-[200px] truncate" title={row.reason}>
+                <p className="text-xs text-gray-600 dark:text-gray-300 max-w-[200px] truncate" title={row.reason}>
                     {row.reason}
                 </p>
             )
@@ -118,12 +118,12 @@ const ExitApprovalsPage: React.FC = () => {
             sortable: true,
             render: (row) => (
                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide inline-block ${
-                    row.status === 'SUBMITTED' ? 'bg-amber-50 text-amber-500 border border-amber-100' :
-                    row.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-500 border border-emerald-100' :
-                    row.status === 'REJECTED' ? 'bg-red-50 text-red-500 border border-red-100' :
-                    row.status === 'WITHDRAW_REQUESTED' || (row.status as string) === 'WITHDRAWAL REQ.' ? 'bg-blue-50 text-blue-500 border border-blue-100' :
-                    row.status === 'WITHDRAW_APPROVED' || (row.status as string) === 'REVERTED' ? 'bg-gray-100 text-gray-500 border border-gray-200 line-through' :
-                    'bg-gray-50 text-gray-500 border border-gray-200'
+                    row.status === 'SUBMITTED' ? 'bg-amber-50 text-amber-500 border border-amber-100 dark:bg-transparent dark:text-gray-300 dark:border-transparent' :
+                    row.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-500 border border-emerald-100 dark:bg-transparent dark:text-gray-300 dark:border-transparent' :
+                    row.status === 'REJECTED' ? 'bg-red-50 text-red-500 border border-red-100 dark:bg-transparent dark:text-gray-400 dark:border-transparent' :
+                    row.status === 'WITHDRAW_REQUESTED' || (row.status as string) === 'WITHDRAWAL REQ.' ? 'bg-blue-50 text-blue-500 border border-blue-100 dark:bg-transparent dark:text-gray-300 dark:border-transparent' :
+                    row.status === 'WITHDRAW_APPROVED' || (row.status as string) === 'REVERTED' ? 'bg-gray-100 text-gray-500 border border-gray-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent line-through' :
+                    'bg-gray-50 text-gray-500 border border-gray-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent'
                 }`}>
                     {row.status === 'WITHDRAW_REQUESTED' || (row.status as string) === 'WITHDRAWAL REQ.'
                         ? 'Withdrawal Req.' 
@@ -147,7 +147,7 @@ const ExitApprovalsPage: React.FC = () => {
                                     <input 
                                         type="text" 
                                         placeholder="Reason..." 
-                                        className="text-xs border border-gray-200 rounded px-2 py-1 outline-none focus:border-red-400 w-24 h-7"
+                                        className="text-xs border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#222222] text-gray-900 dark:text-white rounded px-2 py-1 outline-none focus:border-red-400 w-24 h-7"
                                         value={rejectReason}
                                         onChange={(e) => setRejectReason(e.target.value)}
                                     />
@@ -160,7 +160,7 @@ const ExitApprovalsPage: React.FC = () => {
                                     </button>
                                     <button 
                                         onClick={() => { setRejectingId(null); setRejectReason(""); }}
-                                        className="p-1 bg-gray-200 text-gray-600 rounded hover:bg-gray-300 transition-colors"
+                                        className="p-1 bg-gray-200 dark:bg-[#222222] text-gray-600 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-[#2a2a2a] transition-colors"
                                         title="Cancel"
                                     >
                                         <X size={14} />
@@ -170,14 +170,14 @@ const ExitApprovalsPage: React.FC = () => {
                                 <>
                                     <button 
                                         onClick={() => handleApprove(row.id!)}
-                                        className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
+                                        className="p-1.5 text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-[#222222] rounded-md transition-colors"
                                         title="Approve"
                                     >
                                         <Check size={16} />
                                     </button>
                                     <button 
                                         onClick={() => setRejectingId(row.employeeId)}
-                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                        className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-rose-400 hover:bg-red-50 dark:hover:bg-[#222222] rounded-md transition-colors"
                                         title="Reject"
                                     >
                                         <X size={16} />
@@ -190,14 +190,14 @@ const ExitApprovalsPage: React.FC = () => {
                         <>
                             <button 
                                 onClick={() => handleApproveWithdrawal(row)}
-                                className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
+                                className="p-1.5 text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-[#222222] rounded-md transition-colors"
                                 title="Approve Withdrawal (Revert Resignation)"
                             >
                                 <Check size={16} />
                             </button>
                             <button 
                                 onClick={() => handleRejectWithdrawal(row)}
-                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-rose-400 hover:bg-red-50 dark:hover:bg-[#222222] rounded-md transition-colors"
                                 title="Reject Withdrawal (Keep Resignation Active)"
                             >
                                 <X size={16} />
@@ -215,15 +215,15 @@ const ExitApprovalsPage: React.FC = () => {
             <PageBreadcrumb pageTitle="Exit Approvals" />
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-0 pb-8 space-y-6">
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <div className="bg-white dark:bg-[#191919] rounded-xl border border-gray-200 dark:!border-transparent shadow-sm p-6">
                     <div className="flex justify-between items-center mb-6">
                         <div>
-                            <h2 className="text-lg font-semibold text-gray-900">Exit Requests</h2>
-                            <p className="text-xs text-gray-500 mt-0.5">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Exit Requests</h2>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                                 Review and manage employee resignations
                             </p>
                         </div>
-                        <div className="text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-lg">
+                        <div className="text-xs font-semibold text-indigo-600 dark:text-gray-300 bg-indigo-50 dark:bg-transparent border border-indigo-100 dark:border-transparent px-3 py-1.5 rounded-lg">
                             Total Requests: {requests.length}
                         </div>
                     </div>
@@ -239,9 +239,9 @@ const ExitApprovalsPage: React.FC = () => {
                         defaultSortKey="lastWorkingDay"
                         defaultSortOrder="desc"
                         emptyState={
-                            <div className="text-center p-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                                <AlertCircle className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                                <p className="text-gray-500 font-semibold text-sm">No exit requests found</p>
+                            <div className="text-center p-12 bg-gray-50 dark:bg-[#161616] rounded-xl border border-dashed border-gray-200 dark:border-gray-800">
+                                <AlertCircle className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                                <p className="text-gray-500 dark:text-gray-400 font-semibold text-sm">No exit requests found</p>
                             </div>
                         }
                     />

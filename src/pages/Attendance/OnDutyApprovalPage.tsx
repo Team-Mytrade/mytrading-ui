@@ -50,23 +50,24 @@ export interface OnDutyApprovalRequest {
   actionedAt?: string | null;
   approverName?: string;
   approverRemarks?: string | null;
+  [key: string]: any;
 }
 
 const ATTENDANCE_APPROVAL_API = "/v1/api/attendance/attendance-approvals";
 
 const STATUS_CONFIG: Record<ApprovalStatus, { style: string; badge: string; icon: React.ReactNode }> = {
   PENDING: {
-    style: "border-amber-200 bg-amber-50 text-amber-700",
+    style: "border-amber-200 dark:border-transparent bg-amber-50 dark:bg-transparent text-amber-700 dark:text-gray-300",
     badge: "bg-amber-500",
     icon: <Clock className="w-3.5 h-3.5" />,
   },
   APPROVED: {
-    style: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    style: "border-emerald-200 dark:border-transparent bg-emerald-50 dark:bg-transparent text-emerald-700 dark:text-gray-300",
     badge: "bg-emerald-500",
     icon: <CheckCircle className="w-3.5 h-3.5" />,
   },
   REJECTED: {
-    style: "border-rose-200 bg-rose-50 text-rose-700",
+    style: "border-rose-200 dark:border-transparent bg-rose-50 dark:bg-transparent text-rose-700 dark:text-gray-300",
     badge: "bg-rose-500",
     icon: <XCircle className="w-3.5 h-3.5" />,
   },
@@ -164,33 +165,84 @@ const OnDutyApprovalPage: React.FC = () => {
 
     const reqId = typeof r.id === 'object' ? (r.id?.id || 1) : (r.id || 1);
 
-    return {
-      id: Number(reqId) || 1,
-      employeeId: Number(empId) || 12,
-      employeeCode: resolvedCode,
-      employeeName: resolvedName,
-      department: resolvedDept,
-      designation: resolvedDesig,
-      requestType: reqTypeStr || "ON_DUTY",
-      fromDate: safeString(r.fromDate || detail.fromDate || r.startDate || r.shiftDate, new Date().toISOString().slice(0, 10)),
-      toDate: safeString(r.toDate || detail.toDate || r.endDate || r.fromDate, new Date().toISOString().slice(0, 10)),
-      startHours: safeString(r.startHours || detail.startHours, ""),
-      startMinutes: safeString(r.startMinutes || detail.startMinutes, ""),
-      endHours: safeString(r.endHours || detail.endHours, ""),
-      endMinutes: safeString(r.endMinutes || detail.endMinutes, ""),
-      projectTaskId: safeString(r.projectTaskId || detail.projectTaskId, "—"),
-      projectTaskName: safeString(r.projectTaskName || detail.projectTaskName || r.projectTask || detail.projectTask, "Attendance Task"),
-      clientName: safeString(r.clientName || detail.clientName || r.client || detail.client, "Acme Corp"),
-      visitLocation: safeString(r.visitLocation || detail.visitLocation || r.location || detail.location, "HQ Branch"),
-      purpose: safeString(r.purpose || detail.purpose || r.reason || detail.reason, "Client Visit"),
-      reason: safeString(r.reason || detail.reason || r.remarks || detail.remarks, "Business Visit"),
-      comments: safeString(r.comments || detail.comments, ""),
-      status: statusVal,
-      requestedAt: safeString(r.requestedAt || r.createdDate, "—"),
-      actionedAt: (r.actionedAt || r.actionDate) ? safeString(r.actionedAt || r.actionDate) : null,
-      approverName: safeString(r.approverName || r.actionedBy, "Manager"),
-      approverRemarks: (r.approverRemarks || r.remarks || detail.remarks) ? safeString(r.approverRemarks || r.remarks || detail.remarks) : null
+    const fromD = safeString(r.fromDate || detail.fromDate || r.startDate || r.shiftDate, new Date().toISOString().slice(0, 10));
+    const toD = safeString(r.toDate || detail.toDate || r.endDate || fromD, fromD);
+    const datesStr = fromD ? `${fromD}${toD && toD !== fromD ? ` to ${toD}` : ''}` : 'N/A';
+
+    const empCode = rawCode || `EMP-${String(empId).padStart(4, '0')}`;
+    const empName = resolvedName;
+    const empLabel = `${empName}${empCode ? ` (${empCode})` : ''}`;
+
+    const taskName = safeString(r.projectTaskName || detail.projectTaskName || r.projectTask || detail.projectTask, '');
+    const client = safeString(r.clientName || detail.clientName || r.client || detail.client, '');
+    const location = safeString(r.visitLocation || detail.visitLocation || r.location || detail.location, '');
+    const purposeText = safeString(r.purpose || detail.purpose || r.reason || detail.reason || r.remarks || detail.remarks, 'On Duty Visit');
+
+    const inTime = safeString(r.startHours && r.startMinutes ? `${r.startHours}:${r.startMinutes}` : detail.checkInTime || '', '');
+    const outTime = safeString(r.endHours && r.endMinutes ? `${r.endHours}:${r.endMinutes}` : detail.checkOutTime || '', '');
+    const formatTimeOnly = (t?: string) => {
+      if (!t) return '';
+      if (t.includes('T')) return t.split('T')[1]?.slice(0, 5) || '';
+      return t.slice(0, 5);
     };
+    const tIn = formatTimeOnly(inTime);
+    const tOut = formatTimeOnly(outTime);
+    const timingsStr = (tIn || tOut) ? `${tIn || '--:--'} - ${tOut || '--:--'}` : undefined;
+
+    const requestedAtStr = safeString(r.requestedAt || r.createdDate, '');
+    const formatDateOnly = (dStr?: string) => {
+      if (!dStr || dStr === '—') return '';
+      const dateObj = new Date(dStr);
+      if (isNaN(dateObj.getTime())) return dStr.split('T')[0];
+      return dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    };
+    const appliedOnStr = requestedAtStr ? formatDateOnly(requestedAtStr) : undefined;
+
+    const approverRemarksText = (r.approverRemarks || r.remarks || detail.remarks) ? safeString(r.approverRemarks || r.remarks || detail.remarks) : undefined;
+
+    // Top 4 summary metrics in Table drawer:
+    // 1. id -> REQ ID
+    // 2. employee -> EMPLOYEE
+    // 3. dates -> DATES
+    // 4. status -> STATUS
+    const rowItem: Record<string, any> = {
+      id: Number(reqId) || 1,
+      employee: empLabel,
+      dates: datesStr,
+      status: statusVal,
+    };
+
+    // Concise, user-friendly details:
+    if (taskName) rowItem.projectTask = taskName;
+    if (client) rowItem.client = client;
+    if (location) rowItem.location = location;
+    if (purposeText) rowItem.purpose = purposeText;
+    if (timingsStr) rowItem.timings = timingsStr;
+    if (appliedOnStr) rowItem.appliedOn = appliedOnStr;
+    if (approverRemarksText) rowItem.approverRemarks = approverRemarksText;
+
+    // Non-enumerable properties: accessible by code, modals, and columns, but hidden from drawer Object.keys()
+    Object.defineProperties(rowItem, {
+      _raw: { value: r, enumerable: false, writable: true },
+      employeeId: { value: Number(empId) || 12, enumerable: false, writable: true },
+      employeeName: { value: empName, enumerable: false, writable: true },
+      employeeCode: { value: empCode, enumerable: false, writable: true },
+      department: { value: resolvedDept, enumerable: false, writable: true },
+      designation: { value: resolvedDesig, enumerable: false, writable: true },
+      requestType: { value: reqTypeStr || "ON_DUTY", enumerable: false, writable: true },
+      fromDate: { value: fromD, enumerable: false, writable: true },
+      toDate: { value: toD, enumerable: false, writable: true },
+      projectTaskId: { value: safeString(r.projectTaskId || detail.projectTaskId, "—"), enumerable: false, writable: true },
+      projectTaskName: { value: taskName, enumerable: false, writable: true },
+      clientName: { value: client, enumerable: false, writable: true },
+      visitLocation: { value: location, enumerable: false, writable: true },
+      reason: { value: purposeText, enumerable: false, writable: true },
+      requestedAt: { value: requestedAtStr, enumerable: false, writable: true },
+      actionedAt: { value: (r.actionedAt || r.actionDate) ? safeString(r.actionedAt || r.actionDate) : null, enumerable: false, writable: true },
+      approverName: { value: safeString(r.approverName || r.actionedBy, "Manager"), enumerable: false, writable: true },
+    });
+
+    return rowItem as OnDutyApprovalRequest;
   };
 
   // ── Fetch Live On-Duty Approvals (Lazy-loaded per active tab + count summary) ───
@@ -329,45 +381,29 @@ const OnDutyApprovalPage: React.FC = () => {
       label: "Req ID",
       sortable: true,
       render: (row) => (
-        <span className="font-mono font-bold text-xs text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
+        <span className="font-mono font-bold text-xs text-cyan-700 dark:text-gray-300 bg-cyan-50 dark:bg-transparent px-2 py-0.5 rounded border border-cyan-200 dark:border-transparent">
           #{row.id}
         </span>
       ),
     },
     {
-      key: "employeeName",
+      key: "employee",
       label: "Employee",
       sortable: true,
       render: (row) => (
         <div>
-          <span className="font-bold text-xs text-gray-900 block">{row.employeeName || `Employee #${row.employeeId || 'N/A'}`}</span>
-          <span className="text-[10px] text-gray-500 font-mono">{row.employeeCode || `ID: #${row.employeeId || '12'}`}</span>
+          <span className="font-bold text-xs text-gray-900 dark:text-white block">{row.employeeName || row.employee || `Employee #${row.employeeId || 'N/A'}`}</span>
+          <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">{row.employeeCode || `ID: #${row.employeeId || '12'}`}</span>
         </div>
       ),
     },
     {
-      key: "fromDate",
-      label: "From Date",
+      key: "dates",
+      label: "Dates",
       sortable: true,
+      sortValueGetter: (row) => row.dates || row.fromDate || '',
       render: (row) => (
-        <span className="font-mono font-semibold text-xs text-gray-800">{row.fromDate}</span>
-      ),
-    },
-    {
-      key: "toDate",
-      label: "To Date",
-      sortable: true,
-      render: (row) => (
-        <span className="font-mono font-semibold text-xs text-gray-800">{row.toDate || row.fromDate}</span>
-      ),
-    },
-    {
-      key: "reason",
-      label: "Reason",
-      render: (row) => (
-        <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-cyan-50 text-cyan-800 border border-cyan-200/80 inline-block">
-          {row.reason}
-        </span>
+        <span className="font-mono font-semibold text-xs text-gray-800 dark:text-gray-200">{row.dates || (row.fromDate ? `${row.fromDate}${row.toDate && row.toDate !== row.fromDate ? ` to ${row.toDate}` : ''}` : 'N/A')}</span>
       ),
     },
     {
@@ -392,7 +428,7 @@ const OnDutyApprovalPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setSelectedDetailRequest(row)}
-            className="p-1.5 text-cyan-700 hover:text-cyan-900 hover:bg-cyan-50 rounded-lg transition-colors"
+            className="p-1.5 text-cyan-700 dark:text-cyan-400 hover:text-cyan-900 dark:hover:text-cyan-300 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 rounded-lg transition-colors"
             title="View Full Details"
           >
             <Eye className="w-4 h-4" />
@@ -403,16 +439,18 @@ const OnDutyApprovalPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => openActionDialog(row, "APPROVE")}
-                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-all shadow-xs flex items-center gap-1"
+                className="p-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/60 rounded-lg text-emerald-700 dark:text-emerald-300 transition-colors cursor-pointer"
+                title="Approve Request"
               >
-                <Check className="w-3.5 h-3.5" /> Approve
+                <Check className="w-3.5 h-3.5" />
               </button>
               <button
                 type="button"
                 onClick={() => openActionDialog(row, "REJECT")}
-                className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg transition-all shadow-xs flex items-center gap-1"
+                className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800/60 rounded-lg text-rose-600 dark:text-rose-300 transition-colors cursor-pointer"
+                title="Reject Request"
               >
-                <X className="w-3.5 h-3.5" /> Reject
+                <X className="w-3.5 h-3.5" />
               </button>
             </>
           )}
@@ -429,14 +467,14 @@ const OnDutyApprovalPage: React.FC = () => {
       <div className="max-w-7xl mx-auto pb-8 space-y-5 animate-in fade-in duration-200">
         
         {/* Header Summary Banner */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-cyan-50 text-cyan-700 rounded-xl border border-cyan-200 shadow-2xs">
-              <Briefcase className="w-6 h-6 text-cyan-700" />
+            <div className="p-2.5 bg-cyan-50 dark:bg-[#222222] text-cyan-700 dark:text-cyan-400 rounded-xl border border-cyan-200 dark:border-transparent shadow-2xs">
+              <Briefcase className="w-6 h-6 text-cyan-700 dark:text-cyan-400" />
             </div>
             <div>
-              <h1 className="text-base font-bold text-gray-900">On Duty Request Approvals</h1>
-              <p className="text-xs text-gray-500">Live portal to review, approve, or reject employee business trip and client visit applications</p>
+              <h1 className="text-base font-bold text-gray-900 dark:text-white">On Duty Request Approvals</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Live portal to review, approve, or reject employee business trip and client visit applications</p>
             </div>
           </div>
 
@@ -444,9 +482,9 @@ const OnDutyApprovalPage: React.FC = () => {
             <button
               type="button"
               onClick={() => loadOnDutyRequests(activeTab)}
-              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
             >
-              <RotateCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-cyan-600" : ""}`} /> Refresh Live Data
+              <RotateCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-cyan-600 dark:text-cyan-400" : ""}`} /> Refresh Live Data
             </button>
           </div>
         </div>
@@ -484,7 +522,7 @@ const OnDutyApprovalPage: React.FC = () => {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 border-b border-gray-200/80 pb-2">
+        <div className="flex items-center gap-2 border-b border-gray-200/80 dark:border-[#2a2a2a] pb-2">
           {(["pending", "approved", "rejected"] as ActiveTab[]).map((tab) => (
             <button
               key={tab}
@@ -493,7 +531,7 @@ const OnDutyApprovalPage: React.FC = () => {
               className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all duration-200 ease-in-out transform active:scale-95 ${
                 activeTab === tab
                   ? "bg-cyan-600 text-white shadow-xs"
-                  : "bg-white text-gray-600 hover:bg-gray-100/80 border border-gray-200/80 hover:text-gray-900"
+                  : "bg-white dark:bg-[#191919] text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-[#222222] border border-gray-200/80 dark:border-transparent hover:text-gray-900 dark:hover:text-white"
               }`}
             >
               {tab} Approvals
@@ -502,69 +540,69 @@ const OnDutyApprovalPage: React.FC = () => {
         </div>
 
         {/* Main Content Card */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 space-y-4">
+        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 space-y-4">
           {/* Table */}
           <ReusableTable
             data={filteredRequests}
             columns={columns}
             loading={loading}
-            searchable={true}
-            searchPlaceholder="Search by ID, employee, location..."
             pageSize={5}
             defaultSortKey="id"
             defaultSortOrder="desc"
+            rowDetailsTitle={(row) => `On-Duty Request #${row.id}`}
+            rowDetailsSubtitle="Key business trip and client visit details"
           />
         </div>
 
         {/* ── ACTION CONFIRMATION MODAL (APPROVE / REJECT) ──────────────────── */}
         {showActionDialog && selectedRequest && (
-          <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-            <div className="bg-white rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 space-y-4">
-              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="bg-white dark:bg-[#191919] rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 dark:border-transparent space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-100 dark:border-[#2a2a2a] pb-3">
                 <div className="flex items-center gap-2">
                   {actionType === "APPROVE" ? (
-                    <CheckCircle className="w-5 h-5 text-emerald-600" />
+                    <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                   ) : (
-                    <XCircle className="w-5 h-5 text-rose-600" />
+                    <XCircle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
                   )}
-                  <h3 className="text-sm font-bold text-gray-900 uppercase">
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
                     {actionType === "APPROVE" ? "Approve On-Duty Request" : "Reject On-Duty Request"}
                   </h3>
                 </div>
-                <button type="button" onClick={() => setShowActionDialog(false)} className="p-1 text-gray-400 hover:text-gray-600">
+                <button type="button" onClick={() => setShowActionDialog(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200/70 text-xs space-y-1">
-                <div className="flex justify-between font-bold text-gray-900">
+              <div className="bg-gray-50 dark:bg-[#222222] rounded-lg p-3 border border-gray-200/70 dark:border-transparent text-xs space-y-1">
+                <div className="flex justify-between font-bold text-gray-900 dark:text-white">
                   <span>{selectedRequest.employeeName}</span>
-                  <span className="font-mono text-cyan-700">#{selectedRequest.id}</span>
+                  <span className="font-mono text-cyan-700 dark:text-cyan-400">#{selectedRequest.id}</span>
                 </div>
-                <div className="text-gray-600 font-mono">
+                <div className="text-gray-600 dark:text-gray-300 font-mono">
                   {selectedRequest.fromDate} {selectedRequest.toDate !== selectedRequest.fromDate ? `to ${selectedRequest.toDate}` : ''}
                 </div>
-                <div className="text-gray-500 truncate">Client: {selectedRequest.clientName || '—'}</div>
+                <div className="text-gray-500 dark:text-gray-400 truncate">Client: {selectedRequest.clientName || '—'}</div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
                   Approver Remarks / Notes *
                 </label>
                 <textarea
                   value={actionRemarks}
                   onChange={(e) => setActionRemarks(e.target.value)}
                   placeholder="Enter approver remarks..."
-                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-medium text-gray-800 h-20 outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
+                  className="w-full p-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-lg text-xs font-medium text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 h-20 outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                   required
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-[#2a2a2a]">
                 <button
                   type="button"
                   onClick={() => setShowActionDialog(false)}
-                  className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 border border-gray-200 dark:border-[#303030] rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222]"
                 >
                   Cancel
                 </button>
@@ -587,24 +625,24 @@ const OnDutyApprovalPage: React.FC = () => {
 
         {/* ── DETAIL VIEW MODAL (Centered Dialog) ────────────────────────────────────────────── */}
         {selectedDetailRequest && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-            <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-gray-100 p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+            <div className="bg-white dark:bg-[#191919] max-w-md w-full rounded-2xl shadow-2xl border border-gray-100 dark:border-transparent p-5 space-y-4 max-h-[90vh] overflow-y-auto">
               
-              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center justify-between border-b border-gray-100 dark:border-[#2a2a2a] pb-3">
                 <div className="flex items-center gap-2">
-                  <Briefcase className="w-5 h-5 text-cyan-600" />
-                  <h2 className="text-sm font-bold text-gray-900 uppercase">On Duty Request Details</h2>
+                  <Briefcase className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                  <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase">On Duty Request Details</h2>
                 </div>
-                <button type="button" onClick={() => setSelectedDetailRequest(null)} className="p-1 text-gray-400 hover:text-gray-600">
+                <button type="button" onClick={() => setSelectedDetailRequest(null)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Status Header */}
-              <div className="bg-cyan-50/60 rounded-xl p-3.5 border border-cyan-200 flex items-center justify-between">
+              <div className="bg-cyan-50/60 dark:bg-cyan-950/30 rounded-xl p-3.5 border border-cyan-200 dark:border-cyan-800/50 flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] font-bold uppercase text-cyan-700 tracking-wider">Request ID</span>
-                  <h3 className="text-base font-extrabold font-mono text-cyan-900">#{selectedDetailRequest.id}</h3>
+                  <span className="text-[10px] font-bold uppercase text-cyan-700 dark:text-cyan-400 tracking-wider">Request ID</span>
+                  <h3 className="text-base font-extrabold font-mono text-cyan-900 dark:text-cyan-200">#{selectedDetailRequest.id}</h3>
                 </div>
                 <div className={`px-2.5 py-1 rounded-full text-xs font-extrabold border ${(STATUS_CONFIG[selectedDetailRequest.status] || STATUS_CONFIG.PENDING).style}`}>
                   {selectedDetailRequest.status}
@@ -614,32 +652,32 @@ const OnDutyApprovalPage: React.FC = () => {
               {/* Employee info */}
               <div className="space-y-1.5">
                 <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Employee Info</h4>
-                <div className="bg-gray-50 rounded-xl p-3 border border-gray-200/70 space-y-1 text-xs">
-                  <div className="font-bold text-gray-900">{selectedDetailRequest.employeeName || 'Tara Joseph'}</div>
-                  <div className="text-gray-500 font-mono text-[11px]">Code: {selectedDetailRequest.employeeCode || 'ADM-EMP-0021'}</div>
-                  <div className="text-gray-600 text-[11px]">Department: {selectedDetailRequest.department || 'Administration'}</div>
+                <div className="bg-gray-50 dark:bg-[#222222] rounded-xl p-3 border border-gray-200/70 dark:border-transparent space-y-1 text-xs">
+                  <div className="font-bold text-gray-900 dark:text-white">{selectedDetailRequest.employeeName || 'Tara Joseph'}</div>
+                  <div className="text-gray-500 dark:text-gray-400 font-mono text-[11px]">Code: {selectedDetailRequest.employeeCode || 'ADM-EMP-0021'}</div>
+                  <div className="text-gray-600 dark:text-gray-300 text-[11px]">Department: {selectedDetailRequest.department || 'Administration'}</div>
                 </div>
               </div>
 
               {/* Visit details */}
               <div className="space-y-1.5">
                 <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Visit & Task Details</h4>
-                <div className="bg-gray-50 rounded-xl p-3 border border-gray-200/70 space-y-2 text-xs">
+                <div className="bg-gray-50 dark:bg-[#222222] rounded-xl p-3 border border-gray-200/70 dark:border-transparent space-y-2 text-xs">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400 text-[10px] uppercase font-bold">Client Name:</span>
-                    <span className="font-bold text-gray-900">{selectedDetailRequest.clientName || 'Acme Corp'}</span>
+                    <span className="font-bold text-gray-900 dark:text-white">{selectedDetailRequest.clientName || 'Acme Corp'}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400 text-[10px] uppercase font-bold">Visit Location:</span>
-                    <span className="font-bold text-gray-900">{selectedDetailRequest.visitLocation || 'HQ Branch Office'}</span>
+                    <span className="font-bold text-gray-900 dark:text-white">{selectedDetailRequest.visitLocation || 'HQ Branch Office'}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400 text-[10px] uppercase font-bold">Project / Task:</span>
-                    <span className="font-semibold text-gray-800">{selectedDetailRequest.projectTaskName || 'Attendance Task'}</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200">{selectedDetailRequest.projectTaskName || 'Attendance Task'}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400 text-[10px] uppercase font-bold">Schedule:</span>
-                    <span className="font-mono text-cyan-800 font-bold">
+                    <span className="font-mono text-cyan-800 dark:text-cyan-300 font-bold">
                       {selectedDetailRequest.fromDate || '2026-08-10'} {selectedDetailRequest.toDate && selectedDetailRequest.toDate !== selectedDetailRequest.fromDate ? `→ ${selectedDetailRequest.toDate}` : ''}
                     </span>
                   </div>
@@ -649,9 +687,9 @@ const OnDutyApprovalPage: React.FC = () => {
               {/* Purpose & Reason */}
               <div className="space-y-1.5">
                 <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Reason & Purpose</h4>
-                <div className="bg-gray-50 rounded-xl p-3 border border-gray-200/70 text-xs text-gray-700 space-y-1">
-                  <div className="font-bold text-cyan-800">{selectedDetailRequest.reason || 'Business Visit'}</div>
-                  <p className="text-gray-600 leading-relaxed text-[11px]">{selectedDetailRequest.purpose || selectedDetailRequest.comments || "Client meeting and project consultation."}</p>
+                <div className="bg-gray-50 dark:bg-[#222222] rounded-xl p-3 border border-gray-200/70 dark:border-transparent text-xs text-gray-700 dark:text-gray-300 space-y-1">
+                  <div className="font-bold text-cyan-800 dark:text-cyan-400">{selectedDetailRequest.reason || 'Business Visit'}</div>
+                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-[11px]">{selectedDetailRequest.purpose || selectedDetailRequest.comments || "Client meeting and project consultation."}</p>
                 </div>
               </div>
 
@@ -659,18 +697,18 @@ const OnDutyApprovalPage: React.FC = () => {
               {selectedDetailRequest.approverRemarks && (
                 <div className="space-y-1.5">
                   <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Approver Log</h4>
-                  <div className="bg-amber-50/70 rounded-xl p-3 border border-amber-200/80 text-xs space-y-1">
-                    <div className="font-bold text-amber-900">By: {selectedDetailRequest.approverName || 'Manager'}</div>
-                    <div className="text-amber-800 font-medium">"{selectedDetailRequest.approverRemarks}"</div>
+                  <div className="bg-amber-50/70 dark:bg-amber-950/30 rounded-xl p-3 border border-amber-200/80 dark:border-amber-800/50 text-xs space-y-1">
+                    <div className="font-bold text-amber-900 dark:text-amber-200">By: {selectedDetailRequest.approverName || 'Manager'}</div>
+                    <div className="text-amber-800 dark:text-amber-300 font-medium">"{selectedDetailRequest.approverRemarks}"</div>
                   </div>
                 </div>
               )}
 
-              <div className="pt-3 border-t border-gray-100 flex justify-end">
+              <div className="pt-3 border-t border-gray-100 dark:border-[#2a2a2a] flex justify-end">
                 <button
                   type="button"
                   onClick={() => setSelectedDetailRequest(null)}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl transition-all"
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-800 dark:text-gray-200 text-xs font-bold rounded-xl transition-all"
                 >
                   Close Details
                 </button>

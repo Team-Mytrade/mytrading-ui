@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { 
-  LogIn, LogOut, Monitor, MessageSquare, 
-  Clock, Activity, ChevronDown, 
-  Layers, CheckCircle, Search, RefreshCw, 
-  Loader2
+  LogIn, LogOut, Monitor, 
+  Clock, ChevronDown, Layers, CheckCircle, 
+  RefreshCw, Loader2
 } from 'lucide-react';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
+import ReusableTable, { ColumnDef } from '../../components/common/Table';
+import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 
 const CHECK_IN_URL = '/v1/api/attendance/records/check-in';
@@ -51,7 +52,7 @@ interface EmployeeItem {
   designation?: string;
 }
 
-// Bulletproof helper to extract initials without throwing undefined/null exceptions
+// Helper to extract initials safely
 const getInitials = (name?: string): string => {
   if (!name) return 'EMP';
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -67,11 +68,10 @@ const AttendancePunchPage: React.FC = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isRefreshingLogs, setIsRefreshingLogs] = useState(false);
 
-  // Search & Filter for Punch Logs
-  const [logSearchQuery, setLogSearchQuery] = useState('');
+  // Table Filter Tabs
   const [logFilterTab, setLogFilterTab] = useState<'ALL' | 'CHECK_IN' | 'CHECK_OUT'>('ALL');
 
-  // Employee Directory state (for enriching current user profile details)
+  // Employee Directory state
   const [employees, setEmployees] = useState<EmployeeItem[]>([]);
 
   // Live ticking clock
@@ -115,17 +115,17 @@ const AttendancePunchPage: React.FC = () => {
 
   const [punchLogs, setPunchLogs] = useState<PunchLogEntry[]>([]);
 
-// Helper to safely extract string from potentially nested object values (e.g. {id, name})
-const extractString = (val: any, fallback: string): string => {
-  if (!val) return fallback;
-  if (typeof val === 'string') return val;
-  if (typeof val === 'object') {
-    return val.name || val.title || val.departmentName || val.designationName || fallback;
-  }
-  return String(val);
-};
+  // Safe string extractor
+  const extractString = (val: any, fallback: string): string => {
+    if (!val) return fallback;
+    if (typeof val === 'string') return val;
+    if (typeof val === 'object') {
+      return val.name || val.title || val.departmentName || val.designationName || fallback;
+    }
+    return String(val);
+  };
 
-  // Fetch Employee Directory for Auto-Complete & Quick Pick
+  // Fetch Employee Directory
   useEffect(() => {
     const loadEmployees = async () => {
       try {
@@ -151,7 +151,6 @@ const extractString = (val: any, fallback: string): string => {
     loadEmployees();
   }, []);
 
-  // Selected Employee object
   const selectedEmployee = useMemo(() => {
     if (!formData.employeeId) return null;
     const match = employees.find(e => Number(e.id) === Number(formData.employeeId));
@@ -241,7 +240,7 @@ const extractString = (val: any, fallback: string): string => {
         latitude: Number(formData.latitude),
         longitude: Number(formData.longitude),
         ipAddress: formData.ipAddress,
-        ...(type === 'CHECK_OUT' && formData.remarks ? { remarks: formData.remarks } : {})
+        remarks: type === 'CHECK_IN' ? 'Shift Check-In' : 'Shift Check-Out'
       };
 
       const token = localStorage.getItem('accessToken');
@@ -257,7 +256,7 @@ const extractString = (val: any, fallback: string): string => {
         timeout: 6000
       });
 
-      const empName = selectedEmployee ? selectedEmployee.name : `Employee #${payload.employeeId}`;
+      const empName = selectedEmployee ? selectedEmployee.name : (currentUser.name || 'Employee');
 
       const newEntry: PunchLogEntry = {
         id: Date.now(),
@@ -281,8 +280,8 @@ const extractString = (val: any, fallback: string): string => {
 
       ToasterService.success(
         type === 'CHECK_IN' 
-          ? `Check-In successfully recorded for ${empName} (#${payload.employeeId})!` 
-          : `Check-Out successfully recorded for ${empName} (#${payload.employeeId})!`
+          ? `Check-In successfully recorded for ${empName}!` 
+          : `Check-Out successfully recorded for ${empName}!`
       );
     } catch (err: any) {
       console.error(err);
@@ -319,28 +318,92 @@ const extractString = (val: any, fallback: string): string => {
     }
   };
 
-  // Quick preset remarks
-  const presetRemarks = useMemo(() => {
-    if (activeTab === 'CHECK_IN') {
-      return ['Shift Check-In', 'Regular Office', 'Work From Home', 'Late Arrival', 'Client Visit'];
-    }
-    return ['Shift Check-Out', 'End of Day', 'Early Departure', 'Half Day Out', 'Field Complete'];
-  }, [activeTab]);
-
-  // Filtered Punch Logs
+  // Filtered Punch Logs for ReusableTable
   const filteredPunchLogs = useMemo(() => {
-    return punchLogs.filter(log => {
-      if (logFilterTab !== 'ALL' && log.type !== logFilterTab) return false;
-      if (!logSearchQuery.trim()) return true;
-      const q = logSearchQuery.toLowerCase().trim();
-      const empIdStr = String(log.employeeId);
-      const nameStr = (log.employeeName || '').toLowerCase();
-      const remarksStr = (log.remarks || '').toLowerCase();
-      return empIdStr.includes(q) || nameStr.includes(q) || remarksStr.includes(q);
-    });
-  }, [punchLogs, logFilterTab, logSearchQuery]);
+    if (logFilterTab === 'ALL') return punchLogs;
+    return punchLogs.filter(log => log.type === logFilterTab);
+  }, [punchLogs, logFilterTab]);
 
-  // Session stats
+  // ReusableTable Columns Definition
+  const columns = useMemo<ColumnDef<PunchLogEntry>[]>(() => [
+    {
+      key: 'employeeName',
+      label: 'Employee',
+      sortable: true,
+      render: (row) => (
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-cyan-50 dark:bg-[#222222] border border-cyan-200 dark:border-[#303030] text-cyan-700 dark:text-cyan-400 font-bold text-xs flex items-center justify-center shrink-0">
+            {getInitials(row.employeeName)}
+          </div>
+          <div>
+            <div className="text-xs font-bold text-slate-900 dark:text-white">
+              {row.employeeName || 'Employee'}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'type',
+      label: 'Punch Type',
+      sortable: true,
+      render: (row) => (
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+          row.type === 'CHECK_IN'
+            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60'
+            : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/60'
+        }`}>
+          {row.type === 'CHECK_IN' ? <LogIn className="w-3 h-3" /> : <LogOut className="w-3 h-3" />}
+          {row.type === 'CHECK_IN' ? 'Check-In' : 'Check-Out'}
+        </span>
+      ),
+    },
+    {
+      key: 'timestamp',
+      label: 'Punch Time',
+      sortable: true,
+      render: (row) => (
+        <span className="text-xs font-mono font-medium text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+          <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500" />
+          {row.timestamp}
+        </span>
+      ),
+    },
+    {
+      key: 'location',
+      label: 'Terminal & Location',
+      render: (row) => (
+        <div>
+          <div className="text-xs text-slate-700 dark:text-gray-300 font-medium">
+            {row.location}
+          </div>
+          <div className="text-[10px] font-mono text-slate-400 dark:text-gray-500">
+            {row.deviceName} (#{row.deviceId})
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'remarks',
+      label: 'Remarks',
+      render: (row) => (
+        <span className="text-xs text-slate-600 dark:text-gray-400">
+          {row.remarks || '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: () => (
+        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+          <CheckCircle className="w-3.5 h-3.5" />
+          Recorded
+        </span>
+      ),
+    },
+  ], []);
+
   const totalCount = punchLogs.length;
   const checkInCount = punchLogs.filter(l => l.type === 'CHECK_IN').length;
   const checkOutCount = punchLogs.filter(l => l.type === 'CHECK_OUT').length;
@@ -352,7 +415,7 @@ const extractString = (val: any, fallback: string): string => {
 
       <div className="max-w-7xl mx-auto pb-8 space-y-4 animate-in fade-in duration-200">
         
-        {/* ── TOP HERO STATION BANNER (MINIMAL CLEAN DESIGN) ───────────────── */}
+        {/* ── 1. TOP HEADER: ATTENDANCE PUNCH STATION BANNER ──────────────── */}
         <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-[#303030] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-xl bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] flex items-center justify-center text-slate-700 dark:text-gray-200 shadow-2xs shrink-0">
@@ -360,7 +423,9 @@ const extractString = (val: any, fallback: string): string => {
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white">Attendance Punch Station</h1>
+                <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white">
+                  {selectedEmployee?.name || currentUser.name}
+                </h1>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] text-slate-600 dark:text-gray-300">
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -379,7 +444,7 @@ const extractString = (val: any, fallback: string): string => {
             </div>
           </div>
 
-          {/* Live Digital Clock */}
+          {/* Live Digital Clock Card */}
           <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
             <div className="bg-slate-50/80 dark:bg-[#222222] border border-slate-200/80 dark:border-[#303030] rounded-xl px-4 py-2 text-right">
               <div className="text-[11px] font-medium text-slate-500 dark:text-gray-400 tracking-normal flex items-center justify-end gap-1.5">
@@ -393,479 +458,305 @@ const extractString = (val: any, fallback: string): string => {
           </div>
         </div>
 
-        {/* ── 2-COLUMN MAIN WORKSPACE ──────────────────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* ── 2. PUNCH CARD: MINIMAL MODE SELECTOR & PUNCH ACTION ─────────── */}
+        <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] p-4 sm:p-5 space-y-4">
           
-          {/* LEFT COLUMN: Punch Terminal (7 Cols) */}
-          <div className="lg:col-span-7 space-y-4">
-            
-            {/* Terminal Main Action Card */}
-            <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] overflow-hidden">
-              
-              {/* Step 1: Mode Switcher */}
-              <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-[#303030] bg-slate-50/40 dark:bg-[#222222]/50">
-                <div className="flex items-center justify-between mb-2.5">
-                  <span className="text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-[#222222] text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-[#303030] inline-flex items-center justify-center text-[11px] font-semibold">1</span>
-                    Select Punch Mode
-                  </span>
-                  <span className="text-[11px] font-medium text-slate-400 dark:text-gray-500">Shift Timings: 09:00 AM - 06:00 PM</span>
+          {/* Mode Selection Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* CHECK-IN CARD */}
+            <div
+              onClick={() => setActiveTab('CHECK_IN')}
+              className={`p-3.5 rounded-xl border cursor-pointer transition-all duration-200 flex items-center justify-between select-none ${
+                activeTab === 'CHECK_IN'
+                  ? 'bg-cyan-600 border-cyan-600 text-white shadow-sm ring-2 ring-cyan-500/20'
+                  : 'bg-white dark:bg-[#222222] border-slate-200 dark:border-[#303030] hover:border-cyan-500/40 text-slate-700 dark:text-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold transition-all ${
+                  activeTab === 'CHECK_IN'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-100 dark:bg-[#191919] text-slate-600 dark:text-gray-300 border border-slate-200 dark:border-[#303030]'
+                }`}>
+                  <LogIn className="w-4 h-4" />
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* CHECK-IN CARD */}
-                  <div
-                    onClick={() => {
-                      setActiveTab('CHECK_IN');
-                      handleInputChange('remarks', 'Shift Check-In');
-                    }}
-                    className={`p-3.5 rounded-xl border cursor-pointer transition-all duration-150 flex items-center justify-between select-none ${
-                      activeTab === 'CHECK_IN'
-                        ? 'bg-slate-900 dark:bg-cyan-950/40 text-white border-slate-900 dark:border-cyan-500/80 shadow-xs ring-1 ring-slate-900/10 dark:ring-cyan-500/20'
-                        : 'bg-white dark:bg-[#222222] border-slate-200 dark:border-[#303030] hover:border-slate-300 dark:hover:border-gray-600 text-slate-600 dark:text-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold transition-all ${
-                        activeTab === 'CHECK_IN'
-                          ? 'bg-white dark:bg-cyan-500 text-slate-900 dark:text-white shadow-2xs'
-                          : 'bg-slate-100 dark:bg-[#191919] text-slate-500 dark:text-gray-400 border border-slate-200 dark:border-[#303030]'
-                      }`}>
-                        <LogIn className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <h3 className={`text-xs font-bold tracking-wide ${activeTab === 'CHECK_IN' ? 'text-white' : 'text-slate-900 dark:text-white'}`}>CHECK-IN</h3>
-                          {activeTab === 'CHECK_IN' && (
-                            <span className="text-[10px] font-semibold text-slate-900 dark:text-cyan-300 bg-white dark:bg-cyan-500/20 border border-white/20 dark:border-cyan-500/30 px-1.5 py-0.2 rounded">
-                              ACTIVE
-                            </span>
-                          )}
-                        </div>
-                        <p className={`text-[11px] mt-0.5 ${activeTab === 'CHECK_IN' ? 'text-slate-300 dark:text-cyan-200/80' : 'text-slate-500 dark:text-gray-400'}`}>Start work shift & record entry</p>
-                      </div>
-                    </div>
-
-                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
-                      activeTab === 'CHECK_IN' ? 'border-white dark:border-cyan-400 bg-white dark:bg-cyan-500' : 'border-slate-300 dark:border-gray-600'
-                    }`}>
-                      {activeTab === 'CHECK_IN' && <div className="w-1.5 h-1.5 rounded-full bg-slate-900 dark:bg-white" />}
-                    </div>
-                  </div>
-
-                  {/* CHECK-OUT CARD */}
-                  <div
-                    onClick={() => {
-                      setActiveTab('CHECK_OUT');
-                      handleInputChange('remarks', 'Shift Check-Out');
-                    }}
-                    className={`p-3.5 rounded-xl border cursor-pointer transition-all duration-150 flex items-center justify-between select-none ${
-                      activeTab === 'CHECK_OUT'
-                        ? 'bg-slate-900 dark:bg-cyan-950/40 text-white border-slate-900 dark:border-cyan-500/80 shadow-xs ring-1 ring-slate-900/10 dark:ring-cyan-500/20'
-                        : 'bg-white dark:bg-[#222222] border-slate-200 dark:border-[#303030] hover:border-slate-300 dark:hover:border-gray-600 text-slate-600 dark:text-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold transition-all ${
-                        activeTab === 'CHECK_OUT'
-                          ? 'bg-white dark:bg-cyan-500 text-slate-900 dark:text-white shadow-2xs'
-                          : 'bg-slate-100 dark:bg-[#191919] text-slate-500 dark:text-gray-400 border border-slate-200 dark:border-[#303030]'
-                      }`}>
-                        <LogOut className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <h3 className={`text-xs font-bold tracking-wide ${activeTab === 'CHECK_OUT' ? 'text-white' : 'text-slate-900 dark:text-white'}`}>CHECK-OUT</h3>
-                          {activeTab === 'CHECK_OUT' && (
-                            <span className="text-[10px] font-semibold text-slate-900 dark:text-cyan-300 bg-white dark:bg-cyan-500/20 border border-white/20 dark:border-cyan-500/30 px-1.5 py-0.2 rounded">
-                              ACTIVE
-                            </span>
-                          )}
-                        </div>
-                        <p className={`text-[11px] mt-0.5 ${activeTab === 'CHECK_OUT' ? 'text-slate-300 dark:text-cyan-200/80' : 'text-slate-500 dark:text-gray-400'}`}>End work shift & record exit</p>
-                      </div>
-                    </div>
-
-                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
-                      activeTab === 'CHECK_OUT' ? 'border-white dark:border-cyan-400 bg-white dark:bg-cyan-500' : 'border-slate-300 dark:border-gray-600'
-                    }`}>
-                      {activeTab === 'CHECK_OUT' && <div className="w-1.5 h-1.5 rounded-full bg-slate-900 dark:bg-white" />}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Step 2, 3 & 4 Container */}
-              <div className="p-4 sm:p-5 space-y-4">
-                {/* Step 2: Authenticated Employee Profile (Auto-Fetched) */}
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-[#222222] text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-[#303030] inline-flex items-center justify-center text-[11px] font-semibold">2</span>
-                      Active Employee Identity
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200/60 dark:border-emerald-800/60">
-                      <CheckCircle className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                      Verified Login Session
-                    </span>
-                  </div>
-
-                  {/* Clean Authenticated User Card */}
-                  <div className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-[#222222] border border-slate-200/80 dark:border-[#303030] flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-slate-900 dark:bg-cyan-600 text-white font-bold text-xs flex items-center justify-center shadow-2xs shrink-0">
-                        {getInitials(selectedEmployee?.name || currentUser.name)}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                            {selectedEmployee?.name || currentUser.name}
-                          </span>
-                          <span className="text-[10.5px] font-mono px-1.5 py-0.2 rounded bg-slate-200/80 dark:bg-[#191919] text-slate-700 dark:text-gray-300 font-semibold">
-                            ID: #{currentUser.id}
-                          </span>
-                          <span className="text-[10.5px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-[#191919] text-slate-600 dark:text-gray-400">
-                            {selectedEmployee?.code || currentUser.code}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5 truncate">
-                          {(selectedEmployee?.department && selectedEmployee.department !== 'Self') ? selectedEmployee.department : 'General Staff'}
-                          {' • '}
-                          {selectedEmployee?.designation || currentUser.role || 'Employee'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <span className="text-[10.5px] font-medium px-2 py-0.5 rounded-full bg-white dark:bg-[#191919] text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-[#303030] flex items-center gap-1.5 shadow-2xs">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Ready to Punch
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Step 3: Remarks & Quick Presets */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-[#222222] text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-[#303030] inline-flex items-center justify-center text-[11px] font-semibold">3</span>
-                      Punch Remarks / Note (Optional)
-                    </span>
-                  </div>
-
-                  <div className="relative mb-2">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 dark:text-gray-500">
-                      <MessageSquare className="w-4 h-4" />
-                    </div>
-                    <input
-                      type="text"
-                      value={formData.remarks || ''}
-                      onChange={(e) => handleInputChange('remarks', e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handlePunch(activeTab);
-                        }
-                      }}
-                      placeholder="Enter remarks or click a quick preset below..."
-                      className="w-full pl-9 pr-3 py-2 bg-slate-50/70 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition"
-                    />
-                  </div>
-
-                  {/* Quick Preset Chips */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase mr-1">Presets:</span>
-                    {presetRemarks.map((remark) => (
-                      <button
-                        key={remark}
-                        type="button"
-                        onClick={() => handleInputChange('remarks', remark)}
-                        className={`px-2.5 py-0.8 text-[11px] rounded-lg border transition cursor-pointer ${
-                          formData.remarks === remark
-                            ? 'bg-slate-900 dark:bg-cyan-600 text-white border-slate-900 dark:border-cyan-600 font-medium shadow-2xs'
-                            : 'bg-white dark:bg-[#222222] hover:bg-slate-50 dark:hover:bg-[#2a2a2a] text-slate-600 dark:text-gray-300 border-slate-200 dark:border-[#303030] font-normal'
-                        }`}
-                      >
-                        {remark}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Step 4: Primary Punch Action Button */}
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => handlePunch(activeTab)}
-                    disabled={isSubmitting}
-                    className="w-full py-3 px-5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white shadow-xs transition active:scale-[0.99] disabled:opacity-50 cursor-pointer"
-                  >
-                    {isSubmitting ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : activeTab === 'CHECK_IN' ? (
-                      <LogIn className="w-4 h-4" />
-                    ) : (
-                      <LogOut className="w-4 h-4" />
-                    )}
-                    <span>
-                      {isSubmitting
-                        ? `Recording ${activeTab === 'CHECK_IN' ? 'Check-In' : 'Check-Out'}...`
-                        : `Submit ${activeTab === 'CHECK_IN' ? 'Check-In' : 'Check-Out'}`}
-                    </span>
-                  </button>
-                </div>
-
-              </div>
-            </div>
-
-            {/* Collapsible Device & Geolocation Settings Drawer */}
-            <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-slate-200 dark:border-[#303030] p-3 space-y-2">
-              <div 
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="flex items-center justify-between cursor-pointer select-none group"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] flex items-center justify-center text-slate-600 dark:text-gray-300 group-hover:bg-slate-200 dark:group-hover:bg-[#2a2a2a] transition-colors">
-                    <Layers className="w-3.5 h-3.5" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-bold text-slate-900 dark:text-white">Terminal & Geolocation Parameters</h3>
-                    <p className="text-[10px] text-slate-400 dark:text-gray-500 leading-tight">Device ID, Geofence coordinates & network metadata</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-[#222222] text-slate-700 dark:text-gray-300 text-xs font-semibold group-hover:bg-slate-200 dark:group-hover:bg-[#2a2a2a] transition-all">
-                  <span>{showAdvanced ? 'Hide Parameters' : 'View / Edit Parameters'}</span>
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${showAdvanced ? 'rotate-180' : 'rotate-0'}`} />
-                </div>
-              </div>
-
-              {/* Accordion Container */}
-              <div className={`grid transition-all duration-300 ease-in-out ${
-                showAdvanced ? 'grid-rows-[1fr] opacity-100 pt-2 border-t border-slate-100 dark:border-[#303030]' : 'grid-rows-[0fr] opacity-0 pt-0 border-t-0'
-              }`}>
-                <div className="overflow-hidden">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                    <div>
-                      <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-0.5">Attendance Source</label>
-                      <input
-                        type="text"
-                        value={formData.attendanceSource}
-                        onChange={(e) => handleInputChange('attendanceSource', e.target.value)}
-                        className="w-full px-2 py-1 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-0.5">Attendance Mode</label>
-                      <input
-                        type="text"
-                        value={formData.attendanceMode}
-                        onChange={(e) => handleInputChange('attendanceMode', e.target.value)}
-                        className="w-full px-2 py-1 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-0.5">Device ID</label>
-                      <input
-                        type="text"
-                        value={formData.deviceId}
-                        onChange={(e) => handleInputChange('deviceId', e.target.value)}
-                        className="w-full px-2 py-1 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-0.5">Device Name</label>
-                      <input
-                        type="text"
-                        value={formData.deviceName}
-                        onChange={(e) => handleInputChange('deviceName', e.target.value)}
-                        className="w-full px-2 py-1 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-0.5">Location</label>
-                      <input
-                        type="text"
-                        value={formData.location}
-                        onChange={(e) => handleInputChange('location', e.target.value)}
-                        className="w-full px-2 py-1 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-0.5">IP Address</label>
-                      <input
-                        type="text"
-                        value={formData.ipAddress}
-                        onChange={(e) => handleInputChange('ipAddress', e.target.value)}
-                        className="w-full px-2 py-1 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-0.5">Latitude</label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={formData.latitude}
-                        onChange={(e) => handleInputChange('latitude', e.target.value)}
-                        className="w-full px-2 py-1 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-0.5">Longitude</label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={formData.longitude}
-                        onChange={(e) => handleInputChange('longitude', e.target.value)}
-                        className="w-full px-2 py-1 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          {/* RIGHT COLUMN: Recent Session Activity Feed & Metrics (5 Cols) */}
-          <div className="lg:col-span-5 space-y-4">
-            
-            {/* Session Stats Strip */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-white dark:bg-[#191919] p-3 rounded-xl border border-slate-200/80 dark:border-[#303030] shadow-2xs text-center">
-                <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-gray-500 block tracking-wider">Total</span>
-                <span className="text-base font-bold text-slate-900 dark:text-white font-mono">{totalCount}</span>
-              </div>
-              <div className="bg-white dark:bg-[#191919] p-3 rounded-xl border border-slate-200/80 dark:border-[#303030] shadow-2xs text-center">
-                <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-gray-500 block tracking-wider">Check-Ins</span>
-                <span className="text-base font-bold text-slate-900 dark:text-white font-mono">{checkInCount}</span>
-              </div>
-              <div className="bg-white dark:bg-[#191919] p-3 rounded-xl border border-slate-200/80 dark:border-[#303030] shadow-2xs text-center">
-                <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-gray-500 block tracking-wider">Check-Outs</span>
-                <span className="text-base font-bold text-slate-900 dark:text-white font-mono">{checkOutCount}</span>
-              </div>
-            </div>
-
-            {/* Activity Stream Card */}
-            <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] p-4 sm:p-5 flex flex-col justify-between">
-              <div>
-                {/* Stream Header */}
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#303030]">
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-slate-700 dark:text-gray-300" />
-                    <div>
-                      <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Session Activity Stream</h3>
-                      <p className="text-[10px] text-slate-400 dark:text-gray-500">Live punches recorded for today</p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => fetchTodayPunchLogs()}
-                    disabled={isRefreshingLogs}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#222222] transition cursor-pointer"
-                    title="Refresh logs"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingLogs ? 'animate-spin text-slate-600 dark:text-gray-300' : ''}`} />
-                  </button>
-                </div>
-
-                {/* Search & Filter Tabs */}
-                <div className="py-2.5 space-y-2">
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 absolute left-2.5 top-2.5" />
-                    <input
-                      type="text"
-                      value={logSearchQuery}
-                      onChange={(e) => setLogSearchQuery(e.target.value)}
-                      placeholder="Search by Employee ID, Name or note..."
-                      className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs text-slate-900 dark:text-white outline-none focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
-                    />
-                  </div>
-
-                  {/* Filter Pills */}
                   <div className="flex items-center gap-1.5">
-                    {(['ALL', 'CHECK_IN', 'CHECK_OUT'] as const).map((tab) => (
-                      <button
-                        key={tab}
-                        type="button"
-                        onClick={() => setLogFilterTab(tab)}
-                        className={`px-2.5 py-1 rounded-md text-[10.5px] font-bold transition cursor-pointer ${
-                          logFilterTab === tab
-                            ? 'bg-slate-900 dark:bg-cyan-600 text-white shadow-2xs'
-                            : 'bg-slate-100 dark:bg-[#222222] text-slate-600 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-[#2a2a2a]'
-                        }`}
-                      >
-                        {tab === 'ALL' ? 'All Activity' : tab === 'CHECK_IN' ? 'Check-Ins' : 'Check-Outs'}
-                      </button>
-                    ))}
+                    <h3 className={`text-xs font-bold tracking-wide ${activeTab === 'CHECK_IN' ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                      CHECK-IN
+                    </h3>
+                    {activeTab === 'CHECK_IN' && (
+                      <span className="text-[10px] font-bold bg-white/20 text-white border border-white/30 px-1.5 py-0.2 rounded">
+                        ACTIVE
+                      </span>
+                    )}
                   </div>
+                  <p className={`text-[11px] mt-0.5 ${activeTab === 'CHECK_IN' ? 'text-cyan-50' : 'text-slate-500 dark:text-gray-400'}`}>
+                    Start work shift & record entry
+                  </p>
                 </div>
+              </div>
 
-                {/* Logs List */}
-                {filteredPunchLogs.length === 0 ? (
-                  <div className="py-12 px-4 text-center flex flex-col items-center justify-center rounded-xl bg-slate-50/60 dark:bg-[#222222] border border-dashed border-slate-200 dark:border-[#303030] my-2">
-                    <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-[#191919] flex items-center justify-center text-slate-400 dark:text-gray-500 mb-2">
-                      <Activity className="w-4 h-4" />
-                    </div>
-                    <p className="text-xs font-bold text-slate-700 dark:text-gray-200">No punches logged yet</p>
-                    <p className="text-[11px] text-slate-400 dark:text-gray-500 mt-0.5 max-w-[240px]">
-                      {logSearchQuery ? 'No punches match your search filter.' : 'Punches made during this session will stream here in real-time.'}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2 max-h-[420px] overflow-y-auto no-scrollbar pr-0.5 pt-1">
-                    {filteredPunchLogs.map((log) => (
-                      <div 
-                        key={log.id} 
-                        className="p-2.5 rounded-xl border border-slate-200/70 dark:border-[#303030] bg-white dark:bg-[#222222] hover:bg-slate-50/60 dark:hover:bg-[#2a2a2a] transition-all flex items-center justify-between gap-2 shadow-2xs"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span className="w-7 h-7 rounded-lg flex items-center justify-center text-xs shrink-0 font-bold bg-slate-100 dark:bg-[#191919] text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-[#303030]">
-                            {log.type === 'CHECK_IN' ? <LogIn className="w-3.5 h-3.5" /> : <LogOut className="w-3.5 h-3.5" />}
-                          </span>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                                {log.employeeName || `Employee #${log.employeeId}`}
-                              </span>
-                              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-[#191919] text-slate-600 dark:text-gray-300 font-medium">
-                                #{log.employeeId}
-                              </span>
-                              <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded border bg-slate-50 dark:bg-[#191919] text-slate-600 dark:text-gray-300 border-slate-200 dark:border-[#303030]">
-                                {log.type === 'CHECK_IN' ? 'Check-In' : 'Check-Out'}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 text-[10.5px] text-slate-400 dark:text-gray-500 mt-0.5 truncate">
-                              <span className="truncate">{log.remarks || 'Standard shift punch'}</span>
-                              <span>•</span>
-                              <span className="font-mono text-[10px]">{log.location}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="text-right shrink-0">
-                          <span className="text-xs font-mono font-medium text-slate-700 dark:text-gray-300 block">
-                            {log.timestamp}
-                          </span>
-                          <span className="text-[9.5px] text-slate-500 dark:text-gray-400 font-medium inline-flex items-center gap-0.5">
-                            <CheckCircle className="w-2.5 h-2.5 text-emerald-500" /> Logged
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
+                activeTab === 'CHECK_IN' ? 'border-white bg-white' : 'border-slate-300 dark:border-gray-600'
+              }`}>
+                {activeTab === 'CHECK_IN' && <div className="w-1.5 h-1.5 rounded-full bg-cyan-600" />}
               </div>
             </div>
 
+            {/* CHECK-OUT CARD */}
+            <div
+              onClick={() => setActiveTab('CHECK_OUT')}
+              className={`p-3.5 rounded-xl border cursor-pointer transition-all duration-200 flex items-center justify-between select-none ${
+                activeTab === 'CHECK_OUT'
+                  ? 'bg-cyan-600 border-cyan-600 text-white shadow-sm ring-2 ring-cyan-500/20'
+                  : 'bg-white dark:bg-[#222222] border-slate-200 dark:border-[#303030] hover:border-cyan-500/40 text-slate-700 dark:text-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold transition-all ${
+                  activeTab === 'CHECK_OUT'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-100 dark:bg-[#191919] text-slate-600 dark:text-gray-300 border border-slate-200 dark:border-[#303030]'
+                }`}>
+                  <LogOut className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className={`text-xs font-bold tracking-wide ${activeTab === 'CHECK_OUT' ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                      CHECK-OUT
+                    </h3>
+                    {activeTab === 'CHECK_OUT' && (
+                      <span className="text-[10px] font-bold bg-white/20 text-white border border-white/30 px-1.5 py-0.2 rounded">
+                        ACTIVE
+                      </span>
+                    )}
+                  </div>
+                  <p className={`text-[11px] mt-0.5 ${activeTab === 'CHECK_OUT' ? 'text-cyan-50' : 'text-slate-500 dark:text-gray-400'}`}>
+                    End work shift & record exit
+                  </p>
+                </div>
+              </div>
+
+              <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
+                activeTab === 'CHECK_OUT' ? 'border-white bg-white' : 'border-slate-300 dark:border-gray-600'
+              }`}>
+                {activeTab === 'CHECK_OUT' && <div className="w-1.5 h-1.5 rounded-full bg-cyan-600" />}
+              </div>
+            </div>
           </div>
+
+          {/* Primary Cyan Punch Action Button */}
+          <div className="pt-2 flex justify-center">
+            <button
+              type="button"
+              onClick={() => handlePunch(activeTab)}
+              disabled={isSubmitting}
+              className="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-700 active:bg-cyan-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : activeTab === 'CHECK_IN' ? (
+                <LogIn className="w-4 h-4" />
+              ) : (
+                <LogOut className="w-4 h-4" />
+              )}
+              <span>
+                {isSubmitting
+                  ? `Recording ${activeTab === 'CHECK_IN' ? 'Check-In' : 'Check-Out'}...`
+                  : `Submit ${activeTab === 'CHECK_IN' ? 'Check-In' : 'Check-Out'}`}
+              </span>
+            </button>
+          </div>
+
+
+        </div>
+
+        {/* ── 3. TERMINAL & GEOLOCATION PARAMETERS (COLLAPSIBLE DRAWER) ───── */}
+        <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] p-4 space-y-2">
+          <div 
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center justify-between cursor-pointer select-none group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] flex items-center justify-center text-slate-600 dark:text-gray-300 group-hover:bg-slate-100 dark:group-hover:bg-[#2a2a2a] transition-colors">
+                <Layers className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white">Terminal & Geolocation Parameters</h3>
+                <p className="text-[11px] text-slate-400 dark:text-gray-500 leading-tight">Device ID, Geofence coordinates & network metadata</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-[#222222] text-slate-700 dark:text-gray-300 text-xs font-semibold group-hover:bg-slate-100 dark:group-hover:bg-[#2a2a2a] transition-all border border-slate-200/80 dark:border-[#303030]">
+              <span>{showAdvanced ? 'Hide Parameters' : 'View / Edit Parameters'}</span>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${showAdvanced ? 'rotate-180' : 'rotate-0'}`} />
+            </div>
+          </div>
+
+          {/* Collapsible Content */}
+          <div className={`grid transition-all duration-300 ease-in-out ${
+            showAdvanced ? 'grid-rows-[1fr] opacity-100 pt-3 border-t border-slate-100 dark:border-[#303030]' : 'grid-rows-[0fr] opacity-0 pt-0 border-t-0'
+          }`}>
+            <div className="overflow-hidden">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">Attendance Source</label>
+                  <input
+                    type="text"
+                    value={formData.attendanceSource}
+                    onChange={(e) => handleInputChange('attendanceSource', e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">Attendance Mode</label>
+                  <input
+                    type="text"
+                    value={formData.attendanceMode}
+                    onChange={(e) => handleInputChange('attendanceMode', e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">Device ID</label>
+                  <input
+                    type="text"
+                    value={formData.deviceId}
+                    onChange={(e) => handleInputChange('deviceId', e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">Device Name</label>
+                  <input
+                    type="text"
+                    value={formData.deviceName}
+                    onChange={(e) => handleInputChange('deviceName', e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">Location</label>
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => handleInputChange('location', e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">IP Address</label>
+                  <input
+                    type="text"
+                    value={formData.ipAddress}
+                    onChange={(e) => handleInputChange('ipAddress', e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">Latitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={formData.latitude}
+                    onChange={(e) => handleInputChange('latitude', e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">Longitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={formData.longitude}
+                    onChange={(e) => handleInputChange('longitude', e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── 4. ATTENDANCE HISTORY TABLE ─────────────────────────────────── */}
+        <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] p-4 sm:p-5 space-y-4">
+          
+          {/* Table Header with Filters & Refresh */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#303030]">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-bold uppercase text-slate-800 dark:text-white tracking-wider">
+                  Attendance History
+                </h3>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-[#222222] text-slate-600 dark:text-gray-300 font-semibold border border-slate-200 dark:border-[#303030]">
+                  {totalCount} Total
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 dark:text-gray-500 mt-0.5">
+                Real-time log of recorded shift check-ins and check-outs
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Filter Tabs */}
+              <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] p-1 rounded-xl border border-slate-200/80 dark:border-[#303030]">
+                <button
+                  type="button"
+                  onClick={() => setLogFilterTab('ALL')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                    logFilterTab === 'ALL'
+                      ? 'bg-cyan-600 text-white shadow-2xs'
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  All ({totalCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLogFilterTab('CHECK_IN')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                    logFilterTab === 'CHECK_IN'
+                      ? 'bg-cyan-600 text-white shadow-2xs'
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Check-Ins ({checkInCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLogFilterTab('CHECK_OUT')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                    logFilterTab === 'CHECK_OUT'
+                      ? 'bg-cyan-600 text-white shadow-2xs'
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Check-Outs ({checkOutCount})
+                </button>
+              </div>
+
+              {/* Toolbar */}
+              <TableToolbar onRefresh={() => fetchTodayPunchLogs()} />
+            </div>
+          </div>
+
+          {/* ReusableTable */}
+          <ReusableTable
+            data={filteredPunchLogs}
+            columns={columns}
+            loading={isRefreshingLogs}
+            pageSize={10}
+            defaultSortKey="id"
+            defaultSortOrder="desc"
+          />
 
         </div>
 
