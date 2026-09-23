@@ -83,8 +83,8 @@ const CUSTOMERS_API = "/v1/api/crm/customers";
 const SCHEDULE_ORDERS_API = "/v1/api/sales/sales-orders/schedule/orders";
 const PAGE_SIZE = 10;
 
-// 🔧 Route paths — change these once if your app uses different URLs.
-const USERS_PAGE_PATH = "/users";
+// 🔧 Route paths — matches your app's actual routes.
+const USERS_PAGE_PATH = "/role_config/users";
 const CUSTOMERS_PAGE_PATH = "/customer-management";
 
 const emptyForm: ScheduleForm = {
@@ -199,7 +199,6 @@ function getAssignedEmployeeName(
   return "Unassigned";
 }
 
-// Resolve the user record for an assignedEmployeeId — needed for click-to-redirect.
 function findUserByAssignedId(
   assignedEmployeeId: number | string | undefined | null,
   users: UserOption[]
@@ -465,8 +464,9 @@ const ServiceScheduleNotify: React.FC = () => {
     }
   };
 
-  // ── Click-to-redirect helpers (matching your Quotations page) ──────
+  // ── Click-to-redirect handlers ─────────────────────────────────────
   const goToUser = (user: UserOption) => {
+    if (!USERS_PAGE_PATH) return;
     const name = getEmployeeName(user);
     const userId = user.userId || user.id || "";
     navigate(
@@ -477,6 +477,7 @@ const ServiceScheduleNotify: React.FC = () => {
   };
 
   const goToCustomerById = (customerId: number | string | undefined | null) => {
+    if (!CUSTOMERS_PAGE_PATH) return;
     if (customerId === null || customerId === undefined) return;
     const numeric = Number(customerId);
     if (!Number.isFinite(numeric) || numeric <= 0) return;
@@ -488,12 +489,12 @@ const ServiceScheduleNotify: React.FC = () => {
   };
 
   const goToAssignedEmployee = (assignedEmployeeId: number | string | undefined | null) => {
+    if (!USERS_PAGE_PATH) return;
     const user = findUserByAssignedId(assignedEmployeeId, users);
     if (user) {
       goToUser(user);
       return;
     }
-    // No user record — pass the raw id so the users page can still filter.
     if (assignedEmployeeId === null || assignedEmployeeId === undefined) return;
     const numeric = Number(assignedEmployeeId);
     if (!Number.isFinite(numeric) || numeric <= 0) return;
@@ -605,8 +606,6 @@ const ServiceScheduleNotify: React.FC = () => {
           );
         }
         return (
-          // If you ever want the raw numeric id back, uncomment the title below:
-          // <span title={`Employee ID: ${user.employeeId}`} className="text-sm font-medium ...">
           <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
             {user.employeeCode || "--"}
           </span>

@@ -462,9 +462,6 @@ function calculateQuotationTotals(items: QuotationItemPayload[]) {
   );
 }
 
-// Shared input class used by every field inside the Add Item card so
-// PRODUCT and SERVICE modes have identical styling — including an explicit
-// placeholder color for both light and dark themes.
 const itemFieldClass =
   "w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800";
 
@@ -1478,10 +1475,8 @@ const Quotations: React.FC = () => {
                           ))}
                         </div>
 
-                        {/* CATEGORY / PRODUCT — PRODUCT mode vs SERVICE mode
-                            Both branches use `itemFieldClass` so backgrounds,
-                            borders, text, and placeholder colors are identical
-                            in light and dark themes. */}
+                        {/* CATEGORY / PRODUCT — PRODUCT mode uses selects,
+                            SERVICE mode shows name/code/UOM inputs. */}
                         {form.itemType === "PRODUCT" ? (
                           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <select
@@ -1516,7 +1511,7 @@ const Quotations: React.FC = () => {
                             </select>
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                             <input
                               name="itemProductName"
                               value={form.itemProductName}
@@ -1525,19 +1520,23 @@ const Quotations: React.FC = () => {
                               placeholder="Service name"
                             />
                             <input
-                              name="itemServiceItemId"
-                              type="number"
-                              value={form.itemServiceItemId}
+                              name="itemProductCode"
+                              value={form.itemProductCode}
                               onChange={handleChange}
                               className={itemFieldClass}
-                              placeholder="Service item ID (optional)"
+                              placeholder="Service code"
+                            />
+                            <input
+                              name="itemUom"
+                              value={form.itemUom}
+                              onChange={handleChange}
+                              className={itemFieldClass}
+                              placeholder="UOM"
                             />
                           </div>
                         )}
 
-                        {/* DESCRIPTION ROW — PRODUCT shows read-only chips,
-                            SERVICE shows editable inputs. Both styled to
-                            match in dark mode. */}
+                        {/* DESCRIPTION ROW */}
                         {form.itemType === "PRODUCT" ? (
                           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                             <div className={itemStaticChipClass}>
@@ -1551,27 +1550,13 @@ const Quotations: React.FC = () => {
                             </div>
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                            <input
-                              name="itemProductCode"
-                              value={form.itemProductCode}
-                              onChange={handleChange}
-                              className={itemFieldClassSmall}
-                              placeholder="Service code"
-                            />
+                          <div className="grid grid-cols-1 gap-3">
                             <input
                               name="itemDescription"
                               value={form.itemDescription}
                               onChange={handleChange}
-                              className={itemFieldClassSmall}
+                              className={itemFieldClass}
                               placeholder="Description"
-                            />
-                            <input
-                              name="itemUom"
-                              value={form.itemUom}
-                              onChange={handleChange}
-                              className={itemFieldClassSmall}
-                              placeholder="UOM"
                             />
                           </div>
                         )}

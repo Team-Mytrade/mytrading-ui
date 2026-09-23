@@ -7,7 +7,6 @@ import {
   ClockIcon,
   CubeIcon,
   ExclamationTriangleIcon,
-  MagnifyingGlassIcon,
   PencilSquareIcon,
   TrashIcon,
   XCircleIcon,
@@ -92,7 +91,9 @@ const PRODUCT_API_URL = "/v1/api/purchase/products";
 const BATCH_STOCK_API_URL = "/v1/api/inventory/batches/stock-details";
 const PAGE_SIZE = 10;
 
-// Static data for supplierName (if BE doesn't have it)
+const PRODUCT_ROUTE = "/purchase-products";
+const WAREHOUSE_ROUTE = "/warehouse";
+
 const STATIC_BATCH_DATA_MAP: Record<number, any> = {
   1: { supplierName: "ABC Supplies" },
   2: { supplierName: "XYZ Traders" },
@@ -102,10 +103,8 @@ const STATIC_BATCH_DATA = {
   supplierName: "Default Supplier",
 };
 
-// Fallback values (BATCH_STATUS not in enum API)
 const FALLBACK_STATUS = ["GOOD", "EXPIRING_SOON", "EXPIRED", "EMPTY"];
 
-// Generate Batch Number
 const generateBatchNumber = (): string => {
   const prefix = "BATCH";
   const timestamp = new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
@@ -158,7 +157,8 @@ const getBatchStatus = (batch: Batch) => {
   if ((batch.quantity || 0) <= 0) {
     return {
       label: "Empty",
-      className: "bg-gray-50 text-gray-700 border-gray-200",
+      className:
+        "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
       icon: <XCircleIcon className="h-3.5 w-3.5" />,
     };
   }
@@ -166,20 +166,23 @@ const getBatchStatus = (batch: Batch) => {
   if (days < 0) {
     return {
       label: "Expired",
-      className: "bg-red-50 text-red-700 border-red-200",
+      className:
+        "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800",
       icon: <XCircleIcon className="h-3.5 w-3.5" />,
     };
   }
   if (days <= 30) {
     return {
       label: "Expiring Soon",
-      className: "bg-yellow-50 text-yellow-700 border-yellow-200",
+      className:
+        "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800",
       icon: <ExclamationTriangleIcon className="h-3.5 w-3.5" />,
     };
   }
   return {
     label: "Good",
-    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    className:
+      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-800",
     icon: <CheckCircleIcon className="h-3.5 w-3.5" />,
   };
 };
@@ -227,11 +230,9 @@ const BatchManagement: React.FC = () => {
   }, []);
 
   const fetchEnums = async (): Promise<void> => {
-    // BATCH_STATUS is not provided by the enum API — FALLBACK_STATUS is authoritative for now.
-    // Placeholder so enumLoading state pattern stays consistent with the other pages.
+    // BATCH_STATUS not provided by enum API — FALLBACK_STATUS is authoritative.
   };
 
-  // ============ FETCH ALL BATCHES ============
   const fetchAllBatches = async () => {
     try {
       setLoading(true);
@@ -456,7 +457,20 @@ const BatchManagement: React.FC = () => {
     }
   };
 
-  // ============ STATS ============
+  const goToProduct = (productId?: number) => {
+    if (!productId) return;
+    navigate(`${PRODUCT_ROUTE}?productId=${productId}`, { state: { productId } });
+  };
+
+  const goToWarehouse = (warehouseId?: number, warehouseName?: string) => {
+    if (!warehouseId) return;
+    navigate(
+      `${WAREHOUSE_ROUTE}?warehouseId=${warehouseId}&warehouseName=${encodeURIComponent(
+        warehouseName || ""
+      )}`
+    );
+  };
+
   const stats = useMemo(() => {
     return {
       total: batches.length,
@@ -471,7 +485,6 @@ const BatchManagement: React.FC = () => {
     };
   }, [batches]);
 
-  // ============ COLUMNS ============
   const columns: ColumnDef<Batch>[] = [
     {
       key: "batchNumber",
@@ -479,10 +492,12 @@ const BatchManagement: React.FC = () => {
       sortable: true,
       render: (batch) => (
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-purple-100 bg-purple-50">
-            <CubeIcon className="h-4 w-4 text-purple-600" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-purple-100 bg-purple-50 dark:border-purple-800 dark:bg-purple-950/40">
+            <CubeIcon className="h-4 w-4 text-purple-600 dark:text-purple-400" />
           </div>
-          <p className="text-sm font-semibold text-slate-900">{batch.batchNumber}</p>
+          <p className="text-sm font-semibold text-slate-900 dark:text-white">
+            {batch.batchNumber}
+          </p>
         </div>
       ),
     },
@@ -491,11 +506,27 @@ const BatchManagement: React.FC = () => {
       label: "Product",
       sortable: true,
       render: (batch) => {
-        const p = products.find((p) => p.id === batch.productId || p.productId === batch.productId);
+        const p = products.find(
+          (p) => p.id === batch.productId || p.productId === batch.productId
+        );
+        const label = p ? normalizeProductLabel(p) : `Product #${batch.productId}`;
+        if (!batch.productId) {
+          return (
+            <span className="text-sm text-slate-700 dark:text-slate-300">{label}</span>
+          );
+        }
         return (
-          <span className="text-sm text-slate-700">
-            {p ? normalizeProductLabel(p) : `Product #${batch.productId}`}
-          </span>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              goToProduct(batch.productId);
+            }}
+            className="max-w-[220px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            title={`View ${label}`}
+          >
+            {label}
+          </button>
         );
       },
     },
@@ -504,7 +535,7 @@ const BatchManagement: React.FC = () => {
       label: "MFG Date",
       sortable: true,
       render: (batch) => (
-        <span className="text-sm text-slate-700">
+        <span className="text-sm text-slate-700 dark:text-slate-300">
           {batch.manufacturingDate ? new Date(batch.manufacturingDate).toLocaleDateString() : "--"}
         </span>
       ),
@@ -519,12 +550,18 @@ const BatchManagement: React.FC = () => {
           <div>
             <span
               className={`text-sm ${
-                days < 0 ? "text-red-600" : days <= 30 ? "text-yellow-600" : "text-slate-600"
+                days < 0
+                  ? "text-red-600 dark:text-red-400"
+                  : days <= 30
+                  ? "text-yellow-600 dark:text-yellow-400"
+                  : "text-slate-600 dark:text-slate-300"
               }`}
             >
               {batch.expiryDate ? new Date(batch.expiryDate).toLocaleDateString() : "--"}
             </span>
-            {days >= 0 && <p className="text-xs text-slate-400">{days} days left</p>}
+            {days >= 0 && (
+              <p className="text-xs text-slate-400 dark:text-slate-500">{days} days left</p>
+            )}
           </div>
         );
       },
@@ -534,7 +571,9 @@ const BatchManagement: React.FC = () => {
       label: "Supplier",
       sortable: true,
       render: (batch) => (
-        <span className="text-sm text-slate-700">{batch.supplierName || "--"}</span>
+        <span className="text-sm text-slate-700 dark:text-slate-300">
+          {batch.supplierName || "--"}
+        </span>
       ),
     },
     {
@@ -543,10 +582,30 @@ const BatchManagement: React.FC = () => {
       sortable: true,
       render: (batch) => {
         const name = getWarehouseDisplay(batch);
-        const warehouseId = typeof batch.warehouse === "object" && batch.warehouse !== null
-          ? Number(batch.warehouse.id)
-          : warehouses.find((warehouse) => String(warehouse.id) === String(batch.warehouse) || warehouse.name === batch.warehouse || warehouse.code === batch.warehouse)?.id;
-        return warehouseId ? <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/warehouse?warehouseId=${warehouseId}&warehouseName=${encodeURIComponent(name)}`); }} className="max-w-[210px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline" title={`View ${name}`}>{name}</button> : <span className="text-sm text-slate-700">{name || "--"}</span>;
+        const warehouseId =
+          typeof batch.warehouse === "object" && batch.warehouse !== null
+            ? Number(batch.warehouse.id)
+            : warehouses.find(
+                (warehouse) =>
+                  String(warehouse.id) === String(batch.warehouse) ||
+                  warehouse.name === batch.warehouse ||
+                  warehouse.code === batch.warehouse
+              )?.id;
+        return warehouseId ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              goToWarehouse(warehouseId, name);
+            }}
+            className="max-w-[210px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            title={`View ${name}`}
+          >
+            {name}
+          </button>
+        ) : (
+          <span className="text-sm text-slate-700 dark:text-slate-300">{name || "--"}</span>
+        );
       },
     },
     {
@@ -555,9 +614,13 @@ const BatchManagement: React.FC = () => {
       sortable: true,
       render: (batch) => (
         <div>
-          <span className="text-sm font-semibold">{batch.quantity || 0}</span>
+          <span className="text-sm font-semibold text-slate-900 dark:text-white">
+            {batch.quantity || 0}
+          </span>
           {batch.reserved ? (
-            <p className="text-xs text-orange-500">Reserved: {batch.reserved}</p>
+            <p className="text-xs text-orange-500 dark:text-orange-400">
+              Reserved: {batch.reserved}
+            </p>
           ) : null}
         </div>
       ),
@@ -585,17 +648,20 @@ const BatchManagement: React.FC = () => {
       headerClassName: "text-right",
       className: "text-right",
       render: (batch) => (
-        <div className="flex justify-end gap-1">
+        <div
+          className="flex justify-end gap-1"
+          onClick={(e) => e.stopPropagation()}
+        >
           <button
             onClick={() => openEdit(batch)}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>
           <button
             onClick={() => setDeleteBatch(batch)}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
@@ -614,7 +680,6 @@ const BatchManagement: React.FC = () => {
       />
 
       <div className="w-full max-w-none px-0 py-8">
-        {/* Stats */}
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
           <StatsCard
             label="Total Batches"
@@ -673,14 +738,18 @@ const BatchManagement: React.FC = () => {
           pageSize={PAGE_SIZE}
           defaultSortKey="expiryDate"
           defaultSortOrder="asc"
+          enableRowDetails={true}
+          rowDetailsTitle="Batch Details"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
-              <CubeIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">No batches found</p>
+              <CubeIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
+                No batches found
+              </p>
               <button
                 type="button"
                 onClick={() => fetchAllBatches()}
-                className="inline-flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700"
+                className="inline-flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300"
               >
                 <ArrowPathIcon className="h-3.5 w-3.5" />
                 Reload all batches
@@ -690,7 +759,6 @@ const BatchManagement: React.FC = () => {
         />
       </div>
 
-      {/* Form Modal */}
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Batch" : "Create Batch"}
@@ -767,12 +835,11 @@ const BatchManagement: React.FC = () => {
         ]}
       />
 
-      {/* Delete Popup */}
       <DynamicPopup
         isPopupOpen={!!deleteBatch}
         setIsPopupOpen={(open) => !open && setDeleteBatch(null)}
-        icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-        iconBg="bg-red-100"
+        icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
+        iconBg="bg-red-100 dark:bg-red-950/40"
         innerText="Delete Batch"
         subText={
           deleteBatch

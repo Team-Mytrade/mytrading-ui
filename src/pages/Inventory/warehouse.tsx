@@ -1,9 +1,11 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   ArrowPathIcon,
   BuildingOffice2Icon,
   CheckCircleIcon,
+  FunnelIcon,
   PencilSquareIcon,
   TrashIcon,
   XCircleIcon,
@@ -20,30 +22,6 @@ import {
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
-
-/**
- * =====================================================================================
- * CORRECTED VERSION
- *
- * Fixes vs previous file:
- *   1. Duplicate-name check no longer crashes on null names.
- *   2. `code` fallback extracted to a single helper — no more `WH-undefined`.
- *   3. Inline edits are serialized per row (ref lock) and on failure revert
- *      ONLY that row's optimistic change (no full refetch clobbering other
- *      in-flight edits).
- *   4. fetchEnums no longer clobbers a form the user is already editing.
- *   5. headers memoized on token; effect no longer needs eslint-disable.
- *   6. Status dropdown merges in any status already present on a row.
- *   7. AbortController cancels both fetches on unmount.
- *   8. aria-labels on the inline selects.
- *
- * STILL PENDING BACKEND:
- *   - A real `active`/`status` field on the Warehouse entity. The localStorage
- *     layer below is scaffolding and should be deleted once that exists.
- *   - Whether `DELETE ...?cascade=true` is supported.
- *   - Whether the list endpoint always includes `stockLevels`.
- * =====================================================================================
- */
 
 type WarehouseLocationType = string;
 type WarehouseStatus = string;
@@ -63,7 +41,6 @@ type Warehouse = {
   stockMovements?: any[];
   stockAdjustments?: any[];
   stockEntries?: any[];
-  // Local-only display fields — NOT part of the backend schema.
   stockCount?: number;
   status?: WarehouseStatus;
 };
@@ -78,10 +55,12 @@ const API_URL = "/v1/api/inventory/warehouses";
 const ENUM_API_URL = "/v1/api/inventory/enums";
 const PAGE_SIZE = 10;
 
+// 🔧 Route paths — matches your app's actual routes.
+const WAREHOUSE_ROUTE = "/warehouse";
+
 const FALLBACK_LOCATION_TYPES = ["MAIN", "DISTRIBUTION", "TRANSIT", "RETURN_CENTER"];
 const FALLBACK_STATUS = ["ACTIVE", "INACTIVE"];
 
-// TODO: replace with real values from your auth/session context.
 const STATIC_CREATED_BY = "system-admin";
 const STATIC_TENANT_ID = "tenant-001";
 
@@ -106,7 +85,6 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-// FIX #2: single source of truth for the display code fallback.
 function resolveWarehouseCode(code: unknown, id: unknown): string {
   const trimmed = typeof code === "string" ? code.trim() : "";
   if (trimmed && trimmed !== "null" && trimmed !== "undefined") return trimmed;
@@ -119,31 +97,31 @@ function resolveWarehouseCode(code: unknown, id: unknown): string {
 function getLocationTypeColor(type: string) {
   switch (type) {
     case "MAIN":
-      return "bg-purple-100 text-purple-800 border-purple-200";
+      return "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-800";
     case "DISTRIBUTION":
-      return "bg-blue-100 text-blue-800 border-blue-200";
+      return "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800";
     case "TRANSIT":
-      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      return "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-800";
     case "RETURN_CENTER":
-      return "bg-orange-100 text-orange-800 border-orange-200";
+      return "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800";
     default:
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
   }
 }
 
 function getStatusColor(status: string) {
   switch (status) {
     case "ACTIVE":
-      return "bg-green-100 text-green-800 border-green-200";
+      return "bg-green-100 text-green-800 border-green-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-800";
     case "INACTIVE":
-      return "bg-red-100 text-red-800 border-red-200";
+      return "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800";
     default:
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
   }
 }
 
 // ---------------------------------------------------------------------------
-// Local-only status storage (backend has no active/status field)
+// Local-only status storage
 // ---------------------------------------------------------------------------
 
 function loadLocalStatusMap(): Record<number, WarehouseStatus> {
@@ -162,7 +140,7 @@ function saveLocalStatus(id: number, status: WarehouseStatus) {
   try {
     localStorage.setItem(LOCAL_STATUS_STORAGE_KEY, JSON.stringify(all));
   } catch {
-    // localStorage can throw in private/incognito modes — fail silently.
+    // fail silently
   }
 }
 
@@ -177,7 +155,13 @@ function getDisplayStatus(id: number): WarehouseStatus {
 const WarehousePage: React.FC = () => {
   const token = localStorage.getItem("accessToken");
 
-  // FIX #5: stable headers reference, so the mount effect can list real deps.
+  // ── NEW: read URL filter params ─────────────────────────────────
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const filterWarehouseId = searchParams.get("warehouseId");
+  const filterWarehouseName = searchParams.get("warehouseName") || "";
+  const isWarehouseScoped = Boolean(filterWarehouseId);
+
   const headers = useMemo(
     () =>
       token
@@ -199,9 +183,7 @@ const WarehousePage: React.FC = () => {
   );
   const [enumLoading, setEnumLoading] = useState(true);
 
-  // FIX #3: per-row lock so rapid edits to the same row are serialized.
   const savingRowsRef = useRef<Set<number>>(new Set());
-  // FIX #7: cancel in-flight loads on unmount.
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -241,9 +223,8 @@ const WarehousePage: React.FC = () => {
       const resolved = locationCodes.length > 0 ? locationCodes : FALLBACK_LOCATION_TYPES;
       setLocationTypeOptions(resolved);
 
-      // FIX #4: only seed the form when it hasn't been opened/edited yet.
       setForm((prev) => {
-        if (prev.name || prev.locationType) return prev; // user already touched it
+        if (prev.name || prev.locationType) return prev;
         return {
           ...prev,
           locationType: resolved[0] ?? "",
@@ -265,7 +246,6 @@ const WarehousePage: React.FC = () => {
 
       const response = await axios.get<Warehouse[]>(API_URL, { headers, signal });
 
-      // FIX #4b: unwrap paginated / wrapped responses.
       const rawData: Warehouse[] = Array.isArray(response.data)
         ? response.data
         : (response.data as any)?.content || (response.data as any)?.data || [];
@@ -274,8 +254,6 @@ const WarehousePage: React.FC = () => {
         rawData.map(async (warehouse) => {
           let fullData: Warehouse = warehouse;
 
-          // Only fire the detail call if the list response didn't already
-          // include stockLevels — avoids N+1 when the list is complete.
           if (!Array.isArray(warehouse.stockLevels)) {
             try {
               const detailRes = await axios.get(`${API_URL}/${warehouse.id}`, {
@@ -368,13 +346,11 @@ const WarehousePage: React.FC = () => {
     field: "locationType" | "status",
     value: string
   ): Promise<void> => {
-    // FIX #3: drop concurrent edits on the same row.
     if (savingRowsRef.current.has(id)) return;
 
     const previous = warehouses.find((w) => w.id === id);
     if (!previous) return;
 
-    // Status is local-only — no network round-trip, no race.
     if (field === "status") {
       saveLocalStatus(id, value);
       setWarehouses((prev) =>
@@ -405,7 +381,6 @@ const WarehousePage: React.FC = () => {
       );
       ToasterService.success(`${field} updated successfully`);
     } catch (error) {
-      // FIX #3: revert ONLY this row, not the whole list.
       setWarehouses((prev) =>
         prev.map((w) => (w.id === id ? { ...w, locationType: previous.locationType } : w))
       );
@@ -450,7 +425,6 @@ const WarehousePage: React.FC = () => {
       return;
     }
 
-    // FIX #1: null-safe duplicate check.
     const duplicate = warehouses.find(
       (w) =>
         (w.name ?? "").trim().toLowerCase() === trimmedName.toLowerCase() &&
@@ -487,7 +461,6 @@ const WarehousePage: React.FC = () => {
         const response = await axios.post(API_URL, payload, { headers });
         ToasterService.success("Warehouse created successfully");
 
-        // FIX #2: safe when the server omits id.
         const code = resolveWarehouseCode(response.data?.code, response.data?.id);
 
         if (typeof response.data?.id === "number") {
@@ -522,8 +495,7 @@ const WarehousePage: React.FC = () => {
     if (!deleteWarehouse?.id) return;
 
     try {
-      // `?cascade=true` is unconfirmed — verify with backend.
-     await axios.delete(`${API_URL}/${deleteWarehouse.id}`, { headers });
+      await axios.delete(`${API_URL}/${deleteWarehouse.id}`, { headers });
       ToasterService.success("Warehouse deleted successfully");
       setDeleteWarehouse(null);
       await fetchWarehouses();
@@ -536,21 +508,33 @@ const WarehousePage: React.FC = () => {
   };
 
   // -----------------------------------------------------------------------
-  // Derived
+  // NEW: scoped list — filters to a single warehouse when URL has ?warehouseId=
+  // -----------------------------------------------------------------------
+
+  const scopedWarehouses = useMemo(
+    () =>
+      isWarehouseScoped
+        ? warehouses.filter((w) => String(w.id) === String(filterWarehouseId))
+        : warehouses,
+    [warehouses, isWarehouseScoped, filterWarehouseId]
+  );
+
+  // -----------------------------------------------------------------------
+  // Derived stats (using scoped list so stats reflect the filter)
   // -----------------------------------------------------------------------
 
   const stats = useMemo(
     () => ({
-      total: warehouses.length,
-      active: warehouses.filter((w) => w.status === "ACTIVE").length,
-      inactive: warehouses.filter((w) => w.status === "INACTIVE").length,
-      main: warehouses.filter((w) => w.locationType === "MAIN").length,
-      distribution: warehouses.filter((w) => w.locationType === "DISTRIBUTION").length,
+      total: scopedWarehouses.length,
+      active: scopedWarehouses.filter((w) => w.status === "ACTIVE").length,
+      inactive: scopedWarehouses.filter((w) => w.status === "INACTIVE").length,
+      main: scopedWarehouses.filter((w) => w.locationType === "MAIN").length,
+      distribution: scopedWarehouses.filter((w) => w.locationType === "DISTRIBUTION")
+        .length,
     }),
-    [warehouses]
+    [scopedWarehouses]
   );
 
-  // FIX #6: union fallback + any statuses already seen on rows.
   const statusOptions = useMemo(() => {
     const seen = new Set<string>(FALLBACK_STATUS);
     warehouses.forEach((w) => {
@@ -559,6 +543,10 @@ const WarehousePage: React.FC = () => {
     return Array.from(seen);
   }, [warehouses]);
 
+  // -----------------------------------------------------------------------
+  // Columns
+  // -----------------------------------------------------------------------
+
   const columns: ColumnDef<Warehouse>[] = [
     {
       key: "code",
@@ -566,12 +554,16 @@ const WarehousePage: React.FC = () => {
       sortable: true,
       render: (warehouse) => (
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-100 bg-cyan-50">
-            <BuildingOffice2Icon className="h-4 w-4 text-cyan-600" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-100 bg-cyan-50 dark:border-cyan-800 dark:bg-cyan-950/40">
+            <BuildingOffice2Icon className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-slate-900">{warehouse.code}</p>
-            <p className="text-xs text-slate-400">ID: #{warehouse.id}</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">
+              {warehouse.code}
+            </p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              ID: #{warehouse.id}
+            </p>
           </div>
         </div>
       ),
@@ -581,7 +573,9 @@ const WarehousePage: React.FC = () => {
       label: "Name",
       sortable: true,
       render: (warehouse) => (
-        <span className="text-sm text-slate-700">{warehouse.name}</span>
+        <span className="text-sm text-slate-700 dark:text-slate-300">
+          {warehouse.name}
+        </span>
       ),
     },
     {
@@ -593,7 +587,8 @@ const WarehousePage: React.FC = () => {
           aria-label={`Location type for ${warehouse.name}`}
           value={warehouse.locationType}
           onChange={(e) => handleTableUpdate(warehouse.id, "locationType", e.target.value)}
-          className={`w-[150px] rounded-lg border px-2.5 py-1 text-xs font-medium ${getLocationTypeColor(
+          onClick={(e) => e.stopPropagation()}
+          className={`w-[150px] rounded-lg border px-2.5 py-1 text-xs font-medium outline-none ${getLocationTypeColor(
             warehouse.locationType
           )}`}
         >
@@ -616,7 +611,8 @@ const WarehousePage: React.FC = () => {
             aria-label={`Status for ${warehouse.name}`}
             value={status}
             onChange={(e) => handleTableUpdate(warehouse.id, "status", e.target.value)}
-            className={`w-[100px] rounded-lg border px-2.5 py-1 text-xs font-medium ${getStatusColor(
+            onClick={(e) => e.stopPropagation()}
+            className={`w-[100px] rounded-lg border px-2.5 py-1 text-xs font-medium outline-none ${getStatusColor(
               status
             )}`}
             title="Stored locally only — not yet supported by the server"
@@ -635,7 +631,9 @@ const WarehousePage: React.FC = () => {
       label: "Stock Items",
       sortable: true,
       render: (warehouse) => (
-        <span className="text-sm text-slate-600">{warehouse.stockCount || 0}</span>
+        <span className="text-sm text-slate-600 dark:text-slate-300">
+          {warehouse.stockCount || 0}
+        </span>
       ),
     },
     {
@@ -645,11 +643,14 @@ const WarehousePage: React.FC = () => {
       headerClassName: "text-right",
       className: "text-right",
       render: (warehouse) => (
-        <div className="flex justify-end gap-1">
+        <div
+          className="flex justify-end gap-1"
+          onClick={(e) => e.stopPropagation()}
+        >
           <button
             type="button"
             onClick={() => openEdit(warehouse)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit"
             aria-label={`Edit ${warehouse.name}`}
           >
@@ -658,7 +659,7 @@ const WarehousePage: React.FC = () => {
           <button
             type="button"
             onClick={() => setDeleteWarehouse(warehouse)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
             aria-label={`Delete ${warehouse.name}`}
           >
@@ -678,6 +679,28 @@ const WarehousePage: React.FC = () => {
       />
 
       <div className="w-full max-w-none px-0 py-8">
+        {/* ── NEW: filter banner (matches customers / users pages) ── */}
+        {isWarehouseScoped && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-200">
+            <div className="flex items-center gap-2">
+              <FunnelIcon className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+              <span>
+                Showing warehouse:{" "}
+                <strong>
+                  {filterWarehouseName || `#${filterWarehouseId}`}
+                </strong>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate(WAREHOUSE_ROUTE)}
+              className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            >
+              View all warehouses
+            </button>
+          </div>
+        )}
+
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
             label="Total Warehouses"
@@ -714,7 +737,7 @@ const WarehousePage: React.FC = () => {
         </div>
 
         <ReusableTable
-          data={warehouses}
+          data={scopedWarehouses}
           columns={columns}
           loading={loading || enumLoading}
           pageSize={PAGE_SIZE}
@@ -724,16 +747,30 @@ const WarehousePage: React.FC = () => {
           rowDetailsTitle="Warehouse Details"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
-              <BuildingOffice2Icon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">No warehouses found</p>
-              <button
-                type="button"
-                onClick={() => fetchWarehouses()}
-                className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700"
-              >
-                <ArrowPathIcon className="h-3.5 w-3.5" />
-                Reload all warehouses
-              </button>
+              <BuildingOffice2Icon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
+                {isWarehouseScoped
+                  ? `No warehouse matches "${filterWarehouseName || `#${filterWarehouseId}`}"`
+                  : "No warehouses found"}
+              </p>
+              {isWarehouseScoped ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(WAREHOUSE_ROUTE)}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
+                >
+                  View all warehouses →
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fetchWarehouses()}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
+                >
+                  <ArrowPathIcon className="h-3.5 w-3.5" />
+                  Reload all warehouses
+                </button>
+              )}
             </div>
           }
         />
@@ -778,7 +815,10 @@ const WarehousePage: React.FC = () => {
                 includeEmptyOption={false}
                 options={statusOptions.map((status) => ({ id: status, name: status }))}
               />,
-              <p key="status-hint" className="text-xs text-amber-600">
+              <p
+                key="status-hint"
+                className="text-xs text-amber-600 dark:text-amber-400"
+              >
                 ⚠ Status is currently stored locally in this browser only — the
                 backend does not yet have a field to persist it server-side.
               </p>,
@@ -792,8 +832,8 @@ const WarehousePage: React.FC = () => {
         setIsPopupOpen={(open) => {
           if (!open) setDeleteWarehouse(null);
         }}
-        icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-        iconBg="bg-red-100"
+        icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
+        iconBg="bg-red-100 dark:bg-red-950/40"
         innerText="Delete Warehouse"
         subText={
           deleteWarehouse
