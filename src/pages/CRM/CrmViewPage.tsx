@@ -647,13 +647,15 @@ export default function CrmViewPage() {
                   {/* Communications */}
                   <div
                     className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() =>
-                      navigate(
-                        `/communication-history?${requestFrom?.replace(
-                          "s",
-                          ""
-                        )}Id=${id}`
-                      )
+                    onClick={() => {
+                  const params = new URLSearchParams();
+                   params.set("segmentId", String(id));
+                       if (requestFrom === "segments") {
+                       params.set("segmentName", nameField || `Segment #${id}`);
+                       }
+                       navigate(`/communications?${params.toString()}`);
+                     }
+                  
                     }
                   >
                     <div className="flex items-center justify-between mb-3">

@@ -207,7 +207,7 @@ import ExpenseRevenue from "./pages/Invoice/ExpenseRevenue";
 import AccountsReceivable from "./pages/Invoice/AccountsReceivable";
 import TaxReport from "./pages/reports/TaxReport";
 import FinanceReport from "./pages/reports/FinanceReport";
-import Reports from "./pages/reports/Reports";
+import Reports from "./pages/CRM/Reports";
 export default function AppRouter() {
   return (
     <BrowserRouter>
