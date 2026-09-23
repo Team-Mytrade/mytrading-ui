@@ -214,6 +214,7 @@ type QuotationForm = {
   itemTaxCode: string;
   itemRemarks: string;
   itemAdditionalDiscount: string;
+  itemAdditionalDiscountPercentage: string;
 };
 
 const API_URL = "/v1/api/sales/quotations";
@@ -321,6 +322,7 @@ const emptyForm: QuotationForm = {
   itemTaxCode: "",
   itemRemarks: "",
   itemAdditionalDiscount: "0",
+  itemAdditionalDiscountPercentage: "0",
 };
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -386,9 +388,16 @@ function calculateItem(form: QuotationForm) {
   const quantity = toNumber(form.itemQuantity);
   const unitPrice = toNumber(form.itemUnitPrice);
   const grossAmount = quantity * unitPrice;
+
   const percentageDiscount = (grossAmount * toNumber(form.itemDiscountPercentage)) / 100;
   const discountAmount = toNumber(form.itemDiscountAmount) || Number(percentageDiscount.toFixed(2));
-  const additionalDiscount = toNumber(form.itemAdditionalDiscount);
+
+  const additionalDiscountAmount = toNumber(form.itemAdditionalDiscount);
+  const additionalDiscountFromPercent =
+    (grossAmount * toNumber(form.itemAdditionalDiscountPercentage)) / 100;
+  const additionalDiscount =
+    additionalDiscountAmount || Number(additionalDiscountFromPercent.toFixed(2));
+
   const taxableAmount = Math.max(0, grossAmount - discountAmount - additionalDiscount);
   const taxAmount = Number(((taxableAmount * toNumber(form.itemTaxRate)) / 100).toFixed(2));
   return {
@@ -420,6 +429,7 @@ function resetItemFields(form: QuotationForm): QuotationForm {
     itemTaxCode: "",
     itemRemarks: "",
     itemAdditionalDiscount: "0",
+    itemAdditionalDiscountPercentage: "0",
   };
 }
 
@@ -451,6 +461,18 @@ function calculateQuotationTotals(items: QuotationItemPayload[]) {
     { subTotal: 0, discountAmount: 0, additionalDiscount: 0, taxAmount: 0, grandTotal: 0 }
   );
 }
+
+// Shared input class used by every field inside the Add Item card so
+// PRODUCT and SERVICE modes have identical styling — including an explicit
+// placeholder color for both light and dark themes.
+const itemFieldClass =
+  "w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800";
+
+const itemFieldClassSmall =
+  "w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800";
+
+const itemStaticChipClass =
+  "rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400";
 
 const Quotations: React.FC = () => {
   const navigate = useNavigate();
@@ -526,7 +548,7 @@ const Quotations: React.FC = () => {
       taxRate: toNumber(form.itemTaxRate),
       taxCode: form.itemTaxCode,
       remarks: form.itemRemarks,
-      additionalDiscount: toNumber(form.itemAdditionalDiscount),
+      additionalDiscount: draftItemTotals.additionalDiscount,
     };
     const draftHasData =
       isPositiveNumber(form.itemQuantity) &&
@@ -550,6 +572,7 @@ const Quotations: React.FC = () => {
     form.itemDiscountAmount,
     form.itemTaxRate,
     form.itemAdditionalDiscount,
+    form.itemAdditionalDiscountPercentage,
   ]);
 
   const fetchQuotations = async () => {
@@ -721,7 +744,7 @@ const Quotations: React.FC = () => {
       taxRate: toNumber(form.itemTaxRate),
       taxCode: form.itemTaxCode,
       remarks: form.itemRemarks,
-      additionalDiscount: toNumber(form.itemAdditionalDiscount),
+      additionalDiscount: calculated.additionalDiscount,
     };
 
     const categoryId = optionalPositiveNumber(form.itemCategoryId);
@@ -760,10 +783,14 @@ const Quotations: React.FC = () => {
       ToasterService.error("Line item required", "Add at least one product using the + button.");
       return;
     }
-    if (!isPercent(form.itemDiscountPercentage) || !isPercent(form.itemTaxRate)) {
+    if (
+      !isPercent(form.itemDiscountPercentage) ||
+      !isPercent(form.itemTaxRate) ||
+      !isPercent(form.itemAdditionalDiscountPercentage)
+    ) {
       ToasterService.error(
         "Invalid percentage",
-        "Discount and tax percentages must be between 0 and 100."
+        "Discount, additional discount, and tax percentages must be between 0 and 100."
       );
       return;
     }
@@ -849,11 +876,12 @@ const Quotations: React.FC = () => {
     if (
       !isPercent(form.discountPercentage) ||
       !isPercent(form.itemDiscountPercentage) ||
-      !isPercent(form.itemTaxRate)
+      !isPercent(form.itemTaxRate) ||
+      !isPercent(form.itemAdditionalDiscountPercentage)
     ) {
       ToasterService.error(
         "Invalid percentage",
-        "Discount and tax percentages must be between 0 and 100."
+        "Discount, additional discount, and tax percentages must be between 0 and 100."
       );
       return;
     }
@@ -978,6 +1006,7 @@ const Quotations: React.FC = () => {
         itemTaxCode: "",
         itemRemarks: "",
         itemAdditionalDiscount: "0",
+        itemAdditionalDiscountPercentage: "0",
       });
       setShowFormModal(true);
     } catch (error) {
@@ -1193,7 +1222,6 @@ const Quotations: React.FC = () => {
         />
         <PageBreadcrumb pageTitle={editingId ? "Edit Quotation" : "Create Quotation"} />
 
-        {/* ✅ Scrollable page wrapper — fixes the "Add Quotation" form not scrolling */}
         <div className="h-[calc(100dvh-140px)] w-full overflow-y-auto bg-slate-50 dark:bg-slate-950">
           <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6">
             <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-white via-slate-50/70 to-slate-100 p-4 shadow-xl shadow-slate-100/70 dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 dark:shadow-slate-950/50 sm:rounded-3xl sm:p-6 lg:p-8">
@@ -1287,14 +1315,14 @@ const Quotations: React.FC = () => {
                               name="billingAddressLine1"
                               value={form.billingAddressLine1}
                               onChange={handleChange}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
                               placeholder="Billing address"
                             />
                             <input
                               name="shippingAddressLine1"
                               value={form.shippingAddressLine1}
                               onChange={handleChange}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
                               placeholder="Shipping address"
                             />
                           </div>
@@ -1396,7 +1424,7 @@ const Quotations: React.FC = () => {
                           value={form.subject}
                           onChange={handleChange}
                           rows={2}
-                          className="w-full max-w-xl resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[15px] font-medium text-slate-800 shadow-sm transition hover:bg-slate-100 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800 dark:focus:bg-slate-900"
+                          className="w-full max-w-xl resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[15px] font-medium text-slate-800 shadow-sm transition placeholder:text-slate-400 hover:bg-slate-100 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:hover:bg-slate-800 dark:focus:bg-slate-900"
                           placeholder="e.g., Quotation for Q3 office furniture supply"
                         />
                       </div>
@@ -1450,73 +1478,75 @@ const Quotations: React.FC = () => {
                           ))}
                         </div>
 
-                        {/* CATEGORY / PRODUCT */}
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                          {form.itemType === "PRODUCT" ? (
-                            <>
-                              <select
-                                name="itemCategoryId"
-                                value={form.itemCategoryId}
-                                onChange={handleChange}
-                                className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:bg-slate-800"
-                              >
-                                <option value="">Select category</option>
-                                {leafCategories.map((category) => (
-                                  <option key={category.id} value={category.id}>
-                                    {category.parentName
-                                      ? `${category.parentName} / ${category.categoryName}`
-                                      : category.categoryName}
-                                  </option>
-                                ))}
-                              </select>
-                              <select
-                                name="itemProductId"
-                                value={form.itemProductId}
-                                onChange={handleChange}
-                                className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:bg-slate-800"
-                              >
-                                <option value="">Select product</option>
-                                {filteredProducts.map((product) => (
-                                  <option key={product.id} value={product.id}>
-                                    {product.productName ||
-                                      product.shortName ||
-                                      "Unnamed product"}
-                                  </option>
-                                ))}
-                              </select>
-                            </>
-                          ) : (
-                            <>
-                              {editingId && (
-                                <input
-                                  name="itemServiceItemId"
-                                  type="number"
-                                  value={form.itemServiceItemId}
-                                  onChange={handleChange}
-                                  className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:bg-slate-800"
-                                  placeholder="Service item reference"
-                                />
-                              )}
-                              <input
-                                name="itemProductName"
-                                value={form.itemProductName}
-                                onChange={handleChange}
-                                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:bg-slate-800"
-                                placeholder="Service name"
-                              />
-                            </>
-                          )}
-                        </div>
+                        {/* CATEGORY / PRODUCT — PRODUCT mode vs SERVICE mode
+                            Both branches use `itemFieldClass` so backgrounds,
+                            borders, text, and placeholder colors are identical
+                            in light and dark themes. */}
+                        {form.itemType === "PRODUCT" ? (
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <select
+                              name="itemCategoryId"
+                              value={form.itemCategoryId}
+                              onChange={handleChange}
+                              className={itemFieldClass}
+                            >
+                              <option value="">Select category</option>
+                              {leafCategories.map((category) => (
+                                <option key={category.id} value={category.id}>
+                                  {category.parentName
+                                    ? `${category.parentName} / ${category.categoryName}`
+                                    : category.categoryName}
+                                </option>
+                              ))}
+                            </select>
+                            <select
+                              name="itemProductId"
+                              value={form.itemProductId}
+                              onChange={handleChange}
+                              className={itemFieldClass}
+                            >
+                              <option value="">Select product</option>
+                              {filteredProducts.map((product) => (
+                                <option key={product.id} value={product.id}>
+                                  {product.productName ||
+                                    product.shortName ||
+                                    "Unnamed product"}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <input
+                              name="itemProductName"
+                              value={form.itemProductName}
+                              onChange={handleChange}
+                              className={itemFieldClass}
+                              placeholder="Service name"
+                            />
+                            <input
+                              name="itemServiceItemId"
+                              type="number"
+                              value={form.itemServiceItemId}
+                              onChange={handleChange}
+                              className={itemFieldClass}
+                              placeholder="Service item ID (optional)"
+                            />
+                          </div>
+                        )}
 
+                        {/* DESCRIPTION ROW — PRODUCT shows read-only chips,
+                            SERVICE shows editable inputs. Both styled to
+                            match in dark mode. */}
                         {form.itemType === "PRODUCT" ? (
                           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                            <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                            <div className={itemStaticChipClass}>
                               {form.itemProductCode || "Product code"}
                             </div>
-                            <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                            <div className={itemStaticChipClass}>
                               {form.itemDescription || "Description"}
                             </div>
-                            <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                            <div className={itemStaticChipClass}>
                               {form.itemUom || "UOM"}
                             </div>
                           </div>
@@ -1526,28 +1556,28 @@ const Quotations: React.FC = () => {
                               name="itemProductCode"
                               value={form.itemProductCode}
                               onChange={handleChange}
-                              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:bg-slate-800"
+                              className={itemFieldClassSmall}
                               placeholder="Service code"
                             />
                             <input
                               name="itemDescription"
                               value={form.itemDescription}
                               onChange={handleChange}
-                              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:bg-slate-800"
+                              className={itemFieldClassSmall}
                               placeholder="Description"
                             />
                             <input
                               name="itemUom"
                               value={form.itemUom}
                               onChange={handleChange}
-                              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:bg-slate-800"
+                              className={itemFieldClassSmall}
                               placeholder="UOM"
                             />
                           </div>
                         )}
 
-                        {/* QTY / RATE / DISC / TAX */}
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        {/* QTY / RATE / DISC % / ADD DISC % / TAX % */}
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                           <div>
                             <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                               Quantity
@@ -1559,7 +1589,7 @@ const Quotations: React.FC = () => {
                               value={form.itemQuantity}
                               onChange={handleChange}
                               required
-                              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:bg-slate-800"
+                              className={itemFieldClassSmall}
                             />
                           </div>
                           <div>
@@ -1574,12 +1604,12 @@ const Quotations: React.FC = () => {
                               value={form.itemUnitPrice}
                               onChange={handleChange}
                               required
-                              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:bg-slate-800"
+                              className={itemFieldClassSmall}
                             />
                           </div>
                           <div>
                             <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                              Discount %
+                              Disc %
                             </label>
                             <input
                               name="itemDiscountPercentage"
@@ -1588,7 +1618,21 @@ const Quotations: React.FC = () => {
                               max="100"
                               value={form.itemDiscountPercentage}
                               onChange={handleChange}
-                              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:bg-slate-800"
+                              className={itemFieldClassSmall}
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                              Add Disc %
+                            </label>
+                            <input
+                              name="itemAdditionalDiscountPercentage"
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={form.itemAdditionalDiscountPercentage}
+                              onChange={handleChange}
+                              className={itemFieldClassSmall}
                             />
                           </div>
                           <div>
@@ -1602,7 +1646,7 @@ const Quotations: React.FC = () => {
                               max="100"
                               value={form.itemTaxRate}
                               onChange={handleChange}
-                              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:bg-slate-800"
+                              className={itemFieldClassSmall}
                             />
                           </div>
                         </div>
@@ -1688,6 +1732,14 @@ const Quotations: React.FC = () => {
                                     {item.discountPercentage}%
                                   </strong>
                                 </span>
+                                {item.additionalDiscount > 0 && (
+                                  <span>
+                                    Add Disc{" "}
+                                    <strong className="text-slate-800 dark:text-slate-200">
+                                      {money(item.additionalDiscount)}
+                                    </strong>
+                                  </span>
+                                )}
                                 <span>
                                   Tax{" "}
                                   <strong className="text-slate-800 dark:text-slate-200">
@@ -1711,7 +1763,7 @@ const Quotations: React.FC = () => {
                         value={form.customerNotes}
                         onChange={handleChange}
                         rows={3}
-                        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
                         placeholder="Customer notes"
                       />
                       <textarea
@@ -1719,7 +1771,7 @@ const Quotations: React.FC = () => {
                         value={form.termsAndConditions}
                         onChange={handleChange}
                         rows={3}
-                        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
                         placeholder="Terms and conditions"
                       />
                       <textarea
@@ -1727,7 +1779,7 @@ const Quotations: React.FC = () => {
                         value={form.remarks}
                         onChange={handleChange}
                         rows={3}
-                        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
                         placeholder="Remarks"
                       />
                       <textarea
@@ -1735,7 +1787,7 @@ const Quotations: React.FC = () => {
                         value={form.internalNotes}
                         onChange={handleChange}
                         rows={3}
-                        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
                         placeholder="Internal notes"
                       />
                     </div>
