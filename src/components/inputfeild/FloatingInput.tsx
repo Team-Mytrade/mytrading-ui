@@ -129,6 +129,19 @@ const floatingStyles = `
     color: transparent !important;
   }
 
+  /* Native date/time controls otherwise retain Chrome's dark calendar glyph. */
+  .dark input[type="date"]::-webkit-calendar-picker-indicator,
+  .dark input[type="time"]::-webkit-calendar-picker-indicator,
+  .dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 1;
+  }
+
+  /* FloatingDatePicker uses its own SVG rather than the native glyph. */
+  .dark .floating-datepicker ~ svg {
+    color: #fff !important;
+  }
+
   .dark .floating-input:disabled,
   .dark .floating-select:disabled {
     background-color: #1f2937 !important;
