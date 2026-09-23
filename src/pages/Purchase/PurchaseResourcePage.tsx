@@ -148,6 +148,7 @@ const asArray = (value: any): PurchaseRecord[] => {
   return [];
 };
 
+
 const getValue = (row: PurchaseRecord, path: string): any => {
   return path.split(".").reduce((acc, key) => acc?.[key], row);
 };
@@ -718,7 +719,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           onChange={(event) => setField(field, event.target.value)}
           options={floatingOptions}
           required={field.required}
-          emptyOptionLabel={field.placeholderOption || `Select ${field.label}`}
+          emptyOptionLabel={field.placeholderOption ?? " "}
         />
       );
     } else if (field.type === "checkbox") {
@@ -742,6 +743,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       );
     } else if (field.type === "date") {
       control = (
+        
         <FloatingDatePicker
           label={field.label}
           value={value}

@@ -750,7 +750,25 @@ export const approvalStatusConfig: PurchaseResourceConfig = {
     // { key: "purchaseOrderId", label: "Purchase Order ID" },
     { key: "status", label: "Status", render: (row) => statusBadge(row.status) },
     { key: "approvedBy", label: "Approved By" },
-    { key: "approvalDate", label: "Approval Date" },
+    { key: "approvalDate", label: "Approval Date",
+       render: (row) => {
+    const raw = row.approvalDate;
+    if (!raw) return <span className="text-gray-400">--</span>;
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return <span>{String(raw)}</span>;
+    return (
+      <span>
+        {d.toLocaleString("en-IN", {
+          year: "numeric",
+          month: "short",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </span>
+    );
+  },
+     },
   ],
   fields: [
     {

@@ -61,7 +61,7 @@ import Deliveries from "./pages/Purchase/Deliveries";
 import ApprovalStatus from "./pages/Purchase/ApprovalStatus";
 import GoodsReceiptNotes from "./pages/Purchase/GoodsReceiptNotes";
 import Inventory from "./pages/Purchase/Inventory";
-import PurchaseReports from "./pages/reports/PurchaseReports";
+import PurchaseReports from "./pages/Purchase/PurchaseReports";
 import DeliveryOrderPage from "./pages/Delivery/DeliveryOrderPage";
 import TransporterPage from "./pages/Delivery/TransporterPage";
 import VehiclePage from "./pages/Delivery/VehiclePage";
