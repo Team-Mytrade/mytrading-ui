@@ -49,11 +49,7 @@ type InventoryReservation = {
   productCategory?: string;
 };
 
-type Warehouse = {
-  id: number;
-  code: string;
-  name: string;
-};
+type Warehouse = { id: number; code: string; name: string };
 
 type Product = {
   id: number;
@@ -96,14 +92,12 @@ const SALES_ORDER_API_URL = "/v1/api/sales/sales-orders";
 const ENUM_API_URL = "/v1/api/inventory/enums";
 const PAGE_SIZE = 10;
 
-// 🔧 Route paths — match your app's actual routes.
 const PRODUCT_ROUTE = "/purchase-products";
 const WAREHOUSE_ROUTE = "/warehouse";
 const CUSTOMERS_PAGE_PATH = "/customer-management";
 const SALES_ORDERS_ROUTE = "/sales-orders";
 
 const USER_SELECTABLE_STATUSES = ["RESERVED", "RELEASED", "CONSUMED", "CANCELLED"];
-const ALL_STATUSES = ["RESERVED", "RELEASED", "CONSUMED", "CANCELLED", "EXPIRED"];
 
 const emptyForm: InventoryForm = {
   salesOrderId: "",
@@ -129,7 +123,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 function getCustomerName(customer: Customer | undefined): string {
   if (!customer) return "--";
-  return customer.customerName || customer.tradeName || `Customer #${customer.id}`;
+  return customer.customerName || customer.tradeName || "Unknown customer";
 }
 
 const InventoryReservationManager: React.FC = () => {
@@ -162,6 +156,25 @@ const InventoryReservationManager: React.FC = () => {
     fetchDropdowns();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // =====================================================================
+  // DISPLAY HELPERS — no raw IDs shown anywhere in sales-order context.
+  // Underlying value submitted to the backend is still the real id.
+  // =====================================================================
+  const getSalesOrderLabel = (order: SalesOrder, index: number) => {
+    const num = (order.orderNumber || "").trim();
+    if (num) return num;
+    // Positional display label only — the underlying value is still the real id.
+    return `Sales Order #${index + 1}`;
+  };
+
+  const getSalesOrderDisplayById = (orderId?: number | null) => {
+    if (!orderId) return "Sales Order";
+    const index = salesOrders.findIndex((o) => Number(o.id) === Number(orderId));
+    if (index >= 0) return getSalesOrderLabel(salesOrders[index], index);
+    // Never fall back to the raw id.
+    return "Sales Order";
+  };
 
   const fetchEnums = async (): Promise<void> => {
     try {
@@ -215,9 +228,7 @@ const InventoryReservationManager: React.FC = () => {
       const response = await axios.get<InventoryReservation[]>(API_URL, { headers });
       const data = Array.isArray(response.data) ? response.data : [];
 
-      // Only enrich self-contained fields (items-based). Customer / order
-      // resolution is done at RENDER time — see getReservationCustomer() —
-      // so the values update as soon as customers/salesOrders finish loading.
+      // Customer / order resolution done at RENDER time — see the getReservation* helpers.
       const enrichedData = data.map((reservation) => {
         const firstItem = reservation.items?.[0];
         return {
@@ -240,10 +251,7 @@ const InventoryReservationManager: React.FC = () => {
 
   const openCreate = (): void => {
     setEditingId(null);
-    setForm({
-      ...emptyForm,
-      status: statusOptions[0] || "RESERVED",
-    });
+    setForm({ ...emptyForm, status: statusOptions[0] || "RESERVED" });
     setShowFormModal(true);
   };
 
@@ -277,10 +285,7 @@ const InventoryReservationManager: React.FC = () => {
     status: form.status,
     reservationDate: form.reservationDate,
     items: [
-      {
-        productId: toNumber(form.productId),
-        reservedQty: toNumber(form.reservedQty),
-      },
+      { productId: toNumber(form.productId), reservedQty: toNumber(form.reservedQty) },
     ],
   });
 
@@ -291,11 +296,7 @@ const InventoryReservationManager: React.FC = () => {
     status: form.status,
     reservationDate: form.reservationDate,
     items: [
-      {
-        id: 0,
-        productId: toNumber(form.productId),
-        reservedQty: toNumber(form.reservedQty),
-      },
+      { id: 0, productId: toNumber(form.productId), reservedQty: toNumber(form.reservedQty) },
     ],
   });
 
@@ -303,7 +304,7 @@ const InventoryReservationManager: React.FC = () => {
     e.preventDefault();
 
     if (!form.salesOrderId || toNumber(form.salesOrderId) <= 0) {
-      ToasterService.error("Sales Order ID is required");
+      ToasterService.error("Please select a sales order");
       return;
     }
     if (!form.warehouseId || toNumber(form.warehouseId) <= 0) {
@@ -342,7 +343,6 @@ const InventoryReservationManager: React.FC = () => {
 
   const handleRelease = async (): Promise<void> => {
     if (!actionId) return;
-
     try {
       setSubmitting(true);
       await axios.put(`${API_URL}/${actionId}/release`, {}, { headers });
@@ -359,7 +359,6 @@ const InventoryReservationManager: React.FC = () => {
 
   const handleConsume = async (): Promise<void> => {
     if (!actionId) return;
-
     try {
       setSubmitting(true);
       await axios.put(`${API_URL}/${actionId}/consume`, {}, { headers });
@@ -376,7 +375,6 @@ const InventoryReservationManager: React.FC = () => {
 
   const confirmDelete = async (): Promise<void> => {
     if (!deleteId) return;
-
     try {
       setSubmitting(true);
       await axios.delete(`${API_URL}/${deleteId}?cascade=true`, { headers });
@@ -441,52 +439,35 @@ const InventoryReservationManager: React.FC = () => {
   };
 
   // =====================================================================
-  // FIX: resolve customer / order labels at RENDER time.
-  // This runs on every render, so as soon as `customers` and `salesOrders`
-  // finish loading, the labels update automatically — no race condition.
+  // Render-time resolvers (no raw ids shown)
   // =====================================================================
   const getReservationOrder = (reservation: InventoryReservation) =>
     salesOrders.find((o) => Number(o.id) === Number(reservation.salesOrderId));
 
   const getReservationCustomer = (reservation: InventoryReservation) => {
-    // 1. Direct customerId on the reservation
     if (reservation.customerId) {
-      const direct = customers.find(
-        (c) => Number(c.id) === Number(reservation.customerId)
-      );
+      const direct = customers.find((c) => Number(c.id) === Number(reservation.customerId));
       if (direct) return direct;
     }
-
-    // 2. salesOrderId → order.customerId → customer
     const order = getReservationOrder(reservation);
     if (order?.customerId) {
-      const viaOrder = customers.find(
-        (c) => Number(c.id) === Number(order.customerId)
-      );
+      const viaOrder = customers.find((c) => Number(c.id) === Number(order.customerId));
       if (viaOrder) return viaOrder;
     }
-
     return undefined;
   };
 
   const getReservationCustomerName = (reservation: InventoryReservation) => {
     const customer = getReservationCustomer(reservation);
     if (customer) return getCustomerName(customer);
-
-    // Fallback — try the order number, then last-resort IDs
-    const order = getReservationOrder(reservation);
-    if (order?.orderNumber) return order.orderNumber;
-    if (order?.id) return `Order #${order.id}`;
-    if (reservation.salesOrderId) return `Order #${reservation.salesOrderId}`;
+    // No order-id fallback — that showed "#77". Just say unknown.
     return "Unknown customer";
   };
 
-  const getReservationCustomerId = (reservation: InventoryReservation) => {
-    const customer = getReservationCustomer(reservation);
-    return customer?.id;
-  };
+  const getReservationCustomerId = (reservation: InventoryReservation) =>
+    getReservationCustomer(reservation)?.id;
 
-  // ---------- Navigation helpers ----------
+  // ---------- Navigation ----------
   const goToProduct = (productId?: number, productName?: string) => {
     if (!productId) return;
     navigate(
@@ -516,14 +497,14 @@ const InventoryReservationManager: React.FC = () => {
 
   const goToSalesOrder = (orderId?: number) => {
     if (!orderId) return;
+    // URL still uses id (that's fine — it's the routing param, not display).
     navigate(`${SALES_ORDERS_ROUTE}?orderId=${orderId}`);
   };
 
-  // ---------- Row details renderer ----------
+  // ---------- Row details ----------
   const renderReservationDetails = (reservation: InventoryReservation) => {
     const warehouse = warehouses.find((w) => Number(w.id) === Number(reservation.warehouseId));
-    const customer = getReservationCustomer(reservation);
-    const customerId = customer?.id;
+    const customerId = getReservationCustomerId(reservation);
     const customerName = getReservationCustomerName(reservation);
 
     const Field = ({
@@ -552,8 +533,9 @@ const InventoryReservationManager: React.FC = () => {
     return (
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Reservation No">{reservation.reservationNo || "--"}</Field>
-          <Field label="Reservation ID">#{reservation.id}</Field>
+          <Field label="Reservation No" full>
+            {reservation.reservationNo || "--"}
+          </Field>
 
           <Field label="Customer" full>
             {customerId ? (
@@ -570,16 +552,17 @@ const InventoryReservationManager: React.FC = () => {
           </Field>
 
           <Field label="Sales Order">
+            {/* CHANGED: no raw id — order number or "Sales Order". */}
             {reservation.salesOrderId ? (
               <button
                 type="button"
                 onClick={() => goToSalesOrder(reservation.salesOrderId)}
                 className="text-left text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
               >
-                #{reservation.salesOrderId}
+                {getSalesOrderDisplayById(reservation.salesOrderId)}
               </button>
             ) : (
-              <span>--</span>
+              <span>—</span>
             )}
           </Field>
 
@@ -593,7 +576,7 @@ const InventoryReservationManager: React.FC = () => {
                 {warehouse?.name || `Warehouse #${reservation.warehouseId}`}
               </button>
             ) : (
-              <span>--</span>
+              <span>—</span>
             )}
           </Field>
 
@@ -614,7 +597,6 @@ const InventoryReservationManager: React.FC = () => {
           <Field label="Total Items">{reservation.items?.length || 0}</Field>
         </div>
 
-        {/* Items list */}
         {reservation.items && reservation.items.length > 0 && (
           <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
             <div className="mb-2 text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
@@ -659,9 +641,6 @@ const InventoryReservationManager: React.FC = () => {
             <p className="text-sm font-semibold text-slate-900 dark:text-white">
               {reservation.reservationNo}
             </p>
-            <p className="text-xs text-slate-400 dark:text-slate-500">
-              ID: #{reservation.id}
-            </p>
           </div>
         </div>
       ),
@@ -670,7 +649,6 @@ const InventoryReservationManager: React.FC = () => {
       key: "customerName",
       label: "Customer",
       sortable: true,
-      // Sort by the resolved name, not the raw field
       sortValueGetter: (reservation) => getReservationCustomerName(reservation),
       render: (reservation) => {
         const customerId = getReservationCustomerId(reservation);
@@ -722,10 +700,11 @@ const InventoryReservationManager: React.FC = () => {
       key: "salesOrderId",
       label: "Sales Order",
       sortable: true,
+      sortValueGetter: (reservation) => getSalesOrderDisplayById(reservation.salesOrderId),
       render: (reservation) => {
         const orderId = reservation.salesOrderId;
-        const order = getReservationOrder(reservation);
-        const label = order?.orderNumber ? order.orderNumber : `#${orderId || "--"}`;
+        // CHANGED: shows order number or "Sales Order" — never the raw id.
+        const label = getSalesOrderDisplayById(orderId);
         return (
           <button
             type="button"
@@ -760,10 +739,7 @@ const InventoryReservationManager: React.FC = () => {
             }}
           >
             <BuildingOffice2Icon className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-            <span>
-              {warehouse?.name ||
-                (reservation.warehouseId ? `#${reservation.warehouseId}` : "N/A")}
-            </span>
+            <span>{warehouse?.name || "—"}</span>
           </button>
         );
       },
@@ -800,10 +776,7 @@ const InventoryReservationManager: React.FC = () => {
       headerClassName: "text-right",
       className: "text-right",
       render: (reservation) => (
-        <div
-          className="flex justify-end gap-1"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={() => openEdit(reservation)}
@@ -954,14 +927,16 @@ const InventoryReservationManager: React.FC = () => {
             fields: [
               <FloatingSelect
                 key="salesOrderId"
-                label="Sales Order ID"
+                // CHANGED: label no longer says "ID".
+                label="Sales Order"
                 name="salesOrderId"
                 value={form.salesOrderId}
                 onChange={handleChange}
                 emptyOptionLabel="Select sales order"
-                options={salesOrders.map((order) => ({
+                // CHANGED: no more `#${id} -` prefix. Value still carries the id.
+                options={salesOrders.map((order, index) => ({
                   id: String(order.id),
-                  name: `#${order.id} - ${order.orderNumber || "Order"}`,
+                  name: getSalesOrderLabel(order, index),
                 }))}
                 required
               />,
@@ -985,10 +960,7 @@ const InventoryReservationManager: React.FC = () => {
                 value={form.status}
                 onChange={handleChange}
                 includeEmptyOption={false}
-                options={statusOptions.map((status) => ({
-                  id: status,
-                  name: status,
-                }))}
+                options={statusOptions.map((status) => ({ id: status, name: status }))}
               />,
               <FloatingInput
                 key="reservationDate"

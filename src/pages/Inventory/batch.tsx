@@ -48,8 +48,8 @@ type Batch = {
   daysUntilExpiry?: number;
 };
 
+// CHANGED: batchNumber removed from the form — the backend generates it.
 type BatchForm = {
-  batchNumber: string;
   manufacturingDate: string;
   expiryDate: string;
   productId: string;
@@ -94,7 +94,7 @@ const PAGE_SIZE = 10;
 
 const PRODUCT_ROUTE = "/purchase-products";
 const WAREHOUSE_ROUTE = "/warehouse";
-const BATCH_ROUTE = "/batch";   // used by "View all batches"
+const BATCH_ROUTE = "/batch";
 
 const STATIC_BATCH_DATA_MAP: Record<number, any> = {
   1: { supplierName: "ABC Supplies" },
@@ -107,17 +107,8 @@ const STATIC_BATCH_DATA = {
 
 const FALLBACK_STATUS = ["GOOD", "EXPIRING_SOON", "EXPIRED", "EMPTY"];
 
-const generateBatchNumber = (): string => {
-  const prefix = "BATCH";
-  const timestamp = new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
-  const random = Math.floor(Math.random() * 10000)
-    .toString()
-    .padStart(4, "0");
-  return `${prefix}-${timestamp}-${random}`;
-};
-
+// CHANGED: emptyForm no longer carries batchNumber — BE generates it on create.
 const emptyForm: BatchForm = {
-  batchNumber: generateBatchNumber(),
   manufacturingDate: new Date().toISOString().split("T")[0],
   expiryDate: "",
   productId: "",
@@ -210,7 +201,6 @@ const getFEFORank = (batches: Batch[], batch: Batch) => {
 const BatchManagement: React.FC = () => {
   const navigate = useNavigate();
 
-  // ── NEW: read batch filter params from URL ─────────────────────
   const [searchParams] = useSearchParams();
   const filterBatchId = searchParams.get("batchId");
   const filterBatchName = searchParams.get("batchName") || "";
@@ -310,7 +300,8 @@ const BatchManagement: React.FC = () => {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ ...emptyForm, batchNumber: generateBatchNumber() });
+    // CHANGED: no batchNumber to seed — BE generates it.
+    setForm({ ...emptyForm, manufacturingDate: new Date().toISOString().split("T")[0] });
     setShowFormModal(true);
   };
 
@@ -322,8 +313,8 @@ const BatchManagement: React.FC = () => {
 
   const openEdit = (batch: Batch) => {
     setEditingId(batch.id);
+    // CHANGED: no batchNumber field to populate — it stays as-is on the BE.
     setForm({
-      batchNumber: batch.batchNumber,
       manufacturingDate: batch.manufacturingDate,
       expiryDate: batch.expiryDate,
       productId: String(batch.productId),
@@ -341,11 +332,12 @@ const BatchManagement: React.FC = () => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  // CHANGED: batchNumber is not sent — BE generates it on create and keeps
+  // it untouched on update.
   const buildPayload = () => {
     const selectedWarehouse = warehouses.find((w) => String(w.id) === form.warehouse);
 
     const payload: any = {
-      batchNumber: form.batchNumber.trim(),
       manufacturingDate: form.manufacturingDate,
       expiryDate: form.expiryDate,
       productId: toNumber(form.productId),
@@ -367,7 +359,6 @@ const BatchManagement: React.FC = () => {
     e.preventDefault();
 
     if (
-      !form.batchNumber.trim() ||
       !form.manufacturingDate ||
       !form.expiryDate ||
       !form.productId ||
@@ -480,7 +471,6 @@ const BatchManagement: React.FC = () => {
     );
   };
 
-  // ---------- NEW: scoped batches ----------
   const scopedBatches = useMemo(
     () =>
       isBatchScoped
@@ -503,6 +493,163 @@ const BatchManagement: React.FC = () => {
     };
   }, [scopedBatches]);
 
+  // ---------- Row details ----------
+  const renderBatchDetails = (batch: Batch) => {
+    const product = products.find(
+      (p) => p.id === batch.productId || p.productId === batch.productId
+    );
+    const productLabel = product
+      ? normalizeProductLabel(product)
+      : `Product #${batch.productId}`;
+
+    const warehouseName = getWarehouseDisplay(batch);
+    const warehouseId =
+      typeof batch.warehouse === "object" && batch.warehouse !== null
+        ? Number(batch.warehouse.id)
+        : warehouses.find(
+            (w) =>
+              String(w.id) === String(batch.warehouse) ||
+              w.name === batch.warehouse ||
+              w.code === batch.warehouse
+          )?.id;
+
+    const days = getDaysUntilExpiry(batch);
+    const statusInfo = getBatchStatus(batch);
+
+    const createdAt = batch.createdDate
+      ? new Date(batch.createdDate).toLocaleString()
+      : "--";
+    const updatedAt = batch.updatedDate
+      ? new Date(batch.updatedDate).toLocaleString()
+      : "--";
+
+    const Field = ({
+      label,
+      children,
+      full,
+    }: {
+      label: string;
+      children: React.ReactNode;
+      full?: boolean;
+    }) => (
+      <div
+        className={`rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800 ${
+          full ? "col-span-2" : ""
+        }`}
+      >
+        <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+          {label}
+        </div>
+        <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+          {children}
+        </div>
+      </div>
+    );
+
+    return (
+      <div className="grid grid-cols-2 gap-3">
+        {/* Batch number still displayed here — read-only, from BE. */}
+        <Field label="Batch Number" full>
+          {batch.batchNumber || "--"}
+        </Field>
+
+        <Field label="Product" full>
+          {batch.productId ? (
+            <button
+              type="button"
+              onClick={() => goToProduct(batch.productId)}
+              className="text-left text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            >
+              {productLabel}
+            </button>
+          ) : (
+            <span>{productLabel}</span>
+          )}
+          {product?.categoryName && (
+            <div className="mt-0.5 text-xs font-normal text-slate-500 dark:text-slate-400">
+              Category: {product.categoryName}
+            </div>
+          )}
+        </Field>
+
+        <Field label="Warehouse">
+          {warehouseId ? (
+            <button
+              type="button"
+              onClick={() => goToWarehouse(warehouseId, warehouseName)}
+              className="text-left text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            >
+              {warehouseName || "--"}
+            </button>
+          ) : (
+            <span>{warehouseName || "--"}</span>
+          )}
+        </Field>
+        <Field label="Supplier">{batch.supplierName || "--"}</Field>
+
+        <Field label="MFG Date">
+          {batch.manufacturingDate
+            ? new Date(batch.manufacturingDate).toLocaleDateString()
+            : "--"}
+        </Field>
+        <Field label="Expiry Date">
+          <span
+            className={
+              days < 0
+                ? "text-red-600 dark:text-red-400"
+                : days <= 30
+                ? "text-amber-600 dark:text-amber-400"
+                : ""
+            }
+          >
+            {batch.expiryDate
+              ? new Date(batch.expiryDate).toLocaleDateString()
+              : "--"}
+          </span>
+          {days >= 0 && (
+            <div className="mt-0.5 text-xs font-normal text-slate-500 dark:text-slate-400">
+              {days} days left
+            </div>
+          )}
+          {days < 0 && (
+            <div className="mt-0.5 text-xs font-normal text-red-600 dark:text-red-400">
+              Expired {Math.abs(days)} days ago
+            </div>
+          )}
+        </Field>
+
+        <Field label="Status" full>
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusInfo.className}`}
+          >
+            {statusInfo.icon}
+            {statusInfo.label}
+          </span>
+        </Field>
+
+        <Field label="Quantity">{batch.quantity ?? 0}</Field>
+        <Field label="Reserved">
+          <span className="text-orange-600 dark:text-orange-400">
+            {batch.reserved ?? 0}
+          </span>
+        </Field>
+
+        <Field label="Available">
+          <span className="text-emerald-600 dark:text-emerald-400">
+            {batch.available ?? 0}
+          </span>
+        </Field>
+        <Field label="FIFO / FEFO Rank">
+          #{batch.fifoPriority || "-"} / #{batch.fefoPriority || "-"}
+        </Field>
+
+        <Field label="Created At">{createdAt}</Field>
+        <Field label="Updated At">{updatedAt}</Field>
+      </div>
+    );
+  };
+
+  // ---------- Columns ----------
   const columns: ColumnDef<Batch>[] = [
     {
       key: "batchNumber",
@@ -698,7 +845,6 @@ const BatchManagement: React.FC = () => {
       />
 
       <div className="w-full max-w-none px-0 py-8">
-        {/* ── NEW: batch filter banner ─────────────────────────────── */}
         {isBatchScoped && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-200">
             <div className="flex items-center gap-2">
@@ -809,10 +955,15 @@ const BatchManagement: React.FC = () => {
         />
       </div>
 
+      {/* Form Modal — batchNumber input removed */}
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Batch" : "Create Batch"}
-        subtitle="Create a new product batch"
+        subtitle={
+          editingId
+            ? "Update batch details"
+            : "Enter batch details — the batch number is generated automatically"
+        }
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
@@ -822,15 +973,7 @@ const BatchManagement: React.FC = () => {
           {
             label: "Batch Info",
             fields: [
-              <FloatingInput
-                key="batchNumber"
-                label="Batch Number"
-                name="batchNumber"
-                value={form.batchNumber}
-                onChange={handleChange}
-                disabled={!!editingId}
-                required={!editingId}
-              />,
+              // CHANGED: Batch Number input removed — BE generates it.
               <FloatingDatePicker
                 key="manufacturingDate"
                 label="Manufacturing Date"
@@ -880,6 +1023,15 @@ const BatchManagement: React.FC = () => {
                 value={form.supplierName}
                 onChange={handleChange}
               />,
+              // Optional hint shown under the fields
+              <p
+                key="batch-no-hint"
+                className="md:col-span-2 text-xs text-slate-500 dark:text-slate-400"
+              >
+                {editingId
+                  ? "Batch number is generated by the server and cannot be changed."
+                  : "Batch number will be generated automatically by the server when you save."}
+              </p>,
             ],
           },
         ]}
