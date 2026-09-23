@@ -1,12 +1,13 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowPathIcon,
   CheckCircleIcon,
   ClockIcon,
   CubeIcon,
   ExclamationTriangleIcon,
+  FunnelIcon,
   PencilSquareIcon,
   TrashIcon,
   XCircleIcon,
@@ -93,6 +94,7 @@ const PAGE_SIZE = 10;
 
 const PRODUCT_ROUTE = "/purchase-products";
 const WAREHOUSE_ROUTE = "/warehouse";
+const BATCH_ROUTE = "/batch";   // used by "View all batches"
 
 const STATIC_BATCH_DATA_MAP: Record<number, any> = {
   1: { supplierName: "ABC Supplies" },
@@ -207,6 +209,13 @@ const getFEFORank = (batches: Batch[], batch: Batch) => {
 // ============ COMPONENT ============
 const BatchManagement: React.FC = () => {
   const navigate = useNavigate();
+
+  // ── NEW: read batch filter params from URL ─────────────────────
+  const [searchParams] = useSearchParams();
+  const filterBatchId = searchParams.get("batchId");
+  const filterBatchName = searchParams.get("batchName") || "";
+  const isBatchScoped = Boolean(filterBatchId);
+
   const token = localStorage.getItem("accessToken");
   const headers = token
     ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
@@ -471,19 +480,28 @@ const BatchManagement: React.FC = () => {
     );
   };
 
+  // ---------- NEW: scoped batches ----------
+  const scopedBatches = useMemo(
+    () =>
+      isBatchScoped
+        ? batches.filter((b) => String(b.id) === String(filterBatchId))
+        : batches,
+    [batches, isBatchScoped, filterBatchId]
+  );
+
   const stats = useMemo(() => {
     return {
-      total: batches.length,
-      expired: batches.filter((b) => getDaysUntilExpiry(b) < 0).length,
-      expiringSoon: batches.filter(
+      total: scopedBatches.length,
+      expired: scopedBatches.filter((b) => getDaysUntilExpiry(b) < 0).length,
+      expiringSoon: scopedBatches.filter(
         (b) => getDaysUntilExpiry(b) >= 0 && getDaysUntilExpiry(b) <= 30
       ).length,
-      totalQuantity: batches.reduce((s, b) => s + (b.quantity || 0), 0),
-      totalReserved: batches.reduce((s, b) => s + (b.reserved || 0), 0),
-      totalAvailable: batches.reduce((s, b) => s + (b.available || 0), 0),
-      emptyBatches: batches.filter((b) => (b.quantity || 0) <= 0).length,
+      totalQuantity: scopedBatches.reduce((s, b) => s + (b.quantity || 0), 0),
+      totalReserved: scopedBatches.reduce((s, b) => s + (b.reserved || 0), 0),
+      totalAvailable: scopedBatches.reduce((s, b) => s + (b.available || 0), 0),
+      emptyBatches: scopedBatches.filter((b) => (b.quantity || 0) <= 0).length,
     };
-  }, [batches]);
+  }, [scopedBatches]);
 
   const columns: ColumnDef<Batch>[] = [
     {
@@ -680,6 +698,26 @@ const BatchManagement: React.FC = () => {
       />
 
       <div className="w-full max-w-none px-0 py-8">
+        {/* ── NEW: batch filter banner ─────────────────────────────── */}
+        {isBatchScoped && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-200">
+            <div className="flex items-center gap-2">
+              <FunnelIcon className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+              <span>
+                Showing batch:{" "}
+                <strong>{filterBatchName || `#${filterBatchId}`}</strong>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate(BATCH_ROUTE)}
+              className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            >
+              View all batches
+            </button>
+          </div>
+        )}
+
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
           <StatsCard
             label="Total Batches"
@@ -732,7 +770,7 @@ const BatchManagement: React.FC = () => {
         </div>
 
         <ReusableTable
-          data={batches}
+          data={scopedBatches}
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}
@@ -744,16 +782,28 @@ const BatchManagement: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               <CubeIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
               <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
-                No batches found
+                {isBatchScoped
+                  ? `No batch matches "${filterBatchName || `#${filterBatchId}`}"`
+                  : "No batches found"}
               </p>
-              <button
-                type="button"
-                onClick={() => fetchAllBatches()}
-                className="inline-flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300"
-              >
-                <ArrowPathIcon className="h-3.5 w-3.5" />
-                Reload all batches
-              </button>
+              {isBatchScoped ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(BATCH_ROUTE)}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
+                >
+                  View all batches →
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fetchAllBatches()}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300"
+                >
+                  <ArrowPathIcon className="h-3.5 w-3.5" />
+                  Reload all batches
+                </button>
+              )}
             </div>
           }
         />

@@ -99,7 +99,8 @@ const PAGE_SIZE = 10;
 
 // 🔧 Route paths — match your app's actual routes.
 const WAREHOUSE_ROUTE = "/warehouse";
-const PRODUCT_ROUTE = "/purchase-products";   // was "/product"
+const PRODUCT_ROUTE = "/purchase-products";
+const BATCH_ROUTE = "/batch";   // ← change if your batch page lives elsewhere
 
 const CURRENT_STATUS_ENUM_TYPE = "CURRENTSTATUS";
 
@@ -181,7 +182,6 @@ function formatEnumResponse(raw: unknown): EnumOption[] {
     .filter((item): item is EnumOption => item !== null);
 }
 
-// NEW: each palette entry now has a matching dark: variant.
 const STATUS_BADGE_PALETTE = [
   "bg-green-50 text-green-700 dark:bg-emerald-900/40 dark:text-emerald-300",
   "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
@@ -480,11 +480,15 @@ const SerialNumberManager: React.FC = () => {
     setViewingSerial(null);
   };
 
+  // ---------- Navigation ----------
   const goToWarehouse = (warehouse?: WarehouseRef) => {
     if (!warehouse?.id) return;
-    navigate(`${WAREHOUSE_ROUTE}?warehouseId=${warehouse.id}&warehouseName=${encodeURIComponent(warehouse.name || "")}`, {
-      state: { warehouseId: warehouse.id, warehouseName: warehouse.name },
-    });
+    navigate(
+      `${WAREHOUSE_ROUTE}?warehouseId=${warehouse.id}&warehouseName=${encodeURIComponent(
+        warehouse.name || ""
+      )}`,
+      { state: { warehouseId: warehouse.id, warehouseName: warehouse.name } }
+    );
   };
 
   const goToProduct = (productId?: number) => {
@@ -493,6 +497,17 @@ const SerialNumberManager: React.FC = () => {
     navigate(`${PRODUCT_ROUTE}?productId=${productId}`, {
       state: { productId, productName: product?.productName },
     });
+  };
+
+  // NEW: navigate to the batch page with a filter param.
+  const goToBatch = (batch?: BatchRef) => {
+    if (!batch?.id) return;
+    navigate(
+      `${BATCH_ROUTE}?batchId=${batch.id}&batchName=${encodeURIComponent(
+        batch.batchNumber || ""
+      )}`,
+      { state: { batchId: batch.id, batchNumber: batch.batchNumber } }
+    );
   };
 
   // ---------- Stats ----------
@@ -583,12 +598,26 @@ const SerialNumberManager: React.FC = () => {
         ),
     },
     {
+      // ✅ Batch is now clickable → /batch?batchId=...&batchName=...
       key: "batch",
       label: "Batch",
       sortable: true,
-      render: (sn) => (
-        <span className="text-slate-700 dark:text-slate-300">{getBatchNumber(sn)}</span>
-      ),
+      render: (sn) =>
+        sn.batch?.id ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              goToBatch(sn.batch);
+            }}
+            className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            title={`View batch ${sn.batch.batchNumber}`}
+          >
+            {getBatchNumber(sn)}
+          </button>
+        ) : (
+          <span className="text-slate-700 dark:text-slate-300">{getBatchNumber(sn)}</span>
+        ),
     },
     {
       key: "currentStatus",
@@ -656,7 +685,6 @@ const SerialNumberManager: React.FC = () => {
       />
 
       <div className="w-full max-w-none px-0 py-8">
-        {/* Stats Cards */}
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatsCard label="Serial Numbers" value={stats.total} icon={<QrCodeIcon />} />
           <StatsCard
@@ -710,7 +738,6 @@ const SerialNumberManager: React.FC = () => {
         />
       </div>
 
-      {/* Form Modal */}
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Serial Number" : "Create Serial Number"}
@@ -802,7 +829,7 @@ const SerialNumberManager: React.FC = () => {
         ]}
       />
 
-      {/* Detail View Modal — dark mode applied */}
+      {/* Detail View Modal — batch now clickable */}
       <PaginatedPopup
         isOpen={!!viewingSerial}
         title="Serial Number Details"
@@ -866,11 +893,25 @@ const SerialNumberManager: React.FC = () => {
                     )}
                   </div>
 
+                  {/* NEW: Batch clickable in the view modal too */}
                   <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
                     <span className="text-slate-500 dark:text-slate-400">Batch</span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">
-                      {getBatchNumber(viewingSerial)}
-                    </span>
+                    {viewingSerial.batch?.id ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          closeView();
+                          goToBatch(viewingSerial.batch);
+                        }}
+                        className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+                      >
+                        {getBatchNumber(viewingSerial)}
+                      </button>
+                    ) : (
+                      <span className="font-medium text-slate-800 dark:text-slate-200">
+                        {getBatchNumber(viewingSerial)}
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
