@@ -1,6 +1,7 @@
 import React, { useEffect, useState, ChangeEvent, FormEvent, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
+import PaginatedPopup from "../../components/common/unpopup";
 import {
   PencilSquareIcon,
   TrashIcon,
@@ -122,16 +123,10 @@ const Segments: React.FC = () => {
   const [form, setForm] = useState<Partial<CustomerSegment>>({});
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Customer modal (unchanged — still used for auto-open after create)
-  const [showCustomerModal, setShowCustomerModal] = useState(false);
-  const [customerModalMode, setCustomerModalMode] = useState<"add" | "manage">("add");
-  const [selectedCustomerIds, setSelectedCustomerIds] = useState<number[]>([]);
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [activeSegmentId, setActiveSegmentId] = useState<number | null>(null);
-  const [isAssigning, setIsAssigning] = useState(false);
 
-  // NEW: Customer drawer (only opened from Actions column)
+  // NEW: Customer drawer
   const [showCustomerDrawer, setShowCustomerDrawer] = useState(false);
   const [drawerSegmentId, setDrawerSegmentId] = useState<number | null>(null);
 
@@ -187,11 +182,6 @@ const Segments: React.FC = () => {
     }
   }, [showFormModal, navigate, location.search]);
 
-  useEffect(() => {
-    if (showCustomerModal) fetchCustomers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showCustomerModal]);
-
   const fetchCustomers = async () => {
     try {
       const res = await axios.get("/v1/api/crm/customers", {
@@ -239,6 +229,7 @@ const Segments: React.FC = () => {
     }
 
     try {
+      setIsSaving(true);
       const res =
         editingId !== null
           ? await axios.put(`${API_URL}/${editingId}`, form, {
@@ -264,13 +255,16 @@ const Segments: React.FC = () => {
         await fetchSegments();
 
         if (createdSegmentId) {
-          openCustomerModal(createdSegmentId, "add");
+          openCustomerDrawer(createdSegmentId);
         }
       }
     } catch (err) {
       console.error("Error submitting segment", err);
       ToasterService.error("Failed to save segment");
     }
+     finally {
+    setIsSaving(false);
+  }
   };
 
   const handleEdit = (segment: CustomerSegment) => {
@@ -314,30 +308,6 @@ const Segments: React.FC = () => {
     setDrawerSegmentId(null);
   };
 
-  /* ---------------- Customer modal ---------------- */
-
-  const openCustomerModal = (segmentId: number, mode: "add" | "manage" = "add") => {
-    setActiveSegmentId(segmentId);
-    setCustomerModalMode(mode);
-    setShowCustomerModal(true);
-    setSelectedCustomerIds([]);
-    setCustomerSearch("");
-  };
-
-  const closeCustomerModal = () => {
-    setShowCustomerModal(false);
-    setSelectedCustomerIds([]);
-    setCustomerSearch("");
-    setActiveSegmentId(null);
-    setCustomerModalMode("add");
-    setIsAssigning(false);
-  };
-
-  const activeSegment = useMemo(
-    () => segments.find((s) => s.id === activeSegmentId) || null,
-    [segments, activeSegmentId]
-  );
-
   /* ---------------- NEW: Drawer segment + assigned customers ---------------- */
 
   const drawerSegment = useMemo(
@@ -354,164 +324,7 @@ const Segments: React.FC = () => {
     });
   }, [drawerSegment]);
 
-  /* ---------------- Deduped assigned customers (for modal) ---------------- */
-
-  const assignedCustomers = useMemo<SegmentCustomer[]>(() => {
-    const seen = new Set<number>();
-    return (activeSegment?.segmentCustomers || []).filter((c) => {
-      if (seen.has(c.customerId)) return false;
-      seen.add(c.customerId);
-      return true;
-    });
-  }, [activeSegment]);
-
-  /* ---------------- Available customers ---------------- */
-
-  const availableCustomers = useMemo<Customer[]>(() => {
-    const existingIds = new Set(
-      (activeSegment?.segmentCustomers || []).map((c) => c.customerId)
-    );
-    return customers.filter((c) => !existingIds.has(c.id));
-  }, [customers, activeSegment]);
-
-  /* ---------------- Source list for modal ---------------- */
-
-  const sourceList = useMemo<(Customer | SegmentCustomer)[]>(
-    () => (customerModalMode === "add" ? availableCustomers : assignedCustomers),
-    [customerModalMode, availableCustomers, assignedCustomers]
-  );
-
-  /* ---------------- Filter (mode-aware) ---------------- */
-
-  const filteredCustomers = useMemo(() => {
-    const q = customerSearch.trim().toLowerCase();
-    if (customerModalMode === "manage" && !q) return sourceList;
-
-    return sourceList.filter((c) => {
-      const name = (("customerName" in c && c.customerName) || ("name" in c && (c as Customer).customerName) || "").toString().toLowerCase();
-      const email = (c.email || "").toLowerCase();
-      const phone = (c.phone || "").toLowerCase();
-      const code = (("customerCode" in c && c.customerCode) || "").toString().toLowerCase();
-      return (
-        name.includes(q) ||
-        email.includes(q) ||
-        phone.includes(q) ||
-        code.includes(q)
-      );
-    });
-  }, [sourceList, customerSearch, customerModalMode]);
-
-  /* ---------------- Selection helpers ---------------- */
-
-  const toggleCustomer = (customerId: number) => {
-    setSelectedCustomerIds((prev) =>
-      prev.includes(customerId)
-        ? prev.filter((x) => x !== customerId)
-        : [...prev, customerId]
-    );
-  };
-
-  const allVisibleSelected =
-    filteredCustomers.length > 0 &&
-    filteredCustomers.every((c) => {
-      const id = "customerId" in c ? c.customerId : (c as Customer).id;
-      return selectedCustomerIds.includes(id);
-    });
-
-  const toggleSelectAll = () => {
-    if (allVisibleSelected) {
-      const visibleIds = new Set(
-        filteredCustomers.map((c) => ("customerId" in c ? c.customerId : (c as Customer).id))
-      );
-      setSelectedCustomerIds((prev) => prev.filter((id) => !visibleIds.has(id)));
-    } else {
-      const merged = new Set([
-        ...selectedCustomerIds,
-        ...filteredCustomers.map((c) => ("customerId" in c ? c.customerId : (c as Customer).id)),
-      ]);
-      setSelectedCustomerIds(Array.from(merged));
-    }
-  };
-
-  /* ---------------- Add / Remove customers ---------------- */
-
-  const handleAssignCustomers = async () => {
-    if (!activeSegmentId || selectedCustomerIds.length === 0) {
-      ToasterService.error("Please select at least one customer");
-      return;
-    }
-    try {
-      setIsAssigning(true);
-
-      const results = await Promise.allSettled(
-        selectedCustomerIds.map((cid) =>
-          axios.post(
-            `${API_URL}/${activeSegmentId}/customers/${cid}`,
-            {},
-            { headers: { Authorization: `Bearer ${token}` } }
-          )
-        )
-      );
-
-      const succeeded = results.filter((r) => r.status === "fulfilled").length;
-      const failed = results.length - succeeded;
-
-      if (failed === 0) {
-        ToasterService.success(`All ${succeeded} customer(s) added!`);
-      } else if (succeeded === 0) {
-        ToasterService.error(`Failed to add all ${failed} customer(s)`);
-      } else {
-        ToasterService.error(`${succeeded} added, ${failed} failed`);
-      }
-
-      closeCustomerModal();
-      await fetchSegments();
-    } catch (error: any) {
-      console.error("Error assigning customers:", error);
-      ToasterService.error(error.response?.data?.message || "Failed to assign customers");
-    } finally {
-      setIsAssigning(false);
-    }
-  };
-
-  const handleRemoveCustomers = async () => {
-    if (!activeSegmentId || selectedCustomerIds.length === 0) {
-      ToasterService.error("Please select at least one customer to remove");
-      return;
-    }
-    try {
-      setIsAssigning(true);
-
-      const results = await Promise.allSettled(
-        selectedCustomerIds.map((cid) =>
-          axios.delete(`${API_URL}/${activeSegmentId}/customers/${cid}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-        )
-      );
-
-      const succeeded = results.filter((r) => r.status === "fulfilled").length;
-      const failed = results.length - succeeded;
-
-      if (failed === 0) {
-        ToasterService.success(`All ${succeeded} customer(s) removed!`);
-      } else if (succeeded === 0) {
-        ToasterService.error(`Failed to remove all ${failed} customer(s)`);
-      } else {
-        ToasterService.error(`${succeeded} removed, ${failed} failed`);
-      }
-
-      setSelectedCustomerIds([]);
-      await fetchSegments();
-    } catch (error: any) {
-      console.error("Error removing customers:", error);
-      ToasterService.error(error.response?.data?.message || "Failed to remove customers");
-    } finally {
-      setIsAssigning(false);
-    }
-  };
-
-  /* ---------------- Delete segment ---------------- */
+ /* ---------------- Delete segment ---------------- */
 
   const handleDelete = async (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -743,320 +556,41 @@ const Segments: React.FC = () => {
         />
 
         {/* -------- Segment form modal -------- */}
-        {showFormModal &&
-          createPortal(
-            <div
-              key="segment-modal"
-              className="fixed inset-0 z-50 flex items-start justify-center bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto p-4 sm:items-center"
-            >
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto animate-slide-up">
-                <div className="flex items-center justify-between p-5 border-b border-gray-100">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {editingId !== null ? "Edit Segment" : "Create New Segment"}
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {editingId !== null
-                        ? "Update your segment details"
-                        : "Add a new customer segment"}
-                    </p>
-                  </div>
-                  <button
-                    onClick={closeSegmentModal}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <XMarkIcon className="h-5 w-5" />
-                  </button>
-                </div>
-
-                <form onSubmit={handleSubmitSegment} className="p-5 max-h-[70vh] overflow-y-auto">
-                  <div className="space-y-4 pt-2">
-                    <FloatingInput
-                      label="Segment Name"
-                      name="name"
-                      value={form.name || ""}
-                      onChange={handleChange}
-                      required
-                    />
-                    <FloatingTextarea
-                      label="Description"
-                      name="description"
-                      value={form.description || ""}
-                      onChange={handleChange}
-                      rows={4}
-                    />
-                  </div>
-
-                  <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                    <button
-                      type="button"
-                      onClick={closeSegmentModal}
-                      className="px-4 py-2 !mb-0 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 transition-all duration-200 shadow-sm"
-                    >
-                      {editingId !== null ? "Update Segment" : "Create Segment"}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>,
-            document.body
-          )}
+<PaginatedPopup
+  isOpen={showFormModal}
+  title={editingId !== null ? "Edit Segment" : "Create Segment"}
+  subtitle={
+    editingId !== null
+      ? "Update segment details"
+      : "Add a new customer segment"
+  }
+  onClose={closeSegmentModal}
+  onSubmit={handleSubmitSegment}
+  submitLabel={editingId !== null ? "Update Segment" : "Create Segment"}
+  submitting={isSaving}
+  fields={[
+    <FloatingInput
+      key="name"
+      label="Segment Name"
+      name="name"
+      value={form.name || ""}
+      onChange={handleChange}
+      required
+    />,
+    <div key="description" className="md:col-span-2">
+      <FloatingTextarea
+        label="Description"
+        name="description"
+        value={form.description || ""}
+        onChange={handleChange}
+        rows={4}
+      />
+    </div>,
+  ]}
+/>
 
         {/* -------- Customer modal (unchanged — used only for auto-open after create) -------- */}
-        {showCustomerModal &&
-          createPortal(
-            <div
-              key="customer-modal"
-              className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center"
-            >
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-auto animate-slide-up max-h-[90vh] flex flex-col">
-                <div className="flex items-center justify-between p-5 border-b border-gray-100">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      Manage Customers
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {activeSegment?.name ? `Segment: ${activeSegment.name}` : "Select customers"}
-                    </p>
-                  </div>
-                  <button
-                    onClick={closeCustomerModal}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <XMarkIcon className="h-5 w-5" />
-                  </button>
-                </div>
-
-                <div className="flex border-b border-gray-100 px-5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCustomerModalMode("add");
-                      setSelectedCustomerIds([]);
-                    }}
-                    className={`py-3 px-1 mr-6 text-sm font-medium border-b-2 transition-colors ${
-                      customerModalMode === "add"
-                        ? "border-cyan-600 text-cyan-700"
-                        : "border-transparent text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    Add Customers ({availableCustomers.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCustomerModalMode("manage");
-                      setSelectedCustomerIds([]);
-                    }}
-                    className={`py-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-                      customerModalMode === "manage"
-                        ? "border-cyan-600 text-cyan-700"
-                        : "border-transparent text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    In Segment ({assignedCustomers.length})
-                  </button>
-                </div>
-
-                <div className="p-5 border-b border-gray-100 space-y-3">
-                  <div className="relative">
-                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search customers by name, email, or industry..."
-                      value={customerSearch}
-                      onChange={(e) => setCustomerSearch(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
-                    />
-                  </div>
-
-                  {filteredCustomers.length > 0 && (
-                    <div className="flex items-center justify-between text-sm">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={allVisibleSelected}
-                          onChange={toggleSelectAll}
-                          className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
-                        />
-                        <span className="text-gray-600 font-medium">
-                          Select all ({filteredCustomers.length})
-                        </span>
-                      </label>
-                      {selectedCustomerIds.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedCustomerIds([])}
-                          className="text-xs text-cyan-600 hover:text-cyan-700 font-medium"
-                        >
-                          Clear selection
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-5">
-                  {filteredCustomers.length === 0 ? (
-                    <div className="text-center py-8">
-                      <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                      <p className="text-gray-500 text-sm">
-                        {customerModalMode === "add"
-                          ? availableCustomers.length === 0
-                            ? "All customers are already in this segment"
-                            : "No customers found"
-                          : "No customers in this segment yet"}
-                      </p>
-                      {customerSearch && (
-                        <p className="text-gray-400 text-xs mt-1">Try adjusting your search</p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {filteredCustomers.map((item) => {
-                        const id = "customerId" in item ? item.customerId : (item as Customer).id;
-                        const displayName =
-                          ("customerName" in item && item.customerName) || "Unnamed Customer";
-                        const email = item.email || "";
-                        const phone = item.phone || "";
-                        const code = "customerCode" in item ? item.customerCode : (item as Customer).customerCode;
-                        const isSelected = selectedCustomerIds.includes(id);
-
-                        return (
-                          <div
-                            key={`customer-${id}`}
-                            className={`border rounded-lg p-4 transition-all duration-200 ${
-                              isSelected
-                                ? "border-cyan-500 bg-cyan-50 shadow-md"
-                                : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                            }`}
-                          >
-                            <div className="flex items-start gap-3">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => toggleCustomer(id)}
-                                onClick={(e) => e.stopPropagation()}
-                                className="mt-1 h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500 flex-shrink-0"
-                              />
-
-                              <div
-                                className="flex-1 min-w-0 cursor-pointer"
-                                onClick={() => navigate(`/crm-view/customers/${id}`, { state: { from: "segments" } })}
-                                title="View customer profile"
-                              >
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div className="h-8 w-8 rounded-md bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
-                                    {displayName.charAt(0).toUpperCase()}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <h4 className="text-sm font-semibold text-gray-900 truncate">
-                                      {displayName}
-                                    </h4>
-                                    {code && (
-                                      <div className="text-xs text-gray-400 font-mono truncate">{code}</div>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-                                  <div className="flex items-center gap-2 text-xs text-gray-600">
-                                    <EnvelopeIcon className="h-3.5 w-3.5 text-gray-400" />
-                                    <span className="truncate">{email || "N/A"}</span>
-                                  </div>
-                                  {phone && (
-                                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                                      <PhoneIcon className="h-3.5 w-3.5 text-gray-400" />
-                                      <span>{phone}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/crm-view/customers/${id}`, { state: { from: "segments" } });
-                                }}
-                                className="rounded-lg p-1.5 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-all"
-                                title="View customer profile"
-                              >
-                                <EyeIcon className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-3 border-t border-gray-100 p-5 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-sm text-gray-600">
-                    {selectedCustomerIds.length > 0 ? (
-                      <span className="flex items-center gap-1">
-                        <CheckIcon className="h-4 w-4 text-green-600" />
-                        {selectedCustomerIds.length} customer
-                        {selectedCustomerIds.length > 1 ? "s" : ""} selected
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">No customer selected</span>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <button
-                      type="button"
-                      onClick={closeCustomerModal}
-                      className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
-                    >
-                      Close
-                    </button>
-
-                    {customerModalMode === "add" ? (
-                      <button
-                        onClick={handleAssignCustomers}
-                        disabled={selectedCustomerIds.length === 0 || isAssigning}
-                        className={`px-4 py-2 rounded-lg text-sm !mb-0 font-medium transition-all duration-200 flex items-center gap-2 ${
-                          selectedCustomerIds.length > 0 && !isAssigning
-                            ? "bg-gradient-to-r from-cyan-600 to-blue-600 !text-white hover:from-cyan-700 hover:to-blue-700 shadow-sm"
-                            : "bg-gray-100 !text-gray-400 cursor-not-allowed"
-                        }`}
-                      >
-                        <UserPlusIcon className="h-4 w-4" />
-                        {isAssigning
-                          ? "Adding..."
-                          : `Add ${selectedCustomerIds.length || ""} to Segment`.trim()}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={handleRemoveCustomers}
-                        disabled={selectedCustomerIds.length === 0 || isAssigning}
-                        className={`px-4 py-2 rounded-lg text-sm !mb-0 font-medium transition-all duration-200 flex items-center gap-2 ${
-                          selectedCustomerIds.length > 0 && !isAssigning
-                            ? "bg-red-600 !text-white hover:bg-red-700 shadow-sm"
-                            : "bg-gray-100 !text-gray-400 cursor-not-allowed"
-                        }`}
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                        {isAssigning
-                          ? "Removing..."
-                          : `Remove ${selectedCustomerIds.length || ""}`.trim()}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>,
-            document.body
-          )}
+       
       </div>
 
       {/* NEW: Manage Customers Drawer — opened only from the Actions column icon */}

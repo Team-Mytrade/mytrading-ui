@@ -31,6 +31,7 @@ import {
 import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
+import PaginatedPopup from "../../components/common/unpopup";
 import "./Deals.css";
 
 const API_URL = "/v1/api/crm/deals";
@@ -585,8 +586,19 @@ export default function Deals() {
           pageSize={PAGE_SIZE}
           defaultSortKey="dealName"
           defaultSortOrder="asc"
+          enableRowDetails={true}
           rowDetailsTitle={(o) => o.dealName || "Deal details"}
           rowDetailsSubtitle="Opportunity details"
+           hiddenDetailKeys={[
+             "id",
+             "tenantId",
+               "createdBy",
+             "updatedBy",
+              "deletedBy",
+              "createdAt",
+              "updatedAt",
+             "deletedAt",
+              ]}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <TagIcon className="h-12 w-12 text-gray-400 mb-3" />
@@ -607,195 +619,156 @@ export default function Deals() {
             </div>
           }
         />
-
-        {/* Add/Edit Opportunity Modal */}
-        {showForm && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl mx-auto max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-gray-100">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {form.id ? "Edit Opportunity" : "Create New Opportunity"}
-                  </h3>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {form.id
-                      ? "Update opportunity details"
-                      : "Add a new sales opportunity"}
-                  </p>
-                </div>
-                <button
-                  onClick={() => !isSaving && setShowForm(false)}
-                  disabled={isSaving}
-                  className="text-gray-400 hover:text-gray-600 disabled:opacity-40"
-                >
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="p-5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                  <div className="space-y-4">
-                    <FloatingInput
-                      label="Deal Name"
-                      name="dealName"
-                      value={form.dealName || ""}
-                      onChange={handleChange}
-                      required
-                    />
-                    <FloatingInput
-                      label="Amount"
-                      name="amount"
-                      type="number"
-                      value={form.amount || ""}
-                      onChange={handleChange}
-                      required
-                    />
-                    <FloatingDatePicker
-                      label="Expected Close Date"
-                      name="expectedCloseDate"
-                      value={
-                        form.expectedCloseDate
-                          ? new Date(form.expectedCloseDate)
-                              .toISOString()
-                              .split("T")[0]
-                          : ""
-                      }
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          expectedCloseDate: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-4">
-                    <FloatingSelect
-                      label="Stage"
-                      name="stage"
-                      value={form.stage || ""}
-                      onChange={handleChange}
-                      options={stageOptions}
-                    />
-                    <FloatingSelect
-                      label="Status"
-                      name="status"
-                      value={form.status || ""}
-                      onChange={handleChange}
-                      options={[
-                        { id: "ACTIVE", name: "Active" },
-                        { id: "INACTIVE", name: "Inactive" },
-                      ]}
-                    />
-
-                    {/* Lead OR Customer — exclusive */}
-                    <div className="rounded-lg border border-gray-200 p-3">
-                      <div className="flex items-center gap-4 mb-3">
-                        <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="ownerType"
-                            value="LEAD"
-                            checked={ownerType === "LEAD"}
-                            onChange={() => {
-                              setOwnerType("LEAD");
-                              setForm((f) => ({ ...f, customer: undefined }));
-                            }}
-                          />
-                          Lead
-                        </label>
-                        <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="ownerType"
-                            value="CUSTOMER"
-                            checked={ownerType === "CUSTOMER"}
-                            onChange={() => {
-                              setOwnerType("CUSTOMER");
-                              setForm((f) => ({ ...f, lead: undefined }));
-                            }}
-                          />
-                          Customer
-                        </label>
-                      </div>
-
-                      {ownerType === "LEAD" ? (
-                        <FloatingSelect
-                          label="Lead *"
-                          name="leadId"
-                          value={form.lead?.id || ""}
-                          onChange={(e) =>
-                            setForm((prev) => ({
-                              ...prev,
-                              lead: e.target.value
-                                ? {
-                                    id: parseInt(e.target.value),
-                                    name:
-                                      leads.find(
-                                        (l) => l.id === parseInt(e.target.value)
-                                      )?.name || "",
-                                  }
-                                : undefined,
-                            }))
-                          }
-                          options={leads.map((l) => ({
-                            id: l.id,
-                            name: l.name,
-                          }))}
-                          required={!form.id}
-                        />
-                      ) : (
-                        <FloatingSelect
-                          label="Customer *"
-                          name="customerId"
-                          value={form.customer?.id || ""}
-                          onChange={(e) =>
-                            setForm((prev) => ({
-                              ...prev,
-                              customer: e.target.value
-                                ? { id: parseInt(e.target.value) }
-                                : undefined,
-                            }))
-                          }
-                          options={customers.map((c) => ({
-                            id: c.id,
-                            name:
-                              c.customerName ||
-                              c.name ||
-                              `Customer #${c.id}`,
-                          }))}
-                          required={!form.id}
-                        />
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(false)}
-                    disabled={isSaving}
-                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSaving}
-                    className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 shadow-sm disabled:opacity-60"
-                  >
-                    {isSaving
-                      ? "Saving..."
-                      : form.id
-                      ? "Update Opportunity"
-                      : "Create Opportunity"}
-                  </button>
-                </div>
-              </form>
-            </div>
+        <PaginatedPopup
+  isOpen={showForm}
+  title={form.id ? "Edit Opportunity" : "Create New Opportunity"}
+  subtitle={
+    form.id
+      ? "Update opportunity details"
+      : "Add a new sales opportunity"
+  }
+  onClose={() => !isSaving && setShowForm(false)}
+  onSubmit={handleSubmit}
+  submitLabel={form.id ? "Update Opportunity" : "Create Opportunity"}
+  submitting={isSaving}
+  maxWidthClassName="max-w-2xl"
+  tabs={[
+    {
+      label: "Deal Info",
+      fields: [
+        <FloatingInput
+          key="dealName"
+          label="Deal Name"
+          name="dealName"
+          value={form.dealName || ""}
+          onChange={handleChange}
+          required
+        />,
+        <FloatingInput
+          key="amount"
+          label="Amount"
+          name="amount"
+          type="number"
+          value={form.amount || ""}
+          onChange={handleChange}
+          required
+        />,
+        <FloatingDatePicker
+          key="expectedCloseDate"
+          label="Expected Close Date"
+          name="expectedCloseDate"
+          value={
+            form.expectedCloseDate
+              ? new Date(form.expectedCloseDate).toISOString().split("T")[0]
+              : ""
+          }
+          onChange={(e) =>
+            setForm((prev) => ({
+              ...prev,
+              expectedCloseDate: e.target.value,
+            }))
+          }
+        />,
+        <FloatingSelect
+          key="stage"
+          label="Stage"
+          name="stage"
+          value={form.stage || ""}
+          onChange={handleChange}
+          options={stageOptions}
+        />,
+        <FloatingSelect
+          key="status"
+          label="Status"
+          name="status"
+          value={form.status || ""}
+          onChange={handleChange}
+          options={[
+            { id: "ACTIVE", name: "Active" },
+            { id: "INACTIVE", name: "Inactive" },
+          ]}
+        />,
+      ],
+    },
+    {
+      label: "Link",
+      fields: [
+        <div key="ownerType" className="md:col-span-2 space-y-3">
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+              <input
+                type="radio"
+                name="ownerType"
+                value="LEAD"
+                checked={ownerType === "LEAD"}
+                onChange={() => {
+                  setOwnerType("LEAD");
+                  setForm((f) => ({ ...f, customer: undefined }));
+                }}
+              />
+              Lead
+            </label>
+            <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+              <input
+                type="radio"
+                name="ownerType"
+                value="CUSTOMER"
+                checked={ownerType === "CUSTOMER"}
+                onChange={() => {
+                  setOwnerType("CUSTOMER");
+                  setForm((f) => ({ ...f, lead: undefined }));
+                }}
+              />
+              Customer
+            </label>
           </div>
-        )}
+
+          {ownerType === "LEAD" ? (
+            <FloatingSelect
+              label="Lead *"
+              name="leadId"
+              value={form.lead?.id || ""}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  lead: e.target.value
+                    ? {
+                        id: parseInt(e.target.value),
+                        name:
+                          leads.find((l) => l.id === parseInt(e.target.value))
+                            ?.name || "",
+                      }
+                    : undefined,
+                }))
+              }
+              options={leads.map((l) => ({ id: l.id, name: l.name }))}
+              required={!form.id}
+            />
+          ) : (
+            <FloatingSelect
+              label="Customer *"
+              name="customerId"
+              value={form.customer?.id || ""}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  customer: e.target.value
+                    ? { id: parseInt(e.target.value) }
+                    : undefined,
+                }))
+              }
+              options={customers.map((c) => ({
+                id: c.id,
+                name: c.customerName || c.name || `Customer #${c.id}`,
+              }))}
+              required={!form.id}
+            />
+          )}
+        </div>,
+      ],
+    },
+  ]}
+/>
       </div>
 
       <DynamicPopup
