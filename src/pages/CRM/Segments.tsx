@@ -28,6 +28,7 @@ import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { FloatingInput, FloatingTextarea } from "../../components/inputfeild/FloatingInput";
 import StatsCard from "../../components/common/Statscard";
+import TableExportModal from "../../components/common/TableExportModal";
 import "./Deals.css";
 
 /* ------------------------------------------------------------------ */
@@ -78,6 +79,8 @@ interface CustomerSegment {
   description: string;
   active?: boolean;
   segmentCustomers?: SegmentCustomer[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -134,6 +137,7 @@ const Segments: React.FC = () => {
   const [segmentToDelete, setSegmentToDelete] = useState<CustomerSegment | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [activeFilter, setActiveFilter] = useState("ALL");
   const [customers, setCustomers] = useState<Customer[]>([]);
 
@@ -514,11 +518,17 @@ const Segments: React.FC = () => {
       />
 
       <div className="crm-report-page w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
-        <div className="mb-[17px] grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="Total Segments" value={stats.totalSegments} />
-          <StatsCard label="Active Segments" value={stats.activeSegments} />
-          <StatsCard label="Total Customers" value={stats.totalCustomers} />
-          <StatsCard label="Empty Segments" value={stats.emptySegments} />
+        <div className="mb-[17px] grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4" aria-busy={isLoading}>
+          <StatsCard label="Total Segments" value={stats.totalSegments} loading={isLoading} />
+          <StatsCard label="Active Segments" value={stats.activeSegments} loading={isLoading} />
+          <StatsCard label="Total Customers" value={stats.totalCustomers} loading={isLoading} />
+          <StatsCard
+            label="Empty Segments"
+            value={stats.emptySegments}
+            loading={isLoading}
+            onShare={() => setShowExportModal(true)}
+            onRefresh={fetchSegments}
+          />
         </div>
 
         <ReusableTable
@@ -553,6 +563,14 @@ const Segments: React.FC = () => {
               )}
             </div>
           }
+        />
+
+        <TableExportModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          data={filteredSegments}
+          columns={tableColumns}
+          title="Customer Segments"
         />
 
         {/* -------- Segment form modal -------- */}

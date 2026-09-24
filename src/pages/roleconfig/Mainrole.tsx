@@ -11,6 +11,7 @@ import RoleTab from "./RoleTab";
 import PermissionTab from "./PermissionTab";
 import RolePermissionTab from "./RolePermissionTab";
 import UserEmployeeTab from "./UserEmployeeTab";
+import "./Mainrole.css";
 
 const RoleConfig: React.FC = () => {
   const { user } = useContext(AuthContext);
@@ -103,9 +104,9 @@ const RoleConfig: React.FC = () => {
         <PageBreadcrumb pageTitle="Role Config" />
       </div>
 
-      <div className="-mt-2 w-full max-w-none px-0 pb-0">
+      <div className="role-config-page -mt-2 w-full max-w-none px-0 pb-0">
         <div className="grid gap-3 xl:grid-cols-[205px_minmax(0,1fr)] lg:grid-cols-[190px_minmax(0,1fr)]">
-          <aside className="self-start overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm lg:sticky lg:top-2">
+          <aside className="relative self-start overflow-visible rounded-lg border border-gray-200 bg-white shadow-sm lg:sticky lg:top-2 lg:overflow-hidden">
             <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-2.5 py-1.5">
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Setup Areas</p>
@@ -137,7 +138,7 @@ const RoleConfig: React.FC = () => {
             </div>
             <nav
               id="role-config-setup-nav"
-              className={`${setupOpen ? "grid" : "hidden"} grid-cols-2 gap-0.5 p-1.5 sm:grid-cols-3 md:grid-cols-4 lg:grid lg:grid-cols-1`}
+              className={`${setupOpen ? "grid" : "hidden"} absolute right-1.5 top-[45px] z-20 w-[min(260px,calc(100vw-2rem))] grid-cols-1 gap-0.5 rounded-lg border border-gray-200 bg-white p-1.5 shadow-lg lg:static lg:w-auto lg:rounded-none lg:border-0 lg:p-1.5 lg:shadow-none`}
               aria-label="Role configuration sections"
             >
               {pages.map((page) => {

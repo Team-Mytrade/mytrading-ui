@@ -7,7 +7,6 @@ import {
   CheckBadgeIcon,
   ArrowUturnLeftIcon,
   CreditCardIcon,
-  ExclamationTriangleIcon,
   EyeIcon,
   InboxStackIcon,
   ChevronDownIcon,
@@ -58,7 +57,7 @@ type CreditForm = {
   customerId: string;
   orderAmount: string;
   outstandingAmount: string;
-  clearingBalance: string;
+  clearingBalance: string; // NEW — required by backend on clear-outstanding
 };
 
 type CreditMethod = "check" | "available" | "addOutstanding" | "clearOutstanding" | "create";
@@ -74,13 +73,6 @@ type ExportFormat = "EXCEL" | "PDF";
 
 const API_URL = "/v1/api/sales/credit";
 const PAGE_SIZE = 10;
-
-// Number fields that must never accept a negative value
-const NON_NEGATIVE_FIELDS: Array<keyof CreditForm> = [
-  "orderAmount",
-  "outstandingAmount",
-  "clearingBalance",
-];
 
 function getStoredTenantId() {
   try {
@@ -102,8 +94,8 @@ const methodOptions: { id: CreditMethod; name: string }[] = [
   { id: "check", name: "Check Credit" },
   { id: "available", name: "Get Available" },
   { id: "addOutstanding", name: "Add Outstanding" },
-  { id: "clearOutstanding", name: "Clear Outstanding (Legacy)" },
-  { id: "create", name: "Create Clear Entry" },
+  { id: "clearOutstanding", name: "Clear Outstanding" },
+  { id: "create", name: "Clear Outstanding (alt.)" },
 ];
 
 const methodConfig: Record<
@@ -122,7 +114,7 @@ const methodConfig: Record<
     buttonClassName: "bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-200 dark:focus:ring-cyan-900",
     icon: CheckBadgeIcon,
     toneClassName:
-      "border-cyan-100 bg-cyan-50 text-cyan-700 dark:border-cyan-900 dark:bg-cyan-950/40 dark:text-cyan-300",
+      "border-cyan-100 bg-cyan-50 text-cyan-700 dark:border-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300",
   },
   available: {
     title: "Available credit",
@@ -130,7 +122,7 @@ const methodConfig: Record<
     buttonClassName: "bg-teal-600 hover:bg-teal-700 focus:ring-teal-200 dark:focus:ring-teal-900",
     icon: EyeIcon,
     toneClassName:
-      "border-teal-100 bg-teal-50 text-teal-700 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-300",
+      "border-teal-100 bg-teal-50 text-teal-700 dark:border-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
   },
   addOutstanding: {
     title: "Add outstanding",
@@ -138,7 +130,7 @@ const methodConfig: Record<
     buttonClassName: "bg-blue-600 hover:bg-blue-700 focus:ring-blue-200 dark:focus:ring-blue-900",
     icon: BanknotesIcon,
     toneClassName:
-      "border-blue-100 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300",
+      "border-blue-100 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
   },
   clearOutstanding: {
     title: "Clear outstanding",
@@ -146,15 +138,15 @@ const methodConfig: Record<
     buttonClassName: "bg-rose-600 hover:bg-rose-700 focus:ring-rose-200 dark:focus:ring-rose-900",
     icon: TrashIcon,
     toneClassName:
-      "border-rose-100 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300",
+      "border-rose-100 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-900/30 dark:text-rose-300",
   },
   create: {
-    title: "Create clear entry",
-    buttonLabel: "Create Entry",
+    title: "Clear outstanding (alt.)",
+    buttonLabel: "Clear Outstanding",
     buttonClassName: "bg-amber-500 hover:bg-amber-600 focus:ring-amber-200 dark:focus:ring-amber-900",
     icon: InboxStackIcon,
     toneClassName:
-      "border-amber-100 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
+      "border-amber-100 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
   },
 };
 
@@ -242,11 +234,7 @@ function extractFileName(contentDisposition?: string) {
   return match?.[1]?.replace(/"/g, "").trim() || null;
 }
 
-function mapTransaction(
-  raw: RawCreditTransaction,
-  fallbackCustomerId: number,
-  index: number
-): CreditLog {
+function mapTransaction(raw: RawCreditTransaction, fallbackCustomerId: number, index: number): CreditLog {
   const nestedCustomer = raw.customer as Record<string, unknown> | undefined;
   const customerId =
     toNumberValue(raw.customerId) ??
@@ -264,7 +252,6 @@ function mapTransaction(
 
   const amount =
     toNumberValue(raw.amount) ??
-    toNumberValue(raw.clearingBalance) ??
     toNumberValue(raw.orderAmount) ??
     toNumberValue(raw.outstandingAmount) ??
     toNumberValue(raw.creditAmount) ??
@@ -356,21 +343,12 @@ const CreditLimit: React.FC = () => {
     fetchCustomers();
   }, [headers]);
 
-  // ✅ Blocks negative values for amount fields by rejecting "-" at the
-  // keystroke level. Also strips an accidental "-" pasted into the field.
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
 
-    if (NON_NEGATIVE_FIELDS.includes(name as keyof CreditForm)) {
-      if (value.startsWith("-")) {
-        ToasterService.error(
-          "Invalid amount",
-          "Negative values are not allowed. Enter a positive amount."
-        );
-        return;
-      }
-      if (/[^0-9.]/.test(value) && value !== "") {
-        // Reject any char that isn't a digit or a decimal point
+    // Block negative values on numeric amount fields.
+    if (name === "orderAmount" || name === "outstandingAmount" || name === "clearingBalance") {
+      if (value !== "" && Number(value) < 0) {
         return;
       }
     }
@@ -458,26 +436,16 @@ const CreditLimit: React.FC = () => {
           { headers }
         );
 
-        const payload = Array.isArray(res.data)
-          ? res.data
-          : Array.isArray(res.data?.data)
-          ? res.data.data
-          : [];
+        const payload = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
         const mapped = payload.map((item, index) => mapTransaction(item, customerId, index));
         setRecentTransactions(mapped);
 
         if (!mapped.length && !silent) {
-          ToasterService.noData(
-            "No recent transactions",
-            "The selected customer has no recent credit transactions."
-          );
+          ToasterService.noData("No recent transactions", "The selected customer has no recent credit transactions.");
         }
       } catch (error) {
         if (!silent) {
-          ToasterService.error(
-            "Failed to load recent transactions",
-            getErrorMessage(error, "Please try again.")
-          );
+          ToasterService.error("Failed to load recent transactions", getErrorMessage(error, "Please try again."));
         }
       } finally {
         setHistoryLoading(false);
@@ -552,10 +520,7 @@ const CreditLimit: React.FC = () => {
       }
     } catch (error) {
       if (!silent) {
-        ToasterService.error(
-          "Failed to load available credit",
-          getErrorMessage(error, "Please try again.")
-        );
+        ToasterService.error("Failed to load available credit", getErrorMessage(error, "Please try again."));
       }
     } finally {
       setLoading(false);
@@ -597,10 +562,15 @@ const CreditLimit: React.FC = () => {
     }
   };
 
+  // Backend confirmed via runtime error (not Swagger): `clearingBalance` is a
+  // required query param on this endpoint alongside `tenantId`.
   const clearOutstanding = async () => {
     if (!validateBase()) return;
     if (!isPositiveNumber(form.clearingBalance)) {
-      ToasterService.error("Clearing balance is required", "Enter the balance amount to clear.");
+      ToasterService.error(
+        "Clearing balance is required",
+        "Enter a valid clearing balance greater than zero."
+      );
       return;
     }
 
@@ -609,10 +579,9 @@ const CreditLimit: React.FC = () => {
       const customerId = Number(form.customerId);
       const tenantId = getStoredTenantId();
       const clearingBalance = Number(form.clearingBalance);
-      const orderAmount = clearingBalance;
       await axios.put(`${API_URL}/${customerId}/clear-outstanding`, null, {
         headers,
-        params: { tenantId, clearingBalance, orderAmount },
+        params: { tenantId, clearingBalance },
         responseType: "text",
         transformResponse: [(data: unknown) => data],
         validateStatus: (status: number) => status >= 200 && status < 300,
@@ -622,9 +591,7 @@ const CreditLimit: React.FC = () => {
         customerId,
         amount: clearingBalance,
       });
-      ToasterService.success(
-        selectedMethod === "create" ? "Clear entry created" : "Outstanding amount cleared"
-      );
+      ToasterService.success("Outstanding balance cleared");
       void getAvailableCredit(true);
       void fetchRecentTransactions(true);
       setForm((current) => ({ ...current, clearingBalance: "" }));
@@ -670,10 +637,7 @@ const CreditLimit: React.FC = () => {
 
       ToasterService.success("Credit history export started");
     } catch (error) {
-      ToasterService.error(
-        "Failed to export credit history",
-        getErrorMessage(error, "Please try again.")
-      );
+      ToasterService.error("Failed to export credit history", getErrorMessage(error, "Please try again."));
     } finally {
       setExportLoading(false);
     }
@@ -701,10 +665,7 @@ const CreditLimit: React.FC = () => {
         : filteredLogs;
 
       if (!exportRows.length) {
-        ToasterService.noData(
-          "No records to export",
-          "No credit history found for the selected date range."
-        );
+        ToasterService.noData("No records to export", "No credit history found for the selected date range.");
         return;
       }
 
@@ -715,10 +676,7 @@ const CreditLimit: React.FC = () => {
         data: exportRows,
         fileName: "Credit_History",
         metadata: [
-          {
-            label: "Customer",
-            value: selectedCustomer ? customerOptionLabel(selectedCustomer) : form.customerId || "Unknown",
-          },
+          { label: "Customer", value: selectedCustomer ? customerOptionLabel(selectedCustomer) : form.customerId || "Unknown" },
           {
             label: "Range",
             value:
@@ -738,8 +696,7 @@ const CreditLimit: React.FC = () => {
           { header: "Credit Limit", key: "creditLimit" },
           {
             header: "Sufficient",
-            accessor: (row) =>
-              row.sufficient === undefined ? "--" : row.sufficient ? "Sufficient" : "Insufficient",
+            accessor: (row) => (row.sufficient === undefined ? "--" : row.sufficient ? "Sufficient" : "Insufficient"),
           },
           { header: "Created At", key: "createdAt" },
         ],
@@ -803,10 +760,7 @@ const CreditLimit: React.FC = () => {
       ToasterService.success("Credit history purged");
       void fetchRecentTransactions(true);
     } catch (error) {
-      ToasterService.error(
-        "Failed to purge credit history",
-        getErrorMessage(error, "Please try again.")
-      );
+      ToasterService.error("Failed to purge credit history", getErrorMessage(error, "Please try again."));
     } finally {
       setPurging(false);
     }
@@ -819,14 +773,7 @@ const CreditLimit: React.FC = () => {
     if (!term) return baseLogs;
     return baseLogs.filter((log) => {
       const customer = customers.find((item) => Number(item.id) === Number(log.customerId));
-      return [
-        log.action,
-        log.customerId,
-        customerDisplayName(customer),
-        log.amount,
-        log.availableCredit,
-        log.sufficient,
-      ]
+      return [log.action, log.customerId, customerDisplayName(customer), log.amount, log.availableCredit, log.sufficient]
         .filter((value) => value !== undefined && value !== null)
         .some((value) => String(value).toLowerCase().includes(term));
     });
@@ -855,9 +802,7 @@ const CreditLimit: React.FC = () => {
         .map((log, index) => ({
           name: (() => {
             const parsed = new Date(log.createdAt);
-            return Number.isNaN(parsed.getTime())
-              ? `Txn ${index + 1}`
-              : parsed.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+            return Number.isNaN(parsed.getTime()) ? `Txn ${index + 1}` : parsed.toLocaleDateString(undefined, { month: "short", day: "numeric" });
           })(),
           available: Number(log.availableCredit || 0),
           outstanding: Number(log.outstandingBalance || 0),
@@ -866,516 +811,412 @@ const CreditLimit: React.FC = () => {
     [baseLogs]
   );
 
-  const canPurgeDialogDescribeTarget =
-    isPositiveNumber(form.customerId) && Boolean(historyFrom && historyTo);
+  const canPurgeDialogDescribeTarget = isPositiveNumber(form.customerId) && Boolean(historyFrom && historyTo);
   const activeMethod = methodConfig[selectedMethod];
   const ActiveMethodIcon = activeMethod.icon;
   const latestOutstanding = baseLogs[0]?.outstandingBalance;
+  const isClearAction = selectedMethod === "clearOutstanding" || selectedMethod === "create";
 
   return (
     <>
       <PageMeta title="Credit Limit" description="Manage sales credit limit checks" />
       <PageBreadcrumb pageTitle="Credit Limit" />
 
-      <div className="w-full max-w-none space-y-3 bg-slate-50 px-0 py-4 dark:bg-slate-950 sm:py-6">
-        {/* HERO / SUMMARY */}
-        <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-cyan-50 via-white to-slate-50 p-3 shadow-sm dark:border-slate-700 dark:from-cyan-950/30 dark:via-slate-900 dark:to-slate-900 sm:p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-cyan-100 bg-white/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-700 dark:border-cyan-800 dark:bg-slate-900/80 dark:text-cyan-300">
-                <CreditCardIcon className="h-3 w-3" />
-                Sales Credit Control
-              </div>
-              <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white sm:text-xl">
-                Customer credit
-              </h2>
-            </div>
-          </div>
-
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-            <div className="rounded-lg border border-white/70 bg-white/90 p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900/90">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-                Customer
-              </div>
-              <div className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-900 dark:text-white">
-                <UserCircleIcon className="h-3.5 w-3.5 shrink-0 text-cyan-600 dark:text-cyan-400" />
-                <span className="truncate">
-                  {selectedCustomer ? customerOptionLabel(selectedCustomer) : "None"}
-                </span>
-              </div>
-            </div>
-            <div className="rounded-lg border border-white/70 bg-white/90 p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900/90">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-                Action
-              </div>
-              <div className="mt-1 truncate text-xs font-semibold text-slate-900 dark:text-white">
-                {activeMethod.title}
-              </div>
-            </div>
-            <div className="rounded-lg border border-white/70 bg-white/90 p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900/90">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-                History
-              </div>
-              <div className="mt-1 truncate text-xs font-semibold text-slate-900 dark:text-white">
-                {historyFrom && historyTo
-                  ? `${historyFrom.toLocaleDateString()} - ${historyTo.toLocaleDateString()}`
-                  : "None"}
-              </div>
-            </div>
-            <div className="rounded-lg border border-cyan-100 bg-white p-2 shadow-sm dark:border-cyan-900 dark:bg-slate-900">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-                Credit Limit
-              </div>
-              <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
-                {money(lastCreditLimit ?? baseLogs[0]?.creditLimit)}
-              </div>
-            </div>
-            <div className="rounded-lg border border-emerald-100 bg-white p-2 shadow-sm dark:border-emerald-900 dark:bg-slate-900">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-                Available
-              </div>
-              <div className="mt-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-                {money(stats.availableCredit)}
-              </div>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-                Actions
-              </div>
-              <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
-                {stats.actions}
-              </div>
-            </div>
-            <div className="rounded-lg border border-amber-100 bg-white p-2 shadow-sm dark:border-amber-900 dark:bg-slate-900">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-                Outstanding
-              </div>
-              <div className="mt-1 text-sm font-semibold text-amber-700 dark:text-amber-400">
-                {latestOutstanding === undefined ? "--" : money(latestOutstanding)}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* CREDIT ACTIONS FORM */}
-        <form
-          onSubmit={handleMethodSubmit}
-          className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900"
-        >
-          <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800 sm:px-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-                Credit actions
-              </h3>
+      <div className="max-h-[calc(100vh-150px)] overflow-y-auto">
+        <div className="w-full max-w-none space-y-2.5 px-0 py-3 sm:py-4">
+          <section className="rounded-xl border border-slate-200 bg-gradient-to-br from-cyan-50 via-white to-slate-50 p-2.5 shadow-sm sm:p-3 dark:border-gray-700 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <div className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                  {activeMethod.title}
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-cyan-100 bg-white/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-700 dark:border-cyan-800 dark:bg-gray-800/80 dark:text-cyan-300">
+                  <CreditCardIcon className="h-3 w-3" />
+                  Sales Credit Control
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowCreditActions((current) => !current)}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  <ChevronDownIcon
-                    className={`h-3.5 w-3.5 transition ${showCreditActions ? "rotate-180" : ""}`}
-                  />
-                </button>
+                <h2 className="text-base font-semibold tracking-tight text-slate-900 sm:text-lg dark:text-white">
+                  Customer credit
+                </h2>
               </div>
             </div>
-          </div>
 
-          <div className={`${showCreditActions ? "block" : "hidden"} p-4 sm:p-5`}>
-            <div className="grid gap-3 xl:grid-cols-[280px_1fr]">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/60">
-                <FloatingSelect
-                  label="Customer"
-                  name="customerId"
-                  value={form.customerId}
-                  onChange={handleChange}
-                  options={customers.map((customer) => ({
-                    id: String(customer.id),
-                    name: customerOptionLabel(customer),
-                  }))}
-                  required
-                />
+            <div className="mt-2.5 grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+              <div className="rounded-lg border border-white/70 bg-white/90 p-1.5 shadow-sm dark:border-gray-700 dark:bg-gray-800/90">
+                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Customer</div>
+                <div className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-900 dark:text-white">
+                  <UserCircleIcon className="h-3.5 w-3.5 shrink-0 text-cyan-600 dark:text-cyan-400" />
+                  <span className="truncate">{selectedCustomer ? customerOptionLabel(selectedCustomer) : "None"}</span>
+                </div>
+              </div>
+              <div className="rounded-lg border border-white/70 bg-white/90 p-1.5 shadow-sm dark:border-gray-700 dark:bg-gray-800/90">
+                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Action</div>
+                <div className="mt-1 truncate text-xs font-semibold text-slate-900 dark:text-white">{activeMethod.title}</div>
+              </div>
+              <div className="rounded-lg border border-white/70 bg-white/90 p-1.5 shadow-sm dark:border-gray-700 dark:bg-gray-800/90">
+                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">History</div>
+                <div className="mt-1 truncate text-xs font-semibold text-slate-900 dark:text-white">
+                  {historyFrom && historyTo
+                    ? `${historyFrom.toLocaleDateString()} - ${historyTo.toLocaleDateString()}`
+                    : "None"}
+                </div>
+              </div>
+              <div className="rounded-lg border border-cyan-100 bg-white p-1.5 shadow-sm dark:border-cyan-800 dark:bg-gray-800">
+                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Credit Limit</div>
+                <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                  {money(lastCreditLimit ?? baseLogs[0]?.creditLimit)}
+                </div>
+              </div>
+              <div className="rounded-lg border border-emerald-100 bg-white p-1.5 shadow-sm dark:border-emerald-800 dark:bg-gray-800">
+                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Available</div>
+                <div className="mt-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">{money(stats.availableCredit)}</div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white p-1.5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Actions</div>
+                <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{stats.actions}</div>
+              </div>
+              <div className="rounded-lg border border-amber-100 bg-white p-1.5 shadow-sm dark:border-amber-800 dark:bg-gray-800">
+                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Outstanding</div>
+                <div className="mt-1 text-sm font-semibold text-amber-700 dark:text-amber-400">
+                  {latestOutstanding === undefined ? "--" : money(latestOutstanding)}
+                </div>
+              </div>
+            </div>
+          </section>
 
-                <div className="mt-2 flex flex-wrap items-center gap-2.5">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className={`inline-flex min-w-[170px] items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium text-white shadow-sm transition focus:outline-none focus:ring-4 disabled:cursor-not-allowed disabled:opacity-70 ${activeMethod.buttonClassName}`}
-                  >
-                    <ActiveMethodIcon className="h-4 w-4" />
-                    {activeMethod.buttonLabel}
-                  </button>
+          <form onSubmit={handleMethodSubmit} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div className="flex flex-col gap-2.5 border-b border-slate-100 px-3 py-2.5 sm:px-4 dark:border-gray-800">
+              <div className="flex flex-wrap items-center justify-between gap-2.5">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Credit actions</h3>
+                <div className="flex items-center gap-1.5">
+                  <div className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-400">
+                    {activeMethod.title}
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setForm(emptyForm)}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                    onClick={() => setShowCreditActions((current) => !current)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600 transition hover:bg-slate-50 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-300 dark:hover:bg-gray-700"
                   >
-                    <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
-                    Reset
+                    <ChevronDownIcon className={`h-3.5 w-3.5 transition ${showCreditActions ? "rotate-180" : ""}`} />
                   </button>
                 </div>
               </div>
+            </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <div className="text-sm font-semibold text-slate-900 dark:text-white">
-                    Choose action
-                  </div>
-                  <div className="rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                    {methodOptions.length} actions
+            <div className={`${showCreditActions ? "block" : "hidden"} p-3 sm:p-4`}>
+              <div className="grid gap-2.5 xl:grid-cols-[260px_1fr]">
+                <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800/80">
+                  <FloatingSelect
+                    label="Customer"
+                    name="customerId"
+                    value={form.customerId}
+                    onChange={handleChange}
+                    options={customers.map((customer) => ({
+                      id: String(customer.id),
+                      name: customerOptionLabel(customer),
+                    }))}
+                    required
+                  />
+
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className={`inline-flex min-w-[160px] items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-white shadow-sm transition focus:outline-none focus:ring-4 disabled:cursor-not-allowed disabled:opacity-70 ${activeMethod.buttonClassName}`}
+                    >
+                      <ActiveMethodIcon className="h-4 w-4" />
+                      {activeMethod.buttonLabel}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm(emptyForm)}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-gray-600 dark:bg-gray-800 dark:text-slate-200 dark:hover:bg-gray-700"
+                    >
+                      <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
+                      Reset
+                    </button>
                   </div>
                 </div>
 
-                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                  {methodOptions.map((option) => {
-                    const optionConfig = methodConfig[option.id];
-                    const OptionIcon = optionConfig.icon;
-                    const isActive = selectedMethod === option.id;
+                <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                  <div className="mb-2 flex items-start justify-between gap-3">
+                    <div className="text-xs font-semibold text-slate-900 dark:text-white">Choose action</div>
+                    <div className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-gray-800 dark:text-slate-400">
+                      {methodOptions.length} actions
+                    </div>
+                  </div>
 
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => setSelectedMethod(option.id)}
-                        className={`group rounded-xl border p-2.5 text-left transition ${
-                          isActive
-                            ? "border-cyan-300 bg-cyan-50/70 shadow-sm ring-2 ring-cyan-100 dark:border-cyan-700 dark:bg-cyan-950/40 dark:ring-cyan-900"
-                            : "border-slate-200 bg-white hover:border-cyan-200 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-cyan-700 dark:hover:bg-slate-800"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition ${
-                              isActive
-                                ? optionConfig.toneClassName
-                                : "border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
-                            }`}
-                          >
-                            <OptionIcon className="h-4 w-4" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <h4 className="text-xs font-semibold text-slate-900 dark:text-white">
-                                {option.name}
-                              </h4>
-                              {isActive && (
-                                <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold text-cyan-700 shadow-sm dark:bg-slate-900 dark:text-cyan-300">
-                                  Active
-                                </span>
-                              )}
+                  <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
+                    {methodOptions.map((option) => {
+                      const optionConfig = methodConfig[option.id];
+                      const OptionIcon = optionConfig.icon;
+                      const isActive = selectedMethod === option.id;
+
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => setSelectedMethod(option.id)}
+                          className={`group rounded-lg border p-2 text-left transition ${
+                            isActive
+                              ? "border-cyan-300 bg-cyan-50/70 shadow-sm ring-2 ring-cyan-100 dark:border-cyan-700 dark:bg-cyan-900/20 dark:ring-cyan-900"
+                              : "border-slate-200 bg-white hover:border-cyan-200 hover:bg-slate-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-cyan-700 dark:hover:bg-gray-700"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border transition ${
+                                isActive
+                                  ? optionConfig.toneClassName
+                                  : "border-slate-200 bg-slate-50 text-slate-500 dark:border-gray-600 dark:bg-gray-700 dark:text-slate-400"
+                              }`}
+                            >
+                              <OptionIcon className="h-3.5 w-3.5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <h4 className="text-[11px] font-semibold leading-tight text-slate-900 dark:text-white">{option.name}</h4>
+                                {isActive && (
+                                  <span className="rounded-full bg-white px-1.5 py-0.5 text-[9px] font-semibold text-cyan-700 shadow-sm dark:bg-gray-800 dark:text-cyan-300">
+                                    Active
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/60">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                  Required Input
-                </div>
-                <div
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border bg-white dark:bg-slate-900 ${activeMethod.toneClassName}`}
-                >
-                  <ActiveMethodIcon className="h-4 w-4" />
-                </div>
-              </div>
-
-              {(selectedMethod === "clearOutstanding" || selectedMethod === "create") && (
-                <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-                  <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>
-                    The backend currently uses the same amount for both `clearingBalance` and
-                    `orderAmount`.
-                  </span>
-                </div>
-              )}
-
-              <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                {selectedMethod === "clearOutstanding" && (
-                  <FloatingInput
-                    label="Clear Amount"
-                    name="clearingBalance"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={form.clearingBalance}
-                    onChange={handleChange}
-                  />
-                )}
-                {selectedMethod === "create" && (
-                  <FloatingInput
-                    label="Create Amount"
-                    name="clearingBalance"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={form.clearingBalance}
-                    onChange={handleChange}
-                  />
-                )}
-                {selectedMethod === "check" && (
-                  <FloatingInput
-                    label="Order Amount"
-                    name="orderAmount"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={form.orderAmount}
-                    onChange={handleChange}
-                  />
-                )}
-                {selectedMethod === "addOutstanding" && (
-                  <FloatingInput
-                    label="Outstanding Amount"
-                    name="outstandingAmount"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={form.outstandingAmount}
-                    onChange={handleChange}
-                  />
-                )}
-                {selectedMethod === "available" && (
-                  <div className="rounded-xl border border-teal-100 bg-teal-50/40 px-3.5 py-3.5 text-sm leading-6 text-slate-700 dark:border-teal-900 dark:bg-teal-950/30 dark:text-slate-200">
-                    No input required
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
+                </div>
               </div>
-            </div>
 
-            <div className="mt-3">
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                <div className="mb-2.5 flex items-center justify-between gap-3">
-                  <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-                    Credit trend
-                  </h4>
-                  <div className="rounded-full bg-slate-50 px-2.5 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                    Last {trendChartData.length || 0} records
+              <div className="mt-2.5 rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                    Required Input
+                  </div>
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-white dark:bg-gray-800 ${activeMethod.toneClassName}`}>
+                    <ActiveMethodIcon className="h-3.5 w-3.5" />
                   </div>
                 </div>
 
-                <div className="h-40">
-                  {trendChartData.length ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={trendChartData} barGap={8}>
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          stroke="currentColor"
-                          className="text-slate-200 dark:text-slate-700"
-                          vertical={false}
-                        />
-                        <XAxis
-                          dataKey="name"
-                          stroke="currentColor"
-                          className="text-slate-500 dark:text-slate-400"
-                          fontSize={11}
-                          tickLine={false}
-                          axisLine={false}
-                        />
-                        <YAxis
-                          stroke="currentColor"
-                          className="text-slate-500 dark:text-slate-400"
-                          fontSize={11}
-                          tickLine={false}
-                          axisLine={false}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "rgb(15 23 42)",
-                            borderColor: "rgb(51 65 85)",
-                            color: "rgb(241 245 249)",
-                            borderRadius: 8,
-                            fontSize: 12,
-                          }}
-                        />
-                        <Bar dataKey="available" fill="#0f766e" radius={[6, 6, 0, 0]} />
-                        <Bar dataKey="outstanding" fill="#38bdf8" radius={[6, 6, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex h-full items-center justify-center rounded-xl bg-slate-50 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                      No chart data yet
+                <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                  {selectedMethod === "check" && (
+                    <FloatingInput
+                      label="Order Amount"
+                      name="orderAmount"
+                      type="number"
+                      value={form.orderAmount}
+                      onChange={handleChange}
+                    />
+                  )}
+                  {selectedMethod === "addOutstanding" && (
+                    <FloatingInput
+                      label="Outstanding Amount"
+                      name="outstandingAmount"
+                      type="number"
+                      value={form.outstandingAmount}
+                      onChange={handleChange}
+                    />
+                  )}
+                  {selectedMethod === "available" && (
+                    <div className="rounded-lg border border-teal-100 bg-teal-50/40 px-3 py-3 text-sm leading-6 text-slate-600 dark:border-teal-800 dark:bg-teal-900/20 dark:text-slate-300">
+                      No input required — just confirm the customer and submit.
+                    </div>
+                  )}
+                  {isClearAction && (
+                    <div className="space-y-2">
+                      <FloatingInput
+                        label="Clearing Balance"
+                        name="clearingBalance"
+                        type="number"
+                        value={form.clearingBalance}
+                        onChange={handleChange}
+                      />
+                      <div className="rounded-lg border border-rose-100 bg-rose-50/40 px-3 py-2 text-xs leading-5 text-slate-600 dark:border-rose-800 dark:bg-rose-900/20 dark:text-slate-300">
+                        Backend requires <span className="font-semibold">clearingBalance</span> on this endpoint.
+                        Enter the amount you want to clear, then submit.
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
-            </div>
-          </div>
 
-          {!showCreditActions && (
-            <div className="px-4 py-4 sm:px-5">
-              <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 dark:border-slate-700 dark:bg-slate-800">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                    Selected Customer
+              <div className="mt-2.5">
+                <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <h4 className="text-xs font-semibold text-slate-900 dark:text-white">Credit trend</h4>
+                    <div className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-gray-800 dark:text-slate-400">
+                      Last {trendChartData.length || 0} records
+                    </div>
                   </div>
-                  <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
-                    {selectedCustomer ? customerOptionLabel(selectedCustomer) : "Choose customer"}
-                  </div>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 dark:border-slate-700 dark:bg-slate-800">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                    Selected Action
-                  </div>
-                  <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
-                    {activeMethod.buttonLabel}
+
+                  <div className="h-32">
+                    {trendChartData.length ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={trendChartData} barGap={6}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                          <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
+                          <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "rgba(15, 23, 42, 0.95)",
+                              border: "1px solid #334155",
+                              borderRadius: 8,
+                              color: "#e2e8f0",
+                            }}
+                            labelStyle={{ color: "#e2e8f0" }}
+                            itemStyle={{ color: "#e2e8f0" }}
+                          />
+                          <Bar dataKey="available" fill="#0f766e" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="outstanding" fill="#38bdf8" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex h-full items-center justify-center rounded-lg bg-slate-50 text-xs text-slate-500 dark:bg-gray-800 dark:text-slate-400">
+                        No chart data yet
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
-          )}
-        </form>
 
-        {/* RECENT ACTIONS */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-5">
-          <div className="mb-3 flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-2.5">
-              <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-                Recent credit actions
-              </h3>
-              <div className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                {filteredLogs.length} items
+            {!showCreditActions && (
+              <div className="px-3 py-3 sm:px-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
+                    <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
+                      Selected Customer
+                    </div>
+                    <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
+                      {selectedCustomer ? customerOptionLabel(selectedCustomer) : "Choose customer"}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
+                    <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
+                      Selected Action
+                    </div>
+                    <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">{activeMethod.buttonLabel}</div>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
+          </form>
 
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => void fetchRecentTransactions()}
-                disabled={historyLoading || !isPositiveNumber(form.customerId)}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                <ArrowPathIcon className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={openExportPopup}
-                disabled={exportLoading || !isPositiveNumber(form.customerId)}
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-emerald-500 dark:hover:bg-emerald-600"
-              >
-                <ArrowDownTrayIcon className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowPurgeConfirm(true)}
-                disabled={purging || !isPositiveNumber(form.customerId)}
-                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-red-500 dark:hover:bg-red-600"
-              >
-                <TrashIcon className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
+          <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4 dark:border-gray-700 dark:bg-gray-900">
+            <div className="mb-2.5 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Recent credit actions</h3>
+                <div className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-gray-800 dark:text-slate-300">
+                  {filteredLogs.length} items
+                </div>
+              </div>
 
-          {historyLoading ? (
-            <div className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
-              Loading recent credit activity...
-            </div>
-          ) : filteredLogs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <CreditCardIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
-              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
-                No credit actions yet
-              </p>
-            </div>
-          ) : (
-            <div className="max-h-[22rem] space-y-2.5 overflow-y-auto pr-1">
-              {filteredLogs.slice(0, PAGE_SIZE).map((log) => (
-                <div
-                  key={log.id}
-                  className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5 transition hover:border-cyan-200 hover:bg-cyan-50/40 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-cyan-700 dark:hover:bg-cyan-950/30 sm:flex-row sm:items-center sm:justify-between"
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => void fetchRecentTransactions()}
+                  disabled={historyLoading || !isPositiveNumber(form.customerId)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:text-slate-200 dark:hover:bg-gray-800"
                 >
-                  {(() => {
-                    const customer = customers.find(
-                      (item) => Number(item.id) === Number(log.customerId)
-                    );
-                    return (
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-cyan-100 px-2.5 py-0.5 text-[11px] font-semibold text-cyan-700 dark:bg-cyan-900/60 dark:text-cyan-300">
-                            {log.action}
-                          </span>
-                          <span className="text-sm font-medium text-slate-900 dark:text-white">
-                            {customerDisplayName(customer)}
-                          </span>
-                        </div>
-                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                          {log.createdAt}
-                        </div>
-                      </div>
-                    );
-                  })()}
+                  <ArrowPathIcon className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={openExportPopup}
+                  disabled={exportLoading || !isPositiveNumber(form.customerId)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <ArrowDownTrayIcon className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPurgeConfirm(true)}
+                  disabled={purging || !isPositiveNumber(form.customerId)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-2.5 py-1.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
 
-                  <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-5">
-                    <div>
-                      <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                        Amount
+            {historyLoading ? (
+              <div className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">Loading recent credit activity...</div>
+            ) : filteredLogs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10">
+                <CreditCardIcon className="mb-2 h-10 w-10 text-gray-400 dark:text-gray-500" />
+                <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">No credit actions yet</p>
+              </div>
+            ) : (
+              <div className="space-y-2 pr-1">
+                {filteredLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="flex flex-col gap-2.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5 transition hover:border-cyan-200 hover:bg-cyan-50/40 sm:flex-row sm:items-center sm:justify-between dark:border-gray-700 dark:bg-gray-800 dark:hover:border-cyan-700 dark:hover:bg-cyan-900/20"
+                  >
+                    {(() => {
+                      const customer = customers.find((item) => Number(item.id) === Number(log.customerId));
+                      return (
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-semibold text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300">
+                              {log.action}
+                            </span>
+                            <span className="text-sm font-medium text-slate-900 dark:text-white">{customerDisplayName(customer)}</span>
+                          </div>
+                          <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{log.createdAt}</div>
+                        </div>
+                      );
+                    })()}
+
+                    <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
+                      <div>
+                        <div className="text-[9px] uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">Amount</div>
+                        <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
+                          {log.amount === undefined ? "--" : money(log.amount)}
+                        </div>
                       </div>
-                      <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
-                        {log.amount === undefined ? "--" : money(log.amount)}
+                      <div>
+                        <div className="text-[9px] uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">Available</div>
+                        <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
+                          {log.availableCredit === undefined ? "--" : money(log.availableCredit)}
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                        Available
+                      <div>
+                        <div className="text-[9px] uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">Outstanding</div>
+                        <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
+                          {log.outstandingBalance === undefined ? "--" : money(log.outstandingBalance)}
+                        </div>
                       </div>
-                      <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
-                        {log.availableCredit === undefined ? "--" : money(log.availableCredit)}
+                      <div>
+                        <div className="text-[9px] uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">Credit Limit</div>
+                        <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
+                          {log.creditLimit === undefined ? "--" : money(log.creditLimit)}
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                        Outstanding
-                      </div>
-                      <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
-                        {log.outstandingBalance === undefined
-                          ? "--"
-                          : money(log.outstandingBalance)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                        Credit Limit
-                      </div>
-                      <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
-                        {log.creditLimit === undefined ? "--" : money(log.creditLimit)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                        Result
-                      </div>
-                      <div className="mt-0.5">
-                        {log.sufficient === undefined ? (
-                          <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                            --
-                          </span>
-                        ) : (
-                          <span
-                            className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                              log.sufficient
-                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300"
-                                : "bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300"
-                            }`}
-                          >
-                            {log.sufficient ? "Sufficient" : "Insufficient"}
-                          </span>
-                        )}
+                      <div>
+                        <div className="text-[9px] uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">Result</div>
+                        <div className="mt-0.5">
+                          {log.sufficient === undefined ? (
+                            <span className="text-sm font-semibold text-slate-900 dark:text-white">--</span>
+                          ) : (
+                            <span
+                              className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                log.sufficient
+                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                                  : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+                              }`}
+                            >
+                              {log.sufficient ? "Sufficient" : "Insufficient"}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
 
       <ConfirmDialog
@@ -1407,7 +1248,6 @@ const CreditLimit: React.FC = () => {
             label: "Export Options",
             fields: [
               <FloatingDateRangePicker
-                key="exportDateRange"
                 label="Export Date Range"
                 startDate={exportFrom}
                 endDate={exportTo}
@@ -1418,7 +1258,6 @@ const CreditLimit: React.FC = () => {
                 placeholder=""
               />,
               <FloatingSelect
-                key="exportFormat"
                 label="Export Format"
                 value={exportFormat}
                 onChange={(event) => setExportFormat(event.target.value as ExportFormat)}
@@ -1428,10 +1267,7 @@ const CreditLimit: React.FC = () => {
                   { id: "PDF", name: "PDF Export" },
                 ]}
               />,
-              <div
-                key="exportSummary"
-                className="md:col-span-2 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-4 text-sm leading-6 text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-200"
-              >
+              <div className="md:col-span-2 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-4 text-sm leading-6 text-cyan-900 dark:border-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-200">
                 {exportFrom && exportTo
                   ? `Exporting ${exportFormat === "PDF" ? "PDF" : "Excel"} for ${exportFrom.toLocaleDateString()} to ${exportTo.toLocaleDateString()}.`
                   : `Exporting ${exportFormat === "PDF" ? "PDF" : "Excel"} for all available records.`}

@@ -1,6 +1,7 @@
 /* Two-level ERP navigation: an always-visible icon rail with a focused module panel. */
 .app-sidebar.app-sidebar.bg-white { --active: #3d73dd; --active-soft: rgba(61, 115, 221, .18); --panel: #1f2d3d; --ink: #f8fafc; --muted: #aebdca; background: var(--panel); border: 0; box-shadow: 7px 0 20px rgba(15, 23, 42, .16); overflow: visible; }
-.app-sidebar__rail { position: absolute; inset: 0 auto 0 0; z-index: 2; display: flex; width: 60px; flex-direction: column; align-items: center; background: #1b2836; border-right: 1px solid rgba(255, 255, 255, .07); }
+.app-sidebar__rail { position: absolute; inset: 0 auto 0 0; z-index: 2; display: flex; width: 60px; flex-direction: column; align-items: center; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; background: #1b2836; border-right: 1px solid rgba(255, 255, 255, .07); }
+.app-sidebar__rail::-webkit-scrollbar { display: none; }
 .app-sidebar__rail-brand { display: grid; width: 100%; height: 64px; place-items: center; border-bottom: 1px solid rgba(255, 255, 255, .07); }
 .app-sidebar__rail-brand img { max-width: 30px; max-height: 30px; object-fit: contain; }
 .app-sidebar__rail-items { display: flex; width: 100%; flex-direction: column; align-items: center; gap: 9px; padding-top: 17px; }
@@ -59,4 +60,5 @@
 .dark .app-sidebar__profile a:hover { background: #292929; }
 .dark .app-sidebar__profile .text-gray-900 { color: #f1f5f9; }
 .dark .app-sidebar__rail-tooltip, .dark .app-sidebar__rail-tooltip::before { background: #111; }
+@media (max-height: 700px) { .app-sidebar__rail-items { gap: 6px; padding-top: 10px; padding-bottom: 10px; } }
 @media (max-width: 1023px) { .app-sidebar.bg-white { box-shadow: 18px 0 45px rgba(17, 24, 39, .26); } }

@@ -1,5 +1,6 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import {
   CalendarDaysIcon,
   CheckCircleIcon,
@@ -82,6 +83,10 @@ const CUSTOMERS_API = "/v1/api/crm/customers";
 const SCHEDULE_ORDERS_API = "/v1/api/sales/sales-orders/schedule/orders";
 const PAGE_SIZE = 10;
 
+// 🔧 Route paths — matches your app's actual routes.
+const USERS_PAGE_PATH = "/role_config/users";
+const CUSTOMERS_PAGE_PATH = "/customer-management";
+
 const emptyForm: ScheduleForm = {
   serviceOrderId: "",
   customerId: "",
@@ -157,14 +162,10 @@ function getScheduleOrderLabel(o: ScheduleOrderOption) {
   const id = getScheduleOrderId(o);
   const number = o.orderNumber || o.salesOrderNumber;
   if (number) return number;
-  if (o.customerName) return `Order #${id} — ${o.customerName}`;
+  if (o.customerName) return `Order — ${o.customerName}`;
   return `Order #${id}`;
 }
 
-// ✅ Robust employee-name resolver. The `assignedEmployeeId` stored on a
-// schedule can line up with any of a user's id fields depending on how the
-// record was originally created — try every plausible match before falling
-// back to a plain "Employee #<id>".
 function getAssignedEmployeeName(
   assignedEmployeeId: number | string | undefined | null,
   users: UserOption[]
@@ -185,7 +186,8 @@ function getAssignedEmployeeName(
       user.employeeId !== undefined &&
       Number(user.employeeId) === numericId;
     const byId = user.id !== null && user.id !== undefined && Number(user.id) === numericId;
-    const byUserId = user.userId !== null && user.userId !== undefined && Number(user.userId) === numericId;
+    const byUserId =
+      user.userId !== null && user.userId !== undefined && Number(user.userId) === numericId;
     return byEmployeeId || byId || byUserId;
   });
 
@@ -194,7 +196,43 @@ function getAssignedEmployeeName(
     if (name) return name;
   }
 
-  return `Employee #${assignedEmployeeId}`;
+  return "Unassigned";
+}
+
+function findUserByAssignedId(
+  assignedEmployeeId: number | string | undefined | null,
+  users: UserOption[]
+): UserOption | undefined {
+  if (
+    assignedEmployeeId === null ||
+    assignedEmployeeId === undefined ||
+    Number(assignedEmployeeId) <= 0
+  ) {
+    return undefined;
+  }
+  const numericId = Number(assignedEmployeeId);
+  return users.find((user) => {
+    const byEmployeeId =
+      user.employeeId !== null &&
+      user.employeeId !== undefined &&
+      Number(user.employeeId) === numericId;
+    const byId = user.id !== null && user.id !== undefined && Number(user.id) === numericId;
+    const byUserId =
+      user.userId !== null && user.userId !== undefined && Number(user.userId) === numericId;
+    return byEmployeeId || byId || byUserId;
+  });
+}
+
+function resolveScheduleOrderLabel(
+  serviceOrderId: number | string | undefined | null,
+  orders: ScheduleOrderOption[]
+): string {
+  if (serviceOrderId === null || serviceOrderId === undefined) return "--";
+  const numeric = Number(serviceOrderId);
+  if (!Number.isFinite(numeric) || numeric <= 0) return "--";
+  const match = orders.find((o) => getScheduleOrderId(o) === numeric);
+  if (match) return getScheduleOrderLabel(match);
+  return "--";
 }
 
 function openNativeTimePicker(
@@ -207,6 +245,7 @@ function openNativeTimePicker(
 }
 
 const ServiceScheduleNotify: React.FC = () => {
+  const navigate = useNavigate();
   const token = localStorage.getItem("accessToken");
   const headers = useMemo(
     () =>
@@ -325,9 +364,7 @@ const ServiceScheduleNotify: React.FC = () => {
     if (!form.serviceOrderId || !form.customerId || !form.scheduledDate) {
       ToasterService.error(
         "Required fields missing",
-        `Sales order (${form.serviceOrderId || "missing"}), customer (${
-          form.customerId || "missing"
-        }), and scheduled date (${form.scheduledDate || "missing"}) are required.`
+        "Sales order, customer, and scheduled date are required."
       );
       return;
     }
@@ -427,6 +464,43 @@ const ServiceScheduleNotify: React.FC = () => {
     }
   };
 
+  // ── Click-to-redirect handlers ─────────────────────────────────────
+  const goToUser = (user: UserOption) => {
+    if (!USERS_PAGE_PATH) return;
+    const name = getEmployeeName(user);
+    const userId = user.userId || user.id || "";
+    navigate(
+      `${USERS_PAGE_PATH}?userId=${encodeURIComponent(
+        String(userId)
+      )}&userName=${encodeURIComponent(name)}`
+    );
+  };
+
+  const goToCustomerById = (customerId: number | string | undefined | null) => {
+    if (!CUSTOMERS_PAGE_PATH) return;
+    if (customerId === null || customerId === undefined) return;
+    const numeric = Number(customerId);
+    if (!Number.isFinite(numeric) || numeric <= 0) return;
+    const customer = customers.find((c) => Number(c.id) === numeric);
+    const name = customer ? customerLabel(customer) : `Customer #${numeric}`;
+    navigate(
+      `${CUSTOMERS_PAGE_PATH}?customerIds=${numeric}&customerName=${encodeURIComponent(name)}`
+    );
+  };
+
+  const goToAssignedEmployee = (assignedEmployeeId: number | string | undefined | null) => {
+    if (!USERS_PAGE_PATH) return;
+    const user = findUserByAssignedId(assignedEmployeeId, users);
+    if (user) {
+      goToUser(user);
+      return;
+    }
+    if (assignedEmployeeId === null || assignedEmployeeId === undefined) return;
+    const numeric = Number(assignedEmployeeId);
+    if (!Number.isFinite(numeric) || numeric <= 0) return;
+    navigate(`${USERS_PAGE_PATH}?employeeId=${numeric}`);
+  };
+
   const employeeOptions = useMemo(
     () =>
       users
@@ -477,26 +551,37 @@ const ServiceScheduleNotify: React.FC = () => {
     [users, schedules]
   );
 
+  // ── User columns ────────────────────────────────────────────────────
   const userColumns: ColumnDef<UserOption>[] = [
     {
       key: "username",
       label: "User",
       sortable: true,
-      render: (user) => (
-        <div>
-          <div className="text-sm font-semibold text-slate-900 dark:text-white">
-            {getEmployeeName(user)}
-          </div>
-          <div className="text-xs text-slate-500 dark:text-slate-400">{user.userId || "--"}</div>
-        </div>
-      ),
+      sortValueGetter: (user) => getEmployeeName(user),
+      render: (user) => {
+        const name = getEmployeeName(user);
+        return (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              goToUser(user);
+            }}
+            className="max-w-[220px] truncate text-left text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            title={`View ${name}`}
+          >
+            {name}
+          </button>
+        );
+      },
     },
     {
       key: "email",
       label: "Email",
       sortable: true,
+      sortValueGetter: (user) => user.email || "",
       render: (user) => (
-        <div className="max-w-[150px] truncate" title={user.email || ""}>
+        <div className="max-w-[220px] truncate" title={user.email || ""}>
           <span className="text-sm text-slate-700 dark:text-slate-300">
             {user.email || "--"}
           </span>
@@ -504,39 +589,37 @@ const ServiceScheduleNotify: React.FC = () => {
       ),
     },
     {
-      key: "employeeId",
+      key: "employeeCode",
       label: "Employee",
       sortable: true,
-      render: (user) => (
-        <div>
-          <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            {user.employeeId ?? "--"}
-          </div>
-          <div className="text-xs text-slate-500 dark:text-slate-400">
+      sortValueGetter: (user) => user.employeeCode || "",
+      render: (user) => {
+        const hasEmployee =
+          user.employeeId !== null &&
+          user.employeeId !== undefined &&
+          Number(user.employeeId) > 0;
+        if (!hasEmployee) {
+          return (
+            <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium italic text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+              Not linked
+            </span>
+          );
+        }
+        return (
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
             {user.employeeCode || "--"}
-          </div>
-        </div>
-      ),
+          </span>
+        );
+      },
     },
     {
       key: "role",
       label: "Role",
       sortable: true,
+      sortValueGetter: (user) => user.role || user.userType || "",
       render: (user) => (
-        <div className="max-w-[150px] truncate" title={user.role || ""}>
-          <span className="text-sm text-slate-700 dark:text-slate-300">
-            {user.role || user.userType || "--"}
-          </span>
-        </div>
-      ),
-    },
-    {
-      key: "tenantId",
-      label: "Tenant",
-      sortable: true,
-      render: (user) => (
-        <span className="text-sm text-slate-700 dark:text-slate-300">
-          {user.tenantId || "--"}
+        <span className="inline-flex rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
+          {user.role || user.userType || "--"}
         </span>
       ),
     },
@@ -544,14 +627,22 @@ const ServiceScheduleNotify: React.FC = () => {
       key: "active",
       label: "Status",
       sortable: true,
+      sortValueGetter: (user) => (user.active ? "Active" : "Inactive"),
       render: (user) => (
-        <span className="inline-flex rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
+        <span
+          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+            user.active
+              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+              : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+          }`}
+        >
           {user.active ? "Active" : "Inactive"}
         </span>
       ),
     },
   ];
 
+  // ── Schedule columns ────────────────────────────────────────────────
   const scheduleColumns: ColumnDef<ServiceSchedule>[] = [
     {
       key: "scheduleNo",
@@ -563,7 +654,7 @@ const ServiceScheduleNotify: React.FC = () => {
             {schedule.scheduleNo || `Schedule #${schedule.id}`}
           </div>
           <div className="text-xs text-slate-500 dark:text-slate-400">
-            Order ID: {schedule.serviceOrderId}
+            {resolveScheduleOrderLabel(schedule.serviceOrderId, scheduleOrders)}
           </div>
         </div>
       ),
@@ -572,27 +663,57 @@ const ServiceScheduleNotify: React.FC = () => {
       key: "customerId",
       label: "Customer",
       sortable: true,
+      sortValueGetter: (schedule) => {
+        const c = customers.find((x) => Number(x.id) === Number(schedule.customerId));
+        return c ? customerLabel(c) : "";
+      },
       render: (schedule) => {
         const customer = customers.find((c) => Number(c.id) === Number(schedule.customerId));
+        const name = customer ? customerLabel(customer) : "Unknown customer";
         return (
-          <span className="text-sm text-slate-700 dark:text-slate-300">
-            {customer ? customerLabel(customer) : `#${schedule.customerId}`}
-          </span>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              goToCustomerById(schedule.customerId);
+            }}
+            className="max-w-[220px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            title={`View ${name}`}
+          >
+            {name}
+          </button>
         );
       },
     },
     {
-      // ✅ Assigned now resolves to the employee's name via the robust helper.
       key: "assignedEmployeeId",
       label: "Assigned",
       sortable: true,
       sortValueGetter: (schedule) =>
         getAssignedEmployeeName(schedule.assignedEmployeeId, users),
-      render: (schedule) => (
-        <span className="text-sm text-slate-700 dark:text-slate-300">
-          {getAssignedEmployeeName(schedule.assignedEmployeeId, users)}
-        </span>
-      ),
+      render: (schedule) => {
+        const name = getAssignedEmployeeName(schedule.assignedEmployeeId, users);
+        const hasAssignee =
+          schedule.assignedEmployeeId !== null &&
+          schedule.assignedEmployeeId !== undefined &&
+          Number(schedule.assignedEmployeeId) > 0;
+        if (!hasAssignee) {
+          return <span className="text-sm text-slate-500 dark:text-slate-400">{name}</span>;
+        }
+        return (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              goToAssignedEmployee(schedule.assignedEmployeeId);
+            }}
+            className="max-w-[180px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            title={`View ${name}`}
+          >
+            {name}
+          </button>
+        );
+      },
     },
     {
       key: "scheduledDate",
@@ -865,14 +986,7 @@ const ServiceScheduleNotify: React.FC = () => {
                     Sales Order
                   </div>
                   <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
-                    {(() => {
-                      const o = scheduleOrders.find(
-                        (x) => getScheduleOrderId(x) === Number(editTarget?.serviceOrderId)
-                      );
-                      return o
-                        ? getScheduleOrderLabel(o)
-                        : editTarget?.serviceOrderId ?? "--";
-                    })()}
+                    {resolveScheduleOrderLabel(editTarget?.serviceOrderId, scheduleOrders)}
                   </div>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
@@ -884,7 +998,7 @@ const ServiceScheduleNotify: React.FC = () => {
                       const c = customers.find(
                         (x) => Number(x.id) === Number(editTarget?.customerId)
                       );
-                      return c ? customerLabel(c) : `#${editTarget?.customerId ?? "--"}`;
+                      return c ? customerLabel(c) : "Unknown customer";
                     })()}
                   </div>
                 </div>
@@ -904,7 +1018,6 @@ const ServiceScheduleNotify: React.FC = () => {
                     {formatTime(editTarget?.startTime)} - {formatTime(editTarget?.endTime)}
                   </div>
                 </div>
-                {/* ✅ Assigned employee is now shown here by NAME, not ID. */}
                 <div className="col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
                   <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
                     Assigned Employee

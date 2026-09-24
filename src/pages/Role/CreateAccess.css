@@ -45,3 +45,4 @@
 .access-wizard--permissions .access-wizard__permissions--modules-only { grid-template-columns:minmax(0,1fr); }
 .access-wizard__permissions--modules-only .access-wizard__modules { border:0; grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); }
 @media(max-width:600px) { .access-wizard { padding:16px; } .access-wizard__permissions { grid-template-columns:1fr; } .access-wizard__modules { border-right:0; border-bottom:1px solid #e4e7ec; } .access-wizard select { min-width:0; max-width:100%; } }
+.dark .access-wizard{border-color:#363636;background:#191919;color:#e5e7eb}.dark .access-wizard__steps{color:#aebdca}.dark .access-wizard select,.dark .access-wizard button{border-color:#404040;background:#242424;color:#e5e7eb}.dark .access-wizard__permissions,.dark .access-wizard__modules{border-color:#363636}.dark .access-wizard__modules .is-selected{background:rgb(105 65 198 / 25%)}

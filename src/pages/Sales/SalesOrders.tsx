@@ -1154,7 +1154,7 @@ const SalesOrders: React.FC = () => {
       <PageMeta title="Sales Orders" description="Manage sales orders" />
       <PageBreadcrumb
         pageTitle="Sales Orders"
-        actions={<AddButton onClick={openCreate} label="Add Sales Order" />}
+        actions={<AddButton onClick={openCreate} label="Add Order" />}
       />
 
       <div className="w-full max-w-none space-y-6 bg-slate-50 px-0 py-8 dark:bg-slate-950">

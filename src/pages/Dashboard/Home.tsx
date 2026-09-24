@@ -9,6 +9,15 @@ import "./Home.css";
 
 const STORAGE_KEY = "cc-active-module";
 
+/** Returns a greeting using the visitor's local browser time. */
+function getLocalGreeting(date = new Date()) {
+  const hour = date.getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  if (hour < 21) return "Good evening";
+  return "Good night";
+}
+
 export default function Home() {
   const { user } = useContext(AuthContext);
   const accessible = useMemo(() => getAccessibleDashboards(user), [user]);
@@ -17,7 +26,13 @@ export default function Home() {
   const urlModule = searchParams.get("module") ?? "";
   const [storedKey, setStoredKey] = useState(() => (typeof localStorage !== "undefined" ? localStorage.getItem(STORAGE_KEY) || "" : ""));
   const [open, setOpen] = useState(false);
+  const [greeting, setGreeting] = useState(() => getLocalGreeting());
   const selectRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setGreeting(getLocalGreeting()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (urlModule && accessible.some((m) => m.key === urlModule)) {
@@ -66,7 +81,7 @@ export default function Home() {
           <div className="cc-bar__title">
             <span className="cc-bar__logo"><LayoutGrid size={18} /></span>
             <div>
-              <h1>Command Center</h1>
+              <h1>{greeting}, {user?.fullName || "Admin"}</h1>
               <p>Pick a module to load its dashboard — {user?.fullName || "Admin"}</p>
             </div>
           </div>
