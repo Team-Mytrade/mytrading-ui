@@ -26,6 +26,58 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
+/**
+ * =====================================================================================
+ * CORRECTIONS MADE — checked against the confirmed batches-controller Swagger
+ * (GET /batches, GET /batches/{id}, POST /batches, PUT /batches/{id}, DELETE /batches/{id}):
+ *
+ * 1. `supplierName` DOES NOT EXIST on the Batch entity in any confirmed schema
+ *    (GET, POST, or PUT). The previous code sent it in the payload anyway (where
+ *    it has nowhere to be stored) AND displayed a completely FAKE hardcoded
+ *    value for it (STATIC_BATCH_DATA_MAP had 3 made-up supplier names, and
+ *    every other batch silently showed "Default Supplier" as if it were real
+ *    data). That's actively misleading — removed the fake map entirely.
+ *    Supplier is now handled as a LOCAL-ONLY field (same pattern used for
+ *    Stock Level thresholds and Warehouse status): stored in localStorage per
+ *    batch id, clearly labeled in the UI as not yet saved to the server, and
+ *    never sent in the POST/PUT payload. Ask backend to add a real
+ *    `supplierName` column if this needs to be tracked properly.
+ *
+ * 2. `batchNumber` was being OMITTED from the PUT payload, based on an
+ *    assumption that the backend "keeps it as-is" on update. But the PUT
+ *    schema is the FULL entity shape (same as POST) — if the backend does a
+ *    normal save() of the deserialized body (the pattern seen everywhere else
+ *    in this API), omitting batchNumber would send it as undefined and could
+ *    NULL IT OUT on every single edit. Fixed: batchNumber is now carried
+ *    through in the edit form (read-only, not user-editable) and always
+ *    included in the update payload so it round-trips safely. On CREATE it's
+ *    still omitted, since batch numbers are commonly server-generated on
+ *    insert — but this assumption should be confirmed with backend; if wrong,
+ *    creation may fail or produce a blank batch number.
+ *
+ * 3. `DELETE .../{id}?cascade=true` — the confirmed Swagger shows DELETE with
+ *    NO query parameters at all. Removed the unconfirmed `cascade=true` param.
+ *    If cascading delete behavior is actually needed, ask backend whether it's
+ *    automatic, or whether a real supported param/endpoint exists for it.
+ *
+ * 4. `createdBy` / `tenantId` are required by the schema but were never sent —
+ *    added static placeholders (replace with real auth/session values).
+ *
+ * ⚠️ STILL NEEDS BACKEND CONFIRMATION:
+ *   - Is `batchNumber` really server-generated on create, or does POST require
+ *     it? Nothing in the schema confirms auto-generation either way.
+ *
+ * ✅ CONFIRMED (previously flagged as unverified, now checked against a real
+ *    response): `/v1/api/inventory/batches/stock-details` is a real endpoint.
+ *    It returns a flat array of { batchId, batchNumber, warehouseId,
+ *    productId, quantity, reserved, available } — confirmed necessary because
+ *    the Batch entity itself (GET /batches/{id}) carries NO quantity/reserved/
+ *    available fields at all. A `null` quantity/reserved/available for a given
+ *    batch is expected and means no stock movement/adjustment has been
+ *    recorded for that batch yet — not a bug, just genuinely no data.
+ * =====================================================================================
+ */
+
 // ============ TYPES ============
 type Batch = {
   id: number;
@@ -42,14 +94,17 @@ type Batch = {
   quantity?: number;
   reserved?: number;
   available?: number;
+  // Local-only display field — NOT part of the real backend schema. See note above.
   supplierName?: string;
   fifoPriority?: number;
   fefoPriority?: number;
   daysUntilExpiry?: number;
 };
 
-// CHANGED: batchNumber removed from the form — the backend generates it.
+// batchNumber carried through for edit (read-only, needed to avoid nulling it
+// out on PUT) but never shown as an editable input.
 type BatchForm = {
+  batchNumber: string;
   manufacturingDate: string;
   expiryDate: string;
   productId: string;
@@ -89,6 +144,10 @@ type Warehouse = {
 const API_URL = "/v1/api/inventory/batches";
 const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
 const PRODUCT_API_URL = "/v1/api/purchase/products";
+// Confirmed real endpoint (see note at top of file) — returns a flat array of
+// { batchId, batchNumber, warehouseId, productId, quantity, reserved, available }.
+// A batch's quantity/reserved/available live ONLY here, never on the Batch
+// entity itself.
 const BATCH_STOCK_API_URL = "/v1/api/inventory/batches/stock-details";
 const PAGE_SIZE = 10;
 
@@ -96,19 +155,16 @@ const PRODUCT_ROUTE = "/purchase-products";
 const WAREHOUSE_ROUTE = "/warehouse";
 const BATCH_ROUTE = "/batch";
 
-const STATIC_BATCH_DATA_MAP: Record<number, any> = {
-  1: { supplierName: "ABC Supplies" },
-  2: { supplierName: "XYZ Traders" },
-  3: { supplierName: "Global Imports" },
-};
-const STATIC_BATCH_DATA = {
-  supplierName: "Default Supplier",
-};
+// TODO: replace with real values pulled from your auth/session context.
+const STATIC_CREATED_BY = "system-admin";
+const STATIC_TENANT_ID = "tenant-001";
+
+const SUPPLIER_STORAGE_KEY = "batchSupplierNames";
 
 const FALLBACK_STATUS = ["GOOD", "EXPIRING_SOON", "EXPIRED", "EMPTY"];
 
-// CHANGED: emptyForm no longer carries batchNumber — BE generates it on create.
 const emptyForm: BatchForm = {
+  batchNumber: "",
   manufacturingDate: new Date().toISOString().split("T")[0],
   expiryDate: "",
   productId: "",
@@ -197,6 +253,33 @@ const getFEFORank = (batches: Batch[], batch: Batch) => {
   return sorted.findIndex((b) => b.id === batch.id) + 1;
 };
 
+// ---------- Local-only supplier storage (backend has no supplierName field) ----------
+function loadSupplierMap(): Record<number, string> {
+  try {
+    return JSON.parse(localStorage.getItem(SUPPLIER_STORAGE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveSupplierName(id: number, name: string) {
+  const all = loadSupplierMap();
+  if (name?.trim()) {
+    all[id] = name.trim();
+  } else {
+    delete all[id];
+  }
+  try {
+    localStorage.setItem(SUPPLIER_STORAGE_KEY, JSON.stringify(all));
+  } catch {
+    // localStorage can throw in private/incognito modes — fail silently.
+  }
+}
+
+function getLocalSupplierName(id: number): string {
+  return loadSupplierMap()[id] || "";
+}
+
 // ============ COMPONENT ============
 const BatchManagement: React.FC = () => {
   const navigate = useNavigate();
@@ -222,15 +305,10 @@ const BatchManagement: React.FC = () => {
   const [deleteBatch, setDeleteBatch] = useState<Batch | null>(null);
 
   useEffect(() => {
-    fetchEnums();
     fetchAllBatches();
     fetchDropdowns();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const fetchEnums = async (): Promise<void> => {
-    // BATCH_STATUS not provided by enum API — FALLBACK_STATUS is authoritative.
-  };
 
   const fetchAllBatches = async () => {
     try {
@@ -238,7 +316,7 @@ const BatchManagement: React.FC = () => {
 
       const [batchRes, stockDetailsRes] = await Promise.all([
         axios.get<Batch[]>(API_URL, { headers }),
-        axios.get(BATCH_STOCK_API_URL, { headers }),
+        axios.get(BATCH_STOCK_API_URL, { headers }).catch(() => ({ data: [] })),
       ]);
 
       const batchData = Array.isArray(batchRes.data) ? batchRes.data : [];
@@ -255,14 +333,15 @@ const BatchManagement: React.FC = () => {
 
       const enrichedData = batchData.map((batch) => {
         const stock = stockMap.get(batch.id) || {};
-        const staticData = STATIC_BATCH_DATA_MAP[batch.id] || STATIC_BATCH_DATA;
 
         return {
           ...batch,
           quantity: stock.quantity || 0,
           reserved: stock.reserved || 0,
           available: stock.available || 0,
-          supplierName: staticData.supplierName || "--",
+          // CORRECTED: real local-only value (or blank), never a fake
+          // hardcoded "Default Supplier".
+          supplierName: getLocalSupplierName(batch.id),
           daysUntilExpiry: getDaysUntilExpiry(batch),
           fifoPriority: 0,
           fefoPriority: 0,
@@ -300,7 +379,9 @@ const BatchManagement: React.FC = () => {
 
   const openCreate = () => {
     setEditingId(null);
-    // CHANGED: no batchNumber to seed — BE generates it.
+    // batchNumber intentionally left blank — assumed server-generated on
+    // create. CONFIRM with backend; if POST actually requires it, this needs
+    // a real input added back.
     setForm({ ...emptyForm, manufacturingDate: new Date().toISOString().split("T")[0] });
     setShowFormModal(true);
   };
@@ -313,8 +394,10 @@ const BatchManagement: React.FC = () => {
 
   const openEdit = (batch: Batch) => {
     setEditingId(batch.id);
-    // CHANGED: no batchNumber field to populate — it stays as-is on the BE.
     setForm({
+      // CORRECTED: batchNumber is carried through (read-only) so it can be
+      // sent back on update and never gets nulled out.
+      batchNumber: batch.batchNumber || "",
       manufacturingDate: batch.manufacturingDate,
       expiryDate: batch.expiryDate,
       productId: String(batch.productId),
@@ -322,7 +405,7 @@ const BatchManagement: React.FC = () => {
         typeof batch.warehouse === "object"
           ? String(batch.warehouse?.id || "")
           : String(batch.warehouse || ""),
-      supplierName: batch.supplierName || "",
+      supplierName: getLocalSupplierName(batch.id),
     });
     setShowFormModal(true);
   };
@@ -332,25 +415,29 @@ const BatchManagement: React.FC = () => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // CHANGED: batchNumber is not sent — BE generates it on create and keeps
-  // it untouched on update.
   const buildPayload = () => {
     const selectedWarehouse = warehouses.find((w) => String(w.id) === form.warehouse);
 
     const payload: any = {
+      createdBy: STATIC_CREATED_BY,
+      tenantId: STATIC_TENANT_ID,
       manufacturingDate: form.manufacturingDate,
       expiryDate: form.expiryDate,
       productId: toNumber(form.productId),
       warehouse: selectedWarehouse ? { id: selectedWarehouse.id } : null,
     };
 
-    if (form.supplierName?.trim()) {
-      payload.supplierName = form.supplierName.trim();
-    }
-
+    // CORRECTED: batchNumber is only meaningful (and only known) once editing
+    // an existing batch — included here so PUT doesn't null it out. Left out
+    // entirely on create, since it's assumed server-generated there.
     if (editingId) {
       payload.id = editingId;
+      payload.batchNumber = form.batchNumber;
     }
+
+    // NOTE: supplierName is deliberately NOT sent — the backend schema has no
+    // field for it. Saved locally instead via saveSupplierName() after a
+    // successful save. See note at top of file.
 
     return payload;
   };
@@ -382,6 +469,9 @@ const BatchManagement: React.FC = () => {
         response = await axios.put<Batch>(`${API_URL}/${editingId}`, payload, { headers });
         ToasterService.success("Batch updated successfully");
 
+        // Persist supplier locally (see note at top of file).
+        saveSupplierName(editingId, form.supplierName);
+
         setBatches((prev) => {
           return prev.map((batch) => {
             if (batch.id === editingId) {
@@ -390,7 +480,7 @@ const BatchManagement: React.FC = () => {
                 quantity: batch.quantity || 0,
                 reserved: batch.reserved || 0,
                 available: batch.available || 0,
-                supplierName: payload.supplierName || batch.supplierName || "--",
+                supplierName: getLocalSupplierName(editingId),
                 daysUntilExpiry: getDaysUntilExpiry(response.data),
                 fifoPriority: 0,
                 fefoPriority: 0,
@@ -414,12 +504,17 @@ const BatchManagement: React.FC = () => {
         response = await axios.post<Batch>(API_URL, payload, { headers });
         ToasterService.success("Batch created successfully");
 
+        // Persist supplier locally against the newly created batch's real id.
+        if (response.data?.id) {
+          saveSupplierName(response.data.id, form.supplierName);
+        }
+
         const newBatch = {
           ...response.data,
           quantity: 0,
           reserved: 0,
           available: 0,
-          supplierName: payload.supplierName || "--",
+          supplierName: response.data?.id ? getLocalSupplierName(response.data.id) : "",
           daysUntilExpiry: getDaysUntilExpiry(response.data),
           fifoPriority: 0,
           fefoPriority: 0,
@@ -448,7 +543,9 @@ const BatchManagement: React.FC = () => {
   const confirmDelete = async () => {
     if (!deleteBatch?.id) return;
     try {
-      await axios.delete(`${API_URL}/${deleteBatch.id}?cascade=true`, { headers });
+      // CORRECTED: removed unconfirmed `?cascade=true` — the confirmed
+      // Swagger shows DELETE /{id} with no query parameters at all.
+      await axios.delete(`${API_URL}/${deleteBatch.id}`, { headers });
       ToasterService.success("Batch deleted successfully");
       setDeleteBatch(null);
       await fetchAllBatches();
@@ -548,7 +645,6 @@ const BatchManagement: React.FC = () => {
 
     return (
       <div className="grid grid-cols-2 gap-3">
-        {/* Batch number still displayed here — read-only, from BE. */}
         <Field label="Batch Number" full>
           {batch.batchNumber || "--"}
         </Field>
@@ -585,7 +681,12 @@ const BatchManagement: React.FC = () => {
             <span>{warehouseName || "--"}</span>
           )}
         </Field>
-        <Field label="Supplier">{batch.supplierName || "--"}</Field>
+        <Field label="Supplier">
+          {batch.supplierName || "--"}
+          <div className="mt-0.5 text-[10px] font-normal text-amber-600 dark:text-amber-400">
+            stored locally, not on server
+          </div>
+        </Field>
 
         <Field label="MFG Date">
           {batch.manufacturingDate
@@ -955,7 +1056,7 @@ const BatchManagement: React.FC = () => {
         />
       </div>
 
-      {/* Form Modal — batchNumber input removed */}
+      {/* Form Modal */}
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Batch" : "Create Batch"}
@@ -973,7 +1074,6 @@ const BatchManagement: React.FC = () => {
           {
             label: "Batch Info",
             fields: [
-              // CHANGED: Batch Number input removed — BE generates it.
               <FloatingDatePicker
                 key="manufacturingDate"
                 label="Manufacturing Date"
@@ -1023,14 +1123,12 @@ const BatchManagement: React.FC = () => {
                 value={form.supplierName}
                 onChange={handleChange}
               />,
-              // Optional hint shown under the fields
               <p
-                key="batch-no-hint"
-                className="md:col-span-2 text-xs text-slate-500 dark:text-slate-400"
+                key="supplier-hint"
+                className="md:col-span-2 text-xs text-amber-600 dark:text-amber-400"
               >
-                {editingId
-                  ? "Batch number is generated by the server and cannot be changed."
-                  : "Batch number will be generated automatically by the server when you save."}
+                ⚠ Supplier is currently stored locally in this browser only —
+                the backend does not yet have a field to persist it server-side.
               </p>,
             ],
           },
