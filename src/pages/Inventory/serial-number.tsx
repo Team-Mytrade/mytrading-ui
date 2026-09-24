@@ -96,8 +96,12 @@ type SerialNumberForm = {
 const API_URL = "/v1/api/inventory";
 const PRODUCT_URL = "/v1/api/purchase";
 const PAGE_SIZE = 10;
+
+// 🔧 Route paths — match your app's actual routes.
 const WAREHOUSE_ROUTE = "/warehouse";
-const PRODUCT_ROUTE = "/product";
+const PRODUCT_ROUTE = "/purchase-products";
+const BATCH_ROUTE = "/batch";   // ← change if your batch page lives elsewhere
+
 const CURRENT_STATUS_ENUM_TYPE = "CURRENTSTATUS";
 
 const emptyForm: SerialNumberForm = {
@@ -179,18 +183,18 @@ function formatEnumResponse(raw: unknown): EnumOption[] {
 }
 
 const STATUS_BADGE_PALETTE = [
-  "bg-green-50 text-green-700",
-  "bg-blue-50 text-blue-700",
-  "bg-amber-50 text-amber-700",
-  "bg-red-50 text-red-700",
-  "bg-purple-50 text-purple-700",
-  "bg-teal-50 text-teal-700",
-  "bg-rose-50 text-rose-700",
-  "bg-indigo-50 text-indigo-700",
+  "bg-green-50 text-green-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+  "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  "bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  "bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+  "bg-purple-50 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+  "bg-teal-50 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300",
+  "bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
+  "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300",
 ];
 
 function getStatusBadgeClass(status?: string | null) {
-  if (!status) return "bg-gray-50 text-gray-700";
+  if (!status) return "bg-gray-50 text-gray-700 dark:bg-slate-800 dark:text-slate-300";
   let hash = 0;
   for (let i = 0; i < status.length; i++) {
     hash = (hash * 31 + status.charCodeAt(i)) >>> 0;
@@ -476,11 +480,15 @@ const SerialNumberManager: React.FC = () => {
     setViewingSerial(null);
   };
 
+  // ---------- Navigation ----------
   const goToWarehouse = (warehouse?: WarehouseRef) => {
     if (!warehouse?.id) return;
-    navigate(`${WAREHOUSE_ROUTE}?warehouseId=${warehouse.id}`, {
-      state: { warehouseId: warehouse.id, warehouseName: warehouse.name },
-    });
+    navigate(
+      `${WAREHOUSE_ROUTE}?warehouseId=${warehouse.id}&warehouseName=${encodeURIComponent(
+        warehouse.name || ""
+      )}`,
+      { state: { warehouseId: warehouse.id, warehouseName: warehouse.name } }
+    );
   };
 
   const goToProduct = (productId?: number) => {
@@ -491,18 +499,29 @@ const SerialNumberManager: React.FC = () => {
     });
   };
 
+  // NEW: navigate to the batch page with a filter param.
+  const goToBatch = (batch?: BatchRef) => {
+    if (!batch?.id) return;
+    navigate(
+      `${BATCH_ROUTE}?batchId=${batch.id}&batchName=${encodeURIComponent(
+        batch.batchNumber || ""
+      )}`,
+      { state: { batchId: batch.id, batchNumber: batch.batchNumber } }
+    );
+  };
+
   // ---------- Stats ----------
   const stats = useMemo(() => {
     const total = serialNumbers.length;
     const inWarranty = serialNumbers.filter((sn) => isWarrantyActive(sn.warrantyEnd)).length;
     const expired = total - inWarranty;
-    const warehouses = new Set(
+    const warehousesCount = new Set(
       serialNumbers.map((sn) => sn.warehouse?.name).filter(Boolean)
     ).size;
-    return { total, inWarranty, expired, warehouses };
+    return { total, inWarranty, expired, warehouses: warehousesCount };
   }, [serialNumbers]);
 
-  // ---------- Table columns (warranty columns removed) ----------
+  // ---------- Table columns ----------
   const columns: ColumnDef<SerialNumber>[] = [
     {
       key: "serial",
@@ -512,8 +531,8 @@ const SerialNumberManager: React.FC = () => {
       className: "w-[18%]",
       render: (sn) => (
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50">
-            <QrCodeIcon className="h-4 w-4 text-cyan-700" />
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50 dark:border-cyan-800 dark:bg-cyan-950/40">
+            <QrCodeIcon className="h-4 w-4 text-cyan-700 dark:text-cyan-400" />
           </div>
           <div className="min-w-0">
             <button
@@ -522,12 +541,14 @@ const SerialNumberManager: React.FC = () => {
                 e.stopPropagation();
                 openView(sn);
               }}
-              className="block whitespace-nowrap text-sm font-semibold text-cyan-600 hover:text-cyan-700 hover:underline"
+              className="block whitespace-nowrap text-sm font-semibold text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
               title={sn.serial || "N/A"}
             >
               {sn.serial || "N/A"}
             </button>
-            <div className="whitespace-nowrap text-xs text-slate-500">ID: {sn.id}</div>
+            <div className="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
+              ID: {sn.id}
+            </div>
           </div>
         </div>
       ),
@@ -545,13 +566,13 @@ const SerialNumberManager: React.FC = () => {
               e.stopPropagation();
               goToProduct(sn.productId);
             }}
-            className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
+            className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
             title="View product"
           >
             {name}
           </button>
         ) : (
-          <span>{name}</span>
+          <span className="text-slate-700 dark:text-slate-300">{name}</span>
         );
       },
     },
@@ -567,20 +588,36 @@ const SerialNumberManager: React.FC = () => {
               e.stopPropagation();
               goToWarehouse(sn.warehouse);
             }}
-            className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
+            className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
             title="View warehouse"
           >
             {getWarehouseName(sn)}
           </button>
         ) : (
-          <span>{getWarehouseName(sn)}</span>
+          <span className="text-slate-700 dark:text-slate-300">{getWarehouseName(sn)}</span>
         ),
     },
     {
+      // ✅ Batch is now clickable → /batch?batchId=...&batchName=...
       key: "batch",
       label: "Batch",
       sortable: true,
-      render: (sn) => getBatchNumber(sn),
+      render: (sn) =>
+        sn.batch?.id ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              goToBatch(sn.batch);
+            }}
+            className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            title={`View batch ${sn.batch.batchNumber}`}
+          >
+            {getBatchNumber(sn)}
+          </button>
+        ) : (
+          <span className="text-slate-700 dark:text-slate-300">{getBatchNumber(sn)}</span>
+        ),
     },
     {
       key: "currentStatus",
@@ -589,7 +626,7 @@ const SerialNumberManager: React.FC = () => {
       render: (sn) => {
         const status = sn.currentStatus;
         if (!status) {
-          return <span className="text-xs text-slate-400">N/A</span>;
+          return <span className="text-xs text-slate-400 dark:text-slate-500">N/A</span>;
         }
         return (
           <span
@@ -613,7 +650,7 @@ const SerialNumberManager: React.FC = () => {
           <button
             type="button"
             onClick={() => openView(sn)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="View"
           >
             <EyeIcon className="h-4 w-4" />
@@ -621,7 +658,7 @@ const SerialNumberManager: React.FC = () => {
           <button
             type="button"
             onClick={() => openEdit(sn)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
@@ -629,7 +666,7 @@ const SerialNumberManager: React.FC = () => {
           <button
             type="button"
             onClick={() => setDeletingSerial(sn)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
@@ -648,7 +685,6 @@ const SerialNumberManager: React.FC = () => {
       />
 
       <div className="w-full max-w-none px-0 py-8">
-        {/* Stats Cards */}
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatsCard label="Serial Numbers" value={stats.total} icon={<QrCodeIcon />} />
           <StatsCard
@@ -686,12 +722,14 @@ const SerialNumberManager: React.FC = () => {
           defaultSortOrder="asc"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
-              <QrCodeIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">No serial numbers found</p>
+              <QrCodeIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
+                No serial numbers found
+              </p>
               <button
                 type="button"
                 onClick={openCreate}
-                className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 Create your first serial number
               </button>
@@ -700,7 +738,6 @@ const SerialNumberManager: React.FC = () => {
         />
       </div>
 
-      {/* Form Modal */}
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Serial Number" : "Create Serial Number"}
@@ -771,7 +808,7 @@ const SerialNumberManager: React.FC = () => {
             fields: [
               <FloatingInput
                 key="warrantyStart"
-                label="WarrantyStart"
+                label="Warranty Start"
                 name="warrantyStart"
                 type="date"
                 value={form.warrantyStart}
@@ -792,7 +829,7 @@ const SerialNumberManager: React.FC = () => {
         ]}
       />
 
-      {/* Detail View Modal */}
+      {/* Detail View Modal — batch now clickable */}
       <PaginatedPopup
         isOpen={!!viewingSerial}
         title="Serial Number Details"
@@ -807,13 +844,13 @@ const SerialNumberManager: React.FC = () => {
               viewingSerial && (
                 <div key="view-content" className="space-y-3 text-sm">
                   {viewLoading && (
-                    <div className="mb-3 text-xs text-slate-400">
+                    <div className="mb-3 text-xs text-slate-400 dark:text-slate-500">
                       Refreshing latest details…
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                    <span className="flex items-center gap-2 text-slate-500">
+                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                    <span className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                       <CubeIcon className="h-4 w-4" /> Product
                     </span>
                     {viewingSerial.productId ? (
@@ -823,19 +860,19 @@ const SerialNumberManager: React.FC = () => {
                           closeView();
                           goToProduct(viewingSerial.productId);
                         }}
-                        className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
+                        className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
                       >
                         {getProductName(viewingSerial, products)}
                       </button>
                     ) : (
-                      <span className="font-medium text-slate-800">
+                      <span className="font-medium text-slate-800 dark:text-slate-200">
                         {getProductName(viewingSerial, products)}
                       </span>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                    <span className="flex items-center gap-2 text-slate-500">
+                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                    <span className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                       <BuildingStorefrontIcon className="h-4 w-4" /> Warehouse
                     </span>
                     {viewingSerial.warehouse?.id ? (
@@ -845,34 +882,48 @@ const SerialNumberManager: React.FC = () => {
                           closeView();
                           goToWarehouse(viewingSerial.warehouse);
                         }}
-                        className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
+                        className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
                       >
                         {getWarehouseName(viewingSerial)}
                       </button>
                     ) : (
-                      <span className="font-medium text-slate-800">
+                      <span className="font-medium text-slate-800 dark:text-slate-200">
                         {getWarehouseName(viewingSerial)}
                       </span>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                    <span className="text-slate-500">Batch</span>
-                    <span className="font-medium text-slate-800">
-                      {getBatchNumber(viewingSerial)}
-                    </span>
+                  {/* NEW: Batch clickable in the view modal too */}
+                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Batch</span>
+                    {viewingSerial.batch?.id ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          closeView();
+                          goToBatch(viewingSerial.batch);
+                        }}
+                        className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+                      >
+                        {getBatchNumber(viewingSerial)}
+                      </button>
+                    ) : (
+                      <span className="font-medium text-slate-800 dark:text-slate-200">
+                        {getBatchNumber(viewingSerial)}
+                      </span>
+                    )}
                   </div>
 
-                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                    <span className="text-slate-500">Current Status</span>
-                    <span className="font-medium text-slate-800">
+                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Current Status</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
                       {viewingSerial.currentStatus || "N/A"}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                    <span className="text-slate-500">Inspections</span>
-                    <span className="font-medium text-slate-800">
+                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Inspections</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
                       {getInspections(viewingSerial, inspectionsBySerial)}
                     </span>
                   </div>
@@ -888,8 +939,8 @@ const SerialNumberManager: React.FC = () => {
         setIsPopupOpen={(open: boolean) => {
           if (!open) setDeletingSerial(null);
         }}
-        icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-        iconBg="bg-red-100"
+        icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
+        iconBg="bg-red-100 dark:bg-red-950/40"
         innerText="Delete Serial Number"
         subText={
           deletingSerial

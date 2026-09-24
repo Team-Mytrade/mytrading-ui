@@ -1,5 +1,6 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowPathIcon,
   CalendarDaysIcon,
@@ -91,6 +92,10 @@ const statusOptions = [
   "CANCELLED",
 ];
 
+// 🔧 Route paths — matches your app's actual routes.
+const USERS_PAGE_PATH = "/role_config/users";
+const CUSTOMERS_PAGE_PATH = "/customer-management";
+
 const emptyForm: ScheduleForm = {
   serviceOrderId: "",
   customerId: "",
@@ -132,8 +137,6 @@ function isPositiveNumber(value: string) {
 }
 
 // Resolves a customer ID to a friendly display name using the loaded list.
-// Falls back gracefully when the customer isn't in the list (e.g. a brand-new
-// order whose customer hasn't been loaded yet).
 function getCustomerDisplayName(customerId: number, customers: CustomerOption[]): string {
   const customer = customers.find((item) => Number(item.id) === Number(customerId));
   if (!customer) return `Customer #${customerId}`;
@@ -146,7 +149,27 @@ function getCustomerDisplayName(customerId: number, customers: CustomerOption[])
   );
 }
 
+// Friendly fallback when we can't find the sales person for an assigned id.
+function getEmployeeDisplayNameFallback(assignedEmployeeId: number) {
+  if (!assignedEmployeeId || Number(assignedEmployeeId) <= 0) return "--";
+  return "Unassigned";
+}
+
+// Resolve the sales order label for the schedule sub-line.
+function resolveScheduleOrderLabel(
+  serviceOrderId: number | string | undefined | null,
+  orders: SalesOrderOption[]
+): string {
+  if (serviceOrderId === null || serviceOrderId === undefined) return "--";
+  const numeric = Number(serviceOrderId);
+  if (!Number.isFinite(numeric) || numeric <= 0) return "--";
+  const match = orders.find((o) => Number(o.id) === numeric);
+  if (!match) return "--";
+  return match.orderNo || match.soNumber || match.orderNumber || `Order #${match.id}`;
+}
+
 const ServiceSchedules: React.FC = () => {
+  const navigate = useNavigate();
   const token = localStorage.getItem("accessToken");
   const headers = token
     ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
@@ -425,7 +448,49 @@ const ServiceSchedules: React.FC = () => {
     const person = salesPersons.find(
       (item) => Number(item.employeeId || item.id) === Number(employeeId)
     );
-    return person?.name || `Employee #${employeeId}`;
+    if (!person) return getEmployeeDisplayNameFallback(employeeId);
+    return person.name || getEmployeeDisplayNameFallback(employeeId);
+  };
+
+  // Find the sales person record for an assigned employee id so we can build
+  // a proper redirect URL.
+  const findSalesPersonByAssignedId = (assignedEmployeeId: number) => {
+    return salesPersons.find(
+      (item) => Number(item.employeeId || item.id) === Number(assignedEmployeeId)
+    );
+  };
+
+  // ── Click-to-redirect helpers ─────────────────────────────────────
+  const goToEmployee = (assignedEmployeeId: number | string | undefined | null) => {
+    if (!USERS_PAGE_PATH) return;
+    if (assignedEmployeeId === null || assignedEmployeeId === undefined) return;
+    const numeric = Number(assignedEmployeeId);
+    if (!Number.isFinite(numeric) || numeric <= 0) return;
+
+    const person = findSalesPersonByAssignedId(numeric);
+    const name = person?.name || `Employee #${numeric}`;
+    const targetId = person?.employeeId ?? person?.id ?? numeric;
+
+    // Pass both userId and employeeId params so whichever the target page
+    // reads, the filter will apply.
+    navigate(
+      `${USERS_PAGE_PATH}?userId=${encodeURIComponent(
+        String(targetId)
+      )}&employeeId=${encodeURIComponent(String(targetId))}&userName=${encodeURIComponent(name)}`
+    );
+  };
+
+  const goToCustomer = (customerId: number | string | undefined | null) => {
+    if (!CUSTOMERS_PAGE_PATH) return;
+    if (customerId === null || customerId === undefined) return;
+    const numeric = Number(customerId);
+    if (!Number.isFinite(numeric) || numeric <= 0) return;
+
+    const customer = customers.find((c) => Number(c.id) === numeric);
+    const name = customer ? getCustomerDisplayName(numeric, customers) : `Customer #${numeric}`;
+    navigate(
+      `${CUSTOMERS_PAGE_PATH}?customerIds=${numeric}&customerName=${encodeURIComponent(name)}`
+    );
   };
 
   const columns: ColumnDef<ServiceSchedule>[] = [
@@ -438,33 +503,67 @@ const ServiceSchedules: React.FC = () => {
           <div className="font-medium text-cyan-700 dark:text-cyan-400">
             {schedule.scheduleNo || `Schedule #${schedule.id}`}
           </div>
+          {/* CHANGED: show the order number, not "Service Order: 42". */}
           <div className="text-xs text-slate-500 dark:text-slate-400">
-            Service Order: {schedule.serviceOrderId}
+            {resolveScheduleOrderLabel(schedule.serviceOrderId, salesOrders)}
           </div>
         </div>
       ),
     },
     {
-      // ✅ Customer column now shows the resolved customer name instead of a number.
+      // ✅ Customer column shows a clickable name → customer-management filter.
       key: "customerId",
       label: "Customer",
       sortable: true,
       sortValueGetter: (schedule) => getCustomerDisplayName(schedule.customerId, customers),
-      render: (schedule) => (
-        <span className="text-sm text-slate-700 dark:text-slate-300">
-          {getCustomerDisplayName(schedule.customerId, customers)}
-        </span>
-      ),
+      render: (schedule) => {
+        const name = getCustomerDisplayName(schedule.customerId, customers);
+        return (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              goToCustomer(schedule.customerId);
+            }}
+            className="max-w-[220px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            title={`View ${name}`}
+          >
+            {name}
+          </button>
+        );
+      },
     },
     {
+      // ✅ Employee column shows a clickable name → role_config/users filter.
       key: "assignedEmployeeId",
       label: "Employee",
       sortable: true,
-      render: (schedule) => (
-        <span className="text-sm text-slate-700 dark:text-slate-300">
-          {getEmployeeDisplayName(schedule.assignedEmployeeId)}
-        </span>
-      ),
+      sortValueGetter: (schedule) => getEmployeeDisplayName(schedule.assignedEmployeeId),
+      render: (schedule) => {
+        const name = getEmployeeDisplayName(schedule.assignedEmployeeId);
+        const hasAssignee =
+          schedule.assignedEmployeeId !== null &&
+          schedule.assignedEmployeeId !== undefined &&
+          Number(schedule.assignedEmployeeId) > 0;
+
+        if (!hasAssignee || name === "--" || name === "Unassigned") {
+          return <span className="text-sm text-slate-500 dark:text-slate-400">{name}</span>;
+        }
+
+        return (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              goToEmployee(schedule.assignedEmployeeId);
+            }}
+            className="max-w-[180px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            title={`View ${name}`}
+          >
+            {name}
+          </button>
+        );
+      },
     },
     {
       key: "scheduledDate",

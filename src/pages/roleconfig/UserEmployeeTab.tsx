@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useContext } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   PencilSquareIcon,
   TrashIcon,
@@ -10,6 +11,7 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   PlusIcon,
+  FunnelIcon,
 } from "@heroicons/react/24/outline";
 import { ToasterService } from "../../Services/ToasterService";
 import { UserEmployee, Role, Domain } from "./RoleConfigTypes";
@@ -23,6 +25,7 @@ const ROLE_API_BASE = "/v1/api/user/roles/getAll";
 const DOMAIN_API_BASE = "/v1/api/user/domains";
 const DEPARTMENT_API_BASE = "/v1/api/user/departments";
 const TENANT_API_BASE = "/v1/api/user/tenants";
+const USERS_PAGE_PATH = "/role_config/users";
 
 // Types for dropdown data
 interface Tenant {
@@ -44,6 +47,15 @@ interface Department {
 const UserEmployeeTab: React.FC = () => {
   const { user } = useContext(AuthContext);
   const tenantId = user?.tenantId;
+
+  // ── NEW: read filter params from URL ────────────────────────────
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const filterUserId = searchParams.get("userId");
+  const filterEmployeeId = searchParams.get("employeeId");
+  const filterUserName = searchParams.get("userName") || "";
+  const filterId = filterUserId || filterEmployeeId;
+  const isUserScoped = Boolean(filterId);
 
   const [search, setSearch] = useState("");
   const [showFormModal, setShowFormModal] = useState(false);
@@ -305,7 +317,6 @@ const UserEmployeeTab: React.FC = () => {
     const selectedRoleId = selectedRoleIds[0] || null;
 
     const payload: any = {
-      // TEMP USER CREATE TEST VALUES: filled for backend request validation.
       userId: form.userId || `USER-${String(form.username || "TEST").trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_")}`,
       username: form.username,
       email: form.email,
@@ -350,7 +361,6 @@ const UserEmployeeTab: React.FC = () => {
         : null,
       roleNames,
       role: selectedRole,
-      // TEMP USER CREATE TEST VALUES: backend is failing user_roles.role_id, so send selected checkbox role id explicitly.
       roleId: selectedRoleId,
       roleIds: selectedRoleIds,
     };
@@ -565,7 +575,6 @@ const UserEmployeeTab: React.FC = () => {
     setCurrentStep((step) => Math.max(1, step - 1));
   };
 
-  // Simplified columns - only showing important info
   const columns: ColumnDef<any>[] = [
     {
       key: "username",
@@ -633,7 +642,17 @@ const UserEmployeeTab: React.FC = () => {
     },
   ];
 
-  const filteredData = users.filter((user: any) => {
+  // ── NEW: apply URL-scoped filter before the search filter ─────
+  const scopedUsers = isUserScoped
+    ? users.filter((u: any) => {
+        const candidates = [u.userId, u.id, u.employeeId]
+          .filter((v) => v !== null && v !== undefined)
+          .map((v) => String(v));
+        return candidates.includes(String(filterId));
+      })
+    : users;
+
+  const filteredData = scopedUsers.filter((user: any) => {
     const searchLower = search.toLowerCase();
     return (
       user.username?.toLowerCase().includes(searchLower) ||
@@ -642,7 +661,6 @@ const UserEmployeeTab: React.FC = () => {
       user.lastName?.toLowerCase().includes(searchLower)
     );
   });
-
 
   const stepNames = ["Account Info", "Personal Info", "Address", "Additional Info", "Organization", "Roles"];
 
@@ -870,6 +888,25 @@ const UserEmployeeTab: React.FC = () => {
 
   return (
     <div>
+      {/* ── NEW: filter banner (matches Customers.tsx) ───────────── */}
+      {isUserScoped && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
+          <div className="flex items-center gap-2">
+            <FunnelIcon className="h-4 w-4 text-cyan-600" />
+            <span>
+              Showing user: <strong>{filterUserName || `#${filterId}`}</strong>
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate(USERS_PAGE_PATH)}
+            className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline"
+          >
+            View all users
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
         <div className="relative flex-1 max-w-sm">
@@ -903,7 +940,6 @@ const UserEmployeeTab: React.FC = () => {
         </button>
       </div>
 
-
       {/* Table */}
       <ReusableTable<any>
         data={filteredData}
@@ -916,8 +952,17 @@ const UserEmployeeTab: React.FC = () => {
         emptyState={
           <div className="flex flex-col items-center py-12">
             <Cog6ToothIcon className="h-12 w-12 text-gray-300 mb-3" />
-            <p className="text-gray-500 text-sm">No users found</p>
-            {!search && (
+            <p className="text-gray-500 text-sm">
+              {isUserScoped ? `No user matches "${filterUserName || `#${filterId}`}"` : "No users found"}
+            </p>
+            {isUserScoped ? (
+              <button
+                onClick={() => navigate(USERS_PAGE_PATH)}
+                className="mt-3 text-sm text-cyan-600 hover:text-cyan-700"
+              >
+                View all users →
+              </button>
+            ) : !search && (
               <button
                 onClick={() => {
                   setForm(getBlankRow());
@@ -934,7 +979,7 @@ const UserEmployeeTab: React.FC = () => {
         }
       />
 
-      {/* Form Modal - Same as before but with updated styling */}
+      {/* Form Modal */}
       {showFormModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">

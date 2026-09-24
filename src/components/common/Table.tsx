@@ -14,6 +14,7 @@ import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import noDataImage from "../../images/no_data.png";
 import RecordDetailDrawer from "./RecordDetailDrawer";
+import TableExportModal from "./TableExportModal";
 import "./Table.css";
 
 export interface ColumnDef<T> {
@@ -566,7 +567,10 @@ export function ReusableTable<T extends { id?: number | string }>({
   const [columnPickerPosition, setColumnPickerPosition] = useState<{ left: number; top: number } | null>(null);
   const [visibleColumnKeys, setVisibleColumnKeys] = useState<string[]>(() => columns.map((column) => column.key));
   const tableShellRef = useRef<HTMLDivElement | null>(null);
+  const tableRootRef = useRef<HTMLDivElement | null>(null);
   const [viewportPageSize, setViewportPageSize] = useState(pageSize);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [isToolbarRefreshing, setIsToolbarRefreshing] = useState(false);
   const [isLargeScreen, setIsLargeScreen] = useState(
     () => window.innerWidth >= 1024,
   );
@@ -627,6 +631,37 @@ export function ReusableTable<T extends { id?: number | string }>({
     return () => window.removeEventListener("reusable-table:toggle-column-filters", toggleColumnFilters);
   }, []);
 
+  useEffect(() => {
+    const isAssociatedToolbar = (source: HTMLElement) => {
+      const sourceBounds = source.getBoundingClientRect();
+      const tableRoot = [...document.querySelectorAll<HTMLElement>("[data-reusable-table]")]
+        .sort((first, second) => {
+          const firstBounds = first.getBoundingClientRect();
+          const secondBounds = second.getBoundingClientRect();
+          return Math.abs(firstBounds.top - sourceBounds.bottom) - Math.abs(secondBounds.top - sourceBounds.bottom);
+        })[0];
+      return tableRoot === tableRootRef.current;
+    };
+
+    const openExport = (event: Event) => {
+      const source = (event as CustomEvent<{ source?: HTMLElement }>).detail?.source;
+      if (source && isAssociatedToolbar(source)) setShowExportModal(true);
+    };
+    const showRefreshSkeleton = (event: Event) => {
+      const source = (event as CustomEvent<{ source?: HTMLElement }>).detail?.source;
+      if (!source || !isAssociatedToolbar(source)) return;
+      setIsToolbarRefreshing(true);
+      window.setTimeout(() => setIsToolbarRefreshing(false), 600);
+    };
+
+    window.addEventListener("reusable-table:export", openExport);
+    window.addEventListener("reusable-table:refresh", showRefreshSkeleton);
+    return () => {
+      window.removeEventListener("reusable-table:export", openExport);
+      window.removeEventListener("reusable-table:refresh", showRefreshSkeleton);
+    };
+  }, []);
+
   const tableWorkspaceLeft = isLargeScreen ? 60 : 0;
 
   const getFilterOptions = (column: ColumnDef<T>) => {
@@ -637,6 +672,7 @@ export function ReusableTable<T extends { id?: number | string }>({
       .map((value) => ({ label: value, value }));
   };
   const visibleColumns = columns.filter((column) => visibleColumnKeys.includes(column.key));
+  const isLoading = loading || isToolbarRefreshing;
 
   const filtered = useMemo(() => data.filter((row) => {
     if (!rowMatchesSearch(row, search, searchFields)) return false;
@@ -773,7 +809,7 @@ export function ReusableTable<T extends { id?: number | string }>({
     }
   };
 
-  const showEmptyState = !loading && paginated.length === 0;
+  const showEmptyState = !isLoading && paginated.length === 0;
   const selectedRowDetailsTitle = selectedRow
     ? typeof rowDetailsTitle === "function"
       ? rowDetailsTitle(selectedRow)
@@ -792,6 +828,8 @@ export function ReusableTable<T extends { id?: number | string }>({
 
   return (
     <div
+      ref={tableRootRef}
+      data-reusable-table="true"
       style={
         isTableFullscreen ? { left: `${tableWorkspaceLeft}px` } : undefined
       }
@@ -960,7 +998,7 @@ export function ReusableTable<T extends { id?: number | string }>({
 
               {/* Body */}
               <tbody className="bg-white divide-y divide-gray-200 dark:divide-gray-800 dark:bg-gray-900">
-                {loading
+                {isLoading
                   ? Array.from({ length: skeletonRowCount }).map((_, i) => (
                       <SkeletonRow key={i} cols={visibleColumns.length} />
                     ))
@@ -1016,7 +1054,7 @@ export function ReusableTable<T extends { id?: number | string }>({
             </table>
           </div>
 
-          {!loading && sorted.length > 0 && (
+          {!isLoading && sorted.length > 0 && (
             <div className="flex flex-col items-center justify-between gap-2.5 px-4 py-3 sm:flex-row sm:items-center border-t border-gray-100 dark:border-gray-800">
               <p className="text-xs text-gray-500 shrink-0 dark:text-gray-400">
                 Showing{" "}
@@ -1101,7 +1139,7 @@ export function ReusableTable<T extends { id?: number | string }>({
         isResizing={isDrawerResizing}
         resizeHandle={<button type="button" className="record-detail-drawer__resize-handle" onPointerDown={(event) => { event.preventDefault(); setIsDrawerResizing(true); }} aria-label="Resize details panel" />}
       >
-        {selectedRow && (
+      {selectedRow && (
           <div className="record-detail-dashboard">
             {summaryEntries.length > 0 && (
               <section className="record-detail-dashboard__summary" aria-label="Record summary">
@@ -1112,8 +1150,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                   </div>
                 ))}
               </section>
-            )}
-
+      )}
             {informationEntries.length > 0 && (
               <section className="record-detail-dashboard__section" aria-labelledby="record-information-title">
                 <div className="record-detail-dashboard__section-heading">
@@ -1139,6 +1176,13 @@ export function ReusableTable<T extends { id?: number | string }>({
           </div>
         )}
       </RecordDetailDrawer>
+      <TableExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        data={filtered}
+        columns={visibleColumns}
+        title="Table data"
+      />
     </div>
   );
 }
