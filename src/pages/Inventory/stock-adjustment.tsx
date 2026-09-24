@@ -151,11 +151,12 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+// Dark-mode-aware badges
 function getTypeBadge(type: AdjustmentType) {
   if (type === "POSITIVE") {
-    return "bg-green-50 text-green-700 border-green-200";
+    return "bg-green-50 text-green-700 border-green-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-800";
   }
-  return "bg-red-50 text-red-700 border-red-200";
+  return "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800";
 }
 
 function getTypeIcon(type: AdjustmentType) {
@@ -235,7 +236,6 @@ const StockAdjustmentManager: React.FC = () => {
   const [viewingAdjustment, setViewingAdjustment] = useState<StockAdjustment | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
 
-  // ---------- Dynamic option states ----------
   const [adjustmentTypeOptions, setAdjustmentTypeOptions] = useState<EnumOption[]>([
     { id: "POSITIVE", name: "Stock In" },
     { id: "NEGATIVE", name: "Stock Out" },
@@ -243,7 +243,6 @@ const StockAdjustmentManager: React.FC = () => {
 
   const [reasonOptions, setReasonOptions] = useState<EnumOption[]>([]);
 
-  // ---------- Data fetching ----------
   useEffect(() => {
     fetchAllData();
     fetchAdjustmentTypeOptions();
@@ -401,16 +400,22 @@ const StockAdjustmentManager: React.FC = () => {
 
   const goToWarehouse = (warehouse?: Warehouse) => {
     if (!warehouse?.id) return;
-    navigate(`${WAREHOUSE_ROUTE}?warehouseId=${warehouse.id}`, {
-      state: { warehouseId: warehouse.id, warehouseName: warehouse.name },
-    });
+    navigate(
+      `${WAREHOUSE_ROUTE}?warehouseId=${warehouse.id}&warehouseName=${encodeURIComponent(
+        warehouse.name || ""
+      )}`,
+      { state: { warehouseId: warehouse.id, warehouseName: warehouse.name } }
+    );
   };
 
   const goToBatch = (batch?: Batch) => {
     if (!batch?.id) return;
-    navigate(`${BATCH_ROUTE}?batchId=${batch.id}`, {
-      state: { batchId: batch.id, batchNumber: batch.batchNumber },
-    });
+    navigate(
+      `${BATCH_ROUTE}?batchId=${batch.id}&batchName=${encodeURIComponent(
+        batch.batchNumber || ""
+      )}`,
+      { state: { batchId: batch.id, batchNumber: batch.batchNumber } }
+    );
   };
 
   // ---------- Form handlers ----------
@@ -631,7 +636,6 @@ const StockAdjustmentManager: React.FC = () => {
 
   const netChange = stats.totalAdded - stats.totalRemoved;
 
-  // ---------- Dropdown options ----------
   const productOptions = useMemo(() => {
     return products.map((product) => ({
       id: String(product.id),
@@ -695,6 +699,128 @@ const StockAdjustmentManager: React.FC = () => {
 
   const typeOptions = adjustmentTypeOptions;
 
+  // ======================== ROW DETAILS RENDERER ========================
+  const renderAdjustmentDetails = (adjustment: StockAdjustment) => {
+    const createdAt = adjustment.createdDate
+      ? new Date(adjustment.createdDate).toLocaleString()
+      : "--";
+
+    const Field = ({
+      label,
+      children,
+      full,
+    }: {
+      label: string;
+      children: React.ReactNode;
+      full?: boolean;
+    }) => (
+      <div
+        className={`rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800 ${
+          full ? "col-span-2" : ""
+        }`}
+      >
+        <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+          {label}
+        </div>
+        <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+          {children}
+        </div>
+      </div>
+    );
+
+    const productId = adjustment.productId ?? adjustment.product?.id;
+
+    return (
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Adjustment ID">#{adjustment.id}</Field>
+        <Field label="Date">
+          {new Date(adjustment.adjustmentDate).toLocaleDateString()}
+        </Field>
+
+        <Field label="Type" full>
+          <span
+            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${getTypeBadge(
+              adjustment.adjustmentType
+            )}`}
+          >
+            {getTypeIcon(adjustment.adjustmentType)}
+            {getTypeLabel(adjustment.adjustmentType)}
+          </span>
+        </Field>
+
+        <Field label="Product" full>
+          {productId ? (
+            <button
+              type="button"
+              onClick={() => goToProduct(productId)}
+              className="text-left text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            >
+              {getProductDisplayName(adjustment)}
+            </button>
+          ) : (
+            <span>{getProductDisplayName(adjustment)}</span>
+          )}
+        </Field>
+
+        <Field label="Quantity">
+          <span
+            className={
+              adjustment.adjustmentType === "POSITIVE"
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-red-600 dark:text-red-400"
+            }
+          >
+            {adjustment.adjustmentType === "POSITIVE" ? "+" : "-"}
+            {adjustment.quantity}
+          </span>
+        </Field>
+        <Field label="Reason">{getReasonLabel(adjustment.reason)}</Field>
+
+        <Field label="Warehouse">
+          {adjustment.warehouse?.id ? (
+            <button
+              type="button"
+              onClick={() => goToWarehouse(adjustment.warehouse)}
+              className="text-left text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            >
+              {adjustment.warehouse.name || "N/A"}
+            </button>
+          ) : (
+            <span>N/A</span>
+          )}
+        </Field>
+        <Field label="Batch">
+          {adjustment.batch?.id ? (
+            <button
+              type="button"
+              onClick={() => goToBatch(adjustment.batch)}
+              className="text-left text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            >
+              {adjustment.batch.batchNumber || "N/A"}
+            </button>
+          ) : (
+            <span>N/A</span>
+          )}
+        </Field>
+
+        <Field label="Serial Number" full>
+          {adjustment.serialNumber?.serial
+            ? `${adjustment.serialNumber.serial}${
+                adjustment.serialNumber.status
+                  ? ` (${adjustment.serialNumber.status})`
+                  : ""
+              }`
+            : "N/A"}
+        </Field>
+
+        {adjustment.createdBy && (
+          <Field label="Created By">{adjustment.createdBy}</Field>
+        )}
+        <Field label="Created At">{createdAt}</Field>
+      </div>
+    );
+  };
+
   // ---------- Table columns ----------
   const columns: ColumnDef<StockAdjustment>[] = [
     {
@@ -703,11 +829,9 @@ const StockAdjustmentManager: React.FC = () => {
       sortable: true,
       sortValueGetter: (adjustment) => new Date(adjustment.adjustmentDate).getTime(),
       render: (adjustment) => (
-        <div>
-          <p className="text-sm font-medium text-gray-900">
-            {new Date(adjustment.adjustmentDate).toLocaleDateString()}
-          </p>
-        </div>
+        <p className="text-sm font-medium text-gray-900 dark:text-slate-200">
+          {new Date(adjustment.adjustmentDate).toLocaleDateString()}
+        </p>
       ),
     },
     {
@@ -718,19 +842,17 @@ const StockAdjustmentManager: React.FC = () => {
       render: (adjustment) => {
         const productId = adjustment.productId ?? adjustment.product?.id;
         return (
-          <div>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                goToProduct(productId);
-              }}
-              className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
-              title="View product"
-            >
-              {getProductDisplayName(adjustment)}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              goToProduct(productId);
+            }}
+            className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            title="View product"
+          >
+            {getProductDisplayName(adjustment)}
+          </button>
         );
       },
     },
@@ -748,17 +870,19 @@ const StockAdjustmentManager: React.FC = () => {
                 e.stopPropagation();
                 goToWarehouse(adjustment.warehouse);
               }}
-              className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
+              className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
               title="View warehouse"
             >
               {adjustment.warehouse.name}
             </button>
             {adjustment.warehouse.code && (
-              <p className="text-xs text-gray-500">{adjustment.warehouse.code}</p>
+              <p className="text-xs text-gray-500 dark:text-slate-400">
+                {adjustment.warehouse.code}
+              </p>
             )}
           </div>
         ) : (
-          <p className="text-sm text-gray-900">N/A</p>
+          <p className="text-sm text-gray-900 dark:text-slate-200">N/A</p>
         ),
     },
     {
@@ -774,13 +898,13 @@ const StockAdjustmentManager: React.FC = () => {
               e.stopPropagation();
               goToBatch(adjustment.batch);
             }}
-            className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
+            className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
             title="View batch"
           >
             {adjustment.batch.batchNumber}
           </button>
         ) : (
-          <span className="text-sm text-gray-900">N/A</span>
+          <span className="text-sm text-gray-900 dark:text-slate-200">N/A</span>
         ),
     },
     {
@@ -806,7 +930,9 @@ const StockAdjustmentManager: React.FC = () => {
       render: (adjustment) => (
         <span
           className={`text-sm font-semibold ${
-            adjustment.adjustmentType === "POSITIVE" ? "text-green-600" : "text-red-600"
+            adjustment.adjustmentType === "POSITIVE"
+              ? "text-green-600 dark:text-emerald-400"
+              : "text-red-600 dark:text-red-400"
           }`}
         >
           {adjustment.adjustmentType === "POSITIVE" ? "+" : "-"}
@@ -820,7 +946,9 @@ const StockAdjustmentManager: React.FC = () => {
       sortable: true,
       sortValueGetter: (adjustment) => getReasonLabel(adjustment.reason),
       render: (adjustment) => (
-        <p className="line-clamp-2 text-sm text-gray-700">{getReasonLabel(adjustment.reason)}</p>
+        <p className="line-clamp-2 text-sm text-gray-700 dark:text-slate-300">
+          {getReasonLabel(adjustment.reason)}
+        </p>
       ),
     },
     {
@@ -834,7 +962,7 @@ const StockAdjustmentManager: React.FC = () => {
           <button
             type="button"
             onClick={() => openView(adjustment)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600 dark:text-slate-500 dark:hover:bg-blue-950/40 dark:hover:text-blue-400"
             title="View Details"
           >
             <EyeIcon className="h-4 w-4" />
@@ -842,7 +970,7 @@ const StockAdjustmentManager: React.FC = () => {
           <button
             type="button"
             onClick={() => openEdit(adjustment)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
@@ -850,7 +978,7 @@ const StockAdjustmentManager: React.FC = () => {
           <button
             type="button"
             onClick={() => setDeletingAdjustment(adjustment)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
@@ -902,18 +1030,7 @@ const StockAdjustmentManager: React.FC = () => {
           />
         </div>
 
-        {/* Toolbar — Refresh only */}
-        {/* <div className="mb-4 flex items-center justify-end">
-          <button
-            onClick={fetchAdjustments}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600"
-            title="Refresh"
-          >
-            <ArrowPathIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
-        </div> */}
-
+        {/* ✅ Row click now EXPANDS inline details; the eye icon opens the modal */}
         <ReusableTable
           data={adjustments}
           columns={columns}
@@ -921,15 +1038,18 @@ const StockAdjustmentManager: React.FC = () => {
           pageSize={PAGE_SIZE}
           defaultSortKey="adjustmentDate"
           defaultSortOrder="desc"
-          onRowClick={openView}
+          enableRowDetails={true}
+          rowDetailsTitle="Adjustment Details"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
-              <ClipboardDocumentCheckIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">No stock adjustments found</p>
+              <ClipboardDocumentCheckIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
+                No stock adjustments found
+              </p>
               <button
                 type="button"
                 onClick={openCreate}
-                className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 Create your first adjustment
               </button>
@@ -1036,7 +1156,7 @@ const StockAdjustmentManager: React.FC = () => {
         ]}
       />
 
-      {/* ---------- View Modal — now using PaginatedPopup ---------- */}
+      {/* ---------- View Modal — kept for the eye button; reuses the same renderer ---------- */}
       <PaginatedPopup
         isOpen={showViewModal && !!viewingAdjustment}
         title="Adjustment Details"
@@ -1050,132 +1170,14 @@ const StockAdjustmentManager: React.FC = () => {
           setViewingAdjustment(null);
         }}
         submitting={false}
-        maxWidthClassName="max-w-lg"
+        maxWidthClassName="max-w-2xl"
         tabs={[
           {
             label: "Details",
             fields: [
               viewingAdjustment && (
-                <div key="view-content" className="space-y-3 text-sm">
-                  <div className="grid grid-cols-2 gap-4 rounded-lg bg-gray-50 p-4">
-                    <div>
-                      <p className="text-xs text-gray-500">Adjustment Date</p>
-                      <p className="text-sm text-gray-700">
-                        {new Date(viewingAdjustment.adjustmentDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Type</p>
-                      <span
-                        className={`mt-1 inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${getTypeBadge(
-                          viewingAdjustment.adjustmentType
-                        )}`}
-                      >
-                        {getTypeIcon(viewingAdjustment.adjustmentType)}
-                        {getTypeLabel(viewingAdjustment.adjustmentType)}
-                      </span>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-gray-500">Product</p>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          goToProduct(
-                            viewingAdjustment.productId ?? viewingAdjustment.product?.id
-                          )
-                        }
-                        className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
-                      >
-                        {getProductDisplayName(viewingAdjustment)}
-                      </button>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Quantity</p>
-                      <p
-                        className={`text-sm font-semibold ${
-                          viewingAdjustment.adjustmentType === "POSITIVE"
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        {viewingAdjustment.adjustmentType === "POSITIVE" ? "+" : "-"}
-                        {viewingAdjustment.quantity}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-gray-500">Warehouse</p>
-                      {viewingAdjustment.warehouse?.id ? (
-                        <button
-                          type="button"
-                          onClick={() => goToWarehouse(viewingAdjustment.warehouse)}
-                          className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
-                        >
-                          {viewingAdjustment.warehouse.name || "N/A"}
-                        </button>
-                      ) : (
-                        <p className="text-sm text-gray-700">N/A</p>
-                      )}
-                      {viewingAdjustment.warehouse?.code && (
-                        <p className="mt-1 text-xs text-gray-500">
-                          {viewingAdjustment.warehouse.code}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Batch</p>
-                      {viewingAdjustment.batch?.id ? (
-                        <button
-                          type="button"
-                          onClick={() => goToBatch(viewingAdjustment.batch)}
-                          className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
-                        >
-                          {viewingAdjustment.batch.batchNumber || "N/A"}
-                        </button>
-                      ) : (
-                        <p className="text-sm text-gray-700">N/A</p>
-                      )}
-                      {viewingAdjustment.batch?.expiryDate && (
-                        <p className="mt-1 text-xs text-gray-500">
-                          Expires:{" "}
-                          {new Date(viewingAdjustment.batch.expiryDate).toLocaleDateString()}
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-gray-500">Serial Number</p>
-                      <p className="text-sm text-gray-700">
-                        {viewingAdjustment.serialNumber?.serial || "N/A"}
-                        {viewingAdjustment.serialNumber?.status
-                          ? ` (${viewingAdjustment.serialNumber.status})`
-                          : ""}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Created By</p>
-                      <p className="text-sm text-gray-700">
-                        {viewingAdjustment.createdBy || "N/A"}
-                      </p>
-                    </div>
-
-                    <div className="col-span-2">
-                      <p className="text-xs text-gray-500">Reason</p>
-                      <p className="text-sm text-gray-700">
-                        {getReasonLabel(viewingAdjustment.reason)}
-                      </p>
-                    </div>
-
-                    {viewingAdjustment.createdDate && (
-                      <div className="col-span-2">
-                        <p className="text-xs text-gray-500">Created At</p>
-                        <p className="text-sm text-gray-600">
-                          {new Date(viewingAdjustment.createdDate).toLocaleString()}
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                <div key="view-content" className="md:col-span-2">
+                  {renderAdjustmentDetails(viewingAdjustment)}
                 </div>
               ),
             ],
@@ -1189,8 +1191,8 @@ const StockAdjustmentManager: React.FC = () => {
         setIsPopupOpen={(open: boolean) => {
           if (!open) setDeletingAdjustment(null);
         }}
-        icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-        iconBg="bg-red-100"
+        icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
+        iconBg="bg-red-100 dark:bg-red-950/40"
         innerText="Delete Adjustment"
         subText={
           deletingAdjustment

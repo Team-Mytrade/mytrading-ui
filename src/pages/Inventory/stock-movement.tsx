@@ -24,37 +24,6 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
-/**
- * =====================================================================================
- * WHAT CHANGED IN THIS VERSION (in plain terms):
- *
- * 1. "From Location" and "To Location" used to be free-text boxes where you could
- *    type anything (e.g. "ch", "tvm"). If what you typed didn't match a real
- *    warehouse, the backend crashed with "No value present". They are now
- *    WAREHOUSE DROPDOWNS instead — showing "Name (CODE) — LOCATION_TYPE" — so you
- *    can only pick a warehouse that actually exists.
- *
- * 2. Both dropdowns are filtered to only show warehouses where the SELECTED
- *    PRODUCT actually has a Stock Level record. This is built from the real
- *    Stock Levels data (productId + warehouse.id pairs), not guessed. If a
- *    product has no stock level at any warehouse yet, both dropdowns fall back
- *    to showing every warehouse (with a warning note) so the form isn't
- *    completely unusable — but you should create a stock level first.
- *
- * 3. The separate "Warehouse" field (which duplicated what From/To Location
- *    should already tell you) has been REMOVED. To Warehouse is now sent as the
- *    payload's single `warehouse` field, since that's the warehouse actually
- *    receiving/holding the stock after the movement. FLAG FOR BACKEND: confirm
- *    this assumption — if `warehouse` on a movement is meant to represent the
- *    SOURCE warehouse instead, this needs to send fromWarehouseId there instead.
- *
- * 4. fromLocation/toLocation are sent to the backend as the selected warehouse's
- *    `code` (falling back to `name` if no code exists) — plain strings, matching
- *    the schema's existing fromLocation/toLocation string fields. No backend
- *    schema change is required for this version.
- * =====================================================================================
- */
-
 // ======================== ENUM TYPE ========================
 interface EnumOption {
   id: string;
@@ -96,7 +65,6 @@ type SerialNumber = {
   batch?: Batch | string;
 };
 
-// Only the fields we actually need from a StockLevel record for this page.
 type StockLevel = {
   id: number;
   productId?: number;
@@ -161,21 +129,21 @@ const emptyForm: MovementForm = {
   serialNumberId: "",
 };
 
-// Deterministic color per movement type string, so badges stay visually distinct
-// without needing to know the type set in advance.
+// Dark-mode-aware badge palette
 const BADGE_PALETTE = [
-  "bg-green-50 text-green-700 border-green-200",
-  "bg-red-50 text-red-700 border-red-200",
-  "bg-blue-50 text-blue-700 border-blue-200",
-  "bg-amber-50 text-amber-700 border-amber-200",
-  "bg-purple-50 text-purple-700 border-purple-200",
-  "bg-rose-50 text-rose-700 border-rose-200",
-  "bg-teal-50 text-teal-700 border-teal-200",
-  "bg-indigo-50 text-indigo-700 border-indigo-200",
+  "bg-green-50 text-green-700 border-green-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-800",
+  "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800",
+  "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800",
+  "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800",
+  "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-800",
+  "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/40 dark:text-rose-300 dark:border-rose-800",
+  "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/40 dark:text-teal-300 dark:border-teal-800",
+  "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300 dark:border-indigo-800",
 ];
 
 function getMovementTypeBadge(type?: string | null) {
-  if (!type) return "bg-slate-50 text-slate-700 border-slate-200";
+  if (!type)
+    return "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
   let hash = 0;
   for (let i = 0; i < type.length; i++) {
     hash = (hash * 31 + type.charCodeAt(i)) >>> 0;
@@ -201,12 +169,6 @@ function getProductName(product?: Product | null): string {
   return product.productName || product.name || "";
 }
 
-// NOTE: the backend often returns warehouse/batch/serialNumber as a nested
-// object with ONLY `id` populated (code/name/batchNumber/serial all null) —
-// it doesn't fully hydrate the related entity in the movement response. So
-// these resolvers always fall back to looking the id up in the already-fetched
-// full list (warehouses/batches/serialNumbers), the same pattern already used
-// for product display, rather than trusting the nested object's own fields.
 function getWarehouseValue(
   warehouse?: Warehouse | string | null,
   warehouses: Warehouse[] = []
@@ -219,10 +181,7 @@ function getWarehouseValue(
   return warehouse.id != null ? `Warehouse #${warehouse.id}` : "";
 }
 
-function getBatchValue(
-  batch?: Batch | string | null,
-  batches: Batch[] = []
-) {
+function getBatchValue(batch?: Batch | string | null, batches: Batch[] = []) {
   if (!batch) return "";
   if (typeof batch === "string") return batch;
   if (batch.batchNumber) return batch.batchNumber;
@@ -243,9 +202,6 @@ function getSerialValue(
   return serialNumber.id != null ? `Serial #${serialNumber.id}` : "";
 }
 
-// Resolves a Warehouse | string field down to a numeric warehouse id (as a
-// string), used to reverse-map a movement's existing warehouse/from/to data
-// back into a dropdown selection when editing.
 function resolveWarehouseId(
   value: Warehouse | string | null | undefined,
   warehouses: Warehouse[]
@@ -274,7 +230,6 @@ function getSerialId(
   return match?.id != null ? String(match.id) : "";
 }
 
-// ======================== HELPER: ENUM NORMALIZATION ========================
 function normalizeEnumOptions(raw: any): EnumOption[] {
   const list = Array.isArray(raw) ? raw : raw?.content || raw?.data || raw?.result || [];
   if (!Array.isArray(list)) return [];
@@ -326,7 +281,6 @@ const StockMovementsManager: React.FC = () => {
   const [viewingMovement, setViewingMovement] = useState<StockMovement | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
 
-  // ---------- Data fetching ----------
   useEffect(() => {
     fetchStockMovements();
     fetchLookups();
@@ -423,7 +377,6 @@ const StockMovementsManager: React.FC = () => {
     }
   };
 
-  // ---------- Form handlers ----------
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm((current) => {
@@ -446,8 +399,6 @@ const StockMovementsManager: React.FC = () => {
       movementDate: form.movementDate,
       movementType: form.movementType,
       quantity: toNumber(form.quantity),
-      // Sent as the warehouse's code (falling back to name) — a real string
-      // that matches an actual warehouse, instead of arbitrary typed text.
       fromLocation: fromWarehouse ? fromWarehouse.code || fromWarehouse.name || "" : "",
       toLocation: toWarehouse ? toWarehouse.code || toWarehouse.name || "" : "",
       reference: form.reference,
@@ -458,10 +409,6 @@ const StockMovementsManager: React.FC = () => {
       payload.id = editingId;
     }
 
-    // ASSUMPTION (flag for backend): the single `warehouse` field on a
-    // movement represents the destination/receiving warehouse. If this is
-    // supposed to be the source warehouse instead, swap toWarehouseId for
-    // fromWarehouseId here.
     if (form.toWarehouseId) {
       payload.warehouse = { id: toNumber(form.toWarehouseId) };
     }
@@ -549,9 +496,6 @@ const StockMovementsManager: React.FC = () => {
       movementDate: movement.movementDate || emptyForm.movementDate,
       movementType: movement.movementType || "",
       quantity: String(movement.quantity || 0),
-      // Legacy data may have fromLocation/toLocation as free text that
-      // doesn't match any real warehouse — resolveWarehouseId returns "" in
-      // that case, so the dropdown just shows unselected rather than crashing.
       fromWarehouseId: resolveWarehouseId(movement.fromLocation, warehouses),
       toWarehouseId:
         resolveWarehouseId(movement.toLocation, warehouses) ||
@@ -594,7 +538,6 @@ const StockMovementsManager: React.FC = () => {
     }
   };
 
-  // ---------- Stats ----------
   const stats = useMemo(() => {
     const transferOptionIds = new Set(
       movementTypeOptions
@@ -612,9 +555,6 @@ const StockMovementsManager: React.FC = () => {
     };
   }, [stockMovements, movementTypeOptions]);
 
-  // ---------- Dropdown options ----------
-
-  // Product IDs that actually have at least one StockLevel record.
   const productIdsWithStockLevel = useMemo(() => {
     const set = new Set<string>();
     stockLevels.forEach((level) => {
@@ -645,8 +585,6 @@ const StockMovementsManager: React.FC = () => {
     });
   }, [products, productIdsWithStockLevel, form.productId]);
 
-  // Which warehouse IDs have a Stock Level for a given product — built from
-  // real data, not guessed. Used to filter the From/To Warehouse dropdowns.
   const warehouseIdsByProduct = useMemo(() => {
     const map = new Map<string, Set<string>>();
     stockLevels.forEach((level) => {
@@ -660,8 +598,6 @@ const StockMovementsManager: React.FC = () => {
     return map;
   }, [stockLevels, warehouses]);
 
-  // Label shows Name (CODE) — LOCATION_TYPE so the location type is visible
-  // right in the dropdown, as requested.
   const formatWarehouseLabel = (warehouse: Warehouse) => {
     const namePart = warehouse.name || `Warehouse #${warehouse.id}`;
     const codePart = warehouse.code ? ` (${warehouse.code})` : "";
@@ -669,10 +605,6 @@ const StockMovementsManager: React.FC = () => {
     return `${namePart}${codePart}${typePart}`;
   };
 
-  // Shared warehouse-dropdown builder for From/To. Filters down to warehouses
-  // where the selected product has a real stock level; if the product has no
-  // stock level anywhere yet, falls back to the full warehouse list (with a
-  // hint shown in the form) so the form isn't a dead end.
   const buildWarehouseOptions = (selectedId: string) => {
     const productId = form.productId;
     const allowedIds = productId ? warehouseIdsByProduct.get(productId) : undefined;
@@ -741,7 +673,94 @@ const StockMovementsManager: React.FC = () => {
     navigate(`${PRODUCT_ROUTE}?productId=${productId}`, { state: { productId } });
   };
 
-  // ---------- Table columns ----------
+  // ── Shared details renderer — used by both row expand AND the modal ──
+  const renderMovementDetails = (movement: StockMovement) => {
+    const Field = ({
+      label,
+      children,
+      full,
+    }: {
+      label: string;
+      children: React.ReactNode;
+      full?: boolean;
+    }) => (
+      <div
+        className={`rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800 ${
+          full ? "col-span-2" : ""
+        }`}
+      >
+        <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+          {label}
+        </div>
+        <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+          {children}
+        </div>
+      </div>
+    );
+
+    const productId = movement.productId ?? movement.product?.id;
+
+    return (
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Movement ID">#{movement.id}</Field>
+        <Field label="Date">
+          {new Date(movement.movementDate).toLocaleDateString()}
+        </Field>
+
+        <Field label="Type" full>
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${getMovementTypeBadge(
+              movement.movementType
+            )}`}
+          >
+            <ArrowsRightLeftIcon className="h-3.5 w-3.5 opacity-80" />
+            {getMovementTypeLabel(movement.movementType, movementTypeOptions)}
+          </span>
+        </Field>
+
+        <Field label="Product" full>
+          {productId ? (
+            <button
+              type="button"
+              onClick={() => goToProduct(productId)}
+              className="text-left text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            >
+              {getProductDisplayName(movement)}
+            </button>
+          ) : (
+            <span>{getProductDisplayName(movement)}</span>
+          )}
+        </Field>
+
+        <Field label="Quantity">{movement.quantity}</Field>
+        <Field label="Reference">{movement.reference || "N/A"}</Field>
+
+        <Field label="From Location">{movement.fromLocation || "N/A"}</Field>
+        <Field label="To Location">{movement.toLocation || "N/A"}</Field>
+
+        <Field label="Warehouse">
+          {getWarehouseValue(movement.warehouse, warehouses) || "N/A"}
+        </Field>
+        <Field label="Batch">
+          {getBatchValue(movement.batch, batches) || "N/A"}
+        </Field>
+
+        <Field label="Serial Number" full>
+          {getSerialValue(movement.serialNumber, serialNumbers) || "N/A"}
+        </Field>
+
+        {movement.createdBy && (
+          <Field label="Created By">{movement.createdBy}</Field>
+        )}
+        {movement.createdDate && (
+          <Field label="Created At">
+            {new Date(movement.createdDate).toLocaleString()}
+          </Field>
+        )}
+      </div>
+    );
+  };
+
   const columns: ColumnDef<StockMovement>[] = [
     {
       key: "movementDate",
@@ -750,8 +769,8 @@ const StockMovementsManager: React.FC = () => {
       sortValueGetter: (movement) => new Date(movement.movementDate).getTime(),
       render: (movement) => (
         <div className="flex items-center gap-2">
-          <CalendarIcon className="h-4 w-4 text-slate-400" />
-          <span className="text-sm font-medium text-slate-700">
+          <CalendarIcon className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
             {new Date(movement.movementDate).toLocaleDateString()}
           </span>
         </div>
@@ -761,7 +780,8 @@ const StockMovementsManager: React.FC = () => {
       key: "movementType",
       label: "Type",
       sortable: true,
-      sortValueGetter: (movement) => getMovementTypeLabel(movement.movementType, movementTypeOptions),
+      sortValueGetter: (movement) =>
+        getMovementTypeLabel(movement.movementType, movementTypeOptions),
       render: (movement) => (
         <span
           className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${getMovementTypeBadge(
@@ -782,8 +802,8 @@ const StockMovementsManager: React.FC = () => {
         const productId = movement.productId ?? movement.product?.id;
         return (
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 shadow-sm">
-              <CubeIcon className="h-4 w-4 text-cyan-600" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 shadow-sm dark:border-cyan-800">
+              <CubeIcon className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
             </div>
             <div className="min-w-0">
               <button
@@ -792,7 +812,7 @@ const StockMovementsManager: React.FC = () => {
                   e.stopPropagation();
                   goToProduct(productId);
                 }}
-                className="truncate text-left text-sm font-semibold text-cyan-600 hover:text-cyan-700 hover:underline"
+                className="truncate text-left text-sm font-semibold text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
                 title="View product"
               >
                 {getProductDisplayName(movement)}
@@ -807,7 +827,9 @@ const StockMovementsManager: React.FC = () => {
       label: "Qty",
       sortable: true,
       render: (movement) => (
-        <span className="text-sm font-semibold text-slate-700">{movement.quantity}</span>
+        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+          {movement.quantity}
+        </span>
       ),
     },
     {
@@ -815,11 +837,11 @@ const StockMovementsManager: React.FC = () => {
       label: "Movement",
       sortable: false,
       render: (movement) => (
-        <div className="flex min-w-0 items-center gap-2 text-sm text-slate-600">
+        <div className="flex min-w-0 items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
           <span className="truncate font-medium" title={movement.fromLocation}>
             {movement.fromLocation || "N/A"}
           </span>
-          <ArrowRightIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
+          <ArrowRightIcon className="h-4 w-4 flex-shrink-0 text-slate-400 dark:text-slate-500" />
           <span className="truncate font-medium" title={movement.toLocation}>
             {movement.toLocation || "N/A"}
           </span>
@@ -831,8 +853,8 @@ const StockMovementsManager: React.FC = () => {
       label: "Reference",
       sortable: true,
       render: (movement) => (
-        <div className="flex items-center gap-2 text-sm text-slate-600">
-          <ClipboardDocumentListIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
+        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+          <ClipboardDocumentListIcon className="h-4 w-4 flex-shrink-0 text-slate-400 dark:text-slate-500" />
           <span className="truncate font-medium" title={movement.reference}>
             {movement.reference || "--"}
           </span>
@@ -850,7 +872,7 @@ const StockMovementsManager: React.FC = () => {
           <button
             type="button"
             onClick={() => openView(movement)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600 dark:text-slate-500 dark:hover:bg-blue-950/40 dark:hover:text-blue-400"
             title="View Details"
           >
             <EyeIcon className="h-4 w-4" />
@@ -859,7 +881,7 @@ const StockMovementsManager: React.FC = () => {
             type="button"
             onClick={() => openEdit(movement)}
             disabled={!lookupsLoaded}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title={lookupsLoaded ? "Edit" : "Loading reference data..."}
           >
             <PencilSquareIcon className="h-4 w-4" />
@@ -867,7 +889,7 @@ const StockMovementsManager: React.FC = () => {
           <button
             type="button"
             onClick={() => setDeletingMovement(movement)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
@@ -877,7 +899,6 @@ const StockMovementsManager: React.FC = () => {
     },
   ];
 
-  // ======================== RENDER ========================
   return (
     <>
       <PageMeta title="Stock Movements" description="Track and manage inventory stock movements" />
@@ -922,6 +943,8 @@ const StockMovementsManager: React.FC = () => {
           />
         </div>
 
+        {/* ✅ Row click now EXPANDS inline details (like other pages).
+             The eye icon in Actions still opens the modal. */}
         <ReusableTable
           data={stockMovements}
           columns={columns}
@@ -929,15 +952,18 @@ const StockMovementsManager: React.FC = () => {
           pageSize={PAGE_SIZE}
           defaultSortKey="movementDate"
           defaultSortOrder="desc"
-          onRowClick={openView}
+          enableRowDetails={true}
+          rowDetailsTitle="Movement Details"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
-              <ArrowsRightLeftIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">No stock movements found</p>
+              <ArrowsRightLeftIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
+                No stock movements found
+              </p>
               <button
                 type="button"
                 onClick={openCreate}
-                className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 Create your first stock movement
               </button>
@@ -987,7 +1013,10 @@ const StockMovementsManager: React.FC = () => {
                 options={productOptions}
                 required
               />,
-              <p key="product-hint" className="text-xs text-gray-500">
+              <p
+                key="product-hint"
+                className="text-xs text-gray-500 dark:text-slate-400"
+              >
                 Only products with an existing stock level are shown. To move a
                 product that isn't listed here, create a stock level for it
                 first on the Stock Levels page.
@@ -1021,7 +1050,10 @@ const StockMovementsManager: React.FC = () => {
                 required
               />,
               productHasNoStockLevelAnywhere && (
-                <p key="no-stock-warning" className="text-xs text-amber-600">
+                <p
+                  key="no-stock-warning"
+                  className="text-xs text-amber-600 dark:text-amber-400"
+                >
                   ⚠ This product has no stock level at any warehouse yet, so
                   every warehouse is shown. Creating this movement may fail —
                   set up a stock level for this product first.
@@ -1062,111 +1094,26 @@ const StockMovementsManager: React.FC = () => {
         ]}
       />
 
-      {/* View Details Modal */}
+      {/* View Details Modal — kept for the eye button; reuses the same renderer */}
       <PaginatedPopup
         isOpen={showViewModal && !!viewingMovement}
         title="Movement Details"
-        subtitle={viewingMovement ? `Stock movement #${viewingMovement.id}` : "Stock movement"}
+        subtitle={
+          viewingMovement ? `Stock movement #${viewingMovement.id}` : "Stock movement"
+        }
         onClose={() => {
           setShowViewModal(false);
           setViewingMovement(null);
         }}
         submitting={false}
-        maxWidthClassName="max-w-lg"
+        maxWidthClassName="max-w-2xl"
         tabs={[
           {
             label: "Details",
             fields: [
               viewingMovement && (
-                <div key="view-content" className="space-y-3">
-                  <div className="grid grid-cols-2 gap-4 rounded-lg bg-gray-50 p-4">
-                    <div>
-                      <p className="text-xs text-gray-500">Movement Date</p>
-                      <p className="text-sm text-gray-700">
-                        {new Date(viewingMovement.movementDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Type</p>
-                      <span
-                        className={`mt-1 inline-flex items-center rounded-full border px-2 py-1 text-xs font-medium ${getMovementTypeBadge(
-                          viewingMovement.movementType
-                        )}`}
-                      >
-                        {getMovementTypeLabel(viewingMovement.movementType, movementTypeOptions)}
-                      </span>
-                    </div>
-
-                    <div className="col-span-2">
-                      <p className="text-xs text-gray-500">Product</p>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          goToProduct(viewingMovement.productId ?? viewingMovement.product?.id)
-                        }
-                        className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
-                      >
-                        {getProductDisplayName(viewingMovement)}
-                      </button>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-gray-500">Quantity</p>
-                      <p className="text-sm font-semibold text-gray-900">
-                        {viewingMovement.quantity}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Reference</p>
-                      <p className="text-sm text-gray-700">{viewingMovement.reference || "N/A"}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-gray-500">From Location</p>
-                      <p className="text-sm text-gray-700">
-                        {viewingMovement.fromLocation || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">To Location</p>
-                      <p className="text-sm text-gray-700">{viewingMovement.toLocation || "N/A"}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-gray-500">Warehouse</p>
-                      <p className="text-sm text-gray-700">
-                        {getWarehouseValue(viewingMovement.warehouse, warehouses) || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Batch</p>
-                      <p className="text-sm text-gray-700">
-                        {getBatchValue(viewingMovement.batch, batches) || "N/A"}
-                      </p>
-                    </div>
-
-                    <div className="col-span-2">
-                      <p className="text-xs text-gray-500">Serial Number</p>
-                      <p className="text-sm text-gray-700">
-                        {getSerialValue(viewingMovement.serialNumber, serialNumbers) || "N/A"}
-                      </p>
-                    </div>
-
-                    {viewingMovement.createdBy && (
-                      <div>
-                        <p className="text-xs text-gray-500">Created By</p>
-                        <p className="text-sm text-gray-700">{viewingMovement.createdBy}</p>
-                      </div>
-                    )}
-                    {viewingMovement.createdDate && (
-                      <div>
-                        <p className="text-xs text-gray-500">Created At</p>
-                        <p className="text-sm text-gray-600">
-                          {new Date(viewingMovement.createdDate).toLocaleString()}
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                <div key="view-content" className="md:col-span-2">
+                  {renderMovementDetails(viewingMovement)}
                 </div>
               ),
             ],
@@ -1174,14 +1121,13 @@ const StockMovementsManager: React.FC = () => {
         ]}
       />
 
-      {/* Delete Confirmation Modal */}
       <DynamicPopup
         isPopupOpen={!!deletingMovement}
         setIsPopupOpen={(open: boolean) => {
           if (!open) setDeletingMovement(null);
         }}
-        icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-        iconBg="bg-red-100"
+        icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
+        iconBg="bg-red-100 dark:bg-red-950/40"
         innerText="Delete Stock Movement"
         subText={
           deletingMovement
