@@ -23,9 +23,6 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
-// tenantId still arrives on the raw API record (multi-tenant backend), but
-// the frontend no longer reads, displays, edits, or submits it — see the
-// note above the payload builder for why.
 type SalesChannel = {
   id: number;
   createdDate?: string;
@@ -91,11 +88,12 @@ function friendlyChannelType(type: string) {
 }
 
 const badgeClass = (type: string) => {
-  if (type === "DIRECT") return "bg-blue-50 text-blue-700 border-blue-200";
-  if (type === "DISTRIBUTOR") return "bg-purple-50 text-purple-700 border-purple-200";
-  if (type === "RETAIL") return "bg-green-50 text-green-700 border-green-200";
-  if (type === "ONLINE") return "bg-cyan-50 text-cyan-700 border-cyan-200";
-  return "bg-gray-50 text-gray-700 border-gray-200";
+  // Added dark variants for badges
+  if (type === "DIRECT") return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800";
+  if (type === "DISTRIBUTOR") return "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-800";
+  if (type === "RETAIL") return "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800";
+  if (type === "ONLINE") return "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-900/40 dark:text-cyan-300 dark:border-cyan-800";
+  return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700";
 };
 
 const SalesChannels: React.FC = () => {
@@ -142,11 +140,6 @@ const SalesChannels: React.FC = () => {
     setForm((current) => ({ ...current, [name]: value }));
   };
 
-  // Tenant is deliberately NOT sent from here. A client-editable
-  // localStorage value has no business being the thing that decides which
-  // tenant's data a write lands in — that has to be derived/verified by the
-  // backend from the authenticated session (JWT), not trusted from the
-  // request body. See the message to backend below.
   const buildPayload = () => ({
     id: editingId || 0,
     name: form.channelName.trim(),
@@ -246,12 +239,13 @@ const SalesChannels: React.FC = () => {
       sortable: true,
       render: (channel) => (
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50">
-            <BuildingStorefrontIcon className="h-4 w-4 text-cyan-700" />
+          {/* Added dark mode variants */}
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50 dark:border-cyan-800 dark:bg-cyan-950/40">
+            <BuildingStorefrontIcon className="h-4 w-4 text-cyan-700 dark:text-cyan-400" />
           </div>
           <div>
-            <div className="text-sm font-semibold text-slate-900">{channel.name || "Unnamed"}</div>
-            <div className="text-xs text-slate-500">ID: {channel.id}</div>
+            <div className="text-sm font-semibold text-slate-900 dark:text-white">{channel.name || "Unnamed"}</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">ID: {channel.id}</div>
           </div>
         </div>
       ),
@@ -282,7 +276,7 @@ const SalesChannels: React.FC = () => {
           <button
             type="button"
             onClick={() => openEdit(channel)}
-            className="rounded-lg p-2 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-2 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
@@ -290,7 +284,7 @@ const SalesChannels: React.FC = () => {
           <button
             type="button"
             onClick={() => setDeleteChannel(channel)}
-            className="rounded-lg p-2 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+            className="rounded-lg p-2 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
@@ -308,8 +302,18 @@ const SalesChannels: React.FC = () => {
         actions={<AddButton onClick={openCreate} label="Add Sales Channel" />}
       />
 
-      <div className="w-full max-w-none px-0 py-8">
-        {isChannelScoped && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>Showing channel: <strong>{scopedChannelName}</strong></span><button type="button" onClick={() => navigate("/sales-channels")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all channels</button></div>}
+      {/* Added 'sales-module' class just in case you want the CSS fallback, 
+          but also added standard dark: classes below so it works without it */}
+      <div className="sales-module w-full max-w-none px-0 py-8">
+        {isChannelScoped && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-200">
+            <span>Showing channel: <strong>{scopedChannelName}</strong></span>
+            <button type="button" onClick={() => navigate("/sales-channels")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300">
+              View all channels
+            </button>
+          </div>
+        )}
+        
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Channels" value={stats.total} icon={<BuildingStorefrontIcon />} />
           <StatsCard
@@ -350,12 +354,12 @@ const SalesChannels: React.FC = () => {
           hiddenDetailKeys={["id", "tenantId"]}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
-              <BuildingStorefrontIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">No sales channels found</p>
+              <BuildingStorefrontIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No sales channels found</p>
               <button
                 type="button"
                 onClick={() => fetchChannels()}
-                className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 <ArrowPathIcon className="h-3.5 w-3.5" />
                 Reload all channels
@@ -415,8 +419,8 @@ const SalesChannels: React.FC = () => {
         setIsPopupOpen={(open) => {
           if (!open) setDeleteChannel(null);
         }}
-        icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-        iconBg="bg-red-100"
+        icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
+        iconBg="bg-red-100 dark:bg-red-950/40"
         innerText="Delete Sales Channel"
         subText={
           deleteChannel
