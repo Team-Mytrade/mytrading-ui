@@ -669,18 +669,6 @@ const ServiceSchedules: React.FC = () => {
           />
         </div>
 
-        {/* Toolbar — Refresh only */}
-        <div className="flex items-center justify-end">
-          <button
-            onClick={fetchSchedules}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-cyan-400"
-            title="Refresh"
-          >
-            <ArrowPathIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
-        </div>
-
         <ReusableTable
           data={schedules}
           columns={columns}
