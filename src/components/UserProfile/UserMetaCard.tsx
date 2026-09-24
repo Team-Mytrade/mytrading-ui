@@ -462,7 +462,7 @@ export default function UserMetaCard() {
     if (loading) {
         return (
             <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
-                <div className="bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-8">
+                <div className="bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-6 sm:px-6 sm:py-8">
                     <div className="flex flex-col items-center">
                         <div className="w-24 h-24 rounded-full bg-white/20 animate-pulse"></div>
                         <div className="mt-4 h-6 w-32 bg-white/20 rounded animate-pulse"></div>
@@ -479,12 +479,12 @@ export default function UserMetaCard() {
         <>
             <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
                 {/* Cover Image / Header Gradient */}
-                <div className="bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-8 relative">
+                <div className="relative bg-gradient-to-br from-cyan-500 via-sky-500 to-blue-600 px-4 py-8 sm:bg-gradient-to-r sm:px-6 sm:py-8">
                     <div className="flex flex-col items-center">
                         {/* Avatar */}
                         <div className="relative group">
                             <div 
-                                className="w-24 h-24 rounded-full overflow-hidden ring-4 ring-white shadow-lg cursor-pointer transition-transform group-hover:scale-105"
+                                className="h-36 w-36 cursor-pointer overflow-hidden rounded-full ring-4 ring-white shadow-lg transition-transform group-hover:scale-105 sm:h-24 sm:w-24"
                                 onClick={() => setIsImagePopupOpen(true)}
                             >
                                 <img 
@@ -499,27 +499,27 @@ export default function UserMetaCard() {
                                 )}
                             </div>
                             
-                            <label className="absolute bottom-0 right-0 p-1.5 bg-white rounded-full shadow-md cursor-pointer hover:bg-gray-50 transition-colors">
-                                <CameraIcon className="h-4 w-4 text-gray-600" />
+                            <label className="absolute bottom-0 right-0 rounded-full bg-white p-2 shadow-md transition-colors hover:bg-gray-50 cursor-pointer sm:p-1.5">
+                                <CameraIcon className="h-5 w-5 text-gray-600 sm:h-4 sm:w-4" />
                                 <input type="file" className="hidden" accept="image/*" onChange={handleImageSelection} disabled={isUploading} />
                             </label>
                         </div>
 
                         {/* User Info */}
-                        <h2 className="mt-4 text-xl font-semibold text-white">{fullName}</h2>
-                        <div className="flex items-center gap-2 mt-1">
-                            <BriefcaseIcon className="h-4 w-4 text-white/80" />
-                            <p className="text-white/90 text-sm">{getMainRole()}</p>
+                        <h2 className="mt-5 text-center text-2xl font-semibold text-white sm:mt-4 sm:text-xl">{fullName}</h2>
+                        <div className="mt-2 flex items-center gap-2 sm:mt-1">
+                            <BriefcaseIcon className="h-5 w-5 text-white/80 sm:h-4 sm:w-4" />
+                            <p className="text-base text-white/90 sm:text-sm">{getMainRole()}</p>
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
-                            <EnvelopeIcon className="h-4 w-4 text-white/80" />
-                            <p className="text-white/80 text-sm">{userData?.email || "email@example.com"}</p>
+                        <div className="mt-2 flex items-center gap-2 sm:mt-1">
+                            <EnvelopeIcon className="h-5 w-5 shrink-0 text-white/80 sm:h-4 sm:w-4" />
+                            <p className="break-all text-center text-base text-white/80 sm:text-sm">{userData?.email || "email@example.com"}</p>
                         </div>
                         
                         {/* Reset to initials button */}
                         <button
                             onClick={handleResetToDefault}
-                            className="mt-3 px-3 py-1 text-xs font-medium text-white/90 bg-white/20 rounded-full hover:bg-white/30 transition-all"
+                            className="mt-5 rounded-full bg-white/20 px-4 py-1.5 text-sm font-medium text-white/90 transition-all hover:bg-white/30 sm:mt-3 sm:px-3 sm:py-1 sm:text-xs"
                             disabled={isUploading}
                         >
                             Use Initials
@@ -528,17 +528,17 @@ export default function UserMetaCard() {
                 </div>
 
                 {/* Stats Section */}
-                <div className="px-6 py-4 bg-gray-50/50 border-t border-gray-100">
-                    <div className="grid grid-cols-3 gap-4">
-                        <div className="text-center">
+                <div className="border-t border-gray-100 bg-white px-4 py-5 sm:px-6 sm:py-4">
+                    <div className="grid grid-cols-1 divide-y divide-gray-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+                        <div className="py-3 text-center sm:py-0">
                             <p className="text-xs text-gray-500 uppercase tracking-wider">User ID</p>
                             <p className="text-sm font-semibold text-gray-900 mt-1 truncate">{userData?.userId?.slice(0, 12)}</p>
                         </div>
-                        <div className="text-center border-x border-gray-200">
+                        <div className="py-3 text-center sm:py-0">
                             <p className="text-xs text-gray-500 uppercase tracking-wider">Tenant</p>
                             <p className="text-sm font-semibold text-gray-900 mt-1">{userData?.tenantId || "N/A"}</p>
                         </div>
-                        <div className="text-center">
+                        <div className="py-3 text-center sm:py-0">
                             <p className="text-xs text-gray-500 uppercase tracking-wider">Status</p>
                             <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
                                 {userData?.active ? "Active" : "Inactive"}
@@ -548,15 +548,15 @@ export default function UserMetaCard() {
                 </div>
 
                 {/* Social Links Section */}
-                <div className="px-6 py-4 border-t border-gray-100">
-                    <div className="flex items-center justify-between mb-3">
+                <div className="border-t border-gray-100 px-4 py-4 sm:px-6">
+                    <div className="mb-3 flex items-center justify-between gap-3">
                         <h3 className="text-sm font-medium text-gray-700">Social Links</h3>
                         <button onClick={openModal} className="text-xs text-cyan-600 hover:text-cyan-700 flex items-center gap-1">
                             <PencilSquareIcon className="h-3 w-3" />
                             Edit
                         </button>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-3">
                         {socialMediaForm.linkedinUrl && (
                             <a href={socialMediaForm.linkedinUrl} target="_blank" rel="noopener" className="p-2 bg-gray-100 rounded-full hover:bg-cyan-100 transition-colors">
                                 <svg className="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 24 24">

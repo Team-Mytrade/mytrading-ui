@@ -1,0 +1,26 @@
+/* Theme bridge for the legacy Role Configuration tabs. */
+.dark .role-config-page { color: #e5e7eb; }
+.dark .role-config-page .bg-white { background-color: #191919 !important; }
+.dark .role-config-page .bg-gray-50,
+.dark .role-config-page .bg-gray-50\/50,
+.dark .role-config-page .bg-gray-100 { background-color: #242424 !important; }
+.dark .role-config-page .border-gray-100,
+.dark .role-config-page .border-gray-200,
+.dark .role-config-page .border-gray-300 { border-color: #363636 !important; }
+.dark .role-config-page .text-gray-900 { color: #f3f4f6 !important; }
+.dark .role-config-page .text-gray-800 { color: #e5e7eb !important; }
+.dark .role-config-page .text-gray-700 { color: #d1d5db !important; }
+.dark .role-config-page .text-gray-600 { color: #b6c0cb !important; }
+.dark .role-config-page .text-gray-500 { color: #9ca3af !important; }
+.dark .role-config-page .text-gray-400 { color: #8692a1 !important; }
+.dark .role-config-page input,
+.dark .role-config-page select,
+.dark .role-config-page textarea { color: #e5e7eb; border-color: #404040; background: #121212; }
+.dark .role-config-page input::placeholder,
+.dark .role-config-page textarea::placeholder { color: #748091; }
+.dark .role-config-page .hover\:bg-gray-50:hover,
+.dark .role-config-page .hover\:bg-gray-100\/60:hover { background-color: #292929 !important; }
+.dark .role-config-page .bg-cyan-50 { background-color: rgb(8 145 178 / 18%) !important; }
+.dark .role-config-page .border-cyan-200 { border-color: rgb(34 211 238 / 35%) !important; }
+.dark .role-config-page .shadow-sm,
+.dark .role-config-page .shadow-xl { box-shadow: 0 8px 24px rgb(0 0 0 / 24%); }

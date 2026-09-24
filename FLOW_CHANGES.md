@@ -1,5 +1,11 @@
 # Flow Changes
 
+## 2026-09-23
+
+- The shared table-toolbar Share action now opens the export dialog for its associated table, while Refresh keeps users on the page and shows a table loading skeleton.
+
+- On mobile, Role Configuration setup areas now open as an anchored dropdown instead of expanding the setup panel into a grid.
+
 ## 2026-09-21
 
 - Selecting a segment's customer count now opens Customer Management scoped to that segment; users can return to the complete customer list from the scoped view.

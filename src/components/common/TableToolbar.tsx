@@ -17,6 +17,9 @@ export interface TableToolbarProps {
   filterControl?: React.ReactNode;
 }
 
+const notifyTable = (type: "export" | "refresh", source: HTMLElement) =>
+  window.dispatchEvent(new CustomEvent(`reusable-table:${type}`, { detail: { source } }));
+
 /** Standalone compact toolbar with the same 5 actions as StatsCardActions.
  *  Can be used independently of StatsCard anywhere in the app.
  */
@@ -64,6 +67,16 @@ const TableToolbar: React.FC<TableToolbarProps> = ({
     );
   };
 
+  const handleShare = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (onShare) onShare();
+    else notifyTable("export", event.currentTarget);
+  };
+
+  const handleRefresh = (event: React.MouseEvent<HTMLButtonElement>) => {
+    onRefresh?.();
+    notifyTable("refresh", event.currentTarget);
+  };
+
   return (
     <div className="stats-card-actions" aria-label="List tools">
       {/* 1. Choose Columns */}
@@ -79,28 +92,16 @@ const TableToolbar: React.FC<TableToolbarProps> = ({
         <ListBulletIcon />
       </button>
 
-      {/* 2. Share */}
-      {onShare && (
-        <button
-          type="button"
-          className="stats-card-actions__button"
-          onClick={onShare}
-          title="Share"
-          aria-label="Share"
-        >
-          <ShareIcon />
-        </button>
-      )}
-      {!onShare && (
-        <button
-          type="button"
-          className="stats-card-actions__button"
-          title="Share"
-          aria-label="Share"
-        >
-          <ShareIcon />
-        </button>
-      )}
+      {/* 2. Export the associated reusable table. */}
+      <button
+        type="button"
+        className="stats-card-actions__button"
+        onClick={handleShare}
+        title="Export"
+        aria-label="Export table"
+      >
+        <ShareIcon />
+      </button>
 
       {/* 3. Search — inline quick-search input */}
       {showQuickSearch && (
@@ -143,7 +144,7 @@ const TableToolbar: React.FC<TableToolbarProps> = ({
       <button
         type="button"
         className="stats-card-actions__button"
-        onClick={onRefresh}
+        onClick={handleRefresh}
         title="Refresh"
         aria-label="Refresh"
       >

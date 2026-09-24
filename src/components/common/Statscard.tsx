@@ -1,13 +1,9 @@
 import React from "react";
 import {
-  ArrowPathIcon,
   ChartBarIcon,
-  FunnelIcon,
-  ListBulletIcon,
-  MagnifyingGlassIcon,
-  ShareIcon,
 } from "@heroicons/react/24/outline";
 import "./Statscard.css";
+import TableToolbar from "./TableToolbar";
 
 interface StatsCardProps {
   label: string;
@@ -17,6 +13,13 @@ interface StatsCardProps {
   labelColor?: string;
   icon?: React.ReactNode;
   collapsed?: boolean;
+  /** Optional handlers for the shared list toolbar rendered beside the last card in a stats grid. */
+  onListView?: () => void;
+  onShare?: () => void;
+  onSearch?: () => void;
+  onFilter?: () => void;
+  onRefresh?: () => void;
+  filterControl?: React.ReactNode;
 }
 
 interface StatsCardActionsProps {
@@ -46,6 +49,12 @@ const StatsCard: React.FC<StatsCardProps> = ({
   labelColor: _labelColor = "text-gray-600",
   icon,
   collapsed = false,
+  onListView,
+  onShare,
+  onSearch,
+  onFilter,
+  onRefresh,
+  filterControl,
 }) => {
   const tone = getTone(`${_gradient} ${_borderColor} ${_labelColor}`);
 
@@ -62,7 +71,14 @@ const StatsCard: React.FC<StatsCardProps> = ({
           <p className="stats-card__value">{value}</p>
         </div>
       </div>
-      <StatsCardActions />
+      <StatsCardActions
+        onListView={onListView}
+        onShare={onShare}
+        onSearch={onSearch}
+        onFilter={onFilter}
+        onRefresh={onRefresh}
+        filterControl={filterControl}
+      />
     </div>
   );
 };
@@ -78,51 +94,15 @@ export const StatsCardActions: React.FC<StatsCardActionsProps> = ({
   onRefresh,
   filterControl,
 }) => {
-  const [showQuickSearch, setShowQuickSearch] = React.useState(false);
-  const [quickSearch, setQuickSearch] = React.useState("");
-  const toggleColumns = () => {
-    const anchor = [...document.querySelectorAll<HTMLElement>("[data-table-tool='columns']")]
-      .find((button) => button.offsetParent !== null);
-    const rect = anchor?.getBoundingClientRect();
-    window.dispatchEvent(new CustomEvent("reusable-table:toggle-columns", { detail: rect ? { left: rect.left, bottom: rect.bottom } : undefined }));
-  };
-  const toggleColumnFilters = () => window.dispatchEvent(new Event("reusable-table:toggle-column-filters"));
-  const toggleQuickSearch = () => {
-    setShowQuickSearch((current) => {
-      if (current) {
-        setQuickSearch("");
-        window.dispatchEvent(new CustomEvent("reusable-table:quick-search", { detail: "" }));
-      }
-      return !current;
-    });
-  };
-  const handleQuickSearch = (value: string) => {
-    setQuickSearch(value);
-    window.dispatchEvent(new CustomEvent("reusable-table:quick-search", { detail: value }));
-  };
-  const actions = [
-    { label: "Choose columns", icon: ListBulletIcon, onClick: onListView ?? toggleColumns },
-    { label: "Share", icon: ShareIcon, onClick: onShare },
-    { label: "Search", icon: MagnifyingGlassIcon, onClick: onSearch ?? toggleQuickSearch },
-    { label: "Filter", icon: FunnelIcon, onClick: onFilter ?? toggleColumnFilters },
-    { label: "Refresh", icon: ArrowPathIcon, onClick: onRefresh },
-  ];
-
   return (
-    <div className="stats-card-actions" aria-label="List tools">
-      {actions.map(({ label, icon: Icon, onClick }) => (
-        <React.Fragment key={label}>
-          {label === "Search" && showQuickSearch && (
-            <input className="stats-card-actions__search" type="search" value={quickSearch} onChange={(event) => handleQuickSearch(event.target.value)} placeholder="Search table..." aria-label="Search table" autoFocus />
-          )}
-          {label === "Filter" && filterControl ? filterControl : (
-            <button type="button" className="stats-card-actions__button" data-table-tool={label === "Choose columns" ? "columns" : undefined} onClick={onClick} title={label} aria-label={label}>
-              <Icon />
-            </button>
-          )}
-        </React.Fragment>
-      ))}
-    </div>
+    <TableToolbar
+      onListView={onListView}
+      onShare={onShare}
+      onSearch={onSearch}
+      onFilter={onFilter}
+      onRefresh={onRefresh}
+      filterControl={filterControl}
+    />
   );
 };
 

@@ -123,10 +123,10 @@ export default function UserAddressCard() {
     if (isLoading) {
         return (
             <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50">
+                <div className="border-b border-gray-200 bg-gray-50/50 px-4 py-4 sm:px-6">
                     <div className="h-6 w-48 bg-gray-200 rounded animate-pulse"></div>
                 </div>
-                <div className="p-6">
+                <div className="p-4 sm:p-6">
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {[...Array(3)].map((_, i) => (
                             <div key={i} className="p-4 bg-gray-50 rounded-lg border border-gray-100">
@@ -143,8 +143,8 @@ export default function UserAddressCard() {
     return (
         <>
             <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50">
-                    <div className="flex items-center justify-between">
+                <div className="border-b border-gray-200 bg-gray-50/50 px-4 py-4 sm:px-6">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-cyan-100 rounded-lg">
                                 <MapPinIcon className="h-5 w-5 text-cyan-600" />
@@ -154,7 +154,7 @@ export default function UserAddressCard() {
                         <button
                             onClick={openModal}
                             disabled={isLoading}
-                            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-cyan-500 sm:w-auto"
                         >
                             <PencilSquareIcon className="h-4 w-4 text-cyan-600" />
                             Edit Info
@@ -162,11 +162,11 @@ export default function UserAddressCard() {
                     </div>
                 </div>
 
-                <div className="p-6">
+                <div className="p-4 sm:p-6">
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <div className="group p-4 bg-gray-50/50 rounded-lg border border-gray-100 hover:border-cyan-200 hover:shadow-sm transition-all">
                             <div className="flex items-start justify-between">
-                                <div className="flex-1">
+                                <div className="min-w-0 flex-1">
                                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">User ID</p>
                                     <p className="text-sm font-semibold text-gray-900">{userData?.userId || "N/A"}</p>
                                 </div>
@@ -176,7 +176,7 @@ export default function UserAddressCard() {
 
                         <div className="group p-4 bg-gray-50/50 rounded-lg border border-gray-100 hover:border-cyan-200 hover:shadow-sm transition-all">
                             <div className="flex items-start justify-between">
-                                <div className="flex-1">
+                                <div className="min-w-0 flex-1">
                                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Tenant ID</p>
                                     <p className="text-sm font-semibold text-gray-900">{userData?.tenantId || "N/A"}</p>
                                 </div>
@@ -186,7 +186,7 @@ export default function UserAddressCard() {
 
                         <div className="group p-4 bg-gray-50/50 rounded-lg border border-gray-100 hover:border-cyan-200 hover:shadow-sm transition-all">
                             <div className="flex items-start justify-between">
-                                <div className="flex-1">
+                                <div className="min-w-0 flex-1">
                                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Username</p>
                                     <p className="text-sm font-semibold text-gray-900">{userData?.username || "N/A"}</p>
                                 </div>
@@ -233,9 +233,9 @@ export default function UserAddressCard() {
                         </div>
                     </div>
 
-                    <div className="px-6 py-4 border-t border-gray-200 bg-gray-50/50 flex justify-end gap-3">
-                        <Button variant="outline" onClick={closeModal} disabled={isSaving}>Cancel</Button>
-                        <Button onClick={handleSave} disabled={isSaving} className="bg-cyan-600 hover:bg-cyan-700">
+                    <div className="flex flex-col-reverse gap-3 border-t border-gray-200 bg-gray-50/50 px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
+                        <Button variant="outline" onClick={closeModal} disabled={isSaving} className="w-full sm:w-auto">Cancel</Button>
+                        <Button onClick={handleSave} disabled={isSaving} className="w-full bg-cyan-600 hover:bg-cyan-700 sm:w-auto">
                             {isSaving ? "Saving..." : "Save Changes"}
                         </Button>
                     </div>
