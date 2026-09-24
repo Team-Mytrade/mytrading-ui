@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ChartBarIcon,
 } from "@heroicons/react/24/outline";
@@ -13,6 +13,8 @@ interface StatsCardProps {
   labelColor?: string;
   icon?: React.ReactNode;
   collapsed?: boolean;
+  /** Keeps the card layout fixed while its metric content displays a loading skeleton. */
+  loading?: boolean;
   /** Optional handlers for the shared list toolbar rendered beside the last card in a stats grid. */
   onListView?: () => void;
   onShare?: () => void;
@@ -49,6 +51,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
   labelColor: _labelColor = "text-gray-600",
   icon,
   collapsed = false,
+  loading = false,
   onListView,
   onShare,
   onSearch,
@@ -57,19 +60,42 @@ const StatsCard: React.FC<StatsCardProps> = ({
   filterControl,
 }) => {
   const tone = getTone(`${_gradient} ${_borderColor} ${_labelColor}`);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const refreshTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const showRefreshSkeleton = () => {
+      setIsRefreshing(true);
+      if (refreshTimeoutRef.current) window.clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = window.setTimeout(() => setIsRefreshing(false), 600);
+    };
+    window.addEventListener("reusable-table:refresh", showRefreshSkeleton);
+    return () => {
+      window.removeEventListener("reusable-table:refresh", showRefreshSkeleton);
+      if (refreshTimeoutRef.current) window.clearTimeout(refreshTimeoutRef.current);
+    };
+  }, []);
 
   return (
     <div className={`stats-card stats-card--${tone}`}>
       <div
         className={`stats-card__content ${collapsed ? "stats-card__content--collapsed" : ""}`}
       >
-        <div className="stats-card__metric">
-          <span className="stats-card__icon" aria-hidden="true">
-            {icon || <ChartBarIcon />}
-          </span>
-          <p className="stats-card__label">{label}</p>
-          <p className="stats-card__value">{value}</p>
-        </div>
+        {loading || isRefreshing ? (
+          <div className="stats-card__metric stats-card__metric--skeleton" aria-label={`Refreshing ${label}`}>
+            <span className="stats-card__skeleton stats-card__skeleton--icon" />
+            <span className="stats-card__skeleton stats-card__skeleton--label" />
+            <span className="stats-card__skeleton stats-card__skeleton--value" />
+          </div>
+        ) : (
+          <div className="stats-card__metric">
+            <span className="stats-card__icon" aria-hidden="true">
+              {icon || <ChartBarIcon />}
+            </span>
+            <p className="stats-card__label">{label}</p>
+            <p className="stats-card__value">{value}</p>
+          </div>
+        )}
       </div>
       <StatsCardActions
         onListView={onListView}

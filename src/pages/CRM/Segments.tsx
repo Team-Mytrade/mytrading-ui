@@ -706,26 +706,16 @@ const Segments: React.FC = () => {
 
       <div className="crm-report-page w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
         <div className="mb-[17px] grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4" aria-busy={isLoading}>
-          {isLoading ? (
-            Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="h-[36px] w-[182px] animate-pulse rounded-[7px] border border-gray-200 bg-white px-3 py-2">
-                <div className="h-3 w-3/4 rounded bg-gray-100" />
-                <div className="mt-1.5 h-3 w-1/4 rounded bg-gray-100" />
-              </div>
-            ))
-          ) : (
-            <>
-              <StatsCard label="Total Segments" value={stats.totalSegments} />
-              <StatsCard label="Active Segments" value={stats.activeSegments} />
-              <StatsCard label="Total Customers" value={stats.totalCustomers} />
-              <StatsCard
-                label="Empty Segments"
-                value={stats.emptySegments}
-                onShare={() => setShowExportModal(true)}
-                onRefresh={fetchSegments}
-              />
-            </>
-          )}
+          <StatsCard label="Total Segments" value={stats.totalSegments} loading={isLoading} />
+          <StatsCard label="Active Segments" value={stats.activeSegments} loading={isLoading} />
+          <StatsCard label="Total Customers" value={stats.totalCustomers} loading={isLoading} />
+          <StatsCard
+            label="Empty Segments"
+            value={stats.emptySegments}
+            loading={isLoading}
+            onShare={() => setShowExportModal(true)}
+            onRefresh={fetchSegments}
+          />
         </div>
 
         <ReusableTable
