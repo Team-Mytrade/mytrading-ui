@@ -238,6 +238,15 @@ export const navItems: NavItem[] = [
   },
 ];
 
+// CRM detail pages use a shared route (`/crm-view/:requestFrom/:id`). Keep the
+// corresponding CRM module selected and expanded while viewing one of them.
+const crmDetailNavPaths: Record<string, string> = {
+  segments: "/customer-segment",
+  contacts: "/contactPerson",
+  leads: "/leads",
+  tasks: "/activities",
+};
+
 const getInitials = (fullName: string): string => {
   if (!fullName) return "U";
   const names = fullName.trim().split(" ");
@@ -307,8 +316,14 @@ const AppSidebar: React.FC = () => {
   const profileImageUrlRef = useRef<string | null>(null);
 
   const isActive = useCallback(
-    (path: string) =>
-      location.pathname === path || location.pathname.startsWith(`${path}/`),
+    (path: string) => {
+      if (location.pathname === path || location.pathname.startsWith(`${path}/`)) {
+        return true;
+      }
+
+      const detailMatch = location.pathname.match(/^\/crm-view\/([^/]+)\/[^/]+$/);
+      return detailMatch ? crmDetailNavPaths[detailMatch[1]] === path : false;
+    },
     [location.pathname]
   );
 

@@ -12,8 +12,8 @@ export default function UserProfiles() {
         description="MyTrade - User Profile Page"
       />
       <PageBreadcrumb pageTitle="Profile" />
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="space-y-6">
+      <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <div className="space-y-4 sm:space-y-6">
           <UserMetaCard />
           <UserInfoCard />
           <UserAddressCard />

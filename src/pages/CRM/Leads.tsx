@@ -652,11 +652,12 @@ const Leads: React.FC = () => {
             pageSize={PAGE_SIZE}
             defaultSortKey="name"
             defaultSortOrder="asc"
-            onRowClick={(lead) =>
-              navigate(`/crm-view/leads/${lead.id}`, {
-                state: { from: "leads" },
-              })
-            }
+            enableRowDetails={true}
+            // onRowClick={(lead) =>
+            //   navigate(`/crm-view/leads/${lead.id}`, {
+            //     state: { from: "leads" },
+            //   })
+            // }
             emptyState={
               <div className="flex flex-col items-center justify-center py-12">
                 <UsersIcon className="h-10 w-10 text-gray-400 mx-auto mb-2" />
