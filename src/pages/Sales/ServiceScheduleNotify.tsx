@@ -84,7 +84,7 @@ const SCHEDULE_ORDERS_API = "/v1/api/sales/sales-orders/schedule/orders";
 const PAGE_SIZE = 10;
 
 // 🔧 Route paths — matches your app's actual routes.
-const USERS_PAGE_PATH = "/role_config/users";
+const USERS_PAGE_PATH = "/role_config";
 const CUSTOMERS_PAGE_PATH = "/customer-management";
 
 const emptyForm: ScheduleForm = {
@@ -470,7 +470,7 @@ const ServiceScheduleNotify: React.FC = () => {
     const name = getEmployeeName(user);
     const userId = user.userId || user.id || "";
     navigate(
-      `${USERS_PAGE_PATH}?userId=${encodeURIComponent(
+      `${USERS_PAGE_PATH}?tab=users&userId=${encodeURIComponent(
         String(userId)
       )}&userName=${encodeURIComponent(name)}`
     );

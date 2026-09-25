@@ -93,7 +93,7 @@ const statusOptions = [
 ];
 
 // 🔧 Route paths — matches your app's actual routes.
-const USERS_PAGE_PATH = "/role_config/users";
+const USERS_PAGE_PATH = "/role_config";
 const CUSTOMERS_PAGE_PATH = "/customer-management";
 
 const emptyForm: ScheduleForm = {
@@ -474,7 +474,7 @@ const ServiceSchedules: React.FC = () => {
     // Pass both userId and employeeId params so whichever the target page
     // reads, the filter will apply.
     navigate(
-      `${USERS_PAGE_PATH}?userId=${encodeURIComponent(
+      `${USERS_PAGE_PATH}?tab=users&userId=${encodeURIComponent(
         String(targetId)
       )}&employeeId=${encodeURIComponent(String(targetId))}&userName=${encodeURIComponent(name)}`
     );

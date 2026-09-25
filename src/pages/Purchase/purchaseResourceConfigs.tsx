@@ -62,6 +62,7 @@ const getSessionMeta = () => {
 // ─────────────────────────────────────────────────────────────
 export const vendorConfig: PurchaseResourceConfig = {
   title: "Vendors",
+  formSubtitle:"Add or update a supplier record.",
   description: "Create and manage purchase vendors from the Purchase Service vendor controller.",
   endpoint: `${PURCHASE}/vendors`,
   allowInlineActiveToggle: true,
@@ -116,6 +117,7 @@ export const vendorConfig: PurchaseResourceConfig = {
 // ─────────────────────────────────────────────────────────────
 export const termsConfig: PurchaseResourceConfig = {
   title: "Terms and Conditions",
+  formSubtitle:"Add a product to the purchase catalog.",
   description: "Maintain purchase terms and conditions exactly as exposed by the terms controller.",
   endpoint: `${PURCHASE}/terms`,
   allowInlineActiveToggle: true,
@@ -149,6 +151,7 @@ export const termsConfig: PurchaseResourceConfig = {
 export const productCategoryConfig: PurchaseResourceConfig = {
   title: "Product Categories",
   description: "Manage product categories used by purchase products and requisition line items.",
+  formSubtitle:"Group products under a category.",
   endpoint: CATEGORIES,
   getByIdEndpoint: (row) => `${CATEGORIES}/${row.id}`,
   columns: [
@@ -193,7 +196,9 @@ export const productCategoryConfig: PurchaseResourceConfig = {
 export const productConfig: PurchaseResourceConfig = {
   title: "Products",
   description: "Maintain purchase products from the purchase product controller.",
+  formSubtitle:"Define terms and conditions for purchase orders.",
   endpoint: `${PURCHASE}/products`,
+  scope: { idParam: "productId", nameParam: "productName", label: "Product" },
   columns: [
     { key: "productCode", label: "Code" },
     { key: "productName", label: "Product Name" },
@@ -267,6 +272,7 @@ export const productConfig: PurchaseResourceConfig = {
 // ─────────────────────────────────────────────────────────────
 export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   title: "Purchase Requisitions",
+  formSubtitle: "Raise a request for materials or services.",
   description:
     "Create requisitions and track department, requester, status, and required-by dates.",
   endpoint: `${PURCHASE}/purchase-requisitions`,
@@ -403,6 +409,7 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
 export const requisitionLineItemConfig: PurchaseResourceConfig = {
   title: "Requisition Line Items",
   description: "Manage line items for purchase requisitions.",
+  formSubtitle:"Add a product line to this requisition.",
   endpoint: `${PURCHASE}/requisition-line-items`,
   columns: [
     // { key: "id", label: "ID" },
@@ -466,6 +473,7 @@ export const requisitionLineItemConfig: PurchaseResourceConfig = {
 export const purchaseOrderConfig: PurchaseResourceConfig = {
   title: "Purchase Orders",
   description: "Create and update purchase orders with vendor, requisition, terms, and totals.",
+  formSubtitle: "Create a purchase order for an approved vendor.",
   endpoint: `${PURCHASE}/purchase-orders`,
   getByIdEndpoint: (row) => `${PURCHASE}/purchase-orders/${row.id}`,
   inlineSelectFields: [
@@ -626,6 +634,7 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
 export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
   title: "Goods Receipt Notes",
   description: "Record received goods against purchase orders.",
+  formSubtitle: "Record goods received against a purchase order.",
   endpoint: `${PURCHASE}/grns`,
   getByIdEndpoint: (row) => `${PURCHASE}/grns/${row.id}`,
   columns: [
@@ -681,6 +690,7 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
 export const deliveryConfig: PurchaseResourceConfig = {
   title: "Deliveries",
   description: "Manage purchase deliveries by vendor, order, and delivery date.",
+  formSubtitle:"Track delivery of a purchase order.",
   endpoint: `${PURCHASE}/deliveries`,
   columns: [
     // { key: "id", label: "Delivery ID" },
@@ -731,6 +741,7 @@ export const deliveryConfig: PurchaseResourceConfig = {
 export const approvalStatusConfig: PurchaseResourceConfig = {
   title: "Approval Status",
   description: "Create and update approval status entries for purchase orders.",
+  formSubtitle:"Set the approval state for a purchase order.",
   endpoint: `${PURCHASE}/approval-status`,
   updateEndpoint: (_row, form) =>
     `${PURCHASE}/approval-status/${form.purchaseOrderId}/${form.status}`,
@@ -818,6 +829,7 @@ export const approvalStatusConfig: PurchaseResourceConfig = {
 export const inventoryConfig: PurchaseResourceConfig = {
   title: "Inventory",
   description: "View and create purchase inventory records.",
+  formSubtitle: "Record stock quantity for a product.",
   endpoint: `${PURCHASE}/inventory`,
   allowEdit: false,
   allowDelete: false,

@@ -34,7 +34,7 @@ import {
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-
+import PaginatedPopup from "../../components/common/unpopup";
 interface CommunicationEntry {
   id: number;
   type: "EMAIL" | "CALL" | "MEETING" | "OTHER";
@@ -561,139 +561,112 @@ const Interactions: React.FC = () => {
           />
         </div>
 
-        {/* Add/Edit Modal */}
-        {showFormModal && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl mx-auto max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-gray-100">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {editingId
-                      ? "Edit Communication"
-                      : "Add New Communication"}
-                  </h3>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {editingId
-                      ? "Update communication details"
-                      : "Record a new communication with a contact"}
-                  </p>
-                </div>
-                <button
-                  onClick={resetForm}
-                  disabled={isSaving}
-                  className="text-gray-400 hover:text-gray-600 disabled:opacity-40"
-                >
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="p-5">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                  <FloatingSelect
-                    label="Lead (or Customer below)"
-                    name="leadId"
-                    value={form.leadId}
-                    onChange={handleChange}
-                    options={leads.map((l) => ({ id: l.id, name: l.name }))}
-                  />
-                  <FloatingSelect
-                    label="Customer (or Lead above)"
-                    name="customerId"
-                    value={form.customerId}
-                    onChange={handleChange}
-                    options={customers.map((c) => ({
-                      id: c.id,
-                      name: getCustomerLabel(c),
-                    }))}
-                  />
-                  <FloatingSelect
-                    label="Contact (optional)"
-                    name="contactId"
-                    value={form.contactId}
-                    onChange={handleChange}
-                    options={contacts.map((c) => ({
-                      id: c.id,
-                      name: c.fullName,
-                    }))}
-                  />
-                  <FloatingSelect
-                    label="Type"
-                    name="type"
-                    value={form.type}
-                    onChange={handleChange}
-                    options={[
-                      { id: "EMAIL", name: "Email" },
-                      { id: "CALL", name: "Call" },
-                      { id: "MEETING", name: "Meeting" },
-                      { id: "OTHER", name: "Other" },
-                    ]}
-                    required
-                  />
-                  <div className="col-span-1 md:col-span-2">
-                    <FloatingInput
-                      label="Subject"
-                      name="subject"
-                      value={form.subject}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                  <div className="col-span-1 md:col-span-3">
-                    <FloatingDatePicker
-                      label="Date & Time"
-                      name="communicationTime"
-                      value={
-                        form.communicationTime
-                          ? new Date(form.communicationTime)
-                              .toISOString()
-                              .split("T")[0]
-                          : ""
-                      }
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          communicationTime: e.target.value,
-                        })
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="col-span-1 md:col-span-3">
-                    <FloatingTextarea
-                      label="Notes"
-                      name="notes"
-                      value={form.notes}
-                      onChange={handleChange}
-                      rows={4}
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    disabled={isSaving}
-                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSaving}
-                    className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 shadow-sm disabled:opacity-60"
-                  >
-                    {isSaving
-                      ? "Saving..."
-                      : editingId
-                      ? "Update Communication"
-                      : "Add Communication"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        <PaginatedPopup
+  isOpen={showFormModal}
+  title={editingId ? "Edit Communication" : "Add New Communication"}
+  subtitle={
+    editingId
+      ? "Update communication details"
+      : "Record a new communication with a contact"
+  }
+  onClose={resetForm}
+  onSubmit={handleSubmit}
+  submitLabel={editingId ? "Update Communication" : "Add Communication"}
+  submitting={isSaving}
+  maxWidthClassName="max-w-3xl"
+  tabs={[
+    {
+      label: "Recipients",
+      fields: [
+        <FloatingSelect
+          key="leadId"
+          label="Lead (or Customer below)"
+          name="leadId"
+          value={form.leadId}
+          onChange={handleChange}
+          options={leads.map((l) => ({ id: l.id, name: l.name }))}
+        />,
+        <FloatingSelect
+          key="customerId"
+          label="Customer (or Lead above)"
+          name="customerId"
+          value={form.customerId}
+          onChange={handleChange}
+          options={customers.map((c) => ({
+            id: c.id,
+            name: getCustomerLabel(c),
+          }))}
+        />,
+        <div key="contact" className="md:col-span-2">
+          <FloatingSelect
+            label="Contact (optional)"
+            name="contactId"
+            value={form.contactId}
+            onChange={handleChange}
+            options={contacts.map((c) => ({
+              id: c.id,
+              name: c.fullName,
+            }))}
+          />
+        </div>,
+      ],
+    },
+    {
+      label: "Details",
+      fields: [
+        <FloatingSelect
+          key="type"
+          label="Type"
+          name="type"
+          value={form.type}
+          onChange={handleChange}
+          options={[
+            { id: "EMAIL", name: "Email" },
+            { id: "CALL", name: "Call" },
+            { id: "MEETING", name: "Meeting" },
+            { id: "OTHER", name: "Other" },
+          ]}
+          required
+        />,
+        <FloatingDatePicker
+          key="communicationTime"
+          label="Date & Time"
+          name="communicationTime"
+          value={
+            form.communicationTime
+              ? new Date(form.communicationTime).toISOString().split("T")[0]
+              : ""
+          }
+          onChange={(e) =>
+            setForm({
+              ...form,
+              communicationTime: e.target.value,
+            })
+          }
+          required
+        />,
+        <div key="subject" className="md:col-span-2">
+          <FloatingInput
+            label="Subject"
+            name="subject"
+            value={form.subject}
+            onChange={handleChange}
+            required
+          />
+        </div>,
+        <div key="notes" className="md:col-span-2">
+          <FloatingTextarea
+            label="Notes"
+            name="notes"
+            value={form.notes}
+            onChange={handleChange}
+            rows={4}
+          />
+        </div>,
+      ],
+    },
+  ]}
+/>
 
         {/* Notes View Modal */}
         {showNotesModal && selectedEntry && (

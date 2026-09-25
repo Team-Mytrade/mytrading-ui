@@ -13,6 +13,7 @@ import {
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { useNavigate, useLocation, Link } from "react-router-dom";
+import PaginatedPopup from "../../components/common/unpopup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import { ToasterService } from "../../Services/ToasterService";
@@ -122,6 +123,7 @@ const KeyContacts: React.FC = () => {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [activeContactId, setActiveContactIdState] = useState<number | null>(null);
 
+  
   // Add Contact Modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [newContact, setNewContact] = useState({
@@ -135,6 +137,7 @@ const KeyContacts: React.FC = () => {
   // Edit Contact Modal
   const [showEditModal, setShowEditModal] = useState(false);
   const [editContact, setEditContact] = useState<Contact | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const location = useLocation();
 
@@ -339,13 +342,15 @@ const KeyContacts: React.FC = () => {
   });
 
   // Add Contact Submit
-  // Add Contact Submit
 const handleAddContact = async (e: FormEvent) => {
   e.preventDefault();
+   if (!newContact.fullName.trim()) {
+    ToasterService.error("Full name is required");
+    return;
+  }
   try {
-    // Do NOT send `customer` in the body — backend ignores it on PUT and
-    // the add flow carries the customer id via the URL instead.
-    const payload = {
+     setIsSaving(true);
+     const payload = {
       fullName: newContact.fullName,
       email: newContact.email,
       phone: newContact.phone,
@@ -379,6 +384,9 @@ const handleAddContact = async (e: FormEvent) => {
     console.error("Error adding contact:", err);
     ToasterService.error(err.response?.data?.message || "Failed to add contact.");
   }
+   finally {
+    setIsSaving(false);
+  }
 };
 
  // Handle Edit Contact
@@ -393,7 +401,7 @@ const handleEditContact = async (e: FormEvent) => {
   const companyChanged = newCustomerId !== originalCustomerId;
 
   try {
-    // Step 1: company change first
+    setIsSaving(true);
     if (companyChanged && newCustomerId) {
       try {
         await axios.post(
@@ -415,7 +423,10 @@ const handleEditContact = async (e: FormEvent) => {
         );
         return; // stop — don't bother with the PUT if assign failed
       }
-    }
+       finally {
+    setIsSaving(false);    
+  }
+    };
 
     // Step 2: scalar fields
     const payload = {
@@ -726,205 +737,154 @@ const handleEditContact = async (e: FormEvent) => {
             />
         </div>
         </div>
-
-        {/* Add Contact Modal */}
-        {showAddModal && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-auto overflow-y-auto max-h-[90vh]">
-              <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b border-gray-100">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900">
-                    Add Contact Person
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Add a new contact to your network
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <XMarkIcon className="h-6 w-6" />
-                </button>
-              </div>
-
-              <form onSubmit={handleAddContact} className="p-6 space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                  <div className="col-span-1 sm:col-span-1">
-                    <FloatingInput
-                      label="Full Name"
-                      name="fullName"
-                      value={newContact.fullName}
-                      onChange={(e) => setNewContact({ ...newContact, fullName: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="col-span-1 sm:col-span-1">
-                    <FloatingInput
-                      label="Email"
-                      name="email"
-                      value={newContact.email}
-                      onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="col-span-1 sm:col-span-1">
-                    <FloatingInput
-                      label="Phone"
-                      name="phone"
-                      value={newContact.phone}
-                      onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="col-span-1 sm:col-span-1">
-                    <FloatingSelect
-                      label="Role"
-                      name="role"
-                      value={newContact.role}
-                      onChange={(e) => setNewContact({ ...newContact, role: e.target.value })}
-                      options={Object.values(Role).map(r => ({ id: r, name: r.replace("_", " ") }))}
-                    />
-                  </div>
-
-                  <div className="col-span-1 sm:col-span-2">
-                    <FloatingSelect
-                      label="Company (Optional)"
-                      name="customerId"
-                      value={newContact.customerId}
-                      onChange={(e) => setNewContact({ ...newContact, customerId: e.target.value })}
-                      options={customers.map(cust => ({ id: cust.id, name: getCustomerDisplayName(cust) }))}
-                    />
-                  </div>
-                </div>
-
-                <div className="sticky bottom-0 mt-4 flex flex-col justify-end gap-3 border-t border-gray-100 bg-white pt-4 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddModal(false)}
-                    className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl font-medium hover:from-cyan-700 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg"
-                  >
-                    Add Contact
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Edit Contact Modal */}
-        {showEditModal && editContact && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-auto overflow-y-auto max-h-[90vh]">
-              <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b border-gray-100">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900">
-                    Edit Contact
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Update contact information
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowEditModal(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <XMarkIcon className="h-6 w-6" />
-                </button>
-              </div>
-
-              <form onSubmit={handleEditContact} className="p-6 space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                  <div className="col-span-1 sm:col-span-1">
-                    <FloatingInput
-                      label="Full Name"
-                      name="fullName"
-                      value={editContact.fullName}
-                      onChange={(e) => setEditContact({ ...editContact, fullName: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="col-span-1 sm:col-span-1">
-                    <FloatingInput
-                      label="Email"
-                      name="email"
-                      value={editContact.email}
-                      onChange={(e) => setEditContact({ ...editContact, email: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="col-span-1 sm:col-span-1">
-                    <FloatingInput
-                      label="Phone"
-                      name="phone"
-                      value={editContact.phone}
-                      onChange={(e) => setEditContact({ ...editContact, phone: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="col-span-1 sm:col-span-1">
-                    <FloatingSelect
-                      label="Role"
-                      name="role"
-                      value={editContact.role || ""}
-                      onChange={(e) => setEditContact({ ...editContact, role: e.target.value })}
-                      options={Object.values(Role).map(r => ({ id: r, name: r.replace("_", " ") }))}
-                    />
-                  </div>
-
-                  <div className="col-span-1 sm:col-span-2">
-                   <FloatingSelect
-  label="Company"
-  name="customerId"
-  value={editContact.customer?.id || ""}
-  onChange={(e) => {
-    // Backend cannot unassign a contact from its company yet.
-    // Ignore empty selection to avoid a no-op save that confuses users.
-    if (!e.target.value) return;
-    setEditContact({
-      ...editContact,
-      customer: { id: Number(e.target.value) } as Customer,
-    });
+     {/* Add / Edit Contact (PaginatedPopup) */}
+<PaginatedPopup
+  isOpen={showAddModal || (showEditModal && !!editContact)}
+  title={showEditModal ? "Edit Contact" : "Add Contact Person"}
+  subtitle={
+    showEditModal
+      ? "Update contact information"
+      : "Add a new contact to your network"
+  }
+  onClose={() => {
+    if (showEditModal) {
+      setShowEditModal(false);
+      setEditContact(null);
+    } else {
+      setShowAddModal(false);
+    }
   }}
-  options={customers.map((cust) => ({
-    id: cust.id,
-    name: getCustomerDisplayName(cust),
-  }))}
+  onSubmit={showEditModal ? handleEditContact : handleAddContact}
+  submitLabel={showEditModal ? "Update Contact" : "Add Contact"}
+  submitting={isSaving}
+  fields={
+    showEditModal && editContact
+      ? [
+          // ---- EDIT FIELDS ----
+          <FloatingInput
+            key="fullName"
+            label="Full Name"
+            name="fullName"
+            value={editContact.fullName}
+            onChange={(e) =>
+              setEditContact({ ...editContact, fullName: e.target.value })
+            }
+            required
+          />,
+          <FloatingInput
+            key="email"
+            label="Email"
+            name="email"
+            value={editContact.email}
+            onChange={(e) =>
+              setEditContact({ ...editContact, email: e.target.value })
+            }
+            required
+          />,
+          <FloatingInput
+            key="phone"
+            label="Phone"
+            name="phone"
+            value={editContact.phone}
+            onChange={(e) =>
+              setEditContact({ ...editContact, phone: e.target.value })
+            }
+            required
+          />,
+          <FloatingSelect
+            key="role"
+            label="Role"
+            name="role"
+            value={editContact.role || ""}
+            onChange={(e) =>
+              setEditContact({ ...editContact, role: e.target.value })
+            }
+            options={Object.values(Role).map((r) => ({
+              id: r,
+              name: r.replace("_", " "),
+            }))}
+          />,
+          <div key="customer" className="md:col-span-2">
+            <FloatingSelect
+              label="Company"
+              name="customerId"
+              value={editContact.customer?.id || ""}
+              onChange={(e) => {
+                if (!e.target.value) return;
+                setEditContact({
+                  ...editContact,
+                  customer: { id: Number(e.target.value) } as Customer,
+                });
+              }}
+              options={customers.map((cust) => ({
+                id: cust.id,
+                name: getCustomerDisplayName(cust),
+              }))}
+            />
+          </div>,
+        ]
+      : [
+          // ---- ADD FIELDS ----
+          <FloatingInput
+            key="fullName"
+            label="Full Name"
+            name="fullName"
+            value={newContact.fullName}
+            onChange={(e) =>
+              setNewContact({ ...newContact, fullName: e.target.value })
+            }
+            required
+          />,
+          <FloatingInput
+            key="email"
+            label="Email"
+            name="email"
+            value={newContact.email}
+            onChange={(e) =>
+              setNewContact({ ...newContact, email: e.target.value })
+            }
+            required
+          />,
+          <FloatingInput
+            key="phone"
+            label="Phone"
+            name="phone"
+            value={newContact.phone}
+            onChange={(e) =>
+              setNewContact({ ...newContact, phone: e.target.value })
+            }
+            required
+          />,
+          <FloatingSelect
+            key="role"
+            label="Role"
+            name="role"
+            value={newContact.role}
+            onChange={(e) =>
+              setNewContact({ ...newContact, role: e.target.value })
+            }
+            options={Object.values(Role).map((r) => ({
+              id: r,
+              name: r.replace("_", " "),
+            }))}
+          />,
+          <div key="customerId" className="md:col-span-2">
+            <FloatingSelect
+              label="Company (Optional)"
+              name="customerId"
+              value={newContact.customerId}
+              onChange={(e) =>
+                setNewContact({ ...newContact, customerId: e.target.value })
+              }
+              options={customers.map((cust) => ({
+                id: cust.id,
+                name: getCustomerDisplayName(cust),
+              }))}
+            />
+          </div>,
+        ]
+  }
 />
-                  </div>
-                </div>
-
-                <div className="sticky bottom-0 mt-4 flex flex-col justify-end gap-3 border-t border-gray-100 bg-white pt-4 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={() => setShowEditModal(false)}
-                    className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl font-medium hover:from-cyan-700 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg"
-                  >
-                    Update Contact
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
 
         {/* Assign Customer Modal */}
         {showAssignModal && (

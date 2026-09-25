@@ -4,6 +4,10 @@
 
 - The shared table-toolbar Share action now opens the export dialog for its associated table, while Refresh keeps users on the page and shows a table loading skeleton.
 
+- Selecting a product from an inventory record now opens Products scoped to that product, with a return option for the full list.
+
+- Selecting a user from Service Schedule Notify or Service Schedules now opens the filtered Users section in Role Configuration.
+
 - On mobile, Role Configuration setup areas now open as an anchored dropdown instead of expanding the setup panel into a grid.
 
 ## 2026-09-21

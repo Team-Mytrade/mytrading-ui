@@ -36,6 +36,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import PaginatedPopup from "../../components/common/unpopup";
 
 const API_BASE = "/v1/api/crm/activities";
 const LEADS_API = "/v1/api/crm/leads";
@@ -76,8 +77,6 @@ interface Activity {
   contact?: Contact | null;
 }
 
-type Step = "basic" | "details" | "linking";
-
 const getCustomerLabel = (c?: Customer | null) =>
   c?.customerName || c?.name || "";
 
@@ -99,15 +98,6 @@ const Tasks: React.FC = () => {
   const [selectedStatus] = useState<string>("");
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-
-  const [currentStep, setCurrentStep] = useState<Step>("basic");
-  const [steps, setSteps] = useState<
-    { key: Step; label: string; completed: boolean }[]
-  >([
-    { key: "basic", label: "Basic Info", completed: false },
-    { key: "details", label: "Details", completed: false },
-    { key: "linking", label: "Link Records", completed: false },
-  ]);
 
   useEffect(() => {
     if (showFormModal || showViewModal || showDeleteConfirm) {
@@ -244,9 +234,7 @@ const Tasks: React.FC = () => {
 
   const resetForm = () => {
     setForm({});
-    setCurrentStep("basic");
-    setSteps((prev) => prev.map((s) => ({ ...s, completed: false })));
-    setShowFormModal(false);
+     setShowFormModal(false);
   };
 
   const handleEdit = (activity: Activity) => {
@@ -256,9 +244,7 @@ const Tasks: React.FC = () => {
       customer: activity.customer ?? null,
       contact: activity.contact ?? null,
     });
-    setCurrentStep("basic");
-    setSteps((prev) => prev.map((s) => ({ ...s, completed: false })));
-    setShowFormModal(true);
+      setShowFormModal(true);
   };
 
   const confirmDelete = (id?: number) => {
@@ -307,28 +293,7 @@ const Tasks: React.FC = () => {
     }
   };
 
-  const goToNextStep = () => {
-    if (currentStep === "basic") {
-      setCurrentStep("details");
-      setSteps((prev) =>
-        prev.map((s) => (s.key === "basic" ? { ...s, completed: true } : s))
-      );
-    } else if (currentStep === "details") {
-      setCurrentStep("linking");
-      setSteps((prev) =>
-        prev.map((s) => (s.key === "details" ? { ...s, completed: true } : s))
-      );
-    }
-  };
-
-  const goToPreviousStep = () => {
-    if (currentStep === "details") setCurrentStep("basic");
-    else if (currentStep === "linking") setCurrentStep("details");
-  };
-
-  const isStepValid = () =>
-    currentStep === "basic" ? !!form.title : true;
-
+ 
   const getPriorityIcon = (priority?: string) => {
     switch (priority) {
       case "HIGH":
@@ -538,11 +503,7 @@ const Tasks: React.FC = () => {
           <AddButton
             onClick={() => {
               setForm({});
-              setCurrentStep("basic");
-              setSteps((prev) =>
-                prev.map((s) => ({ ...s, completed: false }))
-              );
-              setShowFormModal(true);
+                setShowFormModal(true);
             }}
             label="New Activity"
           />
@@ -628,6 +589,7 @@ const Tasks: React.FC = () => {
             }
           />
         </div>
+        
 
         {/* View Activity Modal */}
         {showViewModal && selectedActivity && (
@@ -799,312 +761,206 @@ const Tasks: React.FC = () => {
             </div>
           </div>
         )}
+<PaginatedPopup
+  isOpen={showFormModal}
+  title={form.id ? "Edit Activity" : "Add New Activity"}
+  subtitle={
+    form.id
+      ? "Update activity details"
+      : "Create a new task or activity"
+  }
+  onClose={resetForm}
+  onSubmit={(e) => {
+    e.preventDefault();
+    handleSave();
+  }}
+  submitLabel={form.id ? "Update Activity" : "Add Activity"}
+  submitting={isSaving}
+  maxWidthClassName="max-w-3xl"
+  tabs={[
+    {
+      label: "Basic Info",
+      fields: [
+        <div key="title" className="md:col-span-2">
+          <FloatingInput
+            label="Title"
+            name="title"
+            value={form.title || ""}
+            onChange={handleChange}
+            required
+          />
+        </div>,
+        <div key="description" className="md:col-span-2">
+          <FloatingTextarea
+            label="Description"
+            name="description"
+            value={form.description || ""}
+            onChange={handleChange}
+            rows={4}
+          />
+        </div>,
+        <div key="assignedTo" className="md:col-span-2">
+          <FloatingInput
+            label="Assigned To"
+            name="assignedTo"
+            value={form.assignedTo || ""}
+            onChange={handleChange}
+          />
+        </div>,
+      ],
+    },
+    {
+      label: "Details",
+      fields: [
+        <FloatingSelect
+          key="activityType"
+          label="Activity Type"
+          name="activityType"
+          value={form.activityType || ""}
+          onChange={handleChange}
+          options={[
+            { id: "CALL", name: "Call" },
+            { id: "MEETING", name: "Meeting" },
+            { id: "EMAIL", name: "Email" },
+            { id: "OTHER", name: "Other" },
+          ]}
+        />,
+        <FloatingSelect
+          key="priority"
+          label="Priority"
+          name="priority"
+          value={form.priority || ""}
+          onChange={handleChange}
+          options={[
+            { id: "LOW", name: "Low" },
+            { id: "MEDIUM", name: "Medium" },
+            { id: "HIGH", name: "High" },
+          ]}
+        />,
+        <FloatingSelect
+          key="status"
+          label="Status"
+          name="status"
+          value={form.status || ""}
+          onChange={handleChange}
+          options={[
+            { id: "PENDING", name: "Pending" },
+            { id: "COMPLETED", name: "Completed" },
+          ]}
+        />,
+        <div className="hidden md:block" key="spacer" />,
+        <FloatingInput
+          key="scheduledTime"
+          type="datetime-local"
+          label="Scheduled Time"
+          name="scheduledTime"
+          value={
+            form.scheduledTime
+              ? new Date(form.scheduledTime).toISOString().slice(0, 16)
+              : ""
+          }
+          onChange={(e) =>
+            setDateField(
+              "scheduledTime",
+              e.target.value ? new Date(e.target.value) : null
+            )
+          }
+        />,
+        <FloatingInput
+          key="completedTime"
+          type="datetime-local"
+          label="Completed Time"
+          name="completedTime"
+          value={
+            form.completedTime
+              ? new Date(form.completedTime).toISOString().slice(0, 16)
+              : ""
+          }
+          onChange={(e) =>
+            setDateField(
+              "completedTime",
+              e.target.value ? new Date(e.target.value) : null
+            )
+          }
+        />,
+      ],
+    },
+    {
+      label: "Link Records",
+      fields: [
+        <FloatingSelect
+          key="lead"
+          label="Lead"
+          name="lead"
+          value={form.lead?.id ?? ""}
+          onChange={(e) =>
+            setForm((f) => ({
+              ...f,
+              lead: e.target.value
+                ? leads.find((l) => l.id === Number(e.target.value)) || null
+                : null,
+            }))
+          }
+          options={leads.map((l) => ({ id: l.id, name: l.name }))}
+        />,
+        <FloatingSelect
+          key="customer"
+          label="Customer"
+          name="customer"
+          value={form.customer?.id ?? ""}
+          onChange={(e) => {
+            const cust = e.target.value
+              ? customers.find((c) => c.id === Number(e.target.value)) || null
+              : null;
+            setForm((f) => ({
+              ...f,
+              customer: cust,
+              contact:
+                f.contact && cust && f.contact.customerId !== cust.id
+                  ? null
+                  : f.contact,
+            }));
+          }}
+          options={customers.map((c) => ({
+            id: c.id,
+            name: getCustomerLabel(c),
+          }))}
+        />,
+        <FloatingSelect
+          key="contact"
+          label="Contact"
+          name="contact"
+          value={form.contact?.id ?? ""}
+          onChange={(e) =>
+            setForm((f) => ({
+              ...f,
+              contact: e.target.value
+                ? contacts.find((ct) => ct.id === Number(e.target.value)) || null
+                : null,
+            }))
+          }
+          options={filteredContacts.map((ct) => ({
+            id: ct.id,
+            name: ct.fullName,
+          }))}
+        />,
+        <div
+          key="note"
+          className="md:col-span-2 rounded-lg bg-blue-50 p-3 dark:bg-blue-950/30"
+        >
+          <p className="text-xs text-blue-700 dark:text-blue-300">
+            <span className="font-medium">Note:</span> Link this activity to a
+            lead, customer, or contact. If a customer is selected, the contact
+            list is filtered to that customer.
+          </p>
+        </div>,
+      ],
+    },
+  ]}
+/>
 
-        {/* Add/Edit Modal with Stepper */}
-        {showFormModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl mx-auto max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-gray-100">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {form.id ? "Edit Activity" : "Add New Activity"}
-                  </h3>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {form.id
-                      ? "Update activity details"
-                      : "Create a new task or activity"}
-                  </p>
-                </div>
-                <button
-                  onClick={resetForm}
-                  disabled={isSaving}
-                  className="text-gray-400 hover:text-gray-600 disabled:opacity-40"
-                >
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
-
-              {/* Stepper */}
-              <div className="px-5 pt-5">
-                <div className="flex items-center justify-between">
-                  {steps.map((step, index) => (
-                    <React.Fragment key={step.key}>
-                      <div className="flex items-center">
-                        <div
-                          className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-medium ${
-                            currentStep === step.key
-                              ? "bg-cyan-600 text-white"
-                              : step.completed
-                              ? "bg-green-500 text-white"
-                              : "bg-gray-100 text-gray-500"
-                          }`}
-                        >
-                          {step.completed ? (
-                            <CheckCircleIcon className="h-4 w-4" />
-                          ) : (
-                            index + 1
-                          )}
-                        </div>
-                        <span
-                          className={`ml-2 text-xs font-medium ${
-                            currentStep === step.key
-                              ? "text-cyan-600"
-                              : "text-gray-500"
-                          }`}
-                        >
-                          {step.label}
-                        </span>
-                      </div>
-                      {index < steps.length - 1 && (
-                        <div
-                          className={`flex-1 h-0.5 mx-4 ${
-                            step.completed ? "bg-green-500" : "bg-gray-200"
-                          }`}
-                        />
-                      )}
-                    </React.Fragment>
-                  ))}
-                </div>
-              </div>
-
-              <form onSubmit={(e) => e.preventDefault()} className="p-5">
-                {currentStep === "basic" && (
-                  <div className="space-y-4 pt-2">
-                    <FloatingInput
-                      label="Title"
-                      name="title"
-                      value={form.title || ""}
-                      onChange={handleChange}
-                      required
-                    />
-                    <FloatingTextarea
-                      label="Description"
-                      name="description"
-                      value={form.description || ""}
-                      onChange={handleChange}
-                      rows={4}
-                    />
-                    <FloatingInput
-                      label="Assigned To"
-                      name="assignedTo"
-                      value={form.assignedTo || ""}
-                      onChange={handleChange}
-                    />
-                  </div>
-                )}
-
-                {currentStep === "details" && (
-                  <div className="space-y-4 pt-2">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FloatingSelect
-                        label="Activity Type"
-                        name="activityType"
-                        value={form.activityType || ""}
-                        onChange={handleChange}
-                        options={[
-                          { id: "CALL", name: "Call" },
-                          { id: "MEETING", name: "Meeting" },
-                          { id: "EMAIL", name: "Email" },
-                          { id: "OTHER", name: "Other" },
-                        ]}
-                      />
-                      <FloatingSelect
-                        label="Priority"
-                        name="priority"
-                        value={form.priority || ""}
-                        onChange={handleChange}
-                        options={[
-                          { id: "LOW", name: "Low" },
-                          { id: "MEDIUM", name: "Medium" },
-                          { id: "HIGH", name: "High" },
-                        ]}
-                      />
-                    </div>
-                    <FloatingSelect
-                      label="Status"
-                      name="status"
-                      value={form.status || ""}
-                      onChange={handleChange}
-                      options={[
-                        { id: "PENDING", name: "Pending" },
-                        { id: "COMPLETED", name: "Completed" },
-                      ]}
-                    />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                      <FloatingInput
-                        type="datetime-local"
-                        label="Scheduled Time"
-                        name="scheduledTime"
-                        value={
-                          form.scheduledTime
-                            ? new Date(form.scheduledTime)
-                                .toISOString()
-                                .slice(0, 16)
-                            : ""
-                        }
-                        onChange={(e) =>
-                          setDateField(
-                            "scheduledTime",
-                            e.target.value ? new Date(e.target.value) : null
-                          )
-                        }
-                      />
-                      <FloatingInput
-                        type="datetime-local"
-                        label="Completed Time"
-                        name="completedTime"
-                        value={
-                          form.completedTime
-                            ? new Date(form.completedTime)
-                                .toISOString()
-                                .slice(0, 16)
-                            : ""
-                        }
-                        onChange={(e) =>
-                          setDateField(
-                            "completedTime",
-                            e.target.value ? new Date(e.target.value) : null
-                          )
-                        }
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {currentStep === "linking" && (
-                  <div className="space-y-4 pt-2">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <FloatingSelect
-                        label="Lead"
-                        name="lead"
-                        value={form.lead?.id ?? ""}
-                        onChange={(e) =>
-                          setForm((f) => ({
-                            ...f,
-                            lead: e.target.value
-                              ? leads.find(
-                                  (l) => l.id === Number(e.target.value)
-                                ) || null
-                              : null,
-                          }))
-                        }
-                        options={leads.map((l) => ({
-                          id: l.id,
-                          name: l.name,
-                        }))}
-                      />
-                      <FloatingSelect
-                        label="Customer"
-                        name="customer"
-                        value={form.customer?.id ?? ""}
-                        onChange={(e) => {
-                          const cust = e.target.value
-                            ? customers.find(
-                                (c) => c.id === Number(e.target.value)
-                              ) || null
-                            : null;
-                          setForm((f) => ({
-                            ...f,
-                            customer: cust,
-                            // Clear contact if it doesn't belong to the new customer
-                            contact:
-                              f.contact && cust && f.contact.customerId !== cust.id
-                                ? null
-                                : f.contact,
-                          }));
-                        }}
-                        options={customers.map((c) => ({
-                          id: c.id,
-                          name: getCustomerLabel(c),
-                        }))}
-                      />
-                      <FloatingSelect
-                        label="Contact"
-                        name="contact"
-                        value={form.contact?.id ?? ""}
-                        onChange={(e) =>
-                          setForm((f) => ({
-                            ...f,
-                            contact: e.target.value
-                              ? contacts.find(
-                                  (ct) => ct.id === Number(e.target.value)
-                                ) || null
-                              : null,
-                          }))
-                        }
-                        options={filteredContacts.map((ct) => ({
-                          id: ct.id,
-                          name: ct.fullName,
-                        }))}
-                      />
-                    </div>
-                    <div className="bg-blue-50 p-3 rounded-lg">
-                      <p className="text-xs text-blue-700">
-                        <span className="font-medium">Note:</span> Link this
-                        activity to a lead, customer, or contact. If a customer
-                        is selected, the contact list is filtered to that
-                        customer.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="sticky bottom-0 bg-white pt-4 mt-4 border-t border-gray-100 flex justify-between">
-                  <button
-                    type="button"
-                    onClick={goToPreviousStep}
-                    disabled={currentStep === "basic" || isSaving}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${
-                      currentStep === "basic" || isSaving
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    <ChevronLeftIcon className="h-4 w-4" /> Previous
-                  </button>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={resetForm}
-                      disabled={isSaving}
-                      className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-50"
-                    >
-                      Cancel
-                    </button>
-                    {currentStep !== "linking" ? (
-                      <button
-                        type="button"
-                        onClick={goToNextStep}
-                        disabled={!isStepValid() || isSaving}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-1 ${
-                          isStepValid() && !isSaving
-                            ? "bg-cyan-600 text-white hover:bg-cyan-700"
-                            : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        }`}
-                      >
-                        Next <ChevronRightIcon className="h-4 w-4" />
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 shadow-sm disabled:opacity-60"
-                      >
-                        {isSaving
-                          ? "Saving..."
-                          : form.id
-                          ? "Update Activity"
-                          : "Add Activity"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
+      
 
       <DynamicPopup
         isPopupOpen={showDeleteConfirm}
