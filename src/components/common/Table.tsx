@@ -1158,7 +1158,8 @@ export function ReusableTable<T extends { id?: number | string }>({
                     <p>Record information</p>
                     <h3 id="record-information-title">Details</h3>
                   </div>
-                  <span>{informationEntries.length} fields</span>
+                  <span className="dark:bg-white/10 dark:text-white dark:border-white/15 backdrop-blur-sm">
+ {informationEntries.length} {informationEntries.length === 1 ? "field" : "fields"}</span>
                 </div>
                 <dl className="record-detail-drawer__details">
                   {informationEntries.map((entry) => {
