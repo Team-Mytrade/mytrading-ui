@@ -1096,7 +1096,7 @@ const BatchManagement: React.FC = () => {
                 name="productId"
                 value={form.productId}
                 onChange={handleChange}
-                emptyOptionLabel="Select product"
+                // emptyOptionLabel="Select product"
                 options={products.map((p) => ({
                   id: String(p.id || p.productId || 0),
                   name: normalizeProductLabel(p),
@@ -1109,7 +1109,7 @@ const BatchManagement: React.FC = () => {
                 name="warehouse"
                 value={form.warehouse}
                 onChange={handleChange}
-                emptyOptionLabel="Select warehouse"
+                // emptyOptionLabel="Select warehouse"
                 options={warehouses.map((w) => ({
                   id: String(w.id),
                   name: `${w.code || ""} - ${w.name || ""}`,
