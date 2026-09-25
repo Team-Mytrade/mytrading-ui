@@ -98,18 +98,8 @@ const statusOptions: TargetStatus[] = [
 const targetTypeOptions: TargetType[] = ["REVENUE", "QUANTITY", "ORDERS", "CUSTOMERS", "PROFIT"];
 
 const monthNames = [
-  "JANUARY",
-  "FEBRUARY",
-  "MARCH",
-  "APRIL",
-  "MAY",
-  "JUNE",
-  "JULY",
-  "AUGUST",
-  "SEPTEMBER",
-  "OCTOBER",
-  "NOVEMBER",
-  "DECEMBER",
+  "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+  "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER",
 ];
 
 const emptyForm: TargetForm = {
@@ -148,8 +138,8 @@ function getPeriodMonth(period?: Period | string) {
 function normalizeTarget(target: SalesTarget): SalesTarget {
   const targetYear = target.targetYear || getPeriodYear(target.period) || 0;
   const targetMonth = target.targetMonth || getPeriodMonth(target.period) || 0;
-  const { period, ...rest } = target;
-  return { ...rest, targetYear, targetMonth };
+  // FIXED: Removed destructuring that stripped 'period' from the state object.
+  return { ...target, targetYear, targetMonth };
 }
 
 function normalizeTargets(list: SalesTarget[]): SalesTarget[] {
@@ -195,16 +185,12 @@ function toInputDateValue(date: Date | null) {
   return `${year}-${month}-${day}`;
 }
 
-// Derives a sensible status from achieved vs target when the user hasn't
-// manually picked one. Respects manual overrides (see resolveStatus).
 function deriveStatusFromAmounts(
   targetAmount: number,
   achievedAmount: number,
   currentStatus: TargetStatus
 ): TargetStatus {
-  // Don't override a manual COMPLETED/MISSED selection
   if (currentStatus === "COMPLETED" || currentStatus === "MISSED") return currentStatus;
-
   if (targetAmount <= 0) return "NOT_STARTED";
   if (achievedAmount <= 0) return "NOT_STARTED";
   if (achievedAmount > targetAmount) return "EXCEEDED";
@@ -278,7 +264,6 @@ const SalesTargets: React.FC = () => {
   ) => {
     const { name, value } = e.target;
 
-    // Hard block negative values for amount fields
     if ((name === "targetAmount" || name === "achievedAmount") && Number(value) < 0) {
       return;
     }
@@ -301,8 +286,6 @@ const SalesTargets: React.FC = () => {
         }
       }
 
-      // Auto-derive status when amounts change (unless user has manually
-      // set a terminal status like COMPLETED/MISSED).
       if (name === "targetAmount" || name === "achievedAmount") {
         const targetAmount = Number(name === "targetAmount" ? value : next.targetAmount);
         const achievedAmount = Number(name === "achievedAmount" ? value : next.achievedAmount);
@@ -366,7 +349,6 @@ const SalesTargets: React.FC = () => {
       return;
     }
 
-    // Date range validation
     if (form.startDate && form.endDate && form.startDate > form.endDate) {
       ToasterService.error("Invalid date range", "Start date cannot be after end date.");
       return;
@@ -530,6 +512,9 @@ const SalesTargets: React.FC = () => {
         status: "COMPLETED",
       };
 
+      // NOTE: If your backend's PATCH endpoint already sets the status to COMPLETED,
+      // this PUT request might be redundant and cause a double network call. 
+      // Verify with your backend team if this PUT is strictly necessary.
       const payload = buildPayloadFromTarget(achievedTarget, "COMPLETED");
       const updateResponse = await axios.put<SalesTarget>(`${API_URL}/${target.id}`, payload, { headers });
 
@@ -546,17 +531,18 @@ const SalesTargets: React.FC = () => {
     }
   };
 
+  // Added dark: classes to the status select
   const getStatusSelectClasses = (status: string) => {
     if (status === "COMPLETED" || status === "EXCEEDED") {
-      return "border-green-200 bg-green-50 text-green-700";
+      return "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-900/40 dark:text-green-300";
     }
     if (status === "MISSED") {
-      return "border-red-200 bg-red-50 text-red-700";
+      return "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/40 dark:text-red-300";
     }
     if (status === "ON_TRACK" || status === "ONGOING") {
-      return "border-cyan-200 bg-cyan-50 text-cyan-700";
+      return "border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300";
     }
-    return "border-blue-200 bg-blue-50 text-blue-700";
+    return "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/40 dark:text-blue-300";
   };
 
   const stats = useMemo(() => {
@@ -581,12 +567,13 @@ const SalesTargets: React.FC = () => {
 
         return (
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50">
-              <UserIcon className="h-4 w-4 text-cyan-700" />
+            {/* Added dark: classes */}
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50 dark:border-cyan-800 dark:bg-cyan-950/40">
+              <UserIcon className="h-4 w-4 text-cyan-700 dark:text-cyan-400" />
             </div>
             <div>
-              <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/sales-persons?salesPersonId=${target.salesPersonId}&salesPersonName=${encodeURIComponent(name)}`); }} className="max-w-[190px] truncate text-left text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline" title={`View ${name}`}>{name}</button>
-              <div className="text-xs text-slate-500">{code || `ID: ${target.salesPersonId}`}</div>
+              <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/sales-persons?salesPersonId=${target.salesPersonId}&salesPersonName=${encodeURIComponent(name)}`); }} className="max-w-[190px] truncate text-left text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300" title={`View ${name}`}>{name}</button>
+              <div className="text-xs text-slate-500 dark:text-slate-400">{code || `ID: ${target.salesPersonId}`}</div>
             </div>
           </div>
         );
@@ -597,7 +584,8 @@ const SalesTargets: React.FC = () => {
       label: "Type",
       sortable: true,
       render: (target) => (
-        <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">
+        // Added dark: classes
+        <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
           {target.targetType}
         </span>
       ),
@@ -606,20 +594,23 @@ const SalesTargets: React.FC = () => {
       key: "targetAmount",
       label: "Target",
       sortable: true,
-      render: (target) => <span className="font-semibold text-slate-900">{toCurrency(target.targetAmount)}</span>,
+      // Added dark: classes
+      render: (target) => <span className="font-semibold text-slate-900 dark:text-white">{toCurrency(target.targetAmount)}</span>,
     },
     {
       key: "achievedAmount",
       label: "Achieved",
       sortable: true,
-      render: (target) => <span className="font-semibold text-green-700">{toCurrency(target.achievedAmount)}</span>,
+      // Added dark: classes
+      render: (target) => <span className="font-semibold text-green-700 dark:text-green-400">{toCurrency(target.achievedAmount)}</span>,
     },
     {
       key: "targetMonth",
       label: "Period",
       sortable: true,
+      // Added dark: classes
       render: (target) => (
-        <span className="text-sm text-slate-700">
+        <span className="text-sm text-slate-700 dark:text-slate-300">
           {monthNames[(target.targetMonth || getPeriodMonth(target.period) || 1) - 1]}{" "}
           {target.targetYear || getPeriodYear(target.period)}
         </span>
@@ -656,10 +647,11 @@ const SalesTargets: React.FC = () => {
       className: "text-right",
       render: (target) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          {/* Added dark: classes to all action buttons */}
           <button
             type="button"
             onClick={() => openEdit(target)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
@@ -668,7 +660,7 @@ const SalesTargets: React.FC = () => {
             type="button"
             onClick={() => void markTargetAsAchieved(target)}
             disabled={achievedUpdatingId === target.id}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-70"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-70 dark:text-slate-500 dark:hover:bg-green-950/40 dark:hover:text-green-400"
             title="Mark achieved"
           >
             <TrophyIcon className="h-4 w-4" />
@@ -676,7 +668,7 @@ const SalesTargets: React.FC = () => {
           <button
             type="button"
             onClick={() => setDeleteTarget(target)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
@@ -707,7 +699,8 @@ const SalesTargets: React.FC = () => {
         actions={<AddButton onClick={openCreate} label="Add Target" />}
       />
 
-      <div className="w-full max-w-none px-0 py-8">
+      {/* Added 'sales-module' class to activate legacy CSS dark mode fallback */}
+      <div className="sales-module w-full max-w-none px-0 py-8">
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-3">
           <StatsCard
             label="Total Target"
@@ -741,12 +734,13 @@ const SalesTargets: React.FC = () => {
           defaultSortOrder="desc"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
-              <PresentationChartLineIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">No sales targets found</p>
+              {/* Added dark: classes */}
+              <PresentationChartLineIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No sales targets found</p>
               <button
                 type="button"
                 onClick={() => fetchAllTargets()}
-                className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 <ArrowPathIcon className="h-3.5 w-3.5" />
                 Reload all targets
@@ -785,7 +779,7 @@ const SalesTargets: React.FC = () => {
                   <button
                     type="button"
                     onClick={fetchSalesPersons}
-                    className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                    className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
                   >
                     <ArrowPathIcon className="h-3 w-3" />
                     Retry loading sales persons
@@ -891,8 +885,9 @@ const SalesTargets: React.FC = () => {
         setIsPopupOpen={(open) => {
           if (!open) setDeleteTarget(null);
         }}
-        icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-        iconBg="bg-red-100"
+        // Added dark: classes
+        icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
+        iconBg="bg-red-100 dark:bg-red-950/40"
         innerText="Delete Sales Target"
         subText={
           deleteTarget

@@ -27,7 +27,7 @@ import {
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-
+import PaginatedPopup from "../../components/common/unpopup";
 const API_URL = "/v1/api/crm/leads";
 const CUSTOMER_API = "/v1/api/crm/customers";
 const getToken = () => localStorage.getItem("accessToken") || "";
@@ -119,6 +119,8 @@ const Leads: React.FC = () => {
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [deleteLead, setDeleteLead] = useState<Lead | null>(null);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
+  const [convertLead, setConvertLead] = useState<Lead | null>(null);
+  const [showConvertPopup, setShowConvertPopup] = useState(false);
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -304,52 +306,58 @@ const Leads: React.FC = () => {
     }
   };
 
-  /* ---------------- Convert lead to customer ---------------- */
-
-  const handleConvert = async (lead: Lead) => {
-    if (lead.customer) {
-      ToasterService.info(
-        `"${lead.name}" is already linked to ${lead.customer.customerName || lead.customer.name || "a customer"}`
-      );
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Convert "${lead.name}" to a customer?\n\nA new customer record will be created and this lead marked as CONVERTED.`
+ /* Opens the confirm popup (does NOT call the API) */
+const openConvertPopup = (lead: Lead) => {
+  if (lead.customer) {
+    ToasterService.info(
+      `"${lead.name}" is already linked to ${
+        lead.customer.customerName || lead.customer.name || "a customer"
+      }`
     );
-    if (!confirmed) return;
+    return;
+  }
+  setConvertLead(lead);
+  setShowConvertPopup(true);
+};
+
+/* Actually converts — called by the popup's Confirm */
+const confirmConvert = async () => {
+  if (!convertLead) return;
+  try {
+    setConvertingId(convertLead.id);
+    setShowConvertPopup(false);
 
     try {
-      setConvertingId(lead.id);
-      // Preferred: dedicated convert endpoint
-      // Fallback: mark the lead status as CONVERTED-like (QUALIFIED)
-      try {
-        await axios.post(
-          `${API_URL}/${lead.id}/convert`,
-          {},
-          { headers: authHeaders }
-        );
-        ToasterService.success(
-          `"${lead.name}" converted to customer successfully!`
-        );
-      } catch (primaryErr: any) {
-        // If backend doesn't yet have /convert, inform the user gracefully
-        console.warn("Convert endpoint unavailable:", primaryErr?.response?.status);
-        ToasterService.error(
-          primaryErr?.response?.data?.message ||
-            "Conversion endpoint not available yet. Please contact your administrator."
-        );
-      }
-      await fetchData();
-    } catch (err: any) {
-      console.error("Error converting lead:", err);
-      ToasterService.error(
-        err.response?.data?.message || "Failed to convert lead"
+      await axios.post(
+        `${API_URL}/${convertLead.id}/convert`,
+        {},
+        { headers: authHeaders }
       );
-    } finally {
-      setConvertingId(null);
+      ToasterService.success(
+        `"${convertLead.name}" converted to customer successfully!`
+      );
+    } catch (primaryErr: any) {
+      console.warn(
+        "Convert endpoint unavailable:",
+        primaryErr?.response?.status
+      );
+      ToasterService.error(
+        primaryErr?.response?.data?.message ||
+          "Conversion endpoint not available yet. Please contact your administrator."
+      );
     }
-  };
+    await fetchData();
+  } catch (err: any) {
+    console.error("Error converting lead:", err);
+    ToasterService.error(
+      err.response?.data?.message || "Failed to convert lead"
+    );
+  } finally {
+    setConvertingId(null);
+    setConvertLead(null);
+  }
+};
+  
 
   /* ---------------- Link to existing customer (kept for flexibility) ---------------- */
 
@@ -536,7 +544,7 @@ const Leads: React.FC = () => {
           {!lead.customer ? (
             <button
               type="button"
-              onClick={() => handleConvert(lead)}
+              onClick={() => openConvertPopup(lead)}
               disabled={convertingId === lead.id}
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-50"
               title="Convert to Customer"
@@ -653,11 +661,16 @@ const Leads: React.FC = () => {
             defaultSortKey="name"
             defaultSortOrder="asc"
             enableRowDetails={true}
-            // onRowClick={(lead) =>
-            //   navigate(`/crm-view/leads/${lead.id}`, {
-            //     state: { from: "leads" },
-            //   })
-            // }
+           hiddenDetailKeys={[
+              "id",
+               "tenantId",
+             "createdBy",
+              "updatedBy",
+              "deletedBy",
+             "createdAt",
+              "updatedAt",
+              "deletedAt",
+             ]}
             emptyState={
               <div className="flex flex-col items-center justify-center py-12">
                 <UsersIcon className="h-10 w-10 text-gray-400 mx-auto mb-2" />
@@ -683,106 +696,7 @@ const Leads: React.FC = () => {
           />
         </div>
 
-        {/* Add/Edit Lead Modal */}
-        {showModal &&
-          createPortal(
-            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto p-4">
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto">
-                <div className="flex items-center justify-between p-5 border-b border-gray-100">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {editingId ? "Edit Lead" : "Add New Lead"}
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {editingId
-                        ? "Update lead information"
-                        : "Add a new lead to your pipeline"}
-                    </p>
-                  </div>
-                  <button
-                    onClick={closeModal}
-                    disabled={isSaving}
-                    className="text-gray-400 hover:text-gray-600 disabled:opacity-40"
-                  >
-                    <XMarkIcon className="h-5 w-5" />
-                  </button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="p-5">
-                  <div className="space-y-4 pt-2">
-                    <FloatingInput
-                      label="Lead Name"
-                      name="name"
-                      value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
-                      required
-                    />
-                    <FloatingInput
-                      label="Email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
-                      }
-                      required
-                    />
-                    <FloatingInput
-                      label="Phone"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={(e) =>
-                        setFormData({ ...formData, phone: e.target.value })
-                      }
-                      required
-                    />
-                    <FloatingSelect
-                      label="Status"
-                      name="status"
-                      value={formData.status}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          status: e.target.value as LeadStatus,
-                        })
-                      }
-                      options={[
-                        { id: "NEW", name: "New" },
-                        { id: "CONTACTED", name: "Contacted" },
-                        { id: "QUALIFIED", name: "Qualified" },
-                        { id: "LOST", name: "Lost" },
-                      ]}
-                    />
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-4 mt-4 border-t border-gray-100">
-                    <button
-                      type="button"
-                      onClick={closeModal}
-                      disabled={isSaving}
-                      className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSaving}
-                      className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 shadow-sm disabled:opacity-60"
-                    >
-                      {isSaving
-                        ? "Saving..."
-                        : editingId
-                        ? "Update Lead"
-                        : "Add Lead"}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>,
-            document.body
-          )}
+        
 
         {/* Link to Existing Customer Modal */}
         {showLinkModal &&
@@ -851,6 +765,62 @@ const Leads: React.FC = () => {
             document.body
           )}
       </div>
+      {/* Add/Edit Lead (PaginatedPopup) */}
+<PaginatedPopup
+  isOpen={showModal}
+  title={editingId ? "Edit Lead" : "Add New Lead"}
+  subtitle={
+    editingId
+      ? "Update lead information"
+      : "Add a new lead to your pipeline"
+  }
+  onClose={closeModal}
+  onSubmit={handleSubmit}
+  submitLabel={editingId ? "Update Lead" : "Add Lead"}
+  submitting={isSaving}
+  fields={[
+    <FloatingInput
+      key="name"
+      label="Lead Name"
+      name="name"
+      value={formData.name}
+      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+      required
+    />,
+    <FloatingInput
+      key="email"
+      label="Email"
+      name="email"
+      type="email"
+      value={formData.email}
+      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+      required
+    />,
+    <FloatingInput
+      key="phone"
+      label="Phone"
+      name="phone"
+      value={formData.phone}
+      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+      required
+    />,
+    <FloatingSelect
+      key="status"
+      label="Status"
+      name="status"
+      value={formData.status}
+      onChange={(e) =>
+        setFormData({ ...formData, status: e.target.value as LeadStatus })
+      }
+      options={[
+        { id: "NEW", name: "New" },
+        { id: "CONTACTED", name: "Contacted" },
+        { id: "QUALIFIED", name: "Qualified" },
+        { id: "LOST", name: "Lost" },
+      ]}
+    />,
+  ]}
+/>
 
       <DynamicPopup
         isPopupOpen={showDeletePopup}
@@ -869,6 +839,26 @@ const Leads: React.FC = () => {
         onCancel={() => setDeleteLead(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
       />
+      <DynamicPopup
+  isPopupOpen={showConvertPopup}
+  setIsPopupOpen={setShowConvertPopup}
+  icon={<ArrowRightCircleIcon className="h-6 w-6 text-emerald-600" />}
+  iconBg="bg-emerald-100"
+  innerText="Convert to Customer"
+  subText={
+    convertLead
+      ? `Convert "${convertLead.name}" to a customer? A new customer record will be created and this lead marked as CONVERTED.`
+      : "Convert this lead to a customer?"
+  }
+  confirmLabel="Convert"
+  cancelLabel="Cancel"
+  onConfirm={confirmConvert}
+  onCancel={() => {
+    setConvertLead(null);
+    setShowConvertPopup(false);
+  }}
+  confirmBtnClass="bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500 text-white"
+/>
     </>
   );
 };

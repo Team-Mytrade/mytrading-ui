@@ -93,7 +93,7 @@ const statusOptions = [
 ];
 
 // 🔧 Route paths — matches your app's actual routes.
-const USERS_PAGE_PATH = "/role_config/users";
+const USERS_PAGE_PATH = "/role_config";
 const CUSTOMERS_PAGE_PATH = "/customer-management";
 
 const emptyForm: ScheduleForm = {
@@ -474,7 +474,7 @@ const ServiceSchedules: React.FC = () => {
     // Pass both userId and employeeId params so whichever the target page
     // reads, the filter will apply.
     navigate(
-      `${USERS_PAGE_PATH}?userId=${encodeURIComponent(
+      `${USERS_PAGE_PATH}?tab=users&userId=${encodeURIComponent(
         String(targetId)
       )}&employeeId=${encodeURIComponent(String(targetId))}&userName=${encodeURIComponent(name)}`
     );
@@ -667,18 +667,6 @@ const ServiceSchedules: React.FC = () => {
             borderColor="border-green-100"
             labelColor="text-green-600"
           />
-        </div>
-
-        {/* Toolbar — Refresh only */}
-        <div className="flex items-center justify-end">
-          <button
-            onClick={fetchSchedules}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-cyan-400"
-            title="Refresh"
-          >
-            <ArrowPathIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
         </div>
 
         <ReusableTable

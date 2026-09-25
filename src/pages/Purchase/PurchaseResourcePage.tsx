@@ -86,6 +86,7 @@ export type PurchaseResourceConfig = {
   title: string;
   description: string;
   endpoint: string;
+   formSubtitle?: string
   getByIdEndpoint?: (row: PurchaseRecord) => string;
   createEndpoint?: string;
   updateEndpoint?: (row: PurchaseRecord, form: PurchaseRecord) => string;
@@ -827,7 +828,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       <PaginatedPopup
         isOpen={showForm}
         title={editingRow ? `Edit ${config.title}` : `Add ${config.title}`}
-        subtitle="Fields follow the Purchase Service Swagger schema."
+        subtitle={config.formSubtitle}
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitLabel={editingRow ? "Update" : "Create"}
