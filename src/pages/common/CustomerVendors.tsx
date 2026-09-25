@@ -260,11 +260,11 @@ const Vendors: React.FC = () => {
       <PageMeta title="Vendors" description="Manage invoice vendors" />
       <PageBreadcrumb pageTitle="Vendors" />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 ">
+        <div className="mb-6 mr-3 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={openCreate} label="Add Vendor" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="my-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
             label="Total Vendors"
             value={stats.totalVendors}
@@ -295,44 +295,6 @@ const Vendors: React.FC = () => {
           />
         </div>
 
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search vendors by name, email, or phone..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); }}
-                className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-              {search && (
-                <button
-                  onClick={() => { setSearch(""); }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
-            <FilterPopover
-              title="Filter Vendors"
-              buttonLabel="Filters"
-              label="Filter by Credit"
-              value={activeFilter}
-              options={[
-                { label: "All Vendors", value: "ALL" },
-                { label: "With Credit Limit", value: "WITH_CREDIT" },
-              ]}
-              onChange={setActiveFilter}
-              onReset={() => setActiveFilter("ALL")}
-              onApply={() => undefined}
-            />
-          </div>
-        </div>
 
         <ReusableTable
           data={filteredVendors}

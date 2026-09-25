@@ -790,7 +790,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   return (
     <>
       <PageMeta title={config.title} description={config.description} />
-      <PageBreadcrumb className="mr-4" pageTitle={config.title} actions={<>{config.renderHeaderActions?.()}{config.allowCreate !== false && <AddButton label={`Add ${config.title}`} onClick={() => openCreate()} />}</>} />
+      <PageBreadcrumb className="mr-4" pageTitle={config.title} actions={<>{config.renderHeaderActions?.()}{config.allowCreate !== false && <AddButton className="-mr-5" label={`Add ${config.title}`} onClick={() => openCreate()} />}</>} />
 
       <div className="w-full max-w-none px-0 py-8">
         {isScoped && config.scope && <div className="mx-3 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>Showing {config.scope.label.toLowerCase()}: <strong>{scopeName}</strong></span><button type="button" onClick={() => navigate(location.pathname)} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all {config.scope.label.toLowerCase()}s</button></div>}

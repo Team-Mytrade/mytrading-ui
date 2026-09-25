@@ -262,11 +262,11 @@ const TaxDetails: React.FC = () => {
       <PageMeta title="Tax Details" description="Manage tax details" />
       <PageBreadcrumb pageTitle="Tax Details" />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton onClick={openCreate} label="Add Tax Detail" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 my-5">
           <StatsCard
             label="Total Tax Details"
             value={stats.total}
@@ -295,46 +295,6 @@ const TaxDetails: React.FC = () => {
             borderColor="border-purple-100"
             labelColor="text-purple-600"
           />
-        </div>
-
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search tax details by code, description, or category..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); }}
-                className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-              {search && (
-                <button
-                  onClick={() => { setSearch(""); }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
-            <FilterPopover
-              title="Filter Tax Details"
-              buttonLabel="Filters"
-              label="Filter by Category"
-              value={activeFilter}
-              options={[
-                { label: "All Tax Details", value: "ALL" },
-                { label: "Input Tax", value: "INPUT" },
-                { label: "Output Tax", value: "OUTPUT" },
-              ]}
-              onChange={setActiveFilter}
-              onReset={() => setActiveFilter("ALL")}
-              onApply={() => undefined}
-            />
-          </div>
         </div>
 
         <ReusableTable
