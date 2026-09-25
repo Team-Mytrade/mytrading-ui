@@ -66,36 +66,36 @@ const serviceModulesBase = [
 ];
 
 const colorClasses: Record<ColorKey, string> = {
-  blue: "bg-blue-50 text-blue-600 group-hover:bg-blue-100",
-  emerald: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100",
-  orange: "bg-orange-50 text-orange-600 group-hover:bg-orange-100",
-  purple: "bg-purple-50 text-purple-600 group-hover:bg-purple-100",
-  yellow: "bg-yellow-50 text-yellow-600 group-hover:bg-yellow-100",
-  indigo: "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100",
-  pink: "bg-pink-50 text-pink-600 group-hover:bg-pink-100",
-  teal: "bg-teal-50 text-teal-600 group-hover:bg-teal-100",
+  blue: "bg-blue-50 text-blue-600 group-hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-400 dark:group-hover:bg-blue-900/60",
+  emerald: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:group-hover:bg-emerald-900/60",
+  orange: "bg-orange-50 text-orange-600 group-hover:bg-orange-100 dark:bg-orange-950/40 dark:text-orange-400 dark:group-hover:bg-orange-900/60",
+  purple: "bg-purple-50 text-purple-600 group-hover:bg-purple-100 dark:bg-purple-950/40 dark:text-purple-400 dark:group-hover:bg-purple-900/60",
+  yellow: "bg-yellow-50 text-yellow-600 group-hover:bg-yellow-100 dark:bg-amber-950/40 dark:text-amber-400 dark:group-hover:bg-amber-900/60",
+  indigo: "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-400 dark:group-hover:bg-indigo-900/60",
+  pink: "bg-pink-50 text-pink-600 group-hover:bg-pink-100 dark:bg-pink-950/40 dark:text-pink-400 dark:group-hover:bg-pink-900/60",
+  teal: "bg-teal-50 text-teal-600 group-hover:bg-teal-100 dark:bg-teal-950/40 dark:text-teal-400 dark:group-hover:bg-teal-900/60",
 };
 
 const solidColorClasses: Record<ColorKey, string> = {
-  blue: "bg-blue-50 text-blue-600",
-  emerald: "bg-emerald-50 text-emerald-600",
-  orange: "bg-orange-50 text-orange-600",
-  purple: "bg-purple-50 text-purple-600",
-  yellow: "bg-yellow-50 text-yellow-600",
-  indigo: "bg-indigo-50 text-indigo-600",
-  pink: "bg-pink-50 text-pink-600",
-  teal: "bg-teal-50 text-teal-600",
+  blue: "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400",
+  emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400",
+  orange: "bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400",
+  purple: "bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400",
+  yellow: "bg-yellow-50 text-yellow-600 dark:bg-amber-950/40 dark:text-amber-400",
+  indigo: "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400",
+  pink: "bg-pink-50 text-pink-600 dark:bg-pink-950/40 dark:text-pink-400",
+  teal: "bg-teal-50 text-teal-600 dark:bg-teal-950/40 dark:text-teal-400",
 };
 
 const accentBorderClasses: Record<ColorKey, string> = {
-  blue: "border-t-blue-400",
-  emerald: "border-t-emerald-400",
-  orange: "border-t-orange-400",
-  purple: "border-t-purple-400",
-  yellow: "border-t-yellow-400",
-  indigo: "border-t-indigo-400",
-  pink: "border-t-pink-400",
-  teal: "border-t-teal-400",
+  blue: "border-t-blue-400 dark:border-t-blue-500",
+  emerald: "border-t-emerald-400 dark:border-t-emerald-500",
+  orange: "border-t-orange-400 dark:border-t-orange-500",
+  purple: "border-t-purple-400 dark:border-t-purple-500",
+  yellow: "border-t-yellow-400 dark:border-t-amber-500",
+  indigo: "border-t-indigo-400 dark:border-t-indigo-500",
+  pink: "border-t-pink-400 dark:border-t-pink-500",
+  teal: "border-t-teal-400 dark:border-t-teal-500",
 };
 
 const moduleGridClasses: Record<string, string> = {
@@ -261,7 +261,7 @@ const SalesDashboard: React.FC = () => {
       {/* Fixed-height flex column: breadcrumb stays put at the top,
           only the content area below it scrolls. `min-h-0` on the
           scroll child is required for flex-1 overflow to work. */}
-      <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden">
+      <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden dark:bg-gray-950">
         <div className="shrink-0">
           <PageBreadcrumb pageTitle="Sales Dashboard" />
         </div>
@@ -270,7 +270,7 @@ const SalesDashboard: React.FC = () => {
           <div className="mx-auto w-full max-w-7xl space-y-5 p-4 pb-16 sm:p-6 sm:pb-20">
             {groups.map((group) => (
               <div key={group.title}>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
                   {group.title}
                 </h3>
                 <div
@@ -285,15 +285,15 @@ const SalesDashboard: React.FC = () => {
                       <button
                         key={module.name}
                         onClick={() => navigate(module.route)}
-                        className="group flex flex-col items-center rounded-lg border border-gray-100 bg-white px-3 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                        className="group flex flex-col items-center rounded-lg border border-gray-100 bg-white px-3 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
                       >
                         <div className={`rounded-md p-1.5 ${colorClass} transition-colors duration-200`}>
                           <Icon className="h-4 w-4" />
                         </div>
-                        <h4 className="mt-1.5 text-xs font-semibold text-gray-900 transition-colors group-hover:text-cyan-600">
+                        <h4 className="mt-1.5 text-xs font-semibold text-gray-900 transition-colors group-hover:text-cyan-600 dark:text-gray-100 dark:group-hover:text-cyan-400">
                           {module.name}
                         </h4>
-                        <p className="mt-0.5 text-[10px] text-gray-500">{module.count}</p>
+                        <p className="mt-0.5 text-[10px] text-gray-500 dark:text-gray-400">{module.count}</p>
                       </button>
                     );
                   })}
@@ -308,14 +308,14 @@ const SalesDashboard: React.FC = () => {
                 const accentClass = accentBorderClasses[card.color];
                 const subColorClass =
                   card.subTone === "positive"
-                    ? "text-emerald-600"
+                    ? "text-emerald-600 dark:text-emerald-400"
                     : card.subTone === "negative"
-                    ? "text-red-600"
-                    : "text-gray-500";
+                    ? "text-red-600 dark:text-red-400"
+                    : "text-gray-500 dark:text-gray-400";
                 return (
                   <div
                     key={card.label}
-                    className={`flex h-full flex-col justify-between rounded-xl border border-t-[3px] border-gray-100 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-5 ${accentClass}`}
+                    className={`flex h-full flex-col justify-between rounded-xl border border-t-[3px] border-gray-100 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 sm:p-5 ${accentClass}`}
                   >
                     <div className="mb-3 flex items-center justify-between">
                       <div className={`rounded-lg p-2 ${chipClass}`}>
@@ -324,16 +324,16 @@ const SalesDashboard: React.FC = () => {
                       <span
                         className={
                           loading
-                            ? "rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500"
-                            : "rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-600"
+                            ? "rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                            : "rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
                         }
                       >
                         {loading ? "Loading" : "Live"}
                       </span>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">{card.label}</p>
-                      <p className="mt-0.5 text-2xl font-bold text-gray-900 sm:text-3xl">{card.value}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{card.label}</p>
+                      <p className="mt-0.5 text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl">{card.value}</p>
                       <p className={`mt-1.5 truncate text-xs font-medium ${subColorClass}`}>
                         {card.sub || "\u00A0"}
                       </p>
@@ -344,16 +344,18 @@ const SalesDashboard: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <div className="rounded-lg border border-gray-100 bg-white p-4">
+              <div className="rounded-lg border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
                 <div className="mb-3 flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900">Monthly sales</h3>
-                    <p className="mt-0.5 text-xs text-gray-500">From sales report API</p>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Monthly sales</h3>
+                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">From sales report API</p>
                   </div>
                   {salesDelta !== null ? (
                     <span
                       className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        salesDelta >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"
+                        salesDelta >= 0
+                          ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
+                          : "bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400"
                       }`}
                     >
                       {salesDelta >= 0 ? (
@@ -364,7 +366,7 @@ const SalesDashboard: React.FC = () => {
                       {Math.abs(salesDelta).toFixed(1)}%
                     </span>
                   ) : (
-                    <TrendingUp className="h-4 w-4 text-emerald-500" />
+                    <TrendingUp className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
                   )}
                 </div>
                 <ResponsiveContainer width="100%" height={200}>
@@ -375,10 +377,17 @@ const SalesDashboard: React.FC = () => {
                         <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="month" stroke="#9ca3af" fontSize={11} />
-                    <YAxis stroke="#9ca3af" fontSize={11} />
-                    <Tooltip formatter={(value: any) => money(Number(value) || 0)} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis dataKey="month" stroke="#6b7280" fontSize={11} />
+                    <YAxis stroke="#6b7280" fontSize={11} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#1f2937",
+                        borderColor: "#374151",
+                        color: "#f3f4f6",
+                      }}
+                      formatter={(value: any) => money(Number(value) || 0)}
+                    />
                     <Area
                       type="monotone"
                       dataKey="sales"
@@ -390,21 +399,34 @@ const SalesDashboard: React.FC = () => {
                 </ResponsiveContainer>
               </div>
 
-              <div className="rounded-lg border border-gray-100 bg-white p-4">
+              <div className="rounded-lg border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
                 <div className="mb-3 flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900">Top products</h3>
-                    <p className="mt-0.5 text-xs text-gray-500">Ranked by sales volume</p>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Top products</h3>
+                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Ranked by sales volume</p>
                   </div>
-                  <Package className="h-4 w-4 text-orange-500" />
+                  <Package className="h-4 w-4 text-orange-500 dark:text-orange-400" />
                 </div>
                 {productData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={productData} layout="vertical" margin={{ left: 8, right: 24 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
                       <XAxis type="number" hide />
-                      <YAxis type="category" dataKey="name" stroke="#9ca3af" fontSize={11} width={110} />
-                      <Tooltip formatter={(value: any) => [value, "Rank score"]} />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        stroke="#6b7280"
+                        fontSize={11}
+                        width={110}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "#1f2937",
+                          borderColor: "#374151",
+                          color: "#f3f4f6",
+                        }}
+                        formatter={(value: any) => [value, "Rank score"]}
+                      />
                       <Bar dataKey="rank" radius={[0, 4, 4, 0]} barSize={20}>
                         {productData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
@@ -412,67 +434,67 @@ const SalesDashboard: React.FC = () => {
                         <LabelList
                           dataKey="rank"
                           position="right"
-                          style={{ fontSize: 11, fill: "#6b7280" }}
+                          style={{ fontSize: 11, fill: "#9ca3af" }}
                         />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex h-[200px] items-center justify-center text-sm text-gray-500">
+                  <div className="flex h-[200px] items-center justify-center text-sm text-gray-500 dark:text-gray-400">
                     No top products found
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-lg border border-gray-100 bg-white">
-              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
+            <div className="overflow-hidden rounded-lg border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900">Monthly sales data</h3>
-                  <p className="mt-0.5 text-xs text-gray-500">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Monthly sales data</h3>
+                  <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                     {monthlySales.length} month{monthlySales.length === 1 ? "" : "s"} · Total{" "}
                     {money(monthlyTotal)}
                   </p>
                 </div>
-                <Calendar className="h-4 w-4 text-cyan-500" />
+                <Calendar className="h-4 w-4 text-cyan-500 dark:text-cyan-400" />
               </div>
 
               {monthlySales.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-sm text-gray-500">
-                  <Package className="mb-2 h-8 w-8 text-gray-300" />
+                <div className="flex flex-col items-center justify-center py-10 text-sm text-gray-500 dark:text-gray-400">
+                  <Package className="mb-2 h-8 w-8 text-gray-300 dark:text-gray-600" />
                   No monthly sales found
                 </div>
               ) : (
                 <div className="max-h-[320px] overflow-y-auto">
-                  <table className="min-w-full divide-y divide-gray-100">
-                    <thead className="sticky top-0 z-10 bg-gray-50">
+                  <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
+                    <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800/60">
                       <tr>
-                        <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                        <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                           Month
                         </th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                           Sales
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                       {monthlySales.map((item) => (
-                        <tr key={item.raw} className="transition hover:bg-gray-50">
-                          <td className="px-4 py-2 text-sm font-medium text-gray-900">
+                        <tr key={item.raw} className="transition hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                          <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">
                             {item.label}
                           </td>
-                          <td className="px-4 py-2 text-right text-sm text-gray-700">
+                          <td className="px-4 py-2 text-right text-sm text-gray-700 dark:text-gray-300">
                             {money(item.sales)}
                           </td>
                         </tr>
                       ))}
                     </tbody>
-                    <tfoot className="sticky bottom-0 bg-gray-50">
+                    <tfoot className="sticky bottom-0 bg-gray-50 dark:bg-gray-800/60">
                       <tr>
-                        <td className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600">
+                        <td className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
                           Total
                         </td>
-                        <td className="px-4 py-2 text-right text-sm font-semibold text-gray-900">
+                        <td className="px-4 py-2 text-right text-sm font-semibold text-gray-900 dark:text-white">
                           {money(monthlyTotal)}
                         </td>
                       </tr>

@@ -981,51 +981,7 @@ const InventoryReservationManager: React.FC = () => {
           />
         </div>
 
-        {/* CORRECTED: PDF export added — previously missing entirely. */}
-        <div className="mb-4 flex items-center justify-end">
-          <ListingPdfExportButton
-            title="Inventory Reservations"
-            subtitle="Current inventory reservations listing"
-            reportLabel="Inventory Reservations Report"
-            data={reservations}
-            fileName="Inventory_Reservations"
-            disabled={loading}
-            columns={[
-              { header: "Reservation No", accessor: (row) => row.reservationNo || "-" },
-              { header: "Customer", accessor: (row) => getReservationCustomerName(row) },
-              { header: "Product", accessor: (row) => row.productName || "-" },
-              {
-                header: "Sales Order",
-                accessor: (row) => getSalesOrderDisplayById(row.salesOrderId),
-              },
-              {
-                header: "Warehouse",
-                accessor: (row) =>
-                  warehouses.find((w) => Number(w.id) === Number(row.warehouseId))?.name ||
-                  `Warehouse #${row.warehouseId}`,
-              },
-              { header: "Status", accessor: (row) => row.status },
-              {
-                header: "Quantity",
-                accessor: (row) => String(row.items?.[0]?.reservedQty || 0),
-              },
-              {
-                header: "Reservation Date",
-                accessor: (row) =>
-                  row.reservationDate ? new Date(row.reservationDate).toLocaleDateString() : "-",
-              },
-            ]}
-            metadata={(rows) => [
-              { label: "Total Reservations", value: rows.length },
-              { label: "Reserved", value: rows.filter((r) => r.status === "RESERVED").length },
-              { label: "Released", value: rows.filter((r) => r.status === "RELEASED").length },
-              {
-                label: "Consumed / Cancelled",
-                value: rows.filter((r) => r.status === "CONSUMED" || r.status === "CANCELLED").length,
-              },
-            ]}
-          />
-        </div>
+        
 
         <ReusableTable
           data={reservations}

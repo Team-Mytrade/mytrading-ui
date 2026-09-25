@@ -28,45 +28,6 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 
-/**
- * =====================================================================================
- * CORRECTIONS MADE — checked against the confirmed inventory-controller Swagger
- * (GET/PUT/DELETE /stock/{id}, GET/POST /stock, GET /stock/warehouse/{id},
- * GET /stock/validate, GET /stock/product/{id}, GET /stock/product/{id}/warehouse/{id},
- * GET /stock/low-stock, GET /stock/availability):
- *
- * 1. ADDED: PDF export (ListingPdfExportButton) — every sibling module
- *    (Stock Levels, Stock Movements) has this; it was missing here.
- *
- * 2. `createdBy` / `tenantId` are required by the schema but were never sent —
- *    added static placeholders (replace with real auth/session values).
- *
- * 3. DELETE previously tried `?cascade=true` first and only fell back to a
- *    plain DELETE if that failed — meaning every delete fired a doomed extra
- *    request. The confirmed Swagger shows `DELETE /{id}` with NO query params
- *    at all, so this now calls that directly.
- *
- * 4. `type` fallback options — CONFIRMED by you to be GRN, ISSUE, TRANSFER,
- *    RETURN for this field specifically (this is a different value set than
- *    the MOVEMENT_TYPE enum used on the separate Stock Movements page, which
- *    returns PURCHASE_RECEIPT/SALES_ISSUE/etc.). The live enum fetch is still
- *    the source of truth; this fallback is only used if that fetch fails.
- *
- * 5. Enum value extraction was only checking `item.code` — widened to check
- *    `id ?? value ?? code ?? key ?? name`, consistent with the pattern used
- *    on the Stock Movements page.
- *
- * 6. `Check Availability` previously called an unconfirmed `/stock/validate`
- *    endpoint with a guessed response shape. Now calls the CONFIRMED
- *    `GET /stock/product/{productId}/warehouse/{warehouseId}` endpoint
- *    instead, which returns the real InventoryStock record (known schema),
- *    and the "is required quantity available" check is computed client-side
- *    (quantity - reservedQty >= required), since the also-confirmed
- *    `/stock/availability?productId=&warehouseId=` endpoint has no quantity
- *    parameter at all and couldn't answer that question by itself either way.
- * =====================================================================================
- */
-
 type Warehouse = {
   id: number;
   createdDate?: string;
@@ -138,11 +99,8 @@ const PRODUCT_API_URL = "/v1/api/purchase/products";
 const ENUM_API_URL = "/v1/api/inventory/enums";
 const PAGE_SIZE = 10;
 
-// CONFIRMED (by user) real fallback values for this entity's `type` field —
-// distinct from the MOVEMENT_TYPE enum used on the Stock Movements page.
 const FALLBACK_TYPE_OPTIONS = ["GRN", "ISSUE", "TRANSFER", "RETURN"];
 
-// TODO: replace with real values pulled from your auth/session context.
 const STATIC_CREATED_BY = "system-admin";
 const STATIC_TENANT_ID = "tenant-001";
 
@@ -200,20 +158,20 @@ function getStockStatus(stock: InventoryStock) {
   if (available <= 0) {
     return {
       label: "Out of Stock",
-      className: "bg-red-50 text-red-700 border-red-200",
+      className: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900",
       icon: <ExclamationTriangleIcon className="h-3.5 w-3.5" />,
     };
   }
   if (available <= stock.minStockLevel) {
     return {
       label: "Low Stock",
-      className: "bg-yellow-50 text-yellow-700 border-yellow-200",
+      className: "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900",
       icon: <ExclamationTriangleIcon className="h-3.5 w-3.5" />,
     };
   }
   return {
     label: "Healthy",
-    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    className: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900",
     icon: <CheckCircleIcon className="h-3.5 w-3.5" />,
   };
 }
@@ -270,8 +228,6 @@ const InventoryStockManager: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  // CORRECTED: extraction now checks id/value/code/key/name (was code-only),
-  // and fallback values match the CONFIRMED real set for this field.
   const fetchTypeOptions = async (): Promise<void> => {
     try {
       setEnumLoading(true);
@@ -505,8 +461,6 @@ const InventoryStockManager: React.FC = () => {
     if (!deleteStock?.id) return;
 
     try {
-      // CORRECTED: confirmed Swagger shows DELETE /{id} with no query params
-      // at all — removed the unconfirmed `?cascade=true` guess-then-fallback.
       await axios.delete(`${API_URL}/${deleteStock.id}`, { headers });
       ToasterService.success("Inventory stock deleted successfully");
       setDeleteStock(null);
@@ -521,16 +475,6 @@ const InventoryStockManager: React.FC = () => {
     }
   };
 
-  // CORRECTED: `/stock/validate` was never actually confirmed in any Swagger
-  // screenshot — it was a leftover guess. The confirmed endpoints are:
-  //   - GET /stock/availability?productId=X&warehouseId=Y (no quantity param
-  //     at all, so it can't tell us "is X available" by itself)
-  //   - GET /stock/product/{productId}/warehouse/{warehouseId} (returns the
-  //     real InventoryStock record — confirmed schema: quantity, reservedQty,
-  //     minStockLevel, etc.)
-  // Using the second one, since its response shape is already known, and
-  // computing "is the required quantity available" ourselves — the same
-  // quantity - reservedQty logic already used everywhere else in this file.
   const handleAvailabilityCheck = async () => {
     const productId = toNumber(availabilityForm.productId);
     const warehouseId = toNumber(availabilityForm.warehouseId);
@@ -608,14 +552,14 @@ const InventoryStockManager: React.FC = () => {
       sortable: true,
       render: (stock) => (
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-100 bg-cyan-50">
-            <ArrowsRightLeftIcon className="h-4 w-4 text-cyan-600" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-100 bg-cyan-50 dark:border-cyan-800 dark:bg-cyan-950/40">
+            <ArrowsRightLeftIcon className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-slate-900">
+            <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
               {stock.referenceNo || "--"}
             </p>
-            <p className="text-xs text-slate-400">Stock #{stock.id}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">Stock #{stock.id}</p>
           </div>
         </div>
       ),
@@ -625,7 +569,7 @@ const InventoryStockManager: React.FC = () => {
       label: "Type",
       sortable: true,
       render: (stock) => (
-        <span className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-0.5 text-xs font-semibold text-cyan-700">
+        <span className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-0.5 text-xs font-semibold text-cyan-700 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-300">
           {stock.type}
         </span>
       ),
@@ -637,7 +581,7 @@ const InventoryStockManager: React.FC = () => {
       render: (stock) => {
         return (
           <button
-            className="flex items-center gap-2 text-sm text-slate-700 transition-colors hover:text-cyan-600"
+            className="flex items-center gap-2 text-sm text-slate-700 transition-colors hover:text-cyan-600 dark:text-slate-300 dark:hover:text-cyan-400"
             onClick={() => {
               const productId = stock.productId;
               if (productId) {
@@ -645,7 +589,7 @@ const InventoryStockManager: React.FC = () => {
               }
             }}
           >
-            <CubeIcon className="h-4 w-4 text-slate-400" />
+            <CubeIcon className="h-4 w-4 text-slate-400 dark:text-slate-500" />
             <span>{getProductLabelForStock(stock)}</span>
           </button>
         );
@@ -661,18 +605,18 @@ const InventoryStockManager: React.FC = () => {
 
         return (
           <button
-            className="flex items-center gap-2 text-sm text-slate-700 transition-colors hover:text-cyan-600"
+            className="flex items-center gap-2 text-sm text-slate-700 transition-colors hover:text-cyan-600 dark:text-slate-300 dark:hover:text-cyan-400"
             onClick={() => {
               if (warehouseId) {
                 navigate(`/warehouse?warehouseId=${warehouseId}`);
               }
             }}
           >
-            <BuildingOffice2Icon className="h-4 w-4 text-slate-400" />
+            <BuildingOffice2Icon className="h-4 w-4 text-slate-400 dark:text-slate-500" />
             <div className="text-left">
               <p>{getWarehouseName(stock.warehouse)}</p>
               {getWarehouseCode(stock.warehouse) && (
-                <p className="text-xs text-slate-400">{getWarehouseCode(stock.warehouse)}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">{getWarehouseCode(stock.warehouse)}</p>
               )}
             </div>
           </button>
@@ -685,7 +629,7 @@ const InventoryStockManager: React.FC = () => {
       sortable: true,
       render: (stock) => (
         <button
-          className="text-sm font-semibold text-slate-800 transition-colors hover:text-cyan-600 hover:underline"
+          className="text-sm font-semibold text-slate-800 transition-colors hover:text-cyan-600 hover:underline dark:text-slate-200 dark:hover:text-cyan-400"
           onClick={() => {
             const warehouseId =
               typeof stock.warehouse === "string" ? stock.warehouse : stock.warehouse?.id?.toString();
@@ -726,7 +670,7 @@ const InventoryStockManager: React.FC = () => {
           <button
             type="button"
             onClick={() => openEdit(stock)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
@@ -734,7 +678,7 @@ const InventoryStockManager: React.FC = () => {
           <button
             type="button"
             onClick={() => setDeleteStock(stock)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
@@ -789,49 +733,10 @@ const InventoryStockManager: React.FC = () => {
         </div>
 
         <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
-          <ListingPdfExportButton
-            title="Inventory Stock"
-            subtitle="Current inventory stock listing"
-            reportLabel="Inventory Stock Report"
-            data={stocks}
-            fileName="Inventory_Stock"
-            disabled={loading}
-            columns={[
-              { header: "Reference", accessor: (row) => row.referenceNo || "-" },
-              { header: "Type", accessor: (row) => row.type },
-              { header: "Product", accessor: (row) => getProductLabelForStock(row) },
-              { header: "Warehouse", accessor: (row) => getWarehouseName(row.warehouse) },
-              { header: "Quantity", accessor: (row) => String(row.quantity) },
-              { header: "Reserved", accessor: (row) => String(row.reservedQty) },
-              {
-                header: "Available",
-                accessor: (row) => String(Math.max(0, row.quantity - row.reservedQty)),
-              },
-              { header: "Min Stock Level", accessor: (row) => String(row.minStockLevel) },
-              { header: "Status", accessor: (row) => getStockStatus(row).label },
-              {
-                header: "Movement Date",
-                accessor: (row) =>
-                  row.movementDate ? new Date(row.movementDate).toLocaleDateString() : "-",
-              },
-            ]}
-            metadata={(rows) => [
-              { label: "Total Records", value: rows.length },
-              { label: "Total Quantity", value: rows.reduce((sum, s) => sum + (s.quantity || 0), 0) },
-              { label: "Total Reserved", value: rows.reduce((sum, s) => sum + (s.reservedQty || 0), 0) },
-              {
-                label: "Low Stock Items",
-                value: rows.filter((s) => {
-                  const available = Math.max(0, s.quantity - s.reservedQty);
-                  return available > 0 && available <= s.minStockLevel;
-                }).length,
-              },
-            ]}
-          />
-
+          
           <button
             onClick={() => setShowAvailabilityModal(true)}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600"
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-cyan-400"
             title="Check stock availability for a product in a warehouse"
           >
             <ClipboardDocumentCheckIcon className="h-4 w-4" />
@@ -840,7 +745,7 @@ const InventoryStockManager: React.FC = () => {
 
           <button
             onClick={() => setShowProductStockModal(true)}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-purple-600"
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-purple-400"
             title="View stock summary for a product across all warehouses"
           >
             <ChartBarIcon className="h-4 w-4" />
@@ -860,8 +765,8 @@ const InventoryStockManager: React.FC = () => {
             }}
             className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
               statusFilter === "low"
-                ? "border-red-200 bg-red-50 text-red-700"
-                : "border-gray-200 bg-white text-gray-700 hover:bg-red-50 hover:text-red-600"
+                ? "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300"
+                : "border-gray-200 bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             }`}
             title="Show low stock items"
           >
@@ -883,12 +788,12 @@ const InventoryStockManager: React.FC = () => {
           rowDetailsTitle="Stock Details"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
-              <CubeIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">No inventory stock found</p>
+              <CubeIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No inventory stock found</p>
               <button
                 type="button"
                 onClick={openCreate}
-                className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 Create your first stock entry
               </button>
@@ -969,27 +874,29 @@ const InventoryStockManager: React.FC = () => {
                   <div
                     className={`mt-4 rounded-lg border p-4 ${
                       availabilityCheck.isAvailable
-                        ? "border-green-200 bg-green-50"
-                        : "border-red-200 bg-red-50"
+                        ? "border-green-200 bg-green-50 dark:border-emerald-800 dark:bg-emerald-950/40"
+                        : "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/40"
                     }`}
                   >
                     <div className="flex items-start gap-3">
                       {availabilityCheck.isAvailable ? (
-                        <CheckCircleIcon className="h-6 w-6 flex-shrink-0 text-green-600" />
+                        <CheckCircleIcon className="h-6 w-6 flex-shrink-0 text-green-600 dark:text-emerald-400" />
                       ) : (
-                        <XMarkIcon className="h-6 w-6 flex-shrink-0 text-red-600" />
+                        <XMarkIcon className="h-6 w-6 flex-shrink-0 text-red-600 dark:text-red-400" />
                       )}
                       <div>
                         <p
                           className={`font-semibold ${
-                            availabilityCheck.isAvailable ? "text-green-700" : "text-red-700"
+                            availabilityCheck.isAvailable
+                              ? "text-green-700 dark:text-emerald-300"
+                              : "text-red-700 dark:text-red-300"
                           }`}
                         >
                           {availabilityCheck.isAvailable
                             ? "✅ Stock is available!"
                             : "❌ Stock is NOT available"}
                         </p>
-                        <div className="mt-2 space-y-1 text-sm">
+                        <div className="mt-2 space-y-1 text-sm text-slate-700 dark:text-slate-300">
                           <p>
                             Required: <strong>{availabilityCheck.requiredQty}</strong> units
                           </p>
@@ -1051,49 +958,49 @@ const InventoryStockManager: React.FC = () => {
                   <>
                     <div className="grid grid-cols-3 gap-3">
                       <div className="rounded-lg bg-cyan-50 p-4 text-center dark:bg-cyan-900/20">
-                        <p className="text-xs text-gray-500">Total Stock</p>
-                        <p className="text-2xl font-bold text-cyan-600">{totalForProduct}</p>
+                        <p className="text-xs text-gray-500 dark:text-slate-400">Total Stock</p>
+                        <p className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">{totalForProduct}</p>
                       </div>
                       <div className="rounded-lg bg-orange-50 p-4 text-center dark:bg-orange-900/20">
-                        <p className="text-xs text-gray-500">Reserved</p>
-                        <p className="text-2xl font-bold text-orange-600">
+                        <p className="text-xs text-gray-500 dark:text-slate-400">Reserved</p>
+                        <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                           {totalReservedForProduct}
                         </p>
                       </div>
                       <div className="rounded-lg bg-green-50 p-4 text-center dark:bg-green-900/20">
-                        <p className="text-xs text-gray-500">Available</p>
-                        <p className="text-2xl font-bold text-green-600">
+                        <p className="text-xs text-gray-500 dark:text-slate-400">Available</p>
+                        <p className="text-2xl font-bold text-green-600 dark:text-emerald-400">
                           {totalAvailableForProduct}
                         </p>
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <p className="text-sm font-medium text-gray-700">Warehouse Breakdown:</p>
+                      <p className="text-sm font-medium text-gray-700 dark:text-slate-300">Warehouse Breakdown:</p>
                       {productStockData.map((stock) => (
                         <div
                           key={stock.id}
-                          className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-3 dark:bg-gray-800/40"
+                          className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-slate-700 dark:bg-slate-800/40"
                         >
                           <div className="flex items-center gap-2">
                             <BuildingOffice2Icon className="h-4 w-4 text-slate-400" />
-                            <span className="text-sm font-medium">
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
                               {getWarehouseName(stock.warehouse)}
                             </span>
                             {getWarehouseCode(stock.warehouse) && (
-                              <span className="text-xs text-slate-400">
+                              <span className="text-xs text-slate-400 dark:text-slate-500">
                                 ({getWarehouseCode(stock.warehouse)})
                               </span>
                             )}
                           </div>
-                          <div className="flex gap-4 text-sm">
+                          <div className="flex gap-4 text-sm text-slate-700 dark:text-slate-300">
                             <span>
                               Total: <strong>{stock.quantity}</strong>
                             </span>
-                            <span className="text-orange-600">
+                            <span className="text-orange-600 dark:text-orange-400">
                               Reserved: <strong>{stock.reservedQty}</strong>
                             </span>
-                            <span className="text-green-600">
+                            <span className="text-green-600 dark:text-emerald-400">
                               Available: <strong>{stock.quantity - stock.reservedQty}</strong>
                             </span>
                           </div>
@@ -1104,8 +1011,8 @@ const InventoryStockManager: React.FC = () => {
                 )}
 
                 {selectedProductForStock && productStockData.length === 0 && (
-                  <div className="py-8 text-center text-gray-500">
-                    <CubeIcon className="mx-auto mb-2 h-12 w-12 text-gray-300" />
+                  <div className="py-8 text-center text-gray-500 dark:text-slate-400">
+                    <CubeIcon className="mx-auto mb-2 h-12 w-12 text-gray-300 dark:text-slate-600" />
                     <p>No stock found for this product</p>
                   </div>
                 )}
@@ -1210,8 +1117,8 @@ const InventoryStockManager: React.FC = () => {
         setIsPopupOpen={(open) => {
           if (!open) setDeleteStock(null);
         }}
-        icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-        iconBg="bg-red-100"
+        icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
+        iconBg="bg-red-100 dark:bg-red-950/40"
         innerText="Delete Inventory Stock"
         subText={
           deleteStock

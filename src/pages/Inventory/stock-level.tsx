@@ -8,7 +8,6 @@ import {
   CheckBadgeIcon,
   CubeIcon,
   ExclamationTriangleIcon,
-  EyeIcon,
   PencilSquareIcon,
   TrashIcon,
   XCircleIcon,
@@ -25,26 +24,6 @@ import {
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
-
-/**
- * =====================================================================================
- * NOTES ON BACKEND SHAPE (confirmed from the real runtime response, which overrides
- * the Swagger schema):
- *
- * 1. `warehouse` is a FULL NESTED OBJECT on the StockLevel entity:
- *    { id, createdDate, updatedDate, createdBy, tenantId, code, name, locationType,
- *      active } — NOT a string.
- *
- * 2. There is NO nested `product` object in the StockLevel response — only
- *    `productId`. Product name/SKU are resolved via the separately-fetched products list.
- *
- * 3. `createdBy` / `tenantId` are populated server-side from the authenticated session.
- *
- * 4. Create stays a POST to /stock-levels. The 5 stock operations
- *    (add-stock / reserve / release / remove-stock / complete-sale) stay as
- *    PUT /stock-levels/warehouse/{warehouseId}/product/{productId}/{op}?quantity=X
- * =====================================================================================
- */
 
 // ---------- Type Definitions ----------
 interface Product {
@@ -150,7 +129,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 function getStockStatus(available: number, quantity: number) {
   if (quantity === 0) {
     return {
-      color: "bg-gray-50 text-gray-600 border-gray-200",
+      color: "bg-gray-50 text-gray-600 border-gray-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
       label: "No Stock",
       icon: <XCircleIcon className="mr-1 h-3 w-3" />,
     };
@@ -158,20 +137,20 @@ function getStockStatus(available: number, quantity: number) {
   const percentage = (available / quantity) * 100;
   if (percentage <= 20) {
     return {
-      color: "bg-red-50 text-red-700 border-red-200",
+      color: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900",
       label: "Low Stock",
       icon: <ExclamationTriangleIcon className="mr-1 h-3 w-3" />,
     };
   }
   if (percentage <= 50) {
     return {
-      color: "bg-yellow-50 text-yellow-700 border-yellow-200",
+      color: "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900",
       label: "Medium Stock",
       icon: <ChartBarIcon className="mr-1 h-3 w-3" />,
     };
   }
   return {
-    color: "bg-green-50 text-green-700 border-green-200",
+    color: "bg-green-50 text-green-700 border-green-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900",
     label: "Healthy Stock",
     icon: <CheckBadgeIcon className="mr-1 h-3 w-3" />,
   };
@@ -221,8 +200,6 @@ const StockLevelsManager: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deletingStock, setDeletingStock] = useState<StockLevel | null>(null);
-  const [viewingStock, setViewingStock] = useState<StockLevel | null>(null);
-  const [showViewModal, setShowViewModal] = useState(false);
   const [editingStock, setEditingStock] = useState<StockLevel | null>(null);
 
   useEffect(() => {
@@ -385,11 +362,6 @@ const StockLevelsManager: React.FC = () => {
     setShowFormModal(true);
   };
 
-  const openView = (stock: StockLevel) => {
-    setViewingStock(stock);
-    setShowViewModal(true);
-  };
-
   const closeForm = () => {
     setForm(emptyForm);
     setEditingStock(null);
@@ -456,12 +428,13 @@ const StockLevelsManager: React.FC = () => {
       label: "Product",
       sortable: true,
       sortValueGetter: (stock) => getProductName(stock, products),
+      detailFormatter: (stock) => getProductName(stock, products), // Fixes drawer display
       render: (stock) => {
         const productId = getProductId(stock);
         return (
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50">
-              <CubeIcon className="h-4 w-4 text-cyan-700" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50 dark:border-cyan-800 dark:bg-cyan-950/40">
+              <CubeIcon className="h-4 w-4 text-cyan-700 dark:text-cyan-400" />
             </div>
             <div>
               <button
@@ -470,13 +443,13 @@ const StockLevelsManager: React.FC = () => {
                   e.stopPropagation();
                   goToProduct(productId);
                 }}
-                className="text-left text-sm font-semibold text-cyan-600 hover:text-cyan-700"
+                className="text-left text-sm font-semibold text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
                 title="View product"
               >
                 {getProductName(stock, products)}
               </button>
               {getProductSku(stock, products) && (
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-slate-500 dark:text-slate-400">
                   SKU: {getProductSku(stock, products)}
                 </div>
               )}
@@ -490,12 +463,13 @@ const StockLevelsManager: React.FC = () => {
       label: "Warehouse",
       sortable: true,
       sortValueGetter: (stock) => getWarehouseName(stock),
+      detailFormatter: (stock) => getWarehouseName(stock), // Fixes drawer display
       render: (stock) => {
         const warehouseId = getWarehouseId(stock);
         const warehouseName = getWarehouseName(stock);
         return (
           <div className="flex items-center gap-2">
-            <BuildingOfficeIcon className="h-4 w-4 text-slate-400" />
+            <BuildingOfficeIcon className="h-4 w-4 text-slate-400 dark:text-slate-500" />
             {warehouseId ? (
               <button
                 type="button"
@@ -503,13 +477,13 @@ const StockLevelsManager: React.FC = () => {
                   e.stopPropagation();
                   goToWarehouse(warehouseId, warehouseName);
                 }}
-                className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700"
+                className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
                 title="View warehouse"
               >
                 {warehouseName}
               </button>
             ) : (
-              <span className="text-sm text-slate-700">{warehouseName}</span>
+              <span className="text-sm text-slate-700 dark:text-slate-300">{warehouseName}</span>
             )}
           </div>
         );
@@ -520,21 +494,21 @@ const StockLevelsManager: React.FC = () => {
       label: "Total Qty",
       sortable: true,
       render: (stock) => (
-        <span className="text-sm font-medium text-slate-900">{stock.quantity}</span>
+        <span className="text-sm font-medium text-slate-900 dark:text-white">{stock.quantity}</span>
       ),
     },
     {
       key: "reserved",
       label: "Reserved",
       sortable: true,
-      render: (stock) => <span className="text-sm text-yellow-600">{stock.reserved}</span>,
+      render: (stock) => <span className="text-sm text-yellow-600 dark:text-amber-400">{stock.reserved}</span>,
     },
     {
       key: "available",
       label: "Available",
       sortable: true,
       render: (stock) => (
-        <span className="text-sm font-bold text-green-600">{stock.available}</span>
+        <span className="text-sm font-bold text-green-600 dark:text-emerald-400">{stock.available}</span>
       ),
     },
     {
@@ -542,6 +516,7 @@ const StockLevelsManager: React.FC = () => {
       label: "Status",
       sortable: true,
       sortValueGetter: (stock) => getStockStatus(stock.available, stock.quantity).label,
+      detailFormatter: (stock) => getStockStatus(stock.available, stock.quantity).label, // Fixes drawer display
       render: (stock) => {
         const status = getStockStatus(stock.available, stock.quantity);
         return (
@@ -564,16 +539,8 @@ const StockLevelsManager: React.FC = () => {
         <div className="flex justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
-            onClick={() => openView(stock)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
-            title="View Details"
-          >
-            <EyeIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
             onClick={() => openEdit(stock)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Adjust Stock"
           >
             <PencilSquareIcon className="h-4 w-4" />
@@ -581,7 +548,7 @@ const StockLevelsManager: React.FC = () => {
           <button
             type="button"
             onClick={() => setDeletingStock(stock)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
@@ -590,14 +557,6 @@ const StockLevelsManager: React.FC = () => {
       ),
     },
   ];
-
-  const viewingStatus = viewingStock
-    ? getStockStatus(viewingStock.available, viewingStock.quantity)
-    : null;
-  const viewingUtilization =
-    viewingStock && viewingStock.quantity > 0
-      ? `${Math.round((viewingStock.reserved / viewingStock.quantity) * 100)}%`
-      : "0%";
 
   return (
     <>
@@ -643,18 +602,12 @@ const StockLevelsManager: React.FC = () => {
           />
         </div>
 
-        {/* Toolbar — Refresh only
-        <div className="mb-4 flex items-center justify-end">
-          <button
-            onClick={fetchStockLevels}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600"
-            title="Refresh"
-          >
-            <ArrowPathIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
-        </div> */}
-
+        {/* 
+          CHANGED: 
+          - Removed onRowClick={openView} 
+          - Added enableRowDetails={true} and rowDetailsTitle 
+          This makes it use the standard right-side drawer like other modules.
+        */}
         <ReusableTable
           data={stockLevels}
           columns={columns}
@@ -662,15 +615,16 @@ const StockLevelsManager: React.FC = () => {
           pageSize={PAGE_SIZE}
           defaultSortKey="available"
           defaultSortOrder="desc"
-          onRowClick={openView}
+          enableRowDetails={true}
+          rowDetailsTitle="Stock Level Details"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
-              <CubeIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">No stock levels found</p>
+              <CubeIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No stock levels found</p>
               <button
                 type="button"
                 onClick={openCreate}
-                className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 Add your first stock
               </button>
@@ -748,7 +702,7 @@ const StockLevelsManager: React.FC = () => {
                     onChange={handleChange}
                     required
                   />,
-                  <p key="operation-hint" className="text-xs text-gray-500">
+                  <p key="operation-hint" className="text-xs text-gray-500 dark:text-slate-400">
                     {form.operationType === "add-stock" &&
                       "Adds quantity to the total stock for this product/warehouse."}
                     {form.operationType === "reserve" &&
@@ -772,134 +726,11 @@ const StockLevelsManager: React.FC = () => {
                     onChange={handleChange}
                     required
                   />,
-                  <p key="operation-hint" className="text-xs text-gray-500">
+                  <p key="operation-hint" className="text-xs text-gray-500 dark:text-slate-400">
                     This creates a new stock level record for this product/warehouse
                     with the given quantity as initial stock.
                   </p>,
                 ],
-          },
-        ]}
-      />
-
-      {/* View Details Modal — now using PaginatedPopup for consistency */}
-      <PaginatedPopup
-        isOpen={showViewModal && !!viewingStock}
-        title="Stock Level Details"
-        subtitle={viewingStock ? `Stock level #${viewingStock.id}` : ""}
-        onClose={() => {
-          setShowViewModal(false);
-          setViewingStock(null);
-        }}
-        submitting={false}
-        maxWidthClassName="max-w-lg"
-        tabs={[
-          {
-            label: "Details",
-            fields: [
-              viewingStock &&
-                viewingStatus && (
-                  <div key="view-content" className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4 rounded-lg bg-gray-50 p-4">
-                      <div className="col-span-2">
-                        <p className="text-xs text-gray-500">Product</p>
-                        <button
-                          type="button"
-                          onClick={() => goToProduct(getProductId(viewingStock))}
-                          className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700"
-                        >
-                          {getProductName(viewingStock, products)}
-                        </button>
-                        {getProductSku(viewingStock, products) && (
-                          <p className="mt-1 text-xs text-gray-500">
-                            SKU: {getProductSku(viewingStock, products)}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="col-span-2">
-                        <p className="text-xs text-gray-500">Warehouse</p>
-                        {getWarehouseId(viewingStock) ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              goToWarehouse(
-                                getWarehouseId(viewingStock),
-                                getWarehouseName(viewingStock)
-                              )
-                            }
-                            className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700"
-                          >
-                            {getWarehouseName(viewingStock)}
-                          </button>
-                        ) : (
-                          <p className="text-sm text-gray-700">
-                            {getWarehouseName(viewingStock)}
-                          </p>
-                        )}
-                        {getWarehouseCode(viewingStock) && (
-                          <p className="mt-1 text-xs text-gray-500">
-                            {getWarehouseCode(viewingStock)}
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-gray-500">Total Quantity</p>
-                        <p className="text-sm font-semibold text-gray-900">
-                          {viewingStock.quantity}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Status</p>
-                        <span
-                          className={`mt-1 inline-flex items-center rounded-full border px-2 py-1 text-xs font-medium ${viewingStatus.color}`}
-                        >
-                          {viewingStatus.icon}
-                          {viewingStatus.label}
-                        </span>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-gray-500">Reserved</p>
-                        <p className="text-sm font-medium text-yellow-600">
-                          {viewingStock.reserved}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Available</p>
-                        <p className="text-sm font-bold text-green-600">
-                          {viewingStock.available}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-gray-500">Utilization</p>
-                        <p className="text-sm text-gray-700">{viewingUtilization}</p>
-                      </div>
-                      {viewingStock.updatedDate && (
-                        <div>
-                          <p className="text-xs text-gray-500">Last Updated</p>
-                          <p className="text-sm text-gray-600">
-                            {new Date(viewingStock.updatedDate).toLocaleString()}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {viewingStatus.label === "Low Stock" && (
-                      <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-                        <p className="flex items-start gap-2 text-sm text-red-800">
-                          <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                          <span>
-                            <strong>Low Stock Alert:</strong> This item has low stock
-                            levels. Consider replenishing soon.
-                          </span>
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ),
-            ],
           },
         ]}
       />
@@ -910,8 +741,8 @@ const StockLevelsManager: React.FC = () => {
         setIsPopupOpen={(open: boolean) => {
           if (!open) setDeletingStock(null);
         }}
-        icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-        iconBg="bg-red-100"
+        icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
+        iconBg="bg-red-100 dark:bg-red-950/40"
         innerText="Delete Stock Level"
         subText={
           deletingStock
