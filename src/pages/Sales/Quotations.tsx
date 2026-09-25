@@ -1890,12 +1890,12 @@ const Quotations: React.FC = () => {
           defaultSortOrder="desc"
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
-              <DocumentTextIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">No quotations found</p>
+              <DocumentTextIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No quotations found</p>
               <button
                 type="button"
                 onClick={openCreate}
-                className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 Create your first quotation
               </button>
@@ -1909,8 +1909,8 @@ const Quotations: React.FC = () => {
         setIsPopupOpen={(open) => {
           if (!open) setDeleteQuotation(null);
         }}
-        icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-        iconBg="bg-red-100"
+        icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
+        iconBg="bg-red-100 dark:bg-red-950/40"
         innerText="Delete Quotation"
         subText={
           deleteQuotation

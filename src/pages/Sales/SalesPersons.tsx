@@ -53,8 +53,6 @@ type UserOption = {
 const API_URL = "/v1/api/sales/sales-persons";
 const PAGE_SIZE = 10;
 
-// Placeholder static list — swap for a real Regions endpoint/master list when
-// one is available. Values are shown as-is in the dropdown.
 const REGION_OPTIONS = [
   { id: "North", name: "North" },
   { id: "South", name: "South" },
@@ -163,8 +161,6 @@ const SalesPersons: React.FC = () => {
       const next = { ...current, [name]: value };
       if (name === "userId") {
         const user = users.find((item) => item.userId === value);
-        // Name/email/code always mirror the linked user once one is
-        // selected — there is no separate Name/Email field in the form.
         if (value) {
           next.name = getUserFullName(user) || next.name;
         }
@@ -172,9 +168,6 @@ const SalesPersons: React.FC = () => {
         next.email = user?.email || next.email;
         next.employeeId = user?.employeeId ? String(user.employeeId) : "";
         next.active = String(user?.active ?? true);
-        // Region is a sales-territory assignment, not a location or org
-        // attribute — it's intentionally left as its own dropdown and is
-        // never auto-filled from the linked User.
       }
       return next;
     });
@@ -278,10 +271,6 @@ const SalesPersons: React.FC = () => {
 
   const openEdit = (person: SalesPerson) => {
     setEditingId(person.id);
-    // Use the resolved (fallback-matched) ids, not the raw fields — the API
-    // can return a null userId even when the row's Employee Name was
-    // successfully matched by email/code/name, and the form would otherwise
-    // show an empty User select after a refresh.
     setForm({
       name: person.name || "",
       code: person.code || "",
@@ -341,8 +330,6 @@ const SalesPersons: React.FC = () => {
     return matchedEmployeeId !== null && matchedEmployeeId !== undefined ? String(matchedEmployeeId) : "";
   };
 
-  // Replaces the old separate User ID / Employee ID columns with a single
-  // human-readable name, resolved via the same matched-user logic.
   const getEmployeeDisplayName = (person: SalesPerson) => {
     const user = getMatchedUser(person);
     return getUserFullName(user);
@@ -399,11 +386,6 @@ const SalesPersons: React.FC = () => {
     }
   };
 
-  // Note: there is no DELETE endpoint for sales persons in the API — the
-  // "Delete" action has been removed. Use the Active/Inactive status toggle
-  // instead, since past Sales Orders still reference salesPersonId and a
-  // hard delete would orphan that history anyway.
-
   const displayedSalesPersons = useMemo(
     () => isSalesPersonScoped ? salesPersons.filter((person) => person.id === scopedSalesPersonId) : salesPersons,
     [salesPersons, isSalesPersonScoped, scopedSalesPersonId]
@@ -425,12 +407,12 @@ const SalesPersons: React.FC = () => {
       sortable: true,
       render: (person) => (
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50">
-            <UserIcon className="h-4 w-4 text-cyan-700" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-50 dark:border-cyan-800 dark:bg-cyan-950/40">
+            <UserIcon className="h-4 w-4 text-cyan-700 dark:text-cyan-400" />
           </div>
           <div>
-            <div className="text-sm font-semibold text-slate-900">{person.name || "Unnamed"}</div>
-            <div className="text-xs text-slate-500">{person.code || `ID: ${person.id}`}</div>
+            <div className="text-sm font-semibold text-slate-900 dark:text-white">{person.name || "Unnamed"}</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">{person.code || `ID: ${person.id}`}</div>
           </div>
         </div>
       ),
@@ -443,18 +425,12 @@ const SalesPersons: React.FC = () => {
       sortable: true,
       sortValueGetter: (person) => getEmployeeDisplayName(person),
       render: (person) => getEmployeeDisplayName(person) || "--",
-      // Kept in the table (that's the whole point of this column), but
-      // skipped in the row-details drawer — it's always identical to the
-      // "Sales Person" name today since both derive from the same linked
-      // User, so showing it twice there just looked like a mistake.
       excludeFromDetails: true,
     },
     {
       key: "active",
       label: "Status",
       sortable: true,
-      // Without this, the drawer's generic boolean formatter would show
-      // the raw "active" value as "Yes"/"No" instead of "Active"/"Inactive".
       detailFormatter: (person) => (person.active ? "Active" : "Inactive"),
       render: (person) => (
         <div onClick={(e) => e.stopPropagation()}>
@@ -464,8 +440,8 @@ const SalesPersons: React.FC = () => {
             disabled={statusUpdatingId === person.id}
             className={`w-[84px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
               person.active
-                ? "border-green-200 bg-green-50 text-green-700"
-                : "border-red-200 bg-red-50 text-red-700"
+                ? "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/40 dark:text-green-400"
+                : "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400"
             } ${statusUpdatingId === person.id ? "cursor-not-allowed opacity-70" : ""}`}
           >
             <option value="true">Active</option>
@@ -485,7 +461,7 @@ const SalesPersons: React.FC = () => {
           <button
             type="button"
             onClick={() => openEdit(person)}
-            className="rounded-lg p-2 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+            className="rounded-lg p-2 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
@@ -504,7 +480,18 @@ const SalesPersons: React.FC = () => {
       />
 
       <div className="w-full max-w-none px-0 py-8">
-        {isSalesPersonScoped && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>Showing sales person: <strong>{scopedSalesPersonName}</strong></span><button type="button" onClick={() => navigate("/sales-persons")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all sales persons</button></div>}
+        {isSalesPersonScoped && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-200">
+            <span>Showing sales person: <strong>{scopedSalesPersonName}</strong></span>
+            <button
+              type="button"
+              onClick={() => navigate("/sales-persons")}
+              className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            >
+              View all sales persons
+            </button>
+          </div>
+        )}
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-3">
           <StatsCard label="Sales Persons" value={stats.total} icon={<UserGroupIcon />} />
           <StatsCard
@@ -535,12 +522,12 @@ const SalesPersons: React.FC = () => {
           hiddenDetailKeys={["id"]}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
-              <UserGroupIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">No sales persons found</p>
+              <UserGroupIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No sales persons found</p>
               <button
                 type="button"
                 onClick={openCreate}
-                className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
+                className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 Create your first sales person
               </button>

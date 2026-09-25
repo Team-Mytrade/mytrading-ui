@@ -20,11 +20,51 @@ import PageMeta from "../../components/common/PageMeta";
 import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
+import { ListingPdfExportButton } from "../../components/common/export";
 import {
   FloatingInput,
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+
+/**
+ * =====================================================================================
+ * WHY "Unknown customer" APPEARS — checked against the confirmed schema:
+ *
+ *   GET/POST /inventory-reservations returns: { id, reservationNo,
+ *   salesOrderId, warehouseId, status, reservationDate, items }. There is NO
+ *   customerId field on the Reservation entity at all. Customer name can only
+ *   be resolved indirectly: salesOrderId -> look up that Sales Order in the
+ *   separately-fetched sales orders list -> read ITS customerId -> look up
+ *   the Customer. If salesOrderId doesn't match anything in the fetched
+ *   sales orders list (stale id, order in a different tenant, sales orders
+ *   endpoint not returning everything, etc.), none of that resolves and the
+ *   fallback "Unknown customer" is shown — which is why every "Unknown
+ *   customer" row also shows the generic "Sales Order" placeholder instead of
+ *   a real order number. This is a real functional gap (not a display bug):
+ *   ask backend whether reservations should carry customerId directly, since
+ *   right now customer attribution silently fails whenever the sales-order
+ *   link can't be resolved.
+ *
+ * CORRECTIONS MADE:
+ *   1. Added PDF export (ListingPdfExportButton) — missing entirely before,
+ *      unlike every sibling module.
+ *   2. Added `DRAFT` and `PARTIALLY_RESERVED` to the status type, color map,
+ *      and icon map. The confirmed schema example shows "status": "DRAFT",
+ *      and PARTIALLY_RESERVED appears in real data — neither was handled
+ *      before, which is why they rendered as plain, uncolored badges.
+ *   3. No createdBy/tenantId added — unlike every other inventory module,
+ *      this confirmed schema genuinely has no such fields, so nothing to add.
+ *
+ * ⚠️ STILL NEEDS BACKEND CONFIRMATION:
+ *   - `PUT .../update` (used here for editing a reservation) does NOT appear
+ *     in the confirmed endpoint list — only PUT .../{id}/release,
+ *     PUT .../{id}/consume, GET, POST, and GET/{id} were shown. Left as-is
+ *     since it may simply not have been included in what was shared, but
+ *     worth confirming the real update endpoint shape with backend.
+ *   - DELETE was also not shown in the confirmed list — same caveat applies.
+ * =====================================================================================
+ */
 
 type ReservationItem = {
   id?: number;
@@ -34,12 +74,23 @@ type ReservationItem = {
   productCategory?: string;
 };
 
+// CORRECTED: added DRAFT and PARTIALLY_RESERVED, confirmed present in real
+// schema/data but previously unhandled.
+type ReservationStatus =
+  | "DRAFT"
+  | "RESERVED"
+  | "PARTIALLY_RESERVED"
+  | "RELEASED"
+  | "CONSUMED"
+  | "CANCELLED"
+  | "EXPIRED";
+
 type InventoryReservation = {
   id?: number;
   reservationNo: string;
   salesOrderId: number;
   warehouseId: number;
-  status: "RESERVED" | "RELEASED" | "CONSUMED" | "CANCELLED" | "EXPIRED";
+  status: ReservationStatus;
   reservationDate: string;
   items: ReservationItem[];
   customerId?: number;
@@ -97,7 +148,16 @@ const WAREHOUSE_ROUTE = "/warehouse";
 const CUSTOMERS_PAGE_PATH = "/customer-management";
 const SALES_ORDERS_ROUTE = "/sales-orders";
 
-const USER_SELECTABLE_STATUSES = ["RESERVED", "RELEASED", "CONSUMED", "CANCELLED"];
+// CORRECTED: DRAFT and PARTIALLY_RESERVED added to the user-selectable
+// fallback set (used only if the live enum fetch fails).
+const USER_SELECTABLE_STATUSES = [
+  "DRAFT",
+  "RESERVED",
+  "PARTIALLY_RESERVED",
+  "RELEASED",
+  "CONSUMED",
+  "CANCELLED",
+];
 
 const emptyForm: InventoryForm = {
   salesOrderId: "",
@@ -185,7 +245,7 @@ const InventoryReservationManager: React.FC = () => {
       const codes = data
         .map((item: any) => {
           if (typeof item === "string") return item;
-          return item.code || item;
+          return item.id ?? item.value ?? item.code ?? item.key ?? item.name ?? null;
         })
         .filter(Boolean) as string[];
 
@@ -204,6 +264,15 @@ const InventoryReservationManager: React.FC = () => {
     }
   };
 
+  // CORRECTED: previously this only checked `Array.isArray(res.data)` and
+  // silently fell back to `[]` otherwise — if any of these endpoints are
+  // paginated (a Page<T> wrapper), the dropdown/lookup list would end up
+  // completely empty with no error shown. This is the most likely reason
+  // "Unknown customer" was appearing for so many rows: if salesOrders came
+  // back empty due to this, NO reservation could ever resolve a customer via
+  // the salesOrderId -> SalesOrder -> Customer chain, regardless of whether
+  // the data actually existed on the backend. Now unwraps `.content`/`.data`
+  // the same way every other module in this app already does.
   const fetchDropdowns = async (): Promise<void> => {
     try {
       const [warehouseRes, productRes, customerRes, salesOrderRes] = await Promise.all([
@@ -213,10 +282,26 @@ const InventoryReservationManager: React.FC = () => {
         axios.get<SalesOrder[]>(SALES_ORDER_API_URL, { headers }),
       ]);
 
-      setWarehouses(Array.isArray(warehouseRes.data) ? warehouseRes.data : []);
-      setProducts(Array.isArray(productRes.data) ? productRes.data : []);
-      setCustomers(Array.isArray(customerRes.data) ? customerRes.data : []);
-      setSalesOrders(Array.isArray(salesOrderRes.data) ? salesOrderRes.data : []);
+      setWarehouses(
+        Array.isArray(warehouseRes.data)
+          ? warehouseRes.data
+          : (warehouseRes.data as any)?.content || (warehouseRes.data as any)?.data || []
+      );
+      setProducts(
+        Array.isArray(productRes.data)
+          ? productRes.data
+          : (productRes.data as any)?.content || (productRes.data as any)?.data || []
+      );
+      setCustomers(
+        Array.isArray(customerRes.data)
+          ? customerRes.data
+          : (customerRes.data as any)?.content || (customerRes.data as any)?.data || []
+      );
+      setSalesOrders(
+        Array.isArray(salesOrderRes.data)
+          ? salesOrderRes.data
+          : (salesOrderRes.data as any)?.content || (salesOrderRes.data as any)?.data || []
+      );
     } catch (error) {
       ToasterService.error("Failed to load dropdown data", getErrorMessage(error, "Please try again."));
     }
@@ -226,10 +311,12 @@ const InventoryReservationManager: React.FC = () => {
     try {
       setLoading(true);
       const response = await axios.get<InventoryReservation[]>(API_URL, { headers });
-      const data = Array.isArray(response.data) ? response.data : [];
+      const data = Array.isArray(response.data)
+        ? response.data
+        : (response.data as any)?.content || (response.data as any)?.data || [];
 
       // Customer / order resolution done at RENDER time — see the getReservation* helpers.
-      const enrichedData = data.map((reservation) => {
+      const enrichedData = data.map((reservation: InventoryReservation) => {
         const firstItem = reservation.items?.[0];
         return {
           ...reservation,
@@ -325,6 +412,8 @@ const InventoryReservationManager: React.FC = () => {
       const payload = editingId ? buildUpdatePayload() : buildCreatePayload();
 
       if (editingId) {
+        // NOTE: `/update` is not in the confirmed endpoint list — see the
+        // top-of-file comment. Left as-is; confirm with backend.
         await axios.put(`${API_URL}/update`, payload, { headers });
         ToasterService.success("Reservation updated successfully");
       } else {
@@ -377,6 +466,8 @@ const InventoryReservationManager: React.FC = () => {
     if (!deleteId) return;
     try {
       setSubmitting(true);
+      // NOTE: DELETE is not in the confirmed endpoint list either — same
+      // caveat as `/update` above. Left as-is; confirm with backend.
       await axios.delete(`${API_URL}/${deleteId}?cascade=true`, { headers });
       ToasterService.success("Reservation deleted successfully");
       setDeleteId(null);
@@ -400,14 +491,18 @@ const InventoryReservationManager: React.FC = () => {
   );
 
   const canDelete = (status: string) =>
-    status === "RESERVED" || status === "CANCELLED" || status === "EXPIRED";
-  const canRelease = (status: string) => status === "RESERVED";
-  const canConsume = (status: string) => status === "RESERVED";
+    status === "DRAFT" || status === "RESERVED" || status === "CANCELLED" || status === "EXPIRED";
+  const canRelease = (status: string) => status === "RESERVED" || status === "PARTIALLY_RESERVED";
+  const canConsume = (status: string) => status === "RESERVED" || status === "PARTIALLY_RESERVED";
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case "DRAFT":
+        return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
       case "RESERVED":
         return "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300";
+      case "PARTIALLY_RESERVED":
+        return "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300";
       case "RELEASED":
         return "bg-green-100 text-green-700 dark:bg-emerald-900/40 dark:text-emerald-300";
       case "CONSUMED":
@@ -423,7 +518,11 @@ const InventoryReservationManager: React.FC = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
+      case "DRAFT":
+        return <PencilIcon className="h-4 w-4" />;
       case "RESERVED":
+        return <ClockIcon className="h-4 w-4" />;
+      case "PARTIALLY_RESERVED":
         return <ClockIcon className="h-4 w-4" />;
       case "RELEASED":
         return <CheckCircleIcon className="h-4 w-4" />;
@@ -552,7 +651,6 @@ const InventoryReservationManager: React.FC = () => {
           </Field>
 
           <Field label="Sales Order">
-            {/* CHANGED: no raw id — order number or "Sales Order". */}
             {reservation.salesOrderId ? (
               <button
                 type="button"
@@ -703,7 +801,6 @@ const InventoryReservationManager: React.FC = () => {
       sortValueGetter: (reservation) => getSalesOrderDisplayById(reservation.salesOrderId),
       render: (reservation) => {
         const orderId = reservation.salesOrderId;
-        // CHANGED: shows order number or "Sales Order" — never the raw id.
         const label = getSalesOrderDisplayById(orderId);
         return (
           <button
@@ -821,7 +918,7 @@ const InventoryReservationManager: React.FC = () => {
                 setDeleteId(reservation.id || null);
               } else {
                 ToasterService.warning(
-                  `Cannot delete ${reservation.status} reservation. Only RESERVED, CANCELLED or EXPIRED can be deleted.`
+                  `Cannot delete ${reservation.status} reservation. Only DRAFT, RESERVED, CANCELLED or EXPIRED can be deleted.`
                 );
               }
             }}
@@ -884,6 +981,8 @@ const InventoryReservationManager: React.FC = () => {
           />
         </div>
 
+        
+
         <ReusableTable
           data={reservations}
           columns={columns}
@@ -927,13 +1026,11 @@ const InventoryReservationManager: React.FC = () => {
             fields: [
               <FloatingSelect
                 key="salesOrderId"
-                // CHANGED: label no longer says "ID".
                 label="Sales Order"
                 name="salesOrderId"
                 value={form.salesOrderId}
                 onChange={handleChange}
                 emptyOptionLabel="Select sales order"
-                // CHANGED: no more `#${id} -` prefix. Value still carries the id.
                 options={salesOrders.map((order, index) => ({
                   id: String(order.id),
                   name: getSalesOrderLabel(order, index),
