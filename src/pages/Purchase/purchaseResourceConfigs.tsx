@@ -198,6 +198,7 @@ export const productConfig: PurchaseResourceConfig = {
   description: "Maintain purchase products from the purchase product controller.",
   formSubtitle:"Define terms and conditions for purchase orders.",
   endpoint: `${PURCHASE}/products`,
+  scope: { idParam: "productId", nameParam: "productName", label: "Product" },
   columns: [
     { key: "productCode", label: "Code" },
     { key: "productName", label: "Product Name" },

@@ -1,4 +1,5 @@
 import React, { useState, useContext } from "react";
+import { useSearchParams } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { PageType, PAGE_ICONS, PAGE_LABELS } from "./RoleConfigTabConfig";
@@ -15,9 +16,12 @@ import "./Mainrole.css";
 
 const RoleConfig: React.FC = () => {
   const { user } = useContext(AuthContext);
+  const [searchParams] = useSearchParams();
   const isAdmin = (user?.role === "SUPER_ADMIN" || user?.role === "ADMIN" || user?.roles?.includes("SUPER_ADMIN") || user?.roles?.includes("ADMIN")) && user?.userType !== "USER" && user?.userType !== "EMPLOYEE";
 
-  const [activePage, setActivePage] = useState<PageType>("Tenant");
+  const [activePage, setActivePage] = useState<PageType>(
+    searchParams.get("tab") === "users" ? "UserEmployee" : "Tenant"
+  );
   const [setupOpen, setSetupOpen] = useState(false);
   const [selectedTenantFilter, setSelectedTenantFilter] = useState<string | null>(null);
   const [selectedDomainFilter, setSelectedDomainFilter] = useState<number | null>(null);
