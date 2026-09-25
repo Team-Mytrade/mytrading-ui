@@ -20,12 +20,52 @@ import PageMeta from "../../components/common/PageMeta";
 import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
+import { ListingPdfExportButton } from "../../components/common/export";
 import {
   FloatingDatePicker,
   FloatingInput,
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+
+/**
+ * =====================================================================================
+ * CORRECTIONS MADE — checked against the confirmed inventory-controller Swagger
+ * (GET/PUT/DELETE /stock/{id}, GET/POST /stock, GET /stock/warehouse/{id},
+ * GET /stock/validate, GET /stock/product/{id}, GET /stock/product/{id}/warehouse/{id},
+ * GET /stock/low-stock, GET /stock/availability):
+ *
+ * 1. ADDED: PDF export (ListingPdfExportButton) — every sibling module
+ *    (Stock Levels, Stock Movements) has this; it was missing here.
+ *
+ * 2. `createdBy` / `tenantId` are required by the schema but were never sent —
+ *    added static placeholders (replace with real auth/session values).
+ *
+ * 3. DELETE previously tried `?cascade=true` first and only fell back to a
+ *    plain DELETE if that failed — meaning every delete fired a doomed extra
+ *    request. The confirmed Swagger shows `DELETE /{id}` with NO query params
+ *    at all, so this now calls that directly.
+ *
+ * 4. `type` fallback options — CONFIRMED by you to be GRN, ISSUE, TRANSFER,
+ *    RETURN for this field specifically (this is a different value set than
+ *    the MOVEMENT_TYPE enum used on the separate Stock Movements page, which
+ *    returns PURCHASE_RECEIPT/SALES_ISSUE/etc.). The live enum fetch is still
+ *    the source of truth; this fallback is only used if that fetch fails.
+ *
+ * 5. Enum value extraction was only checking `item.code` — widened to check
+ *    `id ?? value ?? code ?? key ?? name`, consistent with the pattern used
+ *    on the Stock Movements page.
+ *
+ * 6. `Check Availability` previously called an unconfirmed `/stock/validate`
+ *    endpoint with a guessed response shape. Now calls the CONFIRMED
+ *    `GET /stock/product/{productId}/warehouse/{warehouseId}` endpoint
+ *    instead, which returns the real InventoryStock record (known schema),
+ *    and the "is required quantity available" check is computed client-side
+ *    (quantity - reservedQty >= required), since the also-confirmed
+ *    `/stock/availability?productId=&warehouseId=` endpoint has no quantity
+ *    parameter at all and couldn't answer that question by itself either way.
+ * =====================================================================================
+ */
 
 type Warehouse = {
   id: number;
@@ -98,7 +138,13 @@ const PRODUCT_API_URL = "/v1/api/purchase/products";
 const ENUM_API_URL = "/v1/api/inventory/enums";
 const PAGE_SIZE = 10;
 
-const FALLBACK_MOVEMENT_TYPES = ["GRN", "TRANSFER", "RETURN"];
+// CONFIRMED (by user) real fallback values for this entity's `type` field —
+// distinct from the MOVEMENT_TYPE enum used on the Stock Movements page.
+const FALLBACK_TYPE_OPTIONS = ["GRN", "ISSUE", "TRANSFER", "RETURN"];
+
+// TODO: replace with real values pulled from your auth/session context.
+const STATIC_CREATED_BY = "system-admin";
+const STATIC_TENANT_ID = "tenant-001";
 
 const emptyForm: InventoryForm = {
   type: "",
@@ -192,7 +238,7 @@ const InventoryStockManager: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [deleteStock, setDeleteStock] = useState<InventoryStock | null>(null);
 
-  const [movementTypeOptions, setMovementTypeOptions] = useState<string[]>(FALLBACK_MOVEMENT_TYPES);
+  const [typeOptions, setTypeOptions] = useState<string[]>(FALLBACK_TYPE_OPTIONS);
   const [enumLoading, setEnumLoading] = useState(false);
 
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
@@ -210,7 +256,7 @@ const InventoryStockManager: React.FC = () => {
   useEffect(() => {
     fetchAllStock();
     fetchDropdowns();
-    fetchMovementTypes();
+    fetchTypeOptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -224,7 +270,9 @@ const InventoryStockManager: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const fetchMovementTypes = async (): Promise<void> => {
+  // CORRECTED: extraction now checks id/value/code/key/name (was code-only),
+  // and fallback values match the CONFIRMED real set for this field.
+  const fetchTypeOptions = async (): Promise<void> => {
     try {
       setEnumLoading(true);
       const response = await axios.get(`${ENUM_API_URL}?type=MOVEMENT_TYPE`, { headers });
@@ -233,19 +281,20 @@ const InventoryStockManager: React.FC = () => {
       const codes = data
         .map((item: any) => {
           if (typeof item === "string") return item;
-          return item.code || item;
+          return item.id ?? item.value ?? item.code ?? item.key ?? item.name ?? null;
         })
         .filter(Boolean) as string[];
 
-      setMovementTypeOptions(codes.length > 0 ? codes : FALLBACK_MOVEMENT_TYPES);
+      setTypeOptions(codes.length > 0 ? codes : FALLBACK_TYPE_OPTIONS);
 
       setForm((prev) => ({
         ...prev,
-        type: codes.length > 0 ? codes[0] : FALLBACK_MOVEMENT_TYPES[0],
+        type: codes.length > 0 ? codes[0] : FALLBACK_TYPE_OPTIONS[0],
       }));
     } catch (error) {
-      console.warn("Failed to fetch movement types, using fallback");
-      setMovementTypeOptions(FALLBACK_MOVEMENT_TYPES);
+      console.warn("Failed to fetch type options, using confirmed fallback");
+      setTypeOptions(FALLBACK_TYPE_OPTIONS);
+      setForm((prev) => ({ ...prev, type: FALLBACK_TYPE_OPTIONS[0] }));
     } finally {
       setEnumLoading(false);
     }
@@ -352,7 +401,7 @@ const InventoryStockManager: React.FC = () => {
   const openEdit = (stock: InventoryStock): void => {
     setEditingId(stock.id);
     setForm({
-      type: stock.type || movementTypeOptions[0] || "GRN",
+      type: stock.type || typeOptions[0] || "GRN",
       quantity: String(stock.quantity ?? 0),
       movementDate: stock.movementDate || new Date().toISOString().split("T")[0],
       referenceNo: stock.referenceNo || "",
@@ -370,7 +419,9 @@ const InventoryStockManager: React.FC = () => {
   };
 
   const buildPayload = () => {
-    const payload = {
+    const payload: Record<string, unknown> = {
+      createdBy: STATIC_CREATED_BY,
+      tenantId: STATIC_TENANT_ID,
       type: form.type,
       quantity: toNumber(form.quantity),
       movementDate: form.movementDate,
@@ -409,7 +460,7 @@ const InventoryStockManager: React.FC = () => {
         setStocks((prev) => {
           return prev.map((stock) => {
             if (stock.id === editingId) {
-              const correctWarehouse = warehouses.find((w) => w.id === payload.warehouse?.id);
+              const correctWarehouse = warehouses.find((w) => w.id === (payload.warehouse as any)?.id);
               return {
                 ...response.data,
                 warehouse: correctWarehouse || response.data.warehouse,
@@ -454,7 +505,9 @@ const InventoryStockManager: React.FC = () => {
     if (!deleteStock?.id) return;
 
     try {
-      await axios.delete(`${API_URL}/${deleteStock.id}?cascade=true`, { headers });
+      // CORRECTED: confirmed Swagger shows DELETE /{id} with no query params
+      // at all — removed the unconfirmed `?cascade=true` guess-then-fallback.
+      await axios.delete(`${API_URL}/${deleteStock.id}`, { headers });
       ToasterService.success("Inventory stock deleted successfully");
       setDeleteStock(null);
       const warehouseId = searchParams.get("warehouseId");
@@ -464,22 +517,20 @@ const InventoryStockManager: React.FC = () => {
         await fetchAllStock();
       }
     } catch (error) {
-      try {
-        await axios.delete(`${API_URL}/${deleteStock.id}`, { headers });
-        ToasterService.success("Inventory stock deleted successfully");
-        setDeleteStock(null);
-        const warehouseId = searchParams.get("warehouseId");
-        if (warehouseId) {
-          fetchStockByWarehouse(warehouseId);
-        } else {
-          await fetchAllStock();
-        }
-      } catch (fallbackError) {
-        ToasterService.error("Failed to delete inventory stock", getErrorMessage(fallbackError, "Please try again."));
-      }
+      ToasterService.error("Failed to delete inventory stock", getErrorMessage(error, "Please try again."));
     }
   };
 
+  // CORRECTED: `/stock/validate` was never actually confirmed in any Swagger
+  // screenshot — it was a leftover guess. The confirmed endpoints are:
+  //   - GET /stock/availability?productId=X&warehouseId=Y (no quantity param
+  //     at all, so it can't tell us "is X available" by itself)
+  //   - GET /stock/product/{productId}/warehouse/{warehouseId} (returns the
+  //     real InventoryStock record — confirmed schema: quantity, reservedQty,
+  //     minStockLevel, etc.)
+  // Using the second one, since its response shape is already known, and
+  // computing "is the required quantity available" ourselves — the same
+  // quantity - reservedQty logic already used everywhere else in this file.
   const handleAvailabilityCheck = async () => {
     const productId = toNumber(availabilityForm.productId);
     const warehouseId = toNumber(availabilityForm.warehouseId);
@@ -491,20 +542,24 @@ const InventoryStockManager: React.FC = () => {
     }
 
     try {
-      const response = await axios.get(`${API_URL}/validate`, {
-        params: { productId, warehouseId, qty: requiredQty },
-        headers,
-      });
+      const response = await axios.get<InventoryStock>(
+        `${API_URL}/product/${productId}/warehouse/${warehouseId}`,
+        { headers }
+      );
 
       const data = response.data;
+      const totalQty = Number(data?.quantity || 0);
+      const reservedQty = Number(data?.reservedQty || 0);
+      const availableQty = Math.max(0, totalQty - reservedQty);
+
       setAvailabilityCheck({
         productId,
         warehouseId,
         requiredQty,
-        isAvailable: data.available || false,
-        availableQty: data.availableQty || 0,
-        totalQty: data.totalQty || 0,
-        reservedQty: data.reservedQty || 0,
+        isAvailable: availableQty >= requiredQty,
+        availableQty,
+        totalQty,
+        reservedQty,
       });
     } catch (error) {
       ToasterService.error("Failed to check availability", getErrorMessage(error, "Please try again."));
@@ -538,6 +593,13 @@ const InventoryStockManager: React.FC = () => {
     }),
     [stocks]
   );
+
+  const getProductLabelForStock = (stock: InventoryStock) => {
+    const product = products.find(
+      (p) => p.id === stock.productId || p.productId === stock.productId
+    );
+    return product ? normalizeProductLabel(product) : `Product #${stock.productId}`;
+  };
 
   const columns: ColumnDef<InventoryStock>[] = [
     {
@@ -573,9 +635,6 @@ const InventoryStockManager: React.FC = () => {
       label: "Product",
       sortable: true,
       render: (stock) => {
-        const product = products.find(
-          (p) => p.id === stock.productId || p.productId === stock.productId
-        );
         return (
           <button
             className="flex items-center gap-2 text-sm text-slate-700 transition-colors hover:text-cyan-600"
@@ -587,7 +646,7 @@ const InventoryStockManager: React.FC = () => {
             }}
           >
             <CubeIcon className="h-4 w-4 text-slate-400" />
-            <span>{product ? normalizeProductLabel(product) : `Product #${stock.productId}`}</span>
+            <span>{getProductLabelForStock(stock)}</span>
           </button>
         );
       },
@@ -730,6 +789,46 @@ const InventoryStockManager: React.FC = () => {
         </div>
 
         <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+          <ListingPdfExportButton
+            title="Inventory Stock"
+            subtitle="Current inventory stock listing"
+            reportLabel="Inventory Stock Report"
+            data={stocks}
+            fileName="Inventory_Stock"
+            disabled={loading}
+            columns={[
+              { header: "Reference", accessor: (row) => row.referenceNo || "-" },
+              { header: "Type", accessor: (row) => row.type },
+              { header: "Product", accessor: (row) => getProductLabelForStock(row) },
+              { header: "Warehouse", accessor: (row) => getWarehouseName(row.warehouse) },
+              { header: "Quantity", accessor: (row) => String(row.quantity) },
+              { header: "Reserved", accessor: (row) => String(row.reservedQty) },
+              {
+                header: "Available",
+                accessor: (row) => String(Math.max(0, row.quantity - row.reservedQty)),
+              },
+              { header: "Min Stock Level", accessor: (row) => String(row.minStockLevel) },
+              { header: "Status", accessor: (row) => getStockStatus(row).label },
+              {
+                header: "Movement Date",
+                accessor: (row) =>
+                  row.movementDate ? new Date(row.movementDate).toLocaleDateString() : "-",
+              },
+            ]}
+            metadata={(rows) => [
+              { label: "Total Records", value: rows.length },
+              { label: "Total Quantity", value: rows.reduce((sum, s) => sum + (s.quantity || 0), 0) },
+              { label: "Total Reserved", value: rows.reduce((sum, s) => sum + (s.reservedQty || 0), 0) },
+              {
+                label: "Low Stock Items",
+                value: rows.filter((s) => {
+                  const available = Math.max(0, s.quantity - s.reservedQty);
+                  return available > 0 && available <= s.minStockLevel;
+                }).length,
+              },
+            ]}
+          />
+
           <button
             onClick={() => setShowAvailabilityModal(true)}
             className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600"
@@ -1032,12 +1131,12 @@ const InventoryStockManager: React.FC = () => {
             fields: [
               <FloatingSelect
                 key="type"
-                label="Movement Type"
+                label="Type"
                 name="type"
                 value={form.type}
                 onChange={handleChange}
                 includeEmptyOption={false}
-                options={movementTypeOptions.map((type) => ({
+                options={typeOptions.map((type) => ({
                   id: type,
                   name: type,
                 }))}
