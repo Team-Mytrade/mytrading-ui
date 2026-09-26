@@ -22,7 +22,6 @@ const RoleConfig: React.FC = () => {
   const [activePage, setActivePage] = useState<PageType>(
     searchParams.get("tab") === "users" ? "UserEmployee" : "Tenant"
   );
-  const [setupOpen, setSetupOpen] = useState(false);
   const [selectedTenantFilter, setSelectedTenantFilter] = useState<string | null>(null);
   const [selectedDomainFilter, setSelectedDomainFilter] = useState<number | null>(null);
   const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState<number | null>(null);
@@ -110,39 +109,16 @@ const RoleConfig: React.FC = () => {
 
       <div className="role-config-page -mt-2 w-full max-w-none px-0 pb-0">
         <div className="grid gap-3 xl:grid-cols-[205px_minmax(0,1fr)] lg:grid-cols-[190px_minmax(0,1fr)]">
-          <aside className="relative self-start overflow-visible rounded-lg border border-gray-200 bg-white shadow-sm lg:sticky lg:top-2 lg:overflow-hidden">
+          <aside className="self-start rounded-lg border border-gray-200 bg-white shadow-sm lg:sticky lg:top-2">
             <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-2.5 py-1.5">
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Setup Areas</p>
                 <p className="text-xs font-medium text-gray-900">Structure and access</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setSetupOpen((current) => !current)}
-                className="inline-flex h-8 min-w-[132px] shrink-0 items-center justify-between gap-2 rounded-md border border-cyan-200 bg-cyan-50 px-2 text-cyan-700 transition-colors hover:border-cyan-300 hover:bg-cyan-100 lg:hidden"
-                aria-expanded={setupOpen}
-                aria-controls="role-config-setup-nav"
-                title={setupOpen ? "Collapse setup areas" : "Expand setup areas"}
-              >
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-cyan-600 text-white">
-                    {PAGE_ICONS[activePage]}
-                  </span>
-                  <span className="truncate text-xs font-semibold">{PAGE_LABELS[activePage]}</span>
-                </span>
-                <svg
-                  className={`h-4 w-4 shrink-0 transition-transform ${setupOpen ? "rotate-180" : ""}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
             </div>
             <nav
               id="role-config-setup-nav"
-              className={`${setupOpen ? "grid" : "hidden"} absolute right-1.5 top-[45px] z-20 w-[min(260px,calc(100vw-2rem))] grid-cols-1 gap-0.5 rounded-lg border border-gray-200 bg-white p-1.5 shadow-lg lg:static lg:w-auto lg:rounded-none lg:border-0 lg:p-1.5 lg:shadow-none`}
+              className="grid grid-cols-1 gap-0.5 p-1.5"
               aria-label="Role configuration sections"
             >
               {pages.map((page) => {
@@ -155,7 +131,6 @@ const RoleConfig: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setActivePage(page);
-                      setSetupOpen(false);
                     }}
                     className={`group flex h-8 w-full items-center gap-2 rounded-md px-2 text-left transition-all duration-200 sm:h-9 lg:h-8 ${isActive
                       ? "bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100"
