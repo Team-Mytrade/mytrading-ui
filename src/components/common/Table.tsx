@@ -68,6 +68,19 @@ export interface ReusableTableProps<T extends { id?: number | string }> {
    * database id that isn't meant to be customer-facing.
    */
   hiddenDetailKeys?: string[];
+  /**
+   * Renders custom action controls (e.g. an Edit button) at the top of the
+   * row-details drawer for the currently selected row.
+   */
+  rowDetailsActions?: (row: T) => React.ReactNode;
+  /**
+   * Set true to temporarily close/hide the row-details drawer without
+   * losing the currently selected row — e.g. while an edit popup triggered
+   * from `rowDetailsActions` is open, so the popup isn't fighting the
+   * drawer's own stacking context. The drawer reappears (with fresh data,
+   * since `data` is re-synced automatically) once this goes back to false.
+   */
+  suspendRowDetails?: boolean;
   loading?: boolean;
   emptyState?: React.ReactNode;
   className?: string;
@@ -544,6 +557,8 @@ export function ReusableTable<T extends { id?: number | string }>({
   rowDetailsTitle = "Row Details",
   rowDetailsSubtitle = "Read-only record details",
   hiddenDetailKeys = [],
+  rowDetailsActions,
+  suspendRowDetails = false,
   loading = false,
   emptyState,
   className = "",
@@ -661,6 +676,18 @@ export function ReusableTable<T extends { id?: number | string }>({
       window.removeEventListener("reusable-table:refresh", showRefreshSkeleton);
     };
   }, []);
+
+  // Keeps the drawer's row data fresh — e.g. after saving an edit made via
+  // rowDetailsActions, the row in `data` changes, and the drawer (which may
+  // currently be suspended, or about to reappear) should show the update
+  // rather than the stale object captured when the row was first clicked.
+  useEffect(() => {
+    setSelectedRow((current) => {
+      if (!current || current.id === undefined || current.id === null) return current;
+      const fresh = data.find((row) => row.id === current.id);
+      return fresh && fresh !== current ? fresh : current;
+    });
+  }, [data]);
 
   const tableWorkspaceLeft = isLargeScreen ? 60 : 0;
 
@@ -1131,7 +1158,7 @@ export function ReusableTable<T extends { id?: number | string }>({
       )}
 
       <RecordDetailDrawer
-        isOpen={Boolean(selectedRow)}
+        isOpen={Boolean(selectedRow) && !suspendRowDetails}
         title={selectedRowDetailsTitle}
         subtitle={rowDetailsSubtitle}
         onClose={() => setSelectedRow(null)}
@@ -1141,6 +1168,11 @@ export function ReusableTable<T extends { id?: number | string }>({
       >
       {selectedRow && (
           <div className="record-detail-dashboard">
+            {rowDetailsActions && (
+              <div className="mb-3 flex justify-end gap-2">
+                {rowDetailsActions(selectedRow)}
+              </div>
+            )}
             {summaryEntries.length > 0 && (
               <section className="record-detail-dashboard__summary" aria-label="Record summary">
                 {summaryEntries.map((entry) => (

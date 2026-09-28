@@ -1025,6 +1025,17 @@ const BatchManagement: React.FC = () => {
           defaultSortOrder="asc"
           enableRowDetails={true}
           rowDetailsTitle="Batch Details"
+          suspendRowDetails={showFormModal}
+          rowDetailsActions={(batch) => (
+            <button
+              type="button"
+              onClick={() => openEdit(batch)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-medium text-cyan-700 transition-colors hover:bg-cyan-100 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-300 dark:hover:bg-cyan-900/40"
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+              Edit
+            </button>
+          )}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <CubeIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
@@ -1096,7 +1107,6 @@ const BatchManagement: React.FC = () => {
                 name="productId"
                 value={form.productId}
                 onChange={handleChange}
-                // emptyOptionLabel="Select product"
                 options={products.map((p) => ({
                   id: String(p.id || p.productId || 0),
                   name: normalizeProductLabel(p),
@@ -1109,7 +1119,6 @@ const BatchManagement: React.FC = () => {
                 name="warehouse"
                 value={form.warehouse}
                 onChange={handleChange}
-                // emptyOptionLabel="Select warehouse"
                 options={warehouses.map((w) => ({
                   id: String(w.id),
                   name: `${w.code || ""} - ${w.name || ""}`,
