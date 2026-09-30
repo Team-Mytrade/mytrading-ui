@@ -1,11 +1,29 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
-import PurchaseResourcePage, { PurchaseResourceConfig } from "./PurchaseResourcePage";
-import { purchaseOrderConfig } from "./purchaseResourceConfigs";
+import PurchaseResourcePage, { PurchaseResourceConfig } from "../Purchase/PurchaseResourcePage";
+import { purchaseOrderConfig } from "../Purchase/purchaseResourceConfigs";
 import { ToasterService } from "../../Services/ToasterService";
 
 const PURCHASE = "/v1/api/purchase";
+
+type RequisitionItem = {
+  id?: string | number;
+  productId?: string | number;
+  productName?: string;
+  categoryId?: string | number;
+  quantity?: number;
+  unitOfMeasure?: string;
+  remarks?: string;
+  product?: { id?: string | number; productName?: string };
+  category?: { id?: string | number };
+};
+
+type RequisitionDetail = {
+  id?: string | number;
+  vendorId?: string | number;
+  items?: RequisitionItem[];
+};
 
 export default function PurchaseOrders() {
   const location = useLocation();
@@ -15,7 +33,8 @@ export default function PurchaseOrders() {
     useState<PurchaseResourceConfig>(purchaseOrderConfig);
 
   useEffect(() => {
-    const prefillId = (location.state as any)?.prefillRequisitionId;
+    const prefillId = (location.state as { prefillRequisitionId?: string | number } | null)
+      ?.prefillRequisitionId;
     if (!prefillId) return;
 
     let cancelled = false;
@@ -25,9 +44,9 @@ export default function PurchaseOrders() {
         const res = await axios.get(`${PURCHASE}/purchase-requisitions/${prefillId}`);
         if (cancelled) return;
 
-        const requisition = res.data;
+        const requisition = res.data as RequisitionDetail;
         const items = Array.isArray(requisition.items)
-          ? requisition.items.map((item: any, index: number) => ({
+          ? requisition.items.map((item, index) => ({
               id: item.id ?? `prefill-${index}`,
               productId: item.product?.id ?? item.productId ?? "",
               productName: item.product?.productName ?? "",

@@ -14,7 +14,7 @@ export type LineItem = {
 type Props = {
   items: LineItem[];
   onChange: (items: LineItem[]) => void;
-  products: Array<{ id: number | string; productName: string }>;
+  products: Array<{ id: number | string; productName: string; uom?: string }>;
   categories?: Array<{ id: number | string; categoryName: string }>;
   uomOptions?: string[];
   disabled?: boolean;
@@ -109,6 +109,7 @@ export default function LineItemsEditor({
                         updateRow(index, {
                           productId: e.target.value,
                           productName: product?.productName,
+                          unitOfMeasure: product?.uom || row.unitOfMeasure || "PIECES",
                         });
                       }}
                       disabled={disabled}

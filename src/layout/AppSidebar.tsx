@@ -78,12 +78,19 @@ export const navItems: NavItem[] = [
     name: "Common",
     subItems: [
       { name: "Customers", path: "/customer-management" },
-      { name: "Vendors", path: "/vendors" },
       { name: "Invoice Vendors", path: "/invoiceVendors" },
-      { name: "Product Categories", path: "/product-categories" },
-      { name: "Products", path: "/purchase-products" },
       { name: "Tax Types", path: "/taxTypes" },
       { name: "Tax Details", path: "/taxDetails" },
+    ],
+  },
+
+  {
+    icon: <Package className="w-5 h-5" />,
+    name: "Product Catalogue",
+    subItems: [
+      { name: "Vendors", path: "/product-catalogue/vendors" },
+      { name: "Categories", path: "/product-catalogue/categories" },
+      { name: "Products", path: "/product-catalogue/products" },
     ],
   },
 
@@ -122,16 +129,12 @@ export const navItems: NavItem[] = [
   },
   {
     icon: <FileText className="w-5 h-5" />,
-    name: "Purchase",
+    name: "Purchase Service",
     subItems: [
-      { name: "Terms and Conditions", path: "/terms-and-conditions" },
-      { name: "Purchase Requisitions", path: "/purchase-requisitions" },
-      { name: "Requisition Line Items", path: "/requisition-line-items" },
-      { name: "Purchase Orders", path: "/purchase-orders" },
-      { name: "Goods Receipt Notes", path: "/goods-receipt-notes" },
-      { name: "Deliveries", path: "/deliveries" },
-      { name: "Approval Status", path: "/approval-status" },
-      { name: "Inventory", path: "/purchase-inventory" },
+      { name: "Purchase Requisitions", path: "/purchase-service/requisitions" },
+      { name: "Purchase Orders", path: "/purchase-service/orders" },
+      { name: "Approval", path: "/purchase-service/approvals" },
+      { name: "Goods Receipt Notes", path: "/purchase-service/goods-receipt-notes" },
     ],
   },
 
@@ -844,7 +847,7 @@ const AppSidebar: React.FC = () => {
         </div>
 
         {/* Navigation */}
-        <div className="app-sidebar__navigation flex-1 overflow-y-auto py-4 px-2 no-scrollbar">
+        <div className="app-sidebar__navigation flex-1 overflow-y-auto py-4 px-2">
           <div className="app-sidebar__menu space-y-1">
             {navItems.filter((_, index) => index === selectedModuleIndex).map((nav) => {
               const index = selectedModuleIndex;

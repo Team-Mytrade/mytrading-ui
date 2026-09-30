@@ -4,14 +4,14 @@ import {
   makeRelation,
   PurchaseRecord,
   PurchaseResourceConfig,
+  SelectOption,
   toNumberOrZero,
 } from "./PurchaseResourcePage";
 import LineItemsEditor, { LineItem } from "../Purchase/LineItemsEditor";
 
 const PURCHASE = "/v1/api/purchase";
 const CATEGORIES = "/v1/api/purchase/product-categories";
-const USER_DEPARTMENTS = "/v1/api/user/departments";
-const USERS = "/v1/api/user/getAll";
+const PRODUCT_CATALOGUE_PRODUCTS = "/v1/api/product/products";
 
 const boolText = (value: boolean) => (
   <span className={value ? "text-green-700" : "text-gray-500"}>{value ? "Yes" : "No"}</span>
@@ -37,7 +37,9 @@ const statusBadge = (value: string) => {
   );
 };
 
-const dateOnly = (value: any) => (value ? String(value).slice(0, 10) : "");
+const dateOnly = (value: unknown) => (value ? String(value).slice(0, 10) : "");
+const EMPTY_OPTIONS: SelectOption[] = [];
+const EMPTY_LINE_ITEMS: LineItem[] = [];
 
 const getStoredUser = () => {
   if (typeof window === "undefined") return null;
@@ -55,6 +57,31 @@ const getSessionMeta = () => {
     userId: storedUser?.userId || storedUser?.id || "system",
     tenantId: storedUser?.tenantId || "TENANT_1",
   };
+};
+
+type RequisitionItemsEditorProps = {
+  form: PurchaseRecord;
+  setForm: React.Dispatch<React.SetStateAction<PurchaseRecord>>;
+  options: Record<string, SelectOption[]>;
+};
+
+/** Renders product choices sourced from the live Product Catalogue list. */
+const RequisitionItemsEditor = ({ form, setForm, options }: RequisitionItemsEditorProps) => {
+  const products = options.productId || EMPTY_OPTIONS;
+  const items = Array.isArray(form.items) ? (form.items as LineItem[]) : EMPTY_LINE_ITEMS;
+
+  return (
+    <LineItemsEditor
+      items={items}
+      onChange={(next) => setForm((current) => ({ ...current, items: next }))}
+      products={products.map((option) => ({
+        id: option.value,
+        productName: option.label,
+        uom: String(option.raw?.uom || "PIECES"),
+      }))}
+      uomOptions={["PIECES", "BOX", "PACK", "KILOGRAM", "GRAM", "LITRE", "METER"]}
+    />
+  );
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -272,112 +299,76 @@ export const productConfig: PurchaseResourceConfig = {
 // ─────────────────────────────────────────────────────────────
 export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   title: "Purchase Requisitions",
-  formSubtitle: "Raise a request for materials or services.",
-  description:
-    "Create requisitions and track department, requester, status, and required-by dates.",
+  formSubtitle: "Create a requisition with the products and quantities required.",
+  description: "Create purchase requisitions for products from the Product Catalogue service.",
   endpoint: `${PURCHASE}/purchase-requisitions`,
   getByIdEndpoint: (row) => `${PURCHASE}/purchase-requisitions/${row.id}`,
-  inlineSelectFields: [
-    {
-      name: "status",
-      options: ["DRAFT", "SUBMITTED", "APPROVED", "REJECTED", "CANCELLED"].map((item) => ({
-        value: item,
-        label: item.charAt(0) + item.slice(1).toLowerCase(),
-      })),
-      widthClassName: "w-[136px]",
-    },
-  ],
   columns: [
-    // { key: "id", label: "ID" },
-    { key: "notes", label: "Notes" },
-    { key: "requiredByDate", label: "Required By" },
+    { key: "remarks", label: "Remarks" },
+    { key: "requestDate", label: "Request Date" },
+    { key: "requiredDate", label: "Required Date" },
     { key: "status", label: "Status", render: (row) => statusBadge(row.status) },
-    { key: "departmentId", label: "Department" },
-    {
-      key: "requester",
-      label: "Requester",
-      render: (row) =>
-        row.requester?.fullName || row.requester?.username || row.requester?.userId || "--",
-    },
+    { key: "userId", label: "Requested By" },
   ],
   fields: [
-    { name: "notes", label: "Notes", type: "textarea", required: true, gridClassName: "md:col-span-2" },
     {
-      name: "requiredByDate",
-      label: "Required By Date",
+      name: "requestDate",
+      label: "Request Date",
       type: "date",
       required: true,
       defaultValue: new Date().toISOString().slice(0, 10),
     },
     {
-      name: "status",
-      label: "Status",
-      type: "select",
-      defaultValue: "DRAFT",
-      options: ["DRAFT", "SUBMITTED", "APPROVED", "REJECTED", "CANCELLED"].map((item) => ({
-        value: item,
-        label: item,
-      })),
-    },
-    {
-      name: "departmentId",
-      label: "Department",
-      type: "select",
+      name: "requiredDate",
+      label: "Required Date",
+      type: "date",
       required: true,
-      optionsEndpoint: USER_DEPARTMENTS,
-      optionLabel: (row) =>
-        [row.name, row.departmentCode ? `(${row.departmentCode})` : ""].filter(Boolean).join(" "),
+      defaultValue: new Date().toISOString().slice(0, 10),
     },
+    { name: "remarks", label: "Remarks", type: "textarea", required: true, gridClassName: "md:col-span-2" },
+    { name: "userId", label: "User ID", type: "number", required: true, defaultValue: 1 },
     {
-      name: "requesterId",
-      label: "Requester",
+      name: "productId",
+      label: "Product",
       type: "select",
-      required: true,
-      optionsEndpoint: USERS,
-      optionLabel: (row) =>
-        row.username ||
-        row.fullName ||
-        [row.firstName, row.lastName].filter(Boolean).join(" ").trim() ||
-        row.userId,
-      optionValue: "userId",
+      optionsEndpoint: PRODUCT_CATALOGUE_PRODUCTS,
+      optionLabel: "productName",
+      gridClassName: "hidden",
     },
   ],
-  searchFields: [
-    "id",
-    "notes",
-    "status",
-    "departmentId",
-    "requester.username",
-    "requester.fullName",
-    "requester.userId",
-  ],
-  normalizeForm: (row) => ({
-    notes: row.notes || "",
-    requiredByDate: dateOnly(row.requiredByDate),
-    status: row.status || "DRAFT",
-    departmentId: row.departmentId ?? "",
-    requesterId: row.requester?.userId || row.requesterId || "",
-  }),
-  buildPayload: (form, editingRow, context) => {
-    const requesterOption = context.options.requesterId?.find(
-      (option) => String(option.value) === String(form.requesterId)
-    );
-    const requesterUserId =
-      requesterOption?.raw?.userId ||
-      editingRow?.requester?.userId ||
-      form.requesterId ||
-      "";
-
-    return {
-      notes: String(form.notes || "").trim(),
-      requiredByDate: form.requiredByDate,
-      status: form.status || "DRAFT",
-      departmentId: toNumberOrZero(form.departmentId),
-      requester: {
-        userId: requesterUserId,
-      },
-    };
+  searchFields: ["id", "remarks", "status", "userId"],
+  initialFormState: {
+    requestDate: "2026-09-24",
+    requiredDate: "2026-10-05",
+    remarks: "Batch and serial tracking integration test",
+    userId: 1,
+    items: [],
   },
+  normalizeForm: (row) => ({
+    requestDate: dateOnly(row.requestDate),
+    requiredDate: dateOnly(row.requiredDate || row.requiredByDate),
+    remarks: row.remarks || row.notes || "",
+    userId: row.userId ?? row.requester?.userId ?? "",
+    items: Array.isArray(row.items) ? row.items : [],
+  }),
+  renderFormExtras: ({ form, setForm, options }) => (
+    <RequisitionItemsEditor form={form} setForm={setForm} options={options} />
+  ),
+  buildPayload: (form) => ({
+    requestDate: form.requestDate,
+    requiredDate: form.requiredDate,
+    remarks: String(form.remarks || "").trim(),
+    userId: toNumberOrZero(form.userId),
+    items: (Array.isArray(form.items) ? form.items : [])
+      .filter((item) => item.productId && Number(item.quantity) > 0)
+      .map((item) => ({
+        // The Purchase Service expects a Product relation, not a flat productId.
+        product: makeRelation(item.productId),
+        quantity: toNumberOrZero(item.quantity),
+        unitOfMeasure: item.unitOfMeasure || "PIECES",
+        remarks: String(item.remarks || "").trim(),
+      })),
+  }),
   // ✅ Icon-only Create PO button with tooltip in the Actions column
   renderRowActions: (row) => {
     if (row.status !== "APPROVED") return null;
@@ -525,8 +516,10 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
         );
         if (!selected?.raw) return { items: [] };
 
-        const items: LineItem[] = Array.isArray(selected.raw.items)
-          ? selected.raw.items.map((item: any, index: number) => ({
+        const requisitionItems: PurchaseRecord[] = Array.isArray(selected.raw.items)
+          ? (selected.raw.items as PurchaseRecord[])
+          : [];
+        const items: LineItem[] = requisitionItems.map((item, index: number) => ({
               id: item.id ?? `new-${index}`,
               productId: item.product?.id ?? item.productId ?? "",
               productName: item.product?.productName ?? "",
@@ -534,8 +527,7 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
               quantity: item.quantity ?? 1,
               unitOfMeasure: item.unitOfMeasure ?? "PIECES",
               remarks: item.remarks ?? "",
-            }))
-          : [];
+            }));
 
         return { items };
       },

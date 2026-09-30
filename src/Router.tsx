@@ -50,16 +50,16 @@ import StockMovement from "./pages/Inventory/stock-movement";
 import InventoryReservation from "./pages/Inventory/inventory-reservation";
 import InventoryReport from "./pages/reports/inventory-report";
 import StockAdjustment from "./pages/Inventory/stock-adjustment";
-import PurchaseRequisitions from "./pages/Purchase/PurchaseRequisitions";
+import PurchaseRequisitions from "./pages/purchase-service/PurchaseRequisitions";
 import RequisitionLineItems from "./pages/Purchase/RequisitionLineItems";
-import PurchaseOrders from "./pages/Purchase/PurchaseOrders";
-import Vendors from "./pages/common/PurchaseVendors";
-import Products from "./pages/common/Products";
-import ProductCategories from "./pages/common/ProductCategories";
+import PurchaseOrders from "./pages/purchase-service/PurchaseOrders";
+import Vendors from "./pages/product-catalogue/Vendors";
+import Products from "./pages/product-catalogue/Products";
+import ProductCategories from "./pages/product-catalogue/ProductCategories";
 import TermsAndConditions from "./pages/Purchase/TermsAndConditions";
 import Deliveries from "./pages/Purchase/Deliveries";
-import ApprovalStatus from "./pages/Purchase/ApprovalStatus";
-import GoodsReceiptNotes from "./pages/Purchase/GoodsReceiptNotes";
+import ApprovalStatus from "./pages/purchase-service/ApprovalStatus";
+import GoodsReceiptNotes from "./pages/purchase-service/GoodsReceiptNotes";
 import Inventory from "./pages/Purchase/Inventory";
 import PurchaseReports from "./pages/Purchase/PurchaseReports";
 import DeliveryOrderPage from "./pages/Delivery/DeliveryOrderPage";
@@ -256,7 +256,7 @@ export default function AppRouter() {
           <Route path="/quote-view/:id" element={<Quotations />} />
 
           <Route path="/warehouse" element={<Warehouse />} />
-           <Route path="/products" element={<Products />} />
+           <Route path="/products" element={<Navigate to="/product-catalogue/products" replace />} />
           <Route path="/inventory" element={<InventoryModule />} />
           <Route path="/stock-movement" element={<StockMovement />} />
           <Route path="/stock-level" element={<StockLevel />} />
@@ -268,28 +268,35 @@ export default function AppRouter() {
           <Route path="/batch" element={<Batch />} />
           <Route path="/inventory-report" element={<InventoryReport />} />
 
-          <Route path="/purchase-requisitions" element={<PurchaseRequisitions />} />
+          <Route path="/purchase-service/requisitions" element={<PurchaseRequisitions />} />
           <Route path="/requisition-line-items" element={<RequisitionLineItems />} />
-          <Route path="/purchase-orders" element={<PurchaseOrders />} />
-          <Route path="/vendors" element={<Vendors />} />
-          <Route path="/purchase-products" element={<Products />} />
-          <Route path="/product-categories" element={<ProductCategories />} />
+          <Route path="/purchase-service/orders" element={<PurchaseOrders />} />
+          <Route path="/purchase-service/approvals" element={<ApprovalStatus />} />
+          <Route path="/purchase-service/goods-receipt-notes" element={<GoodsReceiptNotes />} />
+          <Route path="/purchase-requisitions" element={<Navigate to="/purchase-service/requisitions" replace />} />
+          <Route path="/purchase-orders" element={<Navigate to="/purchase-service/orders" replace />} />
+          <Route path="/product-catalogue/vendors" element={<Vendors />} />
+          <Route path="/product-catalogue/products" element={<Products />} />
+          <Route path="/product-catalogue/categories" element={<ProductCategories />} />
+          <Route path="/vendors" element={<Navigate to="/product-catalogue/vendors" replace />} />
+          <Route path="/purchase-products" element={<Navigate to="/product-catalogue/products" replace />} />
+          <Route path="/product-categories" element={<Navigate to="/product-catalogue/categories" replace />} />
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
           <Route path="/deliveries" element={<Deliveries />} />
-          <Route path="/approvalStatus" element={<ApprovalStatus />} />
-          <Route path="/approval-status" element={<ApprovalStatus />} />
-          <Route path="/goods-receipt-notes" element={<GoodsReceiptNotes />} />
+          <Route path="/approvalStatus" element={<Navigate to="/purchase-service/approvals" replace />} />
+          <Route path="/approval-status" element={<Navigate to="/purchase-service/approvals" replace />} />
+          <Route path="/goods-receipt-notes" element={<Navigate to="/purchase-service/goods-receipt-notes" replace />} />
           <Route path="/purchase-inventory" element={<Inventory />} />
           <Route path="/purchase-reports" element={<PurchaseReports />} />
           <Route path="/purchase_dashboard" element={<ProcurementDashboard />} />
 
-          <Route path="/purchaseRequisition" element={<PurchaseRequisitions />} />
-          <Route path="/purchaseOrder" element={<PurchaseOrders />} />
-          <Route path="/supplier" element={<Vendors />} />
-          <Route path="/product" element={<Products />} />
+          <Route path="/purchaseRequisition" element={<Navigate to="/purchase-service/requisitions" replace />} />
+          <Route path="/purchaseOrder" element={<Navigate to="/purchase-service/orders" replace />} />
+          <Route path="/supplier" element={<Navigate to="/product-catalogue/vendors" replace />} />
+          <Route path="/product" element={<Navigate to="/product-catalogue/products" replace />} />
           <Route path="/term-condition" element={<TermsAndConditions />} />
           <Route path="/deliveryDate" element={<Deliveries />} />
-          <Route path="/goodseceiptNote" element={<GoodsReceiptNotes />} />
+          <Route path="/goodseceiptNote" element={<Navigate to="/purchase-service/goods-receipt-notes" replace />} />
 
           <Route path="/invoiceVendors" element={<VendorsInvoice />} />
           <Route path="/taxTypes" element={<TaxTypesInvoice />} />

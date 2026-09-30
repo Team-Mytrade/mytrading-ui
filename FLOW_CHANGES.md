@@ -1,5 +1,13 @@
 # Flow Changes
 
+## 2026-09-28
+
+- Vendor, Category, and Product management now live under the Product Catalogue sidebar module in that order. Their previous URLs redirect to the new module routes so existing bookmarks continue to work.
+
+- Purchase operations now follow the Purchase Service flow: Purchase Requisition, Purchase Order, Approval, then Goods Receipt Note. Previous purchase URLs redirect to the corresponding new routes.
+
+- Purchase Requisitions now collect request and required dates, remarks, requester ID, and inline product quantities in one submission instead of creating product line items in a separate step.
+
 ## 2026-09-23
 
 - The shared table-toolbar Share action now opens the export dialog for its associated table, while Refresh keeps users on the page and shows a table loading skeleton.
