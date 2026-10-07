@@ -8,15 +8,20 @@ export type LineItem = {
   categoryId?: number | string;
   quantity: number;
   unitOfMeasure: string;
+  unitPrice?: number;
+  discountAmount?: number;
+  taxAmount?: number;
   remarks?: string;
 };
 
 type Props = {
   items: LineItem[];
   onChange: (items: LineItem[]) => void;
-  products: Array<{ id: number | string; productName: string; uom?: string }>;
+  products: Array<{ id: number | string; productName: string; uom?: string; categoryId?: number | string }>;
   categories?: Array<{ id: number | string; categoryName: string }>;
   uomOptions?: string[];
+  showUom?: boolean;
+  showPricing?: boolean;
   disabled?: boolean;
 };
 
@@ -28,6 +33,8 @@ export default function LineItemsEditor({
   products,
   categories = [],
   uomOptions = DEFAULT_UOM,
+  showUom = true,
+  showPricing = false,
   disabled = false,
 }: Props) {
   const addRow = () => {
@@ -38,6 +45,9 @@ export default function LineItemsEditor({
         categoryId: "",
         quantity: 1,
         unitOfMeasure: "PIECES",
+        unitPrice: 0,
+        discountAmount: 0,
+        taxAmount: 0,
         remarks: "",
       },
     ]);
@@ -90,7 +100,10 @@ export default function LineItemsEditor({
                 <th className="px-3 py-2">Product</th>
                 {categories.length > 0 && <th className="px-3 py-2">Category</th>}
                 <th className="w-24 px-3 py-2">Qty</th>
-                <th className="w-28 px-3 py-2">UOM</th>
+                {showUom && <th className="w-28 px-3 py-2">UOM</th>}
+                {showPricing && <th className="w-28 px-3 py-2">Unit Price</th>}
+                {showPricing && <th className="w-28 px-3 py-2">Discount</th>}
+                {showPricing && <th className="w-28 px-3 py-2">Tax</th>}
                 <th className="px-3 py-2">Remarks</th>
                 <th className="w-10 px-3 py-2" />
               </tr>
@@ -110,6 +123,7 @@ export default function LineItemsEditor({
                           productId: e.target.value,
                           productName: product?.productName,
                           unitOfMeasure: product?.uom || row.unitOfMeasure || "PIECES",
+                          categoryId: product?.categoryId || "",
                         });
                       }}
                       disabled={disabled}
@@ -152,20 +166,31 @@ export default function LineItemsEditor({
                       className={cellInput}
                     />
                   </td>
-                  <td className="px-3 py-2">
-                    <select
-                      value={row.unitOfMeasure}
-                      onChange={(e) => updateRow(index, { unitOfMeasure: e.target.value })}
-                      disabled={disabled}
-                      className={cellInput}
-                    >
-                      {uomOptions.map((u) => (
-                        <option key={u} value={u}>
-                          {u}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
+                  {showUom && (
+                    <td className="px-3 py-2">
+                      <select
+                        value={row.unitOfMeasure}
+                        onChange={(e) => updateRow(index, { unitOfMeasure: e.target.value })}
+                        disabled={disabled}
+                        className={cellInput}
+                      >
+                        {uomOptions.map((u) => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                    </td>
+                  )}
+                  {showPricing && ["unitPrice", "discountAmount", "taxAmount"].map((field) => (
+                    <td key={field} className="px-3 py-2">
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={row[field as keyof LineItem] as number || 0}
+                        onChange={(e) => updateRow(index, { [field]: Number(e.target.value || 0) })}
+                        disabled={disabled}
+                        className={cellInput}
+                      />
+                    </td>
+                  ))}
                   <td className="px-3 py-2">
                     <input
                       type="text"

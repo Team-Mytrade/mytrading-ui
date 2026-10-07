@@ -58,7 +58,6 @@ import Products from "./pages/product-catalogue/Products";
 import ProductCategories from "./pages/product-catalogue/ProductCategories";
 import TermsAndConditions from "./pages/Purchase/TermsAndConditions";
 import Deliveries from "./pages/Purchase/Deliveries";
-import ApprovalStatus from "./pages/purchase-service/ApprovalStatus";
 import GoodsReceiptNotes from "./pages/purchase-service/GoodsReceiptNotes";
 import Inventory from "./pages/Purchase/Inventory";
 import PurchaseReports from "./pages/Purchase/PurchaseReports";
@@ -271,7 +270,6 @@ export default function AppRouter() {
           <Route path="/purchase-service/requisitions" element={<PurchaseRequisitions />} />
           <Route path="/requisition-line-items" element={<RequisitionLineItems />} />
           <Route path="/purchase-service/orders" element={<PurchaseOrders />} />
-          <Route path="/purchase-service/approvals" element={<ApprovalStatus />} />
           <Route path="/purchase-service/goods-receipt-notes" element={<GoodsReceiptNotes />} />
           <Route path="/purchase-requisitions" element={<Navigate to="/purchase-service/requisitions" replace />} />
           <Route path="/purchase-orders" element={<Navigate to="/purchase-service/orders" replace />} />
@@ -283,8 +281,6 @@ export default function AppRouter() {
           <Route path="/product-categories" element={<Navigate to="/product-catalogue/categories" replace />} />
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
           <Route path="/deliveries" element={<Deliveries />} />
-          <Route path="/approvalStatus" element={<Navigate to="/purchase-service/approvals" replace />} />
-          <Route path="/approval-status" element={<Navigate to="/purchase-service/approvals" replace />} />
           <Route path="/goods-receipt-notes" element={<Navigate to="/purchase-service/goods-receipt-notes" replace />} />
           <Route path="/purchase-inventory" element={<Inventory />} />
           <Route path="/purchase-reports" element={<PurchaseReports />} />

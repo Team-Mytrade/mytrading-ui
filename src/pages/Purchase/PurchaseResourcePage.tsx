@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -15,7 +15,7 @@ import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import DynamicPopup from "../../components/common/Popup";
 import FilterPopover from "../../components/common/filter";
-import PaginatedPopup from "../../components/common/unpopup";
+import Dragger from "../../components/common/Dragger";
 import StatsCard from "../../components/common/Statscard";
 import {
   FloatingDatePicker,
@@ -43,7 +43,8 @@ export type FieldType =
   | "datetime-local"
   | "textarea"
   | "select"
-  | "checkbox";
+  | "checkbox"
+  | "toggle";
 
 export type FieldConfig = {
   name: string;
@@ -58,7 +59,16 @@ export type FieldConfig = {
   optionLabel?: string | ((row: PurchaseRecord) => string);
   optionValue?: string | ((row: PurchaseRecord) => string | number);
   gridClassName?: string;
+  controlWidth?: string;
+  /** Controls whether a field is shown for a new record or an existing record. */
+  showOnCreate?: boolean;
+  showOnEdit?: boolean;
+  /** Shows the value as receipt/reference information instead of an input while editing. */
+  readOnlyOnEdit?: boolean;
   placeholderOption?: string;
+  toggleOnValue?: string;
+  toggleOffValue?: string;
+  toggleOptions?: SelectOption[];
   getOptions?: (context: {
     form: PurchaseRecord;
     options: Record<string, SelectOption[]>;
@@ -109,16 +119,34 @@ export type PurchaseResourceConfig = {
     name: string;
     options: SelectOption[];
     widthClassName?: string;
+    defaultValue?: string;
+    /** Handles field changes that use an endpoint other than the resource update URL. */
+    onChange?: (row: PurchaseRecord, nextValue: string) => Promise<void> | void;
   }>;
   buildPayload?: (
     form: PurchaseRecord,
     editingRow: PurchaseRecord | null,
     context: { options: Record<string, SelectOption[]> }
   ) => PurchaseRecord | FormData;
+  /** Return a message when the form is not safe to submit to the API. */
+  validateForm?: (
+    form: PurchaseRecord,
+    editingRow: PurchaseRecord | null,
+    context: { options: Record<string, SelectOption[]> }
+  ) => string | null;
   normalizeForm?: (row: PurchaseRecord) => PurchaseRecord;
 
   initialFormState?: PurchaseRecord;
   autoOpenCreate?: boolean;
+  formPresentation?: "modal" | "drawer";
+  /** Use an in-page editor for new records instead of a modal. */
+  createPresentation?: "modal" | "inline";
+  /** Use an in-page editor for existing records instead of a modal. */
+  editPresentation?: "modal" | "inline";
+  drawerReadOnlyByDefault?: boolean;
+  drawerHeaderDateField?: string;
+  drawerHeaderTextField?: string;
+  drawerCompact?: boolean;
   scope?: { idParam: string; nameParam: string; label: string };
 
   /** Icon-only or extra action buttons rendered inside the Actions cell */
@@ -131,6 +159,33 @@ export type PurchaseResourceConfig = {
     refreshRows: () => Promise<void>;
     options: Record<string, SelectOption[]>;
   }) => React.ReactNode;
+  renderFormSidePanel?: (context: {
+    form: PurchaseRecord;
+    setForm: React.Dispatch<React.SetStateAction<PurchaseRecord>>;
+    editingRow: PurchaseRecord | null;
+    refreshRows: () => Promise<void>;
+    options: Record<string, SelectOption[]>;
+  }) => React.ReactNode;
+  renderInlineEdit?: (context: {
+    form: PurchaseRecord;
+    setForm: React.Dispatch<React.SetStateAction<PurchaseRecord>>;
+    editingRow: PurchaseRecord | null;
+    refreshRows: () => Promise<void>;
+    options: Record<string, SelectOption[]>;
+    onClose: () => void;
+    onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+    submitting: boolean;
+  }) => React.ReactNode;
+  renderCustomForm?: (context: {
+    form: PurchaseRecord;
+    setForm: React.Dispatch<React.SetStateAction<PurchaseRecord>>;
+    editingRow: PurchaseRecord | null;
+    options: Record<string, SelectOption[]>;
+    onClose: () => void;
+    onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+    submitting: boolean;
+  }) => React.ReactNode;
+  formMaxWidthClassName?: string;
 
   afterSubmit?: (context: {
     form: PurchaseRecord;
@@ -272,11 +327,13 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   const [form, setForm] = useState<PurchaseRecord>({});
   const [options, setOptions] = useState<Record<string, SelectOption[]>>({});
   const [deleteRow, setDeleteRow] = useState<PurchaseRecord | null>(null);
+  const [isDrawerEditing, setIsDrawerEditing] = useState(false);
   const [apiFailed, setApiFailed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeFilter, setActiveFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
   const [inlineUpdatingId, setInlineUpdatingId] = useState<string | number | null>(null);
   const [search, setSearch] = useState("");
+  const autoOpenedConfig = useRef<PurchaseResourceConfig | null>(null);
 
   const updateRowLocally = useCallback(
     (rowId: string | number, updater: (row: PurchaseRecord) => PurchaseRecord) => {
@@ -372,12 +429,13 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     if (
       config.autoOpenCreate &&
       config.initialFormState &&
-      Object.keys(config.initialFormState).length > 0
+      Object.keys(config.initialFormState).length > 0 &&
+      autoOpenedConfig.current !== config
     ) {
+      autoOpenedConfig.current = config;
       openCreate();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [config, openCreate]);
 
   const openEdit = async (row: PurchaseRecord) => {
     let selectedRow = row;
@@ -414,6 +472,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     setShowForm(false);
     setEditingRow(null);
     setForm({ ...emptyForm });
+    setIsDrawerEditing(false);
   };
 
   const setField = (field: FieldConfig, value: any) => {
@@ -422,6 +481,11 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    const validationError = config.validateForm?.(form, editingRow, { options });
+    if (validationError) {
+      ToasterService.error(validationError);
+      return;
+    }
     const payload = config.buildPayload ? config.buildPayload(form, editingRow, { options }) : form;
 
     try {
@@ -454,7 +518,9 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       await Promise.all([loadRows(), loadOptions()]);
     } catch (error: any) {
       console.error(`Failed to save ${config.title}`, error);
-      ToasterService.error(error.response?.data?.message || `Failed to save ${config.title}`);
+      ToasterService.error(
+        error.response?.data?.message || error.response?.data?.error || `Failed to save ${config.title}`
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -526,6 +592,15 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
 
     try {
       setInlineUpdatingId(`${row.id}-${fieldName}`);
+      const inlineSelectConfig = config.inlineSelectFields?.find(
+        (field) => field.name === fieldName
+      );
+      if (inlineSelectConfig?.onChange) {
+        await inlineSelectConfig.onChange(row, nextValue);
+        updateRowLocally(row.id, (currentRow) => ({ ...currentRow, [fieldName]: nextValue }));
+        ToasterService.success(`${config.title} updated`);
+        return;
+      }
       const rowForUpdate = await resolveRowForUpdate(row);
       const baseForm = config.normalizeForm ? config.normalizeForm(rowForUpdate) : rowForUpdate;
       const nextForm = { ...emptyForm, ...baseForm, [fieldName]: nextValue };
@@ -540,7 +615,9 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       ToasterService.success(`${config.title} updated`);
     } catch (error: any) {
       console.error(`Failed to update ${config.title}`, error);
-      ToasterService.error(error.response?.data?.message || `Failed to update ${config.title}`);
+      ToasterService.error(
+        error.response?.data?.message || error.response?.data?.error || `Failed to update ${config.title}`
+      );
     } finally {
       setInlineUpdatingId(null);
     }
@@ -560,7 +637,6 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         return typeof value === "object" ? formatCellValue(value) : value;
       },
       render: (row: PurchaseRecord) => {
-        if (column.render) return column.render(row);
         const value = getValue(row, column.key);
         const link = column.link?.(row);
         if (link) return <button type="button" onClick={(event) => { event.stopPropagation(); navigate(link.to); }} className="max-w-[220px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline" title={link.title}>{formatCellValue(value)}</button>;
@@ -592,7 +668,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           (field) => field.name === column.key
         );
         if (inlineSelectConfig) {
-          const currentValue = String(value ?? "");
+          const currentValue = String(value ?? inlineSelectConfig.defaultValue ?? "");
           return (
             <select
               value={currentValue}
@@ -615,6 +691,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
             </select>
           );
         }
+        if (column.render) return column.render(row);
         if (typeof value === "boolean") return <StatusPill active={value} />;
         return <span className="text-sm text-gray-700">{formatCellValue(value)}</span>;
       },
@@ -695,14 +772,33 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       ? field.getOptions({ form, options })
       : field.options || options[field.name] || [];
     const value = form[field.name] ?? defaultForField(field);
+    const isHeaderDateField = config.drawerHeaderDateField === field.name;
+    const isHeaderTextField = config.drawerHeaderTextField === field.name;
+    if (isHeaderDateField || isHeaderTextField) return null;
+    if ((!editingRow && field.showOnCreate === false) || (editingRow && field.showOnEdit === false)) {
+      return null;
+    }
     const floatingOptions: FloatingOption[] = fieldOptions.map((option) => ({
       id: option.value,
       name: option.label,
     }));
 
+    const drawerReadOnly =
+      (config.formPresentation === "drawer" && config.drawerReadOnlyByDefault && !isDrawerEditing) ||
+      (Boolean(editingRow) && field.readOnlyOnEdit);
     let control: React.ReactNode;
 
-    if (field.type === "textarea") {
+    if (drawerReadOnly) {
+      const displayValue = field.type === "select"
+        ? floatingOptions.find((option) => String(option.id) === String(value))?.name || formatCellValue(value)
+        : formatCellValue(value);
+      control = (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <div className="text-xs font-medium text-slate-500">{field.label}</div>
+          <div className="mt-1 text-sm font-semibold text-slate-800">{displayValue}</div>
+        </div>
+      );
+    } else if (field.type === "textarea") {
       control = (
         <FloatingTextarea
           label={field.label}
@@ -722,6 +818,37 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           required={field.required}
           emptyOptionLabel={field.placeholderOption ?? " "}
         />
+      );
+    } else if (field.type === "toggle") {
+      const onValue = field.toggleOnValue || "APPROVED";
+      const offValue = field.toggleOffValue || "PENDING";
+      const isEnabled = value === onValue;
+      control = field.toggleOptions?.length ? (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-1">
+          <div className="grid grid-cols-3 gap-1">
+            {field.toggleOptions.map((option) => {
+              const selected = String(value) === String(option.value);
+              const tone = option.value === "APPROVED" ? "bg-emerald-600" : option.value === "REJECTED" ? "bg-rose-600" : "bg-amber-500";
+              return <button key={String(option.value)} type="button" onClick={() => setField(field, option.value)} className={`rounded-lg px-2 py-2 text-xs font-semibold transition ${selected ? `${tone} text-white shadow-sm` : "text-slate-600 hover:bg-white"}`}>{option.label}</button>;
+            })}
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isEnabled}
+          onClick={() => setField(field, isEnabled ? offValue : onValue)}
+          className="flex h-[58px] w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 text-left transition hover:border-cyan-300"
+        >
+          <span>
+            <span className="block text-sm font-medium text-slate-700">{field.label}</span>
+            <span className={`mt-0.5 block text-xs font-semibold ${isEnabled ? "text-emerald-600" : "text-amber-600"}`}>{isEnabled ? onValue : offValue}</span>
+          </span>
+          <span className={`relative h-6 w-11 rounded-full transition ${isEnabled ? "bg-emerald-500" : "bg-slate-300"}`}>
+            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${isEnabled ? "left-5" : "left-0.5"}`} />
+          </span>
+        </button>
       );
     } else if (field.type === "checkbox") {
       control = (
@@ -765,7 +892,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     }
 
     return (
-      <div key={field.name} className={field.gridClassName || ""}>
+      <div key={field.name} className={field.gridClassName || ""} style={field.controlWidth ? { width: field.controlWidth } : undefined}>
         {control}
       </div>
     );
@@ -778,6 +905,44 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     refreshRows: loadRows,
     options,
   });
+  const sidePanel = config.renderFormSidePanel?.({
+    form,
+    setForm,
+    editingRow,
+    refreshRows: loadRows,
+    options,
+  });
+  const isInlineForm = Boolean(
+    showForm && config.renderInlineEdit && (
+      (editingRow && config.editPresentation === "inline") ||
+      (!editingRow && config.createPresentation === "inline")
+    )
+  );
+  const inlineEdit = isInlineForm
+    ? config.renderInlineEdit?.({
+        form,
+        setForm,
+        editingRow,
+        refreshRows: loadRows,
+        options,
+        onClose: closeForm,
+        onSubmit: handleSubmit,
+        submitting: isSubmitting,
+      })
+    : null;
+  const customFormContent = config.renderCustomForm?.({
+    form,
+    setForm,
+    editingRow,
+    options,
+    onClose: closeForm,
+    onSubmit: handleSubmit,
+    submitting: isSubmitting,
+  });
+  const headerDateValue = config.drawerHeaderDateField ? form[config.drawerHeaderDateField] : null;
+  const headerDate = headerDateValue
+    ? new Date(String(headerDateValue)).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
+    : new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
 
   if (extraFormContent) {
     popupFields.push(
@@ -786,13 +951,27 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       </div>
     );
   }
+  const modalSteps = Array.from(
+    { length: Math.max(1, Math.ceil(popupFields.length / 4)) },
+    (_, index) => ({
+      label: `Step ${index + 1}`,
+      content: (
+        <div className={sidePanel ? "grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(380px,.9fr)]" : "grid grid-cols-1 gap-3 pt-1 md:grid-cols-2"}>
+          <div className={sidePanel ? "grid grid-cols-1 gap-3 pt-1 md:grid-cols-2" : "contents"}>{popupFields.slice(index * 4, index * 4 + 4)}</div>
+          {sidePanel && <aside className="min-w-0 border-t border-slate-100 pt-4 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">{sidePanel}</aside>}
+        </div>
+      ),
+    })
+  );
 
   return (
     <>
       <PageMeta title={config.title} description={config.description} />
       <PageBreadcrumb className="mr-4" pageTitle={config.title} actions={<>{config.renderHeaderActions?.()}{config.allowCreate !== false && <AddButton className="-mr-5" label={`Add ${config.title}`} onClick={() => openCreate()} />}</>} />
 
-      <div className="w-full max-w-none px-0 py-8">
+      {isInlineForm ? (
+        <div className="w-full px-3 py-6">{inlineEdit}</div>
+      ) : <div className="w-full max-w-none px-0 py-8">
         {isScoped && config.scope && <div className="mx-3 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>Showing {config.scope.label.toLowerCase()}: <strong>{scopeName}</strong></span><button type="button" onClick={() => navigate(location.pathname)} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all {config.scope.label.toLowerCase()}s</button></div>}
 
         <div className="py-5 px-3">
@@ -823,20 +1002,65 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
             />
           </div>
         </div>
-      </div>
+      </div>}
 
-      <PaginatedPopup
+      {!isInlineForm && (config.formPresentation === "drawer" ? (
+        <Dragger
+          isOpen={showForm}
+          title={editingRow ? `Edit ${config.title}` : `Add ${config.title}`}
+          subtitle={config.formSubtitle}
+          onClose={closeForm}
+          onSubmit={handleSubmit}
+          submitLabel={editingRow ? "Update" : "Create"}
+          submitting={isSubmitting}
+          headerMeta={config.drawerHeaderDateField || config.drawerHeaderTextField ? (
+            <>
+              {config.drawerHeaderTextField && (isDrawerEditing ? (
+                <input
+                  type="text"
+                  value={String(form[config.drawerHeaderTextField] || "")}
+                  onChange={(event) => setForm((current) => ({ ...current, [config.drawerHeaderTextField!]: event.target.value }))}
+                  aria-label="Approved by"
+                />
+              ) : <span className="dragger__approved-by">Approved by: {String(form[config.drawerHeaderTextField] || "--")}</span>)}
+              {config.drawerHeaderDateField && (isDrawerEditing ? (
+                <input
+                  type="datetime-local"
+                  value={String(headerDateValue || "")}
+                  onChange={(event) => setForm((current) => ({ ...current, [config.drawerHeaderDateField!]: event.target.value }))}
+                  aria-label="Approval date"
+                />
+              ) : headerDate)}
+            </>
+          ) : headerDate}
+          headerAction={config.drawerHeaderDateField || config.drawerHeaderTextField ? (
+            <button type="button" onClick={() => setIsDrawerEditing((current) => !current)} aria-label={isDrawerEditing ? "Lock approval date" : "Edit approval date"} title={isDrawerEditing ? "Lock approval date" : "Edit approval date"}>
+              <PencilSquareIcon className="h-5 w-5" />
+            </button>
+          ) : undefined}
+          showSubmit
+          compact={config.drawerCompact}
+          content={customFormContent}
+        >
+          {!customFormContent && (
+            <div className={sidePanel ? "grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(400px,.9fr)]" : "grid grid-cols-1 gap-3 md:grid-cols-4"}>
+              {sidePanel ? <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{popupFields}</div> : popupFields}
+              {sidePanel && <aside className="min-w-0 border-t border-slate-100 pt-5 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">{sidePanel}</aside>}
+            </div>
+          )}
+        </Dragger>
+      ) : <Dragger
         isOpen={showForm}
+        variant="modal"
         title={editingRow ? `Edit ${config.title}` : `Add ${config.title}`}
         subtitle={config.formSubtitle}
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitLabel={editingRow ? "Update" : "Create"}
         submitting={isSubmitting}
-        maxWidthClassName="max-w-4xl"
-        itemsPerPage={4}
-        fields={popupFields}
-      />
+        steps={customFormContent ? undefined : modalSteps}
+        content={customFormContent}
+      />)}
 
       <DynamicPopup
         isPopupOpen={Boolean(deleteRow)}

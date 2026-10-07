@@ -29,7 +29,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { FloatingInput, FloatingTextarea } from "../../components/inputfeild/FloatingInput";
 import StatsCard from "../../components/common/Statscard";
 import TableExportModal from "../../components/common/TableExportModal";
-import "./Deals.css";
+import "../../styles/Deals.css";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */

@@ -5,7 +5,7 @@ import PageMeta from "../../components/common/PageMeta";
 import { AuthContext } from "../../context/AuthContext";
 import { getAccessibleDashboards, type DashboardEntry } from "./dashboardRegistry";
 import ModuleSnapshot from "./ModuleSnapshot";
-import "./Home.css";
+import "../../styles/Home.css";
 
 const STORAGE_KEY = "cc-active-module";
 

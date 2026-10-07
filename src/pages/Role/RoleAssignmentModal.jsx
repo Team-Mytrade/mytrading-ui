@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import "./RoleAssignmentModal.css";
+import "../../styles/RoleAssignmentModal.css";
 
 const roles = ["Tenant Admin", "Admin", "Manager", "User"];
 

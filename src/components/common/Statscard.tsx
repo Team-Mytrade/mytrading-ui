@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ChartBarIcon,
 } from "@heroicons/react/24/outline";
-import "./Statscard.css";
+import "../../styles/Statscard.css";
 import TableToolbar from "./TableToolbar";
 
 interface StatsCardProps {

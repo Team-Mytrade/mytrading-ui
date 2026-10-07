@@ -12,7 +12,7 @@ import RoleTab from "./RoleTab";
 import PermissionTab from "./PermissionTab";
 import RolePermissionTab from "./RolePermissionTab";
 import UserEmployeeTab from "./UserEmployeeTab";
-import "./Mainrole.css";
+import "../../styles/Mainrole.css";
 
 const RoleConfig: React.FC = () => {
   const { user } = useContext(AuthContext);

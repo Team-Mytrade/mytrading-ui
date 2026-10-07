@@ -22,6 +22,9 @@ type RequisitionItem = {
 type RequisitionDetail = {
   id?: string | number;
   vendorId?: string | number;
+  vendorCode?: string;
+  name?: string;
+  vendor?: { id?: string | number; vendorCode?: string; name?: string };
   items?: RequisitionItem[];
 };
 
@@ -60,9 +63,11 @@ export default function PurchaseOrders() {
         setPrefilledConfig({
           ...purchaseOrderConfig,
           initialFormState: {
-            requisitionId: requisition.id,
+            purchaseRequisitionId: requisition.id,
             items,
-            vendorId: requisition.vendorId ?? "",
+            vendorId: requisition.vendorId ?? requisition.vendor?.id ?? "",
+            vendorCode: requisition.vendorCode ?? requisition.vendor?.vendorCode ?? "",
+            name: requisition.name ?? requisition.vendor?.name ?? "",
           },
           autoOpenCreate: true,
         });

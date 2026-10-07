@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
 import { AuthContext } from "../context/AuthContext";
-import "./AppSidebar.css";
+import "../styles/AppSidebar.css";
 import { publicAsset } from "../utils/assets";
 
 type SubItem = {
@@ -133,7 +133,6 @@ export const navItems: NavItem[] = [
     subItems: [
       { name: "Purchase Requisitions", path: "/purchase-service/requisitions" },
       { name: "Purchase Orders", path: "/purchase-service/orders" },
-      { name: "Approval", path: "/purchase-service/approvals" },
       { name: "Goods Receipt Notes", path: "/purchase-service/goods-receipt-notes" },
     ],
   },
