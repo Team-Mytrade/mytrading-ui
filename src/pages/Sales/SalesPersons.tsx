@@ -1,4 +1,4 @@
-import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import React, { ChangeEvent, FormEvent, KeyboardEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -16,19 +16,6 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import { FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
-
-/**
- * CHANGES IN THIS VERSION
- *  1. Row Details drawer now has an "Edit" button (via the new `rowDetailsActions`
- *     prop on ReusableTable — see the Table.tsx patch). Clicking it calls the
- *     same `openEdit(person)` used by the pencil icon in the table.
- *  2. The edit popup is wrapped in a high z-index container so it always
- *     renders ABOVE the open Row Details drawer.
- *  3. After a successful save, `salesPersons` state is updated, ReusableTable
- *     re-syncs its open drawer with the fresh row (Table.tsx patch), so the
- *     Row Details drawer is still showing — with the updated values.
- *  4. Added missing `key` props on the form fields array (React warning).
- */
 
 type SalesPerson = {
   id: number;
