@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Activity, Building2, Check, Crown, Search, ShieldCheck, UserCog, Users } from "lucide-react";
-import "./role.css";
+import "../../styles/role.css";
 import CreateAccess from "./CreateAccess";
 import DirectoryRows from "./DirectoryRows";
 

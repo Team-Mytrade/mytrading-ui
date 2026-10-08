@@ -15,7 +15,7 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import noDataImage from "../../images/no_data.png";
 import RecordDetailDrawer from "./RecordDetailDrawer";
 import TableExportModal from "./TableExportModal";
-import "./Table.css";
+import "../../styles/Table.css";
 
 export interface ColumnDef<T> {
   key: string;

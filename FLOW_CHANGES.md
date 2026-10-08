@@ -1,5 +1,23 @@
 # Flow Changes
 
+## 2026-10-06
+
+- Every Purchase Requisition now exposes the Create Purchase Order cart action; conversion is no longer restricted by a requisition status displayed in the list.
+
+## 2026-10-03
+
+- Purchase Order approval is now performed from the Status dropdown on the Purchase Orders list. The separate Approval submodule and its routes have been removed; only approved purchase orders are available when creating a Goods Receipt Note.
+
+## 2026-09-28
+
+- Vendor, Category, and Product management now live under the Product Catalogue sidebar module in that order. Their previous URLs redirect to the new module routes so existing bookmarks continue to work.
+
+- Purchase operations now follow the Purchase Service flow: Purchase Requisition, Purchase Order, Approval, then Goods Receipt Note. Previous purchase URLs redirect to the corresponding new routes.
+
+- Purchase Requisitions now collect request and required dates, remarks, requester ID, and inline product quantities in one submission instead of creating product line items in a separate step.
+
+- Approved Purchase Requisitions now provide a Create Purchase Order action that opens Purchase Orders with that requisition and its line items preselected. Requisition status can be updated directly from the list.
+
 ## 2026-09-23
 
 - The shared table-toolbar Share action now opens the export dialog for its associated table, while Refresh keeps users on the page and shows a table loading skeleton.

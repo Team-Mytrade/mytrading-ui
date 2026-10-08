@@ -1,6 +1,6 @@
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useEffect } from "react";
-import "./RecordDetailDrawer.css";
+import "../../styles/RecordDetailDrawer.css";
 
 interface RecordDetailDrawerProps {
   isOpen: boolean;

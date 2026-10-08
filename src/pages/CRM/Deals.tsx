@@ -32,7 +32,7 @@ import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import PaginatedPopup from "../../components/common/unpopup";
-import "./Deals.css";
+import "../../styles/Deals.css";
 
 const API_URL = "/v1/api/crm/deals";
 const LEADS_API = "/v1/api/crm/leads";

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { exportListingPdf } from "./export";
-import "./TableExportModal.css";
+import "../../styles/TableExportModal.css";
 
 const PERIODS = [{ label: "All time", value: "all" }, { label: "Last 30 days", value: "30" }, { label: "Last 90 days", value: "90" }, { label: "Custom range", value: "custom" }];
 
