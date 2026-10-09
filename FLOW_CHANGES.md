@@ -69,3 +69,7 @@
 ## 2026-09-09
 
 - Selecting a module from the compact sidebar rail now opens its adjacent submodule panel for page selection.
+
+## 2026-10-09
+
+- Product Categories now includes an Add Product row action that opens the Product Catalogue create flow with the selected category prefilled.

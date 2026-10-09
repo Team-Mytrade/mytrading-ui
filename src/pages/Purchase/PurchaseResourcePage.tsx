@@ -137,7 +137,11 @@ export type PurchaseResourceConfig = {
   normalizeForm?: (row: PurchaseRecord) => PurchaseRecord;
 
   initialFormState?: PurchaseRecord;
+  /** Values to merge into the form when an external flow opens a new record. */
+  initialCreateState?: PurchaseRecord;
   autoOpenCreate?: boolean;
+  /** Unique navigation key that prevents an external create flow from reopening after the form closes. */
+  autoOpenCreateKey?: string;
   formPresentation?: "modal" | "drawer";
   /** Use an in-page editor for new records instead of a modal. */
   createPresentation?: "modal" | "inline";
@@ -333,7 +337,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   const [activeFilter, setActiveFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
   const [inlineUpdatingId, setInlineUpdatingId] = useState<string | number | null>(null);
   const [search, setSearch] = useState("");
-  const autoOpenedConfig = useRef<PurchaseResourceConfig | null>(null);
+  const autoOpenedKey = useRef<string | null>(null);
 
   const updateRowLocally = useCallback(
     (rowId: string | number, updater: (row: PurchaseRecord) => PurchaseRecord) => {
@@ -426,16 +430,12 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   );
 
   useEffect(() => {
-    if (
-      config.autoOpenCreate &&
-      config.initialFormState &&
-      Object.keys(config.initialFormState).length > 0 &&
-      autoOpenedConfig.current !== config
-    ) {
-      autoOpenedConfig.current = config;
-      openCreate();
+    const autoOpenKey = config.autoOpenCreateKey || config.title;
+    if (config.autoOpenCreate && autoOpenedKey.current !== autoOpenKey) {
+      autoOpenedKey.current = autoOpenKey;
+      openCreate(config.initialCreateState);
     }
-  }, [config, openCreate]);
+  }, [config.autoOpenCreate, config.autoOpenCreateKey, config.initialCreateState, config.title, openCreate]);
 
   const openEdit = async (row: PurchaseRecord) => {
     let selectedRow = row;
