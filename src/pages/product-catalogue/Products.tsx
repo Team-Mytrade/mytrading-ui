@@ -1,7 +1,7 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { ArrowDownTrayIcon, PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ToasterService } from "../../Services/ToasterService";
 import PurchaseResourcePage, {
   PurchaseRecord,
@@ -470,6 +470,9 @@ const baseProductConfig: PurchaseResourceConfig = {
 
 export default function Products() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const categoryId = searchParams.get("categoryId") || "";
+  const categoryName = searchParams.get("categoryName") || "";
   const [reloadKey, setReloadKey] = useState(0);
   const [createdProductForImage, setCreatedProductForImage] = useState<PurchaseRecord | null>(null);
   const [postCreateImageFile, setPostCreateImageFile] = useState<File | null>(null);
@@ -519,6 +522,10 @@ export default function Products() {
 
   const productConfig: PurchaseResourceConfig = {
     ...baseProductConfig,
+    autoOpenCreate: Boolean(categoryId),
+    autoOpenCreateKey: categoryId ? `category-product-${categoryId}` : undefined,
+    initialCreateState: categoryId ? { categoryId } : undefined,
+    formSubtitle: categoryName ? `Creating a product in ${categoryName}.` : undefined,
     afterSubmit: ({ savedRow, isCreate }) => {
       if (!isCreate || !savedRow?.id) return;
       setCreatedProductForImage(savedRow);
