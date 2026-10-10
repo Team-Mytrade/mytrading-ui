@@ -1,3 +1,4 @@
+import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { 
@@ -14,23 +15,48 @@ import { ToasterService } from '../../Services/ToasterService';
 const CHECK_IN_URL = '/v1/api/attendance/records/check-in';
 const CHECK_OUT_URL = '/v1/api/attendance/records/check-out';
 
+// Stable per-browser id, informational only (the server records IP and user agent itself)
+const getBrowserDeviceId = (): string => {
+  try {
+    let id = localStorage.getItem('punchDeviceId');
+    if (!id) {
+      id = (crypto.randomUUID?.() ?? String(Date.now())).slice(0, 18);
+      localStorage.setItem('punchDeviceId', id);
+    }
+    return id;
+  } catch {
+    return 'browser';
+  }
+};
+
+// Current GPS position, or null when unavailable or denied (the server decides if it is required)
+const getBrowserPosition = (): Promise<{ latitude: number; longitude: number } | null> =>
+  new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
+    );
+  });
+
 interface AttendancePayload {
-  employeeId: number;
+  employeeId?: number;
   attendanceSource: string;
   attendanceMode: string;
   deviceId: string;
   deviceName: string;
   location: string;
-  latitude: number;
-  longitude: number;
-  ipAddress: string;
+  latitude?: number;
+  longitude?: number;
+  ipAddress?: string;
   remarks?: string;
 }
 
 interface PunchLogEntry {
   id: number;
   type: 'CHECK_IN' | 'CHECK_OUT';
-  employeeId: number;
+  employeeId?: number;
   employeeName?: string;
   timestamp: string;
   attendanceSource: string;
@@ -81,35 +107,15 @@ const AttendancePunchPage: React.FC = () => {
   }, []);
 
   // Current logged in user
-  const currentUser = useMemo(() => {
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        const parsed = JSON.parse(userStr);
-        const uName = (parsed.fullName || parsed.name || parsed.username || '').trim();
-        const isRoy = uName.toLowerCase().includes('roy') || uName.toLowerCase().includes('hamlin');
-        const defaultId = isRoy ? 71 : (parsed.employeeId || parsed.id || 71);
-        return {
-          id: parsed.employeeId ? Number(parsed.employeeId) : defaultId,
-          name: uName || 'Roy Hamlin',
-          code: parsed.employeeCode || `EMP-${parsed.employeeId || defaultId}`,
-          role: parsed.role || 'Employee'
-        };
-      } catch (e) {}
-    }
-    return { id: 71, name: 'Roy Hamlin', code: 'EMP-71', role: 'Employee' };
-  }, []);
+  // Own employee identity from the login token (no hard-coded ids)
+  const currentUser = useCurrentEmployee();
 
   const [formData, setFormData] = useState<AttendancePayload>({
-    employeeId: currentUser.id || 71,
-    attendanceSource: 'BIOMETRIC',
+    attendanceSource: 'WEB',
     attendanceMode: 'OFFICE',
-    deviceId: '124566',
-    deviceName: 'HYD_RMZ_12456',
-    location: 'HYD',
-    latitude: 125.25,
-    longitude: 451.2,
-    ipAddress: '192.255.26.1',
+    deviceId: getBrowserDeviceId(),
+    deviceName: navigator.userAgent.slice(0, 120),
+    location: '',
     remarks: 'Shift Check-In'
   });
 
@@ -141,11 +147,7 @@ const AttendancePunchPage: React.FC = () => {
           setEmployees(list);
         }
       } catch (e) {
-        setEmployees([
-          { id: 71, name: 'Roy Hamlin', code: 'EMP-71', department: 'Management', designation: 'General Manager' },
-          { id: 12, name: 'John Doe', code: 'EMP-12', department: 'Engineering', designation: 'Senior Developer' },
-          { id: 15, name: 'Sarah Connor', code: 'EMP-15', department: 'HR', designation: 'HR Specialist' }
-        ]);
+        setEmployees([]);
       }
     };
     loadEmployees();
@@ -190,11 +192,11 @@ const AttendancePunchPage: React.FC = () => {
             timestamp: item.checkInTime || item.punchTime || item.createdDate || new Date().toLocaleTimeString(),
             attendanceSource: item.attendanceSource || 'BIOMETRIC',
             attendanceMode: item.attendanceMode || 'OFFICE',
-            deviceId: item.deviceId || '124566',
-            deviceName: item.deviceName || 'HYD_RMZ_12456',
-            location: item.location || 'HYD',
-            coordinates: item.latitude ? `${item.latitude}, ${item.longitude}` : '125.25, 451.2',
-            ipAddress: item.ipAddress || '192.255.26.1',
+            deviceId: item.deviceId || '—',
+            deviceName: item.deviceName || '—',
+            location: item.location || '—',
+            coordinates: item.latitude ? `${item.latitude}, ${item.longitude}` : '—',
+            ipAddress: item.ipAddress || '—',
             remarks: item.remarks || (item.checkOutTime ? 'Shift Check-Out' : 'Shift Check-In'),
             status: 'Success'
           };
@@ -220,9 +222,8 @@ const AttendancePunchPage: React.FC = () => {
   };
 
   const handlePunch = async (type: 'CHECK_IN' | 'CHECK_OUT') => {
-    const targetEmpId = Number(formData.employeeId) || currentUser.id;
-    if (!targetEmpId) {
-      ToasterService.error('Active employee session not found. Please refresh or log in again.');
+    if (!currentUser.hasEmployee) {
+      ToasterService.error('No employee record is linked to your account.');
       return;
     }
 
@@ -230,16 +231,15 @@ const AttendancePunchPage: React.FC = () => {
       setIsSubmitting(true);
       const endpoint = type === 'CHECK_IN' ? CHECK_IN_URL : CHECK_OUT_URL;
       
+      const position = await getBrowserPosition();
       const payload: AttendancePayload = {
-        employeeId: Number(formData.employeeId),
         attendanceSource: formData.attendanceSource,
         attendanceMode: formData.attendanceMode,
         deviceId: formData.deviceId,
         deviceName: formData.deviceName,
         location: formData.location,
-        latitude: Number(formData.latitude),
-        longitude: Number(formData.longitude),
-        ipAddress: formData.ipAddress,
+        latitude: position?.latitude,
+        longitude: position?.longitude,
         remarks: type === 'CHECK_IN' ? 'Shift Check-In' : 'Shift Check-Out'
       };
 
@@ -261,7 +261,7 @@ const AttendancePunchPage: React.FC = () => {
       const newEntry: PunchLogEntry = {
         id: Date.now(),
         type: type,
-        employeeId: payload.employeeId,
+        employeeId: currentUser.id,
         employeeName: empName,
         timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
         attendanceSource: payload.attendanceSource,
@@ -269,8 +269,8 @@ const AttendancePunchPage: React.FC = () => {
         deviceId: payload.deviceId,
         deviceName: payload.deviceName,
         location: payload.location,
-        coordinates: `${payload.latitude}, ${payload.longitude}`,
-        ipAddress: payload.ipAddress,
+        coordinates: position ? `${position.latitude.toFixed(5)}, ${position.longitude.toFixed(5)}` : '—',
+        ipAddress: 'Recorded by server',
         remarks: payload.remarks || (type === 'CHECK_IN' ? 'Shift Check-In' : 'Shift Check-Out'),
         status: 'Success'
       };
@@ -599,6 +599,9 @@ const AttendancePunchPage: React.FC = () => {
             showAdvanced ? 'grid-rows-[1fr] opacity-100 pt-3 border-t border-slate-100 dark:border-[#303030]' : 'grid-rows-[0fr] opacity-0 pt-0 border-t-0'
           }`}>
             <div className="overflow-hidden">
+              <p className="pb-2 text-[11px] text-slate-500 dark:text-gray-400">
+                Your location is read from this device when you punch. IP address and device are recorded by the server.
+              </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
                 <div>
                   <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">Attendance Source</label>
@@ -612,32 +615,16 @@ const AttendancePunchPage: React.FC = () => {
 
                 <div>
                   <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">Attendance Mode</label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.attendanceMode}
                     onChange={(e) => handleInputChange('attendanceMode', e.target.value)}
                     className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">Device ID</label>
-                  <input
-                    type="text"
-                    value={formData.deviceId}
-                    onChange={(e) => handleInputChange('deviceId', e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">Device Name</label>
-                  <input
-                    type="text"
-                    value={formData.deviceName}
-                    onChange={(e) => handleInputChange('deviceName', e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
-                  />
+                  >
+                    <option value="OFFICE">Office</option>
+                    <option value="WORK_FROM_HOME">Work from home</option>
+                    <option value="HYBRID">Hybrid</option>
+                    <option value="ON_DUTY">On duty</option>
+                  </select>
                 </div>
 
                 <div>
@@ -646,38 +633,6 @@ const AttendancePunchPage: React.FC = () => {
                     type="text"
                     value={formData.location}
                     onChange={(e) => handleInputChange('location', e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">IP Address</label>
-                  <input
-                    type="text"
-                    value={formData.ipAddress}
-                    onChange={(e) => handleInputChange('ipAddress', e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">Latitude</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={formData.latitude}
-                    onChange={(e) => handleInputChange('latitude', e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">Longitude</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={formData.longitude}
-                    onChange={(e) => handleInputChange('longitude', e.target.value)}
                     className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
                   />
                 </div>

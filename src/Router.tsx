@@ -1,8 +1,10 @@
+import { ROUTER_BASENAME } from "./utils/appPath";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import SessionDraftRestorer from "./components/common/SessionDraftRestorer";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import Forget from "./pages/AuthPages/Forget";
+import ResetPasswordPage from "./pages/AuthPages/ResetPasswordPage";
 import Contact from "./pages/AuthPages/Contact";
 import Privacy from "./pages/AuthPages/Privacy";
 import Terms from "./pages/AuthPages/Terms";
@@ -177,6 +179,8 @@ import PayrollDashboard from "./pages/Payroll/PayrollDashboard";
 import AttendanceDashboard from "./pages/Attendance/AttendanceDashboard";
 import UserDashboard from "./components/UserProfile/UserDashboard";
 import Mainrole from "./pages/roleconfig/Mainrole";
+import UserAccessPage from "./pages/roleconfig/UserAccessPage";
+import TenantsPage from "./pages/Platform/TenantsPage";
 import Batch from "./pages/Inventory/batch";
 import EmployeeCompensationPage from "./pages/Payroll/EmployeeCompensationPage";
 import EmployeeDepartmentsPage from "./pages/Payroll/EmployeeDepartments";
@@ -209,7 +213,7 @@ import FinanceReport from "./pages/reports/FinanceReport";
 import Reports from "./pages/CRM/Reports";
 export default function AppRouter() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={ROUTER_BASENAME}>
       <ScrollToTop />
       <SessionDraftRestorer />
       <Routes>
@@ -240,6 +244,8 @@ export default function AppRouter() {
           <Route path="/crm-reports" element={<Reports />} />
           
           <Route path="/role_config" element={<Mainrole />} />
+          <Route path="/role_config/access" element={<UserAccessPage />} />
+          <Route path="/platform/tenants" element={<TenantsPage />} />
 
           <Route path="/service-schedule-notify" element={<ServiceScheduleNotify />} />
           <Route path="/sales-targets" element={<SalesTargets />} />
@@ -472,6 +478,7 @@ export default function AppRouter() {
         <Route path="/signin" element={<SignIn />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/forgetpassword" element={<Forget />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/contactus" element={<Contact />} />
         <Route path="/termsandconditions" element={<Terms />} />
         <Route path="/privacypolicy" element={<Privacy />} />

@@ -1,3 +1,4 @@
+import { imageFallback } from "../../utils/imageFallback";
 import { useContext, useState, useEffect, useRef } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
@@ -149,9 +150,7 @@ export default function UserDropdown() {
               src={profileImage} 
               alt="User" 
               className="object-cover w-full h-full"
-              onError={(e) => {
-                e.currentTarget.src = placeholderImage;
-              }}
+              onError={imageFallback(placeholderImage)}
             />
           </div>
           <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-white dark:border-gray-dark ${getStatusIndicator(status)} transform translate-x-0.5 translate-y-0.5`}></span>
@@ -192,9 +191,7 @@ export default function UserDropdown() {
                 src={profileImage} 
                 alt="User" 
                 className="object-cover w-full h-full"
-                onError={(e) => {
-                  e.currentTarget.src = placeholderImage;
-                }}
+                onError={imageFallback(placeholderImage)}
               />
             </div>
             <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-white dark:border-gray-dark ${getStatusIndicator(status)}`}></span>

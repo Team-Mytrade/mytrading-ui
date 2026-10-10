@@ -10,6 +10,7 @@ import {
 } from "./PurchaseResourcePage";
 import LineItemsEditor, { LineItem } from "../Purchase/LineItemsEditor";
 import GoodsReceiptEditor from "../purchase-service/GoodsReceiptEditor";
+import RequisitionWorkflowActions from "./RequisitionWorkflowActions";
 
 const PURCHASE = "/v1/api/purchase";
 const CATEGORIES = "/v1/api/purchase/product-categories";
@@ -317,20 +318,15 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   description: "Create purchase requisitions for products from the Product Catalogue service.",
   endpoint: `${PURCHASE}/purchase-requisitions`,
   getByIdEndpoint: (row) => `${PURCHASE}/purchase-requisitions/${row.id}`,
+  // Status and requester are set by the server; status changes only via Submit/Approve/Reject/Cancel
   columns: [
-    { key: "remarks", label: "Remarks" },
-    { key: "requestDate", label: "Request Date" },
-    { key: "requiredDate", label: "Required Date" },
+    { key: "requisitionNumber", label: "Number" },
+    { key: "notes", label: "Remarks" },
+    { key: "requiredByDate", label: "Required Date" },
     { key: "userId", label: "Requested By" },
+    { key: "status", label: "Status", render: (row) => statusBadge(String(row.status ?? "")) },
   ],
   fields: [
-    {
-      name: "requestDate",
-      label: "Request Date",
-      type: "date",
-      required: true,
-      defaultValue: new Date().toISOString().slice(0, 10),
-    },
     {
       name: "requiredDate",
       label: "Required Date",
@@ -339,7 +335,6 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
       defaultValue: new Date().toISOString().slice(0, 10),
     },
     { name: "remarks", label: "Remarks", type: "textarea", required: true, gridClassName: "md:col-span-2" },
-    { name: "userId", label: "User ID", type: "number", required: true, defaultValue: 1 },
     {
       name: "productId",
       label: "Product",
@@ -349,30 +344,24 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
       gridClassName: "hidden",
     },
   ],
-  searchFields: ["id", "remarks", "status", "userId"],
+  searchFields: ["id", "requisitionNumber", "notes", "status", "userId"],
   initialFormState: {
-    requestDate: "2026-09-24",
-    requiredDate: "2026-10-05",
-    remarks: "Batch and serial tracking integration test",
-    userId: 1,
+    requiredDate: new Date().toISOString().slice(0, 10),
+    remarks: "",
     items: [],
   },
   normalizeForm: (row) => ({
-    requestDate: dateOnly(row.requestDate),
     requiredDate: dateOnly(row.requiredDate || row.requiredByDate),
     remarks: row.remarks || row.notes || "",
-    userId: row.userId ?? row.requester?.userId ?? "",
     items: Array.isArray(row.items) ? row.items : [],
   }),
   renderFormExtras: ({ form, setForm, options }) => (
     <RequisitionItemsEditor form={form} setForm={setForm} options={options} />
   ),
+  // Field names match the Purchase service (notes, requiredByDate); no status or requester
   buildPayload: (form) => ({
-    requestDate: form.requestDate,
-    requiredDate: form.requiredDate,
-    remarks: String(form.remarks || "").trim(),
-    userId: toNumberOrZero(form.userId),
-    ...(form.status ? { status: form.status } : {}),
+    requiredByDate: form.requiredDate,
+    notes: String(form.remarks || "").trim(),
     items: (Array.isArray(form.items) ? form.items : [])
       .filter((item) => item.productId && Number(item.quantity) > 0)
       .map((item) => ({
@@ -383,8 +372,11 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
         quantity: toNumberOrZero(item.quantity),
       })),
   }),
-  // Icon-only Create PO button with tooltip in the Actions column.
-  renderRowActions: (row) => (
+  // Workflow buttons by status and permission (the server enforces both), plus Create PO once approved.
+  renderRowActions: (row, { refreshRows }) => (
+    <>
+      <RequisitionWorkflowActions row={row} refreshRows={refreshRows} />
+      {String(row.status) === "APPROVED" && (
       <button
         type="button"
         onClick={(e) => {
@@ -400,6 +392,8 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
       >
         <ShoppingCartIcon className="h-4 w-4" />
       </button>
+      )}
+    </>
   ),
 };
 

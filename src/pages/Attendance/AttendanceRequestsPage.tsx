@@ -1,3 +1,4 @@
+import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { 
@@ -61,23 +62,8 @@ export interface OnDutyDateRow {
 
 const AttendanceRequestsPage: React.FC = () => {
   // ── User Context Resolution ─────────────────────────────────────────────
-  const currentUser = useMemo(() => {
-    const userStr = localStorage.getItem("user");
-    if (userStr) {
-      try {
-        const parsed = JSON.parse(userStr);
-        return {
-          id: parsed.id || parsed.userId || 12,
-          name: parsed.fullName || parsed.name || parsed.username || "Roy Hamlin",
-          role: parsed.role || parsed.roles?.[0] || "SUPER_ADMIN",
-          email: parsed.email || parsed.username || "roy.hamlin@example.com"
-        };
-      } catch (e) {
-        console.error("Failed to parse user from localStorage", e);
-      }
-    }
-    return { id: 12, name: "Roy Hamlin", role: "SUPER_ADMIN", email: "roy.hamlin@example.com" };
-  }, []);
+  // Own employee identity from the login token (no hard-coded ids)
+  const currentUser = useCurrentEmployee();
 
   // ── States ─────────────────────────────────────────────────────────────
   const [requests, setRequests] = useState<AttendanceRequestModel[]>([]);
@@ -86,8 +72,8 @@ const AttendanceRequestsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'apply' | 'history'>('apply');
   const [formStep, setFormStep] = useState<'form' | 'datesBreakdown'>('form');
 
-  const [currentEmployeeId, setCurrentEmployeeId] = useState<number>(currentUser.id || 12);
-  const [employeeCode, setEmployeeCode] = useState<string>(`EMP-${currentUser.id || 12}`);
+  const [currentEmployeeId, setCurrentEmployeeId] = useState<number>(currentUser.id);
+  const [employeeCode, setEmployeeCode] = useState<string>(currentUser.code);
 
   // Step 2: Date Rows State
   const [onDutyDateRows, setOnDutyDateRows] = useState<OnDutyDateRow[]>([]);

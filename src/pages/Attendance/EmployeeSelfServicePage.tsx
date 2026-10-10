@@ -1,3 +1,4 @@
+import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
@@ -31,67 +32,11 @@ const EmployeeSelfServicePage: React.FC = () => {
   const [isCalendarExpanded, setIsCalendarExpanded] = useState<boolean>(false);
 
   // User Profile
-  const currentUser = useMemo(() => {
-    const userStr = localStorage.getItem("user");
-    if (userStr) {
-      try {
-        const parsed = JSON.parse(userStr);
-        const uName = (parsed.fullName || parsed.name || parsed.username || '').trim();
-        const isRoy = uName.toLowerCase().includes('roy') || uName.toLowerCase().includes('hamlin');
-        const defaultId = isRoy ? 71 : (parsed.employeeId || parsed.id || 71);
-        return {
-          id: parsed.employeeId ? Number(parsed.employeeId) : defaultId,
-          name: uName || 'Roy Hamlin',
-          code: parsed.employeeCode || `EMP-${parsed.employeeId || defaultId}`
-        };
-      } catch (e) {}
-    }
-    return { id: 71, name: 'Roy Hamlin', code: 'EMP-71' };
-  }, []);
+  // Own employee identity from the login token (no hard-coded ids)
+  const currentUser = useCurrentEmployee();
 
-  const [resolvedEmpId, setResolvedEmpId] = useState<number>(() => {
-    const userStr = localStorage.getItem("user");
-    if (userStr) {
-      try {
-        const parsed = JSON.parse(userStr);
-        if (parsed.employeeId) return Number(parsed.employeeId);
-        const uName = (parsed.fullName || parsed.name || '').toLowerCase();
-        if (uName.includes('roy') || uName.includes('hamlin')) return 71;
-        if (parsed.id) return Number(parsed.id);
-      } catch (e) {}
-    }
-    return 71;
-  });
-
-  // Dynamic Employee ID resolver matching against /v1/api/payroll/employee/all
-  useEffect(() => {
-    const resolveUserEmployeeId = async () => {
-      try {
-        const empRes = await axios.get('/v1/api/payroll/employee/all');
-        if (Array.isArray(empRes.data) && empRes.data.length > 0) {
-          const uName = (currentUser.name || '').toLowerCase().trim();
-          const match = empRes.data.find((e: any) => {
-            const eName = `${e.firstName || ''} ${e.lastName || ''}`.trim().toLowerCase() || (e.name || '').toLowerCase();
-            return (uName && (eName.includes(uName) || uName.includes(eName))) || 
-                   (currentUser.id > 0 && Number(e.id) === currentUser.id);
-          });
-          if (match && match.id) {
-            const validId = Number(match.id);
-            setResolvedEmpId(validId);
-            const userStr = localStorage.getItem('user');
-            if (userStr) {
-              try {
-                const parsed = JSON.parse(userStr);
-                parsed.employeeId = validId;
-                localStorage.setItem('user', JSON.stringify(parsed));
-              } catch (e) {}
-            }
-          }
-        }
-      } catch (e) {}
-    };
-    resolveUserEmployeeId();
-  }, [currentUser.name, currentUser.id]);
+  // The employee comes from the login token; never guessed from names
+  const resolvedEmpId = currentUser.id;
 
   const monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -144,7 +89,7 @@ const EmployeeSelfServicePage: React.FC = () => {
 
   // Fetch Attendance records, leaves, and holidays live using the resolved employee ID
   const fetchCalendarData = useCallback(async () => {
-    const empId = resolvedEmpId || currentUser.id || 71;
+    const empId = resolvedEmpId;
     setLoadingCalendar(true);
     try {
       const [attRes, leaveRes, holRes, balRes] = await Promise.allSettled([

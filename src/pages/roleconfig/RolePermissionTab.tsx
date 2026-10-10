@@ -204,7 +204,6 @@ const RolePermissionTab: React.FC<RolePermissionTabProps> = ({ selectedPermissio
         method: "DELETE",
         headers: {
           ...getHeaders(),
-          ...(user?.tenantId ? { "X-Tenant-ID": user.tenantId } : {}),
         },
       });
 

@@ -6,6 +6,9 @@ import AppSidebar from "./AppSidebar";
 import { AuthContext } from "../context/AuthContext";
 import SignIn from "../pages/AuthPages/SignIn";
 import { useContext } from "react";
+import { canAccessPath } from "../access/access";
+import NoAccess from "../access/NoAccess";
+import TenantBanner from "../access/TenantBanner";
 
 
 import { useState, useEffect } from "react";
@@ -14,6 +17,7 @@ import "../styles/SalesDarkMode.css";
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, sidebarWidth, isResizing } = useSidebar();
   const location = useLocation();
+  const { access } = useContext(AuthContext);
   const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
   const scrollablePages = ["/purchase-reports", "/rolesPermissions", "/delivery_dashboard", "/profile"];
   const isScrollablePage =
@@ -66,9 +70,10 @@ const LayoutContent: React.FC = () => {
       >
         <div className="shrink-0">
           <AppHeader />
+          <TenantBanner />
         </div>
         <div className={`app-content-tight min-h-0 flex-1 w-full px-2 py-[3px] md:px-3 md:py-[3px] ${isSalesModule ? "sales-module" : ""} ${isScrollablePage ? "overflow-x-hidden overflow-y-auto overscroll-contain no-scrollbar" : "overflow-hidden"}`}>
-          <Outlet />
+          {canAccessPath(access, location.pathname) ? <Outlet /> : <NoAccess />}
         </div>
       </div>
     </div>

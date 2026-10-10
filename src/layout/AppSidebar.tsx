@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useContext } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useContext } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import {
   LayoutDashboard,
@@ -15,17 +15,21 @@ import {
   ChevronsRight,
   BarChart3,
   Briefcase,
+  Building2,
 } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
 import { AuthContext } from "../context/AuthContext";
+import { AccessInfo, canAccessPath, hasPermission } from "../access/access";
 import "../styles/AppSidebar.css";
 import { publicAsset } from "../utils/assets";
 
+// Items are shown only when the user can reach their module (see access.ts) and,
+// if set, holds `permission`. The backend enforces the same rules.
 type SubItem = {
   name: string;
   path?: string;
   subItems?: { name: string; path: string }[];
-  roles?: string[];
+  permission?: string;
 };
 
 type NavItem = {
@@ -33,7 +37,24 @@ type NavItem = {
   icon: React.ReactNode;
   path?: string;
   subItems?: SubItem[];
-  roles?: string[];
+  superAdminOnly?: boolean;
+};
+
+const filterNavItems = (items: NavItem[], access: AccessInfo): NavItem[] => {
+  const visible = (path?: string, permission?: string) =>
+    (!path || canAccessPath(access, path)) && (!permission || hasPermission(access, permission));
+
+  return items.flatMap((nav) => {
+    if (nav.superAdminOnly && !access.superAdmin) return [];
+    if (!nav.subItems) return visible(nav.path) ? [nav] : [];
+
+    const subItems = nav.subItems.flatMap((sub) => {
+      if (!sub.subItems) return visible(sub.path, sub.permission) ? [sub] : [];
+      const nested = sub.subItems.filter((ss) => visible(ss.path, sub.permission));
+      return nested.length ? [{ ...sub, subItems: nested }] : [];
+    });
+    return subItems.length ? [{ ...nav, subItems }] : [];
+  });
 };
 
 
@@ -188,11 +209,11 @@ export const navItems: NavItem[] = [
           { name: "Department Summary", path: "/departmentSummary" },
         ],
       },
-      { name: "Payroll Engine", path: "/payrollEngine" },
+      { name: "Payroll Engine", path: "/payrollEngine", permission: "HRM:APPROVE" },
       { name: "IT Declaration", path: "/it-declaration" },
       { name: "Salary Structure", path: "/salaryStructure" },
       { name: "Documents", path: "/employeeDocuments" },
-      { name: "Exit Approvals", path: "/exitApprovals" },
+      { name: "Exit Approvals", path: "/exitApprovals", permission: "HRM:APPROVE" },
       { name: "Exit Management", path: "/exit-management" },
     ],
   },
@@ -202,7 +223,7 @@ export const navItems: NavItem[] = [
     subItems: [
       // 1. Dashboards & Calendars
       { name: "Employee Self Service", path: "/att_selfService" },
-      { name: "Manager Leave Dashboard", path: "/att_leaveManagerDashboard", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+      { name: "Manager Leave Dashboard", path: "/att_leaveManagerDashboard", permission: "ATTENDANCE:APPROVE" },
       { name: "Attendance Tracking", path: "/att_attendanceTracking" },
       { name: "Holiday Calendar", path: "/att_holidayCalendar" },
 
@@ -213,17 +234,17 @@ export const navItems: NavItem[] = [
       { name: "On-Duty Requests", path: "/att_requests" },
 
       // 3. Shift & Roster Management
-      { name: "Shift Roster & Schedule", path: "/att_shiftSchedule", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
-      { name: "Shift Master", path: "/att_shift", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
+      { name: "Shift Roster & Schedule", path: "/att_shiftSchedule", permission: "ATTENDANCE:UPDATE" },
+      { name: "Shift Master", path: "/att_shift", permission: "ATTENDANCE:ADMIN" },
 
       // 4. Policy & Configuration
-      { name: "Attendance Policy", path: "/att_attendancePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
-      { name: "Leave Policy Master", path: "/att_leavePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
+      { name: "Attendance Policy", path: "/att_attendancePolicy", permission: "ATTENDANCE:ADMIN" },
+      { name: "Leave Policy Master", path: "/att_leavePolicy", permission: "ATTENDANCE:ADMIN" },
 
       // 5. Approvals Desk
-      { name: "Leave Approvals", path: "/att_attendanceApproval", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
-      { name: "Regularization Approvals", path: "/att_regularizationApproval", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
-      { name: "On-Duty Approvals", path: "/att_onDutyApproval", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+      { name: "Leave Approvals", path: "/att_attendanceApproval", permission: "ATTENDANCE:APPROVE" },
+      { name: "Regularization Approvals", path: "/att_regularizationApproval", permission: "ATTENDANCE:APPROVE" },
+      { name: "On-Duty Approvals", path: "/att_onDutyApproval", permission: "ATTENDANCE:APPROVE" },
 
       // 6. Reports
       { name: "Attendance Reports", path: "/att_reports" },
@@ -236,6 +257,15 @@ export const navItems: NavItem[] = [
       { name: "My Profile", path: "/profile" },
       { name: "Create User", path: "/role_config" },
       { name: "Role", path: "/rolesPermissions" },
+      { name: "User Access", path: "/role_config/access", permission: "USERS:UPDATE" },
+    ],
+  },
+  {
+    icon: <Building2 className="w-5 h-5" />,
+    name: "Platform",
+    superAdminOnly: true,
+    subItems: [
+      { name: "Tenants & Modules", path: "/platform/tenants" },
     ],
   },
 ];
@@ -293,7 +323,8 @@ const AppSidebar: React.FC = () => {
   } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useContext(AuthContext);
+  const { user, access } = useContext(AuthContext);
+  const visibleNavItems = useMemo(() => filterNavItems(navItems, access), [access]);
   const [tooltipVisible, setTooltipVisible] = useState<number | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -468,7 +499,7 @@ const AppSidebar: React.FC = () => {
 
   useEffect(() => {
     let submenuMatched = false;
-    navItems.forEach((nav, index) => {
+    visibleNavItems.forEach((nav, index) => {
       if (nav.subItems) {
         nav.subItems.forEach((subItem, subIndex) => {
           // Check level 2 items
@@ -496,42 +527,14 @@ const AppSidebar: React.FC = () => {
     if (!submenuMatched) {
       setOpenSubmenu(null);
       setOpenSubSubmenu(null);
-      const directRouteIndex = navItems.findIndex((nav) => nav.path && isActive(nav.path));
+      const directRouteIndex = visibleNavItems.findIndex((nav) => nav.path && isActive(nav.path));
       if (directRouteIndex >= 0) setSelectedModuleIndex(directRouteIndex);
     }
-  }, [location.pathname, isActive]);
+  }, [location.pathname, isActive, visibleNavItems]);
 
+  // Items are already filtered by access
   const getFirstVisibleSubmenuPath = (nav: NavItem): string | undefined => {
-    const currentRole = (user?.role || userRole || "")
-      .toUpperCase()
-      .replace(/[\s_]+/g, "");
-    const isAdmin =
-      (userRole === "SUPER_ADMIN" ||
-        userRole === "ADMIN" ||
-        user?.roles?.includes("SUPER_ADMIN") ||
-        user?.roles?.includes("ADMIN")) &&
-      user?.userType !== "USER" &&
-      user?.userType !== "EMPLOYEE";
-
-    const firstVisibleItem = nav.subItems?.find((subItem) => {
-      if (nav.name === "HRMS" && subItem.name === "Exit Approvals" && !isAdmin) {
-        return false;
-      }
-      if (
-        nav.name === "Profile" &&
-        (subItem.name === "Create User" || subItem.name === "Role") &&
-        !isAdmin
-      ) {
-        return false;
-      }
-      if (!subItem.roles) return true;
-      return subItem.roles.some(
-        (role) =>
-          role.toUpperCase().replace(/[\s_]+/g, "") === currentRole ||
-          currentRole === "SUPERADMIN",
-      );
-    });
-
+    const firstVisibleItem = nav.subItems?.[0];
     return firstVisibleItem?.path || firstVisibleItem?.subItems?.[0]?.path;
   };
 
@@ -547,7 +550,7 @@ const AppSidebar: React.FC = () => {
     setOpenSubmenu(isOpening ? index : null);
     if (isOpening) {
       setOpenSubSubmenu(null);
-      selectFirstSubmenu(navItems[index]);
+      selectFirstSubmenu(visibleNavItems[index]);
     }
   };
 
@@ -667,12 +670,7 @@ const AppSidebar: React.FC = () => {
             >
               <div className="overflow-hidden">
                 <div className="mt-1 space-y-0.5 px-1">
-                {nav.subItems.filter(subItem => {
-                  if (!subItem.roles) return true;
-                  const currentRole = (user?.role || userRole || "").toUpperCase().replace(/[\s_]+/g, "");
-                  if (!currentRole) return false;
-                  return subItem.roles.some(r => r.toUpperCase().replace(/[\s_]+/g, "") === currentRole || currentRole === "SUPERADMIN");
-                }).map((subItem, subIndex) => {
+                {nav.subItems.map((subItem, subIndex) => {
                   const subKey = `${index}-${subIndex}`;
                   const hasSubSubItems = subItem.subItems && subItem.subItems.length > 0;
 
@@ -774,7 +772,7 @@ const AppSidebar: React.FC = () => {
     return null;
   };
 
-  const activeTooltipItem = tooltipVisible !== null ? navItems[tooltipVisible] : undefined;
+  const activeTooltipItem = tooltipVisible !== null ? visibleNavItems[tooltipVisible] : undefined;
 
   return (
     <>
@@ -808,7 +806,7 @@ const AppSidebar: React.FC = () => {
             <img src={publicAsset("images/logo/logo-icon.png")} alt="" width={30} height={30} />
           </Link>
           <div className="app-sidebar__rail-items">
-            {navItems.map((nav, index) => {
+            {visibleNavItems.map((nav, index) => {
               const active = selectedModuleIndex === index;
               return (
                 <button
@@ -848,29 +846,9 @@ const AppSidebar: React.FC = () => {
         {/* Navigation */}
         <div className="app-sidebar__navigation flex-1 overflow-y-auto py-4 px-2">
           <div className="app-sidebar__menu space-y-1">
-            {navItems.filter((_, index) => index === selectedModuleIndex).map((nav) => {
-              const index = selectedModuleIndex;
-              const isAdmin = (userRole === "SUPER_ADMIN" || userRole === "ADMIN" || user?.roles?.includes("SUPER_ADMIN") || user?.roles?.includes("ADMIN")) && user?.userType !== "USER" && user?.userType !== "EMPLOYEE";
-              if (nav.name === "HRMS" && nav.subItems) {
-                const mappedSubItems = nav.subItems.filter(sub => {
-                  if (sub.name === "Exit Approvals" && !isAdmin) {
-                    return false;
-                  }
-                  return true;
-                });
-                return renderMenuItem({ ...nav, subItems: mappedSubItems }, index);
-              }
-              if (nav.name === "Profile" && nav.subItems) {
-                const mappedSubItems = nav.subItems.filter(sub => {
-                  if ((sub.name === "Create User" || sub.name === "Role") && !isAdmin) {
-                    return false;
-                  }
-                  return true;
-                });
-                return renderMenuItem({ ...nav, subItems: mappedSubItems }, index);
-              }
-              return renderMenuItem(nav, index);
-            })}
+            {visibleNavItems.filter((_, index) => index === selectedModuleIndex).map((nav) =>
+              renderMenuItem(nav, selectedModuleIndex)
+            )}
           </div>
         </div>
 

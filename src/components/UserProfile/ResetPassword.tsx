@@ -1,3 +1,5 @@
+import { imageFallback } from "../../utils/imageFallback";
+import { appUrl } from "../../utils/appPath";
 import { useState, useContext, useEffect, useCallback, useMemo } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import Button from "../ui/button/Button";
@@ -75,6 +77,7 @@ const generateInitialsImage = (fullName: string, size: number = 200): string => 
 
 export default function ResetPasswordCard() {
   const [showPopup, setShowPopup] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -264,7 +267,7 @@ export default function ResetPasswordCard() {
     }
     if (!user.userId) {
       alert("User ID not available. Please try logging in again.");
-      window.location.href = "/signin"; 
+      window.location.href = appUrl("/signin"); 
       return;
     }
    
@@ -284,14 +287,14 @@ export default function ResetPasswordCard() {
         throw new Error("No authentication token found. Please log in again.");
       }
 
-      const url = `/v1/api/user/update/${user.userId}/${newPassword}`;
-      
-      const response = await fetch(url, {
+      // Self-service change; the server checks the current password
+      const response = await fetch('/v1/api/user/access/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        }
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
       });
 
       if (response.status === 401) {
@@ -313,7 +316,6 @@ export default function ResetPasswordCard() {
         throw new Error(errorMessage);
       }
 
-      await response.json();
       setShowPopup(false);
       resetForm();
       ToasterService.success("Password reset successfully!");
@@ -337,6 +339,7 @@ export default function ResetPasswordCard() {
   };
 
   const resetForm = () => {
+    setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
     setPasswordErrors({
@@ -359,14 +362,15 @@ export default function ResetPasswordCard() {
     [user, isLoggedIn]
   );
 
-  const isResetDisabled = useMemo(() => 
-    !newPassword || 
-    !confirmPassword || 
-    Object.values(passwordErrors).some(Boolean) || 
-    !!confirmPasswordError || 
+  const isResetDisabled = useMemo(() =>
+    !currentPassword ||
+    !newPassword ||
+    !confirmPassword ||
+    Object.values(passwordErrors).some(Boolean) ||
+    !!confirmPasswordError ||
     isLoading ||
     !canResetPassword,
-    [newPassword, confirmPassword, passwordErrors, confirmPasswordError, isLoading, canResetPassword]
+    [currentPassword, newPassword, confirmPassword, passwordErrors, confirmPasswordError, isLoading, canResetPassword]
   );
 
   const getDisplayName = useCallback(() => {
@@ -400,9 +404,7 @@ export default function ResetPasswordCard() {
                     src={profileImage} 
                     alt="user" 
                     className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-125"
-                    onError={(e) => {
-                      e.currentTarget.src = placeholderImage;
-                    }}
+                    onError={imageFallback(placeholderImage)}
                   />
                 )}
                 
@@ -517,6 +519,19 @@ export default function ResetPasswordCard() {
                 )}
 
                 <form onSubmit={(e) => e.preventDefault()} className="flex flex-col gap-4">
+                  {/* Current Password Field */}
+                  <div className="space-y-2">
+                    <Label className="dark:text-gray-300">Current Password</Label>
+                    <Input
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="Enter current password"
+                      disabled={isLoading || !canResetPassword}
+                      className="w-full pl-3 pr-10 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:border-blue-500 dark:focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+
                   {/* New Password Field */}
                   <div className="space-y-2">
                     <Label className="dark:text-gray-300">New Password</Label>

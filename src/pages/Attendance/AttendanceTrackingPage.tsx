@@ -1,3 +1,4 @@
+import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import React, { useState, useEffect, useMemo, useContext } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
@@ -62,25 +63,8 @@ const formatMinutesToHoursStr = (totalMins: number = 0): string => {
 const AttendanceTrackingPage: React.FC = () => {
   const { user } = useContext(AuthContext);
 
-  const currentUser = useMemo(() => {
-    const userStr = localStorage.getItem("user");
-    if (userStr) {
-      try {
-        const parsed = JSON.parse(userStr);
-        const rawId = parsed.employeeId || parsed.id || parsed.userId;
-        return {
-          id: rawId ? Number(rawId) : 0,
-          name: parsed.fullName || parsed.name || parsed.username || 'User',
-          role: parsed.role || parsed.roles?.[0] || ''
-        };
-      } catch (e) {}
-    }
-    return {
-      id: user?.id ? Number(user.id) : 0,
-      name: user?.fullName || user?.username || 'User',
-      role: user?.role || ''
-    };
-  }, [user]);
+  // Own employee identity from the login token (no hard-coded ids)
+  const currentUser = useCurrentEmployee();
 
   // ── Dynamic States ──────────────────────────────────────────────────────
   const [currentDate, setCurrentDate] = useState<Date>(new Date()); // Dynamic current system date

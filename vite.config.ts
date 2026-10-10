@@ -2,7 +2,8 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import svgr from "vite-plugin-svgr";
 
-const basePath = process.env.VITE_BASE_PATH || "./";
+//const basePath = process.env.VITE_BASE_PATH || "./";
+const basePath = "/myTrading/";
 
 export default defineConfig({
   // Relative by default so the build can be deployed below any URL prefix.
@@ -36,13 +37,8 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/v1/api/product-categories": {
-        target: "http://192.168.1.113:52930",
-        changeOrigin: true,
-        secure: false,
-      },
       // Proxy /v1/api requests to the backend
-      "/v1/api": {
+      "/myTrading/": {
         target: "http://193.181.209.14:9595",
         changeOrigin: true,
         secure: false,

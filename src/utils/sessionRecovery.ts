@@ -1,3 +1,5 @@
+import { ROUTER_BASENAME } from "./appPath";
+
 const SESSION_EXPIRED_REDIRECT_KEY = "sessionExpiredRedirect";
 const SESSION_EXPIRED_FLAG_KEY = "sessionExpiredFlag";
 const SESSION_EXPIRED_DRAFTS_KEY = "sessionExpiredDrafts";
@@ -43,8 +45,13 @@ type PageDraft = {
 const isDraftField = (field: DraftField | null): field is DraftField =>
   field !== null;
 
-export const getCurrentAppLocation = () =>
-  `${window.location.pathname}${window.location.search}${window.location.hash}`;
+// Router-relative (without the /myTrading base), so it can be passed to navigate()
+export const getCurrentAppLocation = () => {
+  const base = ROUTER_BASENAME === "/" ? "" : ROUTER_BASENAME;
+  const { pathname, search, hash } = window.location;
+  const path = base && pathname.startsWith(base) ? pathname.slice(base.length) || "/" : pathname;
+  return `${path}${search}${hash}`;
+};
 
 export const saveSessionExpiredRedirect = (path = getCurrentAppLocation()) => {
   localStorage.setItem(SESSION_EXPIRED_REDIRECT_KEY, path);
@@ -308,6 +315,9 @@ export const isSessionExpiredResponse = (
   status?: number,
   message?: unknown
 ) => {
+  // 403 means "signed in but not allowed": never end the session for it
+  if (status === 403) return false;
+
   const normalizedMessage = String(message ?? "").toLowerCase();
 
   return (

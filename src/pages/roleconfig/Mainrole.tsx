@@ -4,6 +4,7 @@ import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { PageType, PAGE_ICONS, PAGE_LABELS } from "./RoleConfigTabConfig";
 import { AuthContext } from "../../context/AuthContext";
+import { hasPermission } from "../../access/access";
 
 import TenantTab from "./TenantTab";
 import DomainTab from "./DomainTab";
@@ -15,18 +16,19 @@ import UserEmployeeTab from "./UserEmployeeTab";
 import "../../styles/Mainrole.css";
 
 const RoleConfig: React.FC = () => {
-  const { user } = useContext(AuthContext);
+  const { access } = useContext(AuthContext);
   const [searchParams] = useSearchParams();
-  const isAdmin = (user?.role === "SUPER_ADMIN" || user?.role === "ADMIN" || user?.roles?.includes("SUPER_ADMIN") || user?.roles?.includes("ADMIN")) && user?.userType !== "USER" && user?.userType !== "EMPLOYEE";
+  // User management needs USERS:VIEW; tenants are platform data for the Super Admin only
+  const isAdmin = hasPermission(access, "USERS:VIEW");
+  const pages = (Object.keys(PAGE_LABELS) as PageType[]).filter((page) => page !== "Tenant" || access.superAdmin);
 
   const [activePage, setActivePage] = useState<PageType>(
-    searchParams.get("tab") === "users" ? "UserEmployee" : "Tenant"
+    searchParams.get("tab") === "users" ? "UserEmployee" : pages[0]
   );
   const [selectedTenantFilter, setSelectedTenantFilter] = useState<string | null>(null);
   const [selectedDomainFilter, setSelectedDomainFilter] = useState<number | null>(null);
   const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState<number | null>(null);
   const [selectedPermissionFilter, setSelectedPermissionFilter] = useState<number | null>(null);
-  const pages = Object.keys(PAGE_LABELS) as PageType[];
 
   if (!isAdmin) {
     return (

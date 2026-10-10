@@ -1,3 +1,4 @@
+import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import {
@@ -112,20 +113,8 @@ const OnDutyApprovalPage: React.FC = () => {
     total: 0
   });
 
-  const currentUser = useMemo(() => {
-    try {
-      const userStr = localStorage.getItem("user");
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        return {
-          id: user.id || user.userId || 12,
-          name: safeString(user.fullName || user.name || user.username, "System Admin"),
-          role: safeString(user.role || user.roles?.[0], "SUPER_ADMIN")
-        };
-      }
-    } catch (e) {}
-    return { id: 12, name: "System Admin", role: "SUPER_ADMIN" };
-  }, []);
+  // Own employee identity from the login token (no hard-coded ids)
+  const currentUser = useCurrentEmployee();
 
   // ── Normalize helper ───────────────────────────────────────────────────────
   const normalizeItem = (r: any, defaultStatus: ApprovalStatus): OnDutyApprovalRequest | null => {
@@ -224,7 +213,7 @@ const OnDutyApprovalPage: React.FC = () => {
     // Non-enumerable properties: accessible by code, modals, and columns, but hidden from drawer Object.keys()
     Object.defineProperties(rowItem, {
       _raw: { value: r, enumerable: false, writable: true },
-      employeeId: { value: Number(empId) || 12, enumerable: false, writable: true },
+      employeeId: { value: Number(empId), enumerable: false, writable: true },
       employeeName: { value: empName, enumerable: false, writable: true },
       employeeCode: { value: empCode, enumerable: false, writable: true },
       department: { value: resolvedDept, enumerable: false, writable: true },

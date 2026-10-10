@@ -245,7 +245,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
   const openCreateModal = () => {
     setEditingAssignment(null);
     setForm({
-      employeeId: selectedEmployeeId || 12,
+      employeeId: selectedEmployeeId,
       shiftId: shifts[0]?.id || 3,
       effectiveFrom: new Date().toISOString().slice(0, 10),
       effectiveTo: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
@@ -267,7 +267,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
   const resetForm = () => {
     setEditingAssignment(null);
     setForm({
-      employeeId: selectedEmployeeId || 12,
+      employeeId: selectedEmployeeId,
       shiftId: shifts[0]?.id || 3,
       effectiveFrom: new Date().toISOString().slice(0, 10),
       effectiveTo: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)

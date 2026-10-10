@@ -1,3 +1,4 @@
+import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import { Calendar, User, Clock, CheckCircle2, AlertCircle, Plus, Send, FileText, ChevronLeft, ChevronRight } from "lucide-react";
@@ -42,23 +43,8 @@ const LeaveRequestPage: React.FC = () => {
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
   
-  const currentUser = useMemo(() => {
-    const userStr = localStorage.getItem("user");
-    if (userStr) {
-      try {
-        const parsed = JSON.parse(userStr);
-        return {
-          id: parsed.id || parsed.userId || 12,
-          name: parsed.fullName || parsed.name || parsed.username || "System Admin",
-          role: parsed.role || parsed.roles?.[0] || "SUPER_ADMIN",
-          email: parsed.email || parsed.username || "super@admin.com"
-        };
-      } catch (e) {
-        console.error("Failed to parse user from localStorage", e);
-      }
-    }
-    return { id: 12, name: "System Admin", role: "SUPER_ADMIN", email: "super@admin.com" };
-  }, []);
+  // Own employee identity from the login token (no hard-coded ids)
+  const currentUser = useCurrentEmployee();
 
   const [activeEmployeeId, setActiveEmployeeId] = useState<number>(12);
   const [employeeCode, setEmployeeCode] = useState<string>("TEC-EMP-0001");
@@ -127,7 +113,7 @@ const LeaveRequestPage: React.FC = () => {
   }, [fromDate, toDate, dayType]);
 
   const loadMyLeaves = async (empId: number = selectedEmployeeId) => {
-    const numericId = Number(empId) || 12;
+    const numericId = Number(empId) || currentUser.id;
     try {
       const res = await axios.get(`/v1/api/attendance/leave-requests/employee/${numericId}`);
       if (Array.isArray(res.data)) {
@@ -400,7 +386,7 @@ const LeaveRequestPage: React.FC = () => {
             </button>
             <div className="bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl px-3 py-1.5 text-right">
               <span className="text-[10px] text-slate-400 dark:text-gray-500 font-medium block uppercase tracking-wider">Employee ID</span>
-              <span className="text-xs font-mono font-bold text-slate-700 dark:text-gray-200">#{employeeCode || `EMP-${selectedEmployeeId || 12}`}</span>
+              <span className="text-xs font-mono font-bold text-slate-700 dark:text-gray-200">#{employeeCode || `EMP-${selectedEmployeeId}`}</span>
             </div>
           </div>
         </div>

@@ -1,3 +1,4 @@
+import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { 
@@ -585,21 +586,8 @@ const HolidayCalendarPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'manager' | 'table'>('manager');
 
   // User Profile
-  const currentUser = useMemo(() => {
-    const userStr = localStorage.getItem("user");
-    if (userStr) {
-      try {
-        const parsed = JSON.parse(userStr);
-        return {
-          name: parsed.fullName || parsed.name || parsed.username || "Roy Hamlin",
-          role: parsed.role || parsed.roles?.[0] || "SUPER_ADMIN",
-          email: parsed.email || parsed.username || "roy.hamlin@mytrading.com",
-          code: parsed.employeeCode || "#ADM-EMP-0067"
-        };
-      } catch (e) {}
-    }
-    return { name: "Roy Hamlin", role: "SUPER_ADMIN", email: "roy.hamlin@mytrading.com", code: "#ADM-EMP-0067" };
-  }, []);
+  // Own employee identity from the login token (no hard-coded ids)
+  const currentUser = useCurrentEmployee();
 
   // Sync selectedCalendarCodeId when calendars load & auto-fetch holidays
   useEffect(() => {

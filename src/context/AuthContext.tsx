@@ -1,3 +1,4 @@
+import { appUrl } from '../utils/appPath';
 import { createContext, useState, useEffect, ReactNode, useRef, useCallback } from 'react';
 import axios from 'axios';
 import placeholderImage from '../images/img-placeholder.png';
@@ -11,36 +12,13 @@ import {
   saveSessionExpiredRedirect,
   saveSessionExpiredDraft,
 } from '../utils/sessionRecovery';
+import { AccessInfo, NO_ACCESS, TENANT_HEADER, decodeAccess, getSelectedTenant, setSelectedTenant } from '../access/access';
 
-const getTenantIdFromToken = (token: string): string | null => {
-  try {
-    const payload = token.split('.')[1];
-    const decoded = JSON.parse(atob(payload));
-    return decoded.tenantId || null;
-  } catch (error) {
-    console.error('Error parsing token for tenantId:', error);
-    return null;
-  }
-};
-
-// Function to get tenantId from available sources
-const getTenantId = (): string | null => {
-  // Check stored user first
-  const storedUser = localStorage.getItem('user');
-  if (storedUser) {
-    try {
-      const user = JSON.parse(storedUser);
-      if (user?.tenantId) return user.tenantId;
-    } catch (e) {}
-  }
-  
-  // Then check token
-  const token = localStorage.getItem('accessToken');
-  if (token) {
-    return getTenantIdFromToken(token);
-  }
-  
-  return null;
+// The tenant comes from the token on the server. Only a Super Admin who picked a
+// tenant sends X-Tenant-Id; without it they work platform-wide (all tenants).
+const selectedTenantHeader = (): string | null => {
+  const access = decodeAccess(localStorage.getItem('accessToken'));
+  return access.superAdmin ? getSelectedTenant() : null;
 };
 
 // Global Axios Request Interceptor to dynamically attach token
@@ -51,21 +29,18 @@ axios.interceptors.request.use(
     if (token && !isAuthEndpoint) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
-    
+
     // Authentication failures are handled by the sign-in/sign-up forms, not
     // by the global expired-session modal.
     (config as any).skipSessionExpiredHandling = isAuthEndpoint;
-    
+
     if (!isAuthEndpoint) {
-      const tenantId = getTenantId();
-      
+      const tenantId = selectedTenantHeader();
       if (tenantId) {
-        // Tenant-aware APIs expect this as a header. Adding it globally as
-        // a query parameter breaks endpoints such as /v1/api/product-categories.
-        config.headers['X-Tenant-ID'] = tenantId;
+        config.headers[TENANT_HEADER] = tenantId;
       }
     }
-    
+
     return config;
   },
   (error) => {
@@ -97,6 +72,8 @@ interface LoginResponse {
 
 interface AuthContextType {
   user: User | null;
+  // Modules and permissions from the current token
+  access: AccessInfo;
   isLoggedIn: boolean;
   loading: boolean;
   profileImage: string;
@@ -111,6 +88,7 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
+  access: NO_ACCESS,
   isLoggedIn: false,
   loading: false,
   profileImage: placeholderImage,
@@ -127,6 +105,7 @@ export const AuthContext = createContext<AuthContextType>({
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [access, setAccess] = useState<AccessInfo>(() => decodeAccess(localStorage.getItem('accessToken')));
   const [loading, setLoading] = useState(true);
   const [profileImage, setProfileImage] = useState(placeholderImage);
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -174,8 +153,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
+    setSelectedTenant(null);
     delete axios.defaults.headers.common['Authorization'];
     setUser(null);
+    setAccess(NO_ACCESS);
     setProfileImage(placeholderImage);
     setSessionExpired(false);
     sessionExpiredRef.current = false;
@@ -408,6 +389,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const originalFetch = window.fetch.bind(window);
 
     window.fetch = async (...args) => {
+      // Most pages call fetch() directly: attach a Super Admin's selected tenant to API calls
+      const [input, init] = args;
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      const tenantId = selectedTenantHeader();
+      if (tenantId && url.includes('/v1/api/') && !url.includes('/v1/api/auth/')) {
+        const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+        if (!headers.has(TENANT_HEADER)) headers.set(TENANT_HEADER, tenantId);
+        args = [input, { ...init, headers }];
+      }
+
       const response = await originalFetch(...args);
 
       if (!response.ok) {
@@ -439,22 +430,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (username: string, password: string): Promise<LoginResponse> => {
     try {
-      console.log('Sending login request with:', { username });
-      
       const res = await axios.post('/v1/api/auth/login', { 
         username,
         password 
       });
       
-      console.log('Login response:', res.data);
-      
+      // Never log the response: it contains the access token
       if (res.data.token && res.data.user) {
         const { token, user } = res.data;
         const normalizedUser = normalizeUser(user);
         localStorage.setItem('accessToken', token);
         localStorage.setItem('user', JSON.stringify(normalizedUser));
+        setSelectedTenant(null);
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         setUser(normalizedUser);
+        setAccess(decodeAccess(token));
         setSessionExpired(false);
         sessionExpiredRef.current = false;
         window.dispatchEvent(new Event("app-login-success"));
@@ -503,8 +493,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.setItem('user', JSON.stringify(normalizedUser));
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         setUser(normalizedUser);
-        
-        return { 
+        setAccess(decodeAccess(token));
+
+        return {
           success: true, 
           token, 
           user: normalizedUser,
@@ -525,9 +516,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isLoggedIn: !!user, 
+    <AuthContext.Provider value={{
+      user,
+      access,
+      isLoggedIn: !!user,
       loading, 
       profileImage,
       login, 
@@ -550,7 +542,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               type="button"
               onClick={() => {
                 logout({ preserveSessionRecovery: true });
-                window.location.href = "/signin";
+                window.location.href = appUrl("/signin");
               }}
               className="mt-6 w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-700"
             >

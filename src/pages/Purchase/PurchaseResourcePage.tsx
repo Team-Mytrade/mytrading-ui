@@ -154,7 +154,7 @@ export type PurchaseResourceConfig = {
   scope?: { idParam: string; nameParam: string; label: string };
 
   /** Icon-only or extra action buttons rendered inside the Actions cell */
-  renderRowActions?: (row: PurchaseRecord) => React.ReactNode;
+  renderRowActions?: (row: PurchaseRecord, context: { refreshRows: () => Promise<void> }) => React.ReactNode;
 
   renderFormExtras?: (context: {
     form: PurchaseRecord;
@@ -711,7 +711,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         className: "text-right",
         render: (row: PurchaseRecord) => (
           <div className="flex items-center justify-end gap-1">
-            {config.renderRowActions?.(row)}
+            {config.renderRowActions?.(row, { refreshRows: loadRows })}
 
             {config.allowEdit !== false && (
               <button

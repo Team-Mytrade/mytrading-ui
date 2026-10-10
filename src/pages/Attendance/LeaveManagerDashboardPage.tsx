@@ -1,3 +1,4 @@
+import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import Chart from 'react-apexcharts';
@@ -59,25 +60,8 @@ const LeaveManagerDashboardPage: React.FC = () => {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  const currentUser = useMemo(() => {
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        const parsed = JSON.parse(userStr);
-        const rawId = parsed.employeeId || parsed.id || parsed.userId;
-        return {
-          id: rawId ? Number(rawId) : 0,
-          name: parsed.fullName || parsed.name || parsed.username || 'User',
-          role: parsed.role || parsed.roles?.[0] || ''
-        };
-      } catch (e) {}
-    }
-    return {
-      id: (user as any)?.id ? Number((user as any).id) : 0,
-      name: (user as any)?.fullName || (user as any)?.name || (user as any)?.username || 'User',
-      role: (user as any)?.role || ''
-    };
-  }, [user]);
+  // Own employee identity from the login token (no hard-coded ids)
+  const currentUser = useCurrentEmployee();
 
   const [activeEmployeeId, setActiveEmployeeId] = useState<number>(0);
   const [employeeMap, setEmployeeMap] = useState<Record<number, string>>({});
@@ -154,7 +138,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
 
   const loadData = async () => {
     setLoading(true);
-    const numericEmpId = activeEmployeeId || currentUser.id || 1;
+    const numericEmpId = activeEmployeeId || currentUser.id;
 
     // 1. Manager Dashboard API Call
     for (const base of MANAGER_DASHBOARD_CANDIDATES) {
@@ -208,7 +192,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
         if (Array.isArray(res.data)) { 
           const mapped = res.data.map((a: any) => ({
             ...a,
-            employeeName: a.employeeName || employeeMap[a.employeeId] || (Number(a.employeeId) === currentUser.id ? currentUser.name : "Roy Hamlin")
+            employeeName: a.employeeName || employeeMap[a.employeeId] || (Number(a.employeeId) === currentUser.id ? currentUser.name : `Employee #${a.employeeId}`)
           }));
           setAdjustments(mapped); 
           break; 
