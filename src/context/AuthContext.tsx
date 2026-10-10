@@ -192,8 +192,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     sessionExpiredRef.current = true;
-    saveSessionExpiredRedirect(getCurrentAppLocation());
-    saveSessionExpiredDraft(getCurrentAppLocation());
+    const expiredPath = getCurrentAppLocation();
+    saveSessionExpiredRedirect(expiredPath);
+    saveSessionExpiredDraft(expiredPath);
+    window.dispatchEvent(new CustomEvent("app-session-expired", { detail: { path: expiredPath } }));
     setSessionExpired(true);
   }, []);
 
@@ -453,7 +455,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.setItem('user', JSON.stringify(normalizedUser));
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         setUser(normalizedUser);
-        clearSessionExpiredRedirect();
         setSessionExpired(false);
         sessionExpiredRef.current = false;
         window.dispatchEvent(new Event("app-login-success"));

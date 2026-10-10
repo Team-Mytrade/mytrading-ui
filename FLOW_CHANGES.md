@@ -1,5 +1,23 @@
 # Flow Changes
 
+## 2026-10-06
+
+- Every Purchase Requisition now exposes the Create Purchase Order cart action; conversion is no longer restricted by a requisition status displayed in the list.
+
+## 2026-10-03
+
+- Purchase Order approval is now performed from the Status dropdown on the Purchase Orders list. The separate Approval submodule and its routes have been removed; only approved purchase orders are available when creating a Goods Receipt Note.
+
+## 2026-09-28
+
+- Vendor, Category, and Product management now live under the Product Catalogue sidebar module in that order. Their previous URLs redirect to the new module routes so existing bookmarks continue to work.
+
+- Purchase operations now follow the Purchase Service flow: Purchase Requisition, Purchase Order, Approval, then Goods Receipt Note. Previous purchase URLs redirect to the corresponding new routes.
+
+- Purchase Requisitions now collect request and required dates, remarks, requester ID, and inline product quantities in one submission instead of creating product line items in a separate step.
+
+- Approved Purchase Requisitions now provide a Create Purchase Order action that opens Purchase Orders with that requisition and its line items preselected. Requisition status can be updated directly from the list.
+
 ## 2026-09-23
 
 - The shared table-toolbar Share action now opens the export dialog for its associated table, while Refresh keeps users on the page and shows a table loading skeleton.
@@ -51,3 +69,21 @@
 ## 2026-09-09
 
 - Selecting a module from the compact sidebar rail now opens its adjacent submodule panel for page selection.
+
+## 2026-10-09
+
+- Product Categories now includes an Add Product row action that opens the Product Catalogue create flow with the selected category prefilled.
+
+- When the Quotation customer dropdown has no available customers, its adjacent add control opens the existing Customer creation flow.
+
+- Only quotations in DRAFT status expose the edit action; edits use the existing quotation update request.
+
+- The quotation Status dropdown remains available after status changes. Selecting SENT uses the send action and selecting ACCEPTED uses the accept action; full quotation edits remain limited to DRAFT.
+
+- Accepted quotations now expose a Convert to Sales Order action. It calls the conversion API and refreshes the quotation so its resulting CONVERTED status is shown.
+
+- Converting an accepted quotation now opens Sales Orders scoped to the converted quotation, with an option to return to the complete order list.
+
+- New quotations are created in DRAFT status. Status is changed only after creation from the quotation list, using the lifecycle APIs.
+
+- Creating or editing a quotation now opens in the shared right-side Dragger used for Purchase Orders instead of replacing the quotation list page.

@@ -1,37 +1,21 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { ArrowDownTrayIcon, PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ToasterService } from "../../Services/ToasterService";
 import PurchaseResourcePage, {
   PurchaseRecord,
   PurchaseResourceConfig,
-  SelectOption,
   toNumberOrZero,
 } from "../Purchase/PurchaseResourcePage";
 
-const CATEGORIES = "/v1/api/purchase/product-categories";
-const PRODUCTS = "/v1/api/purchase/products";
-const PRODUCT_IMAGE_UPLOAD_BASE = "/v1/api/purchase/products";
-const PRODUCT_IMAGE_DOWNLOAD_BASE = "/v1/api/purchase/products";
+const CATEGORIES = "/v1/api/product/product-categories";
+const PRODUCTS = "/v1/api/product/products";
+const PRODUCT_IMAGE_UPLOAD_BASE = "/v1/api/product/products";
+const PRODUCT_IMAGE_DOWNLOAD_BASE = "/v1/api/product/products";
 const PRODUCT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const PRODUCT_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
 const PRODUCT_IMAGE_MAX_SIZE_BYTES = 5_000_000;
-
-const getStoredTenantId = () => {
-  try {
-    const user = JSON.parse(localStorage.getItem("user") || "null");
-    return user?.tenantId || "";
-  } catch {
-    return "";
-  }
-};
-
-const getParentCategoryOptions = (categoryOptions: SelectOption[]) =>
-  categoryOptions.filter((option) => !option.raw?.parentId);
-
-const getChildCategoryOptions = (categoryOptions: SelectOption[], parentCategoryId: string | number) =>
-  categoryOptions.filter((option) => String(option.raw?.parentId ?? "") === String(parentCategoryId));
 
 const getProductImageDownloadUrl = (productId: string | number) =>
   `${PRODUCT_IMAGE_DOWNLOAD_BASE}/${productId}/downloadImage`;
@@ -392,8 +376,9 @@ const ProductImageCell = ({
 
 const baseProductConfig: PurchaseResourceConfig = {
   title: "Products",
-  description: "Maintain purchase products from the purchase product controller.",
+  description: "Maintain products from the Product Catalogue service.",
   endpoint: PRODUCTS,
+  getByIdEndpoint: (row) => `${PRODUCTS}/${row.id}`,
   allowInlineActiveToggle: true,
   inlineBooleanFields: ["stockItem", "serviceItem"],
   columns: [
@@ -414,32 +399,18 @@ const baseProductConfig: PurchaseResourceConfig = {
     { name: "shortName", label: "Short Name" },
     { name: "description", label: "Description", type: "textarea", gridClassName: "md:col-span-2" },
     {
-      name: "parentCategoryId",
-      label: "Parent Category",
-      type: "select",
-      optionsEndpoint: CATEGORIES,
-      getOptionsParams: () => ({ tenantId: getStoredTenantId() }),
-      optionLabel: "categoryName",
-      placeholderOption: "Select Parent Category",
-      getOptions: ({ options }) => getParentCategoryOptions(options.parentCategoryId || []),
-      onValueChange: () => ({ categoryId: "" }),
-    },
-    {
       name: "categoryId",
       label: "Category",
       type: "select",
       required: true,
       optionsEndpoint: CATEGORIES,
-      getOptionsParams: () => ({ tenantId: getStoredTenantId() }),
       optionLabel: "categoryName",
       placeholderOption: "Select Category",
-      getOptions: ({ form, options }) =>
-        form.parentCategoryId ? getChildCategoryOptions(options.categoryId || [], form.parentCategoryId) : [],
     },
     { name: "brand", label: "Brand" },
     { name: "modelNo", label: "Model No" },
     { name: "barcode", label: "Barcode" },
-    { name: "uom", label: "UOM", type: "select", defaultValue: "PIECES", options: ["PIECES", "KG", "LITER", "METER", "BOX", "PACK"].map((item) => ({ value: item, label: item })) },
+    { name: "uom", label: "UOM", type: "select", defaultValue: "PIECES", options: ["PIECES", "BOX", "PACK", "KILOGRAM", "GRAM", "LITRE", "MILLILITRE", "METER", "CENTIMETER", "MILLIMETER", "DOZEN", "BAG", "ROLL"].map((item) => ({ value: item, label: item })) },
     { name: "standardCost", label: "Standard Cost", type: "number", defaultValue: 0 },
     { name: "sellingPrice", label: "Selling Price", type: "number", defaultValue: 0 },
     { name: "taxCode", label: "Tax Code" },
@@ -447,12 +418,31 @@ const baseProductConfig: PurchaseResourceConfig = {
     { name: "serviceItem", label: "Service Item", type: "checkbox", defaultValue: false },
     { name: "serialTracking", label: "Serial Tracking", type: "checkbox", defaultValue: false },
     { name: "batchTracking", label: "Batch Tracking", type: "checkbox", defaultValue: false },
+    { name: "expiryTracking", label: "Expiry Tracking", type: "checkbox", defaultValue: false },
     { name: "active", label: "Active", type: "checkbox", defaultValue: true },
   ],
   searchFields: ["productName", "categoryName", "brand", "uom", "imageName"],
+  initialFormState: {
+    productName: "Premium A4 Copy Paper",
+    shortName: "A4 Copy Paper",
+    description: "Premium 75 GSM A4 copy paper for everyday office printing.",
+    categoryId: "",
+    brand: "Acme Office",
+    modelNo: "ACP-A4-75",
+    barcode: "8901234567890",
+    uom: "PACK",
+    standardCost: 220,
+    sellingPrice: 275,
+    taxCode: "GST18",
+    stockItem: true,
+    serviceItem: false,
+    serialTracking: false,
+    batchTracking: false,
+    expiryTracking: false,
+    active: true,
+  },
   normalizeForm: (row) => ({
     ...row,
-    parentCategoryId: row.category?.parentId ?? row.parentCategoryId ?? "",
     categoryId: row.category?.id ?? row.categoryId ?? "",
   }),
   buildPayload: (form) => {
@@ -472,6 +462,7 @@ const baseProductConfig: PurchaseResourceConfig = {
       serviceItem: Boolean(form.serviceItem),
       serialTracking: Boolean(form.serialTracking),
       batchTracking: Boolean(form.batchTracking),
+      expiryTracking: Boolean(form.expiryTracking),
       active: Boolean(form.active),
     };
   },
@@ -479,6 +470,9 @@ const baseProductConfig: PurchaseResourceConfig = {
 
 export default function Products() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const categoryId = searchParams.get("categoryId") || "";
+  const categoryName = searchParams.get("categoryName") || "";
   const [reloadKey, setReloadKey] = useState(0);
   const [createdProductForImage, setCreatedProductForImage] = useState<PurchaseRecord | null>(null);
   const [postCreateImageFile, setPostCreateImageFile] = useState<File | null>(null);
@@ -528,6 +522,10 @@ export default function Products() {
 
   const productConfig: PurchaseResourceConfig = {
     ...baseProductConfig,
+    autoOpenCreate: Boolean(categoryId),
+    autoOpenCreateKey: categoryId ? `category-product-${categoryId}` : undefined,
+    initialCreateState: categoryId ? { categoryId } : undefined,
+    formSubtitle: categoryName ? `Creating a product in ${categoryName}.` : undefined,
     afterSubmit: ({ savedRow, isCreate }) => {
       if (!isCreate || !savedRow?.id) return;
       setCreatedProductForImage(savedRow);
@@ -560,7 +558,7 @@ export default function Products() {
             <div>
           <button
             type="button"
-            onClick={() => navigate("/product-categories")}
+            onClick={() => navigate("/product-catalogue/categories")}
             className="inline-flex items-center mt-2 -my-6 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100"
           >
             + Category

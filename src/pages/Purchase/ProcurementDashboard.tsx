@@ -6,7 +6,6 @@ import {
   Truck,
   Package,
   Receipt,
-  CheckCircle,
   Calendar,
   TrendingUp,
   ArrowUpRight,
@@ -57,7 +56,6 @@ const procurementModules = [
   { name: "Goods Receipt Notes", count: 30, icon: Receipt, route: "/goods-receipt-notes", color: "pink" },
   { name: "Terms and Conditions", count: 18, icon: FileText, route: "/terms-and-conditions", color: "indigo" },
   { name: "Deliveries", count: 27, icon: Calendar, route: "/deliveries", color: "red" },
-  { name: "Approval Status", count: 9, icon: CheckCircle, route: "/approval-status", color: "teal" },
 ];
 
 const kpiItems = [

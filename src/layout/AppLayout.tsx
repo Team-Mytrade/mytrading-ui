@@ -9,7 +9,7 @@ import { useContext } from "react";
 
 
 import { useState, useEffect } from "react";
-import "../pages/Sales/SalesDarkMode.css";
+import "../styles/SalesDarkMode.css";
 
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, sidebarWidth, isResizing } = useSidebar();

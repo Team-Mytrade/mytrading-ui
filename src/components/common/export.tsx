@@ -181,7 +181,8 @@ const getFilterSummary = (metadata?: PdfExportMeta[]) => {
   return [rangeText, otherText].filter(Boolean).join(" | ");
 };
 
-const loadImageAsDataUrl = (src: string) => {
+/** Loads a public branding image for reuse in all PDF exports. */
+export const loadImageAsDataUrl = (src: string) => {
   if (typeof window === "undefined") return Promise.resolve<string | null>(null);
 
   return new Promise<string | null>((resolve) => {

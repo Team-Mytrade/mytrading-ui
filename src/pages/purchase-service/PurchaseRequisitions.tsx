@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import PurchaseResourcePage from "./PurchaseResourcePage";
-import { purchaseRequisitionConfig } from "./purchaseResourceConfigs";
+import PurchaseResourcePage from "../Purchase/PurchaseResourcePage";
+import { purchaseRequisitionConfig } from "../Purchase/purchaseResourceConfigs";
 
 export default function PurchaseRequisitions() {
   const navigate = useNavigate();
@@ -12,7 +12,7 @@ export default function PurchaseRequisitions() {
       const requisitionId = ce.detail?.requisitionId;
       if (!requisitionId) return;
 
-      navigate("/purchase-orders", {
+      navigate("/purchase-service/orders", {
         state: { prefillRequisitionId: requisitionId },
       });
     };

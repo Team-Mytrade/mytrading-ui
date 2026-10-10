@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { navItems } from "../../layout/AppSidebar";
-import "./CreateAccess.css";
+import "../../styles/CreateAccess.css";
 
 /** Flatten nested sidebar groups to assignable routes, retaining their labels. */
 const pagesOf = (items) => items.flatMap((item) => item.subItems ? pagesOf(item.subItems) : item.path ? [{ name: item.name, path: item.path }] : []);

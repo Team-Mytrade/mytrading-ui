@@ -1,5 +1,5 @@
 import ReusableTable from "../../components/common/Table";
-import "./DirectoryRows.css";
+import "../../styles/DirectoryRows.css";
 
 /** Shared table columns for local role assignments. */
 const columns = [

@@ -1,28 +1,28 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import axios from "axios";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import { useNavigate } from "react-router-dom";
 import {
   BanknotesIcon,
   CalendarDaysIcon,
   DocumentTextIcon,
-  EyeIcon,
+  ArrowDownTrayIcon,
+  ArrowRightCircleIcon,
   PlusIcon,
   PencilSquareIcon,
-  PrinterIcon,
   TrashIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
+import Dragger from "../../components/common/Dragger";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
+import { loadImageAsDataUrl } from "../../components/common/export";
 import { ToasterService } from "../../Services/ToasterService";
-import QuotationPreviewTemplate, {
-  SellerProfile,
-} from "../../components/quotation/QuotationPreviewTemplate";
+import { SellerProfile } from "../../components/quotation/QuotationPreviewTemplate";
 
 type Address = {
   id: number;
@@ -165,6 +165,12 @@ type Quotation = {
   salesPerson: SalesPerson;
   termsAndConditions: string;
   versionNo: number;
+  customerReference?: string;
+  customerReferenceDate?: string;
+  paymentTerms?: string;
+  creditDays?: number;
+  deliveryTerms?: string;
+  shippingMethod?: string;
 };
 
 type QuotationForm = {
@@ -175,6 +181,13 @@ type QuotationForm = {
   quotationType: string;
   validUntil: string;
   currencyCode: string;
+  customerReference: string;
+  customerReferenceDate: string;
+  paymentTerms: string;
+  creditDays: string;
+  deliveryTerms: string;
+  shippingMethod: string;
+  quotationAdditionalDiscount: string;
   remarks: string;
   internalNotes: string;
   customerNotes: string;
@@ -188,11 +201,15 @@ type QuotationForm = {
   termsAndConditions: string;
   versionNo: string;
   billingAddressLine1: string;
+  billingAddressLine2: string;
+  billingStreet: string;
   billingCity: string;
   billingState: string;
   billingCountry: string;
   billingPostalCode: string;
   shippingAddressLine1: string;
+  shippingAddressLine2: string;
+  shippingStreet: string;
   shippingCity: string;
   shippingState: string;
   shippingCountry: string;
@@ -219,11 +236,16 @@ type QuotationForm = {
 
 const API_URL = "/v1/api/sales/quotations";
 const CUSTOMERS_API = "/v1/api/sales/quotations/getCustomers";
-const PURCHASE_PRODUCTS_API = "/v1/api/purchase/products";
-const PURCHASE_CATEGORIES_API = "/v1/api/purchase/product-categories";
+// Quotation line items are sourced from Product Catalogue, not Purchase.
+// Tenant context is supplied by the shared Axios interceptor via X-Tenant-ID.
+const PRODUCT_CATALOGUE_PRODUCTS_API = "/v1/api/product/products";
+const PRODUCT_CATALOGUE_CATEGORIES_API = "/v1/api/product/product-categories";
 const PAGE_SIZE = 10;
 const statusOptions = ["DRAFT", "SENT", "ACCEPTED", "REJECTED"];
 const quotationTypeOptions = ["PRODUCT", "SERVICE"];
+
+/** Normalizes API status values before they drive quotation actions. */
+const getQuotationStatus = (status?: string | null) => String(status || "").trim().toUpperCase();
 
 function getQuotationCustomerName(quotation: Quotation, customers: Customer[]) {
   const customer = customers.find((item) => Number(item.id) === Number(quotation.customerId));
@@ -242,7 +264,7 @@ function getStoredTenantId() {
 function getSellerProfile(): SellerProfile {
   try {
     const user = JSON.parse(localStorage.getItem("user") || "null");
-    const companyName = user?.companyName || user?.tenantName || "Your Company";
+    const companyName = user?.companyName || user?.tenantName || "My Trading";
     const legalName = user?.legalName || companyName;
     const addressLines = [
       user?.addressLine1,
@@ -263,8 +285,8 @@ function getSellerProfile(): SellerProfile {
     };
   } catch {
     return {
-      companyName: "Your Company",
-      legalName: "Your Company",
+      companyName: "My Trading",
+      legalName: "My Trading",
       contactEmail: "sales@company.com",
       contactPhone: "+91 00000 00000",
       gstin: "--",
@@ -277,53 +299,85 @@ const today = new Date().toISOString().split("T")[0];
 
 const emptyForm: QuotationForm = {
   tenantId: getStoredTenantId(),
-  customerId: "",
-  customerName: "",
+  customerId: "5",
+  customerName: "ABC Technologies Pvt Ltd",
   customerCode: "",
   quotationType: "PRODUCT",
-  validUntil: today,
+  validUntil: "2026-10-31",
   currencyCode: "INR",
-  remarks: "",
-  internalNotes: "",
-  customerNotes: "",
-  subject: "",
-  email: "",
+  customerReference: "RFQ-ABC-2026-1001",
+  customerReferenceDate: "2026-09-25",
+  paymentTerms: "30 days from invoice",
+  creditDays: "30",
+  deliveryTerms: "Delivery at customer premises",
+  shippingMethod: "ROAD",
+  quotationAdditionalDiscount: "5000",
+  remarks: "Delivery within agreed timeline",
+  internalNotes: "Priority corporate customer",
+  customerNotes: "Please mention PO number on invoice",
+  subject: "Quotation for Business Laptops",
+  email: "purchase@abctech.example",
   quoteNumber: "",
-  quoteDate: today,
+  quoteDate: "2026-09-25",
   status: "DRAFT",
   discountPercentage: "0",
-  salesPersonId: "",
-  termsAndConditions: "",
+  salesPersonId: "1",
+  termsAndConditions: "Prices are valid until quotation expiry. Payment due within 30 days from invoice date.",
   versionNo: "0",
-  billingAddressLine1: "",
-  billingCity: "",
-  billingState: "",
-  billingCountry: "",
-  billingPostalCode: "",
-  shippingAddressLine1: "",
-  shippingCity: "",
-  shippingState: "",
-  shippingCountry: "",
-  shippingPostalCode: "",
+  billingAddressLine1: "ABC Technologies Pvt Ltd",
+  billingAddressLine2: "Building 10",
+  billingStreet: "Hitech City Road",
+  billingCity: "Hyderabad",
+  billingState: "Telangana",
+  billingCountry: "India",
+  billingPostalCode: "500081",
+  shippingAddressLine1: "ABC Technologies Warehouse",
+  shippingAddressLine2: "Gate 2",
+  shippingStreet: "Financial District",
+  shippingCity: "Hyderabad",
+  shippingState: "Telangana",
+  shippingCountry: "India",
+  shippingPostalCode: "500032",
   itemCategoryId: "",
   itemCategoryName: "",
   itemType: "PRODUCT",
-  itemProductId: "",
-  itemProductName: "",
+  itemProductId: "2",
+  itemProductName: "Dell Latitude 5450",
   itemServiceItemId: "0",
-  itemDescription: "",
+  itemDescription: "Dell Latitude business laptop",
   itemProductCode: "",
   itemUom: "",
-  itemQuantity: "1",
-  itemUnitPrice: "0",
-  itemDiscountPercentage: "0",
+  itemQuantity: "2",
+  itemUnitPrice: "63000",
+  itemDiscountPercentage: "3",
   itemDiscountAmount: "0",
-  itemTaxRate: "0",
-  itemTaxCode: "",
-  itemRemarks: "",
+  itemTaxRate: "18",
+  itemTaxCode: "GST18",
+  itemRemarks: "3-year warranty",
   itemAdditionalDiscount: "0",
   itemAdditionalDiscountPercentage: "0",
 };
+
+const defaultQuotationLineItems: QuotationItemPayload[] = [
+  {
+    id: 0,
+    categoryName: "",
+    itemType: "PRODUCT",
+    productId: 1,
+    productName: "Paracetamol 500mg",
+    description: "Paracetamol 500mg tablets",
+    productCode: "",
+    uom: "",
+    quantity: 200,
+    unitPrice: 250,
+    discountPercentage: 5,
+    discountAmount: 2500,
+    taxRate: 18,
+    taxCode: "GST18",
+    remarks: "3-year warranty",
+    additionalDiscount: 0,
+  },
+];
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {
@@ -344,6 +398,124 @@ function toNumber(value: string | number | undefined | null) {
 function money(value: number | string | undefined) {
   return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
+
+const formatPdfDate = (value?: string) => {
+  if (!value) return "--";
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const quotationItemAmount = (item: QuotationItemPayload) => {
+  const gross = Number(item.quantity || 0) * Number(item.unitPrice || 0);
+  const discounts = Number(item.discountAmount || 0) + Number(item.additionalDiscount || 0);
+  const taxable = Math.max(0, gross - discounts);
+  return taxable + (taxable * Number(item.taxRate || 0)) / 100;
+};
+
+/** Builds a client-side PDF for downloading an individual quotation. */
+const createQuotationPdfUrl = async (
+  quotation: Quotation,
+  sellerProfile: SellerProfile,
+  customer?: Customer | null
+) => {
+  const logoDataUrl = await loadImageAsDataUrl("/images/logo/logo.png");
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const reportWidth = doc.internal.pageSize.getWidth();
+  const reportHeight = doc.internal.pageSize.getHeight();
+  const reportMargin = 14;
+  const reportCurrency = quotation.currencyCode || "INR";
+  const reportTotals = calculateQuotationTotals(quotation.items || []);
+  const apiHasTotals = [quotation.subTotal, quotation.discountAmount, quotation.additionalDiscount, quotation.taxAmount, quotation.grandTotal]
+    .some((value) => Number(value || 0) !== 0);
+  const resolvedTotals = apiHasTotals
+    ? {
+        subTotal: Number(quotation.subTotal || 0), discountAmount: Number(quotation.discountAmount || 0),
+        additionalDiscount: Number(quotation.additionalDiscount || 0), taxAmount: Number(quotation.taxAmount || 0),
+        grandTotal: Number(quotation.grandTotal || 0),
+      }
+    : { ...reportTotals, additionalDiscount: reportTotals.additionalDiscount + Number(quotation.additionalDiscount || 0), grandTotal: Math.max(0, reportTotals.grandTotal - Number(quotation.additionalDiscount || 0)) };
+  const reportAddress = (address?: Address) => [address?.addressLine1, address?.addressLine2, address?.street, address?.city, address?.state, address?.country, address?.postalCode].filter(Boolean).join(", ") || "Not available";
+  const reportCustomerName = customer?.customerName || quotation.billingAddress?.customerName || `Customer #${quotation.customerId}`;
+  const tableEnd = () => (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || 0;
+  const drawReportHeader = () => {
+    doc.setFillColor(8, 145, 178);
+    doc.rect(0, 0, reportWidth, 31, "F");
+    if (logoDataUrl) {
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(reportMargin, 7, 42, 12, 2, 2, "F");
+      doc.addImage(logoDataUrl, "PNG", reportMargin + 2, 8.5, 38, 9);
+    } else {
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text(sellerProfile.companyName || "My Trading", reportMargin, 18);
+    }
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(15);
+    doc.text("QUOTATION", reportWidth - reportMargin, 13, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(`No. ${quotation.quoteNumber || quotation.id}  |  ${getQuotationStatus(quotation.status) || "DRAFT"}`, reportWidth - reportMargin, 20, { align: "right" });
+    doc.setTextColor(15, 23, 42);
+  };
+  const reportTableOptions = {
+    theme: "grid" as const,
+    styles: { font: "helvetica", fontSize: 7.7, cellPadding: 2.4, textColor: [15, 23, 42] as [number, number, number], lineColor: [226, 232, 240] as [number, number, number], lineWidth: 0.15, valign: "middle" as const },
+    headStyles: { fillColor: [14, 116, 144] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: "bold" as const },
+    alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
+    margin: { left: reportMargin, right: reportMargin, top: 37, bottom: 18 },
+  };
+
+  drawReportHeader();
+  autoTable(doc, { ...reportTableOptions, startY: 39, tableWidth: 87, head: [["SELLER"]], body: [[sellerProfile.legalName || sellerProfile.companyName || "My Trading"], [sellerProfile.addressLines.join(", ")], [`Email: ${sellerProfile.contactEmail || "-"}`], [`Phone: ${sellerProfile.contactPhone || "-"}   GSTIN: ${sellerProfile.gstin || "-"}`]] });
+  const sellerTableEnd = tableEnd();
+  autoTable(doc, { ...reportTableOptions, startY: 39, margin: { ...reportTableOptions.margin, left: 109 }, tableWidth: 87, head: [["CUSTOMER"]], body: [[reportCustomerName], [`Code: ${customer?.customerCode || quotation.billingAddress?.customerCode || "-"}   Type: ${customer?.customerType || "-"}`], [`Email: ${quotation.email || customer?.email || "-"}`], [`Phone: ${customer?.phone || "-"}`]] });
+  let reportY = Math.max(sellerTableEnd, tableEnd(), 79) + 5;
+  autoTable(doc, { ...reportTableOptions, startY: reportY, head: [["QUOTE DETAILS", "", "COMMERCIAL DETAILS", ""]], body: [
+    ["Quote date", formatPdfDate(quotation.quoteDate), "Customer reference", quotation.customerReference || "-"],
+    ["Valid until", formatPdfDate(quotation.validUntil), "Reference date", quotation.customerReferenceDate ? formatPdfDate(quotation.customerReferenceDate) : "-"],
+    ["Type", quotation.quotationType || "-", "Payment terms", quotation.paymentTerms || "-"],
+    ["Status", getQuotationStatus(quotation.status) || "DRAFT", "Credit days", quotation.creditDays ?? "-"],
+    ["Sales person", quotation.salesPerson?.name || "-", "Delivery terms", quotation.deliveryTerms || "-"],
+    ["Currency", reportCurrency, "Shipping method", quotation.shippingMethod || "-"],
+    ["Version", quotation.versionNo != null ? `v${quotation.versionNo}` : "-", "Quotation discount", `${Number(quotation.discountPercentage || 0)}%`],
+  ], columnStyles: { 0: { cellWidth: 28, fontStyle: "bold", textColor: [71, 85, 105] }, 1: { cellWidth: 63 }, 2: { cellWidth: 31, fontStyle: "bold", textColor: [71, 85, 105] }, 3: { cellWidth: 60 } } });
+  reportY = tableEnd() + 5;
+  autoTable(doc, { ...reportTableOptions, startY: reportY, head: [["BILLING ADDRESS", "SHIPPING ADDRESS"]], body: [[reportAddress(quotation.billingAddress), reportAddress(quotation.shippingAddress)]], columnStyles: { 0: { cellWidth: 91 }, 1: { cellWidth: 91 } } });
+  reportY = tableEnd() + 5;
+  const subjectStartY = reportY;
+  autoTable(doc, { ...reportTableOptions, startY: subjectStartY, tableWidth: 100, head: [["SUBJECT"]], body: [[quotation.subject || "-"]] });
+  const subjectTableEnd = tableEnd();
+  autoTable(doc, { ...reportTableOptions, startY: subjectStartY, margin: { ...reportTableOptions.margin, left: 118 }, tableWidth: 78, head: [["TOTALS", "AMOUNT"]], body: [["Subtotal", `${reportCurrency} ${money(resolvedTotals.subTotal)}`], ["Item discount", `- ${reportCurrency} ${money(resolvedTotals.discountAmount)}`], ["Additional discount", `- ${reportCurrency} ${money(resolvedTotals.additionalDiscount)}`], ["Tax", `${reportCurrency} ${money(resolvedTotals.taxAmount)}`], ["GRAND TOTAL", `${reportCurrency} ${money(resolvedTotals.grandTotal)}`]], columnStyles: { 0: { cellWidth: 43 }, 1: { cellWidth: 35, halign: "right", fontStyle: "bold" } } });
+  reportY = Math.max(subjectTableEnd, tableEnd()) + 6;
+  autoTable(doc, { ...reportTableOptions, startY: reportY, head: [["#", "ITEM / DESCRIPTION", "QTY", "RATE", "DISC.", "ADD. DISC.", "TAX", "AMOUNT"]], body: (quotation.items || []).map((item, index) => [
+    String(index + 1),
+    [item.productName || item.description || "Quotation item", [item.productCode, item.categoryName, item.uom].filter(Boolean).join(" | "), item.description && item.description !== item.productName ? item.description : "", item.remarks ? `Remarks: ${item.remarks}` : ""].filter(Boolean).join("\n"),
+    String(item.quantity || 0), `${reportCurrency} ${money(item.unitPrice)}`, `${Number(item.discountPercentage || 0)}%`, `${reportCurrency} ${money(item.additionalDiscount)}`, `${Number(item.taxRate || 0)}%`, `${reportCurrency} ${money(quotationItemAmount(item))}`
+  ]), columnStyles: { 0: { cellWidth: 8, halign: "center" }, 1: { cellWidth: 55 }, 2: { cellWidth: 11, halign: "right" }, 3: { cellWidth: 22, halign: "right" }, 4: { cellWidth: 13, halign: "right" }, 5: { cellWidth: 20, halign: "right" }, 6: { cellWidth: 11, halign: "right" }, 7: { cellWidth: 27, halign: "right" } }, didDrawPage: drawReportHeader });
+  reportY = tableEnd() + 6;
+  const noteRows = [["Customer notes", quotation.customerNotes], ["Terms and conditions", quotation.termsAndConditions], ["Remarks", quotation.remarks], ["Internal notes", quotation.internalNotes]].filter(([, value]) => Boolean(value));
+  if (noteRows.length) {
+    if (reportY > reportHeight - 50) { doc.addPage(); drawReportHeader(); reportY = 40; }
+    autoTable(doc, { ...reportTableOptions, startY: reportY, head: [["NOTES AND TERMS", ""]], body: noteRows, columnStyles: { 0: { cellWidth: 36, fontStyle: "bold", textColor: [71, 85, 105] }, 1: { cellWidth: 146 } } });
+  }
+  for (let page = 1; page <= doc.getNumberOfPages(); page += 1) {
+    doc.setPage(page);
+    doc.setDrawColor(226, 232, 240);
+    doc.line(reportMargin, reportHeight - 13, reportWidth - reportMargin, reportHeight - 13);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.text("System generated quotation", reportMargin, reportHeight - 8);
+    doc.text(`Page ${page} of ${doc.getNumberOfPages()}`, reportWidth - reportMargin, reportHeight - 8, { align: "right" });
+  }
+  return URL.createObjectURL(doc.output("blob"));
+};
 
 function customerOptionLabel(customer: Customer) {
   const name = customer.customerName || customer.tradeName || "Unnamed Customer";
@@ -373,8 +545,8 @@ function buildAddress(form: QuotationForm, type: "BILLING" | "SHIPPING"): Addres
     customerCode: form.customerCode,
     type,
     addressLine1: form[`${prefix}AddressLine1` as keyof QuotationForm] as string,
-    addressLine2: "",
-    street: "",
+    addressLine2: form[`${prefix}AddressLine2` as keyof QuotationForm] as string,
+    street: form[`${prefix}Street` as keyof QuotationForm] as string,
     city: form[`${prefix}City` as keyof QuotationForm] as string,
     state: form[`${prefix}State` as keyof QuotationForm] as string,
     country: form[`${prefix}Country` as keyof QuotationForm] as string,
@@ -483,13 +655,13 @@ const Quotations: React.FC = () => {
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [form, setForm] = useState<QuotationForm>(emptyForm);
   const [lineItems, setLineItems] = useState<QuotationItemPayload[]>([]);
+  const [editingLineItemIndex, setEditingLineItemIndex] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleteQuotation, setDeleteQuotation] = useState<Quotation | null>(null);
-  const [previewQuotation, setPreviewQuotation] = useState<Quotation | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
+  const [quotationApiErrors, setQuotationApiErrors] = useState<Record<number, string>>({});
 
   useEffect(() => {
     fetchQuotations();
@@ -502,11 +674,7 @@ const Quotations: React.FC = () => {
 
   const selectedCustomer = customers.find((customer) => String(customer.id) === form.customerId);
   const selectedSalesPerson = salesPersons.find((person) => String(person.id) === form.salesPersonId);
-  const previewCustomer = customers.find(
-    (customer) => Number(customer.id) === Number(previewQuotation?.customerId)
-  );
   const activeCategories = productCategories.filter((category) => category.active !== false);
-  const leafCategories = activeCategories.filter((category) => category.parentId != null);
   const selectedCategory = productCategories.find(
     (category) => String(category.id) === form.itemCategoryId
   );
@@ -552,19 +720,29 @@ const Quotations: React.FC = () => {
       isPositiveNumber(form.itemUnitPrice) &&
       (form.itemProductName.trim() || form.itemDescription.trim());
     const itemsForTotals =
-      lineItems.length > 0
-        ? draftHasData
-          ? [...lineItems, draftAsPayload]
-          : lineItems
-        : [draftAsPayload];
-    return calculateQuotationTotals(itemsForTotals);
+      editingLineItemIndex != null && draftHasData
+        ? lineItems.map((item, index) => (index === editingLineItemIndex ? draftAsPayload : item))
+        : lineItems.length > 0
+          ? draftHasData
+            ? [...lineItems, draftAsPayload]
+            : lineItems
+          : [draftAsPayload];
+    const totals = calculateQuotationTotals(itemsForTotals);
+    const quotationAdditionalDiscount = toNumber(form.quotationAdditionalDiscount);
+    return {
+      ...totals,
+      additionalDiscount: totals.additionalDiscount + quotationAdditionalDiscount,
+      grandTotal: Math.max(0, totals.grandTotal - quotationAdditionalDiscount),
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     lineItems,
+    editingLineItemIndex,
     form.itemQuantity,
     form.itemUnitPrice,
     form.itemProductName,
     form.itemDescription,
+    form.quotationAdditionalDiscount,
     form.itemDiscountPercentage,
     form.itemDiscountAmount,
     form.itemTaxRate,
@@ -599,7 +777,15 @@ const Quotations: React.FC = () => {
   const fetchCustomers = async () => {
     try {
       const res = await axios.get<Customer[]>(CUSTOMERS_API, { headers });
-      setCustomers(Array.isArray(res.data) ? res.data : []);
+      const availableCustomers = Array.isArray(res.data) ? res.data : [];
+      setCustomers(availableCustomers);
+      setForm((current) => {
+        if (!current.customerId || availableCustomers.some((customer) => String(customer.id) === current.customerId)) {
+          return current;
+        }
+
+        return { ...current, customerId: "", customerName: "", customerCode: "" };
+      });
     } catch (error) {
       ToasterService.error("Failed to load customers", getErrorMessage(error, "Please try again."));
     }
@@ -607,10 +793,7 @@ const Quotations: React.FC = () => {
 
   const fetchProductCategories = async () => {
     try {
-      const res = await axios.get<ProductCategory[]>(PURCHASE_CATEGORIES_API, {
-        headers,
-        params: { tenantId: getStoredTenantId() },
-      });
+      const res = await axios.get<ProductCategory[]>(PRODUCT_CATALOGUE_CATEGORIES_API, { headers });
       setProductCategories(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       ToasterService.error(
@@ -623,7 +806,7 @@ const Quotations: React.FC = () => {
 
   const fetchProducts = async () => {
     try {
-      const res = await axios.get<ProductOption[]>(PURCHASE_PRODUCTS_API, { headers });
+      const res = await axios.get<ProductOption[]>(PRODUCT_CATALOGUE_PRODUCTS_API, { headers });
       setProducts(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       ToasterService.error("Failed to load products", getErrorMessage(error, "Please try again."));
@@ -649,11 +832,15 @@ const Quotations: React.FC = () => {
         next.customerCode = customer?.customerCode || "";
         next.currencyCode = customer?.currencyCode || current.currencyCode || "INR";
         next.billingAddressLine1 = billingAddress?.addressLine1 || "";
+        next.billingAddressLine2 = billingAddress?.addressLine2 || "";
+        next.billingStreet = billingAddress?.street || "";
         next.billingCity = billingAddress?.city || "";
         next.billingState = billingAddress?.state || "";
         next.billingCountry = billingAddress?.country || "";
         next.billingPostalCode = billingAddress?.postalCode || "";
         next.shippingAddressLine1 = shippingAddress?.addressLine1 || "";
+        next.shippingAddressLine2 = shippingAddress?.addressLine2 || "";
+        next.shippingStreet = shippingAddress?.street || "";
         next.shippingCity = shippingAddress?.city || "";
         next.shippingState = shippingAddress?.state || "";
         next.shippingCountry = shippingAddress?.country || "";
@@ -792,22 +979,58 @@ const Quotations: React.FC = () => {
       return;
     }
 
-    setLineItems((current) => [...current, buildItem()]);
+    setLineItems((current) =>
+      editingLineItemIndex == null
+        ? [...current, buildItem()]
+        : current.map((item, index) => (index === editingLineItemIndex ? buildItem() : item))
+    );
+    setEditingLineItemIndex(null);
     setForm((current) => resetItemFields(current));
   };
 
   const removeLineItem = (index: number) => {
     setLineItems((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    setEditingLineItemIndex((current) => {
+      if (current == null || current === index) return null;
+      return current > index ? current - 1 : current;
+    });
+  };
+
+  const editLineItem = (item: QuotationItemPayload, index: number) => {
+    setEditingLineItemIndex(index);
+    setForm((current) => ({
+      ...current,
+      itemCategoryId: String(item.categoryId || ""),
+      itemCategoryName: item.categoryName || "",
+      itemType: item.itemType || "PRODUCT",
+      itemProductId: String(item.productId || ""),
+      itemProductName: item.productName || "",
+      itemServiceItemId: String(item.serviceItemId || "0"),
+      itemDescription: item.description || "",
+      itemProductCode: item.productCode || "",
+      itemUom: item.uom || "",
+      itemQuantity: String(item.quantity || 1),
+      itemUnitPrice: String(item.unitPrice || 0),
+      itemDiscountPercentage: String(item.discountPercentage || 0),
+      itemDiscountAmount: String(item.discountAmount || 0),
+      itemTaxRate: String(item.taxRate || 0),
+      itemTaxCode: item.taxCode || "",
+      itemRemarks: item.remarks || "",
+      itemAdditionalDiscount: String(item.additionalDiscount || 0),
+      itemAdditionalDiscountPercentage: "0",
+    }));
   };
 
   const buildPayload = () => {
     const pendingDraft = getPendingDraftItem();
     const payloadItems =
-      lineItems.length > 0
-        ? pendingDraft
-          ? [...lineItems, pendingDraft]
-          : lineItems
-        : [buildItem()];
+      editingLineItemIndex != null && pendingDraft
+        ? lineItems.map((item, index) => (index === editingLineItemIndex ? pendingDraft : item))
+        : lineItems.length > 0
+          ? pendingDraft
+            ? [...lineItems, pendingDraft]
+            : lineItems
+          : [buildItem()];
     const totals = calculateQuotationTotals(payloadItems);
 
     return {
@@ -817,6 +1040,12 @@ const Quotations: React.FC = () => {
       quotationType: form.quotationType,
       validUntil: form.validUntil,
       currencyCode: form.currencyCode,
+      customerReference: form.customerReference,
+      customerReferenceDate: form.customerReferenceDate,
+      paymentTerms: form.paymentTerms,
+      creditDays: toNumber(form.creditDays),
+      deliveryTerms: form.deliveryTerms,
+      shippingMethod: form.shippingMethod,
       remarks: form.remarks,
       internalNotes: form.internalNotes,
       customerNotes: form.customerNotes,
@@ -886,6 +1115,8 @@ const Quotations: React.FC = () => {
     try {
       setSubmitting(true);
       const payload = buildPayload();
+      // The current Sales API requires tenantId as a request parameter in addition
+      // to the tenant context header supplied by the shared Axios interceptor.
       const requestConfig = {
         headers,
         params: { tenantId: form.tenantId.trim() },
@@ -910,17 +1141,21 @@ const Quotations: React.FC = () => {
 
   const openCreate = () => {
     setEditingId(null);
-    setLineItems([]);
+    setEditingLineItemIndex(null);
+    setLineItems(defaultQuotationLineItems);
     setForm({
       ...emptyForm,
       tenantId: getStoredTenantId(),
-      validUntil: today,
-      quoteDate: today,
     });
     setShowFormModal(true);
   };
 
   const openEdit = async (quotation: Quotation) => {
+    if (getQuotationStatus(quotation.status) !== "DRAFT") {
+      ToasterService.error("Quotation cannot be edited", "Only draft quotations can be edited.");
+      return;
+    }
+
     try {
       setLoading(true);
       const res = await axios.get<Quotation>(`${API_URL}/${quotation.id}`, { headers });
@@ -948,6 +1183,7 @@ const Quotations: React.FC = () => {
         }))
       );
       setEditingId(full.id);
+      setEditingLineItemIndex(null);
       setForm({
         tenantId: getStoredTenantId(),
         customerId: String(full.customerId || ""),
@@ -964,6 +1200,13 @@ const Quotations: React.FC = () => {
         quotationType: full.quotationType || "PRODUCT",
         validUntil: full.validUntil || today,
         currencyCode: full.currencyCode || "INR",
+        customerReference: full.customerReference || "",
+        customerReferenceDate: full.customerReferenceDate || "",
+        paymentTerms: full.paymentTerms || "",
+        creditDays: String(full.creditDays || 0),
+        deliveryTerms: full.deliveryTerms || "",
+        shippingMethod: full.shippingMethod || "",
+        quotationAdditionalDiscount: String(full.additionalDiscount || 0),
         remarks: full.remarks || "",
         internalNotes: full.internalNotes || "",
         customerNotes: full.customerNotes || "",
@@ -977,11 +1220,15 @@ const Quotations: React.FC = () => {
         termsAndConditions: full.termsAndConditions || "",
         versionNo: String(full.versionNo || 0),
         billingAddressLine1: full.billingAddress?.addressLine1 || "",
+        billingAddressLine2: full.billingAddress?.addressLine2 || "",
+        billingStreet: full.billingAddress?.street || "",
         billingCity: full.billingAddress?.city || "",
         billingState: full.billingAddress?.state || "",
         billingCountry: full.billingAddress?.country || "",
         billingPostalCode: full.billingAddress?.postalCode || "",
         shippingAddressLine1: full.shippingAddress?.addressLine1 || "",
+        shippingAddressLine2: full.shippingAddress?.addressLine2 || "",
+        shippingStreet: full.shippingAddress?.street || "",
         shippingCity: full.shippingAddress?.city || "",
         shippingState: full.shippingAddress?.state || "",
         shippingCountry: full.shippingAddress?.country || "",
@@ -1013,29 +1260,103 @@ const Quotations: React.FC = () => {
     }
   };
 
-  const openPreview = async (quotation: Quotation) => {
+  const updateQuotationStatus = async (quotation: Quotation, status: string) => {
+    if (status === getQuotationStatus(quotation.status)) return;
+
     try {
-      setPreviewLoading(true);
-      const res = await axios.get<Quotation>(`${API_URL}/${quotation.id}`, { headers });
-      setPreviewQuotation(res.data);
+      setLoading(true);
+      const requestConfig = { headers, params: { tenantId: getStoredTenantId() } };
+      const res =
+        status === "SENT"
+          ? await axios.post<Quotation>(`${API_URL}/${quotation.id}/send`, {}, requestConfig)
+          : status === "ACCEPTED"
+            ? await axios.post<Quotation>(`${API_URL}/${quotation.id}/accept`, {}, requestConfig)
+          : await axios.put<Quotation>(
+              `${API_URL}/${quotation.id}`,
+              { ...(await axios.get<Quotation>(`${API_URL}/${quotation.id}`, { headers })).data, status },
+              requestConfig
+            );
+      const updatedQuotation =
+        res.data && typeof res.data === "object" ? res.data : {};
+      setQuotations((current) =>
+        current.map((item) =>
+          item.id === quotation.id ? { ...item, ...updatedQuotation, status } : item
+        )
+      );
+      setQuotationApiErrors((current) => {
+        const { [quotation.id]: _cleared, ...remaining } = current;
+        return remaining;
+      });
+      ToasterService.success("Quotation status updated");
     } catch (error) {
+      const message = getErrorMessage(error, "Please try again.");
+      setQuotationApiErrors((current) => ({ ...current, [quotation.id]: message }));
       ToasterService.error(
-        "Failed to load quotation preview",
-        getErrorMessage(error, "Please try again.")
+        "Failed to update quotation status",
+        message
       );
     } finally {
-      setPreviewLoading(false);
+      setLoading(false);
     }
   };
 
-  const closePreview = () => {
-    setPreviewQuotation(null);
+  const convertQuotationToSalesOrder = async (quotation: Quotation) => {
+    try {
+      setLoading(true);
+      await axios.post(
+        `${API_URL}/${quotation.id}/convert-to-order`,
+        {},
+        { headers, params: { tenantId: getStoredTenantId() } }
+      );
+      const refreshed = await axios.get<Quotation>(`${API_URL}/${quotation.id}`, { headers });
+      setQuotations((current) =>
+        current.map((item) => (item.id === quotation.id ? refreshed.data : item))
+      );
+      setQuotationApiErrors((current) => {
+        const { [quotation.id]: _cleared, ...remaining } = current;
+        return remaining;
+      });
+      ToasterService.success("Quotation converted to sales order");
+      navigate(`/sales-orders?quotationId=${quotation.id}`, {
+        state: { convertedQuotationId: quotation.id, convertedQuotationNumber: quotation.quoteNumber },
+      });
+    } catch (error) {
+      const message = getErrorMessage(error, "Please try again.");
+      setQuotationApiErrors((current) => ({ ...current, [quotation.id]: message }));
+      ToasterService.error(
+        "Failed to convert quotation",
+        message
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const exportQuotationPdf = async (quotation: Quotation) => {
+    try {
+      const res = await axios.get<Quotation>(`${API_URL}/${quotation.id}`, { headers });
+      const customer = customers.find((item) => Number(item.id) === Number(res.data.customerId));
+      const pdfUrl = await createQuotationPdfUrl(res.data, sellerProfile, customer);
+      const link = document.createElement("a");
+      link.href = pdfUrl;
+      link.download = `${String(res.data.quoteNumber || `quotation-${res.data.id}`).replace(/[^a-z0-9_-]+/gi, "-")}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(pdfUrl);
+    } catch (error) {
+      ToasterService.error(
+        "Failed to export quotation PDF",
+        getErrorMessage(error, "Please try again.")
+      );
+    }
   };
 
   const closeForm = () => {
     setShowFormModal(false);
     setEditingId(null);
     setLineItems([]);
+    setEditingLineItemIndex(null);
     setForm(emptyForm);
   };
 
@@ -1059,9 +1380,9 @@ const Quotations: React.FC = () => {
   const stats = useMemo(
     () => ({
       total: quotations.length,
-      draft: quotations.filter((item) => item.status === "DRAFT").length,
-      accepted: quotations.filter((item) => item.status === "ACCEPTED").length,
-      rejected: quotations.filter((item) => item.status === "REJECTED").length,
+      draft: quotations.filter((item) => getQuotationStatus(item.status) === "DRAFT").length,
+      accepted: quotations.filter((item) => getQuotationStatus(item.status) === "ACCEPTED").length,
+      rejected: quotations.filter((item) => getQuotationStatus(item.status) === "REJECTED").length,
     }),
     [quotations]
   );
@@ -1071,12 +1392,15 @@ const Quotations: React.FC = () => {
       key: "quoteNumber",
       label: "Quotation",
       sortable: true,
+      className: "w-[250px] max-w-[250px] !overflow-visible",
+      headerClassName: "w-[250px]",
+      tooltipContent: (quotation) => quotation.quoteNumber || "Untitled Quotation",
       render: (quotation) => (
-        <div>
-          <div className="font-medium text-cyan-700 dark:text-cyan-400">
+        <div className="min-w-0 max-w-full">
+          <span className="block truncate font-medium text-cyan-700 dark:text-cyan-400">
             {quotation.quoteNumber || "Untitled Quotation"}
-          </div>
-          <div className="text-xs text-slate-500 dark:text-slate-400">
+          </span>
+          <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400" title={quotation.subject || "No subject"}>
             {quotation.subject || "No subject"}
           </div>
         </div>
@@ -1155,11 +1479,28 @@ const Quotations: React.FC = () => {
       key: "status",
       label: "Status",
       sortable: true,
-      render: (quotation) => (
-        <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
-          {quotation.status || "N/A"}
-        </span>
-      ),
+      render: (quotation) => {
+        const apiError = quotationApiErrors[quotation.id];
+        return (
+          <select
+            value={getQuotationStatus(quotation.status) || "DRAFT"}
+            onChange={(event) => updateQuotationStatus(quotation, event.target.value)}
+            onClick={(event) => event.stopPropagation()}
+            title={apiError || "Update quotation status"}
+            className={`rounded-full border-0 px-2.5 py-1 text-xs font-semibold ${
+              apiError
+                ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                : "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300"
+            }`}
+          >
+            {statusOptions.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+        );
+      },
     },
     {
       key: "grandTotal",
@@ -1181,20 +1522,32 @@ const Quotations: React.FC = () => {
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
-            onClick={() => openPreview(quotation)}
+            onClick={() => exportQuotationPdf(quotation)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
-            title="Preview quotation"
+            title="Export quotation as PDF"
           >
-            <EyeIcon className="h-4 w-4" />
+            <ArrowDownTrayIcon className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            onClick={() => openEdit(quotation)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-            title="Edit"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
+          {getQuotationStatus(quotation.status) === "DRAFT" && (
+            <button
+              type="button"
+              onClick={() => openEdit(quotation)}
+              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
+              title="Edit draft quotation"
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+            </button>
+          )}
+          {getQuotationStatus(quotation.status) === "ACCEPTED" && (
+            <button
+              type="button"
+              onClick={() => convertQuotationToSalesOrder(quotation)}
+              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
+              title={quotationApiErrors[quotation.id] || "Convert to sales order"}
+            >
+              <ArrowRightCircleIcon className="h-4 w-4" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setDeleteQuotation(quotation)}
@@ -1217,41 +1570,21 @@ const Quotations: React.FC = () => {
           title={editingId ? "Edit Quotation" : "Create New Quotation"}
           description="Manage sales quotations"
         />
-        <PageBreadcrumb pageTitle={editingId ? "Edit Quotation" : "Create Quotation"} />
-
-        <div className="h-[calc(100dvh-140px)] w-full overflow-y-auto bg-slate-50 dark:bg-slate-950">
-          <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6">
-            <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-white via-slate-50/70 to-slate-100 p-4 shadow-xl shadow-slate-100/70 dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 dark:shadow-slate-950/50 sm:rounded-3xl sm:p-6 lg:p-8">
-              <div className="absolute left-0 right-0 top-0 h-1.5 bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500" />
-
-              <div className="mb-6 flex items-start justify-between gap-3 border-b border-slate-200/70 pb-4 dark:border-slate-700 sm:mb-8 sm:items-center sm:pb-5">
-                <div>
-                  <h2 className="flex items-center gap-2 text-xl font-black tracking-tight text-slate-900 dark:text-white sm:gap-3 sm:text-2xl">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 dark:bg-cyan-950/50 dark:text-cyan-400">
-                      <DocumentTextIcon className="h-6 w-6" />
-                    </span>
-                    {editingId ? "Edit Quote" : "New Quote"}
-                  </h2>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Configure quotation details and customer info
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeForm}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:rotate-90 hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-600 dark:border-slate-700 dark:text-slate-500 dark:hover:border-cyan-700 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-                  title="Close"
-                >
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit}>
+        <Dragger
+          isOpen={showFormModal}
+          title={editingId ? "Edit Quotation" : "Create Quotation"}
+          subtitle="Configure quotation, customer, and line-item details."
+          onClose={closeForm}
+          onSubmit={handleSubmit}
+          submitLabel={editingId ? "Update Quotation" : "Create Quotation"}
+          submitting={submitting}
+          content={
+            <form onSubmit={handleSubmit} className="p-1">
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-                  <div className="flex flex-col gap-8">
-                    <div className="flex w-full flex-col gap-6">
+                  <div className="flex flex-col gap-5">
+                    <div className="flex w-full flex-col gap-5">
                       {/* CUSTOMER */}
-                      <div className="group flex flex-col gap-2 md:flex-row md:items-start md:gap-6">
+                      <div className="group flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:flex-row md:items-start md:gap-6">
                         <label className="mt-3 shrink-0 text-[13px] font-bold uppercase tracking-wider text-slate-500 transition-colors group-focus-within:text-blue-600 dark:text-slate-400 dark:group-focus-within:text-blue-400 md:w-48">
                           Customer <span className="text-red-500">*</span>
                         </label>
@@ -1289,25 +1622,24 @@ const Quotations: React.FC = () => {
                                 </span>
                               </div>
                             )}
+                            {customers.length === 0 && (
+                              <button
+                                type="button"
+                                onClick={() => navigate("/customers/new")}
+                                className="flex items-center justify-center border border-l-0 border-slate-200 bg-cyan-50 px-3 text-cyan-700 transition hover:bg-cyan-100 dark:border-slate-700 dark:bg-cyan-950/40 dark:text-cyan-400 dark:hover:bg-cyan-900/50"
+                                title="Create customer"
+                                aria-label="Create customer"
+                              >
+                                <PlusIcon className="h-5 w-5" />
+                              </button>
+                            )}
                           </div>
-                          {selectedCustomer && (
-                            <div className="mt-3 max-w-xl rounded-xl border border-slate-100 bg-white p-3 text-xs text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-                              <div className="font-semibold text-slate-900 dark:text-white">
-                                {selectedCustomer.customerName}
-                                {selectedCustomer.customerCode
-                                  ? ` (${selectedCustomer.customerCode})`
-                                  : ""}
-                              </div>
-                              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                                {selectedCustomer.email && <span>{selectedCustomer.email}</span>}
-                                {selectedCustomer.phone && <span>{selectedCustomer.phone}</span>}
-                                {selectedCustomer.customerType && (
-                                  <span>{selectedCustomer.customerType}</span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          <div className="mt-3 grid max-w-xl grid-cols-1 gap-3 sm:grid-cols-2">
+                          <details className="mt-3 max-w-3xl overflow-hidden rounded-xl border border-slate-200 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-800/40">
+                            <summary className="cursor-pointer px-3 py-2.5 text-xs font-semibold text-slate-600 marker:text-cyan-600 dark:text-slate-300">
+                              Address snapshots
+                              <span className="ml-2 font-normal text-slate-400">Billing and shipping details</span>
+                            </summary>
+                            <div className="grid grid-cols-1 gap-3 border-t border-slate-200 p-3 sm:grid-cols-2 dark:border-slate-700">
                             <input
                               name="billingAddressLine1"
                               value={form.billingAddressLine1}
@@ -1322,16 +1654,53 @@ const Quotations: React.FC = () => {
                               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
                               placeholder="Shipping address"
                             />
-                          </div>
+                            <input
+                              name="billingAddressLine2"
+                              value={form.billingAddressLine2}
+                              onChange={handleChange}
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
+                              placeholder="Billing address line 2"
+                            />
+                            <input
+                              name="shippingAddressLine2"
+                              value={form.shippingAddressLine2}
+                              onChange={handleChange}
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
+                              placeholder="Shipping address line 2"
+                            />
+                            <input
+                              name="billingStreet"
+                              value={form.billingStreet}
+                              onChange={handleChange}
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
+                              placeholder="Billing street"
+                            />
+                            <input
+                              name="shippingStreet"
+                              value={form.shippingStreet}
+                              onChange={handleChange}
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
+                              placeholder="Shipping street"
+                            />
+                            <input name="billingCity" value={form.billingCity} onChange={handleChange} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500" placeholder="Billing city" />
+                            <input name="shippingCity" value={form.shippingCity} onChange={handleChange} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500" placeholder="Shipping city" />
+                            <input name="billingState" value={form.billingState} onChange={handleChange} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500" placeholder="Billing state" />
+                            <input name="shippingState" value={form.shippingState} onChange={handleChange} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500" placeholder="Shipping state" />
+                            <input name="billingCountry" value={form.billingCountry} onChange={handleChange} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500" placeholder="Billing country" />
+                            <input name="shippingCountry" value={form.shippingCountry} onChange={handleChange} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500" placeholder="Shipping country" />
+                            <input name="billingPostalCode" value={form.billingPostalCode} onChange={handleChange} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500" placeholder="Billing postal code" />
+                            <input name="shippingPostalCode" value={form.shippingPostalCode} onChange={handleChange} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500" placeholder="Shipping postal code" />
+                            </div>
+                          </details>
                         </div>
                       </div>
 
                       {/* QUOTE DETAILS */}
-                      <div className="group flex flex-col gap-2 md:flex-row md:items-center md:gap-6">
+                      <div className="group flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:flex-row md:items-center md:gap-6">
                         <label className="shrink-0 text-[13px] font-bold uppercase tracking-wider text-slate-500 transition-colors group-focus-within:text-blue-600 dark:text-slate-400 dark:group-focus-within:text-blue-400 md:w-48">
                           Quote Details
                         </label>
-                        <div className="grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                           <input
                             name="quoteDate"
                             type="date"
@@ -1349,18 +1718,6 @@ const Quotations: React.FC = () => {
                             className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                           />
                           <select
-                            name="status"
-                            value={form.status}
-                            onChange={handleChange}
-                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                          >
-                            {statusOptions.map((status) => (
-                              <option key={status} value={status}>
-                                {status}
-                              </option>
-                            ))}
-                          </select>
-                          <select
                             name="quotationType"
                             value={form.quotationType}
                             onChange={handleChange}
@@ -1375,8 +1732,23 @@ const Quotations: React.FC = () => {
                         </div>
                       </div>
 
+                      <div className="group flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:flex-row md:items-center md:gap-6">
+                        <label className="shrink-0 text-[13px] font-bold uppercase tracking-wider text-slate-500 transition-colors group-focus-within:text-blue-600 dark:text-slate-400 dark:group-focus-within:text-blue-400 md:w-48">
+                          Commercial Details
+                        </label>
+                        <div className="grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          <input name="customerReference" value={form.customerReference} onChange={handleChange} placeholder="Customer reference" className={itemFieldClass} />
+                          <input name="customerReferenceDate" type="date" value={form.customerReferenceDate} onChange={handleChange} className={itemFieldClass} />
+                          <input name="paymentTerms" value={form.paymentTerms} onChange={handleChange} placeholder="Payment terms" className={itemFieldClass} />
+                          <input name="creditDays" type="number" min="0" value={form.creditDays} onChange={handleChange} placeholder="Credit days" className={itemFieldClass} />
+                          <input name="deliveryTerms" value={form.deliveryTerms} onChange={handleChange} placeholder="Delivery terms" className={itemFieldClass} />
+                          <input name="shippingMethod" value={form.shippingMethod} onChange={handleChange} placeholder="Shipping method" className={itemFieldClass} />
+                          <input name="quotationAdditionalDiscount" type="number" min="0" step="0.01" value={form.quotationAdditionalDiscount} onChange={handleChange} placeholder="Additional discount" className={itemFieldClass} />
+                        </div>
+                      </div>
+
                       {/* SALES PERSON */}
-                      <div className="group flex flex-col gap-2 md:flex-row md:items-center md:gap-6">
+                      <div className="group flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:flex-row md:items-center md:gap-6">
                         <label className="shrink-0 text-[13px] font-bold uppercase tracking-wider text-slate-500 transition-colors group-focus-within:text-blue-600 dark:text-slate-400 dark:group-focus-within:text-blue-400 md:w-48">
                           Sales Person <span className="text-red-500">*</span>
                         </label>
@@ -1486,7 +1858,7 @@ const Quotations: React.FC = () => {
                               className={itemFieldClass}
                             >
                               <option value="">Select category</option>
-                              {leafCategories.map((category) => (
+                              {activeCategories.map((category) => (
                                 <option key={category.id} value={category.id}>
                                   {category.parentName
                                     ? `${category.parentName} / ${category.categoryName}`
@@ -1650,7 +2022,7 @@ const Quotations: React.FC = () => {
                             className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-600"
                           >
                             <PlusIcon className="h-4 w-4" />
-                            Add to Quotation
+                            {editingLineItemIndex == null ? "Add to Quotation" : "Update Item"}
                           </button>
                         </div>
                       </div>
@@ -1679,14 +2051,24 @@ const Quotations: React.FC = () => {
                               className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
                             >
                               <div className="flex items-start gap-3">
-                                <button
-                                  type="button"
-                                  onClick={() => removeLineItem(index)}
-                                  className="mt-0.5 rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                                  title="Remove item"
-                                >
-                                  <TrashIcon className="h-4 w-4" />
-                                </button>
+                                <div className="mt-0.5 flex flex-col gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => editLineItem(item, index)}
+                                    className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
+                                    title="Edit item"
+                                  >
+                                    <PencilSquareIcon className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeLineItem(index)}
+                                    className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                                    title="Remove item"
+                                  >
+                                    <TrashIcon className="h-4 w-4" />
+                                  </button>
+                                </div>
                                 <div>
                                   <div className="text-sm font-semibold text-slate-900 dark:text-white">
                                     {item.productName || "--"}
@@ -1836,10 +2218,9 @@ const Quotations: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              </form>
-            </div>
-          </div>
-        </div>
+            </form>
+          }
+        />
       </>
     );
   }
@@ -1923,61 +2304,6 @@ const Quotations: React.FC = () => {
         onCancel={() => setDeleteQuotation(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
       />
-
-      {(previewQuotation || previewLoading) &&
-        createPortal(
-          <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-950/70 p-4 backdrop-blur-sm print:static print:bg-white print:p-0">
-            <div className="mx-auto flex min-h-full w-full max-w-6xl items-start justify-center py-6 print:max-w-none print:py-0">
-              <div className="w-full rounded-[32px] bg-slate-100 p-3 shadow-2xl dark:bg-slate-900 print:rounded-none print:bg-white print:p-0 print:shadow-none sm:p-5">
-                <div className="mb-4 flex flex-col gap-3 rounded-[28px] bg-white/90 p-4 shadow-sm dark:bg-slate-900/90 print:hidden sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                      Quotation Template Preview
-                    </h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      Individual quotation layout inspired by a retail invoice, ready to print or
-                      share.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => window.print()}
-                      disabled={!previewQuotation}
-                      className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
-                    >
-                      <PrinterIcon className="h-4 w-4" />
-                      Print
-                    </button>
-                    <button
-                      type="button"
-                      onClick={closePreview}
-                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-                    >
-                      <XMarkIcon className="h-4 w-4" />
-                      Close
-                    </button>
-                  </div>
-                </div>
-
-                {previewLoading && (
-                  <div className="rounded-[28px] bg-white px-6 py-16 text-center text-sm font-medium text-slate-500 dark:bg-slate-900 dark:text-slate-400">
-                    Loading quotation preview...
-                  </div>
-                )}
-
-                {previewQuotation && (
-                  <QuotationPreviewTemplate
-                    quotation={previewQuotation}
-                    customer={previewCustomer}
-                    sellerProfile={sellerProfile}
-                  />
-                )}
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
     </>
   );
 };
