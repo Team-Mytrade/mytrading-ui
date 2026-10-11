@@ -119,6 +119,20 @@
 .dark .common-data-table__tooltip-float::after { border-color: rgb(103 232 249 / 35%); background: #020617; }
 @keyframes common-table-tooltip-in { from { opacity: 0; transform: translateY(calc(-100% + 4px)); } to { opacity: 1; transform: translateY(-100%); } }
 
+/* Actions stay pinned to the right edge while the rest of a wide table scrolls under them. */
+.common-data-table__sticky-actions {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: #fff;
+  box-shadow: -8px 0 8px -8px rgb(15 23 42 / 22%);
+}
+.common-data-table thead .common-data-table__sticky-actions { background: #f9fafb; }
+.common-data-table tbody tr:hover > .common-data-table__sticky-actions { background: #f9fafb; }
+.dark .common-data-table .common-data-table__sticky-actions { background: #191919 !important; }
+.dark .common-data-table thead .common-data-table__sticky-actions { background: #222 !important; }
+.dark .common-data-table tbody tr:hover > .common-data-table__sticky-actions { background: #242424 !important; }
+
 @media (max-width: 639px) {
   .common-data-table { border-radius: 8px; }
   .common-data-table > div::-webkit-scrollbar { height: 6px; }

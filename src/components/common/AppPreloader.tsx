@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { publicAsset } from "../../utils/assets";
 
 interface AppPreloaderProps {
     onFinished: () => void;
@@ -89,7 +90,7 @@ const AppPreloader: React.FC<AppPreloaderProps> = ({ onFinished }) => {
                     </svg>
 
                     <img
-                        src="/images/logo/logo.png"
+                        src={publicAsset("images/logo/logo.png")}
                         alt="My Trading"
                         style={{
                             width: "56px",

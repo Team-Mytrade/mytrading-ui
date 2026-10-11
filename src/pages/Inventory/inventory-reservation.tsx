@@ -26,6 +26,7 @@ import {
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { todayIso } from "../../utils/localDate";
 
 /**
  * =====================================================================================
@@ -163,7 +164,7 @@ const emptyForm: InventoryForm = {
   salesOrderId: "",
   warehouseId: "",
   status: "",
-  reservationDate: new Date().toISOString().split("T")[0],
+  reservationDate: todayIso(),
   productId: "",
   reservedQty: "",
 };

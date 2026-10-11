@@ -35,6 +35,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import PaginatedPopup from "../../components/common/unpopup";
+import { todayIso } from "../../utils/localDate";
 interface CommunicationEntry {
   id: number;
   type: "EMAIL" | "CALL" | "MEETING" | "OTHER";
@@ -491,7 +492,7 @@ const Interactions: React.FC = () => {
                 leadId: "",
                 type: "",
                 subject: "",
-                communicationTime: new Date().toISOString().split("T")[0],
+                communicationTime: todayIso(),
                 notes: "",
               });
               setShowFormModal(true);

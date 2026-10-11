@@ -27,6 +27,7 @@ import {
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { todayIso } from "../../utils/localDate";
 
 type Warehouse = {
   id: number;
@@ -107,7 +108,7 @@ const STATIC_TENANT_ID = "tenant-001";
 const emptyForm: InventoryForm = {
   type: "",
   quantity: "0",
-  movementDate: new Date().toISOString().split("T")[0],
+  movementDate: todayIso(),
   referenceNo: "",
   productId: "",
   reservedQty: "0",
@@ -359,7 +360,7 @@ const InventoryStockManager: React.FC = () => {
     setForm({
       type: stock.type || typeOptions[0] || "GRN",
       quantity: String(stock.quantity ?? 0),
-      movementDate: stock.movementDate || new Date().toISOString().split("T")[0],
+      movementDate: stock.movementDate || todayIso(),
       referenceNo: stock.referenceNo || "",
       productId: String(stock.productId || ""),
       reservedQty: String(stock.reservedQty ?? 0),
@@ -1026,7 +1027,7 @@ const InventoryStockManager: React.FC = () => {
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Inventory Stock" : "Create Inventory Stock"}
-        subtitle="Enter stock details from the inventory schema"
+        subtitle="Enter the stock details"
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}

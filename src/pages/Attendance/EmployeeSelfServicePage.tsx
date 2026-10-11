@@ -11,6 +11,7 @@ import {
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import { ToasterService } from '../../Services/ToasterService';
+import { todayIso } from "../../utils/localDate";
 
 export interface CalendarDayItem {
   date: string;
@@ -45,7 +46,7 @@ const EmployeeSelfServicePage: React.FC = () => {
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = todayIso();
 
   const handlePrevMonth = () => {
     setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
@@ -70,8 +71,8 @@ const EmployeeSelfServicePage: React.FC = () => {
   const [isApplyLeaveModalOpen, setIsApplyLeaveModalOpen] = useState<boolean>(false);
   const [leaveForm, setLeaveForm] = useState({
     leaveType: 'CASUAL',
-    fromDate: new Date().toISOString().slice(0, 10),
-    toDate: new Date().toISOString().slice(0, 10),
+    fromDate: todayIso(),
+    toDate: todayIso(),
     reason: ''
   });
   const [isSubmittingLeave, setIsSubmittingLeave] = useState<boolean>(false);
@@ -267,8 +268,8 @@ const EmployeeSelfServicePage: React.FC = () => {
       setIsApplyLeaveModalOpen(false);
       setLeaveForm({
         leaveType: 'CASUAL',
-        fromDate: new Date().toISOString().slice(0, 10),
-        toDate: new Date().toISOString().slice(0, 10),
+        fromDate: todayIso(),
+        toDate: todayIso(),
         reason: ''
       });
       fetchCalendarData();
@@ -307,7 +308,7 @@ const EmployeeSelfServicePage: React.FC = () => {
       });
     }
 
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = todayIso();
 
     // Current month days
     for (let i = 1; i <= totalDays; i++) {

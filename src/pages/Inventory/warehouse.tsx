@@ -250,43 +250,24 @@ const WarehousePage: React.FC = () => {
         ? response.data
         : (response.data as any)?.content || (response.data as any)?.data || [];
 
-      const enrichedData = await Promise.all(
-        rawData.map(async (warehouse) => {
-          let fullData: Warehouse = warehouse;
+      // The list already carries each warehouse's stock total; no per-warehouse detail calls
+      const enrichedData = rawData.map((warehouse) => {
+        const stockCount =
+          warehouse.stockCount ??
+          warehouse.stockLevels?.reduce(
+            (sum: number, level: any) => sum + (Number(level?.quantity) || 0),
+            0
+          ) ??
+          0;
 
-          if (!Array.isArray(warehouse.stockLevels)) {
-            try {
-              const detailRes = await axios.get(`${API_URL}/${warehouse.id}`, {
-                headers,
-                signal,
-              });
-              fullData = detailRes.data;
-            } catch (detailError) {
-              if (axios.isCancel(detailError)) throw detailError;
-              fullData = warehouse;
-            }
-          }
-
-          const stockCount =
-            fullData.stockLevels?.reduce(
-              (sum: number, level: any) => sum + (Number(level?.quantity) || 0),
-              0
-            ) || 0;
-
-          const code = resolveWarehouseCode(
-            fullData.code ?? warehouse.code,
-            warehouse.id
-          );
-
-          return {
-            ...fullData,
-            code,
-            locationType: fullData.locationType || warehouse.locationType || "MAIN",
-            stockCount,
-            status: getDisplayStatus(warehouse.id),
-          };
-        })
-      );
+        return {
+          ...warehouse,
+          code: resolveWarehouseCode(warehouse.code, warehouse.id),
+          locationType: warehouse.locationType || "MAIN",
+          stockCount,
+          status: getDisplayStatus(warehouse.id),
+        };
+      });
 
       setWarehouses(enrichedData);
     } catch (error) {

@@ -8,6 +8,7 @@ import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
+import { todayIso } from "../../utils/localDate";
 
 // Relative API Base Endpoint (routing via Vite dev proxy)
 const BASE_APPROVAL_URL = '/v1/api/attendance/attendance-approvals';
@@ -460,7 +461,7 @@ const AttendanceApprovalRequestPage: React.FC = () => {
                 <div className="bg-slate-50 dark:bg-[#222222] p-3 rounded-xl border border-slate-200/80 dark:border-[#303030] space-y-2">
                   <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-[#303030] pb-1.5">
                     <span className="text-slate-500 dark:text-gray-400 font-medium">Applied Date:</span>
-                    <span className="font-mono font-bold text-slate-800 dark:text-white">{selectedRequest.appliedDate || new Date().toISOString().split('T')[0]}</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-white">{selectedRequest.appliedDate || todayIso()}</span>
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-[#303030] pb-1.5">
                     <span className="text-slate-500 dark:text-gray-400 font-medium">Approval Category:</span>

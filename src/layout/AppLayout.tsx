@@ -11,7 +11,8 @@ import NoAccess from "../access/NoAccess";
 import TenantBanner from "../access/TenantBanner";
 
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import PageLoading from "../components/common/PageLoading";
 import "../styles/SalesDarkMode.css";
 
 const LayoutContent: React.FC = () => {
@@ -73,7 +74,14 @@ const LayoutContent: React.FC = () => {
           <TenantBanner />
         </div>
         <div className={`app-content-tight min-h-0 flex-1 w-full px-2 py-[3px] md:px-3 md:py-[3px] ${isSalesModule ? "sales-module" : ""} ${isScrollablePage ? "overflow-x-hidden overflow-y-auto overscroll-contain no-scrollbar" : "overflow-hidden"}`}>
-          {canAccessPath(access, location.pathname) ? <Outlet /> : <NoAccess />}
+          {canAccessPath(access, location.pathname) ? (
+            // Pages are loaded on demand; header and sidebar stay while one loads
+            <Suspense fallback={<PageLoading />}>
+              <Outlet />
+            </Suspense>
+          ) : (
+            <NoAccess />
+          )}
         </div>
       </div>
     </div>

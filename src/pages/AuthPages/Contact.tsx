@@ -5,8 +5,8 @@ export default function Contact() {
   return (
     <>
       <PageMeta
-        title="React.js Forgot Password | TailAdmin - Admin Dashboard"
-        description="This is the React.js Forgot Password page for TailAdmin - Admin Dashboard Template."
+        title="Contact Us | myTrading"
+        description="Contact the myTrading team"
       />
         <ContactUs />
     </>

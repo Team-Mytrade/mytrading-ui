@@ -88,7 +88,7 @@ export default function ResetPasswordCard() {
     number: false,
     specialChar: false,
   });
-  const { user, isLoggedIn, loading } = useContext(AuthContext);
+  const { user, isLoggedIn, loading, profileImage: sharedProfileImage, hasProfileImage, reauthenticate } = useContext(AuthContext);
   const [confirmPasswordError, setConfirmPasswordError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [userError, setUserError] = useState("");
@@ -96,9 +96,7 @@ export default function ResetPasswordCard() {
     country: "",
     city: ""
   });
-  const [profileImage, setProfileImage] = useState(placeholderImage);
   const [isFetchingLocation, setIsFetchingLocation] = useState(true);
-  const [isDefaultImage, setIsDefaultImage] = useState(true);
   const [userData, setUserData] = useState<UserData | null>(null);
 
   const getAuthToken = useCallback(() => {
@@ -114,47 +112,6 @@ export default function ResetPasswordCard() {
       return null;
     }
   }, []);
-
-  const fetchUserImage = useCallback(async () => {
-    const storedUser = getStoredUser();
-    const userId = user?.id || user?.userId || storedUser?.id || storedUser?.userId;
-    
-    if (!userId) {
-      console.error("No user ID found for image fetch");
-      return;
-    }
-
-    try {
-      const authToken = getAuthToken();
-      const response = await fetch(`/v1/api/user/${userId}/image`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-        },
-      });
-
-      if (response.ok) {
-        const imageBlob = await response.blob();
-        const imageUrl = URL.createObjectURL(imageBlob);
-        setProfileImage(imageUrl);
-        setIsDefaultImage(false);
-      } else {
-        console.log("No profile image found, using default");
-        // Generate initials image when no profile image is found
-        const displayName = getDisplayName();
-        const initialsImage = generateInitialsImage(displayName);
-        setProfileImage(initialsImage);
-        setIsDefaultImage(true);
-      }
-    } catch (error) {
-      console.error("Error fetching user image:", error);
-      // Generate initials image on error
-      const displayName = getDisplayName();
-      const initialsImage = generateInitialsImage(displayName);
-      setProfileImage(initialsImage);
-      setIsDefaultImage(true);
-    }
-  }, [user, getAuthToken, getStoredUser]);
 
   const fetchUserProfile = useCallback(async () => {
     const storedUser = getStoredUser();
@@ -225,8 +182,7 @@ export default function ResetPasswordCard() {
 
   useEffect(() => {
     fetchUserProfile();
-    fetchUserImage();
-  }, [user, fetchUserProfile, fetchUserImage]);
+  }, [user, fetchUserProfile]);
 
   useEffect(() => {
     if (showPopup) {
@@ -316,9 +272,15 @@ export default function ResetPasswordCard() {
         throw new Error(errorMessage);
       }
 
+      // The change signs out every other browser and device; keep this one signed in
+      try {
+        await reauthenticate(newPassword);
+        ToasterService.success("Password changed", "You've been signed out on your other devices.");
+      } catch {
+        ToasterService.success("Password changed", "Please sign in again with your new password.");
+      }
       setShowPopup(false);
       resetForm();
-      ToasterService.success("Password reset successfully!");
       
     } catch (error: unknown) {
       if (error instanceof Error) {
@@ -376,6 +338,14 @@ export default function ResetPasswordCard() {
   const getDisplayName = useCallback(() => {
     return userData?.fullName || user?.fullName || user?.username || "Guest User";
   }, [userData, user]);
+
+  // The photo is fetched once by AuthContext; without one, show the user's initials
+  const isDefaultImage = !hasProfileImage;
+  const displayName = getDisplayName();
+  const profileImage = useMemo(
+    () => (hasProfileImage ? sharedProfileImage : generateInitialsImage(displayName)),
+    [hasProfileImage, sharedProfileImage, displayName]
+  );
 
   const getDisplayRole = useCallback(() => {
     return userData?.role || user?.role || "Team Manager";

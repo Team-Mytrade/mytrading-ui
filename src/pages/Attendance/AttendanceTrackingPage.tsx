@@ -15,6 +15,7 @@ import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import { ToasterService } from '../../Services/ToasterService';
 import { AuthContext } from '../../context/AuthContext';
+import { todayIso } from "../../utils/localDate";
 
 // ── API Schema Interfaces for GET /v1/api/attendance/records/my-calendar/{employeeId}
 export interface CalendarDayModel {
@@ -321,7 +322,7 @@ const AttendanceTrackingPage: React.FC = () => {
     }
 
     // 2. Current Month Days
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = todayIso();
 
     for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;

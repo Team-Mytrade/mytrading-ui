@@ -9,6 +9,7 @@ import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
+import { todayIso } from "../../utils/localDate";
 
 // Relative API Base URL (routing via Vite dev proxy)
 const BASE_SCHEDULE_URL = '/v1/api/attendance/shiftShedules';
@@ -85,7 +86,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
   }>({
     employeeId: 0,
     shiftId: 3,
-    effectiveFrom: new Date().toISOString().slice(0, 10),
+    effectiveFrom: todayIso(),
     effectiveTo: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
   });
 
@@ -247,7 +248,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
     setForm({
       employeeId: selectedEmployeeId,
       shiftId: shifts[0]?.id || 3,
-      effectiveFrom: new Date().toISOString().slice(0, 10),
+      effectiveFrom: todayIso(),
       effectiveTo: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
     });
     setIsModalOpen(true);
@@ -269,7 +270,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
     setForm({
       employeeId: selectedEmployeeId,
       shiftId: shifts[0]?.id || 3,
-      effectiveFrom: new Date().toISOString().slice(0, 10),
+      effectiveFrom: todayIso(),
       effectiveTo: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
     });
   };

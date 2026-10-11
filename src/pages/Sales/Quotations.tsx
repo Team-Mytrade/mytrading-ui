@@ -23,6 +23,8 @@ import StatsCard from "../../components/common/Statscard";
 import { loadImageAsDataUrl } from "../../components/common/export";
 import { ToasterService } from "../../Services/ToasterService";
 import { SellerProfile } from "../../components/quotation/QuotationPreviewTemplate";
+import { todayIso } from "../../utils/localDate";
+import { publicAsset } from "../../utils/assets";
 
 type Address = {
   id: number;
@@ -295,7 +297,7 @@ function getSellerProfile(): SellerProfile {
   }
 }
 
-const today = new Date().toISOString().split("T")[0];
+const today = todayIso();
 
 const emptyForm: QuotationForm = {
   tenantId: getStoredTenantId(),
@@ -422,7 +424,7 @@ const createQuotationPdfUrl = async (
   sellerProfile: SellerProfile,
   customer?: Customer | null
 ) => {
-  const logoDataUrl = await loadImageAsDataUrl("/images/logo/logo.png");
+  const logoDataUrl = await loadImageAsDataUrl(publicAsset("images/logo/logo.png"));
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const reportWidth = doc.internal.pageSize.getWidth();
   const reportHeight = doc.internal.pageSize.getHeight();

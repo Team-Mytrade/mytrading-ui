@@ -372,7 +372,7 @@ const SalesChannels: React.FC = () => {
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Sales Channel" : "Create Sales Channel"}
-        subtitle="Enter sales channel details from the API schema"
+        subtitle="Enter the sales channel details"
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}

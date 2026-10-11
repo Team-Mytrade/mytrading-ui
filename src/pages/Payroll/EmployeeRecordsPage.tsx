@@ -37,6 +37,7 @@ import {
     Employee,
     Department
 } from "../../shared/types/employee.types";
+import { todayIso } from "../../utils/localDate";
 
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 const DEPARTMENT_API_URL = "/v1/api/payroll/department";
@@ -112,7 +113,7 @@ const EmployeeRecordsPage: React.FC = () => {
 
             // Extract filename from Content-Disposition header if available
             const contentDisposition = response.headers['content-disposition'];
-            let filename = `Employee_Records_${new Date().toISOString().split('T')[0]}.xlsx`;
+            let filename = `Employee_Records_${todayIso()}.xlsx`;
 
             if (typeof contentDisposition === "string") {
                 const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
@@ -193,7 +194,7 @@ const EmployeeRecordsPage: React.FC = () => {
             styles: { fontSize: 8 },
             headStyles: { fillColor: [41, 128, 185] },
         });
-        doc.save(`EmployeeRecords_${new Date().toISOString().split("T")[0]}.pdf`);
+        doc.save(`EmployeeRecords_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };
 
@@ -209,7 +210,7 @@ const EmployeeRecordsPage: React.FC = () => {
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Employees");
-        XLSX.writeFile(wb, `EmployeeRecords_${new Date().toISOString().split("T")[0]}.xlsx`);
+        XLSX.writeFile(wb, `EmployeeRecords_${todayIso()}.xlsx`);
         setShowExportMenu(false);
     };
 

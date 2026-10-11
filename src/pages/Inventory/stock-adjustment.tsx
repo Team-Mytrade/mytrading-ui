@@ -23,6 +23,7 @@ import {
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { todayIso } from "../../utils/localDate";
 
 // ========================== ENUM OPTION TYPE ==========================
 interface EnumOption {
@@ -131,7 +132,7 @@ const WAREHOUSE_ROUTE = "/warehouse";
 const BATCH_ROUTE = "/batch";
 
 const emptyForm: StockAdjustmentForm = {
-  adjustmentDate: new Date().toISOString().split("T")[0],
+  adjustmentDate: todayIso(),
   reason: "",
   quantity: "",
   adjustmentType: AdjustmentType.POSITIVE,
@@ -550,7 +551,7 @@ const StockAdjustmentManager: React.FC = () => {
     setEditingId(null);
     setForm({
       ...emptyForm,
-      adjustmentDate: new Date().toISOString().split("T")[0],
+      adjustmentDate: todayIso(),
     });
     setFilteredBatches([]);
     setFilteredSerialNumbers([]);
@@ -562,7 +563,7 @@ const StockAdjustmentManager: React.FC = () => {
     setEditingId(adjustment.id);
     setForm({
       adjustmentDate:
-        adjustment.adjustmentDate?.split("T")[0] || new Date().toISOString().split("T")[0],
+        adjustment.adjustmentDate?.split("T")[0] || todayIso(),
       reason: adjustment.reason || "",
       quantity: String(adjustment.quantity || 0),
       adjustmentType: adjustment.adjustmentType || AdjustmentType.POSITIVE,

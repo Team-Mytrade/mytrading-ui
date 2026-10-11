@@ -7,6 +7,7 @@ import PageMeta from "../../components/common/PageMeta";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import TableToolbar from "../../components/common/TableToolbar";
 import { ToasterService } from "../../Services/ToasterService";
+import { todayIso } from "../../utils/localDate";
 
 interface Employee {
   id: number;
@@ -79,8 +80,8 @@ const LeaveRequestPage: React.FC = () => {
 
   const selectedEmployeeId = activeEmployeeId;
   
-  const [fromDate, setFromDate] = useState(new Date().toISOString().split('T')[0]);
-  const [toDate, setToDate] = useState(new Date().toISOString().split('T')[0]);
+  const [fromDate, setFromDate] = useState(todayIso());
+  const [toDate, setToDate] = useState(todayIso());
   const [dayType, setDayType] = useState("Full Day");
   const [leaveTypeId, setLeaveTypeId] = useState<number | "">("");
   const [comments, setComments] = useState("");

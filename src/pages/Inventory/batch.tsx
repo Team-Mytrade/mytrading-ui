@@ -25,6 +25,7 @@ import {
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { todayIso } from "../../utils/localDate";
 
 /**
  * =====================================================================================
@@ -165,7 +166,7 @@ const FALLBACK_STATUS = ["GOOD", "EXPIRING_SOON", "EXPIRED", "EMPTY"];
 
 const emptyForm: BatchForm = {
   batchNumber: "",
-  manufacturingDate: new Date().toISOString().split("T")[0],
+  manufacturingDate: todayIso(),
   expiryDate: "",
   productId: "",
   warehouse: "",
@@ -382,7 +383,7 @@ const BatchManagement: React.FC = () => {
     // batchNumber intentionally left blank — assumed server-generated on
     // create. CONFIRM with backend; if POST actually requires it, this needs
     // a real input added back.
-    setForm({ ...emptyForm, manufacturingDate: new Date().toISOString().split("T")[0] });
+    setForm({ ...emptyForm, manufacturingDate: todayIso() });
     setShowFormModal(true);
   };
 

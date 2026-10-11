@@ -36,6 +36,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { todayIso } from "../../utils/localDate";
 
 type TaxDeduction = {
     id: number;
@@ -75,7 +76,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
         employeeId: "",
         deductionType: "",
         amount: 0,
-        effectiveDate: new Date().toISOString().split('T')[0],
+        effectiveDate: todayIso(),
         remarks: "",
     });
 
@@ -139,7 +140,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
             employeeId: "", 
             deductionType: "", 
             amount: 0, 
-            effectiveDate: new Date().toISOString().split('T')[0], 
+            effectiveDate: todayIso(), 
             remarks: "" 
         });
     };
@@ -165,7 +166,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
             styles: { fontSize: 8 },
             headStyles: { fillColor: [6, 182, 212] },
         });
-        doc.save(`Tax_Deductions_${new Date().toISOString().split("T")[0]}.pdf`);
+        doc.save(`Tax_Deductions_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };
 
@@ -182,7 +183,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Tax Deductions");
-        XLSX.writeFile(wb, `Tax_Deductions_${new Date().toISOString().split("T")[0]}.xlsx`);
+        XLSX.writeFile(wb, `Tax_Deductions_${todayIso()}.xlsx`);
         setShowExportMenu(false);
     };
 

@@ -23,6 +23,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import { todayIso } from "../../utils/localDate";
 
 // API endpoints
 const COMPENSATION_API_URL = "/v1/api/payroll/employee";
@@ -279,7 +280,7 @@ const EmployeeCompensationPage: React.FC = () => {
                 headStyles: { fillColor: [41, 128, 185] },
             });
         }
-        doc.save(`CompensationReport_${new Date().toISOString().split("T")[0]}.pdf`);
+        doc.save(`CompensationReport_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };
 
@@ -297,7 +298,7 @@ const EmployeeCompensationPage: React.FC = () => {
         const ws = XLSX.utils.json_to_sheet(excelData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Compensations");
-        XLSX.writeFile(wb, `CompensationReport_${new Date().toISOString().split("T")[0]}.xlsx`);
+        XLSX.writeFile(wb, `CompensationReport_${todayIso()}.xlsx`);
         setShowExportMenu(false);
     };
 

@@ -58,6 +58,11 @@ export const saveSessionExpiredRedirect = (path = getCurrentAppLocation()) => {
   localStorage.setItem(SESSION_EXPIRED_FLAG_KEY, "true");
 };
 
+// Where to go after signing in, without the "session expired" dialog (nothing to recover)
+export const saveReturnPath = (path = getCurrentAppLocation()) => {
+  localStorage.setItem(SESSION_EXPIRED_REDIRECT_KEY, path);
+};
+
 export const getSessionExpiredRedirect = () =>
   localStorage.getItem(SESSION_EXPIRED_REDIRECT_KEY);
 

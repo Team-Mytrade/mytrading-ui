@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import { ToasterService } from '../../Services/ToasterService';
 import { AuthContext } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { todayIso } from "../../utils/localDate";
 
 interface ManagerDashboardModel {
   totalEmployees?: number;
@@ -246,7 +247,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
         balanceBefore: 10,
         balanceAfter: 10 + Number(adjustmentForm.adjustmentLeaves),
         remarks: adjustmentForm.remarks,
-        adjustedDate: new Date().toISOString().split('T')[0],
+        adjustedDate: todayIso(),
         adjustedBy: `${currentUser.name} (${currentUser.role})`
       };
       setAdjustments(prev => [newAdj, ...prev]);

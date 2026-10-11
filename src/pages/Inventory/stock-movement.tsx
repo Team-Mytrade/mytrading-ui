@@ -23,6 +23,7 @@ import {
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { todayIso } from "../../utils/localDate";
 
 // ======================== ENUM TYPE ========================
 interface EnumOption {
@@ -118,7 +119,7 @@ const MOVEMENT_TYPE_ENUM = "MOVEMENT_TYPE";
 const PRODUCT_ROUTE = "/purchase-products";
 
 const emptyForm: MovementForm = {
-  movementDate: new Date().toISOString().split("T")[0],
+  movementDate: todayIso(),
   movementType: "",
   quantity: "",
   fromWarehouseId: "",
@@ -478,7 +479,7 @@ const StockMovementsManager: React.FC = () => {
     setEditingId(null);
     setForm({
       ...emptyForm,
-      movementDate: new Date().toISOString().split("T")[0],
+      movementDate: todayIso(),
     });
     setShowFormModal(true);
   };

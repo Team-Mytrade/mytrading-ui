@@ -39,7 +39,7 @@
 //       {
 //         id: "1",
 //         title: "Event Conf.",
-//         start: new Date().toISOString().split("T")[0],
+//         start: todayIso(),
 //         extendedProps: { calendar: "Danger" },
 //       },
 //       {
@@ -304,6 +304,7 @@ import {
   AlertCircle,
   ChevronRightIcon
 } from "lucide-react";
+import { todayIso } from "../utils/localDate";
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
@@ -345,7 +346,7 @@ const Calendar: React.FC = () => {
       {
         id: "1",
         title: "Annual Conference",
-        start: new Date().toISOString().split("T")[0],
+        start: todayIso(),
         extendedProps: { 
           calendar: "Primary",
           description: "Annual tech conference with industry leaders",

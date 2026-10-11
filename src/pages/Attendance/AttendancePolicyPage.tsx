@@ -7,6 +7,7 @@ import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
+import { todayIso } from "../../utils/localDate";
 
 const ATTENDANCE_POLICY_URL = '/v1/api/attendance/attendance-policies';
 const ASSIGNMENT_API_URL = '/v1/api/attendance/employee-attendance-policy-assignments';
@@ -77,7 +78,7 @@ const AttendancePolicyPage: React.FC = () => {
   }>({
     employeeId: '',
     attendancePolicyId: '',
-    effectiveFrom: new Date().toISOString().split('T')[0],
+    effectiveFrom: todayIso(),
     effectiveTo: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   });
 
@@ -307,7 +308,7 @@ const AttendancePolicyPage: React.FC = () => {
         ToasterService.success(`Current active policy loaded for Employee #${empIdNum}`);
       } catch (e: any) {
         // Fallback active date search
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = todayIso();
         const localMatch = assignments.find(a => 
           a.employeeId === empIdNum &&
           a.effectiveFrom <= todayStr &&
@@ -651,7 +652,7 @@ const AttendancePolicyPage: React.FC = () => {
                     setAssignForm({
                       employeeId: '',
                       attendancePolicyId: savedPolicies[0]?.id || '',
-                      effectiveFrom: new Date().toISOString().split('T')[0],
+                      effectiveFrom: todayIso(),
                       effectiveTo: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
                     });
                     setIsAssignModalOpen(true);

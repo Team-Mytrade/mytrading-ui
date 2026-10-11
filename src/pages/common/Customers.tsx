@@ -23,6 +23,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import DynamicPopup from "../../components/common/Popup";
+import { todayIso } from "../../utils/localDate";
 
 // Enums
 enum CustomerStatus {
@@ -99,7 +100,7 @@ const Customers: React.FC = () => {
     type: "EMAIL",
     subject: "",
     notes: "",
-    communicationTime: new Date().toISOString().split('T')[0],
+    communicationTime: todayIso(),
   });
 
   // Fetch customers
@@ -211,7 +212,7 @@ const Customers: React.FC = () => {
       type: "EMAIL",
       subject: "",
       notes: "",
-      communicationTime: new Date().toISOString().split('T')[0],
+      communicationTime: todayIso(),
     });
     setShowCommModal(true);
   };

@@ -15,6 +15,7 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import StatsCard from '../../components/common/Statscard';
 import { ToasterService } from '../../Services/ToasterService';
 import { useNavigate } from 'react-router-dom';
+import { todayIso } from "../../utils/localDate";
 
 const safeString = (val: any, fallback = ""): string => {
   if (val === null || val === undefined) return fallback;
@@ -218,7 +219,7 @@ const LeaveDashboardPage: React.FC = () => {
   const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
   const [newEventForm, setNewEventForm] = useState({
     title: '',
-    dateStr: new Date().toISOString().split('T')[0],
+    dateStr: todayIso(),
     time: '05:30 AM',
     description: '',
     location: '',
@@ -453,7 +454,7 @@ const LeaveDashboardPage: React.FC = () => {
             const isApproved = status === 'APPROVED';
             return {
               id: r.id || (idx + 1),
-              transactionDate: String(r.createdDate || r.fromDate || new Date().toISOString().split('T')[0]).split('T')[0],
+              transactionDate: String(r.createdDate || r.fromDate || todayIso()).split('T')[0],
               leaveType: (r.leaveType || 'CASUAL').toUpperCase(),
               action: isApproved ? 'LEAVE_APPROVED' : status === 'PENDING' ? 'LEAVE_REQUESTED' : 'LEAVE_REJECTED',
               balanceBefore: isApproved ? 10 : 12,
@@ -632,7 +633,7 @@ const LeaveDashboardPage: React.FC = () => {
 
   // ── Columns for Adjustments Table ───────────────────────────────────────
   const adjustmentColumns: ColumnDef<AdjustmentModel>[] = [
-    { key: 'adjustedDate', label: 'Date', sortable: true, render: (row) => <span className="font-mono text-xs text-gray-600 whitespace-nowrap">{row.adjustedDate || new Date().toISOString().split('T')[0]}</span> },
+    { key: 'adjustedDate', label: 'Date', sortable: true, render: (row) => <span className="font-mono text-xs text-gray-600 whitespace-nowrap">{row.adjustedDate || todayIso()}</span> },
     { key: 'employeeName', label: 'Employee', sortable: true, render: (row) => {
         const empName = row.employeeName || employeeMap[row.employeeId] || (row.employeeId === currentUser.id ? currentUser.name : `Employee #${row.employeeId}`);
         return (
@@ -672,7 +673,7 @@ const LeaveDashboardPage: React.FC = () => {
   const transactionColumns: ColumnDef<any>[] = [
     { key: 'id', label: 'Trans ID', sortable: true, render: (row) => <span className="font-mono font-bold text-xs text-cyan-700 whitespace-nowrap">#{row.id || row.transactionId || 'TXN-1'}</span> },
     { key: 'transactionDate', label: 'Date', sortable: true, render: (row) => {
-        const rawDate = row.transactionDate || row.adjustedDate || new Date().toISOString().split('T')[0];
+        const rawDate = row.transactionDate || row.adjustedDate || todayIso();
         const formattedDate = String(rawDate).includes('T') ? String(rawDate).split('T')[0] : String(rawDate);
         return <span className="font-mono text-xs text-gray-600 whitespace-nowrap">{formattedDate}</span>;
       }

@@ -18,6 +18,7 @@ import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ToasterService } from "../../Services/ToasterService";
+import { todayIso } from "../../utils/localDate";
 
 const SALARY_API = "/v1/api/payroll/employee-salaries";
 
@@ -158,7 +159,7 @@ const EmployeeSalaryPage: React.FC = () => {
                 // First 4 columns: employeeName, month, basic, netSalary -> top 4 summary metric cards in drawer
                 const rowItem: Record<string, any> = {
                     employeeName: empName,
-                    month: record.month || new Date().toISOString().split('T')[0].slice(0, 7),
+                    month: record.month || todayIso().slice(0, 7),
                     basic: basic,
                     netSalary: netSalary,
                     status: isProc ? "PROCESSED" : "PENDING",

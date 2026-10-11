@@ -20,6 +20,7 @@ import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import { AuthContext } from '../../context/AuthContext';
 import { Employee } from '../../shared/types/employee.types';
 import { formatFileSize } from '../../shared/utils/file';
+import { todayIso } from "../../utils/localDate";
 
 interface Document {
     id: number;
@@ -162,7 +163,7 @@ const DocumentManagementPage: React.FC = () => {
                 documentType: documentType as DocumentType,
                 fileName: uploadFile.name,
                 fileType: uploadFile.type,
-                uploadDate: new Date().toISOString().split('T')[0],
+                uploadDate: todayIso(),
                 fileSize: formatFileSize(uploadFile.size),
                 status: 'PENDING'
             };

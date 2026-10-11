@@ -9,14 +9,11 @@ import placeholderImage from "../../images/img-placeholder.png";
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
-  const [profileImage, setProfileImage] = useState(placeholderImage);
   const [status, setStatus] = useState("online"); // Default status
-  const { user, logout } = useContext(AuthContext);
+  // AuthContext fetches the photo once and shares it with the sidebar and profile screens
+  const { user, logout, profileImage: sharedProfileImage, hasProfileImage } = useContext(AuthContext);
+  const profileImage = hasProfileImage ? sharedProfileImage : placeholderImage;
   const statusRef = useRef<HTMLDivElement>(null);
-
-  const getAuthToken = (): string | null => {
-    return localStorage.getItem('accessToken');
-  };
 
   const getStatusIndicator = (status: string) => {
     switch (status) {
@@ -51,48 +48,6 @@ export default function UserDropdown() {
       default: return "Offline";
     }
   };
-
-  const fetchUserImage = async () => {
-    const userId = user?.id || user?.userId;
-    
-    if (!userId) {
-      console.error("No user ID found for image fetch");
-      return;
-    }
-
-    try {
-      const authToken = getAuthToken();
-      if (!authToken) {
-        console.error("No authentication token found");
-        return;
-      }
-
-      const response = await fetch(`/v1/api/user/${userId}/image`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-        },
-      });
-
-      if (response.ok) {
-        const imageBlob = await response.blob();
-        const imageUrl = URL.createObjectURL(imageBlob);
-        setProfileImage(imageUrl);
-      } else {
-        console.log("No profile image found, using default");
-        setProfileImage(placeholderImage);
-      }
-    } catch (error) {
-      console.error("Error fetching user image:", error);
-      setProfileImage(placeholderImage);
-    }
-  };
-
-  useEffect(() => {
-    if (user) {
-      fetchUserImage();
-    }
-  }, [user]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -330,18 +285,6 @@ export default function UserDropdown() {
               </svg>
 
                 User Profile
-              </DropdownItem>
-            </li>
-                        <li>
-              <DropdownItem
-                onItemClick={closeDropdown}
-                tag="a"
-                to="/message-section"
-                className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg text-theme-sm hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-              >
-                <i className="fa-regular fa-message"></i>
-
-                Message
               </DropdownItem>
             </li>
             <li>

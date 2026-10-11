@@ -318,7 +318,7 @@ const AppSidebar: React.FC = () => {
   } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, access } = useContext(AuthContext);
+  const { user, access, loading: authLoading, profileImage: sharedProfileImage, hasProfileImage } = useContext(AuthContext);
   const visibleNavItems = useMemo(() => filterNavItems(navItems, access), [access]);
   const [tooltipVisible, setTooltipVisible] = useState<number | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
@@ -335,13 +335,14 @@ const AppSidebar: React.FC = () => {
   // meant every user was briefly treated as an admin while the real role loaded,
   // which could flash role-gated nav items (Exit Approvals, Configurations,
   // Attendance policy screens, etc.) before permissions were actually known.
-  const [userName, setUserName] = useState<string>("User");
-  const [userRole, setUserRole] = useState<string>("");
-  const [profileImage, setProfileImage] = useState<string>("");
-  const [loadingProfile, setLoadingProfile] = useState<boolean>(true);
-
-  // Tracks the currently-active blob URL so it can be revoked before replacement/unmount
-  const profileImageUrlRef = useRef<string | null>(null);
+  // Name, role and photo come from the session (AuthContext fetches the photo once for every screen)
+  const userName = user?.fullName || "User";
+  const userRole = user?.role || "";
+  const loadingProfile = authLoading;
+  const profileImage = useMemo(
+    () => (hasProfileImage ? sharedProfileImage : generateInitialsImage(userName)),
+    [hasProfileImage, sharedProfileImage, userName]
+  );
 
   const isActive = useCallback(
     (path: string) => {
@@ -372,77 +373,6 @@ const AppSidebar: React.FC = () => {
     [isActive]
   );
 
-  const getAuthToken = (): string | null => localStorage.getItem("accessToken");
-
-  const fetchUserData = async () => {
-    try {
-      setLoadingProfile(true);
-      const token = getAuthToken();
-      const userId = user?.id || user?.userId;
-
-      if (token && userId) {
-        const response = await fetch(`/v1/api/user/getUserById/${userId}`, {
-          method: "GET",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (response.ok) {
-          const userData = await response.json();
-          setUserName(userData.fullName || user?.fullName || "User");
-          setUserRole(userData.role || user?.role || "");
-        } else {
-          setUserName(user?.fullName || "User");
-          setUserRole(user?.role || "");
-        }
-      } else {
-        setUserName(user?.fullName || "User");
-        setUserRole(user?.role || "");
-      }
-    } catch (error) {
-      console.error("Error fetching user data:", error);
-      setUserName(user?.fullName || "User");
-      setUserRole(user?.role || "");
-    } finally {
-      setLoadingProfile(false);
-    }
-  };
-
-  const fetchUserImage = async () => {
-    const userId = user?.id || user?.userId;
-    if (!userId) {
-      const displayName = user?.fullName || "User";
-      setProfileImage(generateInitialsImage(displayName));
-      return;
-    }
-
-    try {
-      const authToken = getAuthToken();
-      const response = await fetch(`/v1/api/user/${userId}/image`, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-
-      if (response.ok) {
-        const imageBlob = await response.blob();
-        const imageUrl = URL.createObjectURL(imageBlob);
-
-        // Revoke the previous blob URL before replacing it to avoid leaking memory
-        if (profileImageUrlRef.current) {
-          URL.revokeObjectURL(profileImageUrlRef.current);
-        }
-        profileImageUrlRef.current = imageUrl;
-        setProfileImage(imageUrl);
-      } else {
-        const displayName = user?.fullName || "User";
-        setProfileImage(generateInitialsImage(displayName));
-      }
-    } catch (error) {
-      console.error("Error fetching user image:", error);
-      const displayName = user?.fullName || "User";
-      setProfileImage(generateInitialsImage(displayName));
-    }
-  };
-
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
@@ -471,26 +401,6 @@ const AppSidebar: React.FC = () => {
       document.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isResizing, setSidebarWidth, setIsResizing]);
-
-  useEffect(() => {
-    if (user) {
-      fetchUserData();
-      fetchUserImage();
-    } else {
-      setUserName("User");
-      setUserRole("");
-      setProfileImage(generateInitialsImage("User"));
-      setLoadingProfile(false);
-    }
-
-    // Cleanup: revoke any outstanding blob URL when user changes or component unmounts
-    return () => {
-      if (profileImageUrlRef.current) {
-        URL.revokeObjectURL(profileImageUrlRef.current);
-        profileImageUrlRef.current = null;
-      }
-    };
-  }, [user]);
 
   useEffect(() => {
     let submenuMatched = false;

@@ -9,6 +9,7 @@ import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
+import { todayIso } from "../../utils/localDate";
 
 // Base relative API endpoints (routing via Vite dev proxy)
 const BASE_CALENDAR_URL = '/v1/api/attendance/holiday-calendars';
@@ -218,7 +219,7 @@ const HolidayCalendarPage: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Holiday_Calendars_Noticeboard_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `Holiday_Calendars_Noticeboard_${todayIso()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

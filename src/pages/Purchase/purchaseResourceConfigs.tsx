@@ -11,6 +11,7 @@ import {
 import LineItemsEditor, { LineItem } from "../Purchase/LineItemsEditor";
 import GoodsReceiptEditor from "../purchase-service/GoodsReceiptEditor";
 import RequisitionWorkflowActions from "./RequisitionWorkflowActions";
+import { todayIso } from "../../utils/localDate";
 
 const PURCHASE = "/v1/api/purchase";
 const CATEGORIES = "/v1/api/purchase/product-categories";
@@ -332,7 +333,7 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
       label: "Required Date",
       type: "date",
       required: true,
-      defaultValue: new Date().toISOString().slice(0, 10),
+      defaultValue: todayIso(),
     },
     { name: "remarks", label: "Remarks", type: "textarea", required: true, gridClassName: "md:col-span-2" },
     {
@@ -346,7 +347,7 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   ],
   searchFields: ["id", "requisitionNumber", "notes", "status", "userId"],
   initialFormState: {
-    requiredDate: new Date().toISOString().slice(0, 10),
+    requiredDate: todayIso(),
     remarks: "",
     items: [],
   },
@@ -556,7 +557,7 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
       label: "Order Date",
       type: "date",
       required: true,
-      defaultValue: new Date().toISOString().slice(0, 10),
+      defaultValue: todayIso(),
     },
     { name: "expectedDeliveryDate", label: "Expected Delivery Date", type: "date", required: true },
     { name: "currency", label: "Currency", type: "select", required: true, defaultValue: "INR", options: ["INR", "USD", "EUR", "GBP", "AED"].map((value) => ({ value, label: value })) },
@@ -719,7 +720,7 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
       label: "Receipt Date",
       type: "date",
       required: true,
-      defaultValue: new Date().toISOString().slice(0, 10),
+      defaultValue: todayIso(),
       showOnCreate: false,
       showOnEdit: false,
     },
@@ -735,7 +736,7 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
   buildPayload: (form) => ({
     purchaseOrderId: toNumberOrZero(form.purchaseOrderId),
     warehouseId: toNumberOrZero(form.warehouseId),
-    receiptDate: form.receiptDate || new Date().toISOString().slice(0, 10),
+    receiptDate: form.receiptDate || todayIso(),
     items: (Array.isArray(form.items) ? form.items : []).map((item) => ({
       purchaseOrderLineItemId: toNumberOrZero(item.purchaseOrderLineItemId),
       receivedQuantity: toNumberOrZero(item.receivedQuantity),
@@ -802,7 +803,7 @@ export const deliveryConfig: PurchaseResourceConfig = {
       label: "Delivery Date",
       type: "date",
       required: true,
-      defaultValue: new Date().toISOString().slice(0, 10),
+      defaultValue: todayIso(),
     },
   ],
   searchFields: ["id", "deliveryDate"],

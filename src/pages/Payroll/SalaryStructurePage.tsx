@@ -36,6 +36,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import { todayIso } from "../../utils/localDate";
 
 type SalaryStructure = {
     id: number;
@@ -68,7 +69,7 @@ const SalaryStructurePage: React.FC = () => {
         hra: 0,
         allowances: 0,
         deductions: 0,
-        effectiveFrom: new Date().toISOString().split('T')[0],
+        effectiveFrom: todayIso(),
     });
 
     useEffect(() => {
@@ -150,7 +151,7 @@ const SalaryStructurePage: React.FC = () => {
             hra: 0, 
             allowances: 0, 
             deductions: 0, 
-            effectiveFrom: new Date().toISOString().split('T')[0] 
+            effectiveFrom: todayIso() 
         });
     };
 
@@ -197,7 +198,7 @@ const SalaryStructurePage: React.FC = () => {
             headStyles: { fillColor: [6, 182, 212] },
             styles: { fontSize: 10 },
         });
-        doc.save(`Salary_Structure_${record.employeeId}_${new Date().toISOString().split("T")[0]}.pdf`);
+        doc.save(`Salary_Structure_${record.employeeId}_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };
 
@@ -226,7 +227,7 @@ const SalaryStructurePage: React.FC = () => {
             styles: { fontSize: 8 },
             headStyles: { fillColor: [6, 182, 212] },
         });
-        doc.save(`All_Salary_Structures_${new Date().toISOString().split("T")[0]}.pdf`);
+        doc.save(`All_Salary_Structures_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };
 
@@ -244,7 +245,7 @@ const SalaryStructurePage: React.FC = () => {
         })));
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Salary Structures');
-        XLSX.writeFile(workbook, `Salary_Structures_${new Date().toISOString().split("T")[0]}.xlsx`);
+        XLSX.writeFile(workbook, `Salary_Structures_${todayIso()}.xlsx`);
         setShowExportMenu(false);
     };
 

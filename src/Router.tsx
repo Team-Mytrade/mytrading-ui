@@ -1,213 +1,201 @@
 import { ROUTER_BASENAME } from "./utils/appPath";
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import PageLoading from "./components/common/PageLoading";
 import SessionDraftRestorer from "./components/common/SessionDraftRestorer";
 import SignIn from "./pages/AuthPages/SignIn";
-import SignUp from "./pages/AuthPages/SignUp";
-import Forget from "./pages/AuthPages/Forget";
-import ResetPasswordPage from "./pages/AuthPages/ResetPasswordPage";
-import Contact from "./pages/AuthPages/Contact";
-import Privacy from "./pages/AuthPages/Privacy";
-import Terms from "./pages/AuthPages/Terms";
+const SignUp = lazy(() => import("./pages/AuthPages/SignUp"));
+const Forget = lazy(() => import("./pages/AuthPages/Forget"));
+const ResetPasswordPage = lazy(() => import("./pages/AuthPages/ResetPasswordPage"));
+const Contact = lazy(() => import("./pages/AuthPages/Contact"));
+const Privacy = lazy(() => import("./pages/AuthPages/Privacy"));
+const Terms = lazy(() => import("./pages/AuthPages/Terms"));
 import NotFound from "./pages/OtherPage/NotFound";
-import UserProfiles from "./pages/UserProfiles";
-import MessageSection from "./pages/MessageSection";
-import ResetPassword from "./components/UserProfile/ResetPassword";
-import Videos from "./pages/UiElements/Videos";
-import Images from "./pages/UiElements/Images";
-import Alerts from "./pages/UiElements/Alerts";
-import Badges from "./pages/UiElements/Badges";
-import Avatars from "./pages/UiElements/Avatars";
-import Buttons from "./pages/UiElements/Buttons";
-import LineChart from "./pages/Charts/LineChart";
-import BarChart from "./pages/Charts/BarChart";
-import Calendar from "./pages/Calendar";
-import BasicTables from "./pages/Tables/BasicTables";
-import FormElements from "./pages/Forms/FormElements";
-import Blank from "./pages/Blank";
+const UserProfiles = lazy(() => import("./pages/UserProfiles"));
+const ResetPassword = lazy(() => import("./components/UserProfile/ResetPassword"));
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
-import Home from "./pages/Dashboard/Home";
+const Home = lazy(() => import("./pages/Dashboard/Home"));
 import "react-toastify/dist/ReactToastify.css";
-import Customers from "./pages/common/Customers";
-import Deals from "./pages/CRM/Deals";
-import KeyContacts from "./pages/CRM/KeyContacts";
-import Segments from "./pages/CRM/Segments";
-import Interactions from "./pages/CRM/Interactions";
-import SalesOrders from "./pages/Sales/SalesOrders";
-import Quotations from "./pages/Sales/Quotations";
-import SalesPersons from "./pages/Sales/SalesPersons";
-import ServiceSchedules from "./pages/Sales/ServiceSchedules";
-import SalesTargets from "./pages/Sales/SalesTargets";
-import ServiceScheduleNotify from "./pages/Sales/ServiceScheduleNotify";
-import ReturnRequests from "./pages/Sales/ReturnRequests";
-import Refunds from "./pages/Sales/Refunds";
-import CreditLimit from "./pages/Sales/CreditLimit";
-import Warehouse from "./pages/Inventory/warehouse";
-import InventoryModule from "./pages/Inventory/inventory";
-import StockLevel from "./pages/Inventory/stock-level";
-import QualityInspection from "./pages/Inventory/quality-inspection";
-import SerialNumber from "./pages/Inventory/serial-number";
-import StockMovement from "./pages/Inventory/stock-movement";
-import InventoryReservation from "./pages/Inventory/inventory-reservation";
-import InventoryReport from "./pages/reports/inventory-report";
-import StockAdjustment from "./pages/Inventory/stock-adjustment";
-import PurchaseRequisitions from "./pages/purchase-service/PurchaseRequisitions";
-import RequisitionLineItems from "./pages/Purchase/RequisitionLineItems";
-import PurchaseOrders from "./pages/purchase-service/PurchaseOrders";
-import Vendors from "./pages/product-catalogue/Vendors";
-import Products from "./pages/product-catalogue/Products";
-import ProductCategories from "./pages/product-catalogue/ProductCategories";
-import TermsAndConditions from "./pages/Purchase/TermsAndConditions";
-import Deliveries from "./pages/Purchase/Deliveries";
-import GoodsReceiptNotes from "./pages/purchase-service/GoodsReceiptNotes";
-import PurchaseReports from "./pages/Purchase/PurchaseReports";
-import DeliveryOrderPage from "./pages/Delivery/DeliveryOrderPage";
-import TransporterPage from "./pages/Delivery/TransporterPage";
-import VehiclePage from "./pages/Delivery/VehiclePage";
-import RouteSchedulePage from "./pages/Delivery/RouteSchedulePage";
-import ProductPage from "./pages/Delivery/ProductPage";
-import DeliveryAddressPage from "./pages/Delivery/DeliveryAddressPage";
-import DeliveryStatusPage from "./pages/Delivery/DeliveryStatusPage";
-import BenefitsAllowancesPage from "./pages/Payroll/BenefitsAllowancesPage";
-import PayrollRunsPage from "./pages/Payroll/PayrollRunsPage";
-import PayrollTaxDeductionsPage from "./pages/Payroll/PayrollTaxDeductionsPage";
-import LeaveRequestsPage from "./pages/Payroll/LeaveRequestsPage";
-import AttendanceLogsPage from "./pages/Payroll/AttendanceLogsPage";
-import SalaryStructurePage from "./pages/Payroll/SalaryStructurePage";
-import EmployeeRecordsPage from "./pages/Payroll/EmployeeRecordsPage";
-import AddEmployeePage from "./pages/Payroll/addEmployeesPage";
-import AttendanceManagementPage from "./pages/Payroll/AttendanceManagementPage";
-import DocumentManagementPage from "./pages/Payroll/DocumentManagementPage";
-import EmployeeSelfDashboard from "./pages/Payroll/EmployeeSelfDashboard";
-import EmployeeViewPage from "./pages/Payroll/EmployeeViewPage";
-import ExitManagementPage from "./pages/Payroll/ExitManagementPage";
-import ExitApprovalsPage from "./pages/Payroll/ExitApprovalsPage";
-import ItDeclarationPage from "./pages/Payroll/ItDeclarationPage";
-import LeaveManagementPage from "./pages/Payroll/LeaveManagementPage";
-import PerformanceManagementPage from "./pages/Payroll/PerformanceManagementPage";
-import StatutoryCompliancesPage from "./pages/Payroll/StatutoryCompliancesPage";
-import PayrollProcessingEnginePage from "./pages/Payroll/PayrollProcessingEnginePage";
-import PayrollSummaryPage from "./pages/Payroll/PayrollSummaryPage";
-import DepartmentSummaryPage from "./pages/Payroll/DepartmentSummaryPage";
-import SalesSummary from "./pages/Dashboard/SalesSummary";
-import Tasks from "./pages/CRM/Tasks";
-import DashboardOverview from "./pages/Dashboard/DashboardOverview";
-import KeyMetrics from "./pages/Dashboard/KeyMetrics";
-import RecentInteractions from "./pages/Dashboard/RecentInteractions";
-import Leads from "./pages/CRM/Leads";
-import ContactPage from "./pages/Contacts/ContactsPage";
-import AccountsPage from "./pages/Account/AccountsPage";
-import OpportunitiesPage from "./pages/Deal/OpportunitiesPage";
-import SalesPipeline from "./pages/Deal/SalesPipeline";
-import StagesManagement from "./pages/Deal/StagesManagement";
-import ForecastPage from "./pages/Deal/ForecastPage";
-import WonLostAnalysis from "./pages/Deal/WonLostAnalysis";
-import TaskPage from "./pages/TaskManagement/TaskPage";
-import MeetingsPage from "./pages/TaskManagement/MeetingsPage";
-import CallsPage from "./pages/TaskManagement/CallsPage";
-import RemindersPage from "./pages/TaskManagement/RemindersPage";
-import ActivityCalendar from "./pages/TaskManagement/ActivityCalendar";
-import CampaignPage from "./pages/Marketing/CampaignPage";
-import CampaignReports from "./pages/Marketing/CampaignReports";
-import EmailMarketingPage from "./pages/Marketing/EmailMarketingPage";
-import SegmentationManager from "./pages/Marketing/SegmentationManager";
-import TemplatesManager from "./pages/Marketing/TemplatesManager";
-import SMSCampaignPage from "./pages/Marketing/SMSCampaignPage";
-import KnowledgeBase from "./pages/Support/KnowledgeBase";
-import SLAManagement from "./pages/Support/SLAManagement";
-import SupportReports from "./pages/Support/SupportReports";
-import TicketSupport from "./pages/Support/TicketSupport";
-import AutomationLogs from "./pages/Workflow/AutomationLogs";
-import AutomationWorkflowRules from "./pages/Workflow/AutomationWorkflowRules";
-import ScheduledActions from "./pages/Workflow/ScheduledActions";
-import TriggerSettings from "./pages/Workflow/TriggerSettings";
-import CustomFieldsManager from "./pages/Settings/CustomFieldsManager";
-import EmailSmsSettings from "./pages/Settings/EmailSmsSettings";
-import ImportExportPage from "./pages/Settings/ImportExportPage";
-import IntegrationsPage from "./pages/Settings/IntegrationsPage";
-import RoleConfiguration from "./pages/Role/role";
-import Alert from "./pages/Notification/Alerts";
-import UserPreferences from "./pages/Notification/UserPreferences";
+const Customers = lazy(() => import("./pages/common/Customers"));
+const Deals = lazy(() => import("./pages/CRM/Deals"));
+const KeyContacts = lazy(() => import("./pages/CRM/KeyContacts"));
+const Segments = lazy(() => import("./pages/CRM/Segments"));
+const Interactions = lazy(() => import("./pages/CRM/Interactions"));
+const SalesOrders = lazy(() => import("./pages/Sales/SalesOrders"));
+const Quotations = lazy(() => import("./pages/Sales/Quotations"));
+const SalesPersons = lazy(() => import("./pages/Sales/SalesPersons"));
+const ServiceSchedules = lazy(() => import("./pages/Sales/ServiceSchedules"));
+const SalesTargets = lazy(() => import("./pages/Sales/SalesTargets"));
+const ServiceScheduleNotify = lazy(() => import("./pages/Sales/ServiceScheduleNotify"));
+const ReturnRequests = lazy(() => import("./pages/Sales/ReturnRequests"));
+const Refunds = lazy(() => import("./pages/Sales/Refunds"));
+const CreditLimit = lazy(() => import("./pages/Sales/CreditLimit"));
+const Warehouse = lazy(() => import("./pages/Inventory/warehouse"));
+const InventoryModule = lazy(() => import("./pages/Inventory/inventory"));
+const StockLevel = lazy(() => import("./pages/Inventory/stock-level"));
+const QualityInspection = lazy(() => import("./pages/Inventory/quality-inspection"));
+const SerialNumber = lazy(() => import("./pages/Inventory/serial-number"));
+const StockMovement = lazy(() => import("./pages/Inventory/stock-movement"));
+const InventoryReservation = lazy(() => import("./pages/Inventory/inventory-reservation"));
+const InventoryReport = lazy(() => import("./pages/reports/inventory-report"));
+const StockAdjustment = lazy(() => import("./pages/Inventory/stock-adjustment"));
+const PurchaseRequisitions = lazy(() => import("./pages/purchase-service/PurchaseRequisitions"));
+const RequisitionLineItems = lazy(() => import("./pages/Purchase/RequisitionLineItems"));
+const PurchaseOrders = lazy(() => import("./pages/purchase-service/PurchaseOrders"));
+const Vendors = lazy(() => import("./pages/product-catalogue/Vendors"));
+const Products = lazy(() => import("./pages/product-catalogue/Products"));
+const ProductCategories = lazy(() => import("./pages/product-catalogue/ProductCategories"));
+const TermsAndConditions = lazy(() => import("./pages/Purchase/TermsAndConditions"));
+const Deliveries = lazy(() => import("./pages/Purchase/Deliveries"));
+const GoodsReceiptNotes = lazy(() => import("./pages/purchase-service/GoodsReceiptNotes"));
+const PurchaseReports = lazy(() => import("./pages/Purchase/PurchaseReports"));
+const DeliveryOrderPage = lazy(() => import("./pages/Delivery/DeliveryOrderPage"));
+const TransporterPage = lazy(() => import("./pages/Delivery/TransporterPage"));
+const VehiclePage = lazy(() => import("./pages/Delivery/VehiclePage"));
+const RouteSchedulePage = lazy(() => import("./pages/Delivery/RouteSchedulePage"));
+const ProductPage = lazy(() => import("./pages/Delivery/ProductPage"));
+const DeliveryAddressPage = lazy(() => import("./pages/Delivery/DeliveryAddressPage"));
+const DeliveryStatusPage = lazy(() => import("./pages/Delivery/DeliveryStatusPage"));
+const BenefitsAllowancesPage = lazy(() => import("./pages/Payroll/BenefitsAllowancesPage"));
+const PayrollRunsPage = lazy(() => import("./pages/Payroll/PayrollRunsPage"));
+const PayrollTaxDeductionsPage = lazy(() => import("./pages/Payroll/PayrollTaxDeductionsPage"));
+const LeaveRequestsPage = lazy(() => import("./pages/Payroll/LeaveRequestsPage"));
+const AttendanceLogsPage = lazy(() => import("./pages/Payroll/AttendanceLogsPage"));
+const SalaryStructurePage = lazy(() => import("./pages/Payroll/SalaryStructurePage"));
+const EmployeeRecordsPage = lazy(() => import("./pages/Payroll/EmployeeRecordsPage"));
+const AddEmployeePage = lazy(() => import("./pages/Payroll/addEmployeesPage"));
+const AttendanceManagementPage = lazy(() => import("./pages/Payroll/AttendanceManagementPage"));
+const DocumentManagementPage = lazy(() => import("./pages/Payroll/DocumentManagementPage"));
+const EmployeeSelfDashboard = lazy(() => import("./pages/Payroll/EmployeeSelfDashboard"));
+const EmployeeViewPage = lazy(() => import("./pages/Payroll/EmployeeViewPage"));
+const ExitManagementPage = lazy(() => import("./pages/Payroll/ExitManagementPage"));
+const ExitApprovalsPage = lazy(() => import("./pages/Payroll/ExitApprovalsPage"));
+const ItDeclarationPage = lazy(() => import("./pages/Payroll/ItDeclarationPage"));
+const LeaveManagementPage = lazy(() => import("./pages/Payroll/LeaveManagementPage"));
+const PerformanceManagementPage = lazy(() => import("./pages/Payroll/PerformanceManagementPage"));
+const StatutoryCompliancesPage = lazy(() => import("./pages/Payroll/StatutoryCompliancesPage"));
+const PayrollProcessingEnginePage = lazy(() => import("./pages/Payroll/PayrollProcessingEnginePage"));
+const PayrollSummaryPage = lazy(() => import("./pages/Payroll/PayrollSummaryPage"));
+const DepartmentSummaryPage = lazy(() => import("./pages/Payroll/DepartmentSummaryPage"));
+const SalesSummary = lazy(() => import("./pages/Dashboard/SalesSummary"));
+const Tasks = lazy(() => import("./pages/CRM/Tasks"));
+const DashboardOverview = lazy(() => import("./pages/Dashboard/DashboardOverview"));
+const KeyMetrics = lazy(() => import("./pages/Dashboard/KeyMetrics"));
+const RecentInteractions = lazy(() => import("./pages/Dashboard/RecentInteractions"));
+const Leads = lazy(() => import("./pages/CRM/Leads"));
+const ContactPage = lazy(() => import("./pages/Contacts/ContactsPage"));
+const AccountsPage = lazy(() => import("./pages/Account/AccountsPage"));
+const OpportunitiesPage = lazy(() => import("./pages/Deal/OpportunitiesPage"));
+const SalesPipeline = lazy(() => import("./pages/Deal/SalesPipeline"));
+const StagesManagement = lazy(() => import("./pages/Deal/StagesManagement"));
+const ForecastPage = lazy(() => import("./pages/Deal/ForecastPage"));
+const WonLostAnalysis = lazy(() => import("./pages/Deal/WonLostAnalysis"));
+const TaskPage = lazy(() => import("./pages/TaskManagement/TaskPage"));
+const MeetingsPage = lazy(() => import("./pages/TaskManagement/MeetingsPage"));
+const CallsPage = lazy(() => import("./pages/TaskManagement/CallsPage"));
+const RemindersPage = lazy(() => import("./pages/TaskManagement/RemindersPage"));
+const ActivityCalendar = lazy(() => import("./pages/TaskManagement/ActivityCalendar"));
+const CampaignPage = lazy(() => import("./pages/Marketing/CampaignPage"));
+const CampaignReports = lazy(() => import("./pages/Marketing/CampaignReports"));
+const EmailMarketingPage = lazy(() => import("./pages/Marketing/EmailMarketingPage"));
+const SegmentationManager = lazy(() => import("./pages/Marketing/SegmentationManager"));
+const TemplatesManager = lazy(() => import("./pages/Marketing/TemplatesManager"));
+const SMSCampaignPage = lazy(() => import("./pages/Marketing/SMSCampaignPage"));
+const KnowledgeBase = lazy(() => import("./pages/Support/KnowledgeBase"));
+const SLAManagement = lazy(() => import("./pages/Support/SLAManagement"));
+const SupportReports = lazy(() => import("./pages/Support/SupportReports"));
+const TicketSupport = lazy(() => import("./pages/Support/TicketSupport"));
+const AutomationLogs = lazy(() => import("./pages/Workflow/AutomationLogs"));
+const AutomationWorkflowRules = lazy(() => import("./pages/Workflow/AutomationWorkflowRules"));
+const ScheduledActions = lazy(() => import("./pages/Workflow/ScheduledActions"));
+const TriggerSettings = lazy(() => import("./pages/Workflow/TriggerSettings"));
+const CustomFieldsManager = lazy(() => import("./pages/Settings/CustomFieldsManager"));
+const EmailSmsSettings = lazy(() => import("./pages/Settings/EmailSmsSettings"));
+const ImportExportPage = lazy(() => import("./pages/Settings/ImportExportPage"));
+const IntegrationsPage = lazy(() => import("./pages/Settings/IntegrationsPage"));
+const RoleConfiguration = lazy(() => import("./pages/Role/role"));
+const Alert = lazy(() => import("./pages/Notification/Alerts"));
+const UserPreferences = lazy(() => import("./pages/Notification/UserPreferences"));
 import AuthLayout from "./pages/AuthPages/AuthPageLayout";
-import CrmViewPage from "./pages/CRM/CrmViewPage";
-import SalesChannels from "./pages/Sales/SalesChannels";
-import AttendanceRecordPage from "./pages/Attendance/AttendanceRecordPage";
-import LeaveBalancePage from "./pages/Attendance/LeaveBalancePage";
-import LeaveRequestPage from "./pages/Attendance/LeaveRequestPage";
-import LeaveTypePage from "./pages/Attendance/LeaveTypePage";
-import LeavePolicyPage from "./pages/Attendance/LeavePolicyPage";
-import LeaveDashboardPage from "./pages/Attendance/LeaveDashboardPage";
-import LeaveManagerDashboardPage from "./pages/Attendance/LeaveManagerDashboardPage";
-import NotificationPage from "./pages/Attendance/NotificationPage";
-import NotificationInboxPage from "./pages/Attendance/NotificationInboxPage";
-import NotificationDetailPage from "./pages/Attendance/NotificationDetailPage";
-import AttendancePolicyPage from "./pages/Attendance/AttendancePolicyPage";
-import HolidayCalendarPage from "./pages/Attendance/HolidayCalendarPage";
-import AttendancePunchPage from "./pages/Attendance/AttendancePunchPage";
-import AttendanceReportsPage from "./pages/Attendance/AttendanceReportsPage";
-import AttendanceTrackingPage from "./pages/Attendance/AttendanceTrackingPage";
-import AttendanceRequestsPage from "./pages/Attendance/AttendanceRequestsPage";
-import OnDutyApprovalPage from "./pages/Attendance/OnDutyApprovalPage";
-import AttendanceRegularizationApprovalPage from "./pages/Attendance/AttendanceRegularizationApprovalPage";
-import OvertimeRulePage from "./pages/Attendance/OvertimeRulePage";
-import PayrollComponentPage from "./pages/Attendance/PayrollComponentPage";
-import PayrollRecordPage from "./pages/Attendance/PayrollRecordPage";
-import RemoteAttendanceLogPage from "./pages/Attendance/RemoteAttendanceLogPage";
-import ShiftPage from "./pages/Attendance/ShiftPage";
-import EmployeeSelfServicePage from "./pages/Attendance/EmployeeSelfServicePage";
-import WorkFromHomeRequestPage from "./pages/Attendance/WorkFromHomeRequestPage";
-import OverTimeEntryPage from "./pages/Attendance/OverTimeEntryPage";
-import AttendanceViolationPage from "./pages/Attendance/AttendanceViolationPage";
-import AttendanceApprovalPage from "./pages/Attendance/AttendanceApprovalRequestPage";
-import ShiftSchedulePage from "./pages/Attendance/EmployeeShiftSchedulePage";
-import TimesheetManagementPage from "./pages/Attendance/TimesheetManagementPage";
-import PayrollPage from "./pages/Payroll/PayrollPage";
-import EmployeeDocumentsPage from "./pages/Payroll/EmployeeDocumentsPage";
-import SalesDashboard from "./pages/Sales/SalesDashboard";
-import CrmDashboardPage from "./pages/CRM/CrmDashboardPage";
-import ProcurementDashboard from "./pages/Purchase/ProcurementDashboard";
-import DeliveryDashboard from "./pages/Delivery/DeliveryDashboard";
-import PayrollDashboard from "./pages/Payroll/PayrollDashboard";
-import AttendanceDashboard from "./pages/Attendance/AttendanceDashboard";
-import UserDashboard from "./components/UserProfile/UserDashboard";
-import Mainrole from "./pages/roleconfig/Mainrole";
-import UserAccessPage from "./pages/roleconfig/UserAccessPage";
-import TenantsPage from "./pages/Platform/TenantsPage";
-import Batch from "./pages/Inventory/batch";
-import EmployeeCompensationPage from "./pages/Payroll/EmployeeCompensationPage";
-import EmployeeDepartmentsPage from "./pages/Payroll/EmployeeDepartments";
-import EmployeeSalaryPage from "./pages/Payroll/EmployeeSalaryPage";
-import CustomerFormPage from "./pages/common/CustomerFormPage";
-import ShipmentPage from "./pages/Delivery/Shipment";
-import DeliveryDispatch from "./pages/Delivery/DeliveryNote";
-// import DeliveryOrderPage from "./pages/Delivery/DeliveryOrderPage";
-import CustomerAddressPage from "./pages/Delivery/CustomerAddress";
-import DeliveryNote from "./pages/Delivery/DeliveryNote";
-import GoodsIssuePage from "./pages/Delivery/GoodsIssue";
-import Schedule from "./pages/Delivery/Schedule";
-import VendorsInvoice from "./pages/common/CustomerVendors";
-import TaxTypesInvoice from "./pages/common/TaxTypes";
-import TaxDetailsInvoice from "./pages/common/TaxDetails";
-import PurchaseInvoices from "./pages/Invoice/PurchaseInvoices";
-import PaymentTermsInvoice from "./pages/Invoice/PaymentTerms";
-import JournalEntries from "./pages/Invoice/JournalEntries";
-import InvoicesInvoice from "./pages/Invoice/Invoices";
-import GeneralAccounts from "./pages/Invoice/GeneralAccounts";
-import AccountsPayable from "./pages/Invoice/AccountsPayable";
-import VendorPayments from "./pages/Invoice/VendorPayments";
-import TaxRecords from "./pages/Invoice/TaxRecords";
-import PaymentReceipts from "./pages/Invoice/PaymentReceipts";
-import GeneralLedger from "./pages/Invoice/GeneralLedger";
-import ExpenseRevenue from "./pages/Invoice/ExpenseRevenue";
-import AccountsReceivable from "./pages/Invoice/AccountsReceivable";
-import TaxReport from "./pages/reports/TaxReport";
-import FinanceReport from "./pages/reports/FinanceReport";
-import Reports from "./pages/CRM/Reports";
+const CrmViewPage = lazy(() => import("./pages/CRM/CrmViewPage"));
+const SalesChannels = lazy(() => import("./pages/Sales/SalesChannels"));
+const AttendanceRecordPage = lazy(() => import("./pages/Attendance/AttendanceRecordPage"));
+const LeaveBalancePage = lazy(() => import("./pages/Attendance/LeaveBalancePage"));
+const LeaveRequestPage = lazy(() => import("./pages/Attendance/LeaveRequestPage"));
+const LeaveTypePage = lazy(() => import("./pages/Attendance/LeaveTypePage"));
+const LeavePolicyPage = lazy(() => import("./pages/Attendance/LeavePolicyPage"));
+const LeaveDashboardPage = lazy(() => import("./pages/Attendance/LeaveDashboardPage"));
+const LeaveManagerDashboardPage = lazy(() => import("./pages/Attendance/LeaveManagerDashboardPage"));
+const NotificationPage = lazy(() => import("./pages/Attendance/NotificationPage"));
+const NotificationInboxPage = lazy(() => import("./pages/Attendance/NotificationInboxPage"));
+const NotificationDetailPage = lazy(() => import("./pages/Attendance/NotificationDetailPage"));
+const AttendancePolicyPage = lazy(() => import("./pages/Attendance/AttendancePolicyPage"));
+const HolidayCalendarPage = lazy(() => import("./pages/Attendance/HolidayCalendarPage"));
+const AttendancePunchPage = lazy(() => import("./pages/Attendance/AttendancePunchPage"));
+const AttendanceReportsPage = lazy(() => import("./pages/Attendance/AttendanceReportsPage"));
+const AttendanceTrackingPage = lazy(() => import("./pages/Attendance/AttendanceTrackingPage"));
+const AttendanceRequestsPage = lazy(() => import("./pages/Attendance/AttendanceRequestsPage"));
+const OnDutyApprovalPage = lazy(() => import("./pages/Attendance/OnDutyApprovalPage"));
+const AttendanceRegularizationApprovalPage = lazy(() => import("./pages/Attendance/AttendanceRegularizationApprovalPage"));
+const OvertimeRulePage = lazy(() => import("./pages/Attendance/OvertimeRulePage"));
+const PayrollComponentPage = lazy(() => import("./pages/Attendance/PayrollComponentPage"));
+const PayrollRecordPage = lazy(() => import("./pages/Attendance/PayrollRecordPage"));
+const RemoteAttendanceLogPage = lazy(() => import("./pages/Attendance/RemoteAttendanceLogPage"));
+const ShiftPage = lazy(() => import("./pages/Attendance/ShiftPage"));
+const EmployeeSelfServicePage = lazy(() => import("./pages/Attendance/EmployeeSelfServicePage"));
+const WorkFromHomeRequestPage = lazy(() => import("./pages/Attendance/WorkFromHomeRequestPage"));
+const OverTimeEntryPage = lazy(() => import("./pages/Attendance/OverTimeEntryPage"));
+const AttendanceViolationPage = lazy(() => import("./pages/Attendance/AttendanceViolationPage"));
+const AttendanceApprovalPage = lazy(() => import("./pages/Attendance/AttendanceApprovalRequestPage"));
+const ShiftSchedulePage = lazy(() => import("./pages/Attendance/EmployeeShiftSchedulePage"));
+const TimesheetManagementPage = lazy(() => import("./pages/Attendance/TimesheetManagementPage"));
+const PayrollPage = lazy(() => import("./pages/Payroll/PayrollPage"));
+const EmployeeDocumentsPage = lazy(() => import("./pages/Payroll/EmployeeDocumentsPage"));
+const SalesDashboard = lazy(() => import("./pages/Sales/SalesDashboard"));
+const CrmDashboardPage = lazy(() => import("./pages/CRM/CrmDashboardPage"));
+const ProcurementDashboard = lazy(() => import("./pages/Purchase/ProcurementDashboard"));
+const DeliveryDashboard = lazy(() => import("./pages/Delivery/DeliveryDashboard"));
+const PayrollDashboard = lazy(() => import("./pages/Payroll/PayrollDashboard"));
+const AttendanceDashboard = lazy(() => import("./pages/Attendance/AttendanceDashboard"));
+const UserDashboard = lazy(() => import("./components/UserProfile/UserDashboard"));
+const Mainrole = lazy(() => import("./pages/roleconfig/Mainrole"));
+const UserAccessPage = lazy(() => import("./pages/roleconfig/UserAccessPage"));
+const TenantsPage = lazy(() => import("./pages/Platform/TenantsPage"));
+const Batch = lazy(() => import("./pages/Inventory/batch"));
+const EmployeeCompensationPage = lazy(() => import("./pages/Payroll/EmployeeCompensationPage"));
+const EmployeeDepartmentsPage = lazy(() => import("./pages/Payroll/EmployeeDepartments"));
+const EmployeeSalaryPage = lazy(() => import("./pages/Payroll/EmployeeSalaryPage"));
+const CustomerFormPage = lazy(() => import("./pages/common/CustomerFormPage"));
+const ShipmentPage = lazy(() => import("./pages/Delivery/Shipment"));
+const CustomerAddressPage = lazy(() => import("./pages/Delivery/CustomerAddress"));
+const DeliveryNote = lazy(() => import("./pages/Delivery/DeliveryNote"));
+const GoodsIssuePage = lazy(() => import("./pages/Delivery/GoodsIssue"));
+const Schedule = lazy(() => import("./pages/Delivery/Schedule"));
+const VendorsInvoice = lazy(() => import("./pages/common/CustomerVendors"));
+const TaxTypesInvoice = lazy(() => import("./pages/common/TaxTypes"));
+const TaxDetailsInvoice = lazy(() => import("./pages/common/TaxDetails"));
+const PurchaseInvoices = lazy(() => import("./pages/Invoice/PurchaseInvoices"));
+const PaymentTermsInvoice = lazy(() => import("./pages/Invoice/PaymentTerms"));
+const JournalEntries = lazy(() => import("./pages/Invoice/JournalEntries"));
+const InvoicesInvoice = lazy(() => import("./pages/Invoice/Invoices"));
+const GeneralAccounts = lazy(() => import("./pages/Invoice/GeneralAccounts"));
+const AccountsPayable = lazy(() => import("./pages/Invoice/AccountsPayable"));
+const VendorPayments = lazy(() => import("./pages/Invoice/VendorPayments"));
+const TaxRecords = lazy(() => import("./pages/Invoice/TaxRecords"));
+const PaymentReceipts = lazy(() => import("./pages/Invoice/PaymentReceipts"));
+const GeneralLedger = lazy(() => import("./pages/Invoice/GeneralLedger"));
+const ExpenseRevenue = lazy(() => import("./pages/Invoice/ExpenseRevenue"));
+const AccountsReceivable = lazy(() => import("./pages/Invoice/AccountsReceivable"));
+const TaxReport = lazy(() => import("./pages/reports/TaxReport"));
+const FinanceReport = lazy(() => import("./pages/reports/FinanceReport"));
+const Reports = lazy(() => import("./pages/CRM/Reports"));
 export default function AppRouter() {
   return (
     <BrowserRouter basename={ROUTER_BASENAME}>
       <ScrollToTop />
       <SessionDraftRestorer />
+      <Suspense fallback={<PageLoading />}>
       <Routes>
         <Route path="/auth" element={<AuthLayout children={undefined} />}>
           <Route path="signin" element={<SignIn />} />
@@ -312,7 +300,7 @@ export default function AppRouter() {
 
           <Route path="/deliveryOrder" element={<DeliveryOrderPage />} />
           <Route path="/transporter" element={<TransporterPage />} />
-          <Route path="/vechile" element={<VehiclePage />} />
+          <Route path="/vechile" element={<Navigate to="/vehicle" replace />} />
           <Route path="/shipment" element={<ShipmentPage />} />
           <Route path="/delivery-note" element={<DeliveryNote />} />
           <Route path="/customerAddress" element={<CustomerAddressPage />} />
@@ -389,7 +377,6 @@ export default function AppRouter() {
           <Route path="/notifications" element={<NotificationInboxPage />} />
           <Route path="/notifications/:id" element={<NotificationDetailPage />} />
           <Route path="/attendance_dashboard" element={<AttendanceDashboard />} />
-          <Route path="/att_timesheetManagement" element={<TimesheetManagementPage />} />
 
           <Route path="/sales-summary" element={<SalesSummary />} />
           <Route path="/activities" element={<Tasks />} />
@@ -449,22 +436,7 @@ export default function AppRouter() {
           <Route path="/alert" element={<Alert />} />
 
           <Route path="/profile" element={<UserProfiles />} />
-          <Route path="/message-section" element={<MessageSection />} />
           <Route path="/resetpassword" element={<ResetPassword />} />
-          <Route path="/calendar" element={<Calendar />} />
-          <Route path="/blank" element={<Blank />} />
-
-          <Route path="/form-elements" element={<FormElements />} />
-          <Route path="/basic-tables" element={<BasicTables />} />
-          <Route path="/alerts" element={<Alerts />} />
-          <Route path="/avatars" element={<Avatars />} />
-          <Route path="/badge" element={<Badges />} />
-          <Route path="/buttons" element={<Buttons />} />
-          <Route path="/images" element={<Images />} />
-          <Route path="/videos" element={<Videos />} />
-
-          <Route path="/line-chart" element={<LineChart />} />
-          <Route path="/bar-chart" element={<BarChart />} />
         </Route>
 
         <Route path="/signin" element={<SignIn />} />
@@ -477,6 +449,7 @@ export default function AppRouter() {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

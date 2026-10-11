@@ -29,6 +29,7 @@ import FilterPopover from "../../components/common/filter";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { todayIso } from "../../utils/localDate";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -102,7 +103,7 @@ const cardCls = "bg-white rounded-xl shadow-sm border border-gray-200 overflow-h
 const emptyForm: AttendanceViolation = {
   employeeId: 0,
   employeeName: "",
-  date: new Date().toISOString().split('T')[0],
+  date: todayIso(),
   violationType: "LATE_ARRIVAL",
   duration: "",
   reason: "",
@@ -255,7 +256,7 @@ const AttendanceViolationPage: React.FC = () => {
   };
 
   const resetForm = () => {
-    setForm({ ...emptyForm, date: new Date().toISOString().split('T')[0] });
+    setForm({ ...emptyForm, date: todayIso() });
     setDurationValue("");
     setDurationUnit("M");
     setDurationError("");
@@ -264,7 +265,7 @@ const AttendanceViolationPage: React.FC = () => {
   };
 
   const openCreateForm = () => {
-    setForm({ ...emptyForm, date: new Date().toISOString().split('T')[0] });
+    setForm({ ...emptyForm, date: todayIso() });
     setDurationValue("");
     setDurationUnit("M");
     setDurationError("");

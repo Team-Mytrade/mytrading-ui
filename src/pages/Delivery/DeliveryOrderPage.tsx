@@ -32,6 +32,7 @@ import {
   TrashIcon,
   PlusIcon,
 } from "lucide-react";
+import { todayIso } from "../../utils/localDate";
 
 // ================= TYPES =================
 
@@ -246,7 +247,7 @@ const DeliveryNote: React.FC = () => {
     setForm({
       id: null,
       deliveryNo: `DEL-${Date.now()}`,
-      deliveryDate: new Date().toISOString().split('T')[0],
+      deliveryDate: todayIso(),
       salesOrderId: 0,
       customerId: 0,
       status: "PENDING",
@@ -370,7 +371,7 @@ const DeliveryNote: React.FC = () => {
 
     const payload = {
       deliveryNo: form.deliveryNo,
-      deliveryDate: form.deliveryDate || new Date().toISOString().split('T')[0],
+      deliveryDate: form.deliveryDate || todayIso(),
       salesOrderId: Number(form.salesOrderId),
       customerId: Number(form.customerId),
       status: form.status,

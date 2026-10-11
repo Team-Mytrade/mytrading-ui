@@ -9,6 +9,7 @@ import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
+import { todayIso } from "../../utils/localDate";
 
 // Relative API Base Endpoint (routing via Vite dev proxy)
 const BASE_REQUESTS_URL = '/v1/api/attendance/requests';
@@ -79,7 +80,7 @@ const AttendanceRequestsPage: React.FC = () => {
   const [onDutyDateRows, setOnDutyDateRows] = useState<OnDutyDateRow[]>([]);
   const [editingRow, setEditingRow] = useState<OnDutyDateRow | null>(null);
   const [isAddDateModalOpen, setIsAddDateModalOpen] = useState(false);
-  const [newDateInput, setNewDateInput] = useState(new Date().toISOString().slice(0, 10));
+  const [newDateInput, setNewDateInput] = useState(todayIso());
 
   // Inspection Modal
   const [viewingRequest, setViewingRequest] = useState<AttendanceRequestModel | null>(null);
@@ -88,7 +89,7 @@ const AttendanceRequestsPage: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   // Form State
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = todayIso();
   const [form, setForm] = useState<RequestDetailItem>({
     fromDate: todayStr,
     toDate: todayStr,
@@ -434,7 +435,7 @@ const AttendanceRequestsPage: React.FC = () => {
 
   // ── Clear Form Helper ──────────────────────────────────────────────────
   const handleClearForm = () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayIso();
     setForm({
       fromDate: today,
       toDate: today,

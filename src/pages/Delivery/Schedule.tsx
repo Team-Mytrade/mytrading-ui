@@ -20,6 +20,7 @@ import DynamicPopup from "../../components/common/Popup";
 import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import { todayIso } from "../../utils/localDate";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -261,7 +262,7 @@ const SchedulePage: React.FC = () => {
 
   // ── Derived data: filter + search ───────────────────────────────────────────
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = todayIso();
 
   const filteredSchedules = useMemo(() => {
     return schedules.filter(s => {

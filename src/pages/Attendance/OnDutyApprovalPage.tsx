@@ -20,6 +20,7 @@ import PageMeta from "../../components/common/PageMeta";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ToasterService } from "../../Services/ToasterService";
+import { todayIso } from "../../utils/localDate";
 
 export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type ActiveTab = "pending" | "approved" | "rejected";
@@ -154,7 +155,7 @@ const OnDutyApprovalPage: React.FC = () => {
 
     const reqId = typeof r.id === 'object' ? (r.id?.id || 1) : (r.id || 1);
 
-    const fromD = safeString(r.fromDate || detail.fromDate || r.startDate || r.shiftDate, new Date().toISOString().slice(0, 10));
+    const fromD = safeString(r.fromDate || detail.fromDate || r.startDate || r.shiftDate, todayIso());
     const toD = safeString(r.toDate || detail.toDate || r.endDate || fromD, fromD);
     const datesStr = fromD ? `${fromD}${toD && toD !== fromD ? ` to ${toD}` : ''}` : 'N/A';
 

@@ -23,6 +23,7 @@ import {
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { todayIso } from "../../utils/localDate";
 
 type ReturnItem = {
   id: number;
@@ -115,7 +116,7 @@ const paymentMethodOptions = ["BANK_TRANSFER"];
 const refundStatusOptions = ["PENDING", "PROCESSED", "FAILED"];
 
 const emptyReturnForm: ReturnForm = {
-  requestDate: new Date().toISOString().split("T")[0],
+  requestDate: todayIso(),
   status: "REQUESTED",
   reason: "DAMAGED_PRODUCT",
   salesOrderId: "",
@@ -754,7 +755,7 @@ const ReturnRequests: React.FC = () => {
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Return Request" : "Create Return Request"}
-        subtitle="Enter return request details from the API schema"
+        subtitle="Enter the return request details"
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}

@@ -25,6 +25,7 @@ import {
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { todayIso } from "../../utils/localDate";
 
 type TargetStatus =
   | "NOT_STARTED"
@@ -111,7 +112,7 @@ const emptyForm: TargetForm = {
   achievedAmount: "0",
   targetYear: String(new Date().getFullYear()),
   targetMonth: String(new Date().getMonth() + 1),
-  startDate: new Date().toISOString().split("T")[0],
+  startDate: todayIso(),
   endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
     .toISOString()
     .split("T")[0],
@@ -753,7 +754,7 @@ const SalesTargets: React.FC = () => {
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Sales Target" : "Create Sales Target"}
-        subtitle="Enter target details from the sales target API schema"
+        subtitle="Enter the sales target details"
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}

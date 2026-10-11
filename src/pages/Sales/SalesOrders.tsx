@@ -24,6 +24,7 @@ import {
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { todayIso } from "../../utils/localDate";
 
 type Address = {
   id: number;
@@ -303,7 +304,7 @@ function itemFromOrderItem(item: SalesOrderItem): OrderItemForm {
 const emptyForm: OrderForm = {
   orderNumber: "",
   quotationType: "PRODUCT",
-  orderDate: new Date().toISOString().split("T")[0],
+  orderDate: todayIso(),
   status: "DRAFT",
   quotationId: "",
   quotationNumber: "",
@@ -915,7 +916,7 @@ const SalesOrders: React.FC = () => {
     setForm({
       orderNumber: order.orderNumber || "",
       quotationType: order.quotationType || "PRODUCT",
-      orderDate: order.orderDate || new Date().toISOString().split("T")[0],
+      orderDate: order.orderDate || todayIso(),
       status: order.status || "DRAFT",
       quotationId: String(order.quotationId || ""),
       quotationNumber: order.quotationNumber || "",

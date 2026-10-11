@@ -34,6 +34,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { Refresh } from '@mui/icons-material';
+import { todayIso } from "../../utils/localDate";
 
 type AttendanceLog = {
     id: number;
@@ -72,7 +73,7 @@ const AttendanceLogsPage: React.FC = () => {
 
     const [form, setForm] = useState<Omit<AttendanceLog, 'id'>>({
         employeeId: '',
-        date: new Date().toISOString().split('T')[0],
+        date: todayIso(),
         checkIn: '09:00',
         checkOut: '18:00',
         status: 'Present',
@@ -135,7 +136,7 @@ const AttendanceLogsPage: React.FC = () => {
         setEditingLog(null);
         setForm({
             employeeId: '',
-            date: new Date().toISOString().split('T')[0],
+            date: todayIso(),
             checkIn: '09:00',
             checkOut: '18:00',
             status: 'Present',
@@ -183,7 +184,7 @@ const AttendanceLogsPage: React.FC = () => {
             styles: { fontSize: 8 },
             headStyles: { fillColor: [6, 182, 212] },
         });
-        doc.save(`Attendance_Report_${new Date().toISOString().split("T")[0]}.pdf`);
+        doc.save(`Attendance_Report_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };
 
@@ -201,7 +202,7 @@ const AttendanceLogsPage: React.FC = () => {
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Attendance Logs");
-        XLSX.writeFile(wb, `Attendance_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
+        XLSX.writeFile(wb, `Attendance_Report_${todayIso()}.xlsx`);
         setShowExportMenu(false);
     };
 

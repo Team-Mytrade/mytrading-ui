@@ -720,6 +720,13 @@ export function ReusableTable<T extends { id?: number | string }>({
   };
   const visibleColumns = columns.filter((column) => visibleColumnKeys.includes(column.key));
   const isLoading = loading || isToolbarRefreshing;
+  // Below this width the table scrolls sideways instead of squeezing columns until Actions is clipped
+  const tableMinWidth = Math.max(680, visibleColumns.length * 112);
+  const isActionsColumn = (column: ColumnDef<T>) => column.key === "actions";
+  const actionsHeaderClass = (column: ColumnDef<T>) =>
+    isActionsColumn(column)
+      ? `common-data-table__sticky-actions ${/(^|\s)!?w-/.test(column.headerClassName ?? "") ? "" : "w-[132px]"}`
+      : "";
 
   const filtered = useMemo(() => data.filter((row) => {
     if (!rowMatchesSearch(row, search, searchFields)) return false;
@@ -982,7 +989,10 @@ export function ReusableTable<T extends { id?: number | string }>({
                 : "relative overflow-x-auto overflow-y-visible"
             }
           >
-            <table className="min-w-[680px] table-fixed divide-y divide-gray-200 sm:min-w-full dark:divide-gray-800">
+            <table
+              className="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-800"
+              style={{ minWidth: tableMinWidth }}
+            >
               <thead className="bg-gray-50 dark:bg-gray-800/70">
                 <tr>
                   {visibleColumns.map((col, index) => (
@@ -1000,6 +1010,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                           ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                           : "",
                         col.headerClassName ?? "",
+                        actionsHeaderClass(col),
                         index === visibleColumns.length - 1 ? "!pr-12" : "",
                       ]
                         .filter(Boolean)
@@ -1031,7 +1042,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                       const options = getFilterOptions(column);
                       const canFilter = column.filterable !== false && column.key !== "actions";
                       return (
-                        <th key={`${column.key}-filter`} className="px-2 py-2">
+                        <th key={`${column.key}-filter`} className={`px-2 py-2 ${isActionsColumn(column) ? "common-data-table__sticky-actions" : ""}`}>
                           {canFilter && options.length > 0 ? (
                             <select value={columnFilters[column.key] ?? ""} onChange={(event) => handleColumnFilter(column.key, event.target.value)} aria-label={`Filter ${column.label}`}>
                               <option value="">All</option>
@@ -1078,7 +1089,10 @@ export function ReusableTable<T extends { id?: number | string }>({
                               <td
                                 key={col.key}
                                 className={[
-                                  "px-3 py-2 text-sm text-gray-700 dark:text-gray-300 overflow-hidden text-ellipsis",
+                                  "px-3 py-2 text-sm text-gray-700 dark:text-gray-300",
+                                  isActionsColumn(col)
+                                    ? "common-data-table__sticky-actions whitespace-nowrap"
+                                    : "overflow-hidden text-ellipsis",
                                   align === "center"
                                     ? "text-center"
                                     : align === "right"

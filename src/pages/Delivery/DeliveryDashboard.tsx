@@ -51,7 +51,7 @@ const recentDeliveries = [
 const deliveryModules = [
   { name: "Delivery Order", count: 38, icon: Truck, route: "/delivery-order", color: "blue" },
   { name: "Transporter", count: 12, icon: Car, route: "/transporter", color: "emerald" },
-  { name: "Vehicle", count: 20, icon: Car, route: "/vechile", color: "orange" },
+  { name: "Vehicle", count: 20, icon: Car, route: "/vehicle", color: "orange" },
   { name: "Route", count: 15, icon: MapPin, route: "/route", color: "purple" },
   { name: "Products", count: 320, icon: Package, route: "/productDelivery", color: "indigo" },
   { name: "Customer Address", count: 150, icon: MapPin, route: "/deliveryAddress", color: "pink" },
