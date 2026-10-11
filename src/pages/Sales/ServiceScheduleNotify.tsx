@@ -239,8 +239,11 @@ function openNativeTimePicker(
   event: React.FocusEvent<HTMLInputElement> | React.MouseEvent<HTMLInputElement>
 ) {
   const input = event.currentTarget;
-  if (typeof input.showPicker === "function") {
+  if (event.type !== "click" || typeof input.showPicker !== "function") return;
+  try {
     input.showPicker();
+  } catch {
+    // already open or not allowed
   }
 }
 
@@ -904,7 +907,6 @@ const ServiceScheduleNotify: React.FC = () => {
                   name="startTime"
                   value={form.startTime}
                   onChange={handleSimpleInputChange}
-                  onFocus={openNativeTimePicker}
                   onClick={openNativeTimePicker}
                   className="h-[52px] w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-cyan-400 dark:focus:ring-cyan-900/40"
                 />
@@ -922,7 +924,6 @@ const ServiceScheduleNotify: React.FC = () => {
                   name="endTime"
                   value={form.endTime}
                   onChange={handleSimpleInputChange}
-                  onFocus={openNativeTimePicker}
                   onClick={openNativeTimePicker}
                   className="h-[52px] w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-cyan-400 dark:focus:ring-cyan-900/40"
                 />

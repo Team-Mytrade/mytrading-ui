@@ -157,8 +157,19 @@ const Toast: React.FC<ToastOptions & { onClose: () => void }> = ({
   );
 };
 
+// When the last toast was shown, and the last message (to drop exact repeats)
+let lastToastAt = 0;
+let lastToastKey = "";
+
 export const ToasterService = {
   notify({ message, description, type = "info", duration = 3000 }: ToastOptions) {
+    const key = `${type}|${message}|${description ?? ""}`;
+    const now = Date.now();
+    if (key === lastToastKey && now - lastToastAt < 1500) {
+      return;
+    }
+    lastToastAt = now;
+    lastToastKey = key;
     if (!toastContainer) {
       toastContainer = document.createElement("div");
       document.body.appendChild(toastContainer);
@@ -197,6 +208,18 @@ export const ToasterService = {
   
   info(message: string, description?: string, duration?: number) {
     this.notify({ message, description, type: "info", duration });
+  },
+
+  /**
+   * Safety net for API calls: shows the toast only if the page itself showed none since the request
+   * started (checked shortly after, once the page's own handlers have run).
+   */
+  notifyIfPageSilent(type: "success" | "error", message: string, requestStartedAt: number) {
+    window.setTimeout(() => {
+      if (lastToastAt < requestStartedAt) {
+        this.notify({ message, type });
+      }
+    }, 400);
   },
 
   noData(message = "No data found", description?: string, duration?: number) {

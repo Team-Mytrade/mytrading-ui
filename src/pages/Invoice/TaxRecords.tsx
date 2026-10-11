@@ -64,7 +64,8 @@ const TaxRecords: React.FC = () => {
   const fetchTaxRecords = async () => {
     try {
       setIsLoading(true);
-      const res = await axios.get(`${API_URL}/report`, { headers });
+      // The list; /report returns totals for a date range
+      const res = await axios.get(API_URL, { headers });
       setTaxRecords(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Error fetching tax records", err);
@@ -93,10 +94,7 @@ const TaxRecords: React.FC = () => {
         transactionDate: form.transactionDate,
       };
       if (form.taxTypeId) payload.taxTypeId = Number(form.taxTypeId);
-      const res =
-        editingId !== null
-          ? await axios.put(`${API_URL}/record/${editingId}`, payload, { headers })
-          : await axios.post(`${API_URL}/record`, payload, { headers });
+      const res = await axios.post(`${API_URL}/record`, payload, { headers });
       if (res.status === 200 || res.status === 201) {
         ToasterService.success(editingId !== null ? "Tax record updated successfully!" : "Tax record added successfully!");
         setShowFormModal(false);
@@ -106,7 +104,8 @@ const TaxRecords: React.FC = () => {
       }
     } catch (err) {
       console.error("Error submitting tax record", err);
-      ToasterService.error("Failed to save tax record");
+      const data = axios.isAxiosError(err) ? err.response?.data : undefined;
+      ToasterService.error(data?.error || "Failed to save tax record");
     } finally {
       setSubmitting(false);
     }
@@ -257,22 +256,9 @@ const TaxRecords: React.FC = () => {
       className: "w-[10%] text-right",
       render: (record) => (
         <div className="flex items-center justify-end gap-0.5">
-          <button
-            type="button"
-            onClick={() => handleEdit(record)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit Record"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => handleDelete(record)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-            title="Delete Record"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
+          <span className="text-[11px] text-slate-400" title="Tax records are an audit trail and cannot be changed">
+            {record.id ? `#${record.id}` : ""}
+          </span>
         </div>
       ),
     },

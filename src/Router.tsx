@@ -33,7 +33,6 @@ import Deals from "./pages/CRM/Deals";
 import KeyContacts from "./pages/CRM/KeyContacts";
 import Segments from "./pages/CRM/Segments";
 import Interactions from "./pages/CRM/Interactions";
-import TaskManager from "./pages/CRM/TaskManager";
 import SalesOrders from "./pages/Sales/SalesOrders";
 import Quotations from "./pages/Sales/Quotations";
 import SalesPersons from "./pages/Sales/SalesPersons";
@@ -61,7 +60,6 @@ import ProductCategories from "./pages/product-catalogue/ProductCategories";
 import TermsAndConditions from "./pages/Purchase/TermsAndConditions";
 import Deliveries from "./pages/Purchase/Deliveries";
 import GoodsReceiptNotes from "./pages/purchase-service/GoodsReceiptNotes";
-import Inventory from "./pages/Purchase/Inventory";
 import PurchaseReports from "./pages/Purchase/PurchaseReports";
 import DeliveryOrderPage from "./pages/Delivery/DeliveryOrderPage";
 import TransporterPage from "./pages/Delivery/TransporterPage";
@@ -119,12 +117,6 @@ import KnowledgeBase from "./pages/Support/KnowledgeBase";
 import SLAManagement from "./pages/Support/SLAManagement";
 import SupportReports from "./pages/Support/SupportReports";
 import TicketSupport from "./pages/Support/TicketSupport";
-import ActivityReports from "./pages/reports/ActivityReports";
-import CustomReports from "./pages/reports/CustomReports";
-import CustomerRetentionReport from "./pages/reports/CustomerRetentionReport";
-import LeadReports from "./pages/reports/LeadReports";
-import PerformanceReports from "./pages/reports/PerformanceReports";
-import SalesReports from "./pages/reports/SalesReports";
 import AutomationLogs from "./pages/Workflow/AutomationLogs";
 import AutomationWorkflowRules from "./pages/Workflow/AutomationWorkflowRules";
 import ScheduledActions from "./pages/Workflow/ScheduledActions";
@@ -236,7 +228,7 @@ export default function AppRouter() {
           <Route path="/customer-segment" element={<Segments />} />
           <Route path="/customer-segment/:id" element={<Segments />} />
           <Route path="/communication-history" element={<Interactions />} />
-          <Route path="/task" element={<TaskManager />} />
+          <Route path="/task" element={<Navigate to="/activities" replace />} />
           <Route path="/crm-view/:requestFrom/:id" element={<CrmViewPage />} />
           <Route path="/crm_dashboard" element={<CrmDashboardPage />} />
           <Route path="/customers/new" element={<CustomerFormPage />} />
@@ -288,7 +280,7 @@ export default function AppRouter() {
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
           <Route path="/deliveries" element={<Deliveries />} />
           <Route path="/goods-receipt-notes" element={<Navigate to="/purchase-service/goods-receipt-notes" replace />} />
-          <Route path="/purchase-inventory" element={<Inventory />} />
+          <Route path="/purchase-inventory" element={<Navigate to="/inventory" replace />} />
           <Route path="/purchase-reports" element={<PurchaseReports />} />
           <Route path="/purchase_dashboard" element={<ProcurementDashboard />} />
 
@@ -438,12 +430,12 @@ export default function AppRouter() {
           <Route path="/automationLogs" element={<AutomationLogs />} />
           <Route path="/scheduledActions" element={<ScheduledActions />} />
 
-          <Route path="/activityReports" element={<ActivityReports />} />
-          <Route path="/customReports" element={<CustomReports />} />
-          <Route path="/customerRetention" element={<CustomerRetentionReport />} />
-          <Route path="/leadReports" element={<LeadReports />} />
-          <Route path="/performanceReports" element={<PerformanceReports />} />
-          <Route path="/salesReports" element={<SalesReports />} />
+          <Route path="/activityReports" element={<Navigate to="/crm-reports" replace />} />
+          <Route path="/customReports" element={<Navigate to="/crm-reports" replace />} />
+          <Route path="/customerRetention" element={<Navigate to="/crm-reports" replace />} />
+          <Route path="/leadReports" element={<Navigate to="/crm-reports" replace />} />
+          <Route path="/performanceReports" element={<Navigate to="/crm-reports" replace />} />
+          <Route path="/salesReports" element={<Navigate to="/sales-dashboard" replace />} />
 
           <Route path="/customFields" element={<CustomFieldsManager />} />
           <Route path="/emailSMS" element={<EmailSmsSettings />} />

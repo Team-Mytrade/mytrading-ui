@@ -874,15 +874,7 @@ const InventoryReservationManager: React.FC = () => {
       className: "text-right",
       render: (reservation) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={() => openEdit(reservation)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-            title="Edit"
-          >
-            <PencilIcon className="h-4 w-4" />
-          </button>
-
+          {/* No edit: changing a reservation would re-lock stock. Release it and reserve again. */}
           {canRelease(reservation.status) && (
             <button
               type="button"

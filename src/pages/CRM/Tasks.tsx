@@ -29,6 +29,7 @@ import {
   FloatingSelect1 as FloatingSelect,
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
+import { useUserDirectory, userOptions } from "../../access/useUserDirectory";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import DynamicPopup from "../../components/common/Popup";
@@ -98,6 +99,7 @@ const Tasks: React.FC = () => {
   const [selectedStatus] = useState<string>("");
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const { users: directoryUsers } = useUserDirectory();
 
   useEffect(() => {
     if (showFormModal || showViewModal || showDeleteConfirm) {
@@ -208,6 +210,11 @@ const Tasks: React.FC = () => {
       ToasterService.error("Title is required");
       return;
     }
+    if (form.scheduledTime && form.completedTime
+        && new Date(form.completedTime).getTime() < new Date(form.scheduledTime).getTime()) {
+      ToasterService.error("Completed time can't be before the scheduled time");
+      return;
+    }
     try {
       setIsSaving(true);
       const payload = getActivityPayload(form);
@@ -225,7 +232,7 @@ const Tasks: React.FC = () => {
     } catch (err: any) {
       console.error("Error saving activity:", err);
       ToasterService.error(
-        err.response?.data?.message || "Failed to save activity"
+        err.response?.data?.error || err.response?.data?.message || "Failed to save activity"
       );
     } finally {
       setIsSaving(false);
@@ -800,11 +807,12 @@ const Tasks: React.FC = () => {
           />
         </div>,
         <div key="assignedTo" className="md:col-span-2">
-          <FloatingInput
+          <FloatingSelect
             label="Assigned To"
             name="assignedTo"
             value={form.assignedTo || ""}
             onChange={handleChange}
+            options={userOptions(directoryUsers, form.assignedTo)}
           />
         </div>,
       ],

@@ -1,4 +1,5 @@
 import { appUrl } from '../utils/appPath';
+import { ToasterService } from '../Services/ToasterService';
 import { createContext, useState, useEffect, ReactNode, useRef, useCallback } from 'react';
 import axios from 'axios';
 import placeholderImage from '../images/img-placeholder.png';
@@ -13,6 +14,44 @@ import {
   saveSessionExpiredDraft,
 } from '../utils/sessionRecovery';
 import { AccessInfo, NO_ACCESS, TENANT_HEADER, decodeAccess, getSelectedTenant, setSelectedTenant } from '../access/access';
+
+// Saves and deletes get a confirmation or error toast when the page shows none itself (F10)
+const MUTATING_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
+const wantsFeedback = (method: string | undefined, url: string) =>
+  MUTATING_METHODS.includes((method || 'GET').toUpperCase()) &&
+  url.includes('/v1/api/') && !url.includes('/v1/api/auth/');
+const successText = (method: string | undefined) =>
+  (method || '').toUpperCase() === 'DELETE' ? 'Deleted successfully' : 'Saved successfully';
+const errorText = (data: any, status?: number) =>
+  data?.error || data?.message || (status ? `The request failed (HTTP ${status})` : 'Could not reach the server');
+
+// Unwrapped fetch, so token refreshes are not intercepted themselves
+const nativeFetch = window.fetch.bind(window);
+let refreshInFlight: Promise<string | null> | null = null;
+
+/**
+ * Gets a new access token using the HttpOnly refresh cookie set at login. Concurrent callers share
+ * one request. Returns null when the session can't be renewed (signed out or refresh expired).
+ */
+const refreshAccessToken = (): Promise<string | null> => {
+  if (!refreshInFlight) {
+    refreshInFlight = nativeFetch('/v1/api/auth/refresh', { method: 'POST', credentials: 'same-origin' })
+      .then(async (res) => (res.ok ? ((await res.json())?.token as string | undefined) ?? null : null))
+      .catch(() => null)
+      .then((token) => {
+        if (token) {
+          localStorage.setItem('accessToken', token);
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          window.dispatchEvent(new Event('app-token-refreshed'));
+        }
+        return token;
+      })
+      .finally(() => {
+        refreshInFlight = null;
+      });
+  }
+  return refreshInFlight;
+};
 
 // The tenant comes from the token on the server. Only a Super Admin who picked a
 // tenant sends X-Tenant-Id; without it they work platform-wide (all tenants).
@@ -33,6 +72,7 @@ axios.interceptors.request.use(
     // Authentication failures are handled by the sign-in/sign-up forms, not
     // by the global expired-session modal.
     (config as any).skipSessionExpiredHandling = isAuthEndpoint;
+    (config as any)._startedAt = (config as any)._startedAt ?? Date.now();
 
     if (!isAuthEndpoint) {
       const tenantId = selectedTenantHeader();
@@ -151,6 +191,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       clearSessionExpiredDraft();
     }
 
+    // Clears the HttpOnly refresh cookie (scripts can't remove it themselves)
+    nativeFetch('/v1/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => undefined);
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
     setSelectedTenant(null);
@@ -357,6 +399,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     initializeAuth();
   }, [completeAuthBootstrap, normalizeUser]); // Empty dependency array - runs only once on mount
 
+  // A refreshed token may carry changed permissions or modules
+  useEffect(() => {
+    const onRefreshed = () => setAccess(decodeAccess(localStorage.getItem('accessToken')));
+    window.addEventListener('app-token-refreshed', onRefreshed);
+    return () => window.removeEventListener('app-token-refreshed', onRefreshed);
+  }, []);
+
   useEffect(() => {
     if (hasSessionExpiredFlag()) {
       setSessionExpired(true);
@@ -366,13 +415,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const responseInterceptor = axios.interceptors.response.use(
-      (response) => response,
-      (error) => {
+      (response) => {
+        const config = response.config as any;
+        if (wantsFeedback(config?.method, String(config?.url ?? ''))) {
+          ToasterService.notifyIfPageSilent('success', successText(config.method), config._startedAt ?? Date.now());
+        }
+        return response;
+      },
+      async (error) => {
         if ((error?.config as any)?.skipSessionExpiredHandling) {
           return Promise.reject(error);
         }
 
         const status = error?.response?.status;
+        // Expired access token: renew once with the refresh cookie and replay the request
+        const config = error?.config as any;
+        if (status === 401 && config && !config._retriedAfterRefresh) {
+          config._retriedAfterRefresh = true;
+          const token = await refreshAccessToken();
+          if (token) {
+            config.headers = { ...(config.headers || {}), Authorization: `Bearer ${token}` };
+            return axios(config);
+          }
+        }
         const message =
           error?.response?.data?.message ||
           error?.response?.data?.error ||
@@ -380,6 +445,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (isSessionExpiredResponse(status, message)) {
           handleSessionExpired();
+        } else if (config && wantsFeedback(config.method, String(config.url ?? ''))) {
+          ToasterService.notifyIfPageSilent('error', errorText(error?.response?.data, status), config._startedAt ?? Date.now());
         }
 
         return Promise.reject(error);
@@ -399,14 +466,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         args = [input, { ...init, headers }];
       }
 
-      const response = await originalFetch(...args);
+      const startedAt = Date.now();
+      const method = args[1]?.method ?? (args[0] instanceof Request ? args[0].method : 'GET');
+      let response = await originalFetch(...args);
+
+      // Expired access token: renew once with the refresh cookie and replay with the new token
+      if (response.status === 401 && url.includes('/v1/api/') && !url.includes('/v1/api/auth/')) {
+        const token = await refreshAccessToken();
+        if (token) {
+          const [retryInput, retryInit] = args;
+          const headers = new Headers(retryInit?.headers ?? (retryInput instanceof Request ? retryInput.headers : undefined));
+          headers.set('Authorization', `Bearer ${token}`);
+          response = await originalFetch(retryInput, { ...retryInit, headers });
+        }
+      }
 
       if (!response.ok) {
         let message = "";
+        let data: any;
 
         try {
           const clonedResponse = response.clone();
-          const data = await clonedResponse.json();
+          data = await clonedResponse.json();
           message = data?.message || data?.error || "";
         } catch (error) {
           try {
@@ -416,7 +497,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (isSessionExpiredResponse(response.status, message)) {
           handleSessionExpired();
+        } else if (wantsFeedback(method, url)) {
+          ToasterService.notifyIfPageSilent('error', errorText(data, response.status), startedAt);
         }
+      } else if (wantsFeedback(method, url)) {
+        ToasterService.notifyIfPageSilent('success', successText(method), startedAt);
       }
 
       return response;

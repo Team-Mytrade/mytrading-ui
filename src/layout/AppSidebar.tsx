@@ -68,12 +68,7 @@ export const navItems: NavItem[] = [
     icon: <BarChart3 className="w-5 h-5" />,
     name: "Reports",
     subItems: [
-      { name: "Sales Reports", path: "/salesReports" },
-      { name: "Lead Reports", path: "/leadReports" },
-      { name: "Activity Reports", path: "/activityReports" },
-      { name: "Custom Reports", path: "/customReports" },
-      { name: "Customer Retention", path: "/customerRetention" },
-      { name: "Performance Reports", path: "/performanceReports" },
+      // Static demo reports removed; CRM reports live under CRM
       { name: "Inventory Report", path: "/inventory-report" },
       { name: "Purchase Reports", path: "/purchase-reports" },
       { name: "Finance Report", path: "/financeReport" },

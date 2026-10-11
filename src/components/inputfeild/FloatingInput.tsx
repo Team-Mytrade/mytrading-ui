@@ -681,8 +681,14 @@ export const FloatingDatePicker: React.FC<FloatingDatePickerProps> = ({
         type="date"
         value={value}
         onChange={onChange}
-        onClick={() => inputRef.current?.showPicker?.()}
-        onFocus={() => inputRef.current?.showPicker?.()}
+        // Only a click may open the picker; showPicker() throws without a user gesture
+        onClick={() => {
+          try {
+            inputRef.current?.showPicker?.();
+          } catch {
+            // already open or not allowed; the field still works by typing
+          }
+        }}
         style={styles.dateInput}
         className={`floating-input floating-datepicker ${error ? 'error' : ''} ${className}`}
         required={required}

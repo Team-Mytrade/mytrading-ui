@@ -454,28 +454,7 @@ const AttendanceRecordPage: React.FC = () => {
         );
       },
     },
-    {
-      key: "actions", label: "Actions",
-      headerClassName: "!text-right pr-8", className: "text-right",
-      render: (row) => (
-        <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-          <button
-            onClick={() => openEditForm(row)}
-            title="Edit"
-            className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => handleDelete(row.id!)}
-            title="Delete"
-            className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
-        </div>
-      ),
-    },
+    // Read-only: employees punch for themselves; corrections go through regularization
   ];
 
   // Filtered data for table
@@ -514,9 +493,10 @@ const AttendanceRecordPage: React.FC = () => {
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Attendance Records</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Manage daily attendance check-in and check-out records</p>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Daily check-in and check-out records for the last 30 days. Corrections are made through regularization.
+            </p>
           </div>
-          <AddButton label="Add Record" onClick={openCreateForm} />
         </div>
 
         {/* Stats Cards */}

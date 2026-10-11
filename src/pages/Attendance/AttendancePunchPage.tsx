@@ -179,30 +179,28 @@ const AttendancePunchPage: React.FC = () => {
   const fetchTodayPunchLogs = useCallback(async () => {
     setIsRefreshingLogs(true);
     try {
-      const res = await axios.get('/v1/api/attendance/records', { timeout: 4000 });
-      if (Array.isArray(res.data) && res.data.length > 0) {
-        const mappedLogs: PunchLogEntry[] = res.data.map((item: any, index: number) => {
-          const empId = Number(item.employeeId || item.empId || 0);
-          const empMatch = employees.find(e => e.id === empId);
-          return {
-            id: item.id || Date.now() + index,
-            type: item.checkOutTime ? 'CHECK_OUT' : 'CHECK_IN',
-            employeeId: empId,
-            employeeName: item.employeeName || (empMatch ? empMatch.name : (empId === currentUser.id ? currentUser.name : `Employee #${empId}`)),
-            timestamp: item.checkInTime || item.punchTime || item.createdDate || new Date().toLocaleTimeString(),
-            attendanceSource: item.attendanceSource || 'BIOMETRIC',
-            attendanceMode: item.attendanceMode || 'OFFICE',
-            deviceId: item.deviceId || '—',
-            deviceName: item.deviceName || '—',
-            location: item.location || '—',
-            coordinates: item.latitude ? `${item.latitude}, ${item.longitude}` : '—',
-            ipAddress: item.ipAddress || '—',
-            remarks: item.remarks || (item.checkOutTime ? 'Shift Check-Out' : 'Shift Check-In'),
-            status: 'Success'
-          };
-        });
-        setPunchLogs(mappedLogs);
-      }
+      // The signed-in employee's record for today, one log line per recorded punch
+      const res = await axios.get('/v1/api/attendance/records/today', { timeout: 4000 });
+      const records = Array.isArray(res.data) ? res.data : [];
+      const mappedLogs: PunchLogEntry[] = records.flatMap((record: any) =>
+        (Array.isArray(record.punches) ? record.punches : []).map((punch: any, index: number) => ({
+          id: Number(`${record.id || 0}${index}`) || Date.now() + index,
+          type: punch.type === 'OUT' || punch.type === 'CHECK_OUT' ? 'CHECK_OUT' : 'CHECK_IN',
+          employeeId: record.employeeId,
+          employeeName: record.employeeName || currentUser.name,
+          timestamp: punch.time ? new Date(punch.time).toLocaleTimeString() : '—',
+          attendanceSource: punch.source || '—',
+          attendanceMode: punch.mode || record.attendanceMode || '—',
+          deviceId: '—',
+          deviceName: punch.deviceName || '—',
+          location: punch.location || '—',
+          coordinates: punch.latitude != null ? `${punch.latitude}, ${punch.longitude}` : '—',
+          ipAddress: punch.ipAddress || '—',
+          remarks: record.remarks || '',
+          status: 'Success'
+        }))
+      );
+      setPunchLogs(mappedLogs.reverse());
     } catch (e) {
       console.warn("Could not fetch today punch logs:", e);
     } finally {

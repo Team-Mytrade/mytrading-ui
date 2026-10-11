@@ -19,8 +19,8 @@ function getLocalGreeting(date = new Date()) {
 }
 
 export default function Home() {
-  const { user } = useContext(AuthContext);
-  const accessible = useMemo(() => getAccessibleDashboards(user), [user]);
+  const { user, access } = useContext(AuthContext);
+  const accessible = useMemo(() => getAccessibleDashboards(access), [access]);
   const defaultKey = accessible[0]?.key ?? "";
   const [searchParams, setSearchParams] = useSearchParams();
   const urlModule = searchParams.get("module") ?? "";
@@ -81,8 +81,8 @@ export default function Home() {
           <div className="cc-bar__title">
             <span className="cc-bar__logo"><LayoutGrid size={18} /></span>
             <div>
-              <h1>{greeting}, {user?.fullName || "Admin"}</h1>
-              <p>Pick a module to load its dashboard — {user?.fullName || "Admin"}</p>
+              <h1>{greeting}, {user?.fullName || "there"}</h1>
+              <p>Pick a module to load its dashboard</p>
             </div>
           </div>
           <div ref={selectRef} className={`cc-select${open ? " is-open" : ""}`}>
