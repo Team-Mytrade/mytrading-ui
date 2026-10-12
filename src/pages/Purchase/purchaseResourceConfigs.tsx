@@ -1,1286 +1,1051 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React from "react";
 import axios from "axios";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { ShoppingCartIcon } from "@heroicons/react/24/outline";
 import {
-  CheckCircleIcon,
-  MagnifyingGlassIcon,
-  PencilSquareIcon,
-  TrashIcon,
-  XCircleIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/outline";
-import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import PageMeta from "../../components/common/PageMeta";
-import { AddButton } from "../../components/common/AddButton";
-import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import DynamicPopup from "../../components/common/Popup";
-import FilterPopover from "../../components/common/filter";
-import Dragger from "../../components/common/Dragger";
-import StatsCard from "../../components/common/Statscard";
-import {
-  FloatingDatePicker,
-  FloatingInput,
-  FloatingSelect1,
-  FloatingTextarea,
-  Option as FloatingOption,
-} from "../../components/inputfeild/FloatingInput";
-import SearchableSelect from "../../components/inputfeild/SearchableSelect";
-import { ToasterService } from "../../Services/ToasterService";
+  makeRelation,
+  PurchaseRecord,
+  PurchaseResourceConfig,
+  SelectOption,
+  toNumberOrZero,
+} from "./PurchaseResourcePage";
+import LineItemsEditor, { LineItem } from "../Purchase/LineItemsEditor";
+import GoodsReceiptEditor from "../purchase-service/GoodsReceiptEditor";
 
-export type PurchaseRecord = Record<string, any> & { id?: number | string };
+const PURCHASE = "/v1/api/purchase";
+const CATEGORIES = "/v1/api/purchase/product-categories";
+const PRODUCT_CATALOGUE_PRODUCTS = "/v1/api/product/products";
 
-export type SelectOption = {
-  value: string | number;
-  label: string;
-  raw?: PurchaseRecord;
-  /** Extra words that also find this option in a searchable select (e.g. "TN" for Tamil Nadu). */
-  keywords?: string[];
-};
-
-export type FieldType =
-  | "text"
-  | "email"
-  | "tel"
-  | "number"
-  | "date"
-  | "datetime-local"
-  | "textarea"
-  | "select"
-  | "checkbox"
-  | "toggle";
-
-export type FieldConfig = {
-  name: string;
-  label: string;
-  type?: FieldType;
-  required?: boolean;
-  placeholder?: string;
-  defaultValue?: any;
-  options?: SelectOption[];
-  optionsEndpoint?: string;
-  getOptionsParams?: () => Record<string, string | number | boolean>;
-  optionLabel?: string | ((row: PurchaseRecord) => string);
-  optionValue?: string | ((row: PurchaseRecord) => string | number);
-  gridClassName?: string;
-  controlWidth?: string;
-  /** Controls whether a field is shown for a new record or an existing record. */
-  showOnCreate?: boolean;
-  showOnEdit?: boolean;
-  /** Shows the value as receipt/reference information instead of an input while editing. */
-  readOnlyOnEdit?: boolean;
-  placeholderOption?: string;
-  /** For long select lists: type a few letters and only matching options are shown. */
-  searchable?: boolean;
-  /** Tab / section this field belongs to (e.g. "Bank Details"). Fields with a section are shown in named tabs. */
-  section?: string;
-  /** Field-level check; return an error message to show under the field, or null when valid. */
-  validate?: (value: any, form: PurchaseRecord) => string | null;
-  toggleOnValue?: string;
-  toggleOffValue?: string;
-  toggleOptions?: SelectOption[];
-  getOptions?: (context: {
-    form: PurchaseRecord;
-    options: Record<string, SelectOption[]>;
-  }) => SelectOption[];
-  onValueChange?: (
-    value: any,
-    context: {
-      form: PurchaseRecord;
-      options: Record<string, SelectOption[]>;
-    }
-  ) => PurchaseRecord | void;
-};
-
-export type ResourceColumn = {
-  key: string;
-  label: string;
-  sortable?: boolean;
-  className?: string;
-  headerClassName?: string;
-  render?: (row: PurchaseRecord) => React.ReactNode;
-  link?: (row: PurchaseRecord) => { to: string; title: string } | null;
-};
-
-export type PurchaseResourceConfig = {
-  title: string;
-  description: string;
-  endpoint: string;
-   formSubtitle?: string
-  getByIdEndpoint?: (row: PurchaseRecord) => string;
-  createEndpoint?: string;
-  updateEndpoint?: (row: PurchaseRecord, form: PurchaseRecord) => string;
-  deleteEndpoint?: (row: PurchaseRecord) => string;
-  allowCreate?: boolean;
-  allowEdit?: boolean;
-  allowDelete?: boolean;
-  columns: ResourceColumn[];
-  fields: FieldConfig[];
-  searchFields?: string[];
-  pageSize?: number;
-  renderSearchExtras?: () => React.ReactNode;
-
-  renderHeaderActions?: () => React.ReactNode;
-  getListParams?: () => Record<string, string | number | boolean>;
-  getRequestParams?: () => Record<string, string | number | boolean>;
-  allowInlineActiveToggle?: boolean;
-  inlineBooleanFields?: string[];
-  inlineSelectFields?: Array<{
-    name: string;
-    options: SelectOption[];
-    widthClassName?: string;
-    defaultValue?: string;
-    /** Handles field changes that use an endpoint other than the resource update URL. */
-    onChange?: (row: PurchaseRecord, nextValue: string) => Promise<void> | void;
-  }>;
-  buildPayload?: (
-    form: PurchaseRecord,
-    editingRow: PurchaseRecord | null,
-    context: { options: Record<string, SelectOption[]> }
-  ) => PurchaseRecord | FormData;
-  /** Return a message when the form is not safe to submit to the API. */
-  validateForm?: (
-    form: PurchaseRecord,
-    editingRow: PurchaseRecord | null,
-    context: { options: Record<string, SelectOption[]> }
-  ) => string | null;
-  /** Field-level errors ({ fieldName: message }), shown under each field and on its tab. */
-  validateFields?: (
-    form: PurchaseRecord,
-    editingRow: PurchaseRecord | null,
-    context: { options: Record<string, SelectOption[]> }
-  ) => Record<string, string>;
-  /** Friendly message when delete is refused because the record is still used elsewhere. */
-  deleteInUseMessage?: string;
-  /** Tab name for renderFormExtras content (e.g. line items) when the form uses sections. Default "Items". */
-  formExtrasSection?: string;
-  normalizeForm?: (row: PurchaseRecord) => PurchaseRecord;
-
-  initialFormState?: PurchaseRecord;
-  /** Values to merge into the form when an external flow opens a new record. */
-  initialCreateState?: PurchaseRecord;
-  autoOpenCreate?: boolean;
-  /** Unique navigation key that prevents an external create flow from reopening after the form closes. */
-  autoOpenCreateKey?: string;
-  formPresentation?: "modal" | "drawer";
-  /** Use an in-page editor for new records instead of a modal. */
-  createPresentation?: "modal" | "inline";
-  /** Use an in-page editor for existing records instead of a modal. */
-  editPresentation?: "modal" | "inline";
-  drawerReadOnlyByDefault?: boolean;
-  drawerHeaderDateField?: string;
-  drawerHeaderTextField?: string;
-  drawerCompact?: boolean;
-  scope?: { idParam: string; nameParam: string; label: string };
-
-  /** Icon-only or extra action buttons rendered inside the Actions cell */
-  renderRowActions?: (row: PurchaseRecord) => React.ReactNode;
-
-  renderFormExtras?: (context: {
-    form: PurchaseRecord;
-    setForm: React.Dispatch<React.SetStateAction<PurchaseRecord>>;
-    editingRow: PurchaseRecord | null;
-    refreshRows: () => Promise<void>;
-    options: Record<string, SelectOption[]>;
-  }) => React.ReactNode;
-  renderFormSidePanel?: (context: {
-    form: PurchaseRecord;
-    setForm: React.Dispatch<React.SetStateAction<PurchaseRecord>>;
-    editingRow: PurchaseRecord | null;
-    refreshRows: () => Promise<void>;
-    options: Record<string, SelectOption[]>;
-  }) => React.ReactNode;
-  renderInlineEdit?: (context: {
-    form: PurchaseRecord;
-    setForm: React.Dispatch<React.SetStateAction<PurchaseRecord>>;
-    editingRow: PurchaseRecord | null;
-    refreshRows: () => Promise<void>;
-    options: Record<string, SelectOption[]>;
-    onClose: () => void;
-    onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-    submitting: boolean;
-  }) => React.ReactNode;
-  renderCustomForm?: (context: {
-    form: PurchaseRecord;
-    setForm: React.Dispatch<React.SetStateAction<PurchaseRecord>>;
-    editingRow: PurchaseRecord | null;
-    options: Record<string, SelectOption[]>;
-    onClose: () => void;
-    onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-    submitting: boolean;
-  }) => React.ReactNode;
-  formMaxWidthClassName?: string;
-
-  afterSubmit?: (context: {
-    form: PurchaseRecord;
-    editingRow: PurchaseRecord | null;
-    savedRow: PurchaseRecord;
-    isCreate: boolean;
-    refreshRows: () => Promise<void>;
-  }) => Promise<void> | void;
-};
-const HIDDEN_KEYS = new Set(["id", "purchaseOrderId", "grnId", "deliveryId", "vendorId", "requisitionId", "tenantId"]);
-
-const asArray = (value: any): PurchaseRecord[] => {
-  if (Array.isArray(value)) return value;
-  if (Array.isArray(value?.data)) return value.data;
-  if (Array.isArray(value?.content)) return value.content;
-  return [];
-};
-
-
-const getValue = (row: PurchaseRecord, path: string): any => {
-  return path.split(".").reduce((acc, key) => acc?.[key], row);
-};
-
-const formatDateTimeForInput = (value: any) => {
-  if (!value) return "";
-  const text = String(value);
-  return text.length >= 16 ? text.slice(0, 16) : text;
-};
-
-function defaultForField(field: FieldConfig) {
-  if (field.defaultValue !== undefined) return field.defaultValue;
-  if (field.type === "checkbox") return true;
-  if (field.type === "number") return "";
-  return "";
-}
-
-function mergeFormUpdate(
-  name: string,
-  value: any,
-  current: PurchaseRecord,
-  field: FieldConfig,
-  options: Record<string, SelectOption[]>
-) {
-  const next = { ...current, [name]: value };
-  const extra = field.onValueChange?.(value, { form: next, options });
-  return extra ? { ...next, ...extra } : next;
-}
-
-function optionText(row: PurchaseRecord, label?: FieldConfig["optionLabel"]) {
-  if (typeof label === "function") return label(row);
-  if (label) return String(getValue(row, label) ?? "");
-  return String(row.name ?? row.title ?? row.productName ?? row.poNumber ?? row.id ?? "");
-}
-
-function optionValue(row: PurchaseRecord, value?: FieldConfig["optionValue"]) {
-  if (typeof value === "function") return value(row);
-  if (value) return getValue(row, value);
-  return row.id ?? "";
-}
-
-function formatCellValue(value: any) {
-  if (value == null || value === "") return "--";
-  if (typeof value === "boolean") return value ? "Active" : "Inactive";
-  if (typeof value === "object") {
-    return (
-      value.username ||
-      value.name ||
-      value.title ||
-      value.productName ||
-      value.categoryName ||
-      value.poNumber ||
-      value.fullName ||
-      value.userId ||
-      value.id ||
-      "--"
-    );
-  }
-  return String(value);
-}
-
-/**
- * Delete error in plain words. When the record is still used (foreign key / 409),
- * the raw database text is never shown to the user.
- */
-function deleteErrorMessage(error: any, config: PurchaseResourceConfig): string {
-  const status = error?.response?.status;
-  const data = error?.response?.data;
-  const raw = String(data?.message || data?.error || data?.detail || "");
-  const inUse =
-    status === 409 || /foreign key|constraint|referenced|violates|still in use|in use/i.test(raw);
-  if (inUse) {
-    return (
-      config.deleteInUseMessage ||
-      "This record is used by other records, so it cannot be deleted. Deactivate it instead."
-    );
-  }
-  // Short, readable backend messages are fine to show; long SQL/stack text is not.
-  if (raw && raw.length <= 160 && !/sql|exception|jdbc|hibernate/i.test(raw)) return raw;
-  return `Failed to delete ${config.title}`;
-}
-
-function searchableText(value: unknown) {
-  if (value == null) return "";
-  if (typeof value === "object") return JSON.stringify(value).toLowerCase();
-  return String(value).toLowerCase().trim();
-}
-
-function getInlineSelectTone(value: unknown) {
-  const normalized = String(value || "").toLowerCase();
-
-  if (["active", "approved", "issued", "received"].includes(normalized)) {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700 focus:border-emerald-300";
-  }
-
-  if (["inactive", "rejected", "cancelled", "block"].includes(normalized)) {
-    return "border-rose-200 bg-rose-50 text-red-600 focus:border-rose-300";
-  }
-
-  if (["draft", "pending", "submitted"].includes(normalized)) {
-    return "border-amber-200 bg-amber-50 text-amber-700 focus:border-amber-300";
-  }
-
-  if (normalized === "closed") {
-    return "border-slate-200 bg-slate-100 text-slate-600 focus:border-slate-300";
-  }
-
-  return "border-slate-200 bg-slate-50 text-slate-700 focus:border-cyan-300";
-}
-
-const StatusPill = ({ active }: { active: boolean }) => (
-  <span
-    className={[
-      "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
-      active ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600",
-    ].join(" ")}
-  >
-    {active ? "Active" : "Inactive"}
-  </span>
+const boolText = (value: boolean) => (
+  <span className={value ? "text-green-700" : "text-gray-500"}>{value ? "Yes" : "No"}</span>
 );
 
-export const makeRelation = (id: any) => (id ? { id: Number(id) } : null);
-
-export const toNumberOrNull = (value: any) =>
-  value === "" || value == null ? null : Number(value);
-
-export const toNumberOrZero = (value: any) =>
-  value === "" || value == null ? 0 : Number(value);
-
-export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> = ({ config }) => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const scopeId = Number(config.scope ? searchParams.get(config.scope.idParam) : "") || null;
-  const scopeName = config.scope ? searchParams.get(config.scope.nameParam) || `Selected ${config.scope.label.toLowerCase()}` : "";
-  const isScoped = Boolean(config.scope && searchParams.has(config.scope.idParam));
-  const [rows, setRows] = useState<PurchaseRecord[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [editingRow, setEditingRow] = useState<PurchaseRecord | null>(null);
-  const [form, setForm] = useState<PurchaseRecord>({});
-  const [options, setOptions] = useState<Record<string, SelectOption[]>>({});
-  const [deleteRow, setDeleteRow] = useState<PurchaseRecord | null>(null);
-  const [isDrawerEditing, setIsDrawerEditing] = useState(false);
-  const [apiFailed, setApiFailed] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
-  const [inlineUpdatingId, setInlineUpdatingId] = useState<string | number | null>(null);
-  const [search, setSearch] = useState("");
-  const autoOpenedKey = useRef<string | null>(null);
-  // Form validation state: which fields were visited, whether Save was clicked, and the active tab.
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const [submitAttempted, setSubmitAttempted] = useState(false);
-  const [activeStep, setActiveStep] = useState(0);
-
-  const resetValidation = () => {
-    setTouched({});
-    setSubmitAttempted(false);
-    setActiveStep(0);
-  };
-
-  const updateRowLocally = useCallback(
-    (rowId: string | number, updater: (row: PurchaseRecord) => PurchaseRecord) => {
-      setRows((current) =>
-        current.map((item) => {
-          if (String(item.id) !== String(rowId)) return item;
-          return updater(item);
-        })
-      );
-    },
-    []
-  );
-
-  const emptyForm = useMemo(() => {
-    return config.fields.reduce<PurchaseRecord>((acc, field) => {
-      acc[field.name] = defaultForField(field);
-      return acc;
-    }, {});
-  }, [config.fields]);
-
-  const loadRows = useCallback(async () => {
-    setLoading(true);
-    setApiFailed(false);
-    try {
-      const res = await axios.get(config.endpoint, {
-        params: {
-          ...(config.getRequestParams?.() || {}),
-          ...(config.getListParams?.() || {}),
-        },
-      });
-      setRows(asArray(res.data));
-    } catch (error: any) {
-      console.error(`Failed to load ${config.title}`, error);
-      ToasterService.error(`Failed to load ${config.title}`);
-      setRows([]);
-      setApiFailed(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [config]);
-
-  const loadOptions = useCallback(async () => {
-    const optionFields = config.fields.filter((field) => field.optionsEndpoint);
-    if (!optionFields.length) return;
-
-    const next: Record<string, SelectOption[]> = {};
-    let hasFailure = false;
-
-    await Promise.all(
-      optionFields.map(async (field) => {
-        try {
-          const res = await axios.get(field.optionsEndpoint || "", {
-            params: field.getOptionsParams?.() || config.getRequestParams?.(),
-          });
-          next[field.name] = asArray(res.data)
-            .map((row) => ({
-              value: optionValue(row, field.optionValue),
-              label: optionText(row, field.optionLabel),
-              raw: row,
-            }))
-            .filter((item) => item.value !== "" && item.label);
-        } catch (error) {
-          console.error(`Failed to load options for ${field.name}`, error);
-          next[field.name] = [];
-          hasFailure = true;
-        }
-      })
-    );
-
-    setOptions(next);
-    if (hasFailure) setApiFailed(true);
-  }, [config.fields]);
-
-  useEffect(() => {
-    loadRows();
-    loadOptions();
-  }, [loadRows, loadOptions]);
-
-  const openCreate = useCallback(
-    (seed?: PurchaseRecord) => {
-      setEditingRow(null);
-      setForm({
-        ...emptyForm,
-        ...(config.initialFormState || {}),
-        ...(seed || {}),
-      });
-      resetValidation();
-      setShowForm(true);
-    },
-    [config.initialFormState, emptyForm]
-  );
-
-  useEffect(() => {
-    const autoOpenKey = config.autoOpenCreateKey || config.title;
-    if (config.autoOpenCreate && autoOpenedKey.current !== autoOpenKey) {
-      autoOpenedKey.current = autoOpenKey;
-      openCreate(config.initialCreateState);
-    }
-  }, [config.autoOpenCreate, config.autoOpenCreateKey, config.initialCreateState, config.title, openCreate]);
-
-  const openEdit = async (row: PurchaseRecord) => {
-    let selectedRow = row;
-    if (config.getByIdEndpoint) {
-      try {
-        const res = await axios.get(config.getByIdEndpoint(row), {
-          params: config.getRequestParams?.(),
-        });
-        selectedRow = res.data || row;
-      } catch (error) {
-        console.error(`Failed to load ${config.title} details`, error);
-        ToasterService.error(`Failed to load ${config.title} details`);
-        setApiFailed(true);
-      }
-    }
-
-    const base = config.normalizeForm ? config.normalizeForm(selectedRow) : selectedRow;
-    const nextForm = { ...emptyForm, ...base };
-    if ("parentCategoryId" in nextForm && !nextForm.parentCategoryId && nextForm.categoryId) {
-      const selectedCategory = (options.categoryId || []).find(
-        (option) => String(option.value) === String(nextForm.categoryId)
-      );
-      if (selectedCategory?.raw?.parentId) {
-        nextForm.parentCategoryId = selectedCategory.raw.parentId;
-      }
-    }
-
-    setEditingRow(selectedRow);
-    setForm(nextForm);
-    resetValidation();
-    setShowForm(true);
-  };
-
-  const closeForm = () => {
-    setShowForm(false);
-    setEditingRow(null);
-    setForm({ ...emptyForm });
-    setIsDrawerEditing(false);
-    resetValidation();
-  };
-
-  const setField = (field: FieldConfig, value: any) => {
-    setForm((current) => mergeFormUpdate(field.name, value, current, field, options));
-  };
-
-  /** Fields the user can actually see and fill in this form. */
-  const isFieldEditable = (field: FieldConfig) => {
-    if (config.drawerHeaderDateField === field.name || config.drawerHeaderTextField === field.name) return false;
-    if ((!editingRow && field.showOnCreate === false) || (editingRow && field.showOnEdit === false)) return false;
-    if (String(field.gridClassName || "").split(/\s+/).includes("hidden")) return false;
-    if (Boolean(editingRow) && field.readOnlyOnEdit) return false;
-    return true;
-  };
-
-  /** All current field errors: required fields, each field's own validate(), and config.validateFields(). */
-  const fieldErrors = useMemo<Record<string, string>>(() => {
-    if (!showForm || config.renderCustomForm) return {};
-    const errors: Record<string, string> = {};
-    config.fields.forEach((field) => {
-      if (!isFieldEditable(field)) return;
-      const value = form[field.name];
-      const isEmpty = value === "" || value == null;
-      if (field.required && field.type !== "checkbox" && field.type !== "toggle" && isEmpty) {
-        errors[field.name] = `${field.label.replace(/\s*\(.*\)\s*$/, "")} is required`;
-        return;
-      }
-      const message = field.validate?.(value, form);
-      if (message) errors[field.name] = message;
-    });
-    const extra = config.validateFields?.(form, editingRow, { options }) || {};
-    Object.entries(extra).forEach(([name, message]) => {
-      if (message && !errors[name]) errors[name] = message;
-    });
-    return errors;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showForm, form, editingRow, config, options]);
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-
-    // Field errors first: show them under the fields and jump to the first tab that has one.
-    const errorNames = orderedErrorNames();
-    if (errorNames.length) {
-      setSubmitAttempted(true);
-      const stepIndex = stepIndexOfField(errorNames[0]);
-      if (stepIndex >= 0) setActiveStep(stepIndex);
-      ToasterService.error(fieldErrors[errorNames[0]]);
-      return;
-    }
-
-    const validationError = config.validateForm?.(form, editingRow, { options });
-    if (validationError) {
-      ToasterService.error(validationError);
-      return;
-    }
-    const payload = config.buildPayload ? config.buildPayload(form, editingRow, { options }) : form;
-
-    try {
-      setIsSubmitting(true);
-      let savedRow: PurchaseRecord | null = null;
-      if (editingRow && config.allowEdit !== false) {
-        const url = config.updateEndpoint
-          ? config.updateEndpoint(editingRow, form)
-          : `${config.endpoint}/${editingRow.id}`;
-        const response = await axios.put(url, payload, { params: config.getRequestParams?.() });
-        savedRow = response.data || editingRow;
-        ToasterService.success(`${config.title} updated`);
-      } else {
-        const response = await axios.post(config.createEndpoint || config.endpoint, payload, {
-          params: config.getRequestParams?.(),
-        });
-        savedRow = response.data || null;
-        ToasterService.success(`${config.title} created`);
-      }
-      if (savedRow && config.afterSubmit) {
-        await config.afterSubmit({
-          form,
-          editingRow,
-          savedRow,
-          isCreate: !editingRow,
-          refreshRows: loadRows,
-        });
-      }
-      closeForm();
-      await Promise.all([loadRows(), loadOptions()]);
-    } catch (error: any) {
-      console.error(`Failed to save ${config.title}`, error);
-      ToasterService.error(
-        error.response?.data?.message || error.response?.data?.error || `Failed to save ${config.title}`
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (!deleteRow) return;
-    try {
-      const url = config.deleteEndpoint
-        ? config.deleteEndpoint(deleteRow)
-        : `${config.endpoint}/${deleteRow.id}`;
-      await axios.delete(url, { params: config.getRequestParams?.() });
-      ToasterService.success(`${config.title} deleted`);
-      setDeleteRow(null);
-      loadRows();
-    } catch (error: any) {
-      console.error(`Failed to delete ${config.title}`, error);
-      ToasterService.error(deleteErrorMessage(error, config));
-    }
-  };
-
-  const resolveRowForUpdate = async (row: PurchaseRecord) => {
-    if (!config.getByIdEndpoint) return row;
-
-    try {
-      const res = await axios.get(config.getByIdEndpoint(row), {
-        params: config.getRequestParams?.(),
-      });
-      return res.data || row;
-    } catch (error) {
-      console.error(`Failed to load ${config.title} details for update`, error);
-      return row;
-    }
-  };
-
-  const handleInlineActiveChange = async (row: PurchaseRecord, nextActive: boolean) => {
-    if (!row?.id) return;
-
-    try {
-      setInlineUpdatingId(row.id);
-      const rowForUpdate = await resolveRowForUpdate(row);
-      const baseForm = config.normalizeForm ? config.normalizeForm(rowForUpdate) : rowForUpdate;
-      const nextForm = { ...emptyForm, ...baseForm, active: nextActive };
-      const payload = config.buildPayload
-        ? config.buildPayload(nextForm, rowForUpdate, { options })
-        : nextForm;
-      const url = config.updateEndpoint
-        ? config.updateEndpoint(rowForUpdate, nextForm)
-        : `${config.endpoint}/${row.id}`;
-      await axios.put(url, payload, { params: config.getRequestParams?.() });
-      updateRowLocally(row.id, (currentRow) => ({ ...currentRow, active: nextActive }));
-      ToasterService.success(`${config.title} status updated`);
-    } catch (error: any) {
-      console.error(`Failed to update ${config.title} status`, error);
-      ToasterService.error(
-        error.response?.data?.message || `Failed to update ${config.title} status`
-      );
-    } finally {
-      setInlineUpdatingId(null);
-    }
-  };
-
-  const handleInlineSelectChange = async (
-    row: PurchaseRecord,
-    fieldName: string,
-    nextValue: string
-  ) => {
-    if (!row?.id) return;
-
-    try {
-      setInlineUpdatingId(`${row.id}-${fieldName}`);
-      const inlineSelectConfig = config.inlineSelectFields?.find(
-        (field) => field.name === fieldName
-      );
-      if (inlineSelectConfig?.onChange) {
-        await inlineSelectConfig.onChange(row, nextValue);
-        updateRowLocally(row.id, (currentRow) => ({ ...currentRow, [fieldName]: nextValue }));
-        ToasterService.success(`${config.title} updated`);
-        return;
-      }
-      const rowForUpdate = await resolveRowForUpdate(row);
-      const baseForm = config.normalizeForm ? config.normalizeForm(rowForUpdate) : rowForUpdate;
-      const nextForm = { ...emptyForm, ...baseForm, [fieldName]: nextValue };
-      const payload = config.buildPayload
-        ? config.buildPayload(nextForm, rowForUpdate, { options })
-        : nextForm;
-      const url = config.updateEndpoint
-        ? config.updateEndpoint(rowForUpdate, nextForm)
-        : `${config.endpoint}/${row.id}`;
-      await axios.put(url, payload, { params: config.getRequestParams?.() });
-      updateRowLocally(row.id, (currentRow) => ({ ...currentRow, [fieldName]: nextValue }));
-      ToasterService.success(`${config.title} updated`);
-    } catch (error: any) {
-      console.error(`Failed to update ${config.title}`, error);
-      ToasterService.error(
-        error.response?.data?.message || error.response?.data?.error || `Failed to update ${config.title}`
-      );
-    } finally {
-      setInlineUpdatingId(null);
-    }
-  };
-
-  const tableColumns = useMemo<ColumnDef<PurchaseRecord>[]>(() => {
-    const cols = config.columns
-  .filter((column) => !HIDDEN_KEYS.has(column.key))
-  .map((column) => ({
-      key: column.key,
-      label: column.label,
-      sortable: column.sortable ?? true,
-      className: column.className,
-      headerClassName: column.headerClassName,
-      sortValueGetter: (row: PurchaseRecord) => {
-        const value = getValue(row, column.key);
-        return typeof value === "object" ? formatCellValue(value) : value;
-      },
-      render: (row: PurchaseRecord) => {
-        const value = getValue(row, column.key);
-        const link = column.link?.(row);
-        if (link) return <button type="button" onClick={(event) => { event.stopPropagation(); navigate(link.to); }} className="max-w-[220px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline" title={link.title}>{formatCellValue(value)}</button>;
-        const isInlineBooleanField =
-          typeof value === "boolean" &&
-          ((column.key === "active" && config.allowInlineActiveToggle) ||
-            config.inlineBooleanFields?.includes(column.key));
-        if (isInlineBooleanField) {
-          const isActive = Boolean(value);
-          return (
-            <select
-              value={isActive ? "ACTIVE" : "INACTIVE"}
-              onChange={(event) => handleInlineActiveChange(row, event.target.value === "ACTIVE")}
-              disabled={inlineUpdatingId === row.id}
-              className={[
-                "w-[126px] rounded-2xl border px-4 py-2.5 text-sm font-medium outline-none transition",
-                "focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60",
-                isActive
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 focus:border-emerald-300"
-                  : "border-rose-200 bg-rose-50 text-red-600 focus:border-rose-300",
-              ].join(" ")}
-            >
-              <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
-            </select>
-          );
-        }
-        const inlineSelectConfig = config.inlineSelectFields?.find(
-          (field) => field.name === column.key
-        );
-        if (inlineSelectConfig) {
-          const currentValue = String(value ?? inlineSelectConfig.defaultValue ?? "");
-          return (
-            <select
-              value={currentValue}
-              onChange={(event) =>
-                handleInlineSelectChange(row, column.key, event.target.value)
-              }
-              disabled={inlineUpdatingId === `${row.id}-${column.key}`}
-              className={[
-                inlineSelectConfig.widthClassName || "w-[126px]",
-                "rounded-2xl border px-4 py-2.5 text-sm font-medium outline-none transition",
-                "focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60",
-                getInlineSelectTone(currentValue),
-              ].join(" ")}
-            >
-              {inlineSelectConfig.options.map((option) => (
-                <option key={String(option.value)} value={String(option.value)}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          );
-        }
-        if (column.render) return column.render(row);
-        if (typeof value === "boolean") return <StatusPill active={value} />;
-        return <span className="text-sm text-gray-700">{formatCellValue(value)}</span>;
-      },
-    }));
-
-    if (config.allowEdit === false && config.allowDelete === false && !config.renderRowActions) {
-      return cols;
-    }
-
-    return [
-      ...cols,
-      {
-        key: "actions",
-        label: "Actions",
-        sortable: false,
-        headerClassName: "!text-right pr-8",
-        className: "text-right",
-        render: (row: PurchaseRecord) => (
-          <div className="flex items-center justify-end gap-1">
-            {config.renderRowActions?.(row)}
-
-            {config.allowEdit !== false && (
-              <button
-                type="button"
-                onClick={() => openEdit(row)}
-                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600"
-                title="Edit"
-              >
-                <PencilSquareIcon className="h-4 w-4" />
-              </button>
-            )}
-            {config.allowDelete !== false && (
-              <button
-                type="button"
-                onClick={() => setDeleteRow(row)}
-                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                title="Delete"
-              >
-                <TrashIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        ),
-      },
-    ];
-  }, [config, emptyForm, inlineUpdatingId, navigate, openEdit, options]);
-
-  const supportsActiveFilter = useMemo(
-    () => rows.some((row) => typeof row.active === "boolean"),
-    [rows]
-  );
-  const searchableFields = (config.searchFields ||
-    config.columns.map((column) => column.key)) as any[];
-
-  const filteredRows = useMemo(() => {
-    const term = searchableText(search);
-    return rows.filter((row) => {
-      const matchesScope = !isScoped || Number(row.id) === scopeId;
-      const matchesActive =
-        !supportsActiveFilter || activeFilter === "ALL"
-          ? true
-          : Boolean(row.active) === (activeFilter === "ACTIVE");
-
-      const matchesSearch =
-        !term ||
-        searchableFields.some((field) =>
-          searchableText(getValue(row, String(field))).includes(term)
-        );
-
-      return matchesScope && matchesActive && matchesSearch;
-    });
-  }, [activeFilter, isScoped, rows, scopeId, search, supportsActiveFilter]);
-
-  const activeCount = rows.filter((row) => row.active === true).length;
-
-  const fieldEntries = config.fields.map((field) => {
-    const fieldOptions = field.getOptions
-      ? field.getOptions({ form, options })
-      : field.options || options[field.name] || [];
-    const value = form[field.name] ?? defaultForField(field);
-    const isHeaderDateField = config.drawerHeaderDateField === field.name;
-    const isHeaderTextField = config.drawerHeaderTextField === field.name;
-    if (isHeaderDateField || isHeaderTextField) return null;
-    if ((!editingRow && field.showOnCreate === false) || (editingRow && field.showOnEdit === false)) {
-      return null;
-    }
-    const floatingOptions: FloatingOption[] = fieldOptions.map((option) => ({
-      id: option.value,
-      name: option.label,
-    }));
-
-    const drawerReadOnly =
-      (config.formPresentation === "drawer" && config.drawerReadOnlyByDefault && !isDrawerEditing) ||
-      (Boolean(editingRow) && field.readOnlyOnEdit);
-    let control: React.ReactNode;
-
-    if (drawerReadOnly) {
-      const displayValue = field.type === "select"
-        ? floatingOptions.find((option) => String(option.id) === String(value))?.name || formatCellValue(value)
-        : formatCellValue(value);
-      control = (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <div className="text-xs font-medium text-slate-500">{field.label}</div>
-          <div className="mt-1 text-sm font-semibold text-slate-800">{displayValue}</div>
-        </div>
-      );
-    } else if (field.type === "textarea") {
-      control = (
-        <FloatingTextarea
-          label={field.label}
-          value={value}
-          onChange={(event) => setField(field, event.target.value)}
-          required={field.required}
-          rows={4}
-        />
-      );
-    } else if (field.type === "select" && field.searchable) {
-      control = (
-        <SearchableSelect
-          label={field.label}
-          value={value}
-          options={fieldOptions}
-          onChange={(nextValue) => setField(field, nextValue)}
-          required={field.required}
-          placeholder={field.placeholder}
-          // Optional fields get a "None" row (text from placeholderOption) to clear the value.
-          emptyOptionLabel={field.required ? undefined : field.placeholderOption}
-        />
-      );
-    } else if (field.type === "select") {
-      control = (
-        <FloatingSelect1
-          label={field.label}
-          value={value}
-          onChange={(event) => setField(field, event.target.value)}
-          options={floatingOptions}
-          required={field.required}
-          emptyOptionLabel={field.placeholderOption ?? " "}
-        />
-      );
-    } else if (field.type === "toggle") {
-      const onValue = field.toggleOnValue || "APPROVED";
-      const offValue = field.toggleOffValue || "PENDING";
-      const isEnabled = value === onValue;
-      control = field.toggleOptions?.length ? (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-1">
-          <div className="grid grid-cols-3 gap-1">
-            {field.toggleOptions.map((option) => {
-              const selected = String(value) === String(option.value);
-              const tone = option.value === "APPROVED" ? "bg-emerald-600" : option.value === "REJECTED" ? "bg-rose-600" : "bg-amber-500";
-              return <button key={String(option.value)} type="button" onClick={() => setField(field, option.value)} className={`rounded-lg px-2 py-2 text-xs font-semibold transition ${selected ? `${tone} text-white shadow-sm` : "text-slate-600 hover:bg-white"}`}>{option.label}</button>;
-            })}
-          </div>
-        </div>
-      ) : (
-        <button
-          type="button"
-          role="switch"
-          aria-checked={isEnabled}
-          onClick={() => setField(field, isEnabled ? offValue : onValue)}
-          className="flex h-[58px] w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 text-left transition hover:border-cyan-300"
-        >
-          <span>
-            <span className="block text-sm font-medium text-slate-700">{field.label}</span>
-            <span className={`mt-0.5 block text-xs font-semibold ${isEnabled ? "text-emerald-600" : "text-amber-600"}`}>{isEnabled ? onValue : offValue}</span>
-          </span>
-          <span className={`relative h-6 w-11 rounded-full transition ${isEnabled ? "bg-emerald-500" : "bg-slate-300"}`}>
-            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${isEnabled ? "left-5" : "left-0.5"}`} />
-          </span>
-        </button>
-      );
-    } else if (field.type === "checkbox") {
-      control = (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-medium text-slate-700">{field.label}</div>
-              <div className="text-xs text-slate-400">
-                Enable this option for the current record.
-              </div>
-            </div>
-            <input
-              type="checkbox"
-              checked={Boolean(value)}
-              onChange={(event) => setField(field, event.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
-            />
-          </div>
-        </div>
-      );
-    } else if (field.type === "date") {
-      control = (
-        
-        <FloatingDatePicker
-          label={field.label}
-          value={value}
-          onChange={(event) => setField(field, event.target.value)}
-          required={field.required}
-        />
-      );
-    } else {
-      control = (
-        <FloatingInput
-          label={field.label}
-          type={field.type || "text"}
-          value={field.type === "datetime-local" ? formatDateTimeForInput(value) : value}
-          onChange={(event) => setField(field, event.target.value)}
-          required={field.required}
-        />
-      );
-    }
-
-    // Error shows after the user leaves the field, or after Save was clicked.
-    const error = !drawerReadOnly && (touched[field.name] || submitAttempted) ? fieldErrors[field.name] : undefined;
-
-    return {
-      field,
-      node: (
-        <div
-          key={field.name}
-          className={field.gridClassName || ""}
-          style={field.controlWidth ? { width: field.controlWidth } : undefined}
-          onBlur={() => setTouched((current) => (current[field.name] ? current : { ...current, [field.name]: true }))}
-        >
-          <div className={error ? "rounded-xl ring-1 ring-red-400" : undefined}>{control}</div>
-          {error && (
-            <p className="mt-1 px-1 text-xs font-medium text-red-600" role="alert">
-              {error}
-            </p>
-          )}
-        </div>
-      ),
-    };
-  });
-
-  const extraFormContent = config.renderFormExtras?.({
-    form,
-    setForm,
-    editingRow,
-    refreshRows: loadRows,
-    options,
-  });
-  const sidePanel = config.renderFormSidePanel?.({
-    form,
-    setForm,
-    editingRow,
-    refreshRows: loadRows,
-    options,
-  });
-  const isInlineForm = Boolean(
-    showForm && config.renderInlineEdit && (
-      (editingRow && config.editPresentation === "inline") ||
-      (!editingRow && config.createPresentation === "inline")
-    )
-  );
-  const inlineEdit = isInlineForm
-    ? config.renderInlineEdit?.({
-        form,
-        setForm,
-        editingRow,
-        refreshRows: loadRows,
-        options,
-        onClose: closeForm,
-        onSubmit: handleSubmit,
-        submitting: isSubmitting,
-      })
-    : null;
-  const customFormContent = config.renderCustomForm?.({
-    form,
-    setForm,
-    editingRow,
-    options,
-    onClose: closeForm,
-    onSubmit: handleSubmit,
-    submitting: isSubmitting,
-  });
-  const headerDateValue = config.drawerHeaderDateField ? form[config.drawerHeaderDateField] : null;
-  const headerDate = headerDateValue
-    ? new Date(String(headerDateValue)).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
-    : new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
-
-  /* ---------------- Tabs / steps ----------------
-   * If any field has a `section`, fields are grouped into named tabs (in the order the
-   * sections first appear). Fields without a section join the previous section.
-   * Otherwise the old behaviour is kept: 4 fields per "Step N".
-   */
-  type FormGroup = { label: string; names: string[]; nodes: React.ReactNode[] };
-  const visibleEntries = fieldEntries.filter(
-    (entry): entry is { field: FieldConfig; node: React.ReactElement } => Boolean(entry)
-  );
-  const usesSections = config.fields.some((field) => field.section);
-  const extrasNode = extraFormContent ? (
-    <div key="form-extras" className="md:col-span-2">
-      {extraFormContent}
-    </div>
-  ) : null;
-
-  const groups: FormGroup[] = [];
-  if (usesSections) {
-    let currentLabel = "Details";
-    visibleEntries.forEach(({ field, node }) => {
-      currentLabel = field.section || currentLabel;
-      let group = groups.find((item) => item.label === currentLabel);
-      if (!group) {
-        group = { label: currentLabel, names: [], nodes: [] };
-        groups.push(group);
-      }
-      group.names.push(field.name);
-      group.nodes.push(node);
-    });
-    if (extrasNode) {
-      const extrasLabel = config.formExtrasSection || "Items";
-      let group = groups.find((item) => item.label === extrasLabel);
-      if (!group) {
-        group = { label: extrasLabel, names: [], nodes: [] };
-        groups.push(group);
-      }
-      group.nodes.push(extrasNode);
-    }
-  } else {
-    const all = [...visibleEntries.map((entry) => ({ name: entry.field.name, node: entry.node })), ...(extrasNode ? [{ name: "", node: extrasNode }] : [])];
-    for (let index = 0; index < Math.max(1, Math.ceil(all.length / 4)); index += 1) {
-      const slice = all.slice(index * 4, index * 4 + 4);
-      groups.push({ label: `Step ${index + 1}`, names: slice.map((item) => item.name).filter(Boolean), nodes: slice.map((item) => item.node) });
-    }
-  }
-
-  /** Field names that have errors, in the order they appear in the form. */
-  function orderedErrorNames() {
-    const inForm = groups.flatMap((group) => group.names).filter((name) => fieldErrors[name]);
-    const others = Object.keys(fieldErrors).filter((name) => !inForm.includes(name));
-    return [...inForm, ...others];
-  }
-
-  /** Index of the tab that contains a field, or -1. */
-  function stepIndexOfField(name: string) {
-    return groups.findIndex((group) => group.names.includes(name));
-  }
-
-  const stepHasError = (index: number) =>
-    (submitAttempted || groups[index]?.names.some((name) => touched[name])) &&
-    Boolean(groups[index]?.names.some((name) => fieldErrors[name]));
-
-  /** Next is blocked while the current tab has errors; the errors are shown on that tab. */
-  const handleBeforeNext = (index: number) => {
-    const names = groups[index]?.names || [];
-    const firstError = names.find((name) => fieldErrors[name]);
-    if (!firstError) return true;
-    setTouched((current) => ({ ...current, ...Object.fromEntries(names.map((name) => [name, true])) }));
-    ToasterService.error(fieldErrors[firstError]);
-    return false;
-  };
-
-  const popupFields = groups.flatMap((group) => group.nodes);
-
-  const modalSteps = groups.map((group) => ({
-    label: group.label,
-    content: (
-      <div className={sidePanel ? "grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(380px,.9fr)]" : "grid grid-cols-1 gap-3 pt-1 md:grid-cols-2"}>
-        <div className={sidePanel ? "grid grid-cols-1 gap-3 pt-1 md:grid-cols-2" : "contents"}>{group.nodes}</div>
-        {sidePanel && <aside className="min-w-0 border-t border-slate-100 pt-4 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">{sidePanel}</aside>}
-      </div>
-    ),
-  }));
-
-  // Drawer forms show all fields at once; with sections, each section gets a heading.
-  const drawerFields = usesSections
-    ? groups.flatMap((group) => [
-        <h3 key={`section-${group.label}`} className="col-span-full mt-2 border-b border-slate-100 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
-          {group.label}
-        </h3>,
-        ...group.nodes,
-      ])
-    : popupFields;
+const statusBadge = (value: string) => {
+  const status = String(value || "--");
+  const tone =
+    status === "APPROVED" || status === "RECEIVED" || status === "ACTIVE" || status === "ISSUED"
+      ? "bg-green-50 text-green-700"
+      : status === "REJECTED" || status === "CANCELLED"
+        ? "bg-red-50 text-red-700"
+        : status === "DRAFT" || status === "PENDING" || status === "SUBMITTED"
+          ? "bg-amber-50 text-amber-700"
+          : status === "CLOSED"
+            ? "bg-slate-100 text-slate-600"
+            : "bg-gray-100 text-gray-700";
 
   return (
-    <>
-      <PageMeta title={config.title} description={config.description} />
-      <PageBreadcrumb className="mr-4" pageTitle={config.title} actions={<>{config.renderHeaderActions?.()}{config.allowCreate !== false && <AddButton className="-mr-5" label={`Add ${config.title}`} onClick={() => openCreate()} />}</>} />
-
-      {isInlineForm ? (
-        <div className="w-full px-3 py-6">{inlineEdit}</div>
-      ) : <div className="w-full max-w-none px-0 py-8">
-        {isScoped && config.scope && <div className="mx-3 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>Showing {config.scope.label.toLowerCase()}: <strong>{scopeName}</strong></span><button type="button" onClick={() => navigate(location.pathname)} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all {config.scope.label.toLowerCase()}s</button></div>}
-
-        <div className="py-5 px-3">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-[17px]">
-  <StatsCard
-    label="Total Records"
-    value={rows.length}
-    gradient="from-cyan-50 to-blue-50"
-    borderColor="border-cyan-100"
-    labelColor="text-cyan-600"
-  />
-  <StatsCard
-    label="Active Records"
-    value={activeCount || "--"}
-    gradient="from-green-50 to-emerald-50"
-    borderColor="border-green-100"
-    labelColor="text-green-600"
-  />
-</div>
-          <div className="">
-            <ReusableTable<PurchaseRecord>
-              data={filteredRows}
-              columns={tableColumns}
-              loading={loading}
-              pageSize={config.pageSize || 10}
-              defaultSortKey={config.columns[0]?.key}
-              rowDetailsTitle={`${config.title} Details`}
-            />
-          </div>
-        </div>
-      </div>}
-
-      {!isInlineForm && (config.formPresentation === "drawer" ? (
-        <Dragger
-          isOpen={showForm}
-          title={editingRow ? `Edit ${config.title}` : `Add ${config.title}`}
-          subtitle={config.formSubtitle}
-          onClose={closeForm}
-          onSubmit={handleSubmit}
-          submitLabel={editingRow ? "Update" : "Create"}
-          submitting={isSubmitting}
-          headerMeta={config.drawerHeaderDateField || config.drawerHeaderTextField ? (
-            <>
-              {config.drawerHeaderTextField && (isDrawerEditing ? (
-                <input
-                  type="text"
-                  value={String(form[config.drawerHeaderTextField] || "")}
-                  onChange={(event) => setForm((current) => ({ ...current, [config.drawerHeaderTextField!]: event.target.value }))}
-                  aria-label="Approved by"
-                />
-              ) : <span className="dragger__approved-by">Approved by: {String(form[config.drawerHeaderTextField] || "--")}</span>)}
-              {config.drawerHeaderDateField && (isDrawerEditing ? (
-                <input
-                  type="datetime-local"
-                  value={String(headerDateValue || "")}
-                  onChange={(event) => setForm((current) => ({ ...current, [config.drawerHeaderDateField!]: event.target.value }))}
-                  aria-label="Approval date"
-                />
-              ) : headerDate)}
-            </>
-          ) : headerDate}
-          headerAction={config.drawerHeaderDateField || config.drawerHeaderTextField ? (
-            <button type="button" onClick={() => setIsDrawerEditing((current) => !current)} aria-label={isDrawerEditing ? "Lock approval date" : "Edit approval date"} title={isDrawerEditing ? "Lock approval date" : "Edit approval date"}>
-              <PencilSquareIcon className="h-5 w-5" />
-            </button>
-          ) : undefined}
-          showSubmit
-          compact={config.drawerCompact}
-          content={customFormContent}
-        >
-          {!customFormContent && (
-            <div className={sidePanel ? "grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(400px,.9fr)]" : "grid grid-cols-1 gap-3 md:grid-cols-4"}>
-              {sidePanel ? <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{drawerFields}</div> : drawerFields}
-              {sidePanel && <aside className="min-w-0 border-t border-slate-100 pt-5 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">{sidePanel}</aside>}
-            </div>
-          )}
-        </Dragger>
-      ) : <Dragger
-        isOpen={showForm}
-        variant="modal"
-        title={editingRow ? `Edit ${config.title}` : `Add ${config.title}`}
-        subtitle={config.formSubtitle}
-        onClose={closeForm}
-        onSubmit={handleSubmit}
-        submitLabel={editingRow ? "Update" : "Create"}
-        submitting={isSubmitting}
-        steps={customFormContent ? undefined : modalSteps}
-        activeStep={activeStep}
-        onStepChange={setActiveStep}
-        stepHasError={stepHasError}
-        onBeforeNext={handleBeforeNext}
-        // Named tabs: Save is available on every tab, like the reference design.
-        submitOnEveryStep={usesSections}
-        content={customFormContent}
-      />)}
-
-      <DynamicPopup
-        isPopupOpen={Boolean(deleteRow)}
-        setIsPopupOpen={(open) => !open && setDeleteRow(null)}
-        icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-        iconBg="bg-red-100"
-        innerText={`Delete ${config.title}`}
-        subText="Are you sure you want to delete this record? This action cannot be undone."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        onConfirm={confirmDelete}
-        confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
-      />
-    </>
+    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${tone}`}>
+      {status}
+    </span>
   );
 };
 
-export default PurchaseResourcePage;
+const dateOnly = (value: unknown) => (value ? String(value).slice(0, 10) : "");
+const currentLocalDateTime = () => {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+};
+const EMPTY_OPTIONS: SelectOption[] = [];
+const EMPTY_LINE_ITEMS: LineItem[] = [];
+
+const getStoredUser = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem("user");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const getSessionMeta = () => {
+  const storedUser = getStoredUser();
+  return {
+    userId: storedUser?.userId || storedUser?.id || "system",
+    tenantId: storedUser?.tenantId || "TENANT_1",
+  };
+};
+
+/** Returns the most useful display name available for the signed-in user. */
+const getLoggedInUserName = () => {
+  const user = getStoredUser();
+  return user?.fullName || user?.name || user?.username || user?.userName || user?.email || user?.userId || user?.id || "System";
+};
+
+type RequisitionItemsEditorProps = {
+  form: PurchaseRecord;
+  setForm: React.Dispatch<React.SetStateAction<PurchaseRecord>>;
+  options: Record<string, SelectOption[]>;
+};
+
+/** Renders product choices sourced from the live Product Catalogue list. */
+const RequisitionItemsEditor = ({ form, setForm, options }: RequisitionItemsEditorProps) => {
+    const products = options.productId || EMPTY_OPTIONS;
+  const items = Array.isArray(form.items) ? (form.items as LineItem[]) : EMPTY_LINE_ITEMS;
+
+  // Copies product code, name and UOM from the Product Catalogue onto each line.
+  const withProductDetails = (next: LineItem[]) =>
+    next.map((item) => {
+      const product = products.find((option) => String(option.value) === String(item.productId))?.raw;
+      if (!product) return item;
+      return {
+        ...item,
+              productCode: product.productCode ?? (item as PurchaseRecord).productCode ?? "",
+        productName: product.productName ?? (item as PurchaseRecord).productName ?? "",
+        unitOfMeasure: item.unitOfMeasure || product.uom || "PIECES",
+      };
+    });
+
+  return (
+    <LineItemsEditor
+      items={items}
+      onChange={(next) => setForm((current) => ({ ...current, items: withProductDetails(next) }))}
+      products={products.map((option) => ({
+        id: option.value,
+        productName: option.label,
+        uom: String(option.raw?.uom || "PIECES"),
+        categoryId: option.raw?.productCategory?.id ?? option.raw?.category?.id ?? option.raw?.categoryId ?? "",
+      }))}
+      uomOptions={["PIECES", "BOX", "PACK", "KILOGRAM", "GRAM", "LITRE", "METER"]}
+    />
+  );
+};
+
+// ─────────────────────────────────────────────────────────────
+// VENDORS
+// ─────────────────────────────────────────────────────────────
+export const vendorConfig: PurchaseResourceConfig = {
+  title: "Vendors",
+  formSubtitle:"Add or update a supplier record.",
+  description: "Create and manage purchase vendors from the Purchase Service vendor controller.",
+  endpoint: `${PURCHASE}/vendors`,
+  allowInlineActiveToggle: true,
+  columns: [
+    { key: "name", label: "Vendor Name" },
+    { key: "contactName", label: "Contact" },
+    {
+      key: "contactEmail",
+      label: "Email",
+      render: (row) => {
+        const email = row.contactEmail || "--";
+        return (
+          <span className="block max-w-[180px] truncate text-sm text-gray-700" title={email}>
+            {email}
+          </span>
+        );
+      },
+    },
+    { key: "contactPhone", label: "Phone" },
+    { key: "city", label: "City" },
+    { key: "active", label: "Status" },
+  ],
+  fields: [
+    { name: "name", label: "Vendor Name", required: true },
+    { name: "contactName", label: "Contact Name" },
+    { name: "contactEmail", label: "Contact Email", type: "email" },
+    { name: "contactPhone", label: "Contact Phone", type: "tel" },
+    { name: "address", label: "Address", type: "textarea", gridClassName: "md:col-span-2" },
+    { name: "city", label: "City" },
+    { name: "state", label: "State" },
+    { name: "postalCode", label: "Postal Code" },
+    { name: "country", label: "Country" },
+    { name: "active", label: "Active", type: "checkbox", defaultValue: true },
+  ],
+  searchFields: ["name", "contactName", "contactEmail", "city", "country"],
+  buildPayload: (form) => ({
+    name: form.name || "",
+    contactName: form.contactName || "",
+    contactEmail: form.contactEmail || "",
+    contactPhone: form.contactPhone || "",
+    address: form.address || "",
+    city: form.city || "",
+    state: form.state || "",
+    postalCode: form.postalCode || "",
+    country: form.country || "",
+    active: Boolean(form.active),
+  }),
+};
+
+// ─────────────────────────────────────────────────────────────
+// TERMS AND CONDITIONS
+// ─────────────────────────────────────────────────────────────
+export const termsConfig: PurchaseResourceConfig = {
+  title: "Terms and Conditions",
+  formSubtitle:"Add a product to the purchase catalog.",
+  description: "Maintain purchase terms and conditions exactly as exposed by the terms controller.",
+  endpoint: `${PURCHASE}/terms`,
+  allowInlineActiveToggle: true,
+  columns: [
+    { key: "title", label: "Title" },
+    { key: "content", label: "Content" },
+    { key: "active", label: "Status" },
+  ],
+  fields: [
+    { name: "title", label: "Title", required: true },
+    { name: "active", label: "Active", type: "checkbox", defaultValue: true },
+    {
+      name: "content",
+      label: "Content",
+      type: "textarea",
+      required: true,
+      gridClassName: "md:col-span-2",
+    },
+  ],
+  searchFields: ["title", "content"],
+  buildPayload: (form) => ({
+    title: form.title || "",
+    content: form.content || "",
+    active: Boolean(form.active),
+  }),
+};
+
+// ─────────────────────────────────────────────────────────────
+// PRODUCT CATEGORIES
+// ─────────────────────────────────────────────────────────────
+export const productCategoryConfig: PurchaseResourceConfig = {
+  title: "Product Categories",
+  description: "Manage product categories used by purchase products and requisition line items.",
+  formSubtitle:"Group products under a category.",
+  endpoint: CATEGORIES,
+  getByIdEndpoint: (row) => `${CATEGORIES}/${row.id}`,
+  columns: [
+    { key: "categoryCode", label: "Code" },
+    { key: "categoryName", label: "Category Name" },
+    { key: "shortCode", label: "Short Code" },
+    { key: "parentName", label: "Parent" },
+    { key: "active", label: "Status" },
+  ],
+  fields: [
+    { name: "categoryCode", label: "Category Code", required: true },
+    { name: "categoryName", label: "Category Name", required: true },
+    { name: "shortCode", label: "Short Code" },
+    {
+      name: "parentId",
+      label: "Parent Category",
+      type: "select",
+      optionsEndpoint: CATEGORIES,
+      optionLabel: "categoryName",
+    },
+    { name: "description", label: "Description", type: "textarea", gridClassName: "md:col-span-2" },
+    { name: "active", label: "Active", type: "checkbox", defaultValue: true },
+  ],
+  searchFields: ["categoryCode", "categoryName", "shortCode", "parentName"],
+  buildPayload: (form) => {
+    const payload: Record<string, unknown> = {
+      categoryCode: form.categoryCode,
+      categoryName: form.categoryName,
+      shortCode: form.shortCode,
+      description: form.description,
+      active: Boolean(form.active),
+    };
+    const parentId = toNumberOrZero(form.parentId);
+    if (parentId > 0) payload.parentId = parentId;
+    return payload;
+  },
+};
+
+// ─────────────────────────────────────────────────────────────
+// PRODUCTS
+// ─────────────────────────────────────────────────────────────
+export const productConfig: PurchaseResourceConfig = {
+  title: "Products",
+  description: "Maintain purchase products from the purchase product controller.",
+  formSubtitle:"Define terms and conditions for purchase orders.",
+  endpoint: `${PURCHASE}/products`,
+  scope: { idParam: "productId", nameParam: "productName", label: "Product" },
+  columns: [
+    { key: "productCode", label: "Code" },
+    { key: "productName", label: "Product Name" },
+    { key: "categoryName", label: "Category" },
+    { key: "brand", label: "Brand" },
+    { key: "uom", label: "UOM" },
+    { key: "standardCost", label: "Standard Cost" },
+    { key: "sellingPrice", label: "Selling Price" },
+    { key: "stockItem", label: "Stock Item", render: (row) => boolText(Boolean(row.stockItem)) },
+    { key: "serviceItem", label: "Service Item", render: (row) => boolText(Boolean(row.serviceItem)) },
+    { key: "active", label: "Status" },
+  ],
+  fields: [
+    { name: "productName", label: "Product Name", required: true },
+    { name: "shortName", label: "Short Name" },
+    { name: "description", label: "Description", type: "textarea", gridClassName: "md:col-span-2" },
+    {
+      name: "categoryId",
+      label: "Category",
+      type: "select",
+      required: true,
+      optionsEndpoint: CATEGORIES,
+      optionLabel: "categoryName",
+    },
+    { name: "brand", label: "Brand" },
+    { name: "modelNo", label: "Model No" },
+    { name: "barcode", label: "Barcode" },
+    {
+      name: "uom",
+      label: "UOM",
+      type: "select",
+      defaultValue: "PIECES",
+      options: ["PIECES", "KG", "LITER", "METER", "BOX", "PACK"].map((item) => ({
+        value: item,
+        label: item,
+      })),
+    },
+    { name: "standardCost", label: "Standard Cost", type: "number", defaultValue: 0 },
+    { name: "sellingPrice", label: "Selling Price", type: "number", defaultValue: 0 },
+    { name: "taxCode", label: "Tax Code" },
+    { name: "stockItem", label: "Stock Item", type: "checkbox", defaultValue: true },
+    { name: "serviceItem", label: "Service Item", type: "checkbox", defaultValue: false },
+    { name: "serialTracking", label: "Serial Tracking", type: "checkbox", defaultValue: false },
+    { name: "batchTracking", label: "Batch Tracking", type: "checkbox", defaultValue: false },
+    { name: "active", label: "Active", type: "checkbox", defaultValue: true },
+  ],
+  searchFields: ["productCode", "productName", "categoryName", "brand", "uom"],
+  normalizeForm: (row) => ({ ...row, categoryId: row.category?.id ?? row.categoryId ?? "" }),
+  buildPayload: (form) => ({
+    productName: form.productName,
+    shortName: form.shortName,
+    description: form.description,
+    categoryId: toNumberOrZero(form.categoryId),
+    brand: form.brand,
+    modelNo: form.modelNo,
+    barcode: form.barcode,
+    uom: form.uom || "PIECES",
+    standardCost: toNumberOrZero(form.standardCost),
+    sellingPrice: toNumberOrZero(form.sellingPrice),
+    taxCode: form.taxCode,
+    stockItem: Boolean(form.stockItem),
+    serviceItem: Boolean(form.serviceItem),
+    serialTracking: Boolean(form.serialTracking),
+    batchTracking: Boolean(form.batchTracking),
+    active: Boolean(form.active),
+  }),
+};
+
+// ─────────────────────────────────────────────────────────────
+// PURCHASE REQUISITIONS  — with icon-only Create PO action
+// ─────────────────────────────────────────────────────────────
+/** Today's date as YYYY-MM-DD in local time (toISOString() uses UTC). */
+const todayLocal = () => {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+};
+
+/** Reads the payload (middle part) of a JWT, or null if it isn't a readable JWT. */
+const decodeJwtPayload = (token: unknown) => {
+  try {
+    const part = String(token || "").replace(/^Bearer\s+/i, "").split(".")[1];
+    if (!part) return null;
+    const base64 = part.replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "=")));
+  } catch {
+    return null;
+  }
+};
+
+/** First positive numeric user id found on an object (stored user or JWT payload). */
+const pickUserId = (source: any) =>
+  [source?.userId, source?.id, source?.user_id, source?.user?.userId, source?.user?.id]
+    .map((value) => toNumberOrZero(value))
+    .find((value) => value > 0) ?? 0;
+
+/**
+ * Numeric id of the signed-in user, or 0 if it can't be found.
+ * 1. Looks in localStorage "user" (userId / id).
+ * 2. Otherwise reads userId from the login token (JWT) saved anywhere in localStorage.
+ */
+const getLoggedInUserId = () => {
+  if (typeof window === "undefined") return 0;
+
+  const fromUser = pickUserId(getStoredUser());
+  if (fromUser > 0) return fromUser;
+
+  const storage = window.localStorage;
+  for (let index = 0; index < storage.length; index += 1) {
+    const raw = storage.getItem(storage.key(index) || "") || "";
+
+    // Token saved directly, e.g. localStorage.token = "eyJ..."
+    let fromToken = pickUserId(decodeJwtPayload(raw));
+    if (fromToken > 0) return fromToken;
+
+    // Token saved inside a JSON object, e.g. { "accessToken": "eyJ..." }
+    try {
+      const parsed = JSON.parse(raw);
+      fromToken = pickUserId(decodeJwtPayload(parsed?.token ?? parsed?.accessToken ?? parsed?.jwt));
+      if (fromToken > 0) return fromToken;
+    } catch {
+      // not JSON, ignore
+    }
+  }
+
+  return 0;
+};
+
+/** PRs in these statuses can no longer be turned into a purchase order. */
+const PR_CLOSED_STATUSES = ["REJECTED", "CANCELLED", "CLOSED", "ORDERED", "CONVERTED"];
+export const purchaseRequisitionConfig: PurchaseResourceConfig = {
+  title: "Purchase Requisitions",
+  formSubtitle: "Create a requisition with the products and quantities required.",
+  description: "Create purchase requisitions for products from the Product Catalogue service.",
+  endpoint: `${PURCHASE}/purchase-requisitions`,
+  getByIdEndpoint: (row) => `${PURCHASE}/purchase-requisitions/${row.id}`,
+  // Line items get their own tab.
+  formExtrasSection: "Items",
+   columns: [
+    { key: "requisitionNumber", label: "PR Number" },
+    { key: "requiredByDate", label: "Required By", render: (row) => dateOnly(row.requiredByDate) || "--" },
+    { key: "items", label: "Items", render: (row) => String(Array.isArray(row.items) ? row.items.length : 0) },
+    { key: "status", label: "Status", render: (row) => statusBadge(row.status) },
+    { key: "userId", label: "User ID", render: (row) => (row.userId ? String(row.userId) : "--") },
+    { key: "notes", label: "Notes" },
+  ],
+  fields: [
+    { name: "requiredByDate", section: "Requisition Details", label: "Required By Date", type: "date", required: true },
+    { name: "userId", section: "Requisition Details", label: "User ID", type: "number", required: true },
+    { name: "notes", section: "Requisition Details", label: "Notes", type: "textarea", gridClassName: "md:col-span-2" },
+    {
+      name: "productId",
+      label: "Product",
+      type: "select",
+      optionsEndpoint: PRODUCT_CATALOGUE_PRODUCTS,
+      optionLabel: "productName",
+      gridClassName: "hidden",
+    },
+  ],
+   searchFields: ["requisitionNumber", "notes", "status", "userId"],
+    initialFormState: {
+    requiredByDate: "",
+    // Pre-filled with the signed-in user when it can be found; otherwise typed in.
+    userId: getLoggedInUserId() || "",
+    notes: "",
+    items: [],
+  },
+    normalizeForm: (row) => ({
+    requiredByDate: dateOnly(row.requiredByDate),
+    userId: row.userId ?? "",
+    notes: row.notes || "",
+    status: row.status,
+    items: Array.isArray(row.items) ? row.items : [],
+  }),
+    validateForm: (form) => {
+    if (toNumberOrZero(form.userId) <= 0) return "Enter a valid User ID.";
+
+    const requiredByDate = String(form.requiredByDate || "");
+    if (!requiredByDate) return "Select the required-by date.";
+    if (requiredByDate < todayLocal()) return "Required-by date cannot be in the past.";
+
+    const items = Array.isArray(form.items) ? (form.items as LineItem[]) : [];
+    if (!items.length) return "Add at least one product.";
+    if (items.some((item) => toNumberOrZero(item.productId) <= 0)) return "Select a product for every line.";
+    if (items.some((item) => toNumberOrZero(item.quantity) <= 0)) return "Each line must have a quantity greater than zero.";
+
+    const productIds = items.map((item) => String(item.productId));
+    if (new Set(productIds).size !== productIds.length) {
+      return "The same product is added more than once. Combine them into one line.";
+    }
+    return null;
+  },
+  renderFormExtras: ({ form, setForm, options }) => (
+    <RequisitionItemsEditor form={form} setForm={setForm} options={options} />
+  ),
+    buildPayload: (form, editingRow) => ({
+    // On edit only: send back backend-created values so they aren't cleared.
+    ...(editingRow ? { id: editingRow.id, requisitionNumber: editingRow.requisitionNumber } : {}),
+    requiredByDate: form.requiredByDate,
+    status: form.status || "DRAFT",
+    notes: String(form.notes || "").trim() || null,
+    // TEMPORARY: from the form. Remove once BE reads the user from the JWT.
+    userId: toNumberOrZero(form.userId),
+    items: (Array.isArray(form.items) ? form.items : [])
+      .filter((item) => item.productId && Number(item.quantity) > 0)
+      .map((item) => {
+        const lineId = toNumberOrZero(item.id);
+        return {
+          ...(lineId > 0 ? { id: lineId, requisitionId: editingRow?.id } : {}),
+          productId: toNumberOrZero(item.productId),
+          productCode: item.productCode || "",
+          productName: item.productName || "",
+          quantity: toNumberOrZero(item.quantity),
+          unitOfMeasure: item.unitOfMeasure || "PIECES",
+          estimatedUnitCost: toNumberOrZero(item.estimatedUnitCost ?? item.unitPrice),
+          remarks: String(item.remarks || "").trim(),
+        };
+      }),
+  }),
+  // Icon-only Create PO button with tooltip in the Actions column.
+      // Icon-only Create PO button, hidden for PRs that are already closed.
+  renderRowActions: (row) =>
+    PR_CLOSED_STATUSES.includes(String(row.status || "").toUpperCase()) ? null : (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          document.dispatchEvent(
+            new CustomEvent("purchase:convert-requisition", {
+              detail: { requisitionId: row.id },
+            })
+          );
+        }}
+        title="Create Purchase Order"
+        aria-label="Create Purchase Order"
+        className="group relative rounded-lg p-2 text-gray-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600"
+      >
+        <ShoppingCartIcon className="h-4 w-4" aria-hidden="true" />
+      </button>
+    ),
+};
+
+// ─────────────────────────────────────────────────────────────
+// REQUISITION LINE ITEMS
+// ─────────────────────────────────────────────────────────────
+export const requisitionLineItemConfig: PurchaseResourceConfig = {
+  title: "Requisition Line Items",
+  description: "Manage line items for purchase requisitions.",
+  formSubtitle:"Add a product line to this requisition.",
+  endpoint: `${PURCHASE}/requisition-line-items`,
+  columns: [
+    // { key: "id", label: "ID" },
+    // { key: "requisition.id", label: "Requisition" },
+    { key: "product.productName", label: "Product" },
+    { key: "category.categoryName", label: "Category" },
+    { key: "quantity", label: "Quantity" },
+    { key: "unitOfMeasure", label: "UOM" },
+  ],
+  fields: [
+    {
+      name: "requisitionId",
+      label: "Requisition",
+      type: "select",
+      required: true,
+      optionsEndpoint: `${PURCHASE}/purchase-requisitions`,
+      optionLabel: (row) => `#${row.id} ${row.notes || ""}`,
+    },
+    {
+      name: "productId",
+      label: "Product",
+      type: "select",
+      required: true,
+      optionsEndpoint: `${PURCHASE}/products`,
+      optionLabel: "productName",
+    },
+    {
+      name: "categoryId",
+      label: "Category",
+      type: "select",
+      optionsEndpoint: CATEGORIES,
+      getOptionsParams: () => ({ tenantId: getSessionMeta().tenantId }),
+      optionLabel: "categoryName",
+    },
+    { name: "quantity", label: "Quantity", type: "number", required: true, defaultValue: 1 },
+    { name: "unitOfMeasure", label: "Unit Of Measure", required: true },
+    { name: "remarks", label: "Remarks", type: "textarea", gridClassName: "md:col-span-2" },
+  ],
+  searchFields: ["id", "unitOfMeasure", "remarks"],
+  normalizeForm: (row) => ({
+    requisitionId: row.requisition?.id ?? "",
+    productId: row.product?.id ?? "",
+    categoryId: row.category?.id ?? "",
+    quantity: row.quantity ?? 1,
+    unitOfMeasure: row.unitOfMeasure || "",
+    remarks: row.remarks || "",
+  }),
+  buildPayload: (form) => ({
+    requisition: makeRelation(form.requisitionId),
+    product: makeRelation(form.productId),
+    category: makeRelation(form.categoryId),
+    quantity: toNumberOrZero(form.quantity),
+    unitOfMeasure: form.unitOfMeasure,
+    remarks: form.remarks,
+  }),
+};
+
+// ─────────────────────────────────────────────────────────────
+// PURCHASE ORDERS  — with line items + auto-fill
+// ─────────────────────────────────────────────────────────────
+export const purchaseOrderConfig: PurchaseResourceConfig = {
+  title: "Purchase Orders",
+  description: "Create and update purchase orders with vendor, requisition, terms, and totals.",
+  formSubtitle: "Create a purchase order for an approved vendor.",
+  formPresentation: "drawer",
+  allowCreate: false,
+  endpoint: `${PURCHASE}/purchase-orders`,
+  getByIdEndpoint: (row) => `${PURCHASE}/purchase-orders/${row.id}`,
+  formExtrasSection: "Items & Pricing",
+  // The PO API returns the vendor as a nested object (row.vendor.vendorCode / row.vendor.name),
+  // so those columns read from there; the old top-level keys showed "--".
+  columns: [
+    { key: "poNumber", label: "PO Number" },
+    { key: "vendorCode", label: "Vendor Code", render: (row) => row.vendor?.vendorCode || row.vendorCode || "--" },
+    { key: "vendorName", label: "Vendor", render: (row) => row.vendor?.name || row.vendorName || row.name || "--" },
+    { key: "requisitionNumber", label: "PR Number", render: (row) => row.requisitionNumber || "--" },
+    { key: "orderDate", label: "Order Date", render: (row) => dateOnly(row.orderDate) || "--" },
+    { key: "expectedDeliveryDate", label: "Expected Delivery", render: (row) => dateOnly(row.expectedDeliveryDate) || "--" },
+    {
+      key: "totalAmount",
+      label: "Total",
+      render: (row) =>
+        row.totalAmount == null
+          ? "--"
+          : Number(row.totalAmount).toLocaleString("en-IN", { style: "currency", currency: row.currency || "INR" }),
+    },
+    // Two different statuses: where the PO is in its life (DRAFT → RECEIVED) and its approval.
+    { key: "status", label: "PO Status", render: (row) => statusBadge(row.status) },
+    { key: "approvalStatus", label: "Approval" },
+  ],
+  inlineSelectFields: [
+    {
+      name: "approvalStatus",
+      options: ["PENDING", "APPROVED", "REJECTED"].map((value) => ({
+        value,
+        label: value.charAt(0) + value.slice(1).toLowerCase(),
+      })),
+      widthClassName: "w-[136px]",
+      onChange: async (row, status) => {
+        await axios.put(`${PURCHASE}/approval-status/${row.id}/${status}`);
+      },
+    },
+  ],
+  fields: [
+    {
+      name: "vendorId", section: "Vendor & Delivery",
+      label: "Vendor",
+      type: "select",
+      required: true,
+      optionsEndpoint: "/v1/api/product/vendors",
+      optionLabel: "name",
+      onValueChange: (value, { options }) => {
+        const vendor = options.vendorId?.find((option) => String(option.value) === String(value))?.raw;
+        return { vendorCode: vendor?.vendorCode || "", name: vendor?.name || "" };
+      },
+    },
+    {
+      name: "warehouseId", section: "Vendor & Delivery",
+      label: "Warehouse",
+      type: "select",
+      required: true,
+      optionsEndpoint: "/v1/api/inventory/warehouses",
+      optionLabel: "name",
+      // Goods are delivered to the selected warehouse, so its address becomes the shipping
+      // address. Works once the warehouse API returns an address; until then it is typed in.
+      onValueChange: (value, { options }) => {
+        const warehouse = options.warehouseId?.find((option) => String(option.value) === String(value))?.raw;
+        const address = [
+          warehouse?.address ?? warehouse?.addressLine1,
+          warehouse?.addressLine2,
+          warehouse?.city,
+          warehouse?.state,
+          warehouse?.postalCode,
+          warehouse?.country,
+        ]
+          .filter(Boolean)
+          .join(", ");
+        return address ? { shippingAddress: address } : {};
+      },
+    },
+    {
+      name: "purchaseRequisitionId", section: "Vendor & Delivery",
+      label: "Purchase Requisition",
+      type: "select",
+      required: true,
+      optionsEndpoint: `${PURCHASE}/purchase-requisitions`,
+      optionLabel: (row) => row.requisitionNumber || `#${row.id} ${row.notes || ""}`,
+      onValueChange: (value, { options }) => {
+        const selected = options.purchaseRequisitionId?.find(
+          (o) => String(o.value) === String(value)
+        );
+        if (!selected?.raw) return { items: [] };
+
+        const requisitionItems: PurchaseRecord[] = Array.isArray(selected.raw.items)
+          ? (selected.raw.items as PurchaseRecord[])
+          : [];
+        const items: LineItem[] = requisitionItems.map((item, index: number) => {
+          const productId = item.productId ?? item.product?.id ?? "";
+          const product = options.productId?.find(
+            (option) => String(option.value) === String(productId)
+          )?.raw;
+
+          return {
+            // New PO lines: no id, so they are not mistaken for existing PO line ids.
+            id: `new-${index}`,
+            productId,
+            // The PR API returns productName at the top level of each item.
+            productName: item.productName ?? item.product?.productName ?? product?.productName ?? "",
+            categoryId: item.category?.id ?? item.categoryId ?? product?.productCategory?.id ?? product?.category?.id ?? product?.categoryId ?? "",
+            quantity: item.quantity ?? 1,
+            // PR estimate if given, otherwise the product's standard cost; the buyer can change it.
+            unitPrice: toNumberOrZero(item.estimatedUnitCost) || toNumberOrZero(product?.standardCost),
+            unitOfMeasure: item.unitOfMeasure ?? product?.uom ?? "PIECES",
+            remarks: item.remarks ?? "",
+          };
+        });
+
+        return { items };
+      },
+    },
+    {
+      name: "orderDate", section: "Vendor & Delivery",
+      label: "Order Date",
+      type: "date",
+      required: true,
+      defaultValue: todayLocal(),
+    },
+    { name: "expectedDeliveryDate", section: "Vendor & Delivery", label: "Expected Delivery Date", type: "date", required: true },
+    { name: "currency", section: "Terms & Shipping", label: "Currency", type: "select", required: true, defaultValue: "INR", options: ["INR", "USD", "EUR", "GBP", "AED"].map((value) => ({ value, label: value })) },
+    { name: "paymentTerms", section: "Terms & Shipping", label: "Payment Terms", type: "select", required: true, options: ["Due on Receipt", "Advance Payment", "7 Days", "15 Days", "30 Days", "45 Days", "60 Days", "90 Days"].map((value) => ({ value, label: value })) },
+    { name: "shippingAddress", section: "Terms & Shipping", label: "Shipping Address", type: "textarea", required: true, gridClassName: "md:col-span-2" },
+    { name: "notes", section: "Terms & Shipping", label: "Notes", type: "textarea", gridClassName: "md:col-span-2" },
+    { name: "productId", label: "Product", type: "select", optionsEndpoint: PRODUCT_CATALOGUE_PRODUCTS, optionLabel: "productName", gridClassName: "hidden" },
+  ],
+  searchFields: ["poNumber", "requisitionNumber", "approvalStatus", "status", "currency", "paymentTerms"],
+  // A new PO starts empty (it is normally pre-filled from a requisition).
+  initialFormState: {
+    vendorId: "",
+    vendorCode: "",
+    name: "",
+    warehouseId: "",
+    purchaseRequisitionId: "",
+    orderDate: todayLocal(),
+    expectedDeliveryDate: "",
+    currency: "INR",
+    paymentTerms: "30 Days",
+    shippingAddress: "",
+    notes: "",
+    items: [],
+  },
+  validateForm: (form) => {
+    const orderDate = String(form.orderDate || "");
+    const expectedDeliveryDate = String(form.expectedDeliveryDate || "");
+    if (orderDate && expectedDeliveryDate && expectedDeliveryDate < orderDate) {
+      return "Expected delivery date cannot be before the order date.";
+    }
+
+    const items = Array.isArray(form.items) ? form.items as LineItem[] : [];
+    if (!items.length) return "Add at least one purchase-order line item.";
+    if (items.some((item) => toNumberOrZero(item.productId) <= 0)) {
+      return "Select a product for every purchase-order line item.";
+    }
+    if (items.some((item) => toNumberOrZero(item.quantity) <= 0)) {
+      return "Each purchase-order line item must have a quantity greater than zero.";
+    }
+    // Lines created from a PR carry the PR quantity; a PO may not order more than was requested.
+    const overOrdered = items.find((item) => {
+      const prQuantity = toNumberOrZero((item as PurchaseRecord).prQuantity);
+      return prQuantity > 0 && toNumberOrZero(item.quantity) > prQuantity;
+    });
+    if (overOrdered) {
+      const prQuantity = toNumberOrZero((overOrdered as PurchaseRecord).prQuantity);
+      return `${overOrdered.productName || "A product"}: quantity cannot be more than the requisition quantity (${prQuantity}).`;
+    }
+    if (items.some((item) => toNumberOrZero(item.unitPrice) <= 0)) {
+      return "Enter a unit price greater than zero for every line.";
+    }
+    if (items.some((item) => toNumberOrZero(item.discountAmount) < 0 || toNumberOrZero(item.taxAmount) < 0)) {
+      return "Discount and tax cannot be negative.";
+    }
+    if (
+      items.some(
+        (item) => toNumberOrZero(item.discountAmount) > toNumberOrZero(item.quantity) * toNumberOrZero(item.unitPrice)
+      )
+    ) {
+      return "Discount cannot be more than the line amount.";
+    }
+    return null;
+  },
+  // The PO response nests the vendor and returns requisitionId (not purchaseRequisitionId).
+  normalizeForm: (row) => ({
+    vendorId: row.vendor?.id ?? row.vendorId ?? "",
+    vendorCode: row.vendor?.vendorCode || row.vendorCode || "",
+    name: row.vendor?.name || row.vendorName || row.name || "",
+    warehouseId: row.warehouseId ?? row.warehouse?.id ?? "",
+    purchaseRequisitionId: row.requisitionId ?? row.purchaseRequisitionId ?? row.requisition?.id ?? "",
+    orderDate: dateOnly(row.orderDate),
+    expectedDeliveryDate: dateOnly(row.expectedDeliveryDate),
+    currency: row.currency || "INR",
+    paymentTerms: row.paymentTerms || "",
+    shippingAddress: row.shippingAddress || "",
+    notes: row.notes || "",
+    items: Array.isArray(row.items) ? row.items : [],
+  }),
+  renderFormExtras: ({ form, setForm, options }) => {
+    const items: LineItem[] = Array.isArray(form.items) ? form.items : [];
+    const productOptions = options.productId || [];
+
+    return (
+      <LineItemsEditor
+        items={items}
+        onChange={(next) => setForm((f) => ({ ...f, items: next }))}
+        products={productOptions.map((p) => ({
+          id: p.value,
+          productName: p.label,
+          uom: String(p.raw?.uom || "PIECES"),
+          categoryId: p.raw?.productCategory?.id ?? p.raw?.category?.id ?? p.raw?.categoryId ?? "",
+        }))}
+        showUom={false}
+        showPricing
+      />
+    );
+  },
+  buildPayload: (form) => {
+    const items = Array.isArray(form.items)
+      ? form.items.map((item: LineItem) => ({
+          // Existing PO lines keep their id on edit so they are updated, not duplicated.
+          ...(toNumberOrZero(item.id) > 0 ? { id: toNumberOrZero(item.id) } : {}),
+          productId: toNumberOrZero(item.productId),
+          quantity: toNumberOrZero(item.quantity),
+          unitPrice: toNumberOrZero(item.unitPrice),
+          discountAmount: toNumberOrZero(item.discountAmount),
+          taxAmount: toNumberOrZero(item.taxAmount),
+          remarks: item.remarks || "",
+        }))
+      : [];
+
+    const totalAmount = items.reduce(
+      (total, item) => total + item.quantity * item.unitPrice - item.discountAmount + item.taxAmount,
+      0
+    );
+
+    return {
+      vendorId: toNumberOrZero(form.vendorId),
+      vendorCode: String(form.vendorCode || "").trim(),
+      // The PO entity calls this field vendorName; "name" is kept for the current backend.
+      vendorName: String(form.name || "").trim(),
+      name: String(form.name || "").trim(),
+      warehouseId: toNumberOrZero(form.warehouseId),
+      purchaseRequisitionId: toNumberOrZero(form.purchaseRequisitionId),
+      orderDate: form.orderDate || "",
+      expectedDeliveryDate: form.expectedDeliveryDate || "",
+      currency: form.currency || "INR",
+      paymentTerms: form.paymentTerms || "",
+      shippingAddress: form.shippingAddress || "",
+      notes: form.notes || "",
+      // Purchase-order creation is submitted for approval; these are system-managed
+      // defaults rather than fields a requester should be able to alter.
+      approvalStatus: "PENDING",
+      status: "DRAFT",
+      totalAmount,
+      items,
+    };
+  },
+  afterSubmit: async ({ savedRow, isCreate }) => {
+    if (!isCreate || !savedRow.id) return;
+
+    await axios.post(`${PURCHASE}/approval-status`, {
+      purchaseOrderId: toNumberOrZero(savedRow.id),
+      approvedBy: getLoggedInUserName(),
+      status: "PENDING",
+      approvalDate: currentLocalDateTime(),
+    });
+  },
+};
+
+// ─────────────────────────────────────────────────────────────
+// GOODS RECEIPT NOTES
+// ─────────────────────────────────────────────────────────────
+export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
+  title: "Goods Receipt Notes",
+  formMaxWidthClassName: "max-w-3xl",
+  formPresentation: "drawer",
+  description: "Record received goods against purchase orders.",
+  endpoint: `${PURCHASE}/grns`,
+  getByIdEndpoint: (row) => `${PURCHASE}/grns/${row.id}`,
+  columns: [
+    // { key: "id", label: "GRN ID" },
+    { key: "poNumber", label: "PO Number" },
+    { key: "receiptDate", label: "Receipt Date" },
+    { key: "items", label: "Items", render: (row) => String(row.items?.length ?? row.lineItems?.length ?? "--") },
+  ],
+  fields: [
+    {
+      name: "purchaseOrderId",
+      label: "Purchase Order",
+      type: "select",
+      required: true,
+      optionsEndpoint: `${PURCHASE}/purchase-orders`,
+      optionLabel: "poNumber",
+      showOnCreate: false,
+      showOnEdit: false,
+    },
+    {
+      name: "warehouseId",
+      label: "Warehouse",
+      type: "select",
+      required: true,
+      optionsEndpoint: "/v1/api/inventory/warehouses",
+      optionLabel: "name",
+      showOnCreate: false,
+      showOnEdit: false,
+    },
+    {
+      name: "receiptDate",
+      label: "Receipt Date",
+      type: "date",
+      required: true,
+      defaultValue: new Date().toISOString().slice(0, 10),
+      showOnCreate: false,
+      showOnEdit: false,
+    },
+    { name: "items", label: "Items", defaultValue: [], showOnCreate: false, showOnEdit: false },
+  ],
+  searchFields: ["id", "poNumber", "receiptDate"],
+  normalizeForm: (row) => ({
+    purchaseOrderId: row.purchaseOrder?.id ?? row.purchaseOrderId ?? "",
+    warehouseId: row.warehouse?.id ?? row.warehouseId ?? "",
+    receiptDate: dateOnly(row.receiptDate),
+    items: row.items || row.lineItems || [],
+  }),
+  buildPayload: (form) => ({
+    purchaseOrderId: toNumberOrZero(form.purchaseOrderId),
+    warehouseId: toNumberOrZero(form.warehouseId),
+    receiptDate: form.receiptDate || new Date().toISOString().slice(0, 10),
+    items: (Array.isArray(form.items) ? form.items : []).map((item) => ({
+      purchaseOrderLineItemId: toNumberOrZero(item.purchaseOrderLineItemId),
+      receivedQuantity: toNumberOrZero(item.receivedQuantity),
+      acceptedQuantity: toNumberOrZero(item.acceptedQuantity),
+      rejectedQuantity: toNumberOrZero(item.rejectedQuantity),
+      batchNumber: item.batchNumber || null,
+      manufacturingDate: item.manufacturingDate || null,
+      expiryDate: item.expiryDate || null,
+      serialNumbers: Array.isArray(item.serialNumbers) ? item.serialNumbers : [],
+    })),
+  }),
+  renderCustomForm: ({ form, setForm, options, editingRow, onClose, onSubmit, submitting }) => {
+    // Only approved POs that still have goods to receive. A fully received, closed or
+    // cancelled PO has nothing pending, so the backend would reject the GRN.
+    const approvedPurchaseOrders = (options.purchaseOrderId || []).filter((option) => {
+      const approval = String(option.raw?.approvalStatus || "").toUpperCase();
+      const status = String(option.raw?.status || "").toUpperCase();
+      return approval === "APPROVED" && !["RECEIVED", "CLOSED", "CANCELLED"].includes(status);
+    });
+
+    return (
+      <GoodsReceiptEditor
+        form={form}
+        purchaseOrders={approvedPurchaseOrders}
+        warehouses={options.warehouseId || []}
+        isEditing={Boolean(editingRow)}
+        onChange={(name, value) => setForm((current) => ({ ...current, [name]: value }))}
+        onCancel={onClose}
+        onSubmit={onSubmit}
+        submitting={submitting}
+      />
+    );
+  },
+};
+
+// ─────────────────────────────────────────────────────────────
+// DELIVERIES
+// ─────────────────────────────────────────────────────────────
+export const deliveryConfig: PurchaseResourceConfig = {
+  title: "Deliveries",
+  description: "Manage purchase deliveries by vendor, order, and delivery date.",
+  formSubtitle:"Track delivery of a purchase order.",
+  endpoint: `${PURCHASE}/deliveries`,
+  columns: [
+    // { key: "id", label: "Delivery ID" },
+    { key: "purchaseOrder.poNumber", label: "PO Number" },
+    { key: "vendor.name", label: "Vendor" },
+    { key: "deliveryDate", label: "Delivery Date" },
+  ],
+  fields: [
+    {
+      name: "purchaseOrderId",
+      label: "Purchase Order",
+      type: "select",
+      optionsEndpoint: `${PURCHASE}/purchase-orders`,
+      optionLabel: "poNumber",
+    },
+    {
+      name: "vendorId",
+      label: "Vendor",
+      type: "select",
+      required: true,
+      optionsEndpoint: `${PURCHASE}/vendors`,
+      optionLabel: "name",
+    },
+    {
+      name: "deliveryDate",
+      label: "Delivery Date",
+      type: "date",
+      required: true,
+      defaultValue: new Date().toISOString().slice(0, 10),
+    },
+  ],
+  searchFields: ["id", "deliveryDate"],
+  normalizeForm: (row) => ({
+    purchaseOrderId: row.purchaseOrder?.id ?? "",
+    vendorId: row.vendor?.id ?? "",
+    deliveryDate: dateOnly(row.deliveryDate),
+  }),
+  buildPayload: (form) => ({
+    purchaseOrder: makeRelation(form.purchaseOrderId),
+    vendor: makeRelation(form.vendorId),
+    deliveryDate: form.deliveryDate,
+  }),
+};
+
+// ─────────────────────────────────────────────────────────────
+// APPROVAL STATUS
+// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// INVENTORY
+// ─────────────────────────────────────────────────────────────
+export const inventoryConfig: PurchaseResourceConfig = {
+  title: "Inventory",
+  description: "View and create purchase inventory records.",
+  formSubtitle: "Record stock quantity for a product.",
+  endpoint: `${PURCHASE}/inventory`,
+  allowEdit: false,
+  allowDelete: false,
+  getListParams: () => ({ param: "" }),
+  columns: [
+    { key: "productCode", label: "Product Code" },
+    { key: "productName", label: "Product Name" },
+    { key: "quantityOnHand", label: "On Hand" },
+    { key: "reorderLevel", label: "Reorder Level" },
+    { key: "warehouseLocation", label: "Warehouse" },
+  ],
+  fields: [
+    {
+      name: "productId",
+      label: "Product",
+      type: "select",
+      required: true,
+      optionsEndpoint: `${PURCHASE}/products`,
+      optionLabel: "productName",
+    },
+    {
+      name: "quantityOnHand",
+      label: "Quantity On Hand",
+      type: "number",
+      required: true,
+      defaultValue: 0,
+    },
+    { name: "reorderLevel", label: "Reorder Level", type: "number", defaultValue: 0 },
+    { name: "warehouseLocation", label: "Warehouse Location", required: true },
+  ],
+  searchFields: ["productCode", "productName", "warehouseLocation"],
+  buildPayload: (form) => ({
+    productId: toNumberOrZero(form.productId),
+    quantityOnHand: toNumberOrZero(form.quantityOnHand),
+    reorderLevel: toNumberOrZero(form.reorderLevel),
+    warehouseLocation: form.warehouseLocation,
+  }),
+};
+
+// ─────────────────────────────────────────────────────────────
+// EXPORTS
+// ─────────────────────────────────────────────────────────────
+export const purchaseResourceConfigs = {
+  vendors: vendorConfig,
+  terms: termsConfig,
+  productCategories: productCategoryConfig,
+  products: productConfig,
+  purchaseRequisitions: purchaseRequisitionConfig,
+  requisitionLineItems: requisitionLineItemConfig,
+  purchaseOrders: purchaseOrderConfig,
+  goodsReceiptNotes: goodsReceiptNoteConfig,
+  deliveries: deliveryConfig,
+  inventory: inventoryConfig,
+};
+
+export { boolText, statusBadge };
