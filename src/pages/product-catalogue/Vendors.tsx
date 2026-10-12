@@ -1,4 +1,5 @@
 import PurchaseResourcePage, { PurchaseResourceConfig } from "../Purchase/PurchaseResourcePage";
+import { INDIAN_STATE_OPTIONS, normalizePhone, toStateName, validateVendorForm } from "../../utils/indiaValidators";
 
 const VENDORS = "/v1/api/product/vendors";
 
@@ -11,11 +12,28 @@ const text = (value: unknown): string | null => {
   return trimmed === "" ? null : trimmed;
 };
 
-/** Same as text(), but upper-cased. Used for codes and Indian tax/bank identifiers. */
-const code = (value: unknown): string | null => text(value)?.toUpperCase() ?? null;
+/** Upper-cased value with all spaces removed. Used for GST, PAN, IFSC and currency. */
+const code = (value: unknown): string | null => text(value)?.replace(/\s+/g, "").toUpperCase() ?? null;
+
+/** Digit-style values (PIN code, bank account): spaces removed. */
+const compact = (value: unknown): string | null => text(value)?.replace(/\s+/g, "") ?? null;
 
 /** Lower-cased email, or null when empty. */
 const email = (value: unknown): string | null => text(value)?.toLowerCase() ?? null;
+
+/**
+ * Vendor code in one clean format: upper-case, spaces/underscores become hyphens,
+ * repeated hyphens collapse to one, no hyphen at the start or end.
+ * e.g. "ven--05" -> "VEN-05", " abc sup 1 " -> "ABC-SUP-1"
+ */
+const vendorCode = (value: unknown): string | null => {
+  const cleaned = text(value)
+    ?.toUpperCase()
+    .replace(/[\s_]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return cleaned ? cleaned : null;
+};
 
 /** Vendor master (owned by the Product Catalogue service). */
 const vendorConfig: PurchaseResourceConfig = {
@@ -37,38 +55,48 @@ const vendorConfig: PurchaseResourceConfig = {
   ],
 
   fields: [
-    { name: "vendorCode", label: "Vendor Code", required: true },
-    { name: "name", label: "Vendor Name", required: true },
-    { name: "legalName", label: "Legal Name" },
-    { name: "contactName", label: "Contact Name" },
-    { name: "contactEmail", label: "Contact Email", type: "email" },
-    { name: "contactPhone", label: "Contact Phone", type: "tel" },
-    { name: "website", label: "Website" },
-    { name: "gstNumber", label: "GST Number" },
-    { name: "panNumber", label: "PAN Number" },
+    { name: "vendorCode", section: "Basic Details", label: "Vendor Code (e.g. VEN-001)", required: true, readOnlyOnEdit: true },
+    { name: "name", section: "Basic Details", label: "Vendor Name", required: true },
+    { name: "legalName", section: "Basic Details", label: "Legal Name (registered company name)" },
+    { name: "contactName", section: "Contact", label: "Contact Person" },
+    { name: "contactEmail", section: "Contact", label: "Contact Email", type: "email" },
+    { name: "contactPhone", section: "Contact", label: "Contact Phone", type: "tel" },
+    { name: "website", section: "Contact", label: "Website" },
+    // Address comes before Tax: the GST number must belong to the state chosen here.
+    // Order goes from big to small: Country → State → City → PIN → street address,
+    // because the State list and the GST/PIN checks depend on the country and state.
+    { name: "country", section: "Address", label: "Country" },
     {
-      name: "paymentTerms",
+      name: "state", section: "Address",
+      label: "State",
+      type: "select",
+      searchable: true, // type "t" → Tamil Nadu, Telangana, Tripura
+      placeholder: "search state",
+      options: INDIAN_STATE_OPTIONS,
+    },
+    { name: "city", section: "Address", label: "City" },
+    { name: "postalCode", section: "Address", label: "PIN Code" },
+    { name: "address", section: "Address", label: "Address (building, street, area)", type: "textarea", gridClassName: "md:col-span-2" },
+    { name: "gstNumber", section: "Tax & Terms", label: "GST Number" },
+    { name: "panNumber", section: "Tax & Terms", label: "PAN Number (e.g. ABCDE1234F)" },
+    {
+      name: "paymentTerms", section: "Tax & Terms",
       label: "Payment Terms",
       type: "select",
-      placeholderOption: "",
+      placeholderOption: "Select Payment Terms",
       options: PAYMENT_TERMS.map((value) => ({ value, label: value })),
     },
     {
-      name: "currency",
+      name: "currency", section: "Tax & Terms",
       label: "Currency",
       type: "select",
-      placeholderOption: "",
+      placeholderOption: "Select Currency",
       options: CURRENCIES.map((value) => ({ value, label: value })),
     },
-    { name: "address", label: "Address", type: "textarea", gridClassName: "md:col-span-2" },
-    { name: "city", label: "City" },
-    { name: "state", label: "State" },
-    { name: "postalCode", label: "Postal Code" },
-    { name: "country", label: "Country" },
-    { name: "bankName", label: "Bank Name" },
-    { name: "bankAccountNumber", label: "Bank Account Number" },
-    { name: "bankIfscCode", label: "Bank IFSC Code" },
-    { name: "active", label: "Active", type: "checkbox", defaultValue: true },
+    { name: "bankName", section: "Bank Details", label: "Bank Name" },
+    { name: "bankAccountNumber", section: "Bank Details", label: "Bank Account Number" },
+    { name: "bankIfscCode", section: "Bank Details", label: "Bank IFSC Code (e.g. HDFC0001234)" },
+    { name: "active", section: "Basic Details", label: "Active", type: "checkbox", defaultValue: true },
   ],
 
   searchFields: ["vendorCode", "name", "legalName", "contactName", "contactEmail", "city", "country"],
@@ -97,30 +125,45 @@ const vendorConfig: PurchaseResourceConfig = {
     active: true,
   },
 
+  // Older records saved "TN", "KL"… — show them as the full state name so the dropdown selects it.
+  normalizeForm: (row) => ({ ...row, state: toStateName(row.state) }),
 
-  buildPayload: (form, editingRow) => ({
-    // Vendor code is the business key: keep the original value when editing.
-    vendorCode: editingRow ? editingRow.vendorCode : code(form.vendorCode),
-    name: text(form.name),
-    legalName: text(form.legalName),
-    contactName: text(form.contactName),
-    contactEmail: email(form.contactEmail),
-    contactPhone: text(form.contactPhone),
-    website: text(form.website),
-    gstNumber: code(form.gstNumber),
-    panNumber: code(form.panNumber),
-    paymentTerms: text(form.paymentTerms),
-    currency: code(form.currency),
-    address: text(form.address),
-    city: text(form.city),
-    state: text(form.state),
-    postalCode: text(form.postalCode),
-    country: text(form.country),
-    bankName: text(form.bankName),
-    bankAccountNumber: text(form.bankAccountNumber),
-    bankIfscCode: code(form.bankIfscCode),
-    active: Boolean(form.active),
-  }),
+  // Errors are shown under each field and on its tab (red dot); Save jumps to the first tab with an error.
+  // Indian formats (GST, PAN, PIN, IFSC, phone, bank account) are checked only when Country is India.
+  // The vendor code is read-only on edit, so it is only checked when creating.
+  validateFields: (form, editingRow) => validateVendorForm(form, { checkVendorCode: !editingRow }),
+
+  // Only business fields are sent. id, tenantId, createdBy, createdDate and
+  // updatedDate are set by the server (tenant comes from the JWT / X-Tenant-ID).
+  buildPayload: (form, editingRow) => {
+    const isIndia = ["", "india"].includes(String(form.country ?? "").trim().toLowerCase());
+
+    return {
+      // Vendor code is entered on create and stays the same when editing,
+      // because POs and GRNs refer to it.
+      vendorCode: editingRow ? editingRow.vendorCode : vendorCode(form.vendorCode),
+      name: text(form.name),
+      legalName: text(form.legalName),
+      contactName: text(form.contactName),
+      contactEmail: email(form.contactEmail),
+      // Indian numbers are saved in one format: +91XXXXXXXXXX.
+      contactPhone: isIndia ? normalizePhone(form.contactPhone) : text(form.contactPhone),
+      website: text(form.website),
+      gstNumber: code(form.gstNumber),
+      panNumber: code(form.panNumber),
+      paymentTerms: text(form.paymentTerms),
+      currency: code(form.currency),
+      address: text(form.address),
+      city: text(form.city),
+      state: text(toStateName(form.state)),
+      postalCode: compact(form.postalCode),
+      country: text(form.country),
+      bankName: text(form.bankName),
+      bankAccountNumber: compact(form.bankAccountNumber),
+      bankIfscCode: code(form.bankIfscCode),
+      active: Boolean(form.active),
+    };
+  },
 };
 
 export default function Vendors() {

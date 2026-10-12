@@ -1,11 +1,12 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import { ArrowDownTrayIcon, PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { ArrowDownTrayIcon, CheckCircleIcon, NoSymbolIcon, PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ToasterService } from "../../Services/ToasterService";
 import PurchaseResourcePage, {
   PurchaseRecord,
   PurchaseResourceConfig,
+  SelectOption,
   toNumberOrZero,
 } from "../Purchase/PurchaseResourcePage";
 
@@ -367,8 +368,102 @@ const ProductImageCell = ({ row }: { row: PurchaseRecord }) => {
 };
 
 /* ------------------------------------------------------------------ */
+/* Validation                                                          */
+/* ------------------------------------------------------------------ */
+
+const cleanText = (value: unknown) => String(value ?? "").trim();
+
+/** Up to 2 decimal places, not negative. */
+const validateAmount = (label: string, value: unknown): string | null => {
+  const raw = cleanText(value);
+  if (raw === "") return null;
+  const amount = Number(raw);
+  if (!Number.isFinite(amount)) return `${label} must be a number`;
+  if (amount < 0) return `${label} cannot be negative`;
+  if (!/^\d+(\.\d{1,2})?$/.test(raw)) return `${label} can have at most 2 decimal places`;
+  if (amount > 99999999) return `${label} is too large`;
+  return null;
+};
+
+/**
+ * All product checks in one place.
+ * GST: the product's GST is its Tax Code (required, from the fixed list).
+ * The vendor's GSTIN is checked on the Vendor form, not here.
+ */
+const validateProductForm = (form: PurchaseRecord, categories: SelectOption[]): Record<string, string> => {
+  const errors: Record<string, string> = {};
+  const add = (field: string, message: string | null) => {
+    if (message && !errors[field]) errors[field] = message;
+  };
+
+  // Category: a deactivated category cannot take new products. An existing product
+  // may keep its own (now inactive) category, but cannot move into another inactive one.
+  const selected = categories.find((option) => String(option.value) === String(form.categoryId ?? ""));
+  const keepsOwnCategory = String(form.categoryId ?? "") === String(form.originalCategoryId ?? "");
+  if (selected && selected.raw?.active === false && !keepsOwnCategory) {
+    add("categoryId", `${selected.label} is inactive. Activate it in Product Categories, or choose another category.`);
+  }
+
+  // Names
+  const productName = cleanText(form.productName);
+  if (productName) {
+    if (productName.length < 2) add("productName", "Product name is too short");
+    else if (productName.length > 100) add("productName", "Product name can be at most 100 characters");
+    else if (!/[A-Za-z]/.test(productName)) add("productName", "Product name must contain letters");
+  }
+
+  const shortName = cleanText(form.shortName);
+  if (shortName) {
+    if (shortName.length < 2 || shortName.length > 20) add("shortName", "Short name must be 2–20 characters");
+    else if (!/^[A-Za-z0-9 &.-]+$/.test(shortName)) add("shortName", "Short name: letters, numbers, space, & . - only");
+  }
+
+  if (cleanText(form.description).length > 500) add("description", "Description can be at most 500 characters");
+
+  // Brand & identification
+  const brand = cleanText(form.brand);
+  if (brand) {
+    if (brand.length > 50) add("brand", "Brand can be at most 50 characters");
+    else if (!/[A-Za-z]/.test(brand)) add("brand", "Brand must contain letters");
+  }
+
+  const modelNo = cleanText(form.modelNo);
+  if (modelNo) {
+    if (modelNo.length > 50) add("modelNo", "Model No can be at most 50 characters");
+    else if (!/^[A-Za-z0-9][A-Za-z0-9 ./-]*$/.test(modelNo)) {
+      add("modelNo", "Model No: letters, numbers and - / . only (e.g. AR18BYNZXWK)");
+    }
+  }
+
+  // Pricing
+  add("standardCost", validateAmount("Standard cost", form.standardCost));
+  add("sellingPrice", validateAmount("Selling price", form.sellingPrice));
+
+  // Item type and tracking: shown as errors instead of being silently changed on save.
+  const serviceItem = Boolean(form.serviceItem);
+  const stockItem = Boolean(form.stockItem);
+  if (serviceItem && stockItem) add("serviceItem", "A product is either a Stock Item or a Service Item, not both");
+  if (!serviceItem && !stockItem) add("stockItem", "Choose Stock Item or Service Item");
+  if (!stockItem && form.serialTracking) add("serialTracking", "Serial tracking is only for stock items");
+  if (!stockItem && form.batchTracking) add("batchTracking", "Batch tracking is only for stock items");
+  if (form.expiryTracking && !form.batchTracking) add("expiryTracking", "Expiry tracking needs Batch Tracking (expiry is kept per batch)");
+
+  return errors;
+};
+
+/* ------------------------------------------------------------------ */
 /* Resource configuration                                              */
 /* ------------------------------------------------------------------ */
+
+const renderYesNo = (value: unknown) => (
+  <span
+    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+      value ? "bg-cyan-50 text-cyan-700" : "bg-slate-100 text-slate-500"
+    }`}
+  >
+    {value ? "Yes" : "No"}
+  </span>
+);
 
 const renderAmount = (key: string) => (row: PurchaseRecord) =>
   row[key] == null ? "--" : currencyFormatter.format(Number(row[key]));
@@ -378,7 +473,9 @@ const baseProductConfig: PurchaseResourceConfig = {
   description: "Maintain products from the Product Catalogue service.",
   endpoint: PRODUCTS,
   getByIdEndpoint: (row) => `${PRODUCTS}/${row.id}`,
-  allowInlineActiveToggle: true,
+  // Status changes use PATCH /products/{id}/activate|deactivate (row button in Actions),
+  // not a full PUT of the product, so no other field can be overwritten by mistake.
+  allowInlineActiveToggle: false,
   // Stock/service flags are not toggled inline: changing them on a product that
   // already has stock or transactions must go through the edit form.
 
@@ -386,59 +483,104 @@ const baseProductConfig: PurchaseResourceConfig = {
     { key: "imageName", label: "Image", render: (row) => <ProductImageCell row={row} /> },
     { key: "productName", label: "Product Name" },
     { key: "productCode", label: "Product Code" },
-    { key: "categoryName", label: "Category" },
+    // The product API now returns the category as a nested object (productCategory).
+    {
+      key: "categoryName",
+      label: "Category",
+      render: (row) => row.productCategory?.categoryName || row.categoryName || "--",
+    },
     { key: "brand", label: "Brand" },
     { key: "uom", label: "UOM" },
-    { key: "active", label: "Status" },
-    { key: "stockItem", label: "Stock Item" },
-    { key: "serviceItem", label: "Service Item" },
+    // Yes/No, not Active/Inactive: these say what kind of item it is, not its status.
+    { key: "stockItem", label: "Stock Item", render: (row) => renderYesNo(row.stockItem) },
+    { key: "serviceItem", label: "Service Item", render: (row) => renderYesNo(row.serviceItem) },
     { key: "standardCost", label: "Standard Cost", render: renderAmount("standardCost") },
     { key: "sellingPrice", label: "Selling Price", render: renderAmount("sellingPrice") },
+    // Status is the last column, next to the Activate/Deactivate button in Actions.
+    {
+      key: "active",
+      label: "Status",
+      render: (row) => (
+        <span
+          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+            row.active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+          }`}
+        >
+          {row.active ? "Active" : "Inactive"}
+        </span>
+      ),
+    },
   ],
 
   fields: [
-    { name: "productName", label: "Product Name", required: true },
-    { name: "shortName", label: "Short Name" },
-    { name: "description", label: "Description", type: "textarea", gridClassName: "md:col-span-2" },
+    // Tab 1 starts with Category: it decides the product code (CATEGORY-SHORTCODE-0001),
+    // and only active categories can take new products. Then the product's name.
     {
-      name: "categoryId",
+      name: "categoryId", section: "Category & Name",
       label: "Category",
       type: "select",
       required: true,
+      searchable: true,
+      placeholder: "Type to search category",
       optionsEndpoint: CATEGORIES,
       optionLabel: "categoryName",
-      placeholderOption: "Select Category",
+      // Only active categories can take new products. An existing product keeps
+      // showing its current category even if that category was deactivated later.
+      getOptions: ({ form, options }) =>
+        (options.categoryId || []).filter(
+          (option) =>
+            option.raw?.active !== false || String(option.value) === String(form.originalCategoryId ?? "")
+        ),
     },
-    { name: "brand", label: "Brand" },
-    { name: "modelNo", label: "Model No" },
-    { name: "barcode", label: "Barcode" },
+    { name: "productName", section: "Category & Name", label: "Product Name", required: true },
+    { name: "shortName", section: "Category & Name", label: "Short Name" },
+    { name: "description", section: "Category & Name", label: "Description", type: "textarea", gridClassName: "md:col-span-2" },
+    // Tab 2: optional details that identify the exact item.
+    { name: "brand", section: "Brand & Identification", label: "Brand" },
+    { name: "modelNo", section: "Brand & Identification", label: "Model No" },
     {
-      name: "uom",
+      name: "barcode", section: "Brand & Identification",
+      label: "Barcode (EAN/UPC, 8–14 digits)",
+      // Standard retail barcodes are EAN-8, UPC-A (12), EAN-13 or GTIN-14: digits only.
+      validate: (value) => {
+        const barcode = String(value ?? "").replace(/\s/g, "");
+        if (!barcode) return null;
+        if (!/^[0-9]+$/.test(barcode)) return "Barcode must contain digits only";
+        return [8, 12, 13, 14].includes(barcode.length)
+          ? null
+          : `Barcode must be 8, 12, 13 or 14 digits (you entered ${barcode.length})`;
+      },
+    },
+    {
+      name: "uom", section: "Pricing & Tax",
       label: "UOM",
       type: "select",
       required: true,
       defaultValue: "PIECES",
       options: UOM_OPTIONS.map((item) => ({ value: item, label: item })),
     },
-    { name: "standardCost", label: "Standard Cost", type: "number", defaultValue: 0 },
-    { name: "sellingPrice", label: "Selling Price", type: "number", defaultValue: 0 },
+    { name: "standardCost", section: "Pricing & Tax", label: "Standard Cost", type: "number", defaultValue: 0 },
+    { name: "sellingPrice", section: "Pricing & Tax", label: "Selling Price", type: "number", defaultValue: 0 },
     {
-      name: "taxCode",
+      name: "taxCode", section: "Pricing & Tax",
       label: "Tax Code",
       type: "select",
       required: true,
-      placeholderOption: "Select Tax Code",
       options: TAX_CODES.map((item) => ({ value: item, label: item })),
     },
-    { name: "stockItem", label: "Stock Item", type: "checkbox", defaultValue: true },
-    { name: "serviceItem", label: "Service Item", type: "checkbox", defaultValue: false },
-    { name: "serialTracking", label: "Serial Tracking", type: "checkbox", defaultValue: false },
-    { name: "batchTracking", label: "Batch Tracking", type: "checkbox", defaultValue: false },
-    { name: "expiryTracking", label: "Expiry Tracking (needs Batch Tracking)", type: "checkbox", defaultValue: false },
-    { name: "active", label: "Active", type: "checkbox", defaultValue: true },
+    { name: "stockItem", section: "Inventory Tracking", label: "Stock Item", type: "checkbox", defaultValue: true },
+    { name: "serviceItem", section: "Inventory Tracking", label: "Service Item", type: "checkbox", defaultValue: false },
+    { name: "serialTracking", section: "Inventory Tracking", label: "Serial Tracking", type: "checkbox", defaultValue: false },
+    { name: "batchTracking", section: "Inventory Tracking", label: "Batch Tracking", type: "checkbox", defaultValue: false },
+    { name: "expiryTracking", section: "Inventory Tracking", label: "Expiry Tracking (needs Batch Tracking)", type: "checkbox", defaultValue: false },
+    // Only on create. Existing products are activated/deactivated with the row button.
+    { name: "active", section: "Inventory Tracking", label: "Active", type: "checkbox", defaultValue: true, showOnEdit: false },
   ],
 
   searchFields: ["productName", "productCode", "categoryName", "brand", "uom"],
+
+  // Errors are shown under each field (and a red dot on its tab) while the user types.
+  validateFields: (form, _editingRow, { options }) => validateProductForm(form, options.categoryId || []),
 
   // A new product starts empty; only sensible defaults are pre-filled.
   initialFormState: {
@@ -463,10 +605,12 @@ const baseProductConfig: PurchaseResourceConfig = {
 
   normalizeForm: (row) => ({
     ...row,
-    categoryId: row.categoryId ?? row.category?.id ?? "",
+    categoryId: row.productCategory?.id ?? row.categoryId ?? row.category?.id ?? "",
+    // Remembered so an existing product can keep an (now inactive) category, but not move into one.
+    originalCategoryId: row.productCategory?.id ?? row.categoryId ?? row.category?.id ?? "",
   }),
 
-  buildPayload: (form) => {
+  buildPayload: (form, editingRow) => {
     // Business rules:
     //  - a service item is never a stock item and has no tracking
     //  - serial/batch tracking only applies to stock items
@@ -482,7 +626,7 @@ const baseProductConfig: PurchaseResourceConfig = {
       categoryId: toId(form.categoryId),
       brand: text(form.brand),
       modelNo: text(form.modelNo),
-      barcode: text(form.barcode),
+      barcode: text(form.barcode)?.replace(/\s/g, "") ?? null,
       uom: form.uom || "PIECES",
       standardCost: toAmount(form.standardCost),
       sellingPrice: toAmount(form.sellingPrice),
@@ -492,7 +636,8 @@ const baseProductConfig: PurchaseResourceConfig = {
       serialTracking: stockItem && Boolean(form.serialTracking),
       batchTracking,
       expiryTracking: batchTracking && Boolean(form.expiryTracking),
-      active: Boolean(form.active),
+      // Edit keeps the current status; status changes go through PATCH activate/deactivate.
+      active: editingRow ? Boolean(editingRow.active) : Boolean(form.active),
     };
   },
 };
@@ -510,6 +655,7 @@ export default function Products() {
   const categoryName = searchParams.get("categoryName") || "";
 
   const [reloadKey, setReloadKey] = useState(0);
+  const [statusBusyId, setStatusBusyId] = useState<string | number | null>(null);
   const [createdProduct, setCreatedProduct] = useState<PurchaseRecord | null>(null);
   const [postCreateImageFile, setPostCreateImageFile] = useState<File | null>(null);
   const [isPostCreateUploading, setIsPostCreateUploading] = useState(false);
@@ -542,8 +688,65 @@ export default function Products() {
     }
   };
 
+  /** PATCH /products/{id}/activate or /deactivate, then reload the list. */
+  const changeStatus = async (row: PurchaseRecord, activate: boolean) => {
+    const name = String(row.productName || "this product");
+    if (!activate && !window.confirm(`Deactivate ${name}? It can no longer be added to new PRs and POs.`)) return;
+
+    try {
+      setStatusBusyId(row.id ?? null);
+      await axios.patch(`${PRODUCTS}/${row.id}/${activate ? "activate" : "deactivate"}`);
+      ToasterService.success(`${name} ${activate ? "activated" : "deactivated"}`);
+      setReloadKey((current) => current + 1);
+    } catch (error: any) {
+      const status = error?.response?.status;
+      ToasterService.error(
+        status === 404 || status === 405
+          ? "Status change is not available on the server yet (PATCH activate/deactivate missing)."
+          : getErrorMessage(error, `Could not change the status of ${name}`)
+      );
+    } finally {
+      setStatusBusyId(null);
+    }
+  };
+
   const productConfig: PurchaseResourceConfig = {
     ...baseProductConfig,
+
+    // Activate / Deactivate button in the Actions column (before Edit and Delete).
+    renderRowActions: (row) => {
+      const name = String(row.productName || "this product");
+      const isBusy = statusBusyId === row.id;
+      return row.active ? (
+        <button
+          type="button"
+          disabled={isBusy}
+          onClick={(event) => {
+            event.stopPropagation();
+            changeStatus(row, false);
+          }}
+          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+          title={`Deactivate ${name}`}
+          aria-label={`Deactivate ${name}`}
+        >
+          <NoSymbolIcon className="h-4 w-4" aria-hidden="true" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          disabled={isBusy}
+          onClick={(event) => {
+            event.stopPropagation();
+            changeStatus(row, true);
+          }}
+          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-green-50 hover:text-green-600 disabled:opacity-50"
+          title={`Activate ${name}`}
+          aria-label={`Activate ${name}`}
+        >
+          <CheckCircleIcon className="h-4 w-4" aria-hidden="true" />
+        </button>
+      );
+    },
 
     // Coming from a category: open the create form with that category pre-selected.
     autoOpenCreate: Boolean(categoryId),

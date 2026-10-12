@@ -24,6 +24,7 @@ import {
   FloatingTextarea,
   Option as FloatingOption,
 } from "../../components/inputfeild/FloatingInput";
+import SearchableSelect from "../../components/inputfeild/SearchableSelect";
 import { ToasterService } from "../../Services/ToasterService";
 
 export type PurchaseRecord = Record<string, any> & { id?: number | string };
@@ -32,6 +33,8 @@ export type SelectOption = {
   value: string | number;
   label: string;
   raw?: PurchaseRecord;
+  /** Extra words that also find this option in a searchable select (e.g. "TN" for Tamil Nadu). */
+  keywords?: string[];
 };
 
 export type FieldType =
@@ -66,6 +69,12 @@ export type FieldConfig = {
   /** Shows the value as receipt/reference information instead of an input while editing. */
   readOnlyOnEdit?: boolean;
   placeholderOption?: string;
+  /** For long select lists: type a few letters and only matching options are shown. */
+  searchable?: boolean;
+  /** Tab / section this field belongs to (e.g. "Bank Details"). Fields with a section are shown in named tabs. */
+  section?: string;
+  /** Field-level check; return an error message to show under the field, or null when valid. */
+  validate?: (value: any, form: PurchaseRecord) => string | null;
   toggleOnValue?: string;
   toggleOffValue?: string;
   toggleOptions?: SelectOption[];
@@ -134,6 +143,16 @@ export type PurchaseResourceConfig = {
     editingRow: PurchaseRecord | null,
     context: { options: Record<string, SelectOption[]> }
   ) => string | null;
+  /** Field-level errors ({ fieldName: message }), shown under each field and on its tab. */
+  validateFields?: (
+    form: PurchaseRecord,
+    editingRow: PurchaseRecord | null,
+    context: { options: Record<string, SelectOption[]> }
+  ) => Record<string, string>;
+  /** Friendly message when delete is refused because the record is still used elsewhere. */
+  deleteInUseMessage?: string;
+  /** Tab name for renderFormExtras content (e.g. line items) when the form uses sections. Default "Items". */
+  formExtrasSection?: string;
   normalizeForm?: (row: PurchaseRecord) => PurchaseRecord;
 
   initialFormState?: PurchaseRecord;
@@ -270,6 +289,27 @@ function formatCellValue(value: any) {
   return String(value);
 }
 
+/**
+ * Delete error in plain words. When the record is still used (foreign key / 409),
+ * the raw database text is never shown to the user.
+ */
+function deleteErrorMessage(error: any, config: PurchaseResourceConfig): string {
+  const status = error?.response?.status;
+  const data = error?.response?.data;
+  const raw = String(data?.message || data?.error || data?.detail || "");
+  const inUse =
+    status === 409 || /foreign key|constraint|referenced|violates|still in use|in use/i.test(raw);
+  if (inUse) {
+    return (
+      config.deleteInUseMessage ||
+      "This record is used by other records, so it cannot be deleted. Deactivate it instead."
+    );
+  }
+  // Short, readable backend messages are fine to show; long SQL/stack text is not.
+  if (raw && raw.length <= 160 && !/sql|exception|jdbc|hibernate/i.test(raw)) return raw;
+  return `Failed to delete ${config.title}`;
+}
+
 function searchableText(value: unknown) {
   if (value == null) return "";
   if (typeof value === "object") return JSON.stringify(value).toLowerCase();
@@ -338,6 +378,16 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   const [inlineUpdatingId, setInlineUpdatingId] = useState<string | number | null>(null);
   const [search, setSearch] = useState("");
   const autoOpenedKey = useRef<string | null>(null);
+  // Form validation state: which fields were visited, whether Save was clicked, and the active tab.
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [activeStep, setActiveStep] = useState(0);
+
+  const resetValidation = () => {
+    setTouched({});
+    setSubmitAttempted(false);
+    setActiveStep(0);
+  };
 
   const updateRowLocally = useCallback(
     (rowId: string | number, updater: (row: PurchaseRecord) => PurchaseRecord) => {
@@ -424,6 +474,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         ...(config.initialFormState || {}),
         ...(seed || {}),
       });
+      resetValidation();
       setShowForm(true);
     },
     [config.initialFormState, emptyForm]
@@ -465,6 +516,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
 
     setEditingRow(selectedRow);
     setForm(nextForm);
+    resetValidation();
     setShowForm(true);
   };
 
@@ -473,14 +525,58 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     setEditingRow(null);
     setForm({ ...emptyForm });
     setIsDrawerEditing(false);
+    resetValidation();
   };
 
   const setField = (field: FieldConfig, value: any) => {
     setForm((current) => mergeFormUpdate(field.name, value, current, field, options));
   };
 
+  /** Fields the user can actually see and fill in this form. */
+  const isFieldEditable = (field: FieldConfig) => {
+    if (config.drawerHeaderDateField === field.name || config.drawerHeaderTextField === field.name) return false;
+    if ((!editingRow && field.showOnCreate === false) || (editingRow && field.showOnEdit === false)) return false;
+    if (String(field.gridClassName || "").split(/\s+/).includes("hidden")) return false;
+    if (Boolean(editingRow) && field.readOnlyOnEdit) return false;
+    return true;
+  };
+
+  /** All current field errors: required fields, each field's own validate(), and config.validateFields(). */
+  const fieldErrors = useMemo<Record<string, string>>(() => {
+    if (!showForm || config.renderCustomForm) return {};
+    const errors: Record<string, string> = {};
+    config.fields.forEach((field) => {
+      if (!isFieldEditable(field)) return;
+      const value = form[field.name];
+      const isEmpty = value === "" || value == null;
+      if (field.required && field.type !== "checkbox" && field.type !== "toggle" && isEmpty) {
+        errors[field.name] = `${field.label.replace(/\s*\(.*\)\s*$/, "")} is required`;
+        return;
+      }
+      const message = field.validate?.(value, form);
+      if (message) errors[field.name] = message;
+    });
+    const extra = config.validateFields?.(form, editingRow, { options }) || {};
+    Object.entries(extra).forEach(([name, message]) => {
+      if (message && !errors[name]) errors[name] = message;
+    });
+    return errors;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showForm, form, editingRow, config, options]);
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    // Field errors first: show them under the fields and jump to the first tab that has one.
+    const errorNames = orderedErrorNames();
+    if (errorNames.length) {
+      setSubmitAttempted(true);
+      const stepIndex = stepIndexOfField(errorNames[0]);
+      if (stepIndex >= 0) setActiveStep(stepIndex);
+      ToasterService.error(fieldErrors[errorNames[0]]);
+      return;
+    }
+
     const validationError = config.validateForm?.(form, editingRow, { options });
     if (validationError) {
       ToasterService.error(validationError);
@@ -538,7 +634,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       loadRows();
     } catch (error: any) {
       console.error(`Failed to delete ${config.title}`, error);
-      ToasterService.error(error.response?.data?.message || `Failed to delete ${config.title}`);
+      ToasterService.error(deleteErrorMessage(error, config));
     }
   };
 
@@ -767,7 +863,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
 
   const activeCount = rows.filter((row) => row.active === true).length;
 
-  const popupFields = config.fields.map((field) => {
+  const fieldEntries = config.fields.map((field) => {
     const fieldOptions = field.getOptions
       ? field.getOptions({ form, options })
       : field.options || options[field.name] || [];
@@ -806,6 +902,19 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           onChange={(event) => setField(field, event.target.value)}
           required={field.required}
           rows={4}
+        />
+      );
+    } else if (field.type === "select" && field.searchable) {
+      control = (
+        <SearchableSelect
+          label={field.label}
+          value={value}
+          options={fieldOptions}
+          onChange={(nextValue) => setField(field, nextValue)}
+          required={field.required}
+          placeholder={field.placeholder}
+          // Optional fields get a "None" row (text from placeholderOption) to clear the value.
+          emptyOptionLabel={field.required ? undefined : field.placeholderOption}
         />
       );
     } else if (field.type === "select") {
@@ -891,11 +1000,27 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       );
     }
 
-    return (
-      <div key={field.name} className={field.gridClassName || ""} style={field.controlWidth ? { width: field.controlWidth } : undefined}>
-        {control}
-      </div>
-    );
+    // Error shows after the user leaves the field, or after Save was clicked.
+    const error = !drawerReadOnly && (touched[field.name] || submitAttempted) ? fieldErrors[field.name] : undefined;
+
+    return {
+      field,
+      node: (
+        <div
+          key={field.name}
+          className={field.gridClassName || ""}
+          style={field.controlWidth ? { width: field.controlWidth } : undefined}
+          onBlur={() => setTouched((current) => (current[field.name] ? current : { ...current, [field.name]: true }))}
+        >
+          <div className={error ? "rounded-xl ring-1 ring-red-400" : undefined}>{control}</div>
+          {error && (
+            <p className="mt-1 px-1 text-xs font-medium text-red-600" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
+      ),
+    };
   });
 
   const extraFormContent = config.renderFormExtras?.({
@@ -944,25 +1069,99 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     ? new Date(String(headerDateValue)).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
     : new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
 
-  if (extraFormContent) {
-    popupFields.push(
-      <div key="form-extras" className="md:col-span-2">
-        {extraFormContent}
-      </div>
-    );
-  }
-  const modalSteps = Array.from(
-    { length: Math.max(1, Math.ceil(popupFields.length / 4)) },
-    (_, index) => ({
-      label: `Step ${index + 1}`,
-      content: (
-        <div className={sidePanel ? "grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(380px,.9fr)]" : "grid grid-cols-1 gap-3 pt-1 md:grid-cols-2"}>
-          <div className={sidePanel ? "grid grid-cols-1 gap-3 pt-1 md:grid-cols-2" : "contents"}>{popupFields.slice(index * 4, index * 4 + 4)}</div>
-          {sidePanel && <aside className="min-w-0 border-t border-slate-100 pt-4 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">{sidePanel}</aside>}
-        </div>
-      ),
-    })
+  /* ---------------- Tabs / steps ----------------
+   * If any field has a `section`, fields are grouped into named tabs (in the order the
+   * sections first appear). Fields without a section join the previous section.
+   * Otherwise the old behaviour is kept: 4 fields per "Step N".
+   */
+  type FormGroup = { label: string; names: string[]; nodes: React.ReactNode[] };
+  const visibleEntries = fieldEntries.filter(
+    (entry): entry is { field: FieldConfig; node: React.ReactElement } => Boolean(entry)
   );
+  const usesSections = config.fields.some((field) => field.section);
+  const extrasNode = extraFormContent ? (
+    <div key="form-extras" className="md:col-span-2">
+      {extraFormContent}
+    </div>
+  ) : null;
+
+  const groups: FormGroup[] = [];
+  if (usesSections) {
+    let currentLabel = "Details";
+    visibleEntries.forEach(({ field, node }) => {
+      currentLabel = field.section || currentLabel;
+      let group = groups.find((item) => item.label === currentLabel);
+      if (!group) {
+        group = { label: currentLabel, names: [], nodes: [] };
+        groups.push(group);
+      }
+      group.names.push(field.name);
+      group.nodes.push(node);
+    });
+    if (extrasNode) {
+      const extrasLabel = config.formExtrasSection || "Items";
+      let group = groups.find((item) => item.label === extrasLabel);
+      if (!group) {
+        group = { label: extrasLabel, names: [], nodes: [] };
+        groups.push(group);
+      }
+      group.nodes.push(extrasNode);
+    }
+  } else {
+    const all = [...visibleEntries.map((entry) => ({ name: entry.field.name, node: entry.node })), ...(extrasNode ? [{ name: "", node: extrasNode }] : [])];
+    for (let index = 0; index < Math.max(1, Math.ceil(all.length / 4)); index += 1) {
+      const slice = all.slice(index * 4, index * 4 + 4);
+      groups.push({ label: `Step ${index + 1}`, names: slice.map((item) => item.name).filter(Boolean), nodes: slice.map((item) => item.node) });
+    }
+  }
+
+  /** Field names that have errors, in the order they appear in the form. */
+  function orderedErrorNames() {
+    const inForm = groups.flatMap((group) => group.names).filter((name) => fieldErrors[name]);
+    const others = Object.keys(fieldErrors).filter((name) => !inForm.includes(name));
+    return [...inForm, ...others];
+  }
+
+  /** Index of the tab that contains a field, or -1. */
+  function stepIndexOfField(name: string) {
+    return groups.findIndex((group) => group.names.includes(name));
+  }
+
+  const stepHasError = (index: number) =>
+    (submitAttempted || groups[index]?.names.some((name) => touched[name])) &&
+    Boolean(groups[index]?.names.some((name) => fieldErrors[name]));
+
+  /** Next is blocked while the current tab has errors; the errors are shown on that tab. */
+  const handleBeforeNext = (index: number) => {
+    const names = groups[index]?.names || [];
+    const firstError = names.find((name) => fieldErrors[name]);
+    if (!firstError) return true;
+    setTouched((current) => ({ ...current, ...Object.fromEntries(names.map((name) => [name, true])) }));
+    ToasterService.error(fieldErrors[firstError]);
+    return false;
+  };
+
+  const popupFields = groups.flatMap((group) => group.nodes);
+
+  const modalSteps = groups.map((group) => ({
+    label: group.label,
+    content: (
+      <div className={sidePanel ? "grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(380px,.9fr)]" : "grid grid-cols-1 gap-3 pt-1 md:grid-cols-2"}>
+        <div className={sidePanel ? "grid grid-cols-1 gap-3 pt-1 md:grid-cols-2" : "contents"}>{group.nodes}</div>
+        {sidePanel && <aside className="min-w-0 border-t border-slate-100 pt-4 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">{sidePanel}</aside>}
+      </div>
+    ),
+  }));
+
+  // Drawer forms show all fields at once; with sections, each section gets a heading.
+  const drawerFields = usesSections
+    ? groups.flatMap((group) => [
+        <h3 key={`section-${group.label}`} className="col-span-full mt-2 border-b border-slate-100 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
+          {group.label}
+        </h3>,
+        ...group.nodes,
+      ])
+    : popupFields;
 
   return (
     <>
@@ -1044,7 +1243,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         >
           {!customFormContent && (
             <div className={sidePanel ? "grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(400px,.9fr)]" : "grid grid-cols-1 gap-3 md:grid-cols-4"}>
-              {sidePanel ? <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{popupFields}</div> : popupFields}
+              {sidePanel ? <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{drawerFields}</div> : drawerFields}
               {sidePanel && <aside className="min-w-0 border-t border-slate-100 pt-5 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">{sidePanel}</aside>}
             </div>
           )}
@@ -1059,6 +1258,12 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         submitLabel={editingRow ? "Update" : "Create"}
         submitting={isSubmitting}
         steps={customFormContent ? undefined : modalSteps}
+        activeStep={activeStep}
+        onStepChange={setActiveStep}
+        stepHasError={stepHasError}
+        onBeforeNext={handleBeforeNext}
+        // Named tabs: Save is available on every tab, like the reference design.
+        submitOnEveryStep={usesSections}
         content={customFormContent}
       />)}
 

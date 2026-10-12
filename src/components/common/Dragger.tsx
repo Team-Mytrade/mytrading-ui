@@ -19,10 +19,19 @@ type DraggerProps = {
   compact?: boolean;
   /** Uses a centered dialog instead of the default right-side drawer. */
   variant?: "drawer" | "modal";
-  /** Optional workflow steps. Each step receives its own tab and Previous/Next controls. */
+  /** Optional workflow steps (tabs). Each step gets its own tab and Previous/Next controls. */
   steps?: DraggerStep[];
   previousLabel?: string;
   nextLabel?: string;
+  /** Controlled active step. When left out, the Dragger manages the step itself. */
+  activeStep?: number;
+  onStepChange?: (step: number) => void;
+  /** Marks a tab that contains errors (red dot). */
+  stepHasError?: (index: number) => boolean;
+  /** Called before moving forward with Next; return false to stay on the current step. */
+  onBeforeNext?: (index: number) => boolean;
+  /** Shows the submit button on every step (tabs style), not only on the last one. */
+  submitOnEveryStep?: boolean;
   /** Fully custom content with its own form and actions. */
   content?: ReactNode;
   children?: ReactNode;
@@ -32,15 +41,29 @@ type DraggerProps = {
 export default function Dragger({
   isOpen, title, subtitle, onClose, onSubmit, submitLabel, submitting,
   headerMeta, headerAction, showSubmit = true, compact = false,
-  variant = "drawer", steps = [], previousLabel = "Previous", nextLabel = "Next", content, children,
+  variant = "drawer", steps = [], previousLabel = "Previous", nextLabel = "Next",
+  activeStep, onStepChange, stepHasError, onBeforeNext, submitOnEveryStep = false,
+  content, children,
 }: DraggerProps) {
-  const [step, setStep] = useState(0);
+  const [innerStep, setInnerStep] = useState(0);
   const hasSteps = steps.length > 0;
-  const activeStep = steps[step];
+  const step = Math.min(activeStep ?? innerStep, Math.max(0, steps.length - 1));
+  const activeStepItem = steps[step];
   const isLastStep = !hasSteps || step === steps.length - 1;
 
+  const goToStep = (next: number) => {
+    const clamped = Math.max(0, Math.min(next, steps.length - 1));
+    if (onStepChange) onStepChange(clamped);
+    else setInnerStep(clamped);
+  };
+
+  const goNext = () => {
+    if (onBeforeNext && !onBeforeNext(step)) return;
+    goToStep(step + 1);
+  };
+
   useEffect(() => {
-    if (!isOpen) { setStep(0); return undefined; }
+    if (!isOpen) { setInnerStep(0); return undefined; }
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const closeOnEscape = (event: KeyboardEvent) => event.key === "Escape" && onClose();
@@ -54,13 +77,17 @@ export default function Dragger({
   if (!isOpen) return null;
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    if (hasSteps && !isLastStep) {
+    // Pressing Enter before the last step moves to the next step instead of saving
+    // (unless the form allows saving from every step).
+    if (hasSteps && !isLastStep && !submitOnEveryStep) {
       event.preventDefault();
-      setStep((current) => Math.min(current + 1, steps.length - 1));
+      goNext();
       return;
     }
     onSubmit(event);
   };
+
+  const showSubmitButton = showSubmit && (isLastStep || submitOnEveryStep);
 
   return createPortal(
     <div className={`dragger dragger--${variant}`} role="presentation" onMouseDown={onClose}>
@@ -74,15 +101,53 @@ export default function Dragger({
           </div>
         </header>
         {hasSteps && <nav className="dragger__steps" aria-label="Form steps">
-          {steps.map((item, index) => <button key={`${item.label}-${index}`} type="button" className={index === step ? "is-active" : ""} aria-current={index === step ? "step" : undefined} onClick={() => setStep(index)}>{item.label}</button>)}
+          {steps.map((item, index) => {
+            const hasError = stepHasError?.(index);
+            return (
+              <button
+                key={`${item.label}-${index}`}
+                type="button"
+                className={index === step ? "is-active" : ""}
+                aria-current={index === step ? "step" : undefined}
+                onClick={() => goToStep(index)}
+                title={hasError ? `${item.label}: has errors` : item.label}
+              >
+                {item.label}
+                {hasError && <span aria-label="has errors" style={{ color: "#dc2626", marginLeft: 6, fontWeight: 700 }}>•</span>}
+              </button>
+            );
+          })}
         </nav>}
         {content ? <div className="dragger__body dragger__body--custom">{content}</div> : <form className="dragger__form" noValidate onSubmit={handleSubmit}>
-          <div className="dragger__body">{hasSteps ? activeStep?.content : children}</div>
+          <div className="dragger__body">{hasSteps ? activeStepItem?.content : children}</div>
           <footer className="dragger__footer">
-            {hasSteps && <span className="dragger__progress">{activeStep?.label} • {step + 1} of {steps.length}</span>}
+            {hasSteps && <span className="dragger__progress">{activeStepItem?.label} • {step + 1} of {steps.length}</span>}
             <div className="dragger__footer-actions">
-              {hasSteps ? <button type="button" className="dragger__cancel" onClick={() => setStep((current) => Math.max(0, current - 1))} disabled={step === 0}>{previousLabel}</button> : <button type="button" className="dragger__cancel" onClick={onClose}>Cancel</button>}
-              {showSubmit && (isLastStep ? <button type="submit" className="dragger__submit" disabled={submitting}>{submitting ? "Saving..." : submitLabel}</button> : <button type="button" className="dragger__submit" onClick={() => setStep((current) => Math.min(current + 1, steps.length - 1))}>{nextLabel}</button>)}
+              {hasSteps
+                ? <button type="button" className="dragger__cancel" onClick={() => goToStep(step - 1)} disabled={step === 0}>{previousLabel}</button>
+                : <button type="button" className="dragger__cancel" onClick={onClose}>Cancel</button>}
+
+              {/* Next and Submit are separate buttons with their own keys. Reusing one button and
+                  switching its type made React turn the clicked Next into a submit button,
+                  which saved the form as soon as the last step was reached. */}
+              {hasSteps && !isLastStep && (
+                <button
+                  key="next"
+                  type="button"
+                  className={submitOnEveryStep ? "dragger__cancel" : "dragger__submit"}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    goNext();
+                  }}
+                >
+                  {nextLabel}
+                </button>
+              )}
+              {showSubmitButton && (
+                <button key="submit" type="submit" className="dragger__submit" disabled={submitting}>
+                  {submitting ? "Saving..." : submitLabel}
+                </button>
+              )}
             </div>
           </footer>
         </form>}

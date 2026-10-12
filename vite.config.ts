@@ -37,7 +37,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/v1/api/product-categories": {
-        target: "http://192.168.1.113:52930",
+        target: "http://193.181.209.14:9595",
         changeOrigin: true,
         secure: false,
       },
