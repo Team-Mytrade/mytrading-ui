@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FileText,
@@ -8,329 +8,294 @@ import {
   Receipt,
   Calendar,
   TrendingUp,
-  ArrowUpRight,
-  ArrowDownRight,
+  BarChart3,
+  ScrollText,
 } from "lucide-react";
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
 } from "recharts";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import {
+  CHART_COLORS, CHART_TOOLTIP, EmptyState, KpiCard, LoadNotice, ModuleTiles, Panel, TABLE_CELL, TABLE_HEAD,
+  countOf, formatDate, formatMoney, formatNumber, getList, monthKeyOf, monthsBack, mostCommon, sum,
+  useDashboardSources,
+} from "../Dashboard/dashboardKit";
 
-// Mock Data
-const purchaseTrendData = [
-  { month: "Jan", orders: 12, value: 45000 },
-  { month: "Feb", orders: 18, value: 68000 },
-  { month: "Mar", orders: 15, value: 56000 },
-  { month: "Apr", orders: 22, value: 82000 },
-  { month: "May", orders: 28, value: 105000 },
-  { month: "Jun", orders: 25, value: 95000 },
-];
+// Live procurement overview built from the purchase and product-catalogue services.
 
-const supplierPerformanceData = [
-  { name: "Supplier A", orders: 45, value: 125000, color: "#06b6d4" },
-  { name: "Supplier B", orders: 32, value: 89000, color: "#10b981" },
-  { name: "Supplier C", orders: 28, value: 76000, color: "#f59e0b" },
-  { name: "Supplier D", orders: 20, value: 54000, color: "#8b5cf6" },
-];
+interface Requisition {
+  id: number;
+  requisitionNumber?: string;
+  status?: string;
+  requiredByDate?: string;
+  items?: { quantity?: number; estimatedUnitCost?: number }[];
+}
 
-const topProducts = [
-  { id: 1, name: "Product X", sku: "SKU-001", orders: 20, qty: 150, value: "$22,500" },
-  { id: 2, name: "Product Y", sku: "SKU-002", orders: 15, qty: 100, value: "$15,000" },
-  { id: 3, name: "Product Z", sku: "SKU-003", orders: 12, qty: 80, value: "$12,000" },
-  { id: 4, name: "Product W", sku: "SKU-004", orders: 10, qty: 60, value: "$9,000" },
-];
+interface PurchaseOrder {
+  id: number;
+  poNumber?: string;
+  orderDate?: string;
+  status?: string;
+  approvalStatus?: string;
+  totalAmount?: number;
+  currency?: string;
+  vendor?: { name?: string; vendorCode?: string } | null;
+  items?: { productId?: number; productCode?: string; productName?: string; quantity?: number; totalPrice?: number }[];
+}
 
-const pendingApprovals = [
-  { id: 1, type: "Purchase Requisition", reference: "PR-001", requester: "John Doe", amount: "$5,200", date: "2026-05-23" },
-  { id: 2, type: "Purchase Order", reference: "PO-045", requester: "Sarah Smith", amount: "$12,800", date: "2026-05-22" },
-  { id: 3, type: "Goods Receipt", reference: "GRN-012", requester: "Mike Johnson", amount: "$8,500", date: "2026-05-21" },
-];
+interface GoodsReceipt {
+  id: number;
+  receiptNumber?: string;
+  poNumber?: string;
+  receiptDate?: string;
+  status?: string;
+}
 
-// Navigation Modules
-const procurementModules = [
-  { name: "Purchase Requisitions", count: 45, icon: FileText, route: "/purchase-requisitions", color: "blue" },
-  { name: "Purchase Orders", count: 32, icon: ShoppingCart, route: "/purchase-orders", color: "emerald" },
-  { name: "Vendors", count: 12, icon: Truck, route: "/vendors", color: "orange" },
-  { name: "Products", count: 320, icon: Package, route: "/purchase-products", color: "purple" },
-  { name: "Goods Receipt Notes", count: 30, icon: Receipt, route: "/goods-receipt-notes", color: "pink" },
-  { name: "Terms and Conditions", count: 18, icon: FileText, route: "/terms-and-conditions", color: "indigo" },
-  { name: "Deliveries", count: 27, icon: Calendar, route: "/deliveries", color: "red" },
-];
+interface Vendor {
+  id: number;
+  active?: boolean | null;
+}
 
-const kpiItems = [
-  { label: "Total PRs", value: "45", change: "+8", trend: "up" as const, icon: FileText, color: "blue" },
-  { label: "Orders Pending", value: "12", change: "-3", trend: "down" as const, icon: ShoppingCart, color: "emerald" },
-  { label: "Active Suppliers", value: "12", change: "+2", trend: "up" as const, icon: Truck, color: "orange" },
-  { label: "GRN Pending", value: "8", change: "-2", trend: "down" as const, icon: Receipt, color: "purple" },
-];
-
-type ColorKey = "blue" | "emerald" | "orange" | "purple" | "pink" | "indigo" | "red" | "teal" | "yellow" | "green";
-type TrendKey = "up" | "down";
-
-const colorClasses: Record<ColorKey, string> = {
-  blue: "bg-blue-50 text-blue-600 group-hover:bg-blue-100",
-  emerald: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100",
-  orange: "bg-orange-50 text-orange-600 group-hover:bg-orange-100",
-  purple: "bg-purple-50 text-purple-600 group-hover:bg-purple-100",
-  pink: "bg-pink-50 text-pink-600 group-hover:bg-pink-100",
-  indigo: "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100",
-  red: "bg-red-50 text-red-600 group-hover:bg-red-100",
-  teal: "bg-teal-50 text-teal-600 group-hover:bg-teal-100",
-  yellow: "bg-yellow-50 text-yellow-600 group-hover:bg-yellow-100",
-  green: "bg-green-50 text-green-600 group-hover:bg-green-100",
+const PURCHASE = "/v1/api/purchase";
+const SOURCES = {
+  requisitions: () => getList<Requisition>(`${PURCHASE}/purchase-requisitions`),
+  orders: () => getList<PurchaseOrder>(`${PURCHASE}/purchase-orders`),
+  receipts: () => getList<GoodsReceipt>(`${PURCHASE}/grns`),
+  vendors: () => getList<Vendor>("/v1/api/product/vendors"),
+  products: () => countOf("/v1/api/product/products"),
+  terms: () => countOf(`${PURCHASE}/terms`),
+  deliveries: () => countOf(`${PURCHASE}/deliveries`),
+};
+const LABELS: Record<keyof typeof SOURCES, string> = {
+  requisitions: "requisitions",
+  orders: "purchase orders",
+  receipts: "goods receipts",
+  vendors: "vendors",
+  products: "products",
+  terms: "terms and conditions",
+  deliveries: "deliveries",
 };
 
-const kpiColorClasses: Record<ColorKey, string> = {
-  blue: "bg-blue-100 text-blue-600",
-  emerald: "bg-emerald-100 text-emerald-600",
-  orange: "bg-orange-100 text-orange-600",
-  purple: "bg-purple-100 text-purple-600",
-  pink: "bg-pink-100 text-pink-600",
-  indigo: "bg-indigo-100 text-indigo-600",
-  red: "bg-red-100 text-red-600",
-  teal: "bg-teal-100 text-teal-600",
-  yellow: "bg-yellow-100 text-yellow-600",
-  green: "bg-green-100 text-green-600",
-};
-
-const trendColors: Record<TrendKey, string> = {
-  up: "text-emerald-600 bg-emerald-50",
-  down: "text-red-600 bg-red-50",
-};
+const OPEN_REQUISITION = ["DRAFT", "SUBMITTED", "IN_REVIEW"];
+const AWAITING_APPROVAL = ["SUBMITTED", "IN_REVIEW"];
+const CLOSED_ORDER = ["RECEIVED", "CANCELLED"];
 
 const ProcurementDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { loading, data, failed } = useDashboardSources(SOURCES, LABELS);
+
+  const requisitions = (data.requisitions as Requisition[] | undefined) ?? [];
+  const orders = (data.orders as PurchaseOrder[] | undefined) ?? [];
+  const receipts = (data.receipts as GoodsReceipt[] | undefined) ?? [];
+  const vendors = data.vendors as Vendor[] | undefined;
+  const liveOrders = orders.filter((o) => o.status !== "CANCELLED");
+  const currency = mostCommon(orders.map((o) => o.currency), "INR");
+
+  const openRequisitions = requisitions.filter((r) => OPEN_REQUISITION.includes(r.status ?? ""));
+  const awaitingRequisitions = requisitions.filter((r) => AWAITING_APPROVAL.includes(r.status ?? ""));
+  const openOrders = orders.filter((o) => !CLOSED_ORDER.includes(o.status ?? ""));
+  const ordersAwaitingApproval = liveOrders.filter((o) => o.approvalStatus === "PENDING" || o.approvalStatus === "IN_REVIEW");
+  const draftReceipts = receipts.filter((g) => g.status === "DRAFT");
+
+  const trend = useMemo(() => monthsBack(6).map(({ key, label }) => {
+    const inMonth = liveOrders.filter((o) => monthKeyOf(o.orderDate) === key);
+    return { month: label, orders: inMonth.length, value: sum(inMonth, (o) => o.totalAmount) };
+  }), [liveOrders]);
+
+  const suppliers = useMemo(() => {
+    const byVendor = new Map<string, { name: string; orders: number; value: number }>();
+    liveOrders.forEach((o) => {
+      const name = o.vendor?.name || o.vendor?.vendorCode || "Unknown vendor";
+      const entry = byVendor.get(name) ?? { name, orders: 0, value: 0 };
+      entry.orders += 1;
+      entry.value += Number(o.totalAmount) || 0;
+      byVendor.set(name, entry);
+    });
+    return [...byVendor.values()].sort((a, b) => b.orders - a.orders || b.value - a.value).slice(0, 5);
+  }, [liveOrders]);
+
+  const topProducts = useMemo(() => {
+    const byProduct = new Map<string, { name: string; sku: string; orders: Set<number>; qty: number; value: number }>();
+    liveOrders.forEach((o) => (o.items ?? []).forEach((item) => {
+      const key = String(item.productId ?? item.productCode ?? item.productName ?? "");
+      if (!key) return;
+      const entry = byProduct.get(key) ?? { name: item.productName || item.productCode || `Product #${key}`, sku: item.productCode || "—", orders: new Set<number>(), qty: 0, value: 0 };
+      entry.orders.add(o.id);
+      entry.qty += Number(item.quantity) || 0;
+      entry.value += Number(item.totalPrice) || 0;
+      byProduct.set(key, entry);
+    }));
+    return [...byProduct.values()].sort((a, b) => b.value - a.value || b.qty - a.qty).slice(0, 5);
+  }, [liveOrders]);
+
+  const approvals = useMemo(() => [
+    ...awaitingRequisitions.map((r) => ({
+      key: `pr-${r.id}`, type: "Purchase requisition", reference: r.requisitionNumber || `PR #${r.id}`,
+      details: `${r.items?.length ?? 0} item(s)`, amount: sum(r.items ?? [], (i) => (Number(i.quantity) || 0) * (Number(i.estimatedUnitCost) || 0)),
+      date: r.requiredByDate, route: "/purchase-service/requisitions",
+    })),
+    ...ordersAwaitingApproval.map((o) => ({
+      key: `po-${o.id}`, type: "Purchase order", reference: o.poNumber || `PO #${o.id}`,
+      details: o.vendor?.name || "—", amount: Number(o.totalAmount) || 0,
+      date: o.orderDate, route: "/purchase-service/orders",
+    })),
+    ...draftReceipts.map((g) => ({
+      key: `grn-${g.id}`, type: "Goods receipt", reference: g.receiptNumber || `GRN #${g.id}`,
+      details: g.poNumber ? `PO ${g.poNumber}` : "—", amount: null as number | null,
+      date: g.receiptDate, route: "/purchase-service/goods-receipt-notes",
+    })),
+  ].sort((a, b) => String(b.date ?? "").localeCompare(String(a.date ?? ""))).slice(0, 6),
+  [awaitingRequisitions, ordersAwaitingApproval, draftReceipts]);
+
+  const countOrNull = (key: "products" | "terms" | "deliveries") => (typeof data[key] === "number" ? (data[key] as number) : null);
+  const tiles = [
+    { name: "Purchase Requisitions", count: data.requisitions ? requisitions.length : null, icon: FileText, route: "/purchase-service/requisitions", tone: "blue" as const },
+    { name: "Purchase Orders", count: data.orders ? orders.length : null, icon: ShoppingCart, route: "/purchase-service/orders", tone: "emerald" as const },
+    { name: "Goods Receipt Notes", count: data.receipts ? receipts.length : null, icon: Receipt, route: "/purchase-service/goods-receipt-notes", tone: "pink" as const },
+    { name: "Vendors", count: vendors ? vendors.length : null, icon: Truck, route: "/product-catalogue/vendors", tone: "orange" as const },
+    { name: "Products", count: countOrNull("products"), icon: Package, route: "/product-catalogue/products", tone: "purple" as const },
+    { name: "Terms and Conditions", count: countOrNull("terms"), icon: ScrollText, route: "/terms-and-conditions", tone: "indigo" as const },
+    { name: "Deliveries", count: countOrNull("deliveries"), icon: Calendar, route: "/deliveries", tone: "red" as const },
+    { name: "Purchase Reports", icon: BarChart3, route: "/purchase-reports", tone: "teal" as const },
+  ];
+
+  const pipeline = [
+    { title: "Requisition", tone: "text-blue-600", value: openRequisitions.length, note: "Open requisitions", route: "/purchase-service/requisitions" },
+    { title: "Purchase Order", tone: "text-emerald-600", value: openOrders.length, note: "Open purchase orders", route: "/purchase-service/orders" },
+    { title: "Goods Receipt", tone: "text-orange-600", value: draftReceipts.length, note: "Receipts in draft", route: "/purchase-service/goods-receipt-notes" },
+    { title: "Approval", tone: "text-purple-600", value: awaitingRequisitions.length + ordersAwaitingApproval.length, note: "Awaiting approval", route: "/purchase-service/requisitions" },
+  ];
 
   return (
     <>
       <PageMeta title="Procurement Dashboard" description="Procurement and purchasing overview" />
       <PageBreadcrumb pageTitle="Procurement Dashboard" />
 
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="mx-auto max-w-7xl p-6">
+        <LoadNotice failed={failed} />
+        <ModuleTiles tiles={tiles} loading={loading} />
 
-        {/* Navigation Modules Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-8">
-          {procurementModules.map((module) => {
-            const Icon = module.icon;
-            const colorClass = colorClasses[module.color as ColorKey];
-            return (
-              <button
-                key={module.name}
-                onClick={() => navigate(module.route)}
-                className="group flex flex-col items-center p-4 rounded-xl border border-gray-100 bg-white hover:shadow-md transition-all duration-200 hover:-translate-y-0.5"
-              >
-                <div className={`p-2.5 rounded-lg ${colorClass} transition-colors duration-200`}>
-                  <Icon className="h-5 w-5" />
-                </div>
-                <h4 className="mt-2 text-xs font-semibold text-gray-900 group-hover:text-cyan-600 transition-colors text-center">
-                  {module.name}
-                </h4>
-                <p className="text-xs text-gray-500 mt-0.5">{module.count}</p>
+        <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCard label="Open Requisitions" value={formatNumber(openRequisitions.length)} hint={`${formatNumber(requisitions.length)} in total`} icon={FileText} tone="blue" loading={loading} />
+          <KpiCard label="Open Purchase Orders" value={formatNumber(openOrders.length)} hint={`${formatNumber(orders.length)} in total`} icon={ShoppingCart} tone="emerald" loading={loading} />
+          <KpiCard label="Active Suppliers" value={vendors ? formatNumber(vendors.filter((v) => v.active !== false).length) : "—"} hint={vendors ? `${formatNumber(vendors.length)} vendors` : undefined} icon={Truck} tone="orange" loading={loading} />
+          <KpiCard label="Receipts in Draft" value={formatNumber(draftReceipts.length)} hint={`${formatNumber(receipts.length)} receipts`} icon={Receipt} tone="purple" loading={loading} />
+        </div>
+
+        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Panel title="Purchase Trend" subtitle="Purchase orders per month (last 6 months)" icon={TrendingUp} iconClass="text-emerald-500">
+            {liveOrders.length === 0 ? (
+              <EmptyState loading={loading}>No purchase orders yet.</EmptyState>
+            ) : (
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={trend}>
+                  <defs>
+                    <linearGradient id="purchaseGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
+                  <YAxis stroke="#9ca3af" fontSize={12} allowDecimals={false} />
+                  <Tooltip contentStyle={CHART_TOOLTIP} formatter={(value) => [value, "Orders"]} />
+                  <Area type="monotone" dataKey="orders" stroke="#06b6d4" strokeWidth={2} fill="url(#purchaseGradient)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </Panel>
+
+          <Panel title="Supplier Performance" subtitle="Purchase orders by supplier (top 5)" icon={Truck} iconClass="text-orange-500">
+            {suppliers.length === 0 ? (
+              <EmptyState loading={loading}>No purchase orders yet.</EmptyState>
+            ) : (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={suppliers} layout="vertical" margin={{ left: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis type="number" stroke="#9ca3af" fontSize={12} allowDecimals={false} />
+                  <YAxis type="category" dataKey="name" stroke="#9ca3af" fontSize={12} width={100} />
+                  <Tooltip contentStyle={CHART_TOOLTIP}
+                    formatter={(value, _name, item) => [`${value} order(s), ${formatMoney(Number(item?.payload?.value) || 0, currency)}`, "Orders"]} />
+                  <Bar dataKey="orders" radius={[0, 4, 4, 0]}>
+                    {suppliers.map((s, index) => <Cell key={s.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </Panel>
+        </div>
+
+        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Panel title="Top Products Ordered" subtitle="By order value" bodyClass="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
+              <thead className="bg-gray-50 dark:bg-gray-800/60">
+                <tr>
+                  <th className={TABLE_HEAD}>Product</th>
+                  <th className={TABLE_HEAD}>SKU</th>
+                  <th className={TABLE_HEAD}>Orders</th>
+                  <th className={TABLE_HEAD}>Quantity</th>
+                  <th className={TABLE_HEAD}>Value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {topProducts.length === 0 && (
+                  <tr><td colSpan={5} className={`${TABLE_CELL} text-center`}>{loading ? "Loading…" : "No order lines yet."}</td></tr>
+                )}
+                {topProducts.map((p) => (
+                  <tr key={p.name + p.sku} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                    <td className={`${TABLE_CELL} font-medium text-gray-900 dark:text-white`}>{p.name}</td>
+                    <td className={`${TABLE_CELL} font-mono`}>{p.sku}</td>
+                    <td className={TABLE_CELL}>{p.orders.size}</td>
+                    <td className={TABLE_CELL}>{formatNumber(p.qty)}</td>
+                    <td className={`${TABLE_CELL} font-medium text-gray-900 dark:text-white`}>{formatMoney(p.value, currency)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Panel>
+
+          <Panel title="Pending Approvals" subtitle="Requisitions and orders awaiting approval, receipts in draft" bodyClass="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
+              <thead className="bg-gray-50 dark:bg-gray-800/60">
+                <tr>
+                  <th className={TABLE_HEAD}>Type</th>
+                  <th className={TABLE_HEAD}>Reference</th>
+                  <th className={TABLE_HEAD}>Details</th>
+                  <th className={TABLE_HEAD}>Amount</th>
+                  <th className={TABLE_HEAD}>Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {approvals.length === 0 && (
+                  <tr><td colSpan={5} className={`${TABLE_CELL} text-center`}>{loading ? "Loading…" : "Nothing is waiting for approval."}</td></tr>
+                )}
+                {approvals.map((a) => (
+                  <tr key={a.key} onClick={() => navigate(a.route)} className="cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                    <td className={TABLE_CELL}>{a.type}</td>
+                    <td className={`${TABLE_CELL} font-mono font-medium text-gray-900 dark:text-white`}>{a.reference}</td>
+                    <td className={TABLE_CELL}>{a.details}</td>
+                    <td className={`${TABLE_CELL} font-medium text-gray-900 dark:text-white`}>{a.amount === null ? "—" : formatMoney(a.amount, currency)}</td>
+                    <td className={TABLE_CELL}>{formatDate(a.date)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Panel>
+        </div>
+
+        <Panel title="Procurement Pipeline" subtitle="Where open work currently sits">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {pipeline.map((stage) => (
+              <button key={stage.title} type="button" onClick={() => navigate(stage.route)}
+                className="rounded-lg bg-gray-50 p-4 text-left transition hover:bg-gray-100 dark:bg-gray-800/60 dark:hover:bg-gray-800">
+                <h4 className={`mb-2 text-sm font-semibold ${stage.tone}`}>{stage.title}</h4>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{loading ? "…" : formatNumber(stage.value)}</p>
+                <p className="mt-1 text-xs text-gray-500">{stage.note}</p>
               </button>
-            );
-          })}
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-          {kpiItems.map((kpi, idx) => {
-            const Icon = kpi.icon;
-            const TrendIcon = kpi.trend === "up" ? ArrowUpRight : ArrowDownRight;
-            const kpiColorClass = kpiColorClasses[kpi.color as ColorKey];
-            const trendColor = trendColors[kpi.trend];
-            return (
-              <div
-                key={idx}
-                className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-all duration-200"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`p-2.5 rounded-lg ${kpiColorClass}`}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${trendColor}`}>
-                    <TrendIcon className="h-3 w-3" />
-                    {kpi.change}
-                  </span>
-                </div>
-                <p className="text-2xl font-bold text-gray-900">{kpi.value}</p>
-                <p className="text-sm text-gray-500 mt-1">{kpi.label}</p>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Purchase Trend Chart */}
-          <div className="bg-white rounded-xl border border-gray-100 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900">Purchase Trend</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Monthly purchase orders</p>
-              </div>
-              <TrendingUp className="h-5 w-5 text-emerald-500" />
-            </div>
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={purchaseTrendData}>
-                <defs>
-                  <linearGradient id="purchaseGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
-                <YAxis stroke="#9ca3af" fontSize={12} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: "white", 
-                    border: "1px solid #e5e7eb", 
-                    borderRadius: "8px",
-                    fontSize: "12px"
-                  }} 
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="orders" 
-                  stroke="#06b6d4" 
-                  strokeWidth={2}
-                  fill="url(#purchaseGradient)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            ))}
           </div>
-
-          {/* Supplier Performance Chart */}
-          <div className="bg-white rounded-xl border border-gray-100 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900">Supplier Performance</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Orders by supplier</p>
-              </div>
-              <Truck className="h-5 w-5 text-orange-500" />
-            </div>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={supplierPerformanceData} layout="vertical" margin={{ left: 60 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis type="number" stroke="#9ca3af" fontSize={12} />
-                <YAxis type="category" dataKey="name" stroke="#9ca3af" fontSize={12} width={80} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: "white", 
-                    border: "1px solid #e5e7eb", 
-                    borderRadius: "8px",
-                    fontSize: "12px"
-                  }} 
-                />
-                <Bar dataKey="orders" radius={[0, 4, 4, 0]}>
-                  {supplierPerformanceData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Top Products & Pending Approvals */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Top Products Table */}
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-900">Top Products Ordered</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Most frequently ordered items</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-100">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {topProducts.map((product) => (
-                    <tr key={product.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-5 py-3 text-sm font-medium text-gray-900">{product.name}</td>
-                      <td className="px-5 py-3 text-sm font-mono text-gray-500">{product.sku}</td>
-                      <td className="px-5 py-3 text-sm text-gray-600">{product.orders}</td>
-                      <td className="px-5 py-3 text-sm text-gray-600">{product.qty}</td>
-                      <td className="px-5 py-3 text-sm font-medium text-gray-900">{product.value}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Pending Approvals */}
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-900">Pending Approvals</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Awaiting your action</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-100">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requester</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {pendingApprovals.map((approval) => (
-                    <tr key={approval.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-5 py-3 text-sm text-gray-600">{approval.type}</td>
-                      <td className="px-5 py-3 text-sm font-mono font-medium text-gray-900">{approval.reference}</td>
-                      <td className="px-5 py-3 text-sm text-gray-600">{approval.requester}</td>
-                      <td className="px-5 py-3 text-sm font-medium text-gray-900">{approval.amount}</td>
-                      <td className="px-5 py-3 text-sm text-gray-500">{approval.date}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Procurement Pipeline Summary */}
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900">Procurement Pipeline</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Current procurement stages</p>
-          </div>
-          <div className="p-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-blue-600 mb-2">Requisition</h4>
-                <p className="text-2xl font-bold text-gray-900">45</p>
-                <p className="text-xs text-gray-500 mt-1">Pending requisitions</p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-emerald-600 mb-2">Purchase Order</h4>
-                <p className="text-2xl font-bold text-gray-900">32</p>
-                <p className="text-xs text-gray-500 mt-1">Open POs</p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-orange-600 mb-2">Goods Receipt</h4>
-                <p className="text-2xl font-bold text-gray-900">30</p>
-                <p className="text-xs text-gray-500 mt-1">Pending GRNs</p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-purple-600 mb-2">Approval</h4>
-                <p className="text-2xl font-bold text-gray-900">9</p>
-                <p className="text-xs text-gray-500 mt-1">Pending approvals</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        </Panel>
       </div>
     </>
   );
