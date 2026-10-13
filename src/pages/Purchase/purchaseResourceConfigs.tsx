@@ -333,98 +333,32 @@ const todayLocal = () => {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 };
 
-/** Reads the payload (middle part) of a JWT, or null if it isn't a readable JWT. */
-const decodeJwtPayload = (token: unknown) => {
-  try {
-    const part = String(token || "").replace(/^Bearer\s+/i, "").split(".")[1];
-    if (!part) return null;
-    const base64 = part.replace(/-/g, "+").replace(/_/g, "/");
-    return JSON.parse(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "=")));
-  } catch {
-    return null;
-  }
-};
-
-/** First positive numeric user id found on an object (stored user or JWT payload). */
-const pickUserId = (source: any) =>
-  [source?.userId, source?.id, source?.user_id, source?.user?.userId, source?.user?.id]
-    .map((value) => toNumberOrZero(value))
-    .find((value) => value > 0) ?? 0;
-
-/**
- * Numeric id of the signed-in user, or 0 if it can't be found.
- * 1. Looks in localStorage "user" (userId / id).
- * 2. Otherwise reads userId from the login token (JWT) saved anywhere in localStorage.
- */
-const getLoggedInUserId = () => {
-  if (typeof window === "undefined") return 0;
-
-  const fromUser = pickUserId(getStoredUser());
-  if (fromUser > 0) return fromUser;
-
-  const storage = window.localStorage;
-  for (let index = 0; index < storage.length; index += 1) {
-    const raw = storage.getItem(storage.key(index) || "") || "";
-
-    // Token saved directly, e.g. localStorage.token = "eyJ..."
-    let fromToken = pickUserId(decodeJwtPayload(raw));
-    if (fromToken > 0) return fromToken;
-
-    // Token saved inside a JSON object, e.g. { "accessToken": "eyJ..." }
-    try {
-      const parsed = JSON.parse(raw);
-      fromToken = pickUserId(decodeJwtPayload(parsed?.token ?? parsed?.accessToken ?? parsed?.jwt));
-      if (fromToken > 0) return fromToken;
-    } catch {
-      // not JSON, ignore
-    }
-  }
-
-  return 0;
-};
-
-/** PRs in these statuses can no longer be turned into a purchase order. */
-const PR_CLOSED_STATUSES = ["REJECTED", "CANCELLED", "CLOSED", "ORDERED", "CONVERTED"];
 export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   title: "Purchase Requisitions",
   formSubtitle: "Create a requisition with the products and quantities required.",
   description: "Create purchase requisitions for products from the Product Catalogue service.",
   endpoint: `${PURCHASE}/purchase-requisitions`,
   getByIdEndpoint: (row) => `${PURCHASE}/purchase-requisitions/${row.id}`,
-<<<<<<< HEAD
-  // Status and requester are set by the server; status changes only via Submit/Approve/Reject/Cancel
+  // Status and requester are set by the server; status changes only via Submit/Approve/Reject/Cancel.
+  // Line items get their own tab.
+  formExtrasSection: "Items",
   columns: [
-    { key: "requisitionNumber", label: "Number" },
+    { key: "requisitionNumber", label: "PR Number" },
+    { key: "requiredByDate", label: "Required By", render: (row) => dateOnly(row.requiredByDate) || "--" },
+    { key: "items", label: "Items", render: (row) => String(Array.isArray(row.items) ? row.items.length : 0) },
+    { key: "userId", label: "Requested By", render: (row) => (row.userId ? String(row.userId) : "--") },
     { key: "notes", label: "Remarks" },
-    { key: "requiredByDate", label: "Required Date" },
-    { key: "userId", label: "Requested By" },
     { key: "status", label: "Status", render: (row) => statusBadge(String(row.status ?? "")) },
   ],
   fields: [
     {
-      name: "requiredDate",
-      label: "Required Date",
+      name: "requiredByDate", section: "Requisition Details",
+      label: "Required By Date",
       type: "date",
       required: true,
       defaultValue: todayIso(),
     },
-    { name: "remarks", label: "Remarks", type: "textarea", required: true, gridClassName: "md:col-span-2" },
-=======
-  // Line items get their own tab.
-  formExtrasSection: "Items",
-   columns: [
-    { key: "requisitionNumber", label: "PR Number" },
-    { key: "requiredByDate", label: "Required By", render: (row) => dateOnly(row.requiredByDate) || "--" },
-    { key: "items", label: "Items", render: (row) => String(Array.isArray(row.items) ? row.items.length : 0) },
-    { key: "status", label: "Status", render: (row) => statusBadge(row.status) },
-    { key: "userId", label: "User ID", render: (row) => (row.userId ? String(row.userId) : "--") },
-    { key: "notes", label: "Notes" },
-  ],
-  fields: [
-    { name: "requiredByDate", section: "Requisition Details", label: "Required By Date", type: "date", required: true },
-    { name: "userId", section: "Requisition Details", label: "User ID", type: "number", required: true },
-    { name: "notes", section: "Requisition Details", label: "Notes", type: "textarea", gridClassName: "md:col-span-2" },
->>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
+    { name: "notes", section: "Requisition Details", label: "Remarks", type: "textarea", required: true, gridClassName: "md:col-span-2" },
     {
       name: "productId",
       label: "Product",
@@ -434,39 +368,22 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
       gridClassName: "hidden",
     },
   ],
-<<<<<<< HEAD
-  searchFields: ["id", "requisitionNumber", "notes", "status", "userId"],
+  searchFields: ["requisitionNumber", "notes", "status", "userId"],
   initialFormState: {
-    requiredDate: todayIso(),
-    remarks: "",
-    items: [],
-  },
-  normalizeForm: (row) => ({
-    requiredDate: dateOnly(row.requiredDate || row.requiredByDate),
-    remarks: row.remarks || row.notes || "",
-=======
-   searchFields: ["requisitionNumber", "notes", "status", "userId"],
-    initialFormState: {
-    requiredByDate: "",
-    // Pre-filled with the signed-in user when it can be found; otherwise typed in.
-    userId: getLoggedInUserId() || "",
+    requiredByDate: todayIso(),
     notes: "",
     items: [],
   },
-    normalizeForm: (row) => ({
-    requiredByDate: dateOnly(row.requiredByDate),
-    userId: row.userId ?? "",
-    notes: row.notes || "",
-    status: row.status,
->>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
+  normalizeForm: (row) => ({
+    requiredByDate: dateOnly(row.requiredByDate || row.requiredDate),
+    notes: row.notes || row.remarks || "",
     items: Array.isArray(row.items) ? row.items : [],
   }),
-    validateForm: (form) => {
-    if (toNumberOrZero(form.userId) <= 0) return "Enter a valid User ID.";
-
+  validateForm: (form) => {
     const requiredByDate = String(form.requiredByDate || "");
     if (!requiredByDate) return "Select the required-by date.";
     if (requiredByDate < todayLocal()) return "Required-by date cannot be in the past.";
+    if (!String(form.notes || "").trim()) return "Enter remarks for this requisition.";
 
     const items = Array.isArray(form.items) ? (form.items as LineItem[]) : [];
     if (!items.length) return "Add at least one product.";
@@ -482,21 +399,11 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   renderFormExtras: ({ form, setForm, options }) => (
     <RequisitionItemsEditor form={form} setForm={setForm} options={options} />
   ),
-<<<<<<< HEAD
-  // Field names match the Purchase service (notes, requiredByDate); no status or requester
-  buildPayload: (form) => ({
-    requiredByDate: form.requiredDate,
-    notes: String(form.remarks || "").trim(),
-=======
-    buildPayload: (form, editingRow) => ({
-    // On edit only: send back backend-created values so they aren't cleared.
-    ...(editingRow ? { id: editingRow.id, requisitionNumber: editingRow.requisitionNumber } : {}),
+  // Field names match the Purchase service (notes, requiredByDate). No status or requester:
+  // the server sets them (requester from the login token, status through the workflow buttons).
+  buildPayload: (form, editingRow) => ({
     requiredByDate: form.requiredByDate,
-    status: form.status || "DRAFT",
-    notes: String(form.notes || "").trim() || null,
-    // TEMPORARY: from the form. Remove once BE reads the user from the JWT.
-    userId: toNumberOrZero(form.userId),
->>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
+    notes: String(form.notes || "").trim(),
     items: (Array.isArray(form.items) ? form.items : [])
       .filter((item) => item.productId && Number(item.quantity) > 0)
       .map((item) => {
@@ -513,41 +420,30 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
         };
       }),
   }),
-<<<<<<< HEAD
   // Workflow buttons by status and permission (the server enforces both), plus Create PO once approved.
   renderRowActions: (row, { refreshRows }) => (
     <>
       <RequisitionWorkflowActions row={row} refreshRows={refreshRows} />
-      {String(row.status) === "APPROVED" && (
-=======
-  // Icon-only Create PO button with tooltip in the Actions column.
-      // Icon-only Create PO button, hidden for PRs that are already closed.
-  renderRowActions: (row) =>
-    PR_CLOSED_STATUSES.includes(String(row.status || "").toUpperCase()) ? null : (
->>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          document.dispatchEvent(
-            new CustomEvent("purchase:convert-requisition", {
-              detail: { requisitionId: row.id },
-            })
-          );
-        }}
-        title="Create Purchase Order"
-        aria-label="Create Purchase Order"
-        className="group relative rounded-lg p-2 text-gray-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600"
-      >
-        <ShoppingCartIcon className="h-4 w-4" aria-hidden="true" />
-      </button>
-<<<<<<< HEAD
+      {String(row.status || "").toUpperCase() === "APPROVED" && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            document.dispatchEvent(
+              new CustomEvent("purchase:convert-requisition", {
+                detail: { requisitionId: row.id },
+              })
+            );
+          }}
+          title="Create Purchase Order"
+          aria-label="Create Purchase Order"
+          className="group relative rounded-lg p-2 text-gray-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600"
+        >
+          <ShoppingCartIcon className="h-4 w-4" aria-hidden="true" />
+        </button>
       )}
     </>
   ),
-=======
-    ),
->>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -742,11 +638,7 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
       label: "Order Date",
       type: "date",
       required: true,
-<<<<<<< HEAD
       defaultValue: todayIso(),
-=======
-      defaultValue: todayLocal(),
->>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
     },
     { name: "expectedDeliveryDate", section: "Vendor & Delivery", label: "Expected Delivery Date", type: "date", required: true },
     { name: "currency", section: "Terms & Shipping", label: "Currency", type: "select", required: true, defaultValue: "INR", options: ["INR", "USD", "EUR", "GBP", "AED"].map((value) => ({ value, label: value })) },

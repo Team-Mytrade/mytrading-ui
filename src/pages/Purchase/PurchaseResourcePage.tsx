@@ -178,7 +178,10 @@ export type PurchaseResourceConfig = {
   scope?: { idParam: string; nameParam: string; label: string };
 
   /** Icon-only or extra action buttons rendered inside the Actions cell */
-  renderRowActions?: (row: PurchaseRecord, context: { refreshRows: () => Promise<void> }) => React.ReactNode;
+  renderRowActions?: (
+    row: PurchaseRecord,
+    context: { refreshRows: () => Promise<void> }
+  ) => React.ReactNode;
 
   renderFormExtras?: (context: {
     form: PurchaseRecord;
@@ -850,7 +853,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         ),
       },
     ];
-  }, [config, emptyForm, inlineUpdatingId, navigate, openEdit, options]);
+  }, [config, emptyForm, inlineUpdatingId, loadRows, navigate, openEdit, options]);
 
   const supportsActiveFilter = useMemo(
     () => rows.some((row) => typeof row.active === "boolean"),
