@@ -11,7 +11,7 @@ export const AddButton = forwardRef<HTMLButtonElement, AddButtonProps>(
       ref={ref}
       type={type}
       className={[
-        "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-lg bg-cyan-600 px-4 py-1.5 font-medium text-white transition-colors",
+        "inline-flex h-7 items-center gap-2 whitespace-nowrap rounded-lg bg-cyan-600 px-3 py-1.5 font-medium text-white transition-colors",
         "hover:bg-cyan-700",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2",
         "disabled:cursor-not-allowed disabled:opacity-50",
@@ -19,7 +19,7 @@ export const AddButton = forwardRef<HTMLButtonElement, AddButtonProps>(
       ].join(" ")}
       {...props}
     >
-      <PlusIcon className="h-5 w-5" aria-hidden="true" />
+      <PlusIcon className="h-4 w-4" aria-hidden="true" />
       <span>{label}</span>
     </button>
   )

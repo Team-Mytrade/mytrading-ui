@@ -9,6 +9,7 @@ import PurchaseResourcePage, {
   SelectOption,
   toNumberOrZero,
 } from "../Purchase/PurchaseResourcePage";
+import { APP_ROUTES, recordLink } from "../../utils/appRoutes";
 
 /* ------------------------------------------------------------------ */
 /* Endpoints & constants                                               */
@@ -510,6 +511,8 @@ const baseProductConfig: PurchaseResourceConfig = {
   description: "Maintain products from the Product Catalogue service.",
   endpoint: PRODUCTS,
   getByIdEndpoint: (row) => `${PRODUCTS}/${row.id}`,
+  // Opened from a link: show only that product.
+  scope: { idParam: "productId", nameParam: "productName", label: "Product" },
   // Active / Inactive dropdown in the table. It saves the whole product with PUT, so the
   // product is first loaded in full by loadProduct() below (GET + batch), so no field is lost.
   allowInlineActiveToggle: true,
@@ -527,6 +530,15 @@ const baseProductConfig: PurchaseResourceConfig = {
       key: "categoryName",
       label: "Category",
       render: (row) => row.productCategory?.categoryName || row.categoryName || "--",
+      // Click → Product Categories page showing only this category.
+      link: (row) =>
+        recordLink(
+          APP_ROUTES.productCategories,
+          "categoryId",
+          row.productCategory?.id ?? row.categoryId,
+          "categoryName",
+          row.productCategory?.categoryName || row.categoryName
+        ),
     },
     { key: "brand", label: "Brand" },
     { key: "uom", label: "UOM" },
@@ -571,15 +583,17 @@ const baseProductConfig: PurchaseResourceConfig = {
             option.raw?.active !== false || String(option.value) === String(form.originalCategoryId ?? "")
         ),
     },
-    { name: "productName", section: "Category & Name", label: "Product Name", required: true },
-    { name: "shortName", section: "Category & Name", label: "Short Name" },
+    // Typed in small letters → shown and saved in CAPITALS.
+    { name: "productName", section: "Category & Name", label: "Product Name", required: true, textCase: "upper", maxLength: 100 },
+    { name: "shortName", section: "Category & Name", label: "Short Name", textCase: "upper", maxLength: 20 },
     { name: "description", section: "Category & Name", label: "Description", type: "textarea", gridClassName: "md:col-span-2" },
     // Tab 2: optional details that identify the exact item.
-    { name: "brand", section: "Brand & Identification", label: "Brand" },
-    { name: "modelNo", section: "Brand & Identification", label: "Model No" },
+    { name: "brand", section: "Brand & Identification", label: "Brand", textCase: "title", maxLength: 50 },
+    { name: "modelNo", section: "Brand & Identification", label: "Model No", textCase: "upper", maxLength: 50 },
     {
       name: "barcode", section: "Brand & Identification",
       label: "Barcode (EAN/UPC, 8–14 digits)",
+      maxLength: 14,
       // Standard retail barcodes are EAN-8, UPC-A (12), EAN-13 or GTIN-14: digits only.
       validate: (value) => {
         const barcode = String(value ?? "").replace(/\s/g, "");
@@ -598,8 +612,8 @@ const baseProductConfig: PurchaseResourceConfig = {
       defaultValue: "PIECES",
       options: UOM_OPTIONS.map((item) => ({ value: item, label: item })),
     },
-    { name: "standardCost", section: "Pricing & Tax", label: "Standard Cost", type: "number", defaultValue: 0 },
-    { name: "sellingPrice", section: "Pricing & Tax", label: "Selling Price", type: "number", defaultValue: 0 },
+    { name: "standardCost", section: "Pricing & Tax", label: "Standard Cost (₹)", type: "number", defaultValue: 0, min: 0, decimals: 2, max: 99999999 },
+    { name: "sellingPrice", section: "Pricing & Tax", label: "Selling Price (₹)", type: "number", defaultValue: 0, min: 0, decimals: 2, max: 99999999 },
     {
       name: "taxCode", section: "Pricing & Tax",
       label: "Tax Code",

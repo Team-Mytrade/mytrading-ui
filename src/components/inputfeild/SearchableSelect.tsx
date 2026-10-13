@@ -190,12 +190,12 @@ export default function SearchableSelect({
           event.target.select();
         }}
         onKeyDown={onKeyDown}
-        className="peer w-full rounded-xl border border-slate-300 bg-white px-4 pb-2 pt-5 pr-16 text-sm text-slate-800 outline-none transition focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+        className="peer w-full rounded-xl border border-slate-300 bg-white px-4 pb-2 pt-5 pr-16 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
       />
       <label
-        className={`pointer-events-none absolute left-4 text-slate-500 transition-all ${
+        className={`pointer-events-none absolute left-4 text-slate-500 transition-all dark:text-gray-400 ${
           hasText || open || emptyOptionLabel ? "top-1.5 text-xs" : "top-3.5 text-sm"
-        } peer-focus:text-cyan-600`}
+        } peer-focus:text-cyan-600 dark:peer-focus:text-cyan-400`}
       >
         {label}
         {required && <span className="text-red-500"> *</span>}
@@ -208,13 +208,13 @@ export default function SearchableSelect({
             tabIndex={-1}
             onMouseDown={(event) => event.preventDefault()}
             onClick={clear}
-            className="rounded p-0.5 text-slate-400 hover:text-slate-600"
+            className="rounded p-0.5 text-slate-400 hover:text-slate-600 dark:text-gray-500 dark:hover:text-gray-300"
             aria-label={`Clear ${label}`}
           >
             <XMarkIcon className="h-4 w-4" />
           </button>
         )}
-        <ChevronDownIcon className={`h-4 w-4 text-slate-400 transition ${open ? "rotate-180" : ""}`} />
+        <ChevronDownIcon className={`h-4 w-4 text-slate-400 transition dark:text-gray-500 ${open ? "rotate-180" : ""}`} />
       </div>
 
       {open && (
@@ -222,7 +222,7 @@ export default function SearchableSelect({
           id={listId}
           ref={listRef}
           role="listbox"
-          className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white py-1 text-sm shadow-lg"
+          className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white py-1 text-sm shadow-lg dark:border-gray-700 dark:bg-gray-900"
         >
           {showEmptyRow && (
             <li
@@ -231,8 +231,8 @@ export default function SearchableSelect({
               onMouseDown={(event) => event.preventDefault()}
               onClick={clear}
               onMouseEnter={() => setHighlight(0)}
-              className={`flex cursor-pointer items-center justify-between border-b border-slate-100 px-4 py-2 italic ${
-                highlight === 0 ? "bg-cyan-50 text-cyan-700" : "text-slate-500"
+              className={`flex cursor-pointer items-center justify-between border-b border-slate-100 px-4 py-2 italic dark:border-gray-800 ${
+                highlight === 0 ? "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300" : "text-slate-500 dark:text-gray-400"
               }`}
             >
               {emptyOptionLabel}
@@ -240,7 +240,7 @@ export default function SearchableSelect({
             </li>
           )}
           {filtered.length === 0 ? (
-            <li className="px-4 py-2 text-slate-400">{noResultsText}</li>
+            <li className="px-4 py-2 text-slate-400 dark:text-gray-500">{noResultsText}</li>
           ) : (
             filtered.map((option, index) => {
               const isSelected = String(option.value) === String(value ?? "");
@@ -255,7 +255,7 @@ export default function SearchableSelect({
                   onClick={() => choose(option)}
                   onMouseEnter={() => setHighlight(row)}
                   className={`flex cursor-pointer items-center justify-between px-4 py-2 ${
-                    row === highlight ? "bg-cyan-50 text-cyan-700" : "text-slate-700"
+                    row === highlight ? "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300" : "text-slate-700 dark:text-gray-200"
                   } ${isSelected ? "font-semibold" : ""}`}
                 >
                   {option.label}
