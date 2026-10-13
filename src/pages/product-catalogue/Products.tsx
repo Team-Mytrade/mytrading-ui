@@ -1,27 +1,61 @@
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import { ArrowDownTrayIcon, PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { ArrowDownTrayIcon, CheckCircleIcon, NoSymbolIcon, PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ToasterService } from "../../Services/ToasterService";
 import PurchaseResourcePage, {
   PurchaseRecord,
   PurchaseResourceConfig,
+  SelectOption,
   toNumberOrZero,
 } from "../Purchase/PurchaseResourcePage";
 
+/* ------------------------------------------------------------------ */
+/* Endpoints & constants                                               */
+/* ------------------------------------------------------------------ */
+
 const CATEGORIES = "/v1/api/product/product-categories";
 const PRODUCTS = "/v1/api/product/products";
-const PRODUCT_IMAGE_UPLOAD_BASE = "/v1/api/product/products";
-const PRODUCT_IMAGE_DOWNLOAD_BASE = "/v1/api/product/products";
+
+const productImageUrl = (productId: string | number) => `${PRODUCTS}/${productId}/downloadImage`;
+const productImageUploadUrl = (productId: string | number) => `${PRODUCTS}/${productId}/uploadImage`;
+
 const PRODUCT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const PRODUCT_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
-const PRODUCT_IMAGE_MAX_SIZE_BYTES = 5_000_000;
+const PRODUCT_IMAGE_MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
-const getProductImageDownloadUrl = (productId: string | number) =>
-  `${PRODUCT_IMAGE_DOWNLOAD_BASE}/${productId}/downloadImage`;
+const UOM_OPTIONS = [
+  "PIECES", "BOX", "PACK", "KILOGRAM", "GRAM", "LITRE", "MILLILITRE",
+  "METER", "CENTIMETER", "MILLIMETER", "DOZEN", "BAG", "ROLL",
+];
 
-const getProductImageUploadUrl = (productId: string | number) =>
-  `${PRODUCT_IMAGE_UPLOAD_BASE}/${productId}/uploadImage`;
+// Keep in sync with the tax codes the backend accepts.
+const TAX_CODES = ["GST0", "GST5", "GST18", "GST40"];
+
+/* ------------------------------------------------------------------ */
+/* Small helpers                                                       */
+/* ------------------------------------------------------------------ */
+
+/** Trimmed string, or null when empty (so the API stores NULL instead of ""). */
+const text = (value: unknown): string | null => {
+  const trimmed = String(value ?? "").trim();
+  return trimmed === "" ? null : trimmed;
+};
+
+/** Positive integer id, or null when nothing valid is selected. */
+const toId = (value: unknown): number | null => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
+/** Non-negative amount. */
+const toAmount = (value: unknown): number => Math.max(0, toNumberOrZero(value));
+
+const currencyFormatter = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 2,
+});
 
 const formatFileSize = (sizeInBytes: number) => {
   if (!Number.isFinite(sizeInBytes) || sizeInBytes <= 0) return "0 B";
@@ -30,18 +64,28 @@ const formatFileSize = (sizeInBytes: number) => {
   return `${(sizeInBytes / (1024 * 1024)).toFixed(2)} MB`;
 };
 
+const extensionForMimeType = (mimeType: string) => {
+  switch (mimeType.toLowerCase()) {
+    case "image/jpeg":
+      return "jpg";
+    case "image/webp":
+      return "webp";
+    default:
+      return "png";
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/* Image helpers                                                       */
+/* ------------------------------------------------------------------ */
+
 const validateProductImageFile = (file: File) => {
-  const fileName = String(file.name || "").toLowerCase();
+  const fileName = file.name.toLowerCase();
   const hasSupportedMimeType = PRODUCT_IMAGE_TYPES.includes(file.type);
-  const hasSupportedExtension = PRODUCT_IMAGE_EXTENSIONS.some((extension) =>
-    fileName.endsWith(extension)
-  );
+  const hasSupportedExtension = PRODUCT_IMAGE_EXTENSIONS.some((ext) => fileName.endsWith(ext));
 
   if (!hasSupportedMimeType || !hasSupportedExtension) {
-    ToasterService.error(
-      "Invalid image format",
-      "Only JPEG, PNG, and WEBP images are allowed."
-    );
+    ToasterService.error("Invalid image format", "Only JPEG, PNG, and WEBP images are allowed.");
     return false;
   }
 
@@ -59,285 +103,235 @@ const validateProductImageFile = (file: File) => {
 const uploadProductImage = async (productId: string | number, file: File) => {
   const payload = new FormData();
   payload.append("file", file);
-
-  await axios.post(getProductImageUploadUrl(productId), payload, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
+  // No manual Content-Type: the browser adds multipart/form-data with the correct boundary.
+  await axios.post(productImageUploadUrl(productId), payload);
 };
 
-const toProductImageFileName = (row: PurchaseRecord, fallbackExtension = "png") => {
-  const baseName = String(row.productName || row.shortName || row.productCode || `product-${row.id || "image"}`)
+const getErrorMessage = (error: any, fallback: string) =>
+  error?.response?.data?.message || error?.message || fallback;
+
+const toProductImageFileName = (row: PurchaseRecord, extension: string) => {
+  const baseName = String(row.productName || row.shortName || row.productCode || "")
     .trim()
     .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
     .replace(/\s+/g, "-");
 
-  const safeBaseName = baseName || `product-${row.id || "image"}`;
-  return `${safeBaseName}.${fallbackExtension}`;
+  return `${baseName || `product-${row.id ?? "image"}`}.${extension}`;
 };
 
 const getProductInitial = (row: PurchaseRecord) =>
   String(row.productName || row.shortName || row.productCode || "P").trim().charAt(0).toUpperCase() || "P";
 
-const createProductInitialDataUrl = (row: PurchaseRecord) => {
-  const size = 96;
+/** Draws the product's initial on a gradient square. */
+const drawInitial = (row: PurchaseRecord, size: number, colors: [string, string], textColor: string) => {
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
   const context = canvas.getContext("2d");
-
-  if (!context) return "";
+  if (!context) return null;
 
   const gradient = context.createLinearGradient(0, 0, size, size);
-  gradient.addColorStop(0, "#cffafe");
-  gradient.addColorStop(1, "#bfdbfe");
+  gradient.addColorStop(0, colors[0]);
+  gradient.addColorStop(1, colors[1]);
   context.fillStyle = gradient;
   context.fillRect(0, 0, size, size);
 
-  context.fillStyle = "#0f172a";
-  context.font = "bold 40px sans-serif";
+  context.fillStyle = textColor;
+  context.font = `bold ${Math.round(size / 2.2)}px sans-serif`;
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.fillText(getProductInitial(row), size / 2, size / 2);
 
-  return canvas.toDataURL("image/png");
+  return canvas;
 };
 
+/** Small placeholder shown in the table when a product has no image. */
+const createInitialPreviewUrl = (row: PurchaseRecord) =>
+  drawInitial(row, 96, ["#cffafe", "#bfdbfe"], "#0f172a")?.toDataURL("image/png") ?? "";
+
+/** Larger initial image that can be uploaded as the product image. */
 const createInitialImageFile = async (row: PurchaseRecord) => {
-  const size = 320;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const context = canvas.getContext("2d");
-
-  if (!context) {
-    throw new Error("Failed to generate initial image");
-  }
-
-  const gradient = context.createLinearGradient(0, 0, size, size);
-  gradient.addColorStop(0, "#0891b2");
-  gradient.addColorStop(1, "#2563eb");
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, size, size);
-
-  context.fillStyle = "#ffffff";
-  context.font = "bold 160px sans-serif";
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.fillText(getProductInitial(row), size / 2, size / 2);
+  const canvas = drawInitial(row, 320, ["#0891b2", "#2563eb"], "#ffffff");
+  if (!canvas) throw new Error("Failed to generate initial image");
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-  if (!blob) {
-    throw new Error("Failed to generate initial image");
-  }
+  if (!blob) throw new Error("Failed to generate initial image");
 
   return new File([blob], `product-${row.id}-initial.png`, { type: "image/png" });
 };
 
-const ProductImageCell = ({
-  row,
-  onUploaded,
-}: {
-  row: PurchaseRecord;
-  onUploaded: () => void;
-}) => {
-  const [imageUrl, setImageUrl] = useState<string>("");
-  const [hasRealImage, setHasRealImage] = useState(false);
+/* ------------------------------------------------------------------ */
+/* Image cell (table column)                                           */
+/* ------------------------------------------------------------------ */
+
+type LoadedImage = { url: string; type: string };
+
+const ProductImageCell = ({ row }: { row: PurchaseRecord }) => {
+  const [image, setImage] = useState<LoadedImage | null>(null);
+  const [imageVersion, setImageVersion] = useState(0);
   const [isLoadingImage, setIsLoadingImage] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const initialPreviewUrl = useMemo(
+    () => createInitialPreviewUrl(row),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [row.productName, row.shortName, row.productCode]
+  );
+
+  // Load the image only when the product has one (or one was just uploaded),
+  // instead of firing a request that 404s for every row without an image.
   useEffect(() => {
-    let objectUrl = "";
-
-    const loadImage = async () => {
-      if (!row?.id) {
-        setImageUrl("");
-        setHasRealImage(false);
-        return;
-      }
-
-      try {
-        setIsLoadingImage(true);
-        const response = await axios.get(getProductImageDownloadUrl(row.id), {
-          responseType: "blob",
-        });
-        objectUrl = window.URL.createObjectURL(response.data);
-        setImageUrl(objectUrl);
-        setHasRealImage(true);
-      } catch (_error) {
-        setImageUrl(createProductInitialDataUrl(row));
-        setHasRealImage(false);
-      } finally {
-        setIsLoadingImage(false);
-      }
-    };
-
-    loadImage();
-
-    return () => {
-      if (objectUrl) {
-        window.URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [row?.id, row?.imageName]);
-
-  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] || null;
-    event.target.value = "";
-    if (!file || !row?.id) return;
-
-    if (!validateProductImageFile(file)) {
+    if (!row?.id || (!row.imageName && imageVersion === 0)) {
+      setImage(null);
       return;
     }
 
+    let cancelled = false;
+    let objectUrl = "";
+
+    setIsLoadingImage(true);
+    axios
+      .get(productImageUrl(row.id), { responseType: "blob" })
+      .then((response) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(response.data);
+        setImage({ url: objectUrl, type: String(response.data?.type || "") });
+      })
+      .catch(() => {
+        if (!cancelled) setImage(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingImage(false);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [row?.id, row?.imageName, imageVersion]);
+
+  // Close the preview with the Escape key.
+  useEffect(() => {
+    if (!isPreviewOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsPreviewOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isPreviewOpen]);
+
+  const upload = async (file: File, successMessage: string) => {
+    if (!row?.id) return;
     try {
       setIsUploading(true);
       await uploadProductImage(row.id, file);
-      ToasterService.success("Product image uploaded");
-      onUploaded();
+      ToasterService.success(successMessage);
+      setImageVersion((current) => current + 1); // reload just this cell
     } catch (error: any) {
       console.error("Failed to upload product image", error);
-      ToasterService.error(
-        error.response?.data?.message || "Failed to upload product image"
-      );
+      ToasterService.error(getErrorMessage(error, "Failed to upload product image"));
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleDownload = async () => {
-    if (!row?.id || !hasRealImage) return;
-
-    try {
-      setIsDownloading(true);
-      const response = await axios.get(getProductImageDownloadUrl(row.id), {
-        responseType: "blob",
-      });
-      const blobUrl = window.URL.createObjectURL(response.data);
-      const link = document.createElement("a");
-      const contentType = String(response.data?.type || "").toLowerCase();
-      const extension =
-        contentType === "image/jpeg" ? "jpg" :
-        contentType === "image/png" ? "png" :
-        contentType === "image/webp" ? "webp" :
-        "png";
-      const fileName = toProductImageFileName(row, extension);
-      link.href = blobUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (error: any) {
-      console.error("Failed to download product image", error);
-      ToasterService.error(
-        error.response?.data?.message || "Failed to download product image"
-      );
-    } finally {
-      setIsDownloading(false);
-    }
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !validateProductImageFile(file)) return;
+    await upload(file, "Product image uploaded");
   };
 
   const handleUseInitial = async () => {
-    if (!row?.id) return;
-
     try {
-      setIsUploading(true);
       const initialFile = await createInitialImageFile(row);
-      await uploadProductImage(row.id, initialFile);
-      ToasterService.success("Product image changed to initial");
+      await upload(initialFile, "Product image changed to initial");
       setIsPreviewOpen(false);
-      onUploaded();
     } catch (error: any) {
-      console.error("Failed to set product initial image", error);
-      ToasterService.error(
-        error.response?.data?.message || error.message || "Failed to set product initial image"
-      );
-    } finally {
-      setIsUploading(false);
+      ToasterService.error(getErrorMessage(error, "Failed to set product initial image"));
     }
   };
 
-  const hasExistingImage = hasRealImage;
+  // The image is already loaded, so download it from memory instead of fetching it again.
+  const handleDownload = () => {
+    if (!image) return;
+    const link = document.createElement("a");
+    link.href = image.url;
+    link.download = toProductImageFileName(row, extensionForMimeType(image.type));
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const isBusy = isUploading || isLoadingImage;
+  const productLabel = row.productName || "Product image";
 
   return (
     <>
-      <div className="flex items-center gap-3">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={PRODUCT_IMAGE_TYPES.join(",")}
-          onChange={handleFileChange}
-          className="hidden"
-        />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={PRODUCT_IMAGE_TYPES.join(",")}
+        onChange={handleFileChange}
+        className="hidden"
+      />
 
-        {hasExistingImage ? (
-          <button
-            type="button"
-            onClick={() => setIsPreviewOpen(true)}
-            disabled={isLoadingImage}
-            className="h-12 w-12 overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:border-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
-            title={row.productName || "Product image"}
-          >
-            <img
-              src={imageUrl}
-              alt={row.productName || "Product image"}
-              className="h-full w-full object-cover"
-            />
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading || isLoadingImage}
-            className="h-12 w-12 overflow-hidden rounded-xl border border-cyan-200 bg-cyan-50 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
-            title={isUploading ? "Uploading image" : "Upload image"}
-          >
-            {imageUrl ? (
-              <img
-                src={imageUrl}
-                alt={row.productName || "Product initial"}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span className="flex h-full w-full items-center justify-center text-sm font-semibold text-cyan-700">
-                {isUploading ? "..." : isLoadingImage ? "..." : getProductInitial(row)}
-              </span>
-            )}
-          </button>
-        )}
-      </div>
+      {image ? (
+        <button
+          type="button"
+          onClick={() => setIsPreviewOpen(true)}
+          disabled={isBusy}
+          className="h-12 w-12 overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:border-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+          title={`View image of ${productLabel}`}
+        >
+          <img src={image.url} alt={productLabel} className="h-full w-full object-cover" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isBusy}
+          className="h-12 w-12 overflow-hidden rounded-xl border border-cyan-200 bg-cyan-50 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+          title={isUploading ? "Uploading image" : "Upload image"}
+        >
+          {isBusy || !initialPreviewUrl ? (
+            <span className="flex h-full w-full items-center justify-center text-sm font-semibold text-cyan-700">
+              {isBusy ? "..." : getProductInitial(row)}
+            </span>
+          ) : (
+            <img src={initialPreviewUrl} alt="" aria-hidden="true" className="h-full w-full object-cover" />
+          )}
+        </button>
+      )}
 
-      {isPreviewOpen && hasExistingImage && (
+      {isPreviewOpen && image && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
           onClick={() => setIsPreviewOpen(false)}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={productLabel}
             className="relative w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <button
               type="button"
               onClick={() => setIsPreviewOpen(false)}
+              aria-label="Close"
               className="absolute right-4 top-4 rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
             >
-              <XMarkIcon className="h-5 w-5" />
+              <XMarkIcon className="h-5 w-5" aria-hidden="true" />
             </button>
 
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-              <img
-                src={imageUrl}
-                alt={row.productName || "Product image"}
-                className="h-72 w-full object-cover"
-              />
+              <img src={image.url} alt={productLabel} className="h-72 w-full object-cover" />
             </div>
 
-            <div className="mt-4 text-sm font-semibold text-slate-800">{row.productName || "Product Image"}</div>
+            <div className="mt-4 text-sm font-semibold text-slate-800">{productLabel}</div>
 
             <div className="mt-4 flex flex-wrap gap-2">
               <button
@@ -346,7 +340,7 @@ const ProductImageCell = ({
                 disabled={isUploading}
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <PhotoIcon className="h-4 w-4" />
+                <PhotoIcon className="h-4 w-4" aria-hidden="true" />
                 {isUploading ? "Uploading..." : "Change"}
               </button>
               <button
@@ -360,11 +354,10 @@ const ProductImageCell = ({
               <button
                 type="button"
                 onClick={handleDownload}
-                disabled={isDownloading}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
               >
-                <ArrowDownTrayIcon className="h-4 w-4" />
-                {isDownloading ? "Downloading..." : "Download"}
+                <ArrowDownTrayIcon className="h-4 w-4" aria-hidden="true" />
+                Download
               </button>
             </div>
           </div>
@@ -374,66 +367,234 @@ const ProductImageCell = ({
   );
 };
 
+/* ------------------------------------------------------------------ */
+/* Validation                                                          */
+/* ------------------------------------------------------------------ */
+
+const cleanText = (value: unknown) => String(value ?? "").trim();
+
+/** Up to 2 decimal places, not negative. */
+const validateAmount = (label: string, value: unknown): string | null => {
+  const raw = cleanText(value);
+  if (raw === "") return null;
+  const amount = Number(raw);
+  if (!Number.isFinite(amount)) return `${label} must be a number`;
+  if (amount < 0) return `${label} cannot be negative`;
+  if (!/^\d+(\.\d{1,2})?$/.test(raw)) return `${label} can have at most 2 decimal places`;
+  if (amount > 99999999) return `${label} is too large`;
+  return null;
+};
+
+/**
+ * All product checks in one place.
+ * GST: the product's GST is its Tax Code (required, from the fixed list).
+ * The vendor's GSTIN is checked on the Vendor form, not here.
+ */
+const validateProductForm = (form: PurchaseRecord, categories: SelectOption[]): Record<string, string> => {
+  const errors: Record<string, string> = {};
+  const add = (field: string, message: string | null) => {
+    if (message && !errors[field]) errors[field] = message;
+  };
+
+  // Category: a deactivated category cannot take new products. An existing product
+  // may keep its own (now inactive) category, but cannot move into another inactive one.
+  const selected = categories.find((option) => String(option.value) === String(form.categoryId ?? ""));
+  const keepsOwnCategory = String(form.categoryId ?? "") === String(form.originalCategoryId ?? "");
+  if (selected && selected.raw?.active === false && !keepsOwnCategory) {
+    add("categoryId", `${selected.label} is inactive. Activate it in Product Categories, or choose another category.`);
+  }
+
+  // Names
+  const productName = cleanText(form.productName);
+  if (productName) {
+    if (productName.length < 2) add("productName", "Product name is too short");
+    else if (productName.length > 100) add("productName", "Product name can be at most 100 characters");
+    else if (!/[A-Za-z]/.test(productName)) add("productName", "Product name must contain letters");
+  }
+
+  const shortName = cleanText(form.shortName);
+  if (shortName) {
+    if (shortName.length < 2 || shortName.length > 20) add("shortName", "Short name must be 2–20 characters");
+    else if (!/^[A-Za-z0-9 &.-]+$/.test(shortName)) add("shortName", "Short name: letters, numbers, space, & . - only");
+  }
+
+  if (cleanText(form.description).length > 500) add("description", "Description can be at most 500 characters");
+
+  // Brand & identification
+  const brand = cleanText(form.brand);
+  if (brand) {
+    if (brand.length > 50) add("brand", "Brand can be at most 50 characters");
+    else if (!/[A-Za-z]/.test(brand)) add("brand", "Brand must contain letters");
+  }
+
+  const modelNo = cleanText(form.modelNo);
+  if (modelNo) {
+    if (modelNo.length > 50) add("modelNo", "Model No can be at most 50 characters");
+    else if (!/^[A-Za-z0-9][A-Za-z0-9 ./-]*$/.test(modelNo)) {
+      add("modelNo", "Model No: letters, numbers and - / . only (e.g. AR18BYNZXWK)");
+    }
+  }
+
+  // Pricing
+  add("standardCost", validateAmount("Standard cost", form.standardCost));
+  add("sellingPrice", validateAmount("Selling price", form.sellingPrice));
+
+  // Item type and tracking: shown as errors instead of being silently changed on save.
+  const serviceItem = Boolean(form.serviceItem);
+  const stockItem = Boolean(form.stockItem);
+  if (serviceItem && stockItem) add("serviceItem", "A product is either a Stock Item or a Service Item, not both");
+  if (!serviceItem && !stockItem) add("stockItem", "Choose Stock Item or Service Item");
+  if (!stockItem && form.serialTracking) add("serialTracking", "Serial tracking is only for stock items");
+  if (!stockItem && form.batchTracking) add("batchTracking", "Batch tracking is only for stock items");
+  if (form.expiryTracking && !form.batchTracking) add("expiryTracking", "Expiry tracking needs Batch Tracking (expiry is kept per batch)");
+
+  return errors;
+};
+
+/* ------------------------------------------------------------------ */
+/* Resource configuration                                              */
+/* ------------------------------------------------------------------ */
+
+const renderYesNo = (value: unknown) => (
+  <span
+    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+      value ? "bg-cyan-50 text-cyan-700" : "bg-slate-100 text-slate-500"
+    }`}
+  >
+    {value ? "Yes" : "No"}
+  </span>
+);
+
+const renderAmount = (key: string) => (row: PurchaseRecord) =>
+  row[key] == null ? "--" : currencyFormatter.format(Number(row[key]));
+
 const baseProductConfig: PurchaseResourceConfig = {
   title: "Products",
   description: "Maintain products from the Product Catalogue service.",
   endpoint: PRODUCTS,
   getByIdEndpoint: (row) => `${PRODUCTS}/${row.id}`,
-  allowInlineActiveToggle: true,
-  inlineBooleanFields: ["stockItem", "serviceItem"],
+  // Status changes use PATCH /products/{id}/activate|deactivate (row button in Actions),
+  // not a full PUT of the product, so no other field can be overwritten by mistake.
+  allowInlineActiveToggle: false,
+  // Stock/service flags are not toggled inline: changing them on a product that
+  // already has stock or transactions must go through the edit form.
+
   columns: [
-    { key: "imageName", label: "Image" },
+    { key: "imageName", label: "Image", render: (row) => <ProductImageCell row={row} /> },
     { key: "productName", label: "Product Name" },
     { key: "productCode", label: "Product Code" },
-    { key: "categoryName", label: "Category" },
+    // The product API now returns the category as a nested object (productCategory).
+    {
+      key: "categoryName",
+      label: "Category",
+      render: (row) => row.productCategory?.categoryName || row.categoryName || "--",
+    },
     { key: "brand", label: "Brand" },
     { key: "uom", label: "UOM" },
-    { key: "active", label: "Status" },
-    { key: "stockItem", label: "Stock Item" },
-    { key: "serviceItem", label: "Service Item" },
-    { key: "standardCost", label: "Standard Cost" },
-    { key: "sellingPrice", label: "Selling Price" },
-  ],
-  fields: [
-    { name: "productName", label: "Product Name", required: true },
-    { name: "shortName", label: "Short Name" },
-    { name: "description", label: "Description", type: "textarea", gridClassName: "md:col-span-2" },
+    // Yes/No, not Active/Inactive: these say what kind of item it is, not its status.
+    { key: "stockItem", label: "Stock Item", render: (row) => renderYesNo(row.stockItem) },
+    { key: "serviceItem", label: "Service Item", render: (row) => renderYesNo(row.serviceItem) },
+    { key: "standardCost", label: "Standard Cost", render: renderAmount("standardCost") },
+    { key: "sellingPrice", label: "Selling Price", render: renderAmount("sellingPrice") },
+    // Status is the last column, next to the Activate/Deactivate button in Actions.
     {
-      name: "categoryId",
+      key: "active",
+      label: "Status",
+      render: (row) => (
+        <span
+          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+            row.active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+          }`}
+        >
+          {row.active ? "Active" : "Inactive"}
+        </span>
+      ),
+    },
+  ],
+
+  fields: [
+    // Tab 1 starts with Category: it decides the product code (CATEGORY-SHORTCODE-0001),
+    // and only active categories can take new products. Then the product's name.
+    {
+      name: "categoryId", section: "Category & Name",
       label: "Category",
       type: "select",
       required: true,
+      searchable: true,
+      placeholder: "Type to search category",
       optionsEndpoint: CATEGORIES,
       optionLabel: "categoryName",
-      placeholderOption: "Select Category",
+      // Only active categories can take new products. An existing product keeps
+      // showing its current category even if that category was deactivated later.
+      getOptions: ({ form, options }) =>
+        (options.categoryId || []).filter(
+          (option) =>
+            option.raw?.active !== false || String(option.value) === String(form.originalCategoryId ?? "")
+        ),
     },
-    { name: "brand", label: "Brand" },
-    { name: "modelNo", label: "Model No" },
-    { name: "barcode", label: "Barcode" },
-    { name: "uom", label: "UOM", type: "select", defaultValue: "PIECES", options: ["PIECES", "BOX", "PACK", "KILOGRAM", "GRAM", "LITRE", "MILLILITRE", "METER", "CENTIMETER", "MILLIMETER", "DOZEN", "BAG", "ROLL"].map((item) => ({ value: item, label: item })) },
-    { name: "standardCost", label: "Standard Cost", type: "number", defaultValue: 0 },
-    { name: "sellingPrice", label: "Selling Price", type: "number", defaultValue: 0 },
-    { name: "taxCode", label: "Tax Code" },
-    { name: "stockItem", label: "Stock Item", type: "checkbox", defaultValue: true },
-    { name: "serviceItem", label: "Service Item", type: "checkbox", defaultValue: false },
-    { name: "serialTracking", label: "Serial Tracking", type: "checkbox", defaultValue: false },
-    { name: "batchTracking", label: "Batch Tracking", type: "checkbox", defaultValue: false },
-    { name: "expiryTracking", label: "Expiry Tracking", type: "checkbox", defaultValue: false },
-    { name: "active", label: "Active", type: "checkbox", defaultValue: true },
+    { name: "productName", section: "Category & Name", label: "Product Name", required: true },
+    { name: "shortName", section: "Category & Name", label: "Short Name" },
+    { name: "description", section: "Category & Name", label: "Description", type: "textarea", gridClassName: "md:col-span-2" },
+    // Tab 2: optional details that identify the exact item.
+    { name: "brand", section: "Brand & Identification", label: "Brand" },
+    { name: "modelNo", section: "Brand & Identification", label: "Model No" },
+    {
+      name: "barcode", section: "Brand & Identification",
+      label: "Barcode (EAN/UPC, 8–14 digits)",
+      // Standard retail barcodes are EAN-8, UPC-A (12), EAN-13 or GTIN-14: digits only.
+      validate: (value) => {
+        const barcode = String(value ?? "").replace(/\s/g, "");
+        if (!barcode) return null;
+        if (!/^[0-9]+$/.test(barcode)) return "Barcode must contain digits only";
+        return [8, 12, 13, 14].includes(barcode.length)
+          ? null
+          : `Barcode must be 8, 12, 13 or 14 digits (you entered ${barcode.length})`;
+      },
+    },
+    {
+      name: "uom", section: "Pricing & Tax",
+      label: "UOM",
+      type: "select",
+      required: true,
+      defaultValue: "PIECES",
+      options: UOM_OPTIONS.map((item) => ({ value: item, label: item })),
+    },
+    { name: "standardCost", section: "Pricing & Tax", label: "Standard Cost", type: "number", defaultValue: 0 },
+    { name: "sellingPrice", section: "Pricing & Tax", label: "Selling Price", type: "number", defaultValue: 0 },
+    {
+      name: "taxCode", section: "Pricing & Tax",
+      label: "Tax Code",
+      type: "select",
+      required: true,
+      options: TAX_CODES.map((item) => ({ value: item, label: item })),
+    },
+    { name: "stockItem", section: "Inventory Tracking", label: "Stock Item", type: "checkbox", defaultValue: true },
+    { name: "serviceItem", section: "Inventory Tracking", label: "Service Item", type: "checkbox", defaultValue: false },
+    { name: "serialTracking", section: "Inventory Tracking", label: "Serial Tracking", type: "checkbox", defaultValue: false },
+    { name: "batchTracking", section: "Inventory Tracking", label: "Batch Tracking", type: "checkbox", defaultValue: false },
+    { name: "expiryTracking", section: "Inventory Tracking", label: "Expiry Tracking (needs Batch Tracking)", type: "checkbox", defaultValue: false },
+    // Only on create. Existing products are activated/deactivated with the row button.
+    { name: "active", section: "Inventory Tracking", label: "Active", type: "checkbox", defaultValue: true, showOnEdit: false },
   ],
-  searchFields: ["productName", "categoryName", "brand", "uom", "imageName"],
+
+  searchFields: ["productName", "productCode", "categoryName", "brand", "uom"],
+
+  // Errors are shown under each field (and a red dot on its tab) while the user types.
+  validateFields: (form, _editingRow, { options }) => validateProductForm(form, options.categoryId || []),
+
+  // A new product starts empty; only sensible defaults are pre-filled.
   initialFormState: {
-    productName: "Premium A4 Copy Paper",
-    shortName: "A4 Copy Paper",
-    description: "Premium 75 GSM A4 copy paper for everyday office printing.",
+    productName: "",
+    shortName: "",
+    description: "",
     categoryId: "",
-    brand: "Acme Office",
-    modelNo: "ACP-A4-75",
-    barcode: "8901234567890",
-    uom: "PACK",
-    standardCost: 220,
-    sellingPrice: 275,
-    taxCode: "GST18",
+    brand: "",
+    modelNo: "",
+    barcode: "",
+    uom: "PIECES",
+    standardCost: 0,
+    sellingPrice: 0,
+    taxCode: "",
     stockItem: true,
     serviceItem: false,
     serialTracking: false,
@@ -441,155 +602,211 @@ const baseProductConfig: PurchaseResourceConfig = {
     expiryTracking: false,
     active: true,
   },
+
   normalizeForm: (row) => ({
     ...row,
-    categoryId: row.category?.id ?? row.categoryId ?? "",
+    categoryId: row.productCategory?.id ?? row.categoryId ?? row.category?.id ?? "",
+    // Remembered so an existing product can keep an (now inactive) category, but not move into one.
+    originalCategoryId: row.productCategory?.id ?? row.categoryId ?? row.category?.id ?? "",
   }),
-  buildPayload: (form) => {
+
+  buildPayload: (form, editingRow) => {
+    // Business rules:
+    //  - a service item is never a stock item and has no tracking
+    //  - serial/batch tracking only applies to stock items
+    //  - expiry is tracked per batch, so it requires batch tracking
+    const serviceItem = Boolean(form.serviceItem);
+    const stockItem = !serviceItem && Boolean(form.stockItem);
+    const batchTracking = stockItem && Boolean(form.batchTracking);
+
     return {
-      productName: form.productName,
-      shortName: form.shortName,
-      description: form.description,
-      categoryId: toNumberOrZero(form.categoryId),
-      brand: form.brand,
-      modelNo: form.modelNo,
-      barcode: form.barcode,
+      productName: text(form.productName),
+      shortName: text(form.shortName),
+      description: text(form.description),
+      categoryId: toId(form.categoryId),
+      brand: text(form.brand),
+      modelNo: text(form.modelNo),
+      barcode: text(form.barcode)?.replace(/\s/g, "") ?? null,
       uom: form.uom || "PIECES",
-      standardCost: toNumberOrZero(form.standardCost),
-      sellingPrice: toNumberOrZero(form.sellingPrice),
-      taxCode: form.taxCode,
-      stockItem: Boolean(form.stockItem),
-      serviceItem: Boolean(form.serviceItem),
-      serialTracking: Boolean(form.serialTracking),
-      batchTracking: Boolean(form.batchTracking),
-      expiryTracking: Boolean(form.expiryTracking),
-      active: Boolean(form.active),
+      standardCost: toAmount(form.standardCost),
+      sellingPrice: toAmount(form.sellingPrice),
+      taxCode: text(form.taxCode),
+      stockItem,
+      serviceItem,
+      serialTracking: stockItem && Boolean(form.serialTracking),
+      batchTracking,
+      expiryTracking: batchTracking && Boolean(form.expiryTracking),
+      // Edit keeps the current status; status changes go through PATCH activate/deactivate.
+      active: editingRow ? Boolean(editingRow.active) : Boolean(form.active),
     };
   },
 };
 
+/* ------------------------------------------------------------------ */
+/* Page                                                                */
+/* ------------------------------------------------------------------ */
+
 export default function Products() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+
+  // Set when the user clicks "+" on a category in the Categories page.
+  const [searchParams, setSearchParams] = useSearchParams();
   const categoryId = searchParams.get("categoryId") || "";
   const categoryName = searchParams.get("categoryName") || "";
+
   const [reloadKey, setReloadKey] = useState(0);
-  const [createdProductForImage, setCreatedProductForImage] = useState<PurchaseRecord | null>(null);
+  const [statusBusyId, setStatusBusyId] = useState<string | number | null>(null);
+  const [createdProduct, setCreatedProduct] = useState<PurchaseRecord | null>(null);
   const [postCreateImageFile, setPostCreateImageFile] = useState<File | null>(null);
   const [isPostCreateUploading, setIsPostCreateUploading] = useState(false);
 
-  const closePostCreateImagePopup = () => {
-    setCreatedProductForImage(null);
+  const closePostCreatePopup = () => {
+    setCreatedProduct(null);
     setPostCreateImageFile(null);
     setIsPostCreateUploading(false);
   };
 
   const handlePostCreateImageChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] || null;
+    const file = event.target.files?.[0] ?? null;
     event.target.value = "";
-
-    if (!file) {
-      setPostCreateImageFile(null);
-      return;
-    }
-
-    if (!validateProductImageFile(file)) {
-      setPostCreateImageFile(null);
-      return;
-    }
-
-    setPostCreateImageFile(file);
+    setPostCreateImageFile(file && validateProductImageFile(file) ? file : null);
   };
 
   const handlePostCreateImageUpload = async () => {
-    if (!createdProductForImage?.id || !postCreateImageFile) return;
+    if (!createdProduct?.id || !postCreateImageFile) return;
 
     try {
       setIsPostCreateUploading(true);
-      await uploadProductImage(createdProductForImage.id, postCreateImageFile);
+      await uploadProductImage(createdProduct.id, postCreateImageFile);
       ToasterService.success("Product image uploaded");
-      setReloadKey((current) => current + 1);
-      closePostCreateImagePopup();
+      setReloadKey((current) => current + 1); // refresh the list so the new image shows
+      closePostCreatePopup();
     } catch (error: any) {
       console.error("Failed to upload product image", error);
+      ToasterService.error(getErrorMessage(error, "Failed to upload product image"));
+      setIsPostCreateUploading(false);
+    }
+  };
+
+  /** PATCH /products/{id}/activate or /deactivate, then reload the list. */
+  const changeStatus = async (row: PurchaseRecord, activate: boolean) => {
+    const name = String(row.productName || "this product");
+    if (!activate && !window.confirm(`Deactivate ${name}? It can no longer be added to new PRs and POs.`)) return;
+
+    try {
+      setStatusBusyId(row.id ?? null);
+      await axios.patch(`${PRODUCTS}/${row.id}/${activate ? "activate" : "deactivate"}`);
+      ToasterService.success(`${name} ${activate ? "activated" : "deactivated"}`);
+      setReloadKey((current) => current + 1);
+    } catch (error: any) {
+      const status = error?.response?.status;
       ToasterService.error(
-        error.response?.data?.message || "Failed to upload product image"
+        status === 404 || status === 405
+          ? "Status change is not available on the server yet (PATCH activate/deactivate missing)."
+          : getErrorMessage(error, `Could not change the status of ${name}`)
       );
     } finally {
-      setIsPostCreateUploading(false);
+      setStatusBusyId(null);
     }
   };
 
   const productConfig: PurchaseResourceConfig = {
     ...baseProductConfig,
+
+    // Activate / Deactivate button in the Actions column (before Edit and Delete).
+    renderRowActions: (row) => {
+      const name = String(row.productName || "this product");
+      const isBusy = statusBusyId === row.id;
+      return row.active ? (
+        <button
+          type="button"
+          disabled={isBusy}
+          onClick={(event) => {
+            event.stopPropagation();
+            changeStatus(row, false);
+          }}
+          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+          title={`Deactivate ${name}`}
+          aria-label={`Deactivate ${name}`}
+        >
+          <NoSymbolIcon className="h-4 w-4" aria-hidden="true" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          disabled={isBusy}
+          onClick={(event) => {
+            event.stopPropagation();
+            changeStatus(row, true);
+          }}
+          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-green-50 hover:text-green-600 disabled:opacity-50"
+          title={`Activate ${name}`}
+          aria-label={`Activate ${name}`}
+        >
+          <CheckCircleIcon className="h-4 w-4" aria-hidden="true" />
+        </button>
+      );
+    },
+
+    // Coming from a category: open the create form with that category pre-selected.
     autoOpenCreate: Boolean(categoryId),
     autoOpenCreateKey: categoryId ? `category-product-${categoryId}` : undefined,
     initialCreateState: categoryId ? { categoryId } : undefined,
     formSubtitle: categoryName ? `Creating a product in ${categoryName}.` : undefined,
+
     afterSubmit: ({ savedRow, isCreate }) => {
       if (!isCreate || !savedRow?.id) return;
-      setCreatedProductForImage(savedRow);
+
+      // The category link has done its job. Clear it so the create form
+      // doesn't open again when the list reloads (e.g. after the image upload).
+      if (categoryId) setSearchParams({}, { replace: true });
+
+      setCreatedProduct(savedRow);
       setPostCreateImageFile(null);
     },
-    columns: baseProductConfig.columns.map((column) =>
-      column.key === "imageName"
-        ? {
-            ...column,
-            render: (row) => (
-              <ProductImageCell
-                row={row}
-                onUploaded={() => setReloadKey((current) => current + 1)}
-              />
-            ),
-          }
-        : column
+    renderSearchExtras: () => (
+      <button
+        type="button"
+        onClick={() => navigate("/product-catalogue/categories")}
+        className="inline-flex items-center rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100"
+      >
+        + Category
+      </button>
     ),
   };
 
   return (
     <>
-      <PurchaseResourcePage
-        key={reloadKey}
-        config={{
-          ...productConfig,
-         
-          //this added
-          renderSearchExtras: () => (
-            <div>
-          <button
-            type="button"
-            onClick={() => navigate("/product-catalogue/categories")}
-            className="inline-flex items-center mt-2 -my-6 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100"
-          >
-            + Category
-          </button>
-          </div>
-        ),
-        }}
-      />
+      <PurchaseResourcePage key={reloadKey} config={productConfig} />
 
-      {createdProductForImage && (
+      {createdProduct && (
         <div
           className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-          onClick={closePostCreateImagePopup}
+          onClick={closePostCreatePopup}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="upload-product-image-title"
             className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-lg font-semibold text-slate-900">Upload Product Image</h3>
+                <h3 id="upload-product-image-title" className="text-lg font-semibold text-slate-900">
+                  Upload Product Image
+                </h3>
                 <p className="mt-1 text-sm text-slate-500">
-                  Product created successfully. Upload an image for {createdProductForImage.productName || "this product"}.
+                  Product created successfully. Upload an image for {createdProduct.productName || "this product"}.
                 </p>
               </div>
               <button
                 type="button"
-                onClick={closePostCreateImagePopup}
+                onClick={closePostCreatePopup}
+                aria-label="Close"
                 className="rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
               >
-                <XMarkIcon className="h-5 w-5" />
+                <XMarkIcon className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
 
@@ -614,7 +831,7 @@ export default function Products() {
             <div className="mt-5 flex flex-wrap justify-end gap-2">
               <button
                 type="button"
-                onClick={closePostCreateImagePopup}
+                onClick={closePostCreatePopup}
                 className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
               >
                 Skip
