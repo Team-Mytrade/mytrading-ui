@@ -391,25 +391,7 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   description: "Create purchase requisitions for products from the Product Catalogue service.",
   endpoint: `${PURCHASE}/purchase-requisitions`,
   getByIdEndpoint: (row) => `${PURCHASE}/purchase-requisitions/${row.id}`,
-<<<<<<< HEAD
-  // Status and requester are set by the server; status changes only via Submit/Approve/Reject/Cancel
-  columns: [
-    { key: "requisitionNumber", label: "Number" },
-    { key: "notes", label: "Remarks" },
-    { key: "requiredByDate", label: "Required Date" },
-    { key: "userId", label: "Requested By" },
-    { key: "status", label: "Status", render: (row) => statusBadge(String(row.status ?? "")) },
-  ],
-  fields: [
-    {
-      name: "requiredDate",
-      label: "Required Date",
-      type: "date",
-      required: true,
-      defaultValue: todayIso(),
-    },
-    { name: "remarks", label: "Remarks", type: "textarea", required: true, gridClassName: "md:col-span-2" },
-=======
+
   // Line items get their own tab.
   formExtrasSection: "Items",
    columns: [
@@ -424,7 +406,7 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
     { name: "requiredByDate", section: "Requisition Details", label: "Required By Date", type: "date", required: true },
     { name: "userId", section: "Requisition Details", label: "User ID", type: "number", required: true },
     { name: "notes", section: "Requisition Details", label: "Notes", type: "textarea", gridClassName: "md:col-span-2" },
->>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
+
     {
       name: "productId",
       label: "Product",
@@ -434,17 +416,7 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
       gridClassName: "hidden",
     },
   ],
-<<<<<<< HEAD
-  searchFields: ["id", "requisitionNumber", "notes", "status", "userId"],
-  initialFormState: {
-    requiredDate: todayIso(),
-    remarks: "",
-    items: [],
-  },
-  normalizeForm: (row) => ({
-    requiredDate: dateOnly(row.requiredDate || row.requiredByDate),
-    remarks: row.remarks || row.notes || "",
-=======
+
    searchFields: ["requisitionNumber", "notes", "status", "userId"],
     initialFormState: {
     requiredByDate: "",
@@ -458,7 +430,7 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
     userId: row.userId ?? "",
     notes: row.notes || "",
     status: row.status,
->>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
+
     items: Array.isArray(row.items) ? row.items : [],
   }),
     validateForm: (form) => {
@@ -482,12 +454,7 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   renderFormExtras: ({ form, setForm, options }) => (
     <RequisitionItemsEditor form={form} setForm={setForm} options={options} />
   ),
-<<<<<<< HEAD
-  // Field names match the Purchase service (notes, requiredByDate); no status or requester
-  buildPayload: (form) => ({
-    requiredByDate: form.requiredDate,
-    notes: String(form.remarks || "").trim(),
-=======
+
     buildPayload: (form, editingRow) => ({
     // On edit only: send back backend-created values so they aren't cleared.
     ...(editingRow ? { id: editingRow.id, requisitionNumber: editingRow.requisitionNumber } : {}),
@@ -496,7 +463,7 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
     notes: String(form.notes || "").trim() || null,
     // TEMPORARY: from the form. Remove once BE reads the user from the JWT.
     userId: toNumberOrZero(form.userId),
->>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
+
     items: (Array.isArray(form.items) ? form.items : [])
       .filter((item) => item.productId && Number(item.quantity) > 0)
       .map((item) => {
@@ -513,18 +480,12 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
         };
       }),
   }),
-<<<<<<< HEAD
-  // Workflow buttons by status and permission (the server enforces both), plus Create PO once approved.
-  renderRowActions: (row, { refreshRows }) => (
-    <>
-      <RequisitionWorkflowActions row={row} refreshRows={refreshRows} />
-      {String(row.status) === "APPROVED" && (
-=======
+
   // Icon-only Create PO button with tooltip in the Actions column.
       // Icon-only Create PO button, hidden for PRs that are already closed.
   renderRowActions: (row) =>
     PR_CLOSED_STATUSES.includes(String(row.status || "").toUpperCase()) ? null : (
->>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
+
       <button
         type="button"
         onClick={(e) => {
@@ -541,13 +502,9 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
       >
         <ShoppingCartIcon className="h-4 w-4" aria-hidden="true" />
       </button>
-<<<<<<< HEAD
-      )}
-    </>
-  ),
-=======
+
     ),
->>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
+
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -742,11 +699,8 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
       label: "Order Date",
       type: "date",
       required: true,
-<<<<<<< HEAD
-      defaultValue: todayIso(),
-=======
+
       defaultValue: todayLocal(),
->>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
     },
     { name: "expectedDeliveryDate", section: "Vendor & Delivery", label: "Expected Delivery Date", type: "date", required: true },
     { name: "currency", section: "Terms & Shipping", label: "Currency", type: "select", required: true, defaultValue: "INR", options: ["INR", "USD", "EUR", "GBP", "AED"].map((value) => ({ value, label: value })) },
