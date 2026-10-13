@@ -1,4 +1,4 @@
-import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import React, { ChangeEvent, FormEvent, KeyboardEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -249,6 +249,8 @@ const SalesPersons: React.FC = () => {
         : await axios.post<SalesPerson>(API_URL, payload, { headers });
       const savedPerson = mergeSubmittedIds(res.data, payload);
 
+      // Updating this state also refreshes the open Row Details drawer:
+      // ReusableTable re-syncs its selected row from `data` by id.
       setSalesPersons((current) => {
         const exists = current.some((item) => item.id === savedPerson.id);
         if (exists) return current.map((item) => (item.id === savedPerson.id ? savedPerson : item));
@@ -520,6 +522,21 @@ const SalesPersons: React.FC = () => {
           defaultSortKey="id"
           defaultSortOrder="desc"
           hiddenDetailKeys={["id"]}
+          // Hide the Row Details drawer while the edit popup is open; it comes back
+          // (with the updated row) as soon as the popup closes - cancel or save.
+          suspendRowDetails={showFormModal}
+          // NEW: Edit button shown at the top-right of the Row Details drawer.
+          // Uses the same openEdit() as the pencil icon in the table.
+          rowDetailsActions={(person) => (
+            <button
+              type="button"
+              onClick={() => openEdit(person)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-medium text-cyan-700 transition-colors hover:bg-cyan-100 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-300 dark:hover:bg-cyan-900/40"
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+              Edit
+            </button>
+          )}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <UserGroupIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
@@ -536,41 +553,48 @@ const SalesPersons: React.FC = () => {
         />
       </div>
 
-      <PaginatedPopup
-        isOpen={showFormModal}
-        title={editingId ? "Edit Sales Person" : "Create Sales Person"}
-        subtitle="Select the user and region for this sales person"
-        onClose={closeForm}
-        onSubmit={handleSubmit}
-        submitting={submitting}
-        submitLabel={editingId ? "Update Sales Person" : "Create Sales Person"}
-        maxWidthClassName="max-w-2xl"
-        tabs={[
-          {
-            label: "Basic Info",
-            fields: [
-              <FloatingSelect
-                label="User"
-                name="userId"
-                value={form.userId}
-                onChange={handleChange}
-                options={users.map((user) => ({
-                  id: user.userId,
-                  name: getUserFullName(user) || user.userId,
-                }))}
-                required
-              />,
-              <FloatingSelect
-                label="Region"
-                name="region"
-                value={form.region}
-                onChange={handleChange}
-                options={REGION_OPTIONS}
-              />,
-            ],
-          },
-        ]}
-      />
+      {/* z-index wrapper: keeps the edit popup ABOVE the Row Details drawer,
+          so the drawer stays open underneath and is still there (with fresh
+          data) once the popup closes after saving. */}
+      <div style={{ position: "relative", zIndex: 9999 }}>
+        <PaginatedPopup
+          isOpen={showFormModal}
+          title={editingId ? "Edit Sales Person" : "Create Sales Person"}
+          subtitle="Select the user and region for this sales person"
+          onClose={closeForm}
+          onSubmit={handleSubmit}
+          submitting={submitting}
+          submitLabel={editingId ? "Update Sales Person" : "Create Sales Person"}
+          maxWidthClassName="max-w-2xl"
+          tabs={[
+            {
+              label: "Basic Info",
+              fields: [
+                <FloatingSelect
+                  key="userId"
+                  label="User"
+                  name="userId"
+                  value={form.userId}
+                  onChange={handleChange}
+                  options={users.map((user) => ({
+                    id: user.userId,
+                    name: getUserFullName(user) || user.userId,
+                  }))}
+                  required
+                />,
+                <FloatingSelect
+                  key="region"
+                  label="Region"
+                  name="region"
+                  value={form.region}
+                  onChange={handleChange}
+                  options={REGION_OPTIONS}
+                />,
+              ],
+            },
+          ]}
+        />
+      </div>
     </>
   );
 };
