@@ -391,7 +391,6 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   description: "Create purchase requisitions for products from the Product Catalogue service.",
   endpoint: `${PURCHASE}/purchase-requisitions`,
   getByIdEndpoint: (row) => `${PURCHASE}/purchase-requisitions/${row.id}`,
-<<<<<<< HEAD
   // Status and requester are set by the server; status changes only via Submit/Approve/Reject/Cancel
   columns: [
     { key: "requisitionNumber", label: "Number" },
@@ -409,22 +408,6 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
       defaultValue: todayIso(),
     },
     { name: "remarks", label: "Remarks", type: "textarea", required: true, gridClassName: "md:col-span-2" },
-=======
-  // Line items get their own tab.
-  formExtrasSection: "Items",
-   columns: [
-    { key: "requisitionNumber", label: "PR Number" },
-    { key: "requiredByDate", label: "Required By", render: (row) => dateOnly(row.requiredByDate) || "--" },
-    { key: "items", label: "Items", render: (row) => String(Array.isArray(row.items) ? row.items.length : 0) },
-    { key: "status", label: "Status", render: (row) => statusBadge(row.status) },
-    { key: "userId", label: "User ID", render: (row) => (row.userId ? String(row.userId) : "--") },
-    { key: "notes", label: "Notes" },
-  ],
-  fields: [
-    { name: "requiredByDate", section: "Requisition Details", label: "Required By Date", type: "date", required: true },
-    { name: "userId", section: "Requisition Details", label: "User ID", type: "number", required: true },
-    { name: "notes", section: "Requisition Details", label: "Notes", type: "textarea", gridClassName: "md:col-span-2" },
->>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
     {
       name: "productId",
       label: "Product",
@@ -434,7 +417,6 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
       gridClassName: "hidden",
     },
   ],
-<<<<<<< HEAD
   searchFields: ["id", "requisitionNumber", "notes", "status", "userId"],
   initialFormState: {
     requiredDate: todayIso(),
@@ -444,27 +426,11 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   normalizeForm: (row) => ({
     requiredDate: dateOnly(row.requiredDate || row.requiredByDate),
     remarks: row.remarks || row.notes || "",
-=======
-   searchFields: ["requisitionNumber", "notes", "status", "userId"],
-    initialFormState: {
-    requiredByDate: "",
-    // Pre-filled with the signed-in user when it can be found; otherwise typed in.
-    userId: getLoggedInUserId() || "",
-    notes: "",
-    items: [],
-  },
-    normalizeForm: (row) => ({
-    requiredByDate: dateOnly(row.requiredByDate),
-    userId: row.userId ?? "",
-    notes: row.notes || "",
-    status: row.status,
->>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
     items: Array.isArray(row.items) ? row.items : [],
   }),
     validateForm: (form) => {
-    if (toNumberOrZero(form.userId) <= 0) return "Enter a valid User ID.";
 
-    const requiredByDate = String(form.requiredByDate || "");
+    const requiredByDate = String(form.requiredDate || "");
     if (!requiredByDate) return "Select the required-by date.";
     if (requiredByDate < todayLocal()) return "Required-by date cannot be in the past.";
 
@@ -482,21 +448,10 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   renderFormExtras: ({ form, setForm, options }) => (
     <RequisitionItemsEditor form={form} setForm={setForm} options={options} />
   ),
-<<<<<<< HEAD
   // Field names match the Purchase service (notes, requiredByDate); no status or requester
-  buildPayload: (form) => ({
+  buildPayload: (form, editingRow) => ({
     requiredByDate: form.requiredDate,
     notes: String(form.remarks || "").trim(),
-=======
-    buildPayload: (form, editingRow) => ({
-    // On edit only: send back backend-created values so they aren't cleared.
-    ...(editingRow ? { id: editingRow.id, requisitionNumber: editingRow.requisitionNumber } : {}),
-    requiredByDate: form.requiredByDate,
-    status: form.status || "DRAFT",
-    notes: String(form.notes || "").trim() || null,
-    // TEMPORARY: from the form. Remove once BE reads the user from the JWT.
-    userId: toNumberOrZero(form.userId),
->>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
     items: (Array.isArray(form.items) ? form.items : [])
       .filter((item) => item.productId && Number(item.quantity) > 0)
       .map((item) => {
@@ -513,18 +468,11 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
         };
       }),
   }),
-<<<<<<< HEAD
   // Workflow buttons by status and permission (the server enforces both), plus Create PO once approved.
   renderRowActions: (row, { refreshRows }) => (
     <>
       <RequisitionWorkflowActions row={row} refreshRows={refreshRows} />
       {String(row.status) === "APPROVED" && (
-=======
-  // Icon-only Create PO button with tooltip in the Actions column.
-      // Icon-only Create PO button, hidden for PRs that are already closed.
-  renderRowActions: (row) =>
-    PR_CLOSED_STATUSES.includes(String(row.status || "").toUpperCase()) ? null : (
->>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
       <button
         type="button"
         onClick={(e) => {
@@ -541,13 +489,9 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
       >
         <ShoppingCartIcon className="h-4 w-4" aria-hidden="true" />
       </button>
-<<<<<<< HEAD
       )}
     </>
   ),
-=======
-    ),
->>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -742,11 +686,7 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
       label: "Order Date",
       type: "date",
       required: true,
-<<<<<<< HEAD
       defaultValue: todayIso(),
-=======
-      defaultValue: todayLocal(),
->>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
     },
     { name: "expectedDeliveryDate", section: "Vendor & Delivery", label: "Expected Delivery Date", type: "date", required: true },
     { name: "currency", section: "Terms & Shipping", label: "Currency", type: "select", required: true, defaultValue: "INR", options: ["INR", "USD", "EUR", "GBP", "AED"].map((value) => ({ value, label: value })) },
