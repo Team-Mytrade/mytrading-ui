@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -8,477 +8,444 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import { FloatingInput } from "../../components/inputfeild/FloatingInput";
-
 import {
-  MagnifyingGlassIcon,
-  UserIcon,
-  CalendarIcon,
-  ShoppingBagIcon,
-  XMarkIcon,
+  FloatingInput,
+  FloatingTextarea,
+  FloatingSelect1 as FloatingSelect,
+} from "../../components/inputfeild/FloatingInput";
 
-} from "@heroicons/react/24/solid";
+import { MagnifyingGlassIcon, UserIcon, CalendarIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import {
   FunnelIcon,
   PackageIcon,
   ClipboardListIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ClockIcon,
   TruckIcon,
-  RefreshCwIcon,
   EyeIcon,
   PencilIcon,
   TrashIcon,
   PlusIcon,
+  RefreshCwIcon,
+  MapPinIcon,
+  ArrowRightLeftIcon,
 } from "lucide-react";
 import { todayIso } from "../../utils/localDate";
-
-// ================= TYPES =================
-
-type DeliveryStatus = "PENDING" | "IN_PROGRESS" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "FAILED";
-
-interface DeliveryItem {
-  id?: number;
-  productId: number;
-  orderedQty: number;
-  deliveredQty: number;
-  deliveryNote?: string;
-}
-
-interface Delivery {
-  id: number;
-  createdDate: string;
-  updatedDate: string;
-  createdBy: string;
-  tenantId: string;
-  deliveryNo: string;
-  deliveryDate: string;
-  salesOrderId: number;
-  customerId: number;
-  status: DeliveryStatus;
-  items: DeliveryItem[];
-}
+import {
+  DELIVERY_API,
+  DELIVERY_STATUSES,
+  DELETABLE_ORDER_STATUSES,
+  EDITABLE_ORDER_STATUSES,
+  DeliveryOrder,
+  DeliveryStatus,
+  StatusBadge,
+  apiError,
+  formatDate,
+  formatDateTime,
+  nextStatuses,
+  statusConfig,
+  useDeliveryLookups,
+} from "./deliveryShared";
 
 // ================= API CONFIGURATION =================
 
-const API_BASE_URL = "/v1/api/delivery";
-
 const API = {
-  getAll: `${API_BASE_URL}/delivery-orders`,
-  getById: (id: number) => `${API_BASE_URL}/delivery-orders/${id}`,
-  create: `${API_BASE_URL}/delivery-orders`,
-  updateStatus: (id: number) => `${API_BASE_URL}/delivery-orders/${id}/status`,
-  delete: (id: number) => `${API_BASE_URL}/delivery-orders/${id}`,
+  orders: `${DELIVERY_API}/delivery-orders`,
+  order: (id: number) => `${DELIVERY_API}/delivery-orders/${id}`,
+  status: (id: number) => `${DELIVERY_API}/delivery-orders/${id}/status`,
+  addresses: (customerId: string) => `${DELIVERY_API}/customer-addresses?customerId=${customerId}`,
+  // What is still left to dispatch on a sales order
+  dispatchable: (salesOrderId: string) => `/v1/api/sales/sales-orders/${salesOrderId}/dispatchable-items`,
 };
 
-// ================= CONSTANTS =================
+// ================= TYPES =================
+
+interface AddressOption {
+  id: number;
+  addressLine1: string;
+  addressLine2?: string;
+  city?: string;
+  postalCode?: string;
+  defaultDelivery?: boolean;
+}
+
+interface DispatchableItem {
+  productId: number;
+  productName?: string;
+  remainingQuantity: number;
+}
+
+// Ids are strings for the selects
+interface FormItem {
+  productId: string;
+  productName?: string;
+  quantity: string;
+}
+
+interface OrderForm {
+  customerId: string;
+  salesOrderId: string;
+  warehouseId: string;
+  deliveryDate: string; // datetime-local value, "2026-10-14T10:00"
+  vehicleId: string;
+  transporterId: string;
+  deliveryAddressId: string;
+  remarks: string;
+  items: FormItem[];
+}
 
 const PAGE_SIZE = 10;
-const STATUS_OPTIONS: DeliveryStatus[] = ["PENDING", "IN_PROGRESS", "SHIPPED", "DELIVERED", "CANCELLED", "FAILED"];
 
-const STATUS_CONFIG: Record<DeliveryStatus, { color: string; bgColor: string; icon: React.ReactNode; label: string }> = {
-  PENDING: {
-    color: "text-yellow-700",
-    bgColor: "bg-yellow-50 border-yellow-200",
-    icon: <ClockIcon className="h-3 w-3" />,
-    label: "Pending"
-  },
-  IN_PROGRESS: {
-    color: "text-blue-700",
-    bgColor: "bg-blue-50 border-blue-200",
-    icon: <RefreshCwIcon className="h-3 w-3" />,
-    label: "In Progress"
-  },
-  SHIPPED: {
-    color: "text-purple-700",
-    bgColor: "bg-purple-50 border-purple-200",
-    icon: <TruckIcon className="h-3 w-3" />,
-    label: "Shipped"
-  },
-  DELIVERED: {
-    color: "text-green-700",
-    bgColor: "bg-green-50 border-green-200",
-    icon: <CheckCircleIcon className="h-3 w-3" />,
-    label: "Delivered"
-  },
-  CANCELLED: {
-    color: "text-red-700",
-    bgColor: "bg-red-50 border-red-200",
-    icon: <XCircleIcon className="h-3 w-3" />,
-    label: "Cancelled"
-  },
-  FAILED: {
-    color: "text-orange-700",
-    bgColor: "bg-orange-50 border-orange-200",
-    icon: <XCircleIcon className="h-3 w-3" />,
-    label: "Failed"
-  }
-};
+const emptyItem = (): FormItem => ({ productId: "", quantity: "1" });
+
+const emptyForm = (): OrderForm => ({
+  customerId: "",
+  salesOrderId: "",
+  warehouseId: "",
+  deliveryDate: `${todayIso()}T10:00`,
+  vehicleId: "",
+  transporterId: "",
+  deliveryAddressId: "",
+  remarks: "",
+  items: [emptyItem()],
+});
+
+const optionalId = (value: string) => (value ? Number(value) : undefined);
+const addressLabel = (a: AddressOption) => [a.addressLine1, a.addressLine2, a.city, a.postalCode].filter(Boolean).join(", ");
 
 // ================= COMPONENT =================
 
-const DeliveryNote: React.FC = () => {
-  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [search, setSearch] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
+const DeliveryOrderPage: React.FC = () => {
+  const lookups = useDeliveryLookups(["customers", "products", "vehicles", "transporters", "warehouses", "salesOrders"]);
+
+  const [orders, setOrders] = useState<DeliveryOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [search, setSearch] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<DeliveryStatus | "ALL">("ALL");
   const [dateFilter, setDateFilter] = useState("");
 
-  const [form, setForm] = useState({
-    id: null as number | null,
-    deliveryNo: "",
-    deliveryDate: "",
-    salesOrderId: 0,
-    customerId: 0,
-    status: "PENDING" as DeliveryStatus,
-    items: [] as DeliveryItem[],
-  });
-
+  const [form, setForm] = useState<OrderForm>(emptyForm);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
+  const [addresses, setAddresses] = useState<AddressOption[]>([]);
+  const [loadingLines, setLoadingLines] = useState(false);
+
+  const [selected, setSelected] = useState<DeliveryOrder | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
-  const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [newStatus, setNewStatus] = useState<DeliveryStatus>("PENDING");
+  const [newStatus, setNewStatus] = useState<DeliveryStatus | "">("");
+  const [statusRemarks, setStatusRemarks] = useState("");
 
-  // ================= API FUNCTIONS =================
+  // ================= DATA =================
 
-  const fetchDeliveries = async () => {
+  const fetchOrders = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(API.getAll);
-      setDeliveries(response.data || []);
-      if (response.data?.length > 0) {
-        toast.success(`Loaded ${response.data.length} delivery(s)`);
-      }
-    } catch (err: any) {
-      console.error("Error fetching deliveries:", err);
-      toast.error(err.response?.data?.message || "Failed to fetch deliveries!");
+      const { data } = await axios.get<DeliveryOrder[]>(API.orders);
+      setOrders(data);
+    } catch (err) {
+      toast.error(apiError(err, "Failed to load delivery orders"));
     } finally {
       setLoading(false);
     }
   };
 
-  const createDelivery = async (data: any) => {
-    try {
-      const response = await axios.post(API.create, data);
-      toast.success("Delivery created successfully!");
-      return response.data;
-    } catch (err: any) {
-      console.error("Error creating delivery:", err);
-      toast.error(err.response?.data?.message || "Failed to create delivery!");
-      throw err;
-    }
-  };
-
-  const updateDeliveryStatus = async (id: number, status: DeliveryStatus) => {
-    try {
-      const response = await axios.put(API.updateStatus(id), { status });
-      toast.success(`Status updated to ${STATUS_CONFIG[status].label}!`);
-      return response.data;
-    } catch (err: any) {
-      console.error("Error updating status:", err);
-      toast.error(err.response?.data?.message || "Failed to update status!");
-      throw err;
-    }
-  };
-
-  const deleteDelivery = async (id: number) => {
-    try {
-      await axios.delete(API.delete(id));
-      toast.success("Delivery deleted successfully!");
-      setShowDeleteModal(false);
-      setSelectedDelivery(null);
-      await fetchDeliveries();
-    } catch (err: any) {
-      console.error("Error deleting delivery:", err);
-      toast.error(err.response?.data?.message || "Failed to delete delivery!");
-      throw err;
-    }
-  };
-
-  // ================= FETCH =================
-
   useEffect(() => {
-    fetchDeliveries();
+    fetchOrders();
   }, []);
 
-  // ================= FILTER =================
+  // The chosen customer's saved addresses; a new order starts at their default delivery address
+  useEffect(() => {
+    if (!showFormModal || !form.customerId) {
+      setAddresses([]);
+      return;
+    }
+    let cancelled = false;
+    axios
+      .get<AddressOption[]>(API.addresses(form.customerId))
+      .then(({ data }) => {
+        if (cancelled) return;
+        setAddresses(data);
+        setForm((prev) =>
+          prev.deliveryAddressId && data.some((a) => String(a.id) === prev.deliveryAddressId)
+            ? prev
+            : { ...prev, deliveryAddressId: String(data.find((a) => a.defaultDelivery)?.id ?? "") }
+        );
+      })
+      .catch(() => !cancelled && setAddresses([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [form.customerId, showFormModal]);
 
-  const filteredDeliveries = useMemo(() => {
-    return deliveries.filter((d) => {
+  // ================= FILTER & STATS =================
+
+  const filteredOrders = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return orders.filter((o) => {
       const matchesSearch =
-        d.deliveryNo?.toLowerCase().includes(search.toLowerCase()) ||
-        String(d.customerId).includes(search) ||
-        String(d.salesOrderId).includes(search) ||
-        String(d.id).includes(search);
-
-      const matchesStatus =
-        statusFilter === "ALL" || d.status === statusFilter;
-
-      const matchesDate =
-        !dateFilter || d.deliveryDate?.startsWith(dateFilter);
-
+        !term ||
+        [
+          o.deliveryOrderNumber,
+          lookups.customerName(o.customerId, o.customerName),
+          o.vehiclePlate,
+          o.transporterName,
+          o.salesOrderId ? lookups.salesOrderLabel(o.salesOrderId) : "",
+        ].some((value) => (value ?? "").toLowerCase().includes(term));
+      const matchesStatus = statusFilter === "ALL" || o.status === statusFilter;
+      const matchesDate = !dateFilter || (o.deliveryDate ?? "").startsWith(dateFilter);
       return matchesSearch && matchesStatus && matchesDate;
     });
-  }, [deliveries, search, statusFilter, dateFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders, search, statusFilter, dateFilter, lookups.customers, lookups.salesOrders]);
 
-  // ================= STATS =================
-
-  const getStats = () => ({
-    total: deliveries.length,
-    pending: deliveries.filter(d => d.status === "PENDING").length,
-    inProgress: deliveries.filter(d => d.status === "IN_PROGRESS").length,
-    shipped: deliveries.filter(d => d.status === "SHIPPED").length,
-    delivered: deliveries.filter(d => d.status === "DELIVERED").length,
-    cancelled: deliveries.filter(d => d.status === "CANCELLED" || d.status === "FAILED").length,
-  });
-
-  const stats = getStats();
-
-  // ================= HANDLERS =================
-
-  const handleAddDelivery = () => {
-    setEditingId(null);
-    setForm({
-      id: null,
-      deliveryNo: `DEL-${Date.now()}`,
-      deliveryDate: todayIso(),
-      salesOrderId: 0,
-      customerId: 0,
-      status: "PENDING",
-      items: [],
-    });
-    setShowFormModal(true);
-  };
-
-  const handleViewDelivery = (delivery: Delivery) => {
-    setSelectedDelivery(delivery);
-    setShowDetailModal(true);
-  };
-
-  const handleEditDelivery = (delivery: Delivery) => {
-    setEditingId(delivery.id);
-    setForm({
-      id: delivery.id,
-      deliveryNo: delivery.deliveryNo,
-      deliveryDate: delivery.deliveryDate?.split('T')[0] || "",
-      salesOrderId: delivery.salesOrderId,
-      customerId: delivery.customerId,
-      status: delivery.status,
-      items: delivery.items.map(item => ({ ...item })),
-    });
-    setShowFormModal(true);
-  };
-
-  const handleDeleteClick = (delivery: Delivery) => {
-    setSelectedDelivery(delivery);
-    setShowDeleteModal(true);
-  };
-
-  const handleOpenStatusModal = (delivery: Delivery) => {
-    setSelectedDelivery(delivery);
-    setNewStatus(delivery.status);
-    setShowStatusModal(true);
-  };
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value, type } = e.target;
-
-    if (type === "checkbox") {
-      const checked = (e.target as HTMLInputElement).checked;
-      setForm((prev) => ({
-        ...prev,
-        [name]: checked,
-      }));
-    } else if (type === "number") {
-      setForm((prev) => ({
-        ...prev,
-        [name]: value === "" ? 0 : Number(value),
-      }));
-    } else {
-      setForm((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    }
-  };
-
-  const handleAddItem = () => {
-    const newItem: DeliveryItem = {
-      productId: 0,
-      orderedQty: 0,
-      deliveredQty: 0,
-      deliveryNote: "",
+  const stats = useMemo(() => {
+    const count = (...statuses: DeliveryStatus[]) => orders.filter((o) => statuses.includes(o.status)).length;
+    return {
+      total: orders.length,
+      open: count("PENDING", "CONFIRMED"),
+      inTransit: count("IN_TRANSIT", "PARTIAL"),
+      delivered: count("DELIVERED"),
+      returned: count("RETURNED"),
+      cancelled: count("CANCELLED"),
     };
-    setForm(prev => ({
-      ...prev,
-      items: [...prev.items, newItem]
-    }));
+  }, [orders]);
+
+  // ================= FORM =================
+
+  const openCreate = () => {
+    setEditingId(null);
+    setForm(emptyForm());
+    setShowFormModal(true);
   };
 
-  const handleItemChange = (index: number, field: keyof DeliveryItem, value: any) => {
-    const updatedItems = [...form.items];
-    updatedItems[index] = { ...updatedItems[index], [field]: value };
-    setForm(prev => ({ ...prev, items: updatedItems }));
+  const openEdit = (order: DeliveryOrder) => {
+    setEditingId(order.id);
+    setForm({
+      customerId: String(order.customerId),
+      salesOrderId: order.salesOrderId ? String(order.salesOrderId) : "",
+      warehouseId: order.warehouseId ? String(order.warehouseId) : "",
+      deliveryDate: (order.deliveryDate ?? "").slice(0, 16),
+      vehicleId: order.vehicleId ? String(order.vehicleId) : "",
+      transporterId: order.transporterId ? String(order.transporterId) : "",
+      deliveryAddressId: order.deliveryAddressId ? String(order.deliveryAddressId) : "",
+      remarks: order.remarks ?? "",
+      items: order.items.length
+        ? order.items.map((i) => ({ productId: String(i.productId), productName: i.productName, quantity: String(i.quantity) }))
+        : [emptyItem()],
+    });
+    setShowDetailModal(false);
+    setShowFormModal(true);
   };
 
-  const handleRemoveItem = (index: number) => {
-    setForm(prev => ({
-      ...prev,
-      items: prev.items.filter((_, i) => i !== index)
-    }));
+  const closeForm = () => {
+    setShowFormModal(false);
+    setEditingId(null);
   };
 
-  const handleSaveDelivery = async (e: React.FormEvent) => {
+  const setField = (name: keyof OrderForm, value: string) => setForm((prev) => ({ ...prev, [name]: value }));
+
+  // A sales order of another customer no longer fits once the customer changes
+  const changeCustomer = (customerId: string) =>
+    setForm((prev) => {
+      const salesOrder = lookups.salesOrders.find((s) => String(s.id) === prev.salesOrderId);
+      const keepSalesOrder = salesOrder && salesOrder.customerId === Number(customerId);
+      return { ...prev, customerId, deliveryAddressId: "", salesOrderId: keepSalesOrder ? prev.salesOrderId : "" };
+    });
+
+  const setItem = (index: number, patch: Partial<FormItem>) =>
+    setForm((prev) => ({ ...prev, items: prev.items.map((item, i) => (i === index ? { ...item, ...patch } : item)) }));
+
+  const addItem = () => setForm((prev) => ({ ...prev, items: [...prev.items, emptyItem()] }));
+
+  const removeItem = (index: number) =>
+    setForm((prev) => ({ ...prev, items: prev.items.length > 1 ? prev.items.filter((_, i) => i !== index) : prev.items }));
+
+  const loadSalesOrderLines = async () => {
+    if (!form.salesOrderId) return;
+    setLoadingLines(true);
+    try {
+      const { data } = await axios.get<DispatchableItem[]>(API.dispatchable(form.salesOrderId));
+      if (!data.length) {
+        toast.info("Nothing is left to dispatch on this sales order");
+        return;
+      }
+      setForm((prev) => ({
+        ...prev,
+        items: data.map((d) => ({
+          productId: String(d.productId),
+          productName: d.productName,
+          quantity: String(Math.floor(Number(d.remainingQuantity))),
+        })),
+      }));
+      toast.success(`Loaded ${data.length} line(s) from the sales order`);
+    } catch (err) {
+      toast.error(apiError(err, "Could not load the sales order lines"));
+    } finally {
+      setLoadingLines(false);
+    }
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!form.customerId || form.customerId <= 0) {
-      toast.warning("Please enter a valid Customer ID (> 0)");
-      return;
+    const lines = form.items.filter((i) => i.productId);
+    if (!form.customerId) return void toast.warning("Choose a customer");
+    if (!form.deliveryDate) return void toast.warning("Choose the delivery date");
+    if (!lines.length) return void toast.warning("Add at least one product");
+    if (lines.some((i) => !Number.isInteger(Number(i.quantity)) || Number(i.quantity) <= 0)) {
+      return void toast.warning("Quantities must be whole numbers greater than 0");
     }
 
-    if (!form.salesOrderId || form.salesOrderId <= 0) {
-      toast.warning("Please enter a valid Sales Order ID (> 0)");
-      return;
-    }
-
-    if (form.items.length === 0) {
-      toast.warning("Please add at least one item to the delivery!");
-      return;
-    }
-
-    for (const item of form.items) {
-      if (!item.productId || item.productId <= 0) {
-        toast.warning("Please enter a valid Product ID for all items!");
-        return;
-      }
-      if (item.orderedQty <= 0) {
-        toast.warning("Ordered quantity must be greater than 0!");
-        return;
-      }
-      if (item.deliveredQty < 0) {
-        toast.warning("Delivered quantity cannot be negative!");
-        return;
-      }
-    }
-
+    const customer = lookups.customers.find((c) => String(c.id) === form.customerId);
+    const previous = orders.find((o) => o.id === editingId);
     const payload = {
-      deliveryNo: form.deliveryNo,
-      deliveryDate: form.deliveryDate || todayIso(),
-      salesOrderId: Number(form.salesOrderId),
       customerId: Number(form.customerId),
-      status: form.status,
-      createdBy: "ADMIN",
-      tenantId: "TENANT-001",
-      items: form.items.map(item => ({
-        productId: Number(item.productId),
-        orderedQty: Number(item.orderedQty),
-        deliveredQty: Number(item.deliveredQty),
-        deliveryNote: item.deliveryNote || "",
+      customerName: customer?.customerName ?? previous?.customerName,
+      customerNumber: customer?.customerCode ?? previous?.customerNumber,
+      salesOrderId: optionalId(form.salesOrderId),
+      warehouseId: optionalId(form.warehouseId),
+      deliveryDate: form.deliveryDate.length === 16 ? `${form.deliveryDate}:00` : form.deliveryDate,
+      vehicleId: optionalId(form.vehicleId),
+      transporterId: optionalId(form.transporterId),
+      deliveryAddressId: optionalId(form.deliveryAddressId),
+      remarks: form.remarks.trim() || undefined,
+      items: lines.map((i) => ({
+        productId: Number(i.productId),
+        productName: i.productName || lookups.products.find((p) => String(p.id) === i.productId)?.productName,
+        quantity: Number(i.quantity),
       })),
     };
-
-    console.log("📦 SAVE PAYLOAD:", JSON.stringify(payload, null, 2));
 
     setSubmitting(true);
     try {
       if (editingId) {
-        await updateDeliveryStatus(editingId, form.status);
+        await axios.put(API.order(editingId), payload);
+        toast.success("Delivery order updated");
       } else {
-        await createDelivery(payload);
+        const { data } = await axios.post<DeliveryOrder>(API.orders, payload);
+        toast.success(`Delivery order ${data.deliveryOrderNumber} created`);
       }
-
-      setShowFormModal(false);
-      setEditingId(null);
-      await fetchDeliveries();
+      closeForm();
+      await fetchOrders();
     } catch (err) {
-      // Error already handled by individual functions
+      toast.error(apiError(err, "Failed to save the delivery order"));
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // ================= STATUS & DELETE =================
+
+  const openView = (order: DeliveryOrder) => {
+    setSelected(order);
+    setShowDetailModal(true);
+  };
+
+  const openStatus = (order: DeliveryOrder) => {
+    setSelected(order);
+    setNewStatus(nextStatuses(order.status)[0] ?? "");
+    setStatusRemarks("");
+    setShowStatusModal(true);
+  };
+
+  const openDelete = (order: DeliveryOrder) => {
+    setSelected(order);
+    setShowDeleteModal(true);
   };
 
   const handleUpdateStatus = async () => {
-    if (!selectedDelivery) return;
-
-    if (newStatus === selectedDelivery.status) {
-      toast.info("Status is already set to " + STATUS_CONFIG[newStatus].label);
-      setShowStatusModal(false);
-      return;
-    }
-
+    if (!selected || !newStatus) return;
     setSubmitting(true);
     try {
-      await updateDeliveryStatus(selectedDelivery.id, newStatus);
+      await axios.put(API.status(selected.id), { status: newStatus, remarks: statusRemarks.trim() || undefined });
+      toast.success(`${selected.deliveryOrderNumber} is now ${statusConfig(newStatus).label}`);
       setShowStatusModal(false);
       setShowDetailModal(false);
-      await fetchDeliveries();
+      await fetchOrders();
     } catch (err) {
-      // Error already handled
+      toast.error(apiError(err, "Failed to update the status"));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleConfirmDelete = async () => {
-    if (selectedDelivery) {
-      await deleteDelivery(selectedDelivery.id);
+  const handleDelete = async () => {
+    if (!selected) return;
+    setSubmitting(true);
+    try {
+      await axios.delete(API.order(selected.id));
+      toast.success(`${selected.deliveryOrderNumber} deleted`);
+      setShowDeleteModal(false);
+      setSelected(null);
+      await fetchOrders();
+    } catch (err) {
+      toast.error(apiError(err, "Failed to delete the delivery order"));
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  // ================= TABLE COLUMNS =================
+  // ================= TABLE =================
 
-  const tableColumns: ColumnDef<Delivery>[] = [
+  const tableColumns: ColumnDef<DeliveryOrder>[] = [
     {
-      key: "deliveryNo",
-      label: "Delivery No",
+      key: "deliveryOrderNumber",
+      label: "Delivery Order",
       sortable: true,
-      headerClassName: "w-[15%] text-left",
-      className: "w-[15%]",
+      headerClassName: "w-[17%] text-left",
+      className: "w-[17%]",
       render: (row) => (
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
             <ClipboardListIcon className="h-4 w-4 text-cyan-600" />
           </div>
           <div className="flex flex-col min-w-0">
-            <span className="text-sm font-semibold text-slate-900 truncate leading-snug">
-              {row.deliveryNo || `DEL-${row.id}`}
+            <span className="text-sm font-semibold text-slate-900 truncate leading-snug">{row.deliveryOrderNumber}</span>
+            <span className="text-xs text-slate-400 truncate">
+              {row.salesOrderId ? lookups.salesOrderLabel(row.salesOrderId) : "No sales order"}
             </span>
-            <span className="text-xs text-slate-400 truncate">ID: #{row.id}</span>
           </div>
         </div>
       ),
     },
     {
-      key: "customerId",
+      key: "customerName",
       label: "Customer",
       sortable: true,
-      headerClassName: "w-[12%] text-left",
-      className: "w-[12%]",
+      sortValueGetter: (row) => lookups.customerName(row.customerId, row.customerName),
+      headerClassName: "w-[17%] text-left",
+      className: "w-[17%]",
       render: (row) => (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
           <UserIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-          <span className="text-sm font-medium text-slate-700">#{row.customerId}</span>
+          <span className="text-sm font-medium text-slate-700 truncate">{lookups.customerName(row.customerId, row.customerName)}</span>
         </div>
       ),
     },
     {
-      key: "salesOrderId",
-      label: "Sales Order",
+      key: "deliveryDate",
+      label: "Delivery Date",
       sortable: true,
-      headerClassName: "w-[12%] text-left",
-      className: "w-[12%]",
+      headerClassName: "w-[13%] text-left",
+      className: "w-[13%]",
       render: (row) => (
         <div className="flex items-center gap-1.5">
-          <ShoppingBagIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-          <span className="text-sm font-medium text-slate-700">SO-{row.salesOrderId}</span>
+          <CalendarIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+          <span className="text-sm text-slate-600">{formatDate(row.deliveryDate)}</span>
+        </div>
+      ),
+    },
+    {
+      key: "vehiclePlate",
+      label: "Vehicle / Transporter",
+      sortable: false,
+      headerClassName: "w-[17%] text-left",
+      className: "w-[17%]",
+      render: (row) => (
+        <div className="flex flex-col min-w-0">
+          <span className="text-sm text-slate-700 truncate">{row.vehiclePlate ?? "Not assigned"}</span>
+          {row.transporterName && <span className="text-xs text-slate-400 truncate">{row.transporterName}</span>}
         </div>
       ),
     },
@@ -486,39 +453,16 @@ const DeliveryNote: React.FC = () => {
       key: "status",
       label: "Status",
       sortable: true,
-      headerClassName: "w-[15%] text-left",
-      className: "w-[15%]",
-      render: (row) => {
-        const config = STATUS_CONFIG[row.status];
-        return (
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border ${config.bgColor} ${config.color}`}>
-            {config.icon}
-            {config.label}
-          </span>
-        );
-      },
-    },
-    {
-      key: "deliveryDate",
-      label: "Delivery Date",
-      sortable: true,
-      headerClassName: "w-[12%] text-left",
-      className: "w-[12%]",
-      render: (row) => (
-        <div className="flex items-center gap-1.5">
-          <CalendarIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-          <span className="text-sm text-slate-600">
-            {row.deliveryDate ? new Date(row.deliveryDate).toLocaleDateString() : "-"}
-          </span>
-        </div>
-      ),
+      headerClassName: "w-[13%] text-left",
+      className: "w-[13%]",
+      render: (row) => <StatusBadge status={row.status} />,
     },
     {
       key: "items",
       label: "Items",
       sortable: false,
-      headerClassName: "w-[10%] text-left",
-      className: "w-[10%]",
+      headerClassName: "w-[8%] text-left",
+      className: "w-[8%]",
       render: (row) => (
         <div className="flex items-center gap-1.5">
           <PackageIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
@@ -530,97 +474,58 @@ const DeliveryNote: React.FC = () => {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "w-[24%] text-right pr-4",
-      className: "w-[24%] text-right",
+      headerClassName: "w-[15%] text-right pr-4",
+      className: "w-[15%] text-right",
       render: (row) => (
         <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={() => handleViewDelivery(row)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
-            title="View Delivery"
-          >
+          <button type="button" onClick={() => openView(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600" title="View">
             <EyeIcon className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            onClick={() => handleOpenStatusModal(row)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-purple-50 hover:text-purple-600"
-            title="Update Status"
-          >
-            <PencilIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => handleDeleteClick(row)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-            title="Delete Delivery"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
+          {EDITABLE_ORDER_STATUSES.includes(row.status) && (
+            <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600" title="Edit">
+              <PencilIcon className="h-4 w-4" />
+            </button>
+          )}
+          {nextStatuses(row.status).length > 0 && (
+            <button type="button" onClick={() => openStatus(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-purple-50 hover:text-purple-600" title="Change status">
+              <ArrowRightLeftIcon className="h-4 w-4" />
+            </button>
+          )}
+          {DELETABLE_ORDER_STATUSES.includes(row.status) && (
+            <button type="button" onClick={() => openDelete(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600" title="Delete">
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },
   ];
 
+  // Only the chosen customer's sales orders (all of them until a customer is chosen)
+  const salesOrderOptions = lookups.salesOrders
+    .filter((s) => !form.customerId || !s.customerId || String(s.customerId) === form.customerId)
+    .map((s) => ({ id: s.id, name: s.orderNumber ?? `SO #${s.id}` }));
+
   // ================= UI =================
 
   return (
     <>
-      <PageMeta title="Deliveries" description="Manage deliveries" />
-      <PageBreadcrumb pageTitle="Deliveries" />
+      <PageMeta title="Delivery Orders" description="Plan and track deliveries to customers" />
+      <PageBreadcrumb pageTitle="Delivery Orders" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-
-        {/* HEADER */}
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={handleAddDelivery} label="Add Delivery" />
+          <AddButton onClick={openCreate} label="Add Delivery Order" />
         </div>
 
         {/* STATS */}
         <div className="grid grid-cols-3 lg:grid-cols-6 gap-4">
-          <StatsCard
-            label="Total"
-            value={stats.total}
-            gradient="from-cyan-50 to-blue-50"
-            borderColor="border-cyan-100"
-            labelColor="text-cyan-600"
-          />
-          <StatsCard
-            label="Pending"
-            value={stats.pending}
-            gradient="from-yellow-50 to-amber-50"
-            borderColor="border-yellow-100"
-            labelColor="text-yellow-600"
-          />
-          <StatsCard
-            label="In Progress"
-            value={stats.inProgress}
-            gradient="from-blue-50 to-indigo-50"
-            borderColor="border-blue-100"
-            labelColor="text-blue-600"
-          />
-          <StatsCard
-            label="Shipped"
-            value={stats.shipped}
-            gradient="from-purple-50 to-violet-50"
-            borderColor="border-purple-100"
-            labelColor="text-purple-600"
-          />
-          <StatsCard
-            label="Delivered"
-            value={stats.delivered}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-          />
-          <StatsCard
-            label="Cancelled"
-            value={stats.cancelled}
-            gradient="from-red-50 to-rose-50"
-            borderColor="border-red-100"
-            labelColor="text-red-600"
-          />
+          <StatsCard label="Total" value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label="Open" value={stats.open} gradient="from-yellow-50 to-amber-50" borderColor="border-yellow-100" labelColor="text-yellow-600" />
+          <StatsCard label="In Transit" value={stats.inTransit} gradient="from-purple-50 to-violet-50" borderColor="border-purple-100" labelColor="text-purple-600" />
+          <StatsCard label="Delivered" value={stats.delivered} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label="Returned" value={stats.returned} gradient="from-orange-50 to-amber-50" borderColor="border-orange-100" labelColor="text-orange-600" />
+          <StatsCard label="Cancelled" value={stats.cancelled} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
         </div>
 
         {/* SEARCH & FILTERS */}
@@ -629,48 +534,41 @@ const DeliveryNote: React.FC = () => {
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
-                placeholder="Search by delivery no, customer ID, or sales order..."
+                placeholder="Search by order no, customer, vehicle or sales order..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
               />
             </div>
           </div>
-
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="p-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2"
-          >
-            <FunnelIcon className="h-5 w-5 text-gray-600" />
-            <span className="text-sm text-gray-600">Filters</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={fetchOrders} className="p-2 border rounded-lg hover:bg-gray-50" title="Refresh">
+              <RefreshCwIcon className={`h-5 w-5 text-gray-600 ${loading ? "animate-spin" : ""}`} />
+            </button>
+            <button onClick={() => setShowFilters(!showFilters)} className="p-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2">
+              <FunnelIcon className="h-5 w-5 text-gray-600" />
+              <span className="text-sm text-gray-600">Filters</span>
+            </button>
+          </div>
         </div>
 
-        {/* FILTERS */}
         {showFilters && (
           <div className="p-4 border rounded bg-gray-50 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as DeliveryStatus | "ALL")}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
               >
                 <option value="ALL">All Statuses</option>
-                {STATUS_OPTIONS.map(status => (
-                  <option key={status} value={status}>
-                    {STATUS_CONFIG[status].label}
-                  </option>
+                {DELIVERY_STATUSES.map((status) => (
+                  <option key={status} value={status}>{statusConfig(status).label}</option>
                 ))}
               </select>
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Delivery Date
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Date</label>
               <input
                 type="date"
                 value={dateFilter}
@@ -678,7 +576,6 @@ const DeliveryNote: React.FC = () => {
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
               />
             </div>
-
             <div className="flex items-end">
               {(statusFilter !== "ALL" || dateFilter) && (
                 <button
@@ -696,405 +593,406 @@ const DeliveryNote: React.FC = () => {
         )}
 
         {/* TABLE */}
-        <ReusableTable<Delivery>
-          data={filteredDeliveries}
+        <ReusableTable<DeliveryOrder>
+          data={filteredOrders}
           columns={tableColumns}
           pageSize={PAGE_SIZE}
           defaultSortKey="createdDate"
           defaultSortOrder="desc"
-          onRowClick={handleViewDelivery}
+          onRowClick={openView}
           loading={loading}
           emptyState={
             <div className="flex flex-col items-center -mt-10">
               <ClipboardListIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No Deliveries Found</p>
+              <p className="text-gray-500 text-sm mb-2">No Delivery Orders Found</p>
               {search || statusFilter !== "ALL" || dateFilter ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
               ) : (
-                <button
-                  type="button"
-                  onClick={handleAddDelivery}
-                  className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
-                >
-                  Create your first delivery
+                <button type="button" onClick={openCreate} className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium">
+                  Create your first delivery order
                 </button>
               )}
             </div>
           }
         />
 
-        {/* ================= CREATE/EDIT MODAL ================= */}
+        {/* ================= CREATE / EDIT MODAL ================= */}
         {showFormModal && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <form
-              onSubmit={handleSaveDelivery}
-              className="bg-white p-6 rounded-xl w-[800px] max-h-[90vh] overflow-y-auto"
-            >
-              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <ClipboardListIcon className="h-6 w-6 text-cyan-600" />
-                {editingId ? "Edit Delivery" : "Create Delivery"}
-              </h2>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FloatingInput
-                  label="Delivery No"
-                  name="deliveryNo"
-                  value={form.deliveryNo}
-                  onChange={handleChange}
-                  disabled
-                />
-
-                <FloatingInput
-                  label="Delivery Date *"
-                  name="deliveryDate"
-                  type="date"
-                  value={form.deliveryDate}
-                  onChange={handleChange}
-                  required
-                />
-
-                <FloatingInput
-                  label="Sales Order ID *"
-                  name="salesOrderId"
-                  type="number"
-                  value={form.salesOrderId}
-                  onChange={handleChange}
-                  required
-                />
-
-                <FloatingInput
-                  label="Customer ID *"
-                  name="customerId"
-                  type="number"
-                  value={form.customerId}
-                  onChange={handleChange}
-                  required
-                />
-
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Status *
-                  </label>
-                  <select
-                    name="status"
-                    value={form.status}
-                    onChange={handleChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                    required
-                  >
-                    {STATUS_OPTIONS.map(status => (
-                      <option key={status} value={status}>
-                        {STATUS_CONFIG[status].label}
-                      </option>
-                    ))}
-                  </select>
+          <div className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+            <form onSubmit={handleSave} className="bg-white p-6 rounded-xl w-full max-w-3xl max-h-[92vh] overflow-y-auto">
+              <div className="flex justify-between items-start mb-5">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <ClipboardListIcon className="h-6 w-6 text-cyan-600" />
+                    {editingId ? "Edit Delivery Order" : "New Delivery Order"}
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {editingId ? "Pending and confirmed orders can still change." : "The order number is assigned when you save."}
+                  </p>
                 </div>
+                <button type="button" onClick={closeForm} className="p-1.5 hover:bg-gray-100 rounded-lg">
+                  <XMarkIcon className="h-5 w-5 text-gray-500" />
+                </button>
               </div>
 
-              {/* Items Section */}
-              <div className="mt-4 border-t pt-4">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
-                    <PackageIcon className="h-5 w-5 text-cyan-600" />
-                    Items ({form.items.length}) *
-                  </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+                {lookups.customers.length > 0 ? (
+                  <FloatingSelect
+                    label="Customer *"
+                    name="customerId"
+                    value={form.customerId}
+                    onChange={(e) => changeCustomer(e.target.value)}
+                    options={lookups.customers.map((c) => ({ id: c.id, name: c.customerName }))}
+                    required
+                  />
+                ) : (
+                  <FloatingInput label="Customer ID *" name="customerId" type="number" min={1} value={form.customerId} onChange={(e) => changeCustomer(e.target.value)} required />
+                )}
+
+                <FloatingInput
+                  label="Delivery Date & Time *"
+                  name="deliveryDate"
+                  type="datetime-local"
+                  value={form.deliveryDate}
+                  onChange={(e) => setField("deliveryDate", e.target.value)}
+                  required
+                />
+
+                <div className="flex gap-2 items-start">
+                  <div className="flex-1 min-w-0">
+                    {lookups.salesOrders.length > 0 ? (
+                      <FloatingSelect
+                        label="Sales Order"
+                        name="salesOrderId"
+                        value={form.salesOrderId}
+                        onChange={(e) => setField("salesOrderId", e.target.value)}
+                        options={salesOrderOptions}
+                        emptyOptionLabel="None"
+                      />
+                    ) : (
+                      <FloatingInput label="Sales Order ID" name="salesOrderId" type="number" min={1} value={form.salesOrderId} onChange={(e) => setField("salesOrderId", e.target.value)} />
+                    )}
+                  </div>
                   <button
                     type="button"
-                    onClick={handleAddItem}
-                    className="inline-flex items-center gap-1 px-3 py-1 bg-cyan-50 text-cyan-600 rounded-lg hover:bg-cyan-100 text-sm font-medium"
+                    onClick={loadSalesOrderLines}
+                    disabled={!form.salesOrderId || loadingLines}
+                    className="mt-1 h-[50px] px-3 rounded-lg border border-cyan-200 bg-cyan-50 text-cyan-700 text-xs font-semibold hover:bg-cyan-100 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                    title="Fill the lines with what is still left to dispatch on the sales order"
                   >
-                    <PlusIcon className="h-4 w-4" />
-                    Add Item
+                    {loadingLines ? "Loading..." : "Load lines"}
                   </button>
                 </div>
 
-                {form.items.length === 0 && (
-                  <p className="text-sm text-gray-400 text-center py-2">
-                    Click "Add Item" to add products to this delivery
-                  </p>
+                {lookups.warehouses.length > 0 ? (
+                  <FloatingSelect
+                    label="Ship From Warehouse"
+                    name="warehouseId"
+                    value={form.warehouseId}
+                    onChange={(e) => setField("warehouseId", e.target.value)}
+                    options={lookups.warehouses.map((w) => ({ id: w.id, name: w.code ? `${w.name} (${w.code})` : w.name }))}
+                    emptyOptionLabel="Not set"
+                  />
+                ) : (
+                  <FloatingInput label="Warehouse ID" name="warehouseId" type="number" min={1} value={form.warehouseId} onChange={(e) => setField("warehouseId", e.target.value)} />
                 )}
 
-                {form.items.length > 0 && (
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {form.items.map((item, index) => (
-                      <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                        <input
-                          type="number"
-                          placeholder="Product ID *"
-                          value={item.productId || ''}
-                          onChange={(e) => handleItemChange(index, 'productId', Number(e.target.value))}
-                          className="w-24 p-1 border rounded text-sm"
-                          required
-                        />
-                        <input
-                          type="number"
-                          placeholder="Ordered Qty *"
-                          value={item.orderedQty || ''}
-                          onChange={(e) => handleItemChange(index, 'orderedQty', Number(e.target.value))}
-                          className="w-24 p-1 border rounded text-sm"
-                          required
-                          min="1"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Delivered Qty *"
-                          value={item.deliveredQty || ''}
-                          onChange={(e) => handleItemChange(index, 'deliveredQty', Number(e.target.value))}
-                          className="w-24 p-1 border rounded text-sm"
-                          required
-                          min="0"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Note"
-                          value={item.deliveryNote || ''}
-                          onChange={(e) => handleItemChange(index, 'deliveryNote', e.target.value)}
-                          className="flex-1 p-1 border rounded text-sm"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItem(index)}
-                          className="p-1 text-red-500 hover:text-red-700 rounded-lg hover:bg-red-50"
+                <div className="sm:col-span-2">
+                  <FloatingSelect
+                    label="Delivery Address"
+                    name="deliveryAddressId"
+                    value={form.deliveryAddressId}
+                    onChange={(e) => setField("deliveryAddressId", e.target.value)}
+                    options={addresses.map((a) => ({ id: a.id, name: `${addressLabel(a)}${a.defaultDelivery ? " (default)" : ""}` }))}
+                    emptyOptionLabel={form.customerId ? (addresses.length ? "Not set" : "No saved addresses for this customer") : "Choose a customer first"}
+                    disabled={!form.customerId}
+                  />
+                </div>
+
+                <FloatingSelect
+                  label="Vehicle"
+                  name="vehicleId"
+                  value={form.vehicleId}
+                  onChange={(e) => setField("vehicleId", e.target.value)}
+                  options={lookups.vehicles.map((v) => ({ id: v.id, name: v.status ? `${v.licensePlate} · ${v.status}` : v.licensePlate }))}
+                  emptyOptionLabel="Assign later"
+                />
+
+                <FloatingSelect
+                  label="Transporter"
+                  name="transporterId"
+                  value={form.transporterId}
+                  onChange={(e) => setField("transporterId", e.target.value)}
+                  options={lookups.transporters.map((t) => ({ id: t.id, name: t.name }))}
+                  emptyOptionLabel="Assign later"
+                />
+
+                <div className="sm:col-span-2">
+                  <FloatingTextarea label="Remarks" name="remarks" value={form.remarks} onChange={(e) => setField("remarks", e.target.value)} rows={2} />
+                </div>
+              </div>
+
+              {/* ITEMS */}
+              <div className="mt-2 border-t pt-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
+                    <PackageIcon className="h-5 w-5 text-cyan-600" />
+                    Products ({form.items.filter((i) => i.productId).length})
+                  </h3>
+                  <button type="button" onClick={addItem} className="inline-flex items-center gap-1 px-3 py-1 bg-cyan-50 text-cyan-600 rounded-lg hover:bg-cyan-100 text-sm font-medium">
+                    <PlusIcon className="h-4 w-4" />
+                    Add Product
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {form.items.map((item, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                      {lookups.products.length > 0 ? (
+                        <select
+                          value={item.productId}
+                          onChange={(e) => setItem(index, { productId: e.target.value, productName: undefined })}
+                          className="flex-1 min-w-0 p-2 border border-gray-300 rounded-lg text-sm bg-white"
+                          aria-label="Product"
                         >
-                          <XMarkIcon className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                          <option value="">Choose a product</option>
+                          {/* Keep a product that is no longer in the catalogue list */}
+                          {item.productId && !lookups.products.some((p) => String(p.id) === item.productId) && (
+                            <option value={item.productId}>{lookups.productName(Number(item.productId), item.productName)}</option>
+                          )}
+                          {lookups.products.map((p) => (
+                            <option key={p.id} value={p.id}>{p.productCode ? `${p.productName} (${p.productCode})` : p.productName}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="number"
+                          min={1}
+                          placeholder="Product ID"
+                          value={item.productId}
+                          onChange={(e) => setItem(index, { productId: e.target.value })}
+                          className="flex-1 min-w-0 p-2 border border-gray-300 rounded-lg text-sm"
+                          aria-label="Product ID"
+                        />
+                      )}
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={item.quantity}
+                        onChange={(e) => setItem(index, { quantity: e.target.value })}
+                        className="w-24 p-2 border border-gray-300 rounded-lg text-sm"
+                        aria-label="Quantity"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeItem(index)}
+                        disabled={form.items.length === 1}
+                        className="p-1.5 text-red-500 hover:text-red-700 rounded-lg hover:bg-red-50 disabled:opacity-30"
+                        title="Remove"
+                      >
+                        <XMarkIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowFormModal(false);
-                    setEditingId(null);
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
-                  disabled={submitting}
-                >
+                <button type="button" onClick={closeForm} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium" disabled={submitting}>
                   Cancel
                 </button>
-
                 <button
                   type="submit"
                   disabled={submitting}
                   className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {submitting ? "Saving..." : (editingId ? "Update" : "Create")}
+                  {submitting ? "Saving..." : editingId ? "Save Changes" : "Create Order"}
                 </button>
               </div>
             </form>
           </div>
         )}
 
-        {/* ================= DETAIL VIEW MODAL ================= */}
-        {showDetailModal && selectedDelivery && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-xl w-[700px] max-h-[90vh] overflow-y-auto">
+        {/* ================= DETAIL MODAL ================= */}
+        {showDetailModal && selected && (
+          <div className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-white p-6 rounded-xl w-full max-w-2xl max-h-[92vh] overflow-y-auto">
               <div className="flex justify-between items-start mb-4">
-                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                  <ClipboardListIcon className="h-6 w-6 text-cyan-600" />
-                  {selectedDelivery.deliveryNo || `DEL-${selectedDelivery.id}`}
-                </h2>
-                <button
-                  onClick={() => setShowDetailModal(false)}
-                  className="p-1.5 hover:bg-gray-100 rounded-lg"
-                >
+                <div>
+                  <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <ClipboardListIcon className="h-6 w-6 text-cyan-600" />
+                    {selected.deliveryOrderNumber}
+                  </h2>
+                  <div className="mt-2"><StatusBadge status={selected.status} /></div>
+                </div>
+                <button onClick={() => setShowDetailModal(false)} className="p-1.5 hover:bg-gray-100 rounded-lg">
                   <XMarkIcon className="h-5 w-5 text-gray-500" />
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-gray-500">Customer</label>
-                  <p className="font-medium flex items-center gap-1.5">
-                    <UserIcon className="h-4 w-4 text-slate-400" />
-                    #{selectedDelivery.customerId}
-                  </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <Detail label="Customer" value={lookups.customerName(selected.customerId, selected.customerName)} icon={<UserIcon className="h-4 w-4 text-slate-400" />} />
+                <Detail label="Delivery Date" value={formatDateTime(selected.deliveryDate)} icon={<CalendarIcon className="h-4 w-4 text-slate-400" />} />
+                <Detail label="Sales Order" value={selected.salesOrderId ? lookups.salesOrderLabel(selected.salesOrderId) : "-"} />
+                <Detail label="Warehouse" value={selected.warehouseId ? lookups.warehouseName(selected.warehouseId) : "-"} />
+                <Detail label="Vehicle" value={selected.vehiclePlate ?? "Not assigned"} icon={<TruckIcon className="h-4 w-4 text-slate-400" />} />
+                <Detail label="Transporter" value={selected.transporterName ?? "Not assigned"} />
+                <div className="sm:col-span-2">
+                  <Detail label="Delivery Address" value={selected.deliveryAddress ?? "Not set"} icon={<MapPinIcon className="h-4 w-4 text-slate-400" />} />
                 </div>
-                <div>
-                  <label className="text-xs text-gray-500">Sales Order</label>
-                  <p className="font-medium flex items-center gap-1.5">
-                    <ShoppingBagIcon className="h-4 w-4 text-slate-400" />
-                    SO-{selectedDelivery.salesOrderId}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500">Status</label>
-                  <p className="font-medium">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border ${STATUS_CONFIG[selectedDelivery.status].bgColor} ${STATUS_CONFIG[selectedDelivery.status].color}`}>
-                      {STATUS_CONFIG[selectedDelivery.status].icon}
-                      {STATUS_CONFIG[selectedDelivery.status].label}
-                    </span>
-                  </p>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500">Delivery Date</label>
-                  <p className="font-medium flex items-center gap-1.5">
-                    <CalendarIcon className="h-4 w-4 text-slate-400" />
-                    {selectedDelivery.deliveryDate ? new Date(selectedDelivery.deliveryDate).toLocaleDateString() : "-"}
-                  </p>
-                </div>
+                {selected.remarks && (
+                  <div className="sm:col-span-2">
+                    <Detail label="Remarks" value={selected.remarks} />
+                  </div>
+                )}
               </div>
+
+              {selected.tracking && (
+                <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">Latest update</p>
+                  <p className="text-slate-700">
+                    {statusConfig(selected.tracking.currentStatus).label}
+                    {selected.tracking.remarks ? ` — ${selected.tracking.remarks}` : ""}
+                  </p>
+                  {selected.tracking.failureReason && <p className="text-red-600 text-xs mt-1">Reason: {selected.tracking.failureReason}</p>}
+                  <p className="text-xs text-slate-400 mt-1">
+                    {formatDateTime(selected.tracking.statusUpdatedAt)}
+                    {selected.tracking.updatedBy ? ` by ${selected.tracking.updatedBy}` : ""}
+                  </p>
+                </div>
+              )}
 
               <div className="mt-4 border-t pt-4">
                 <h3 className="text-md font-semibold text-gray-700 mb-2 flex items-center gap-2">
                   <PackageIcon className="h-5 w-5 text-cyan-600" />
-                  Items ({selectedDelivery.items?.length || 0})
+                  Products ({selected.items?.length || 0})
                 </h3>
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {selectedDelivery.items?.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center bg-gray-50 p-2 rounded">
-                      <div>
-                        <span className="font-medium text-sm">Product #{item.productId}</span>
-                      </div>
-                      <div className="text-sm space-x-3">
-                        <span className="text-gray-500">Ordered: {item.orderedQty}</span>
-                        <span className="text-green-600">Delivered: {item.deliveredQty}</span>
-                        {item.deliveryNote && (
-                          <span className="text-gray-400 text-xs">Note: {item.deliveryNote}</span>
-                        )}
-                      </div>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {selected.items?.map((item, index) => (
+                    <div key={item.id ?? index} className="flex justify-between items-center bg-gray-50 p-2 rounded text-sm">
+                      <span className="font-medium text-slate-700">{lookups.productName(item.productId, item.productName)}</span>
+                      <span className="text-slate-500">Qty {item.quantity}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="mt-4 border-t pt-4 flex justify-end gap-2">
-                <button
-                  onClick={() => {
-                    setShowDetailModal(false);
-                    handleOpenStatusModal(selectedDelivery);
-                  }}
-                  className="px-4 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 text-sm font-medium"
-                >
-                  <PencilIcon className="h-4 w-4 inline mr-1" />
-                  Update Status
-                </button>
-                <button
-                  onClick={() => {
-                    setShowDetailModal(false);
-                    handleDeleteClick(selectedDelivery);
-                  }}
-                  className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-medium"
-                >
-                  <TrashIcon className="h-4 w-4 inline mr-1" />
-                  Delete
-                </button>
+              <div className="mt-4 border-t pt-4 flex flex-wrap justify-end gap-2">
+                {EDITABLE_ORDER_STATUSES.includes(selected.status) && (
+                  <button onClick={() => openEdit(selected)} className="px-4 py-2 bg-cyan-50 text-cyan-700 rounded-lg hover:bg-cyan-100 text-sm font-medium">
+                    <PencilIcon className="h-4 w-4 inline mr-1" />
+                    Edit
+                  </button>
+                )}
+                {nextStatuses(selected.status).length > 0 && (
+                  <button
+                    onClick={() => {
+                      setShowDetailModal(false);
+                      openStatus(selected);
+                    }}
+                    className="px-4 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 text-sm font-medium"
+                  >
+                    <ArrowRightLeftIcon className="h-4 w-4 inline mr-1" />
+                    Change Status
+                  </button>
+                )}
+                {DELETABLE_ORDER_STATUSES.includes(selected.status) && (
+                  <button
+                    onClick={() => {
+                      setShowDetailModal(false);
+                      openDelete(selected);
+                    }}
+                    className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-medium"
+                  >
+                    <TrashIcon className="h-4 w-4 inline mr-1" />
+                    Delete
+                  </button>
+                )}
               </div>
 
-              <div className="mt-4 border-t pt-4 text-xs text-gray-400">
-                <p>Created: {new Date(selectedDelivery.createdDate).toLocaleString()} by {selectedDelivery.createdBy}</p>
-                <p>Updated: {new Date(selectedDelivery.updatedDate).toLocaleString()}</p>
-              </div>
+              {selected.createdDate && (
+                <p className="mt-4 border-t pt-3 text-xs text-gray-400">Created {formatDateTime(selected.createdDate)}</p>
+              )}
             </div>
           </div>
         )}
 
-        {/* ================= DELETE CONFIRMATION MODAL ================= */}
-        {showDeleteModal && selectedDelivery && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-xl w-[450px]">
+        {/* ================= DELETE MODAL ================= */}
+        {showDeleteModal && selected && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-white p-6 rounded-xl w-full max-w-md">
               <div className="flex items-start gap-4">
                 <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
                   <TrashIcon className="h-6 w-6 text-red-600" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">Delete Delivery</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">Delete Delivery Order</h3>
                   <p className="text-sm text-gray-500">
-                    Are you sure you want to delete delivery <span className="font-semibold text-gray-700">{selectedDelivery.deliveryNo}</span>?
+                    Delete <span className="font-semibold text-gray-700">{selected.deliveryOrderNumber}</span> for{" "}
+                    {lookups.customerName(selected.customerId, selected.customerName)}?
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Customer: #{selectedDelivery.customerId} • Items: {selectedDelivery.items?.length || 0}
-                  </p>
-                  <p className="text-xs text-red-500 mt-2">⚠️ This action cannot be undone.</p>
+                  <p className="text-xs text-red-500 mt-2">This cannot be undone.</p>
                 </div>
               </div>
-
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
                 <button
                   type="button"
                   onClick={() => {
                     setShowDeleteModal(false);
-                    setSelectedDelivery(null);
+                    setSelected(null);
                   }}
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                  disabled={submitting}
                 >
                   Cancel
                 </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmDelete}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
-                >
-                  Delete Delivery
+                <button type="button" onClick={handleDelete} disabled={submitting} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium disabled:opacity-50">
+                  {submitting ? "Deleting..." : "Delete"}
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ================= UPDATE STATUS MODAL ================= */}
-        {showStatusModal && selectedDelivery && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-xl w-[450px]">
+        {/* ================= STATUS MODAL ================= */}
+        {showStatusModal && selected && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-white p-6 rounded-xl w-full max-w-md">
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <PencilIcon className="h-6 w-6 text-purple-600" />
-                Update Status
+                <ArrowRightLeftIcon className="h-6 w-6 text-purple-600" />
+                Change Status
               </h2>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Delivery
-                </label>
-                <p className="text-gray-600 font-medium">{selectedDelivery.deliveryNo}</p>
+              <div className="mb-4 flex items-center justify-between text-sm">
+                <span className="font-medium text-gray-700">{selected.deliveryOrderNumber}</span>
+                <StatusBadge status={selected.status} />
               </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Current Status
-                </label>
-                <p className="text-gray-600 font-medium">
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border ${STATUS_CONFIG[selectedDelivery.status].bgColor} ${STATUS_CONFIG[selectedDelivery.status].color}`}>
-                    {STATUS_CONFIG[selectedDelivery.status].icon}
-                    {STATUS_CONFIG[selectedDelivery.status].label}
-                  </span>
-                </p>
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  New Status *
-                </label>
-                <select
-                  value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value as DeliveryStatus)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                >
-                  {STATUS_OPTIONS.map(status => (
-                    <option key={status} value={status}>
-                      {STATUS_CONFIG[status].label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
+              <label className="block text-sm font-medium text-gray-700 mb-1">New Status *</label>
+              <select
+                value={newStatus}
+                onChange={(e) => setNewStatus(e.target.value as DeliveryStatus)}
+                className="w-full p-2 mb-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              >
+                {nextStatuses(selected.status).map((status) => (
+                  <option key={status} value={status}>{statusConfig(status).label}</option>
+                ))}
+              </select>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+              <textarea
+                value={statusRemarks}
+                onChange={(e) => setStatusRemarks(e.target.value)}
+                rows={2}
+                placeholder={newStatus === "RETURNED" || newStatus === "CANCELLED" ? "Why? e.g. customer not available" : "Optional note for the tracking history"}
+                className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
+              />
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-                <button
-                  type="button"
-                  onClick={() => setShowStatusModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
-                  disabled={submitting}
-                >
+                <button type="button" onClick={() => setShowStatusModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium" disabled={submitting}>
                   Cancel
                 </button>
-
                 <button
                   type="button"
                   onClick={handleUpdateStatus}
-                  disabled={submitting}
+                  disabled={submitting || !newStatus}
                   className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submitting ? "Updating..." : "Update Status"}
@@ -1108,4 +1006,14 @@ const DeliveryNote: React.FC = () => {
   );
 };
 
-export default DeliveryNote;
+const Detail: React.FC<{ label: string; value: React.ReactNode; icon?: React.ReactNode }> = ({ label, value, icon }) => (
+  <div>
+    <label className="text-xs text-gray-500">{label}</label>
+    <p className="font-medium text-slate-700 flex items-center gap-1.5">
+      {icon}
+      <span className="min-w-0 break-words">{value}</span>
+    </p>
+  </div>
+);
+
+export default DeliveryOrderPage;

@@ -11,6 +11,8 @@ import {
   MagnifyingGlassIcon,
   FunnelIcon,
   PlusIcon,
+  CheckCircleIcon,
+  NoSymbolIcon,
 } from "@heroicons/react/24/outline";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
@@ -20,121 +22,95 @@ import DynamicPopup from "../../components/common/Popup";
 import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import { todayIso } from "../../utils/localDate";
+import { DELIVERY_API, apiError, useDeliveryLookups } from "./deliveryShared";
+
+// A goods issue records what left the warehouse against a delivery note: drafted, then posted (or
+// cancelled). Quantities can never exceed what is still open on the note. Stock itself is taken out
+// of inventory by the sales dispatch.
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-// Server-controlled audit fields — never rendered as inputs, only carried
-// through silently on edit/submit so they don't get wiped out.
-interface AuditFields {
-  id?: number;
-  createdDate?: string;
-  updatedDate?: string;
-  createdBy?: string;
-  tenantId?: number;
-}
+type IssueStatus = "DRAFT" | "POSTED" | "CANCELLED";
 
-const STATUS_OPTIONS = ["DRAFT", "ISSUED", "CANCELLED"]; // TODO: confirm actual values with backend
+const STATUS_OPTIONS: IssueStatus[] = ["DRAFT", "POSTED", "CANCELLED"];
 
-const STATUS_STYLES: Record<string, string> = {
+const STATUS_LABELS: Record<IssueStatus, string> = { DRAFT: "Draft", POSTED: "Posted", CANCELLED: "Cancelled" };
+
+const STATUS_STYLES: Record<IssueStatus, string> = {
   DRAFT:     "bg-gray-100  text-gray-600 border-gray-200/60",
-  ISSUED:    "bg-green-100 text-green-800 border-green-200/60",
+  POSTED:    "bg-green-100 text-green-800 border-green-200/60",
   CANCELLED: "bg-red-100   text-red-800 border-red-200/60",
 };
 
-interface GoodsIssueItem extends AuditFields {
+interface GoodsIssueItem {
+  id?: number;
   productId: number;
   quantity: number;
-  goodsIssue: string; // TODO: confirm with backend what this field represents
 }
 
-interface GoodsIssueForm extends AuditFields {
-  issueNo?: string; // assumed backend-generated; read-only when editing
+interface GoodsIssueForm {
+  id?: number;
+  issueNo?: string;
   issueDate: string;
   deliveryNoteId: number;
-  status: string;
   items: GoodsIssueItem[];
 }
 
-interface GoodsIssueRecord extends GoodsIssueForm {
+interface GoodsIssueRecord {
   id: number;
-  deliveryNoteNumber?: string; // denormalized label for table display, if API returns it
+  issueNo: string;
+  issueDate: string;
+  deliveryNoteId: number;
+  deliveryNoteNo?: string;
+  status: IssueStatus;
+  createdDate?: string;
+  items: GoodsIssueItem[];
 }
 
-interface DeliveryNoteOption { id: number; noteNumber?: string; }
-interface ProductOption { id: number; name: string; }
+interface DeliveryNoteOption {
+  id: number;
+  deliveryNo: string;
+  status?: string;
+  items: { productId: number; orderedQty: number; deliveredQty?: number }[];
+}
 
-const emptyItem = (): GoodsIssueItem => ({
-  productId: 0,
-  quantity: 0,
-  goodsIssue: "",
-});
+const emptyItem = (): GoodsIssueItem => ({ productId: 0, quantity: 0 });
 
-const emptyForm = (): GoodsIssueForm => ({
-  issueDate: "",
-  deliveryNoteId: 0,
-  status: "DRAFT",
-  items: [emptyItem()],
-});
+const emptyForm = (): GoodsIssueForm => ({ issueDate: todayIso(), deliveryNoteId: 0, items: [] });
 
-const API_URL            = "/v1/api/delivery/goods-issues";
-const DELIVERY_NOTES_URL = "/v1/api/delivery/delivery-notes"; 
-const PRODUCTS_URL       = "/v1/api/inventory/products";      
+const API_URL            = `${DELIVERY_API}/goods-issues`;
+const DELIVERY_NOTES_URL = `${DELIVERY_API}/delivery-notes`;
 
-const getTenantIdFromToken = (token: string) => {
-  try {
-    const payload = token.split(".")[1];
-    const decoded = JSON.parse(atob(payload));
-    return decoded?.tenantId || null;
-  } catch {
-    return null;
-  }
-};
-
-const getTenantId = () => {
-  try {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      if (user?.tenantId) return user.tenantId;
-    }
-    const token = localStorage.getItem("accessToken");
-    if (token) return getTenantIdFromToken(token);
-    return null;
-  } catch {
-    return null;
-  }
-};
+// What a note allows per line: the delivered quantity once recorded, else the ordered one
+const noteLines = (note?: DeliveryNoteOption): GoodsIssueItem[] =>
+  (note?.items ?? []).map(i => ({ productId: i.productId, quantity: i.deliveredQty && i.deliveredQty > 0 ? i.deliveredQty : i.orderedQty }));
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const GoodsIssuePage: React.FC = () => {
+  const lookups = useDeliveryLookups(["products"]);
   const [form, setForm] = useState<GoodsIssueForm>(emptyForm());
 
-  const [records, setRecords]           = useState<GoodsIssueRecord[]>([]);
+  const [records, setRecords]             = useState<GoodsIssueRecord[]>([]);
   const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNoteOption[]>([]);
-  const [products, setProducts]         = useState<ProductOption[]>([]);
 
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving]     = useState(false);
   const [loading, setLoading]   = useState(false);
 
   const [search, setSearch]             = useState("");
-  const [activeFilter, setActiveFilter] = useState("ALL"); // ALL | DRAFT | ISSUED | CANCELLED
+  const [activeFilter, setActiveFilter] = useState<IssueStatus | "ALL">("ALL");
   const [showFilters, setShowFilters]   = useState(false);
 
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [deletingRecord, setDeletingRecord]   = useState<GoodsIssueRecord | null>(null);
-
-  const token = localStorage.getItem("accessToken");
-  const tenantId = getTenantId();
-  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+  const [statusChange, setStatusChange]       = useState<{ record: GoodsIssueRecord; status: IssueStatus } | null>(null);
 
   // ---------- Data loading ----------
   useEffect(() => {
     loadGoodsIssues();
     loadDeliveryNotes();
-    loadProducts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Lock body scroll while the modal is open
@@ -146,14 +122,10 @@ const GoodsIssuePage: React.FC = () => {
   const loadGoodsIssues = async () => {
     setLoading(true);
     try {
-      const res = await axios.get<GoodsIssueRecord[]>(API_URL, {
-        headers: authHeaders,
-        params: tenantId ? { tenantId } : {},
-      });
+      const res = await axios.get<GoodsIssueRecord[]>(API_URL);
       setRecords(res.data);
     } catch (err) {
-      console.error(err);
-      ToasterService.error("Failed to load goods issues");
+      ToasterService.error(apiError(err, "Failed to load goods issues"));
     } finally {
       setLoading(false);
     }
@@ -161,54 +133,40 @@ const GoodsIssuePage: React.FC = () => {
 
   const loadDeliveryNotes = async () => {
     try {
-      const res = await axios.get<DeliveryNoteOption[]>(DELIVERY_NOTES_URL, {
-        headers: authHeaders,
-        params: tenantId ? { tenantId } : {},
-      });
+      const res = await axios.get<DeliveryNoteOption[]>(DELIVERY_NOTES_URL);
       setDeliveryNotes(res.data);
     } catch (err) {
       console.error(err);
     }
   };
 
-  const loadProducts = async () => {
-    try {
-      const res = await axios.get<ProductOption[]>(PRODUCTS_URL, {
-        headers: authHeaders,
-        params: tenantId ? { tenantId } : {},
-      });
-      setProducts(res.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const noteLabel = (r: Pick<GoodsIssueRecord, "deliveryNoteId" | "deliveryNoteNo">) =>
+    r.deliveryNoteNo || deliveryNotes.find(n => n.id === r.deliveryNoteId)?.deliveryNo || `#${r.deliveryNoteId}`;
 
-  const noteLabel = (id: number) =>
-    deliveryNotes.find(n => n.id === id)?.noteNumber ?? `#${id}`;
+  const selectedNote = deliveryNotes.find(n => n.id === form.deliveryNoteId);
 
-  // ---------- Form field helpers ----------
-  const handleChange = <K extends keyof GoodsIssueForm>(key: K, value: GoodsIssueForm[K]) =>
-    setForm(prev => ({ ...prev, [key]: value }));
-
+  // ---------- Form helpers ----------
   const resetForm = () => {
     setForm(emptyForm());
     setShowForm(false);
   };
 
   const handleAddNew = () => {
-    resetForm();
+    setForm(emptyForm());
     setShowForm(true);
   };
 
-  // ---------- Items array helpers ----------
+  // Choosing a note proposes all of its lines; trim them to what is actually leaving
+  const chooseNote = (noteId: number) => {
+    const note = deliveryNotes.find(n => n.id === noteId);
+    setForm(prev => ({ ...prev, deliveryNoteId: noteId, items: noteLines(note) }));
+  };
+
   const addItem = () =>
     setForm(prev => ({ ...prev, items: [...prev.items, emptyItem()] }));
 
   const removeItem = (index: number) =>
-    setForm(prev => ({
-      ...prev,
-      items: prev.items.length > 1 ? prev.items.filter((_, i) => i !== index) : prev.items,
-    }));
+    setForm(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== index) }));
 
   const updateItem = <K extends keyof GoodsIssueItem>(index: number, key: K, value: GoodsIssueItem[K]) =>
     setForm(prev => ({
@@ -221,32 +179,34 @@ const GoodsIssuePage: React.FC = () => {
     e.preventDefault();
 
     if (!form.issueDate || !form.deliveryNoteId) {
-      ToasterService.error("Please fill in all required fields");
+      ToasterService.error("Choose a delivery note and the issue date");
       return;
     }
-    if (form.items.some(i => !i.productId || i.quantity <= 0)) {
-      ToasterService.error("Every item needs a product and a quantity greater than 0");
+    if (form.items.some(i => !i.productId || !(i.quantity > 0))) {
+      ToasterService.error("Every line needs a product and a quantity greater than 0");
       return;
     }
 
     setSaving(true);
-
-    // Audit fields are spread through silently, never edited via inputs.
-    const payload: GoodsIssueForm = { ...form };
+    // No lines: the service issues everything still open on the note
+    const payload = {
+      deliveryNoteId: form.deliveryNoteId,
+      issueDate: form.issueDate,
+      items: form.items.map(i => ({ productId: i.productId, quantity: i.quantity })),
+    };
 
     try {
       if (form.id) {
-        await axios.put(`${API_URL}/${form.id}`, payload, { headers: authHeaders });
-        ToasterService.success("Goods issue updated successfully!");
+        await axios.put(`${API_URL}/${form.id}`, payload);
+        ToasterService.success("Goods issue updated");
       } else {
-        await axios.post(API_URL, payload, { headers: authHeaders });
-        ToasterService.success("Goods issue added successfully!");
+        const { data } = await axios.post<GoodsIssueRecord>(API_URL, payload);
+        ToasterService.success(`Goods issue ${data.issueNo} created as a draft`);
       }
       await loadGoodsIssues();
       resetForm();
     } catch (err) {
-      console.error(err);
-      ToasterService.error("Failed to save goods issue");
+      ToasterService.error(apiError(err, "Failed to save goods issue"));
     } finally {
       setSaving(false);
     }
@@ -254,18 +214,11 @@ const GoodsIssuePage: React.FC = () => {
 
   const handleEdit = (record: GoodsIssueRecord) => {
     setForm({
-      // audit fields carried through silently
       id: record.id,
-      createdDate: record.createdDate,
-      updatedDate: record.updatedDate,
-      createdBy: record.createdBy,
-      tenantId: record.tenantId,
-
       issueNo: record.issueNo,
       issueDate: record.issueDate,
       deliveryNoteId: record.deliveryNoteId,
-      status: record.status,
-      items: record.items.length > 0 ? record.items.map(i => ({ ...i })) : [emptyItem()],
+      items: record.items.map(i => ({ productId: i.productId, quantity: i.quantity })),
     });
     setShowForm(true);
   };
@@ -278,29 +231,40 @@ const GoodsIssuePage: React.FC = () => {
   const confirmDelete = async () => {
     if (!deletingRecord) return;
     try {
-      await axios.delete(`${API_URL}/${deletingRecord.id}`, { headers: authHeaders });
-      ToasterService.success("Goods issue deleted successfully!");
+      await axios.delete(`${API_URL}/${deletingRecord.id}`);
+      ToasterService.success("Goods issue deleted");
       setRecords(prev => prev.filter(r => r.id !== deletingRecord.id));
     } catch (err) {
-      console.error(err);
-      ToasterService.error("Failed to delete goods issue");
+      ToasterService.error(apiError(err, "Failed to delete goods issue"));
     } finally {
       setShowDeletePopup(false);
       setDeletingRecord(null);
     }
   };
 
+  const confirmStatusChange = async () => {
+    if (!statusChange) return;
+    const { record, status } = statusChange;
+    try {
+      await axios.put(`${API_URL}/${record.id}/status`, { status });
+      ToasterService.success(`${record.issueNo} ${status === "POSTED" ? "posted" : "cancelled"}`);
+      await loadGoodsIssues();
+    } catch (err) {
+      ToasterService.error(apiError(err, "Failed to change the status"));
+    } finally {
+      setStatusChange(null);
+    }
+  };
+
   // ---------- Derived: search + filter ----------
   const filteredRecords = useMemo(() => {
+    const term = search.toLowerCase();
     return records.filter(r => {
-      const term = search.toLowerCase();
       const matchesSearch =
         (r.issueNo ?? "").toLowerCase().includes(term) ||
-        (r.deliveryNoteNumber ?? noteLabel(r.deliveryNoteId)).toLowerCase().includes(term) ||
-        r.status.toLowerCase().includes(term);
-
+        noteLabel(r).toLowerCase().includes(term) ||
+        STATUS_LABELS[r.status].toLowerCase().includes(term);
       const matchesFilter = activeFilter === "ALL" || r.status === activeFilter;
-
       return matchesSearch && matchesFilter;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -309,9 +273,16 @@ const GoodsIssuePage: React.FC = () => {
   const stats = useMemo(() => ({
     total:     records.length,
     draft:     records.filter(r => r.status === "DRAFT").length,
-    issued:    records.filter(r => r.status === "ISSUED").length,
+    posted:    records.filter(r => r.status === "POSTED").length,
     cancelled: records.filter(r => r.status === "CANCELLED").length,
   }), [records]);
+
+  // Products on the chosen note first; a line keeps its product even if it is not on the note
+  const productOptions = (current: number) => {
+    const onNote = new Set(selectedNote?.items.map(i => i.productId) ?? []);
+    const ids = new Set<number>([...onNote, ...(current ? [current] : [])]);
+    return [...ids].map(id => ({ id, name: lookups.productName(id) }));
+  };
 
   // ---------- Table columns ----------
   const columns: ColumnDef<GoodsIssueRecord>[] = [
@@ -319,8 +290,8 @@ const GoodsIssuePage: React.FC = () => {
       key: "issueNo",
       label: "Issue No.",
       sortable: true,
-      headerClassName: "w-[22%] text-left",
-      className: "w-[22%]",
+      headerClassName: "w-[20%] text-left",
+      className: "w-[20%]",
       render: (r) => (
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
@@ -334,8 +305,8 @@ const GoodsIssuePage: React.FC = () => {
       key: "issueDate",
       label: "Issue Date",
       sortable: true,
-      headerClassName: "w-[18%] text-left",
-      className: "w-[18%]",
+      headerClassName: "w-[15%] text-left",
+      className: "w-[15%]",
       render: (r) => (
         <div className="flex items-center gap-2 text-sm text-slate-600">
           <CalendarDaysIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
@@ -344,23 +315,24 @@ const GoodsIssuePage: React.FC = () => {
       ),
     },
     {
-      key: "deliveryNoteNumber",
+      key: "deliveryNoteNo",
       label: "Delivery Note",
-      headerClassName: "w-[20%] text-left",
-      className: "w-[20%]",
-      render: (r) => (
-        <span className="text-sm text-slate-600 truncate">
-          {r.deliveryNoteNumber ?? noteLabel(r.deliveryNoteId)}
-        </span>
-      ),
+      sortable: true,
+      sortValueGetter: (r) => noteLabel(r),
+      headerClassName: "w-[18%] text-left",
+      className: "w-[18%]",
+      render: (r) => <span className="text-sm text-slate-600 truncate">{noteLabel(r)}</span>,
     },
     {
       key: "items",
-      label: "Items",
-      headerClassName: "w-[12%] text-left",
-      className: "w-[12%]",
+      label: "Lines",
+      headerClassName: "w-[10%] text-left",
+      className: "w-[10%]",
       render: (r) => (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/40">
+        <span
+          className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/40"
+          title={r.items.map(i => `${lookups.productName(i.productId)} × ${i.quantity}`).join("\n")}
+        >
           <ClipboardDocumentListIcon className="h-3.5 w-3.5 text-cyan-600 opacity-80" />
           {r.items?.length ?? 0}
         </span>
@@ -370,11 +342,11 @@ const GoodsIssuePage: React.FC = () => {
       key: "status",
       label: "Status",
       sortable: true,
-      headerClassName: "w-[13%] text-left",
-      className: "w-[13%]",
+      headerClassName: "w-[12%] text-left",
+      className: "w-[12%]",
       render: (r) => (
         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${STATUS_STYLES[r.status] ?? "bg-gray-100 text-gray-700 border-gray-200"}`}>
-          {r.status}
+          {STATUS_LABELS[r.status] ?? r.status}
         </span>
       ),
     },
@@ -382,77 +354,59 @@ const GoodsIssuePage: React.FC = () => {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "w-[15%] text-right pr-4",
-      className: "w-[15%] text-right",
+      headerClassName: "w-[25%] text-right pr-4",
+      className: "w-[25%] text-right",
       render: (r) => (
         <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={() => handleEdit(r)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit Goods Issue"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => handleDelete(r)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-            title="Delete Goods Issue"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
+          {r.status === "DRAFT" && (
+            <>
+              <button type="button" onClick={() => setStatusChange({ record: r, status: "POSTED" })} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-green-50 hover:text-green-600" title="Post">
+                <CheckCircleIcon className="h-4 w-4" />
+              </button>
+              <button type="button" onClick={() => handleEdit(r)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600" title="Edit">
+                <PencilSquareIcon className="h-4 w-4" />
+              </button>
+            </>
+          )}
+          {r.status !== "CANCELLED" && (
+            <button type="button" onClick={() => setStatusChange({ record: r, status: "CANCELLED" })} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-amber-50 hover:text-amber-600" title="Cancel">
+              <NoSymbolIcon className="h-4 w-4" />
+            </button>
+          )}
+          {r.status !== "POSTED" && (
+            <button type="button" onClick={() => handleDelete(r)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600" title="Delete">
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },
   ];
 
+  // Notes that can still be issued against (not cancelled), plus the one being edited
+  const noteOptions = deliveryNotes
+    .filter(n => n.status !== "CANCELLED" || n.id === form.deliveryNoteId)
+    .map(d => ({ id: String(d.id), name: d.deliveryNo ?? `#${d.id}` }));
+
   // ---------- Render ----------
   return (
     <>
-      <PageMeta title="Goods Issue" description="Manage goods issue documents" />
+      <PageMeta title="Goods Issue" description="Record goods leaving the warehouse against delivery notes" />
       <PageBreadcrumb pageTitle="Goods Issue" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
 
-        {/* Header */}
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           <AddButton label="Add Goods Issue" onClick={handleAddNew} />
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatsCard
-            label="Total Goods Issues"
-            value={stats.total}
-            gradient="from-cyan-50 to-blue-50"
-            borderColor="border-cyan-100"
-            labelColor="text-cyan-600"
-          />
-          <StatsCard
-            label="Draft"
-            value={stats.draft}
-            gradient="from-gray-50 to-slate-50"
-            borderColor="border-gray-200"
-            labelColor="text-gray-500"
-          />
-          <StatsCard
-            label="Issued"
-            value={stats.issued}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-          />
-          <StatsCard
-            label="Cancelled"
-            value={stats.cancelled}
-            gradient="from-red-50 to-rose-50"
-            borderColor="border-red-100"
-            labelColor="text-red-600"
-          />
+          <StatsCard label="Total Goods Issues" value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label="Draft" value={stats.draft} gradient="from-gray-50 to-slate-50" borderColor="border-gray-200" labelColor="text-gray-500" />
+          <StatsCard label="Posted" value={stats.posted} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label="Cancelled" value={stats.cancelled} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
         </div>
 
-        {/* Toolbar */}
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="w-full sm:flex-1 sm:max-w-md">
             <div className="relative">
@@ -465,10 +419,7 @@ const GoodsIssuePage: React.FC = () => {
                 className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               />
               {search && (
-                <button
-                  onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
+                <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
                   <XMarkIcon className="h-4 w-4" />
                 </button>
               )}
@@ -487,7 +438,6 @@ const GoodsIssuePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Filters Panel */}
         {showFilters && (
           <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 animate-slide-down">
             <div className="flex flex-wrap gap-4">
@@ -496,20 +446,14 @@ const GoodsIssuePage: React.FC = () => {
                   label="Filter by Status"
                   name="filter"
                   value={activeFilter}
-                  onChange={(e) => setActiveFilter(e.target.value)}
+                  onChange={(e) => setActiveFilter(e.target.value as IssueStatus | "ALL")}
                   includeEmptyOption={false}
                   className="!mb-0"
-                  options={[
-                    { id: "ALL", name: "All Statuses" },
-                    ...STATUS_OPTIONS.map(s => ({ id: s, name: s })),
-                  ]}
+                  options={[{ id: "ALL", name: "All Statuses" }, ...STATUS_OPTIONS.map(s => ({ id: s, name: STATUS_LABELS[s] }))]}
                 />
               </div>
               {activeFilter !== "ALL" && (
-                <button
-                  onClick={() => setActiveFilter("ALL")}
-                  className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
-                >
+                <button onClick={() => setActiveFilter("ALL")} className="self-end mb-1 text-sm text-red-600 hover:text-red-800">
                   Clear Filter
                 </button>
               )}
@@ -517,7 +461,6 @@ const GoodsIssuePage: React.FC = () => {
           </div>
         )}
 
-        {/* Table */}
         <ReusableTable<GoodsIssueRecord>
           data={filteredRecords}
           columns={columns}
@@ -532,11 +475,7 @@ const GoodsIssuePage: React.FC = () => {
               {search || activeFilter !== "ALL" ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
               ) : (
-                <button
-                  type="button"
-                  onClick={handleAddNew}
-                  className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
-                >
+                <button type="button" onClick={handleAddNew} className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium">
                   Create your first goods issue
                 </button>
               )}
@@ -544,7 +483,6 @@ const GoodsIssuePage: React.FC = () => {
           }
         />
 
-        {/* Add / Edit Modal — portal, matches CRM segment modal style */}
         {showForm &&
           createPortal(
             <div
@@ -555,10 +493,10 @@ const GoodsIssuePage: React.FC = () => {
                 <div className="flex items-center justify-between p-5 border-b border-gray-100">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {form.id ? "Edit Goods Issue" : "Create New Goods Issue"}
+                      {form.id ? `Edit ${form.issueNo ?? "Goods Issue"}` : "Create Goods Issue"}
                     </h3>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {form.id ? "Update this goods issue's details" : "Record a new goods issue document"}
+                      Saved as a draft. Quantities cannot exceed what is still open on the delivery note.
                     </p>
                   </div>
                   <button onClick={resetForm} className="text-gray-400 hover:text-gray-600 transition-colors">
@@ -567,133 +505,92 @@ const GoodsIssuePage: React.FC = () => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-5 max-h-[75vh] overflow-y-auto">
-                  <div className="space-y-4 pt-2">
-
-                    {/* Issue No. — read-only, backend-generated. Only shown when editing. */}
-                    {form.id && (
-                      <FloatingInput
-                        label="Issue No."
-                        name="issueNo"
-                        value={form.issueNo ?? ""}
-                        onChange={() => {}}
-                        disabled
-                      />
-                    )}
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FloatingInput
-                        label="Issue Date"
-                        name="issueDate"
-                        type="date"
-                        value={form.issueDate}
-                        onChange={(e) => handleChange("issueDate", e.target.value)}
-                        required
-                      />
-
-                      <FloatingSelect
-                        label="Delivery Note"
-                        name="deliveryNoteId"
-                        value={form.deliveryNoteId ? String(form.deliveryNoteId) : ""}
-                        onChange={(e) => handleChange("deliveryNoteId", Number(e.target.value))}
-                        includeEmptyOption
-                        required
-                        options={deliveryNotes.map(d => ({ id: String(d.id), name: d.noteNumber ?? `#${d.id}` }))}
-                      />
-                    </div>
-
-                    {/* Status — defaults to DRAFT on create, disabled there since
-                        transitions are handled via separate actions elsewhere. */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                     <FloatingSelect
-                      label="Status"
-                      name="status"
-                      value={form.status}
-                      onChange={(e) => handleChange("status", e.target.value)}
-                      includeEmptyOption={false}
-                      disabled={!form.id}
-                      options={STATUS_OPTIONS.map(s => ({ id: s, name: s }))}
+                      label="Delivery Note"
+                      name="deliveryNoteId"
+                      value={form.deliveryNoteId ? String(form.deliveryNoteId) : ""}
+                      onChange={(e) => chooseNote(Number(e.target.value))}
+                      includeEmptyOption
+                      required
+                      options={noteOptions}
+                    />
+                    <FloatingInput
+                      label="Issue Date"
+                      name="issueDate"
+                      type="date"
+                      value={form.issueDate}
+                      onChange={(e) => setForm(prev => ({ ...prev, issueDate: e.target.value }))}
+                      required
                     />
                   </div>
 
-                  {/* Items */}
-                  <div className="mt-6">
+                  <div className="mt-2">
                     <div className="flex items-center justify-between mb-3">
-                      <label className="text-sm font-medium text-gray-900">
-                        Items <span className="text-red-500">*</span>
-                      </label>
+                      <label className="text-sm font-medium text-gray-900">Lines</label>
                       <button
                         type="button"
                         onClick={addItem}
-                        className="inline-flex items-center gap-1 text-sm font-medium text-cyan-600 hover:text-cyan-700"
+                        disabled={!form.deliveryNoteId}
+                        className="inline-flex items-center gap-1 text-sm font-medium text-cyan-600 hover:text-cyan-700 disabled:opacity-40"
                       >
                         <PlusIcon className="h-4 w-4" />
-                        Add Item
+                        Add Line
                       </button>
                     </div>
 
-                    <div className="space-y-3">
-                      {form.items.map((item, index) => (
-                        <div
-                          key={index}
-                          className="grid grid-cols-1 md:grid-cols-[2fr_1fr_2fr_auto] gap-3 items-end bg-gray-50 border border-gray-200 rounded-lg p-3"
-                        >
-                          <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Product</label>
-                            <select
-                              value={item.productId}
-                              onChange={(e) => updateItem(index, "productId", Number(e.target.value))}
-                              required
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
+                    {!form.deliveryNoteId ? (
+                      <p className="text-sm text-gray-400 text-center py-4 bg-gray-50 rounded-lg">Choose a delivery note to load its lines.</p>
+                    ) : form.items.length === 0 ? (
+                      <p className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
+                        No lines: everything still open on {selectedNote?.deliveryNo ?? "the note"} will be issued.
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {form.items.map((item, index) => (
+                          <div key={index} className="grid grid-cols-[1fr_8rem_auto] gap-3 items-end bg-gray-50 border border-gray-200 rounded-lg p-3">
+                            <div className="min-w-0">
+                              <label className="block text-xs font-medium text-gray-500 mb-1">Product</label>
+                              <select
+                                value={item.productId}
+                                onChange={(e) => updateItem(index, "productId", Number(e.target.value))}
+                                required
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
+                              >
+                                <option value={0} disabled>Select product</option>
+                                {productOptions(item.productId).map(p => (
+                                  <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">Quantity</label>
+                              <input
+                                type="number"
+                                min={0}
+                                step="any"
+                                value={item.quantity}
+                                onChange={(e) => updateItem(index, "quantity", Number(e.target.value))}
+                                required
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeItem(index)}
+                              title="Remove line"
+                              className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                             >
-                              <option value={0} disabled>Select product</option>
-                              {products.map(p => (
-                                <option key={p.id} value={p.id}>{p.name}</option>
-                              ))}
-                            </select>
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
                           </div>
-
-                          <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Quantity</label>
-                            <input
-                              type="number"
-                              min={0}
-                              value={item.quantity}
-                              onChange={(e) => updateItem(index, "quantity", Number(e.target.value))}
-                              required
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Note</label>
-                            <input
-                              type="text"
-                              value={item.goodsIssue}
-                              onChange={(e) => updateItem(index, "goodsIssue", e.target.value)}
-                              placeholder="e.g. remarks / location"
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
-                            />
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => removeItem(index)}
-                            disabled={form.items.length === 1}
-                            title={form.items.length === 1 ? "At least one item is required" : "Remove item"}
-                            className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-                    <button
-                      type="button"
-                      onClick={resetForm}
-                      className="px-4 py-2 !mb-0 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
-                    >
+                    <button type="button" onClick={resetForm} className="px-4 py-2 !mb-0 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
                       Cancel
                     </button>
                     <button
@@ -701,7 +598,7 @@ const GoodsIssuePage: React.FC = () => {
                       disabled={saving}
                       className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 transition-all duration-200 shadow-sm disabled:opacity-60"
                     >
-                      {saving ? "Saving..." : form.id ? "Update Goods Issue" : "Create Goods Issue"}
+                      {saving ? "Saving..." : form.id ? "Update Goods Issue" : "Create Draft"}
                     </button>
                   </div>
                 </form>
@@ -711,7 +608,6 @@ const GoodsIssuePage: React.FC = () => {
           )}
       </div>
 
-      {/* Delete popup */}
       <DynamicPopup
         isPopupOpen={showDeletePopup}
         setIsPopupOpen={setShowDeletePopup}
@@ -724,6 +620,26 @@ const GoodsIssuePage: React.FC = () => {
         onConfirm={confirmDelete}
         onCancel={() => setDeletingRecord(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
+      />
+
+      <DynamicPopup
+        isPopupOpen={statusChange !== null}
+        setIsPopupOpen={(open: boolean) => { if (!open) setStatusChange(null); }}
+        icon={statusChange?.status === "POSTED"
+          ? <CheckCircleIcon className="h-6 w-6 text-green-600" />
+          : <NoSymbolIcon className="h-6 w-6 text-amber-600" />}
+        iconBg={statusChange?.status === "POSTED" ? "bg-green-100" : "bg-amber-100"}
+        innerText={statusChange?.status === "POSTED" ? "Post Goods Issue" : "Cancel Goods Issue"}
+        subText={statusChange?.status === "POSTED"
+          ? `Post "${statusChange?.record.issueNo}"? A posted goods issue can no longer be edited or deleted, only cancelled.`
+          : `Cancel "${statusChange?.record.issueNo}"? Its quantities become available on the delivery note again.`}
+        confirmLabel={statusChange?.status === "POSTED" ? "Post" : "Cancel Issue"}
+        cancelLabel="Back"
+        onConfirm={confirmStatusChange}
+        onCancel={() => setStatusChange(null)}
+        confirmBtnClass={statusChange?.status === "POSTED"
+          ? "bg-green-600 hover:bg-green-700 focus:ring-green-500 text-white"
+          : "bg-amber-600 hover:bg-amber-700 focus:ring-amber-500 text-white"}
       />
 
       <style>{`

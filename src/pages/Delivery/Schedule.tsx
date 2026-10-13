@@ -24,21 +24,17 @@ import { todayIso } from "../../utils/localDate";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface TimeObject {
-  hour: number;
-  minute: number;
-  second: number;
-  nano: number;
-}
-
-// What the API actually returns for a schedule record
+// ScheduleResponseDTO: times come as "HH:mm:ss"
 interface ScheduleApi {
   id: number;
   routeId: number;
+  routeName?: string;
   vehicleId: number;
+  vehiclePlate?: string;
   scheduledDate: string;
-  startTime: TimeObject;
-  endTime: TimeObject;
+  startTime: string;
+  endTime: string;
+  status?: string;
 }
 
 // UI-friendly form shape — times as "HH:mm" strings, ids as strings for <select>/FloatingSelect
@@ -49,7 +45,15 @@ interface ScheduleForm {
   scheduledDate: string;
   startTime: string;
   endTime: string;
+  status: string;
 }
+
+const STATUS_OPTIONS = ["Scheduled", "Completed", "Cancelled"];
+const STATUS_STYLES: Record<string, string> = {
+  Scheduled: "bg-cyan-50 text-cyan-700 border-cyan-200/60",
+  Completed: "bg-green-50 text-green-700 border-green-200/60",
+  Cancelled: "bg-gray-100 text-gray-500 border-gray-200/60",
+};
 
 interface RouteOption { id: number; name: string; }
 interface VehicleOption { id: number; licensePlate: string; }
@@ -66,40 +70,11 @@ const emptyForm: ScheduleForm = {
   scheduledDate: "",
   startTime: "",
   endTime: "",
+  status: "Scheduled",
 };
 
-const timeObjectToInputString = (t?: TimeObject): string => {
-  if (!t) return "";
-  const hh = String(t.hour).padStart(2, "0");
-  const mm = String(t.minute).padStart(2, "0");
-  return `${hh}:${mm}`;
-};
+const toInputTime = (t?: string): string => (t ?? "").slice(0, 5); // "09:00:00" → "09:00"
 const inputStringToApiTime = (t: string): string => `${t}:00`;
-
-const getTenantIdFromToken = (token: string) => {
-  try {
-    const payload = token.split(".")[1];
-    const decoded = JSON.parse(atob(payload));
-    return decoded?.tenantId || null;
-  } catch {
-    return null;
-  }
-};
-
-const getTenantId = () => {
-  try {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      if (user?.tenantId) return user.tenantId;
-    }
-    const token = localStorage.getItem("accessToken");
-    if (token) return getTenantIdFromToken(token);
-    return null;
-  } catch {
-    return null;
-  }
-};
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -120,10 +95,6 @@ const SchedulePage: React.FC = () => {
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [deletingItem, setDeletingItem] = useState<ScheduleApi | null>(null);
 
-  const token = localStorage.getItem("accessToken");
-  const tenantId = getTenantId();
-  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
-
   useEffect(() => {
     loadSchedules();
     loadRoutes();
@@ -140,10 +111,7 @@ const SchedulePage: React.FC = () => {
   const loadSchedules = async () => {
     setLoading(true);
     try {
-      const res = await axios.get<ScheduleApi[]>(API_URL, {
-        headers: authHeaders,
-        params: tenantId ? { tenantId } : {},
-      });
+      const res = await axios.get<ScheduleApi[]>(API_URL);
       setSchedules(res.data);
     } catch (err) {
       console.error("Failed to load schedules:", err);
@@ -155,10 +123,7 @@ const SchedulePage: React.FC = () => {
 
   const loadRoutes = async () => {
     try {
-      const res = await axios.get<RouteOption[]>(ROUTES_URL, {
-        headers: authHeaders,
-        params: tenantId ? { tenantId } : {},
-      });
+      const res = await axios.get<RouteOption[]>(ROUTES_URL);
       setRouteOptions(res.data);
     } catch (err) {
       console.error("Failed to load routes:", err);
@@ -167,10 +132,7 @@ const SchedulePage: React.FC = () => {
 
   const loadVehicles = async () => {
     try {
-      const res = await axios.get<VehicleOption[]>(VEHICLES_URL, {
-        headers: authHeaders,
-        params: tenantId ? { tenantId } : {},
-      });
+      const res = await axios.get<VehicleOption[]>(VEHICLES_URL);
       setVehicleOptions(res.data);
     } catch (err) {
       console.error("Failed to load vehicles:", err);
@@ -179,8 +141,10 @@ const SchedulePage: React.FC = () => {
 
   // ── Lookups for table rendering ─────────────────────────────────────────────
 
-  const routeName = (id: number) => routeOptions.find(r => r.id === id)?.name ?? `#${id}`;
-  const vehiclePlate = (id: number) => vehicleOptions.find(v => v.id === id)?.licensePlate ?? `#${id}`;
+  const routeName = (s: ScheduleApi) =>
+    s.routeName ?? routeOptions.find(r => r.id === s.routeId)?.name ?? `#${s.routeId}`;
+  const vehiclePlate = (s: ScheduleApi) =>
+    s.vehiclePlate ?? vehicleOptions.find(v => v.id === s.vehicleId)?.licensePlate ?? `#${s.vehicleId}`;
 
   // ── Form helpers ─────────────────────────────────────────────────────────────
 
@@ -197,8 +161,9 @@ const SchedulePage: React.FC = () => {
       routeId: String(s.routeId),
       vehicleId: String(s.vehicleId),
       scheduledDate: s.scheduledDate,
-      startTime: timeObjectToInputString(s.startTime), // TimeObject in, string out
-      endTime: timeObjectToInputString(s.endTime),
+      startTime: toInputTime(s.startTime),
+      endTime: toInputTime(s.endTime),
+      status: s.status ?? "Scheduled",
     });
     setShowForm(true);
   };
@@ -212,6 +177,10 @@ const SchedulePage: React.FC = () => {
       ToasterService.error("Please fill in all required fields");
       return;
     }
+    if (form.endTime <= form.startTime) {
+      ToasterService.error("End time must be after start time");
+      return;
+    }
 
     setSaving(true);
     const payload = {
@@ -220,21 +189,23 @@ const SchedulePage: React.FC = () => {
       scheduledDate: form.scheduledDate,
       startTime: inputStringToApiTime(form.startTime), // "05:00" in, "05:00:00" out
       endTime: inputStringToApiTime(form.endTime),
+      // New schedules always start as Scheduled
+      status: form.id ? form.status : undefined,
     };
 
     try {
       if (form.id) {
-        await axios.put(`${API_URL}/${form.id}`, payload, { headers: authHeaders });
+        await axios.put(`${API_URL}/${form.id}`, payload);
         ToasterService.success("Schedule updated successfully!");
       } else {
-        await axios.post(API_URL, payload, { headers: authHeaders });
+        await axios.post(API_URL, payload);
         ToasterService.success("Schedule added successfully!");
       }
       await loadSchedules();
       resetForm();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error saving schedule:", err);
-      ToasterService.error("Failed to save schedule");
+      ToasterService.error(err.response?.data?.message || "Failed to save schedule");
     } finally {
       setSaving(false);
     }
@@ -248,7 +219,7 @@ const SchedulePage: React.FC = () => {
   const confirmDelete = async () => {
     if (!deletingItem) return;
     try {
-      await axios.delete(`${API_URL}/${deletingItem.id}`, { headers: authHeaders });
+      await axios.delete(`${API_URL}/${deletingItem.id}`);
       ToasterService.success("Schedule deleted successfully!");
       setSchedules(prev => prev.filter(s => s.id !== deletingItem.id));
     } catch (err) {
@@ -268,8 +239,9 @@ const SchedulePage: React.FC = () => {
     return schedules.filter(s => {
       const term = search.toLowerCase();
       const matchesSearch =
-        routeName(s.routeId).toLowerCase().includes(term) ||
-        vehiclePlate(s.vehicleId).toLowerCase().includes(term) ||
+        routeName(s).toLowerCase().includes(term) ||
+        vehiclePlate(s).toLowerCase().includes(term) ||
+        (s.status ?? "").toLowerCase().includes(term) ||
         s.scheduledDate.includes(term);
 
       let matchesFilter = true;
@@ -311,13 +283,13 @@ const SchedulePage: React.FC = () => {
       key: "routeId",
       label: "Route",
       sortable: true,
-      sortValueGetter: (s) => routeName(s.routeId),
-      headerClassName: "w-[24%] text-left",
-      className: "w-[24%]",
+      sortValueGetter: (s) => routeName(s),
+      headerClassName: "w-[22%] text-left",
+      className: "w-[22%]",
       render: (s) => (
         <div className="flex items-center gap-2 text-sm text-slate-600">
           <MapPinIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
-          <span className="truncate font-medium text-slate-600">{routeName(s.routeId)}</span>
+          <span className="truncate font-medium text-slate-600">{routeName(s)}</span>
         </div>
       ),
     },
@@ -325,25 +297,37 @@ const SchedulePage: React.FC = () => {
       key: "vehicleId",
       label: "Vehicle",
       sortable: true,
-      sortValueGetter: (s) => vehiclePlate(s.vehicleId),
-      headerClassName: "w-[20%] text-left",
-      className: "w-[20%]",
+      sortValueGetter: (s) => vehiclePlate(s),
+      headerClassName: "w-[18%] text-left",
+      className: "w-[18%]",
       render: (s) => (
         <div className="flex items-center gap-2 text-sm text-slate-600">
           <TruckIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
-          <span className="truncate font-medium text-slate-600">{vehiclePlate(s.vehicleId)}</span>
+          <span className="truncate font-medium text-slate-600">{vehiclePlate(s)}</span>
         </div>
       ),
     },
     {
       key: "startTime",
       label: "Time",
-      headerClassName: "w-[18%] text-left",
-      className: "w-[18%]",
+      headerClassName: "w-[16%] text-left",
+      className: "w-[16%]",
       render: (s) => (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/40">
           <ClockIcon className="h-3.5 w-3.5 text-cyan-600 opacity-80" />
-          {timeObjectToInputString(s.startTime)} – {timeObjectToInputString(s.endTime)}
+          {toInputTime(s.startTime)} – {toInputTime(s.endTime)}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      headerClassName: "w-[12%] text-left",
+      className: "w-[12%]",
+      render: (s) => (
+        <span className={`inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full border ${STATUS_STYLES[s.status ?? ""] ?? STATUS_STYLES.Scheduled}`}>
+          {s.status ?? "Scheduled"}
         </span>
       ),
     },
@@ -351,8 +335,8 @@ const SchedulePage: React.FC = () => {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "w-[20%] text-right pr-4",
-      className: "w-[20%] text-right",
+      headerClassName: "w-[14%] text-right pr-4",
+      className: "w-[14%] text-right",
       render: (s) => (
         <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
           <button
@@ -591,6 +575,16 @@ const SchedulePage: React.FC = () => {
                         />
                       </div>
                     </div>
+
+                    {form.id && (
+                      <FloatingSelect
+                        label="Status"
+                        name="status"
+                        value={form.status}
+                        onChange={(e) => handleChange("status", e.target.value)}
+                        options={STATUS_OPTIONS.map(s => ({ id: s, name: s }))}
+                      />
+                    )}
                   </div>
 
                   <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
