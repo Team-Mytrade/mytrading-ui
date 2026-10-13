@@ -107,6 +107,11 @@ export type PurchaseResourceConfig = {
   endpoint: string;
    formSubtitle?: string
   getByIdEndpoint?: (row: PurchaseRecord) => string;
+  /**
+   * Custom loader for the full record (used by Edit and the inline status dropdown).
+   * Use it when GET-by-id does not return every field. Overrides getByIdEndpoint.
+   */
+  loadRecord?: (row: PurchaseRecord) => Promise<PurchaseRecord>;
   createEndpoint?: string;
   updateEndpoint?: (row: PurchaseRecord, form: PurchaseRecord) => string;
   deleteEndpoint?: (row: PurchaseRecord) => string;
@@ -490,7 +495,15 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
 
   const openEdit = async (row: PurchaseRecord) => {
     let selectedRow = row;
-    if (config.getByIdEndpoint) {
+    if (config.loadRecord) {
+      try {
+        selectedRow = (await config.loadRecord(row)) || row;
+      } catch (error) {
+        console.error(`Failed to load ${config.title} details`, error);
+        ToasterService.error(`Failed to load ${config.title} details`);
+        setApiFailed(true);
+      }
+    } else if (config.getByIdEndpoint) {
       try {
         const res = await axios.get(config.getByIdEndpoint(row), {
           params: config.getRequestParams?.(),
@@ -639,6 +652,10 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   };
 
   const resolveRowForUpdate = async (row: PurchaseRecord) => {
+    if (config.loadRecord) {
+      // Must succeed: saving a half-loaded record would wipe the fields that are missing.
+      return (await config.loadRecord(row)) || row;
+    }
     if (!config.getByIdEndpoint) return row;
 
     try {
