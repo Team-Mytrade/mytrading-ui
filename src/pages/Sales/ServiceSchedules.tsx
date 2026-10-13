@@ -24,6 +24,7 @@ import {
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { todayIso } from "../../utils/localDate";
 
 type LocalTime = {
   hour: number;
@@ -100,7 +101,7 @@ const emptyForm: ScheduleForm = {
   serviceOrderId: "",
   customerId: "",
   assignedEmployeeId: "",
-  scheduledDate: new Date().toISOString().split("T")[0],
+  scheduledDate: todayIso(),
   startTime: "",
   endTime: "",
   remarks: "",
@@ -332,7 +333,7 @@ const ServiceSchedules: React.FC = () => {
       serviceOrderId: String(schedule.serviceOrderId || ""),
       customerId: String(schedule.customerId || ""),
       assignedEmployeeId: String(schedule.assignedEmployeeId || ""),
-      scheduledDate: schedule.scheduledDate || new Date().toISOString().split("T")[0],
+      scheduledDate: schedule.scheduledDate || todayIso(),
       startTime: htmlTime(schedule.startTime),
       endTime: htmlTime(schedule.endTime),
       remarks: schedule.remarks || "",

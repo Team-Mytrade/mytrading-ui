@@ -172,7 +172,7 @@ const ForgetPassword = () => {
           {/* Success Message */}
           {isOtpSent && (
             <div className="p-3 bg-green-100 border border-green-400 text-green-700 rounded dark:bg-green-900 dark:border-green-700 dark:text-green-300">
-              ✅ OTP has been sent successfully to your email! Please check your inbox.
+              If an account exists for this email, a password reset link has been sent. Please check your inbox.
             </div>
           )}
 
@@ -195,7 +195,7 @@ const ForgetPassword = () => {
               ${(!email || isLoading || isOtpSent) ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-xl'}`}
             disabled={!email || isLoading || isOtpSent}
           >
-            {isLoading ? 'Sending OTP...' : (isOtpSent ? 'OTP Sent Successfully' : 'Send OTP')}
+            {isLoading ? 'Sending...' : (isOtpSent ? 'Reset Link Sent' : 'Send Reset Link')}
           </button>
         </form>
 

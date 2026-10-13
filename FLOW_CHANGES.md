@@ -73,3 +73,17 @@
 ## 2026-10-09
 
 - Product Categories now includes an Add Product row action that opens the Product Catalogue create flow with the selected category prefilled.
+
+- When the Quotation customer dropdown has no available customers, its adjacent add control opens the existing Customer creation flow.
+
+- Only quotations in DRAFT status expose the edit action; edits use the existing quotation update request.
+
+- The quotation Status dropdown remains available after status changes. Selecting SENT uses the send action and selecting ACCEPTED uses the accept action; full quotation edits remain limited to DRAFT.
+
+- Accepted quotations now expose a Convert to Sales Order action. It calls the conversion API and refreshes the quotation so its resulting CONVERTED status is shown.
+
+- Converting an accepted quotation now opens Sales Orders scoped to the converted quotation, with an option to return to the complete order list.
+
+- New quotations are created in DRAFT status. Status is changed only after creation from the quotation list, using the lifecycle APIs.
+
+- Creating or editing a quotation now opens in the shared right-side Dragger used for Purchase Orders instead of replacing the quotation list page.

@@ -543,7 +543,7 @@ const Refunds: React.FC = () => {
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Refund" : "Create Refund"}
-        subtitle="Enter refund details from the API schema"
+        subtitle="Enter the refund details"
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}

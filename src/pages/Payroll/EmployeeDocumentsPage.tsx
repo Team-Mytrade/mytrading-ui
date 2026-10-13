@@ -39,6 +39,7 @@ import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ArrowCircleDownRounded, Image } from "@mui/icons-material";
+import { todayIso } from "../../utils/localDate";
 
 interface EmployeeDocument {
     id: number;
@@ -187,7 +188,7 @@ const EmployeeDocumentsPage: React.FC = () => {
             styles: { fontSize: 8 },
             headStyles: { fillColor: [6, 182, 212] },
         });
-        doc.save(`Employee_Documents_${employeeIdNum}_${new Date().toISOString().split("T")[0]}.pdf`);
+        doc.save(`Employee_Documents_${employeeIdNum}_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };
 
@@ -203,7 +204,7 @@ const EmployeeDocumentsPage: React.FC = () => {
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Documents");
-        XLSX.writeFile(wb, `Employee_Documents_${employeeIdNum}_${new Date().toISOString().split("T")[0]}.xlsx`);
+        XLSX.writeFile(wb, `Employee_Documents_${employeeIdNum}_${todayIso()}.xlsx`);
         setShowExportMenu(false);
     };
 

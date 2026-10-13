@@ -29,6 +29,7 @@ import {
   PackageIcon,
   MapPinIcon,
 } from "lucide-react";
+import { todayIso } from "../../utils/localDate";
 
 // ================= TYPES =================
 
@@ -264,7 +265,7 @@ const Shipment: React.FC = () => {
       shipmentNo: `SHIP-${Date.now()}`,
       trackingNumber: "",
       carrier: "",
-      shipmentDate: new Date().toISOString().split('T')[0],
+      shipmentDate: todayIso(),
       status: "DRAFT",
       warehouseId: 0,
       salesOrderId: 0,
@@ -391,7 +392,7 @@ const Shipment: React.FC = () => {
 
     const payload = {
       shipmentNo: form.shipmentNo,
-      shipmentDate: form.shipmentDate || new Date().toISOString().split('T')[0],
+      shipmentDate: form.shipmentDate || todayIso(),
       salesOrderId: Number(form.salesOrderId) || 0,
       reservationId: Number(form.reservationId) || 0,
       warehouseId: Number(form.warehouseId),

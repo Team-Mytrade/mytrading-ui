@@ -235,7 +235,7 @@ export default function UserMetaCard() {
     const [isUploading, setIsUploading] = useState(false);
     const [userData, setUserData] = useState<UserData | null>(null);
     const [loading, setLoading] = useState(true);
-    const { user } = useContext(AuthContext);
+    const { user, profileImage: sharedProfileImage, hasProfileImage, refreshProfileImage } = useContext(AuthContext);
     const [isImagePopupOpen, setIsImagePopupOpen] = useState(false);
     const [, setIsDefaultImage] = useState(true);
     const [isCropModalOpen, setIsCropModalOpen] = useState(false);
@@ -282,44 +282,23 @@ export default function UserMetaCard() {
         }
     };
 
-    const fetchUserImage = async () => {
-        const userId = user?.userId;
-        if (!userId) return;
-
-        try {
-            const authToken = getAuthToken();
-            const response = await fetch(`/v1/api/user/${userId}/image`, {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${authToken}` },
-            });
-
-            if (response.ok) {
-                const imageBlob = await response.blob();
-                const imageUrl = URL.createObjectURL(imageBlob);
-                setProfileImage(imageUrl);
-                setIsDefaultImage(false);
-            } else {
-                const initialsImage = generateInitialsImage(userData?.firstName || "", userData?.lastName || "");
-                setProfileImage(initialsImage);
-                setIsDefaultImage(true);
-            }
-        } catch (error) {
-            console.error("Error fetching user image:", error);
-            const initialsImage = generateInitialsImage(userData?.firstName || "", userData?.lastName || "");
-            setProfileImage(initialsImage);
-            setIsDefaultImage(true);
-        }
-    };
+    // The photo itself is fetched once by AuthContext; refreshing it there updates the header and sidebar too
+    const fetchUserImage = () => refreshProfileImage();
 
     useEffect(() => {
         fetchUserData();
     }, [user]);
 
     useEffect(() => {
-        if (userData) {
-            fetchUserImage();
+        if (!userData) return;
+        if (hasProfileImage) {
+            setProfileImage(sharedProfileImage);
+            setIsDefaultImage(false);
+        } else {
+            setProfileImage(generateInitialsImage(userData.firstName || "", userData.lastName || ""));
+            setIsDefaultImage(true);
         }
-    }, [userData]);
+    }, [userData, hasProfileImage, sharedProfileImage]);
 
     const uploadImageToAPI = async (imageBlob: Blob, fileName: string = 'profile.png') => {
         const userId = user?.userId;
@@ -408,6 +387,7 @@ export default function UserMetaCard() {
             await uploadImageToAPI(blob, 'initials.png');
             setProfileImage(initialsImage);
             setIsDefaultImage(true);
+            void refreshProfileImage();
             ToasterService.success("Profile image updated to initials!");
         } catch (error: any) {
             console.error("Reset photo error:", error);

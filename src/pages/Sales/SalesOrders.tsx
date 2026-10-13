@@ -1,6 +1,6 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   BanknotesIcon,
   CalendarDaysIcon,
@@ -24,6 +24,7 @@ import {
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { todayIso } from "../../utils/localDate";
 
 type Address = {
   id: number;
@@ -303,7 +304,7 @@ function itemFromOrderItem(item: SalesOrderItem): OrderItemForm {
 const emptyForm: OrderForm = {
   orderNumber: "",
   quotationType: "PRODUCT",
-  orderDate: new Date().toISOString().split("T")[0],
+  orderDate: todayIso(),
   status: "DRAFT",
   quotationId: "",
   quotationNumber: "",
@@ -487,6 +488,7 @@ function buildOrderItemPayload(item: OrderItemForm): SalesOrderItem {
 
 const SalesOrders: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const token = localStorage.getItem("accessToken");
   const headers = useMemo(
     () => (token ? { Authorization: `Bearer ${token}` } : undefined),
@@ -510,6 +512,16 @@ const SalesOrders: React.FC = () => {
     availableCredit?: number;
     message?: string;
   }>({ status: "idle" });
+  const convertedQuotationId = useMemo(() => {
+    const fromQuery = Number(new URLSearchParams(location.search).get("quotationId") || 0);
+    const fromState = Number((location.state as { convertedQuotationId?: number } | null)?.convertedQuotationId || 0);
+    return fromQuery || fromState;
+  }, [location.search, location.state]);
+  const convertedQuotationNumber = (location.state as { convertedQuotationNumber?: string } | null)?.convertedQuotationNumber;
+  const displayedOrders = useMemo(
+    () => convertedQuotationId ? orders.filter((order) => Number(order.quotationId) === convertedQuotationId) : orders,
+    [convertedQuotationId, orders]
+  );
 
   useEffect(() => {
     fetchOrders();
@@ -904,7 +916,7 @@ const SalesOrders: React.FC = () => {
     setForm({
       orderNumber: order.orderNumber || "",
       quotationType: order.quotationType || "PRODUCT",
-      orderDate: order.orderDate || new Date().toISOString().split("T")[0],
+      orderDate: order.orderDate || todayIso(),
       status: order.status || "DRAFT",
       quotationId: String(order.quotationId || ""),
       quotationNumber: order.quotationNumber || "",
@@ -1186,8 +1198,17 @@ const SalesOrders: React.FC = () => {
           />
         </div>
 
+        {convertedQuotationId > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-200">
+            <span>Showing the sales order created from quotation {convertedQuotationNumber || `#${convertedQuotationId}`}.</span>
+            <button type="button" onClick={() => navigate("/sales-orders")} className="font-semibold text-emerald-700 underline underline-offset-2 hover:text-emerald-900 dark:text-emerald-300 dark:hover:text-emerald-100">
+              Show all orders
+            </button>
+          </div>
+        )}
+
         <ReusableTable
-          data={orders}
+          data={displayedOrders}
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}

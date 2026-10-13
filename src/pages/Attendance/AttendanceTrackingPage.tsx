@@ -1,3 +1,4 @@
+import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import React, { useState, useEffect, useMemo, useContext } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
@@ -14,6 +15,7 @@ import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import { ToasterService } from '../../Services/ToasterService';
 import { AuthContext } from '../../context/AuthContext';
+import { todayIso } from "../../utils/localDate";
 
 // ── API Schema Interfaces for GET /v1/api/attendance/records/my-calendar/{employeeId}
 export interface CalendarDayModel {
@@ -62,25 +64,8 @@ const formatMinutesToHoursStr = (totalMins: number = 0): string => {
 const AttendanceTrackingPage: React.FC = () => {
   const { user } = useContext(AuthContext);
 
-  const currentUser = useMemo(() => {
-    const userStr = localStorage.getItem("user");
-    if (userStr) {
-      try {
-        const parsed = JSON.parse(userStr);
-        const rawId = parsed.employeeId || parsed.id || parsed.userId;
-        return {
-          id: rawId ? Number(rawId) : 0,
-          name: parsed.fullName || parsed.name || parsed.username || 'User',
-          role: parsed.role || parsed.roles?.[0] || ''
-        };
-      } catch (e) {}
-    }
-    return {
-      id: user?.id ? Number(user.id) : 0,
-      name: user?.fullName || user?.username || 'User',
-      role: user?.role || ''
-    };
-  }, [user]);
+  // Own employee identity from the login token (no hard-coded ids)
+  const currentUser = useCurrentEmployee();
 
   // ── Dynamic States ──────────────────────────────────────────────────────
   const [currentDate, setCurrentDate] = useState<Date>(new Date()); // Dynamic current system date
@@ -337,7 +322,7 @@ const AttendanceTrackingPage: React.FC = () => {
     }
 
     // 2. Current Month Days
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = todayIso();
 
     for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;

@@ -4,6 +4,8 @@ import { jsPDF } from "jspdf";
 import autoTable, { RowInput, UserOptions } from "jspdf-autotable";
 import { ToasterService } from "../../Services/ToasterService";
 import { FloatingDateRangePicker } from "../inputfeild/FloatingInput";
+import { todayIso } from "../../utils/localDate";
+import { publicAsset } from "../../utils/assets";
 
 type Primitive = string | number | boolean | null | undefined | Date;
 type ExportRangePreset = "all" | "1m" | "3m" | "6m" | "custom";
@@ -181,7 +183,8 @@ const getFilterSummary = (metadata?: PdfExportMeta[]) => {
   return [rangeText, otherText].filter(Boolean).join(" | ");
 };
 
-const loadImageAsDataUrl = (src: string) => {
+/** Loads a public branding image for reuse in all PDF exports. */
+export const loadImageAsDataUrl = (src: string) => {
   if (typeof window === "undefined") return Promise.resolve<string | null>(null);
 
   return new Promise<string | null>((resolve) => {
@@ -304,7 +307,7 @@ export function exportListingPdf<T extends object>({
   subtitle,
   companyName = "My Trading",
   generatedBy = getStoredUserName(),
-  logoSrc = "/images/logo/logo.png",
+  logoSrc = publicAsset("images/logo/logo.png"),
   reportLabel = "Listing Export",
   metadata = [],
   orientation = "landscape",
@@ -393,7 +396,7 @@ export function exportListingPdf<T extends object>({
 
     drawFooter(doc, pageWidth, pageHeight, generatedBy);
 
-    doc.save(`${fileSafe(fileName || title)}_${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(`${fileSafe(fileName || title)}_${todayIso()}.pdf`);
   });
 }
 

@@ -22,6 +22,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import StatsCard from "../../components/common/Statscard";
 import { ListingPdfExportButton } from "../../components/common/export";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import { todayIso } from "../../utils/localDate";
 
 // ============ STATIC FALLBACK DATA ============
 const STATIC_STOCK_DATA = [
@@ -363,10 +364,10 @@ const InventoryReports: React.FC = () => {
             available: item.quantity,
             type: "API",
             referenceNo: `API-${index}`,
-            movementDate: new Date().toISOString().split("T")[0],
+            movementDate: todayIso(),
             createdDate: new Date().toISOString(),
             movementCount: 0,
-            lastMovementDate: new Date().toISOString().split("T")[0],
+            lastMovementDate: todayIso(),
             price: 0,
             expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
           });

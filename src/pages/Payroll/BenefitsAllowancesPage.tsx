@@ -33,6 +33,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { todayIso } from "../../utils/localDate";
 
 type Allowance = {
     id: number;
@@ -154,7 +155,7 @@ const BenefitsAllowancesPage: React.FC = () => {
             styles: { fontSize: 8 },
             headStyles: { fillColor: [6, 182, 212] },
         });
-        doc.save(`Allowances_${new Date().toISOString().split("T")[0]}.pdf`);
+        doc.save(`Allowances_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };
 
@@ -168,7 +169,7 @@ const BenefitsAllowancesPage: React.FC = () => {
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Allowances");
-        XLSX.writeFile(wb, `Allowances_${new Date().toISOString().split("T")[0]}.xlsx`);
+        XLSX.writeFile(wb, `Allowances_${todayIso()}.xlsx`);
         setShowExportMenu(false);
     };
 

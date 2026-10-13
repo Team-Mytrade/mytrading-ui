@@ -16,6 +16,7 @@ import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import { ToasterService } from '../../Services/ToasterService';
+import { todayIso } from "../../utils/localDate";
 
 // API Endpoints as specified by user:
 // 1. GET /v1/api/attendance/dashboard
@@ -127,7 +128,7 @@ const AttendanceReportsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   // Filters State
-  const [dateFilter, setDateFilter] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [dateFilter, setDateFilter] = useState<string>(todayIso());
   const [monthFilter, setMonthFilter] = useState<string>(String(new Date().getMonth() + 1).padStart(2, '0'));
   const [departmentFilter, setDepartmentFilter] = useState<string>('ALL');
 

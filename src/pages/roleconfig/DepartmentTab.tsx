@@ -187,7 +187,6 @@ const DepartmentTab: React.FC<DepartmentTabProps> = ({ selectedDomainFilter, onC
         method: "DELETE",
         headers: {
           ...getHeaders(),
-          ...(user?.tenantId ? { "X-Tenant-ID": user.tenantId } : {}),
         },
       });
 

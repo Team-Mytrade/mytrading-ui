@@ -9,6 +9,7 @@ import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
+import { todayIso } from "../../utils/localDate";
 
 // Relative API Base URL (routing via Vite dev proxy)
 const BASE_SCHEDULE_URL = '/v1/api/attendance/shiftShedules';
@@ -85,7 +86,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
   }>({
     employeeId: 0,
     shiftId: 3,
-    effectiveFrom: new Date().toISOString().slice(0, 10),
+    effectiveFrom: todayIso(),
     effectiveTo: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
   });
 
@@ -245,9 +246,9 @@ const EmployeeShiftSchedulePage: React.FC = () => {
   const openCreateModal = () => {
     setEditingAssignment(null);
     setForm({
-      employeeId: selectedEmployeeId || 12,
+      employeeId: selectedEmployeeId,
       shiftId: shifts[0]?.id || 3,
-      effectiveFrom: new Date().toISOString().slice(0, 10),
+      effectiveFrom: todayIso(),
       effectiveTo: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
     });
     setIsModalOpen(true);
@@ -267,9 +268,9 @@ const EmployeeShiftSchedulePage: React.FC = () => {
   const resetForm = () => {
     setEditingAssignment(null);
     setForm({
-      employeeId: selectedEmployeeId || 12,
+      employeeId: selectedEmployeeId,
       shiftId: shifts[0]?.id || 3,
-      effectiveFrom: new Date().toISOString().slice(0, 10),
+      effectiveFrom: todayIso(),
       effectiveTo: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
     });
   };
@@ -512,7 +513,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
                     type="date"
                     value={form.effectiveFrom}
                     onChange={(e) => setForm(p => ({ ...p, effectiveFrom: e.target.value }))}
-                    onClick={(e) => e.currentTarget.showPicker?.()}
+                    onClick={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not allowed */ } }}
                     className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-mono font-semibold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                     required
                   />
@@ -524,7 +525,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
                     type="date"
                     value={form.effectiveTo}
                     onChange={(e) => setForm(p => ({ ...p, effectiveTo: e.target.value }))}
-                    onClick={(e) => e.currentTarget.showPicker?.()}
+                    onClick={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not allowed */ } }}
                     className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-mono font-semibold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                     required
                   />

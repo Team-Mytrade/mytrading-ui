@@ -25,6 +25,8 @@ export interface ColumnDef<T> {
   sortValueGetter?: (row: T) => string | number | null | undefined;
   className?: string;
   headerClassName?: string;
+  /** Full value shown in the shared styled tooltip for an otherwise truncated cell. */
+  tooltipContent?: (row: T, value: unknown) => React.ReactNode;
   /** Set false to omit this column from the toolbar-triggered filter row. */
   filterable?: boolean;
   /** Fixed enum values. When provided, this column renders a select instead of a text search. */
@@ -583,6 +585,7 @@ export function ReusableTable<T extends { id?: number | string }>({
   const [visibleColumnKeys, setVisibleColumnKeys] = useState<string[]>(() => columns.map((column) => column.key));
   const tableShellRef = useRef<HTMLDivElement | null>(null);
   const tableRootRef = useRef<HTMLDivElement | null>(null);
+  const [activeTableTooltip, setActiveTableTooltip] = useState<{ content: string; left: number; top: number; alignRight: boolean } | null>(null);
   const [viewportPageSize, setViewportPageSize] = useState(pageSize);
   const [showExportModal, setShowExportModal] = useState(false);
   const [isToolbarRefreshing, setIsToolbarRefreshing] = useState(false);
@@ -595,6 +598,50 @@ export function ReusableTable<T extends { id?: number | string }>({
     window.addEventListener("resize", updateScreenSize);
     return () => window.removeEventListener("resize", updateScreenSize);
   }, []);
+
+  useEffect(() => {
+    const root = tableRootRef.current;
+    if (!root) return undefined;
+    const promoteNativeTitles = (scope: ParentNode) => {
+      const elements = [
+        ...(scope instanceof HTMLElement && scope.matches("[title]") ? [scope] : []),
+        ...scope.querySelectorAll<HTMLElement>("[title]"),
+      ];
+      elements.forEach((element) => {
+        const title = element.getAttribute("title");
+        if (title) element.dataset.tableTooltip = title;
+        element.removeAttribute("title");
+      });
+    };
+    promoteNativeTitles(root);
+    const observer = new MutationObserver((records) => records.forEach((record) => {
+      if (record.type === "attributes" && record.target instanceof HTMLElement) promoteNativeTitles(record.target);
+      record.addedNodes.forEach((node) => { if (node instanceof HTMLElement) promoteNativeTitles(node); });
+    }));
+    observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["title"] });
+    return () => observer.disconnect();
+  }, [columns, data]);
+
+  const showTableTooltip = (event: React.MouseEvent<HTMLDivElement> | React.FocusEvent<HTMLDivElement>) => {
+    const target = (event.target as HTMLElement).closest<HTMLElement>("[data-table-tooltip]");
+    if (!target || !tableRootRef.current?.contains(target)) return;
+    const bounds = target.getBoundingClientRect();
+    const alignRight = window.innerWidth - bounds.right < 260;
+    setActiveTableTooltip({
+      content: target.dataset.tableTooltip || "",
+      left: alignRight ? bounds.right : bounds.left,
+      top: bounds.top - 8,
+      alignRight,
+    });
+  };
+
+  const hideTableTooltip = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = (event.target as HTMLElement).closest<HTMLElement>("[data-table-tooltip]");
+    const related = event.relatedTarget instanceof HTMLElement
+      ? event.relatedTarget.closest<HTMLElement>("[data-table-tooltip]")
+      : null;
+    if (target !== related) setActiveTableTooltip(null);
+  };
 
   useEffect(() => {
     if (!isDrawerResizing) return;
@@ -700,6 +747,13 @@ export function ReusableTable<T extends { id?: number | string }>({
   };
   const visibleColumns = columns.filter((column) => visibleColumnKeys.includes(column.key));
   const isLoading = loading || isToolbarRefreshing;
+  // Below this width the table scrolls sideways instead of squeezing columns until Actions is clipped
+  const tableMinWidth = Math.max(680, visibleColumns.length * 112);
+  const isActionsColumn = (column: ColumnDef<T>) => column.key === "actions";
+  const actionsHeaderClass = (column: ColumnDef<T>) =>
+    isActionsColumn(column)
+      ? `common-data-table__sticky-actions ${/(^|\s)!?w-/.test(column.headerClassName ?? "") ? "" : "w-[132px]"}`
+      : "";
 
   const filtered = useMemo(() => data.filter((row) => {
     if (!rowMatchesSearch(row, search, searchFields)) return false;
@@ -856,6 +910,10 @@ export function ReusableTable<T extends { id?: number | string }>({
   return (
     <div
       ref={tableRootRef}
+      onMouseOver={showTableTooltip}
+      onMouseOut={hideTableTooltip}
+      onFocus={showTableTooltip}
+      onBlur={() => setActiveTableTooltip(null)}
       data-reusable-table="true"
       style={
         isTableFullscreen ? { left: `${tableWorkspaceLeft}px` } : undefined
@@ -958,7 +1016,10 @@ export function ReusableTable<T extends { id?: number | string }>({
                 : "relative overflow-x-auto overflow-y-visible"
             }
           >
-            <table className="min-w-[680px] table-fixed divide-y divide-gray-200 sm:min-w-full dark:divide-gray-800">
+            <table
+              className="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-800"
+              style={{ minWidth: tableMinWidth }}
+            >
               <thead className="bg-gray-50 dark:bg-gray-800/70">
                 <tr>
                   {visibleColumns.map((col, index) => (
@@ -976,6 +1037,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                           ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                           : "",
                         col.headerClassName ?? "",
+                        actionsHeaderClass(col),
                         index === visibleColumns.length - 1 ? "!pr-12" : "",
                       ]
                         .filter(Boolean)
@@ -984,7 +1046,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                       <span
                         className={`inline-flex min-w-0 max-w-full items-center gap-1.5 ${align === "center" ? "justify-center w-full" : align === "right" ? "justify-end w-full" : ""}`}
                       >
-                        <span className="truncate" title={col.label}>
+                        <span className="truncate" data-table-tooltip={col.label}>
                           {col.label}
                         </span>
                         {col.sortable &&
@@ -1007,7 +1069,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                       const options = getFilterOptions(column);
                       const canFilter = column.filterable !== false && column.key !== "actions";
                       return (
-                        <th key={`${column.key}-filter`} className="px-2 py-2">
+                        <th key={`${column.key}-filter`} className={`px-2 py-2 ${isActionsColumn(column) ? "common-data-table__sticky-actions" : ""}`}>
                           {canFilter && options.length > 0 ? (
                             <select value={columnFilters[column.key] ?? ""} onChange={(event) => handleColumnFilter(column.key, event.target.value)} aria-label={`Filter ${column.label}`}>
                               <option value="">All</option>
@@ -1046,11 +1108,18 @@ export function ReusableTable<T extends { id?: number | string }>({
                         {visibleColumns.map((col) =>
                           (() => {
                             const value = getCellValue(row, col.key);
+                            const tooltipContent = col.tooltipContent?.(row, value) || (col.render ? getCellTitle(value) : undefined);
+                            const cellContent = col.render
+                              ? col.render(row, value)
+                              : renderDefaultCell(value);
                             return (
                               <td
                                 key={col.key}
                                 className={[
-                                  "px-3 py-2 text-sm text-gray-700 dark:text-gray-300 overflow-hidden text-ellipsis",
+                                  "px-3 py-2 text-sm text-gray-700 dark:text-gray-300",
+                                  isActionsColumn(col)
+                                    ? "common-data-table__sticky-actions whitespace-nowrap"
+                                    : "overflow-hidden text-ellipsis",
                                   align === "center"
                                     ? "text-center"
                                     : align === "right"
@@ -1063,13 +1132,9 @@ export function ReusableTable<T extends { id?: number | string }>({
                               >
                                 <div
                                   className={`min-w-0 max-w-full ${align === "center" ? "flex justify-center text-center items-center" : align === "right" ? "flex justify-end text-right items-center" : ""}`}
-                                  title={
-                                    col.render ? getCellTitle(value) : undefined
-                                  }
+                                  data-table-tooltip={tooltipContent}
                                 >
-                                  {col.render
-                                    ? col.render(row, value)
-                                    : renderDefaultCell(value)}
+                                  {cellContent}
                                 </div>
                               </td>
                             );
@@ -1154,6 +1219,16 @@ export function ReusableTable<T extends { id?: number | string }>({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {activeTableTooltip?.content && (
+        <div
+          className={`common-data-table__tooltip-float ${activeTableTooltip.alignRight ? "common-data-table__tooltip-float--align-right" : ""}`}
+          role="tooltip"
+          style={{ left: activeTableTooltip.left, top: activeTableTooltip.top }}
+        >
+          {activeTableTooltip.content}
         </div>
       )}
 

@@ -1,3 +1,5 @@
+import { imageFallback } from "../../utils/imageFallback";
+import { appUrl } from "../../utils/appPath";
 import { useState, useContext, useEffect, useCallback, useMemo } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import Button from "../ui/button/Button";
@@ -75,6 +77,7 @@ const generateInitialsImage = (fullName: string, size: number = 200): string => 
 
 export default function ResetPasswordCard() {
   const [showPopup, setShowPopup] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -85,7 +88,7 @@ export default function ResetPasswordCard() {
     number: false,
     specialChar: false,
   });
-  const { user, isLoggedIn, loading } = useContext(AuthContext);
+  const { user, isLoggedIn, loading, profileImage: sharedProfileImage, hasProfileImage, reauthenticate } = useContext(AuthContext);
   const [confirmPasswordError, setConfirmPasswordError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [userError, setUserError] = useState("");
@@ -93,9 +96,7 @@ export default function ResetPasswordCard() {
     country: "",
     city: ""
   });
-  const [profileImage, setProfileImage] = useState(placeholderImage);
   const [isFetchingLocation, setIsFetchingLocation] = useState(true);
-  const [isDefaultImage, setIsDefaultImage] = useState(true);
   const [userData, setUserData] = useState<UserData | null>(null);
 
   const getAuthToken = useCallback(() => {
@@ -111,47 +112,6 @@ export default function ResetPasswordCard() {
       return null;
     }
   }, []);
-
-  const fetchUserImage = useCallback(async () => {
-    const storedUser = getStoredUser();
-    const userId = user?.id || user?.userId || storedUser?.id || storedUser?.userId;
-    
-    if (!userId) {
-      console.error("No user ID found for image fetch");
-      return;
-    }
-
-    try {
-      const authToken = getAuthToken();
-      const response = await fetch(`/v1/api/user/${userId}/image`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-        },
-      });
-
-      if (response.ok) {
-        const imageBlob = await response.blob();
-        const imageUrl = URL.createObjectURL(imageBlob);
-        setProfileImage(imageUrl);
-        setIsDefaultImage(false);
-      } else {
-        console.log("No profile image found, using default");
-        // Generate initials image when no profile image is found
-        const displayName = getDisplayName();
-        const initialsImage = generateInitialsImage(displayName);
-        setProfileImage(initialsImage);
-        setIsDefaultImage(true);
-      }
-    } catch (error) {
-      console.error("Error fetching user image:", error);
-      // Generate initials image on error
-      const displayName = getDisplayName();
-      const initialsImage = generateInitialsImage(displayName);
-      setProfileImage(initialsImage);
-      setIsDefaultImage(true);
-    }
-  }, [user, getAuthToken, getStoredUser]);
 
   const fetchUserProfile = useCallback(async () => {
     const storedUser = getStoredUser();
@@ -222,8 +182,7 @@ export default function ResetPasswordCard() {
 
   useEffect(() => {
     fetchUserProfile();
-    fetchUserImage();
-  }, [user, fetchUserProfile, fetchUserImage]);
+  }, [user, fetchUserProfile]);
 
   useEffect(() => {
     if (showPopup) {
@@ -264,7 +223,7 @@ export default function ResetPasswordCard() {
     }
     if (!user.userId) {
       alert("User ID not available. Please try logging in again.");
-      window.location.href = "/signin"; 
+      window.location.href = appUrl("/signin"); 
       return;
     }
    
@@ -284,14 +243,14 @@ export default function ResetPasswordCard() {
         throw new Error("No authentication token found. Please log in again.");
       }
 
-      const url = `/v1/api/user/update/${user.userId}/${newPassword}`;
-      
-      const response = await fetch(url, {
+      // Self-service change; the server checks the current password
+      const response = await fetch('/v1/api/user/access/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        }
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
       });
 
       if (response.status === 401) {
@@ -313,10 +272,15 @@ export default function ResetPasswordCard() {
         throw new Error(errorMessage);
       }
 
-      await response.json();
+      // The change signs out every other browser and device; keep this one signed in
+      try {
+        await reauthenticate(newPassword);
+        ToasterService.success("Password changed", "You've been signed out on your other devices.");
+      } catch {
+        ToasterService.success("Password changed", "Please sign in again with your new password.");
+      }
       setShowPopup(false);
       resetForm();
-      ToasterService.success("Password reset successfully!");
       
     } catch (error: unknown) {
       if (error instanceof Error) {
@@ -337,6 +301,7 @@ export default function ResetPasswordCard() {
   };
 
   const resetForm = () => {
+    setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
     setPasswordErrors({
@@ -359,19 +324,28 @@ export default function ResetPasswordCard() {
     [user, isLoggedIn]
   );
 
-  const isResetDisabled = useMemo(() => 
-    !newPassword || 
-    !confirmPassword || 
-    Object.values(passwordErrors).some(Boolean) || 
-    !!confirmPasswordError || 
+  const isResetDisabled = useMemo(() =>
+    !currentPassword ||
+    !newPassword ||
+    !confirmPassword ||
+    Object.values(passwordErrors).some(Boolean) ||
+    !!confirmPasswordError ||
     isLoading ||
     !canResetPassword,
-    [newPassword, confirmPassword, passwordErrors, confirmPasswordError, isLoading, canResetPassword]
+    [currentPassword, newPassword, confirmPassword, passwordErrors, confirmPasswordError, isLoading, canResetPassword]
   );
 
   const getDisplayName = useCallback(() => {
     return userData?.fullName || user?.fullName || user?.username || "Guest User";
   }, [userData, user]);
+
+  // The photo is fetched once by AuthContext; without one, show the user's initials
+  const isDefaultImage = !hasProfileImage;
+  const displayName = getDisplayName();
+  const profileImage = useMemo(
+    () => (hasProfileImage ? sharedProfileImage : generateInitialsImage(displayName)),
+    [hasProfileImage, sharedProfileImage, displayName]
+  );
 
   const getDisplayRole = useCallback(() => {
     return userData?.role || user?.role || "Team Manager";
@@ -400,9 +374,7 @@ export default function ResetPasswordCard() {
                     src={profileImage} 
                     alt="user" 
                     className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-125"
-                    onError={(e) => {
-                      e.currentTarget.src = placeholderImage;
-                    }}
+                    onError={imageFallback(placeholderImage)}
                   />
                 )}
                 
@@ -517,6 +489,19 @@ export default function ResetPasswordCard() {
                 )}
 
                 <form onSubmit={(e) => e.preventDefault()} className="flex flex-col gap-4">
+                  {/* Current Password Field */}
+                  <div className="space-y-2">
+                    <Label className="dark:text-gray-300">Current Password</Label>
+                    <Input
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="Enter current password"
+                      disabled={isLoading || !canResetPassword}
+                      className="w-full pl-3 pr-10 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:border-blue-500 dark:focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+
                   {/* New Password Field */}
                   <div className="space-y-2">
                     <Label className="dark:text-gray-300">New Password</Label>

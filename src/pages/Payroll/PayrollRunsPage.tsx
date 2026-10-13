@@ -37,6 +37,7 @@ import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { todayIso } from "../../utils/localDate";
 
 type Payslip = {
     employeeId: string;
@@ -83,7 +84,7 @@ const PayrollRunsPage: React.FC = () => {
 
     const [form, setForm] = useState({
         period: "",
-        runDate: new Date().toISOString().split('T')[0],
+        runDate: todayIso(),
         status: 'Pending' as const,
     });
 
@@ -145,7 +146,7 @@ const PayrollRunsPage: React.FC = () => {
         setEditingRun(null);
         setForm({ 
             period: "", 
-            runDate: new Date().toISOString().split('T')[0], 
+            runDate: todayIso(), 
             status: 'Pending' 
         });
     };
@@ -171,7 +172,7 @@ const PayrollRunsPage: React.FC = () => {
             styles: { fontSize: 8 },
             headStyles: { fillColor: [6, 182, 212] },
         });
-        doc.save(`Payroll_Runs_${new Date().toISOString().split("T")[0]}.pdf`);
+        doc.save(`Payroll_Runs_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };
 
@@ -186,7 +187,7 @@ const PayrollRunsPage: React.FC = () => {
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Payroll Runs");
-        XLSX.writeFile(wb, `Payroll_Runs_${new Date().toISOString().split("T")[0]}.xlsx`);
+        XLSX.writeFile(wb, `Payroll_Runs_${todayIso()}.xlsx`);
         setShowExportMenu(false);
     };
 

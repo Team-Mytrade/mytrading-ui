@@ -1,3 +1,4 @@
+import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { 
@@ -8,6 +9,7 @@ import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
+import { todayIso } from "../../utils/localDate";
 
 // Base relative API endpoints (routing via Vite dev proxy)
 const BASE_CALENDAR_URL = '/v1/api/attendance/holiday-calendars';
@@ -217,7 +219,7 @@ const HolidayCalendarPage: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Holiday_Calendars_Noticeboard_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `Holiday_Calendars_Noticeboard_${todayIso()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -585,21 +587,8 @@ const HolidayCalendarPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'manager' | 'table'>('manager');
 
   // User Profile
-  const currentUser = useMemo(() => {
-    const userStr = localStorage.getItem("user");
-    if (userStr) {
-      try {
-        const parsed = JSON.parse(userStr);
-        return {
-          name: parsed.fullName || parsed.name || parsed.username || "Roy Hamlin",
-          role: parsed.role || parsed.roles?.[0] || "SUPER_ADMIN",
-          email: parsed.email || parsed.username || "roy.hamlin@mytrading.com",
-          code: parsed.employeeCode || "#ADM-EMP-0067"
-        };
-      } catch (e) {}
-    }
-    return { name: "Roy Hamlin", role: "SUPER_ADMIN", email: "roy.hamlin@mytrading.com", code: "#ADM-EMP-0067" };
-  }, []);
+  // Own employee identity from the login token (no hard-coded ids)
+  const currentUser = useCurrentEmployee();
 
   // Sync selectedCalendarCodeId when calendars load & auto-fetch holidays
   useEffect(() => {

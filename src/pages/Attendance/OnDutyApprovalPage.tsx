@@ -1,3 +1,4 @@
+import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import {
@@ -19,6 +20,7 @@ import PageMeta from "../../components/common/PageMeta";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ToasterService } from "../../Services/ToasterService";
+import { todayIso } from "../../utils/localDate";
 
 export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type ActiveTab = "pending" | "approved" | "rejected";
@@ -112,20 +114,8 @@ const OnDutyApprovalPage: React.FC = () => {
     total: 0
   });
 
-  const currentUser = useMemo(() => {
-    try {
-      const userStr = localStorage.getItem("user");
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        return {
-          id: user.id || user.userId || 12,
-          name: safeString(user.fullName || user.name || user.username, "System Admin"),
-          role: safeString(user.role || user.roles?.[0], "SUPER_ADMIN")
-        };
-      }
-    } catch (e) {}
-    return { id: 12, name: "System Admin", role: "SUPER_ADMIN" };
-  }, []);
+  // Own employee identity from the login token (no hard-coded ids)
+  const currentUser = useCurrentEmployee();
 
   // ── Normalize helper ───────────────────────────────────────────────────────
   const normalizeItem = (r: any, defaultStatus: ApprovalStatus): OnDutyApprovalRequest | null => {
@@ -165,7 +155,7 @@ const OnDutyApprovalPage: React.FC = () => {
 
     const reqId = typeof r.id === 'object' ? (r.id?.id || 1) : (r.id || 1);
 
-    const fromD = safeString(r.fromDate || detail.fromDate || r.startDate || r.shiftDate, new Date().toISOString().slice(0, 10));
+    const fromD = safeString(r.fromDate || detail.fromDate || r.startDate || r.shiftDate, todayIso());
     const toD = safeString(r.toDate || detail.toDate || r.endDate || fromD, fromD);
     const datesStr = fromD ? `${fromD}${toD && toD !== fromD ? ` to ${toD}` : ''}` : 'N/A';
 
@@ -224,7 +214,7 @@ const OnDutyApprovalPage: React.FC = () => {
     // Non-enumerable properties: accessible by code, modals, and columns, but hidden from drawer Object.keys()
     Object.defineProperties(rowItem, {
       _raw: { value: r, enumerable: false, writable: true },
-      employeeId: { value: Number(empId) || 12, enumerable: false, writable: true },
+      employeeId: { value: Number(empId), enumerable: false, writable: true },
       employeeName: { value: empName, enumerable: false, writable: true },
       employeeCode: { value: empCode, enumerable: false, writable: true },
       department: { value: resolvedDept, enumerable: false, writable: true },

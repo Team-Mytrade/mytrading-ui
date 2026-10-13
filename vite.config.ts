@@ -2,7 +2,8 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import svgr from "vite-plugin-svgr";
 
-const basePath = process.env.VITE_BASE_PATH || "./";
+//const basePath = process.env.VITE_BASE_PATH || "./";
+const basePath = "/myTrading/";
 
 export default defineConfig({
   // Relative by default so the build can be deployed below any URL prefix.
@@ -36,12 +37,17 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+<<<<<<< HEAD
+      // Proxy only the API calls (/v1/api/...) to the backend. The app itself, under /myTrading/,
+      // must be served by Vite: proxying it sent the page request to the gateway, which answered 401.
+=======
       "/v1/api/product-categories": {
         target: "http://193.181.209.14:9595",
         changeOrigin: true,
         secure: false,
       },
       // Proxy /v1/api requests to the backend
+>>>>>>> 4fe3e096b21baf37a90141043dd04c8fd2cc9759
       "/v1/api": {
         target: "http://193.181.209.14:9595",
         changeOrigin: true,

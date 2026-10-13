@@ -9,6 +9,7 @@ import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import { AuthContext } from '../../context/AuthContext';
 import { Employee } from '../../shared/types/employee.types';
 import { ToasterService } from '../../Services/ToasterService';
+import { todayIso } from "../../utils/localDate";
 
 interface OffboardingTask {
     id: number;
@@ -138,7 +139,7 @@ const ExitManagementPage: React.FC = () => {
         
         try {
             const payload = {
-                resignationDate: formData.resignationDate ? formData.resignationDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                resignationDate: formData.resignationDate ? formData.resignationDate.toISOString().split('T')[0] : todayIso(),
                 lastWorkingDay: effectiveLWD.toISOString().split('T')[0],
                 reason: formData.reason + (formData.comment.trim() ? ` - ${formData.comment.trim()}` : ''),
                 noticePeriod: Number(formData.noticePeriod) || 90,

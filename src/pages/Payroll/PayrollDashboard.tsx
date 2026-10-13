@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useMemo } from "react";
+import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import {
   Users,
@@ -8,349 +9,290 @@ import {
   CreditCard,
   FileText,
   TrendingUp,
-  Gift,
   FolderOpen,
-  ArrowUpRight,
-  ArrowDownRight,
   Calendar,
   Clock,
   CheckCircle,
   AlertCircle,
+  BarChart3,
+  UserPlus,
+  UserMinus,
 } from "lucide-react";
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, 
-  ResponsiveContainer, CartesianGrid, Cell
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
 } from "recharts";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import {
+  CHART_COLORS, CHART_TOOLTIP, EmptyState, KpiCard, LoadNotice, ModuleTiles, Panel, TABLE_CELL, TABLE_HEAD,
+  countOf, formatDate, formatMoney, formatNumber, getList, isoDate, listOf, parseDate, titleCase, useDashboardSources,
+} from "../Dashboard/dashboardKit";
 
-// Mock Data
-const payrollTrendData = [
-  { month: "Jan", amount: 1240000, employees: 135 },
-  { month: "Feb", amount: 1280000, employees: 138 },
-  { month: "Mar", amount: 1320000, employees: 140 },
-  { month: "Apr", amount: 1380000, employees: 142 },
-  { month: "May", amount: 1420000, employees: 142 },
-  { month: "Jun", amount: 1450000, employees: 145 },
-];
+// Live HRMS and payroll overview built from the payroll service.
 
-const departmentData = [
-  { name: "Engineering", count: 45, payroll: 580000, color: "#06b6d4" },
-  { name: "Sales", count: 28, payroll: 420000, color: "#10b981" },
-  { name: "Marketing", count: 22, payroll: 310000, color: "#f59e0b" },
-  { name: "Operations", count: 25, payroll: 350000, color: "#8b5cf6" },
-  { name: "HR & Admin", count: 15, payroll: 190000, color: "#ec4899" },
-];
+interface Employee {
+  id: number;
+  department?: { id?: number; name?: string } | null;
+  joiningDate?: string;
+  exitDate?: string;
+  active?: boolean;
+  isActive?: boolean;
+  salary?: unknown;
+}
 
-const recentPayrollRuns = [
-  { id: 1, month: "June 2026", processedDate: "2026-06-05", totalAmount: "₹14.5L", employees: 145, status: "Completed" },
-  { id: 2, month: "May 2026", processedDate: "2026-05-05", totalAmount: "₹14.2L", employees: 142, status: "Completed" },
-  { id: 3, month: "April 2026", processedDate: "2026-04-05", totalAmount: "₹13.8L", employees: 142, status: "Completed" },
-];
+interface PayrollBatch {
+  batchReference?: string;
+  salaryMonth?: string | [number, number];
+  employeeCount?: number;
+  totalSalaryAmount?: number;
+  status?: string;
+  startDate?: string;
+  completedDate?: string;
+}
 
-const pendingActions = [
-  { id: 1, title: "Salary Structure Review", count: 12, icon: FileText, color: "blue", route: "/salary-structure" },
-  { id: 2, title: "Employee Verification", count: 8, icon: UserCheck, color: "orange", route: "/employee-records" },
-  { id: 3, title: "Leave Encashment", count: 5, icon: Gift, color: "purple", route: "/benefits" },
-  { id: 4, title: "Document Uploads", count: 23, icon: FolderOpen, color: "emerald", route: "/employee-documents" },
-];
+interface DepartmentSummary {
+  departmentName?: string;
+  totalEmployees?: number;
+  totalNetSalary?: number;
+}
 
-// Navigation Modules
-const payrollModules = [
-  { name: "Employee Records", icon: Users, route: "/employee-records", color: "blue", count: 145 },
-  { name: "Employee Department", icon: Building2, route: "/employee-department", color: "emerald", count: 8 },
-  { name: "Employee Compensation", icon: DollarSign, route: "/employee-compensation", color: "orange", count: 6 },
-  { name: "Employee Salary", icon: CreditCard, route: "/employee-salary", color: "purple", count: 145 },
-  { name: "Salary Structure", icon: FileText, route: "/salary-structure", color: "indigo", count: 12 },
-  { name: "Payroll Runs", icon: Calendar, route: "/payroll-runs", color: "pink", count: 6 },
-  { name: "Benefits & Allowances", icon: Gift, route: "/benefits", color: "teal", count: 8 },
-  { name: "Employee Documents", icon: FolderOpen, route: "/employee-documents", color: "rose", count: 145 },
-];
+const PAYROLL = "/v1/api/payroll";
 
-const kpiItems = [
-  { label: "Total Employees", value: "145", change: "+5", trend: "up" as const, icon: Users, color: "blue" },
-  { label: "Monthly Payroll", value: "₹14.5L", change: "+2.4%", trend: "up" as const, icon: TrendingUp, color: "emerald" },
-  { label: "Avg Salary", value: "₹82,500", change: "+3.2%", trend: "up" as const, icon: DollarSign, color: "orange" },
-  { label: "Departments", value: "8", change: "0", trend: "up" as const, icon: Building2, color: "purple" },
-];
-
-type ColorKey = "blue" | "emerald" | "orange" | "purple" | "indigo" | "pink" | "teal" | "rose";
-type TrendKey = "up" | "down";
-
-const colorClasses: Record<ColorKey, string> = {
-  blue: "bg-blue-50 text-blue-600 group-hover:bg-blue-100",
-  emerald: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100",
-  orange: "bg-orange-50 text-orange-600 group-hover:bg-orange-100",
-  purple: "bg-purple-50 text-purple-600 group-hover:bg-purple-100",
-  indigo: "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100",
-  pink: "bg-pink-50 text-pink-600 group-hover:bg-pink-100",
-  teal: "bg-teal-50 text-teal-600 group-hover:bg-teal-100",
-  rose: "bg-rose-50 text-rose-600 group-hover:bg-rose-100",
+/** salaryMonth arrives as "2026-06" (or [2026, 6] if dates are written as arrays). */
+const monthOf = (batch: PayrollBatch) => {
+  const m = batch.salaryMonth;
+  if (Array.isArray(m)) return `${m[0]}-${String(m[1]).padStart(2, "0")}`;
+  return String(m ?? "").slice(0, 7);
+};
+const monthLabel = (key: string, withYear = false) => {
+  const [y, m] = key.split("-").map(Number);
+  if (!y || !m) return key || "—";
+  return new Date(y, m - 1, 1).toLocaleString(undefined, withYear ? { month: "long", year: "numeric" } : { month: "short" });
 };
 
-const kpiColorClasses: Record<ColorKey, string> = {
-  blue: "bg-blue-100 text-blue-600",
-  emerald: "bg-emerald-100 text-emerald-600",
-  orange: "bg-orange-100 text-orange-600",
-  purple: "bg-purple-100 text-purple-600",
-  indigo: "bg-indigo-100 text-indigo-600",
-  pink: "bg-pink-100 text-pink-600",
-  teal: "bg-teal-100 text-teal-600",
-  rose: "bg-rose-100 text-rose-600",
+const SOURCES = {
+  employees: () => getList<Employee>(`${PAYROLL}/employee/all`),
+  departments: () => countOf(`${PAYROLL}/department/listAll`),
+  // Payroll runs, plus the department split of the latest completed run
+  payroll: async () => {
+    const batches = await getList<PayrollBatch>(`${PAYROLL}/getPayrollBatchInfo`);
+    const latest = [...batches].filter((b) => b.status === "COMPLETED").sort((a, b) => monthOf(b).localeCompare(monthOf(a)))[0];
+    let byDepartment: DepartmentSummary[] = [];
+    if (latest) {
+      try {
+        const { data } = await axios.get(`${PAYROLL}/reports/department-summary`, { params: { payrollMonth: monthOf(latest) } });
+        byDepartment = listOf<DepartmentSummary>(data);
+      } catch {
+        byDepartment = []; // the chart falls back to headcount by department
+      }
+    }
+    return { batches, latest, byDepartment };
+  },
+  structures: () => countOf(`${PAYROLL}/salary-structures`),
+  documents: () => countOf(`${PAYROLL}/empdocuments/getAllEmployeeDocs`),
+};
+const LABELS: Record<keyof typeof SOURCES, string> = {
+  employees: "employees",
+  departments: "departments",
+  payroll: "payroll runs",
+  structures: "salary structures",
+  documents: "employee documents",
 };
 
-const trendColors: Record<TrendKey, string> = {
-  up: "text-emerald-600 bg-emerald-50",
-  down: "text-red-600 bg-red-50",
-};
+const isActive = (e: Employee) => (e.active ?? e.isActive) !== false;
 
 const PayrollHrmsDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { loading, data, failed } = useDashboardSources(SOURCES, LABELS);
+
+  const employees = (data.employees as Employee[] | undefined) ?? [];
+  const payroll = data.payroll as { batches: PayrollBatch[]; latest?: PayrollBatch; byDepartment: DepartmentSummary[] } | undefined;
+  const batches = payroll?.batches ?? [];
+  const latest = payroll?.latest;
+  const departments = typeof data.departments === "number" ? data.departments : null;
+  const active = employees.filter(isActive);
+
+  const today = new Date();
+  const monthKey = isoDate(today).slice(0, 7);
+  const in30Days = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30);
+
+  const trend = useMemo(() => {
+    const byMonth = new Map<string, PayrollBatch>();
+    batches.filter((b) => b.status === "COMPLETED").forEach((b) => byMonth.set(monthOf(b), b));
+    return [...byMonth.keys()].sort().slice(-6).map((key) => ({
+      month: monthLabel(key),
+      amount: Number(byMonth.get(key)?.totalSalaryAmount) || 0,
+      employees: Number(byMonth.get(key)?.employeeCount) || 0,
+    }));
+  }, [batches]);
+
+  // Net payroll per department for the latest run; headcount per department when there is no run yet
+  const departmentChart = useMemo(() => {
+    if (payroll?.byDepartment?.length) {
+      return payroll.byDepartment
+        .map((d) => ({ name: d.departmentName || "Unassigned", value: Number(d.totalNetSalary) || 0, count: Number(d.totalEmployees) || 0 }))
+        .sort((a, b) => b.value - a.value).slice(0, 6);
+    }
+    const byDept = new Map<string, number>();
+    active.forEach((e) => {
+      const name = e.department?.name || "Unassigned";
+      byDept.set(name, (byDept.get(name) ?? 0) + 1);
+    });
+    return [...byDept.entries()].map(([name, count]) => ({ name, value: count, count })).sort((a, b) => b.value - a.value).slice(0, 6);
+  }, [payroll, active]);
+  const departmentChartIsMoney = Boolean(payroll?.byDepartment?.length);
+
+  const recentRuns = [...batches].sort((a, b) => monthOf(b).localeCompare(monthOf(a)) || String(b.startDate ?? "").localeCompare(String(a.startDate ?? ""))).slice(0, 4);
+
+  const attention = [
+    { title: "Salary not set", count: active.filter((e) => !e.salary).length, icon: CreditCard, tone: "text-blue-600 bg-blue-50", route: "/employeeSalary" },
+    { title: "No department", count: active.filter((e) => !e.department).length, icon: Building2, tone: "text-orange-600 bg-orange-50", route: "/employeeRecords" },
+    { title: "Joined this month", count: employees.filter((e) => String(e.joiningDate ?? "").slice(0, 7) === monthKey).length, icon: UserPlus, tone: "text-emerald-600 bg-emerald-50", route: "/employeeRecords" },
+    {
+      title: "Leaving in 30 days",
+      count: employees.filter((e) => {
+        const exit = parseDate(e.exitDate);
+        return exit !== null && exit >= new Date(today.getFullYear(), today.getMonth(), today.getDate()) && exit <= in30Days;
+      }).length,
+      icon: UserMinus, tone: "text-purple-600 bg-purple-50", route: "/exit-management",
+    },
+  ];
+
+  const count = (key: "structures" | "documents") => (typeof data[key] === "number" ? (data[key] as number) : null);
+  const tiles = [
+    { name: "Employee Records", count: data.employees ? employees.length : null, icon: Users, route: "/employeeRecords", tone: "blue" as const },
+    { name: "Departments", count: departments, icon: Building2, route: "/employeeDepartments", tone: "emerald" as const },
+    { name: "Compensation", icon: DollarSign, route: "/employeeCompensation", tone: "orange" as const },
+    { name: "Employee Salary", count: data.employees ? active.filter((e) => e.salary).length : null, icon: CreditCard, route: "/employeeSalary", tone: "purple" as const },
+    { name: "Salary Structure", count: count("structures"), icon: FileText, route: "/salaryStructure", tone: "indigo" as const },
+    { name: "Payslips", icon: Calendar, route: "/employeePayslips", tone: "pink" as const },
+    { name: "Payroll Summary", icon: BarChart3, route: "/payrollSummary", tone: "teal" as const },
+    { name: "Documents", count: count("documents"), icon: FolderOpen, route: "/employeeDocuments", tone: "red" as const },
+  ];
+
+  const latestMonth = latest ? monthOf(latest) : "";
+  const latestTotal = Number(latest?.totalSalaryAmount) || 0;
+  const latestCount = Number(latest?.employeeCount) || 0;
 
   return (
     <>
-      <PageMeta title="Payroll & HRMS Dashboard" description="Manage employee payroll and HR operations" />
-      <PageBreadcrumb pageTitle="Payroll & HRMS" />
+      <PageMeta title="HRMS Dashboard" description="Payroll and employee overview" />
+      <PageBreadcrumb pageTitle="HRMS Dashboard" />
 
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="mx-auto max-w-7xl p-6">
+        <LoadNotice failed={failed} />
+        <ModuleTiles tiles={tiles} loading={loading} />
 
-        {/* Navigation Modules Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-8">
-          {payrollModules.map((module) => {
-            const Icon = module.icon;
-            const colorClass = colorClasses[module.color as ColorKey];
-            return (
-              <button
-                key={module.name}
-                onClick={() => navigate(module.route)}
-                className="group flex flex-col items-center p-4 rounded-xl border border-gray-100 bg-white hover:shadow-md transition-all duration-200 hover:-translate-y-0.5"
-              >
-                <div className={`p-2.5 rounded-lg ${colorClass} transition-colors duration-200`}>
-                  <Icon className="h-5 w-5" />
-                </div>
-                <h4 className="mt-2 text-xs font-semibold text-gray-900 group-hover:text-cyan-600 transition-colors text-center">
-                  {module.name}
-                </h4>
-                <p className="text-xs text-gray-500 mt-0.5">{module.count}</p>
-              </button>
-            );
-          })}
+        <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCard label="Active Employees" value={data.employees ? formatNumber(active.length) : "—"} hint={data.employees ? `${formatNumber(employees.length)} on record` : undefined} icon={Users} tone="blue" loading={loading} />
+          <KpiCard label="Monthly Payroll" value={latest ? formatMoney(latestTotal, "INR", true) : "—"} hint={latest ? `Last run: ${monthLabel(latestMonth, true)}` : "No completed payroll run yet"} icon={TrendingUp} tone="emerald" loading={loading} />
+          <KpiCard label="Avg Salary" value={latest && latestCount ? formatMoney(latestTotal / latestCount) : "—"} hint={latest ? `${formatNumber(latestCount)} employees paid` : undefined} icon={DollarSign} tone="orange" loading={loading} />
+          <KpiCard label="Departments" value={departments === null ? "—" : formatNumber(departments)} icon={Building2} tone="purple" loading={loading} />
         </div>
 
-        {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Payroll Trend Chart */}
-          <div className="bg-white rounded-xl border border-gray-100 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900">Payroll Trend</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Monthly payroll amount</p>
-              </div>
-              <TrendingUp className="h-5 w-5 text-emerald-500" />
-            </div>
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={payrollTrendData}>
-                <defs>
-                  <linearGradient id="payrollGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
-                <YAxis stroke="#9ca3af" fontSize={12} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: "white", 
-                    border: "1px solid #e5e7eb", 
-                    borderRadius: "8px",
-                    fontSize: "12px"
-                  }} 
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="amount" 
-                  stroke="#06b6d4" 
-                  strokeWidth={2}
-                  fill="url(#payrollGradient)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Panel title="Payroll Trend" subtitle="Completed payroll runs (last 6)" icon={TrendingUp} iconClass="text-emerald-500">
+            {trend.length === 0 ? (
+              <EmptyState loading={loading}>No completed payroll runs yet.</EmptyState>
+            ) : (
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={trend}>
+                  <defs>
+                    <linearGradient id="payrollGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
+                  <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v) => formatMoney(Number(v), "INR", true)} width={70} />
+                  <Tooltip contentStyle={CHART_TOOLTIP}
+                    formatter={(value, _name, item) => [`${formatMoney(Number(value))} · ${item?.payload?.employees ?? 0} employees`, "Payroll"]} />
+                  <Area type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={2} fill="url(#payrollGradient)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </Panel>
 
-          {/* Department Distribution Chart */}
-          <div className="bg-white rounded-xl border border-gray-100 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900">Department Distribution</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Employees by department</p>
-              </div>
-              <Building2 className="h-5 w-5 text-orange-500" />
-            </div>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={departmentData} layout="vertical" margin={{ left: 80 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis type="number" stroke="#9ca3af" fontSize={12} />
-                <YAxis type="category" dataKey="name" stroke="#9ca3af" fontSize={12} width={90} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: "white", 
-                    border: "1px solid #e5e7eb", 
-                    borderRadius: "8px",
-                    fontSize: "12px"
-                  }} 
-                />
-                <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                  {departmentData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <Panel title="By Department" subtitle={departmentChartIsMoney ? `Net payroll, ${monthLabel(latestMonth, true)}` : "Active employees per department"} icon={Building2} iconClass="text-cyan-500">
+            {departmentChart.length === 0 ? (
+              <EmptyState loading={loading}>No employees yet.</EmptyState>
+            ) : (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={departmentChart} layout="vertical" margin={{ left: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis type="number" stroke="#9ca3af" fontSize={12} allowDecimals={false}
+                    tickFormatter={(v) => (departmentChartIsMoney ? formatMoney(Number(v), "INR", true) : String(v))} />
+                  <YAxis type="category" dataKey="name" stroke="#9ca3af" fontSize={12} width={100} />
+                  <Tooltip contentStyle={CHART_TOOLTIP}
+                    formatter={(value, _name, item) => departmentChartIsMoney
+                      ? [`${formatMoney(Number(value))} · ${item?.payload?.count ?? 0} employees`, "Net payroll"]
+                      : [value, "Employees"]} />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                    {departmentChart.map((d, index) => <Cell key={d.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </Panel>
         </div>
 
-        {/* Department Payroll Summary */}
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden mb-8">
-          <div className="px-6 py-4 border-b border-gray-100">
-            <h3 className="text-base font-semibold text-gray-900">Department Payroll Summary</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Salary distribution by department</p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-100">
-              <thead className="bg-gray-50">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Panel title="Recent Payroll Runs" subtitle="Latest batches from the payroll engine" bodyClass="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
+              <thead className="bg-gray-50 dark:bg-gray-800/60">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employees</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monthly Payroll</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Salary</th>
+                  <th className={TABLE_HEAD}>Month</th>
+                  <th className={TABLE_HEAD}>Processed</th>
+                  <th className={TABLE_HEAD}>Total</th>
+                  <th className={TABLE_HEAD}>Employees</th>
+                  <th className={TABLE_HEAD}>Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
-                {departmentData.map((dept) => (
-                  <tr key={dept.name} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{dept.name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{dept.count}</td>
-                    <td className="px-6 py-4 text-sm font-semibold text-gray-900">₹{(dept.payroll / 1000).toFixed(0)}K</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">₹{Math.round(dept.payroll / dept.count).toLocaleString()}</td>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {recentRuns.length === 0 && (
+                  <tr><td colSpan={5} className={`${TABLE_CELL} text-center`}>{loading ? "Loading…" : "No payroll runs yet."}</td></tr>
+                )}
+                {recentRuns.map((run) => (
+                  <tr key={run.batchReference ?? monthOf(run)} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                    <td className={`${TABLE_CELL} font-medium text-gray-900 dark:text-white`}>{monthLabel(monthOf(run), true)}</td>
+                    <td className={TABLE_CELL}>{formatDate(run.completedDate || run.startDate)}</td>
+                    <td className={`${TABLE_CELL} font-medium text-gray-900 dark:text-white`}>
+                      {run.status !== "COMPLETED" && !Number(run.totalSalaryAmount) ? "—" : formatMoney(Number(run.totalSalaryAmount) || 0, "INR", true)}
+                    </td>
+                    <td className={TABLE_CELL}>{formatNumber(Number(run.employeeCount) || 0)}</td>
+                    <td className={TABLE_CELL}>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${run.status === "COMPLETED" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+                        {run.status === "COMPLETED" ? <CheckCircle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                        {titleCase(run.status)}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        </div>
+          </Panel>
 
-        {/* Recent Payroll Runs & Pending Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Recent Payroll Runs */}
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100">
-              <h3 className="text-base font-semibold text-gray-900">Recent Payroll Runs</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Completed payroll cycles</p>
-            </div>
-            <div className="divide-y divide-gray-100">
-              {recentPayrollRuns.map((run) => (
-                <div key={run.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-green-100 text-green-600">
-                      <CheckCircle className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{run.month}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">Processed: {run.processedDate}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-gray-900">{run.totalAmount}</p>
-                    <p className="text-xs text-gray-500">{run.employees} employees</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
-              <button 
-                onClick={() => navigate("/payroll-runs")}
-                className="text-sm text-cyan-600 hover:text-cyan-700 font-medium flex items-center gap-1"
-              >
-                View all runs
-                <ArrowUpRight className="h-3 w-3" />
-              </button>
-            </div>
-          </div>
-
-          {/* Pending Actions */}
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100">
-              <h3 className="text-base font-semibold text-gray-900">Pending Actions</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Items requiring attention</p>
-            </div>
-            <div className="divide-y divide-gray-100">
-              {pendingActions.map((action) => {
-                const Icon = action.icon;
-                const colorClasses = {
-                  blue: "bg-blue-100 text-blue-600",
-                  orange: "bg-orange-100 text-orange-600",
-                  purple: "bg-purple-100 text-purple-600",
-                  emerald: "bg-emerald-100 text-emerald-600",
-                };
+          <Panel title="Needs Attention" subtitle="From the employee records" icon={AlertCircle} iconClass="text-amber-500">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {attention.map((item) => {
+                const Icon = item.icon;
                 return (
-                  <div key={action.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${colorClasses[action.color as keyof typeof colorClasses]}`}>
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{action.title}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{action.count} pending items</p>
-                      </div>
+                  <button key={item.title} type="button" onClick={() => navigate(item.route)}
+                    className="flex items-center gap-3 rounded-lg border border-gray-100 p-3 text-left transition hover:shadow-sm dark:border-gray-800">
+                    <div className={`rounded-lg p-2 ${item.tone}`}><Icon className="h-5 w-5" /></div>
+                    <div>
+                      <p className="text-xl font-bold text-gray-900 dark:text-white">{loading ? "…" : data.employees ? formatNumber(item.count) : "—"}</p>
+                      <p className="text-xs text-gray-500">{item.title}</p>
                     </div>
-                    <button 
-                      onClick={() => navigate(action.route)}
-                      className="text-xs text-cyan-600 hover:text-cyan-700 font-medium"
-                    >
-                      Review
-                    </button>
-                  </div>
+                  </button>
                 );
               })}
             </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          <button 
-            onClick={() => navigate("/employee-records")}
-            className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 text-left hover:shadow-md transition-all"
-          >
-            <Users className="h-5 w-5 text-blue-600 mb-2" />
-            <h4 className="text-sm font-semibold text-gray-900">Employee Records</h4>
-            <p className="text-xs text-gray-500 mt-1">View and manage employee information</p>
-          </button>
-          <button 
-            onClick={() => navigate("/salary-structure")}
-            className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-4 text-left hover:shadow-md transition-all"
-          >
-            <FileText className="h-5 w-5 text-emerald-600 mb-2" />
-            <h4 className="text-sm font-semibold text-gray-900">Salary Structure</h4>
-            <p className="text-xs text-gray-500 mt-1">Configure compensation plans</p>
-          </button>
-          <button 
-            onClick={() => navigate("/payroll-runs")}
-            className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl p-4 text-left hover:shadow-md transition-all"
-          >
-            <Calendar className="h-5 w-5 text-orange-600 mb-2" />
-            <h4 className="text-sm font-semibold text-gray-900">Process Payroll</h4>
-            <p className="text-xs text-gray-500 mt-1">Run monthly payroll cycle</p>
-          </button>
-          <button 
-            onClick={() => navigate("/benefits")}
-            className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 text-left hover:shadow-md transition-all"
-          >
-            <Gift className="h-5 w-5 text-purple-600 mb-2" />
-            <h4 className="text-sm font-semibold text-gray-900">Benefits</h4>
-            <p className="text-xs text-gray-500 mt-1">Manage employee benefits</p>
-          </button>
+            <p className="mt-3 flex items-center gap-1 text-xs text-gray-400">
+              <UserCheck className="h-3.5 w-3.5" /> Salary and department counts cover active employees only.
+            </p>
+          </Panel>
         </div>
       </div>
     </>

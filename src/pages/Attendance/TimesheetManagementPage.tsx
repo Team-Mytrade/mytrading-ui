@@ -1,3 +1,4 @@
+import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import React, { useState, useMemo, useEffect } from 'react';
 import axios from 'axios';
 import { ChevronLeft, ChevronRight, X, Search, Calendar, AlertCircle, Clock, CalendarDays, FileText } from 'lucide-react';
@@ -66,36 +67,8 @@ const TimesheetManagementPage: React.FC = () => {
 
   const [activeEmployeeId, setActiveEmployeeId] = useState<number>(12);
 
-  const currentUser = useMemo(() => {
-    try {
-      const userStr = localStorage.getItem("user");
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        const name = user.fullName || user.name || user.username || "Karthik Raj";
-        const email = user.email || `${name.toLowerCase().replace(/\s+/g, '')}@mytrading.com`;
-        const displayCode = user.employeeCode || `EMP-${activeEmployeeId}`;
-
-        return {
-          id: activeEmployeeId,
-          name: name,
-          code: displayCode,
-          role: user.role || user.userType || "SUPER_ADMIN",
-          email: email,
-          dept: user.department || "Engineering",
-          location: user.location || "Hyderabad"
-        };
-      }
-    } catch (e) {}
-    return {
-      id: activeEmployeeId,
-      name: "Karthik Raj",
-      code: `EMP-${activeEmployeeId}`,
-      role: "SUPER_ADMIN",
-      email: "karthikraj@mytrading.com",
-      dept: "Engineering",
-      location: "Hyderabad"
-    };
-  }, [activeEmployeeId]);
+  // Own employee identity from the login token (no hard-coded ids)
+  const currentUser = useCurrentEmployee();
 
   useEffect(() => {
     const resolveUserEmployeeId = async () => {

@@ -18,6 +18,7 @@ import { UserEmployee, Role, Domain } from "./RoleConfigTypes";
 import { StatusBadge, Toggle } from "./RoleConfigShared";
 import { AuthContext } from "../../context/AuthContext";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import { todayIso } from "../../utils/localDate";
 
 const EMPLOYEE_API_BASE = "/v1/api/user";
 const ADD_USER_EMPLOYEE_API = "/v1/api/user/add/userEmployee";
@@ -374,8 +375,8 @@ const UserEmployeeTab: React.FC = () => {
       tenantId: form.tenantId,
       createdBy: "",
       active: true,
-      validFrom: new Date().toISOString().split("T")[0],
-      validTo: new Date().toISOString().split("T")[0],
+      validFrom: todayIso(),
+      validTo: todayIso(),
     }));
 
     if (!editingId && form.password) {

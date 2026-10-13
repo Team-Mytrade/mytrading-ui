@@ -26,6 +26,7 @@ import {
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
 import { AuthContext } from "../../context/AuthContext";
+import { todayIso } from "../../utils/localDate";
 
 interface Product { id: number; productName: string; sku?: string; code?: string; }
 type ResultCode = "PASS" | "FAIL" | "HOLD" | "REJECT";
@@ -92,7 +93,7 @@ type FormState = {
   inspector: string; result: ResultCode; inspectionType: InspectionTypeCode | ""; remarks: string;
 };
 const emptyFormState: FormState = {
-  productId: 0, inspectionDate: new Date().toISOString().split("T")[0],
+  productId: 0, inspectionDate: todayIso(),
   inspectorName: "", inspector: "", result: "PASS", inspectionType: "", remarks: "",
 };
 
@@ -149,7 +150,7 @@ const QualityInspectionManager: React.FC = () => {
       id: record?.id ?? 0,
       productName: record?.productName || record?.product?.name || "",
       productId: record?.productId,
-      inspectionDate: record?.inspectionDate || new Date().toISOString().split("T")[0],
+      inspectionDate: record?.inspectionDate || todayIso(),
       inspectorName: record?.inspectorName || record?.inspector || "",
       inspector: record?.inspector || record?.inspectorName || "",
       result, inspectionType,
@@ -501,7 +502,7 @@ const QualityInspectionManager: React.FC = () => {
       <PaginatedPopup
         isOpen={showForm}
         title={formMode === "add" ? "Add Inspection Record" : "Edit Inspection Record"}
-        subtitle="Enter quality inspection details from the API schema"
+        subtitle="Enter the quality inspection details"
         onClose={closeForm}
         onSubmit={handleSave}
         submitting={submitting}

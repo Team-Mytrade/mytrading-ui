@@ -40,6 +40,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import PayslipPreviewModal from "../../components/Payroll/PayslipPreviewModal";
+import { todayIso } from "../../utils/localDate";
 
 const BASE_URL = "/v1/api/payroll";
 const PAGE_SIZE = 10;
@@ -391,7 +392,7 @@ const PayrollPage: React.FC = () => {
             styles: { fontSize: 8 },
             headStyles: { fillColor: [6, 182, 212] },
         });
-        doc.save(`Payroll_Report_${new Date().toISOString().split("T")[0]}.pdf`);
+        doc.save(`Payroll_Report_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };
 
@@ -417,7 +418,7 @@ const PayrollPage: React.FC = () => {
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Payroll Report");
-        XLSX.writeFile(wb, `Payroll_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
+        XLSX.writeFile(wb, `Payroll_Report_${todayIso()}.xlsx`);
         setShowExportMenu(false);
     };
 
