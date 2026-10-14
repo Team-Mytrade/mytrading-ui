@@ -14,6 +14,7 @@ import NotFound from "./pages/OtherPage/NotFound";
 const UserProfiles = lazy(() => import("./pages/UserProfiles"));
 const ResetPassword = lazy(() => import("./components/UserProfile/ResetPassword"));
 import AppLayout from "./layout/AppLayout";
+import DriverLayout from "./layout/DriverLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 const Home = lazy(() => import("./pages/Dashboard/Home"));
 import "react-toastify/dist/ReactToastify.css";
@@ -54,8 +55,6 @@ const DeliveryOrderPage = lazy(() => import("./pages/Delivery/DeliveryOrderPage"
 const TransporterPage = lazy(() => import("./pages/Delivery/TransporterPage"));
 const VehiclePage = lazy(() => import("./pages/Delivery/VehiclePage"));
 const RouteSchedulePage = lazy(() => import("./pages/Delivery/RouteSchedulePage"));
-const ProductPage = lazy(() => import("./pages/Delivery/ProductPage"));
-const DeliveryAddressPage = lazy(() => import("./pages/Delivery/DeliveryAddressPage"));
 const DeliveryStatusPage = lazy(() => import("./pages/Delivery/DeliveryStatusPage"));
 const BenefitsAllowancesPage = lazy(() => import("./pages/Payroll/BenefitsAllowancesPage"));
 const PayrollRunsPage = lazy(() => import("./pages/Payroll/PayrollRunsPage"));
@@ -172,6 +171,8 @@ const CustomerAddressPage = lazy(() => import("./pages/Delivery/CustomerAddress"
 const DeliveryNote = lazy(() => import("./pages/Delivery/DeliveryNote"));
 const GoodsIssuePage = lazy(() => import("./pages/Delivery/GoodsIssue"));
 const Schedule = lazy(() => import("./pages/Delivery/Schedule"));
+const LiveTracking = lazy(() => import("./pages/Delivery/LiveTracking"));
+const DriverMode = lazy(() => import("./pages/Delivery/DriverMode"));
 const VendorsInvoice = lazy(() => import("./pages/common/CustomerVendors"));
 const TaxTypesInvoice = lazy(() => import("./pages/common/TaxTypes"));
 const TaxDetailsInvoice = lazy(() => import("./pages/common/TaxDetails"));
@@ -204,6 +205,11 @@ export default function AppRouter() {
           <Route path="contactus" element={<Contact />} />
           <Route path="privacypolicy" element={<Privacy />} />
           <Route path="termsandconditions" element={<Terms />} />
+        </Route>
+
+        {/* Driver's phone: full screen, no sidebar */}
+        <Route element={<DriverLayout />}>
+          <Route path="/driver" element={<DriverMode />} />
         </Route>
 
         <Route element={<AppLayout />}>
@@ -307,12 +313,14 @@ export default function AppRouter() {
         
          <Route path="/vehicle" element={<VehiclePage />} />
           <Route path="/route" element={<RouteSchedulePage />} />
-          <Route path="/productDelivery" element={<ProductPage />} />
-          <Route path="/deliveryAddress" element={<DeliveryAddressPage />} />
+          {/* Former mock pages: routes now live under Routes and Customer Address */}
+          <Route path="/productDelivery" element={<Navigate to="/route" replace />} />
+          <Route path="/deliveryAddress" element={<Navigate to="/customerAddress" replace />} />
           <Route path="/deliveryStatus" element={<DeliveryStatusPage />} />
           <Route path="/delivery_dashboard" element={<DeliveryDashboard />} />
           <Route path="/schedule" element={<Schedule />} />
           <Route path="/goodsIssue" element={<GoodsIssuePage />} />
+          <Route path="/vehicle-tracking" element={<LiveTracking />} />
 
 
           <Route path="/employeeRecords" element={<EmployeeRecordsPage />} />

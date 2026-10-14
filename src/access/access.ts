@@ -197,6 +197,8 @@ const ROUTE_MODULES: [string, AppModule | "PLATFORM"][] = [
   ["/delivery_dashboard", "DELIVERY"],
   ["/schedule", "DELIVERY"],
   ["/goodsIssue", "DELIVERY"],
+  ["/vehicle-tracking", "DELIVERY"],
+  ["/driver", "DELIVERY"],
 
   ["/att_*", "ATTENDANCE"],
   ["/attendance_dashboard", "ATTENDANCE"],
