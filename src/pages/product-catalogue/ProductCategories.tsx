@@ -7,6 +7,7 @@ import PurchaseResourcePage, {
   PurchaseResourceConfig,
   SelectOption,
 } from "../Purchase/PurchaseResourcePage";
+import { APP_ROUTES, recordLink } from "../../utils/appRoutes";
 import { ToasterService } from "../../Services/ToasterService";
 
 const CATEGORIES = "/v1/api/product/product-categories";
@@ -118,6 +119,8 @@ const productCategoryConfig: PurchaseResourceConfig = {
   // not a full PUT of the record, so the backend can apply its rules.
   allowInlineActiveToggle: false,
   getByIdEndpoint: (row) => `${CATEGORIES}/${row.id}`,
+  // Opened from a link (e.g. category in Products): show only that category.
+  scope: { idParam: "categoryId", nameParam: "categoryName", label: "Category" },
   // Delete is only for a category created by mistake (no products, no sub-categories).
   // A category in use is refused by the backend; the user is told to deactivate it instead.
   deleteInUseMessage:
@@ -127,7 +130,12 @@ const productCategoryConfig: PurchaseResourceConfig = {
     { key: "categoryCode", label: "Category Code" },
     { key: "categoryName", label: "Category Name" },
     { key: "shortCode", label: "Short Code" },
-    { key: "parentName", label: "Parent" },
+    {
+      key: "parentName",
+      label: "Parent",
+      // Click → show only the parent category.
+      link: (row) => recordLink(APP_ROUTES.productCategories, "categoryId", row.parentId, "categoryName", row.parentName),
+    },
     {
       key: "active",
       label: "Status",
@@ -149,6 +157,8 @@ const productCategoryConfig: PurchaseResourceConfig = {
       name: "categoryCode", section: "Category Details",
       label: "Category Code (e.g. PHARMA)",
       required: true,
+      textCase: "upper", // typed "pharma" becomes "PHARMA"
+      maxLength: 20,
       // Part of every product code, so it cannot change after creation.
       readOnlyOnEdit: true,
       validate: validateCategoryCode,
@@ -157,12 +167,16 @@ const productCategoryConfig: PurchaseResourceConfig = {
       name: "categoryName", section: "Category Details",
       label: "Category Name",
       required: true,
+      textCase: "title", // "general medicine" becomes "General Medicine"
+      maxLength: 60,
       validate: validateCategoryName,
     },
     {
       name: "shortCode", section: "Category Details",
       label: "Short Code (used in product codes, e.g. PHR)",
       required: true,
+      textCase: "upper",
+      maxLength: 6,
       readOnlyOnEdit: true,
       validate: validateShortCode,
     },
@@ -286,7 +300,7 @@ export default function ProductCategories() {
                 onClick={(event) => {
                   event.stopPropagation();
                   const params = new URLSearchParams({ categoryId: String(row.id), categoryName });
-                  navigate(`/product-catalogue/products?${params.toString()}`);
+                  navigate(`${APP_ROUTES.products}?${params.toString()}`);
                 }}
                 className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600"
                 title={`Add product to ${categoryName}`}

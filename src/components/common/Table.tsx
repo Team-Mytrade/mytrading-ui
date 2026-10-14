@@ -46,6 +46,8 @@ export interface ColumnDef<T> {
    * duplicate another field's value there.
    */
   excludeFromDetails?: boolean;
+  /** Plain-text value used by Export (PDF / Excel), e.g. "₹25,000.00" or "13 Oct 2026". */
+  exportValueGetter?: (row: T) => string | number | null | undefined;
 }
 
 export interface ReusableTableProps<T extends { id?: number | string }> {
@@ -96,8 +98,68 @@ function getCellValue<T>(row: T, key: string): unknown {
   return (row as Record<string, unknown>)[key];
 }
 
+/* ------------------------------------------------------------------ */
+/* Display formats used by the table, the details drawer and export     */
+/*   Date:      13 Oct 2026                                              */
+/*   Date-time: 13 Oct 2026, 03:45 PM (12-hour)                          */
+/*   Money:     ₹25,000.00                                               */
+/* ------------------------------------------------------------------ */
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
+export function formatDisplayDate(value: string): string {
+  // Date-only values are read as local dates, so 2026-10-13 never shifts to the 12th.
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+export function formatDisplayDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).replace(/\b(am|pm)\b/i, (part) => part.toUpperCase());
+}
+
+export function formatMoney(value: number): string {
+  return value.toLocaleString("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 });
+}
+
+/** Turns a date / date-time string into the display format; other text is returned unchanged. */
+export function formatDisplayText(text: string): string {
+  if (DATE_TIME.test(text)) return formatDisplayDateTime(text);
+  if (DATE_ONLY.test(text)) return formatDisplayDate(text);
+  return text;
+}
+
+/**
+ * True/false shown as a meaningful word for the field, never a bare "Yes"/"No".
+ * e.g. active → Active/Inactive, batchTracking → Tracked/Not tracked,
+ * stockItem → Stock item/Not a stock item.
+ */
+export function formatBooleanFor(fieldName: string, value: boolean): string {
+  const key = fieldName.toLowerCase();
+  if (key === "active" || key === "enabled" || key === "isactive") return value ? "Active" : "Inactive";
+  if (key.endsWith("tracking")) return value ? "Tracked" : "Not tracked";
+  if (key.endsWith("item")) {
+    const label = fieldName.replace(/([A-Z])/g, " $1").trim().toLowerCase();
+    return value ? label.charAt(0).toUpperCase() + label.slice(1) : `Not a ${label}`;
+  }
+  if (/approved/.test(key)) return value ? "Approved" : "Not approved";
+  if (/verified/.test(key)) return value ? "Verified" : "Not verified";
+  if (/required|mandatory/.test(key)) return value ? "Required" : "Optional";
+  return value ? "Enabled" : "Disabled";
+}
+
 function renderDefaultCell(value: unknown): React.ReactNode {
-  const text = String(value ?? "--");
+  const text = typeof value === "string" ? formatDisplayText(value) : String(value ?? "--");
   return (
     <span className="block max-w-full truncate" title={text}>
       {text}
@@ -121,8 +183,14 @@ function getCellTitle(value: unknown): string | undefined {
  * an array like `items[]`).
  */
 function isIdLikeKey(key: string): boolean {
-  return /^id$/i.test(key) || /Id$/.test(key);
+  return /^id$/i.test(key) || /Id$/.test(key) || /Ids$/.test(key);
 }
+
+/** Technical fields that mean nothing to a user (file paths, audit columns, tenant). */
+const TECHNICAL_KEYS = new Set([
+  "tenantId", "tenant", "imagePath", "imageType", "imageName",
+  "createdBy", "updatedBy", "version", "deleted", "password",
+]);
 
 /**
  * Field-name based check used only to decide whether a nested numeric value
@@ -130,7 +198,7 @@ function isIdLikeKey(key: string): boolean {
  * number or an actual currency amount. This intentionally excludes rates,
  * percentages and quantities, which are numeric but not money.
  */
-function isMoneyLikeKey(key: string): boolean {
+export function isMoneyLikeKey(key: string): boolean {
   if (/percentage|percent|rate$|quantity|qty/i.test(key)) return false;
   if (isIdLikeKey(key)) return false;
   return /amount|price|total|cost|discount|tax/i.test(key);
@@ -147,29 +215,11 @@ function formatDetailLabel(key: string): string {
     .toUpperCase();
 }
 
-function formatPrimitiveValue(v: unknown): string {
+function formatPrimitiveValue(v: unknown, fieldName = ""): string {
   if (v == null || v === "") return "--";
-  if (typeof v === "boolean") return v ? "Yes" : "No";
-  if (typeof v === "number") return v.toLocaleString();
-  const str = String(v);
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(str)) {
-    try {
-      const d = new Date(str);
-      if (!isNaN(d.getTime())) {
-        return d.toLocaleString(undefined, {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        });
-      }
-    } catch {
-      // ignore
-    }
-  }
-  return str;
+  if (typeof v === "boolean") return formatBooleanFor(fieldName, v);
+  if (typeof v === "number") return isMoneyLikeKey(fieldName) ? formatMoney(v) : v.toLocaleString("en-IN");
+  return formatDisplayText(String(v));
 }
 
 function isAddressObject(rec: Record<string, unknown>): boolean {
@@ -235,7 +285,7 @@ function getItemTitle(
     if (name) return name;
   }
 
-  if (!keyName) return `Item #${idx + 1}`;
+  if (!keyName) return `Item ${idx + 1}`;
   const clean = keyName
     .replace(/([A-Z])/g, " $1")
     .replace(/[_-]+/g, " ")
@@ -246,7 +296,7 @@ function getItemTitle(
     singular = singular.slice(0, -1);
   }
   const cap = singular.charAt(0).toUpperCase() + singular.slice(1);
-  return `${cap} #${idx + 1}`;
+  return `${cap} ${idx + 1}`;
 }
 
 function renderDetailValue(
@@ -257,9 +307,9 @@ function renderDetailValue(
   if (React.isValidElement(value)) return value;
   if (value == null || value === "")
     return <span className="text-gray-400">--</span>;
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (typeof value === "number") return value.toLocaleString();
-  if (typeof value === "string") return formatPrimitiveValue(value);
+  if (typeof value === "boolean") return formatBooleanFor(fieldName, value);
+  if (typeof value === "number") return formatPrimitiveValue(value, fieldName);
+  if (typeof value === "string") return formatPrimitiveValue(value, fieldName);
 
   if (depth > 6)
     return (
@@ -286,7 +336,7 @@ function renderDetailValue(
               key={i}
               className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700"
             >
-              {formatPrimitiveValue(v)}
+              {formatPrimitiveValue(v, fieldName)}
             </span>
           ))}
         </div>
@@ -318,8 +368,8 @@ function renderDetailValue(
                     <span className="text-xs font-semibold text-cyan-600 dark:text-cyan-400">
                       {title}
                     </span>
-                    <span className="text-[10px] font-mono text-gray-400">
-                      #{idx + 1}
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                      {idx + 1} of {value.length}
                     </span>
                   </div>
                 )}
@@ -352,7 +402,8 @@ function renderDetailValue(
         v !== undefined &&
         v !== "" &&
         typeof v !== "function" &&
-        !isIdLikeKey(k),
+        !isIdLikeKey(k) &&
+        !TECHNICAL_KEYS.has(k),
     );
 
     if (entries.length === 0) return <span className="text-gray-400">--</span>;
@@ -377,9 +428,7 @@ function renderDetailValue(
                   {formatDetailLabel(k)}
                 </span>
                 <span className="font-semibold text-cyan-700 dark:text-cyan-400 break-words sm:text-right shrink-0">
-                  {typeof v === "number" && isMoneyLikeKey(k)
-                    ? `₹${v.toLocaleString()}`
-                    : formatPrimitiveValue(v)}
+                  {formatPrimitiveValue(v, k)}
                 </span>
               </div>
             ))}
@@ -405,7 +454,7 @@ function renderDetailValue(
     );
   }
 
-  return formatPrimitiveValue(value);
+  return formatPrimitiveValue(value, fieldName);
 }
 
 function getDetailEntries<T>(
@@ -426,6 +475,7 @@ function getDetailEntries<T>(
     .filter((key) => key !== "actions" && typeof record[key] !== "function")
     .filter((key) => !hiddenDetailKeys.includes(key))
     .filter((key) => !isIdLikeKey(key))
+    .filter((key) => !TECHNICAL_KEYS.has(key))
     .filter((key) => {
       const column = columns.find((item) => item.key === key);
       return !column?.excludeFromDetails;
@@ -1237,17 +1287,14 @@ export function ReusableTable<T extends { id?: number | string }>({
         title={selectedRowDetailsTitle}
         subtitle={rowDetailsSubtitle}
         onClose={() => setSelectedRow(null)}
+        // Edit (and other actions) sit in the header, right next to the close button.
+        headerActions={selectedRow && rowDetailsActions ? rowDetailsActions(selectedRow) : undefined}
         drawerWidth={drawerWidth}
         isResizing={isDrawerResizing}
         resizeHandle={<button type="button" className="record-detail-drawer__resize-handle" onPointerDown={(event) => { event.preventDefault(); setIsDrawerResizing(true); }} aria-label="Resize details panel" />}
       >
       {selectedRow && (
           <div className="record-detail-dashboard">
-            {rowDetailsActions && (
-              <div className="mb-3 flex justify-end gap-2">
-                {rowDetailsActions(selectedRow)}
-              </div>
-            )}
             {summaryEntries.length > 0 && (
               <section className="record-detail-dashboard__summary" aria-label="Record summary">
                 {summaryEntries.map((entry) => (

@@ -71,8 +71,8 @@ const toTitle = (value: string) =>
 
 const formatValue = (value: Primitive): string => {
   if (value == null || value === "") return "-";
-  if (value instanceof Date) return value.toLocaleDateString();
-  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (value instanceof Date) return value.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  if (typeof value === "boolean") return value ? "Active" : "Inactive";
   return String(value);
 };
 
@@ -253,7 +253,10 @@ const drawHeader = <T extends object>(
     doc.text(options.subtitle, 14, 38.5);
   }
 
-  const generated = `Generated ${new Date().toLocaleString()}`;
+  // e.g. "Generated 13 Oct 2026, 05:45 PM"
+  const generated = `Generated ${new Date()
+    .toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })
+    .replace(/\b(am|pm)\b/i, (part) => part.toUpperCase())}`;
   doc.setTextColor(...BRAND.muted);
   doc.setFontSize(8);
   doc.text(generated, pageWidth - 14, 32, { align: "right" });
@@ -331,7 +334,8 @@ export function exportListingPdf<T extends object>({
     data.length > 0
       ? data.map((row, index) => [
           ...(includeSerialNumber ? [String(index + 1)] : []),
-          ...exportColumns.map((column) => formatValue(getColumnValue(row, column, index))),
+          // The built-in PDF font has no ₹ sign, so amounts print as "Rs. 25,000.00".
+          ...exportColumns.map((column) => formatValue(getColumnValue(row, column, index)).replace(/₹\s?/g, "Rs. ")),
         ])
       : [[emptyMessage]];
 
@@ -346,9 +350,13 @@ export function exportListingPdf<T extends object>({
     );
 
     const columnStyles: UserOptions["columnStyles"] = {};
+    // Amount columns (values like "Rs. 25,000.00") line up on the right.
+    const isAmountColumn = (column: PdfExportColumn<T>) =>
+      data.length > 0 &&
+      data.every((row, rowIndex) => /^(₹|Rs\.)\s?[\d,]+(\.\d+)?$|^-+$/.test(formatValue(getColumnValue(row, column, rowIndex))));
     exportColumns.forEach((column, index) => {
       columnStyles[(includeSerialNumber ? index + 1 : index).toString()] = {
-        halign: column.align ?? "left",
+        halign: column.align ?? (isAmountColumn(column) ? "right" : "left"),
         cellWidth: column.width,
       };
     });

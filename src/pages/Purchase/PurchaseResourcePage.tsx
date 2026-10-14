@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -12,11 +12,21 @@ import {
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import { AddButton } from "../../components/common/AddButton";
-import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import ReusableTable, {
+  ColumnDef,
+  formatBooleanFor,
+  formatDisplayText,
+  formatMoney,
+  isMoneyLikeKey,
+} from "../../components/common/Table";
 import DynamicPopup from "../../components/common/Popup";
 import FilterPopover from "../../components/common/filter";
 import Dragger from "../../components/common/Dragger";
-import StatsCard from "../../components/common/Statscard";
+import StatsCardFilter, {
+  defaultStatsCards,
+  StatsCardOption,
+  useStatsCardFilter,
+} from "../../components/common/StatsCardFilter";
 import {
   FloatingDatePicker,
   FloatingInput,
@@ -68,9 +78,23 @@ export type FieldConfig = {
   showOnEdit?: boolean;
   /** Shows the value as receipt/reference information instead of an input while editing. */
   readOnlyOnEdit?: boolean;
+  /** Text shown when the field is read-only (e.g. the PR number when only its id is known). */
+  displayValue?: (form: PurchaseRecord) => string | null | undefined;
   placeholderOption?: string;
   /** For long select lists: type a few letters and only matching options are shown. */
   searchable?: boolean;
+  /** Changes letters while typing: "upper" (codes, GST, PAN), "title" (Names Like This) or "lower" (emails). */
+  textCase?: "upper" | "lower" | "title";
+  /** Number fields: lowest allowed value. Default 0, so negatives are blocked. */
+  min?: number;
+  /** Number fields: highest allowed value. */
+  max?: number;
+  /** Number fields: digits allowed after the decimal point (0 = whole numbers only). */
+  decimals?: number;
+  /** Number fields: allow negative values (off by default). */
+  allowNegative?: boolean;
+  /** Text fields: maximum number of characters. */
+  maxLength?: number;
   /** Tab / section this field belongs to (e.g. "Bank Details"). Fields with a section are shown in named tabs. */
   section?: string;
   /** Field-level check; return an error message to show under the field, or null when valid. */
@@ -91,9 +115,20 @@ export type FieldConfig = {
   ) => PurchaseRecord | void;
 };
 
+/** A clickable summary card (see StatsCardFilter). */
+export type StatsCardConfig = StatsCardOption<PurchaseRecord>;
+
 export type ResourceColumn = {
   key: string;
   label: string;
+  /** How this column is shown in the row-details drawer. Defaults to the same output as `render`. */
+  detailFormatter?: (row: PurchaseRecord) => React.ReactNode;
+  /** Plain text for Export (PDF / Excel) when the cell shows a badge or other element. */
+  exportValue?: (row: PurchaseRecord) => string | number | null | undefined;
+  /** Value used for sorting (e.g. the real date behind "22 Oct 2026"). */
+  sortValueGetter?: (row: PurchaseRecord) => string | number | null | undefined;
+  /** Fixed values for the column filter row (a dropdown instead of a text box). */
+  filterOptions?: { label: string; value: string }[];
   sortable?: boolean;
   className?: string;
   headerClassName?: string;
@@ -107,12 +142,28 @@ export type PurchaseResourceConfig = {
   endpoint: string;
    formSubtitle?: string
   getByIdEndpoint?: (row: PurchaseRecord) => string;
+  /**
+   * Custom loader for the full record (used by Edit and the inline status dropdown).
+   * Use it when GET-by-id does not return every field. Overrides getByIdEndpoint.
+   */
+  loadRecord?: (row: PurchaseRecord) => Promise<PurchaseRecord>;
   createEndpoint?: string;
   updateEndpoint?: (row: PurchaseRecord, form: PurchaseRecord) => string;
   deleteEndpoint?: (row: PurchaseRecord) => string;
   allowCreate?: boolean;
   allowEdit?: boolean;
   allowDelete?: boolean;
+  /**
+   * Clickable summary cards above the table. Clicking a card shows only its rows.
+   * Default: All, Active and Inactive (when records have an `active` flag).
+   */
+  statsCards?: (rows: PurchaseRecord[]) => StatsCardConfig[];
+  /** Raw fields to leave out of the row-details drawer (ids are always hidden). */
+  hiddenDetailKeys?: string[];
+  /** Per-row check: return false to hide the Edit button for that row (e.g. a submitted PR). */
+  canEditRow?: (row: PurchaseRecord) => boolean;
+  /** Per-row check: return false to hide the Delete button for that row. */
+  canDeleteRow?: (row: PurchaseRecord) => boolean;
   columns: ResourceColumn[];
   fields: FieldConfig[];
   searchFields?: string[];
@@ -173,7 +224,10 @@ export type PurchaseResourceConfig = {
   scope?: { idParam: string; nameParam: string; label: string };
 
   /** Icon-only or extra action buttons rendered inside the Actions cell */
-  renderRowActions?: (row: PurchaseRecord, context: { refreshRows: () => Promise<void> }) => React.ReactNode;
+  renderRowActions?: (
+    row: PurchaseRecord,
+    context: { refreshRows: () => Promise<void> }
+  ) => React.ReactNode;
 
   renderFormExtras?: (context: {
     form: PurchaseRecord;
@@ -349,6 +403,91 @@ const StatusPill = ({ active }: { active: boolean }) => (
   </span>
 );
 
+/** True when a dropdown loads from the same API (without extra params) as the page's table. */
+function usesOwnList(field: FieldConfig, listEndpoint: string) {
+  return Boolean(field.optionsEndpoint) && field.optionsEndpoint === listEndpoint && !field.getOptionsParams;
+}
+
+/** Applies a field's textCase while the user types. */
+function applyTextCase(value: string, textCase: FieldConfig["textCase"]) {
+  if (textCase === "upper") return value.toUpperCase();
+  if (textCase === "lower") return value.toLowerCase();
+  if (textCase === "title") return value.replace(/\b([a-z])/g, (letter) => letter.toUpperCase());
+  return value;
+}
+
+/** Plain label without hints in brackets, e.g. "Standard Cost (₹)" → "Standard Cost". */
+const plainLabel = (label: string) => label.replace(/\s*\(.*\)\s*$/, "");
+
+/** Built-in checks for number fields: valid number, not negative, min / max, decimals. */
+function numberFieldError(field: FieldConfig, value: unknown): string | null {
+  if (value === "" || value == null) return null;
+  const text = String(value).trim();
+  const number = Number(text);
+  const label = plainLabel(field.label);
+  if (!Number.isFinite(number)) return `${label} must be a number`;
+  const min = field.allowNegative ? field.min : field.min ?? 0;
+  if (min !== undefined && number < min) {
+    return min === 0 ? `${label} cannot be negative` : `${label} must be at least ${min}`;
+  }
+  if (field.max !== undefined && number > field.max) return `${label} can be at most ${field.max}`;
+  if (field.decimals !== undefined) {
+    const [, fraction = ""] = text.split(".");
+    if (fraction.length > field.decimals) {
+      return field.decimals === 0
+        ? `${label} must be a whole number`
+        : `${label} can have at most ${field.decimals} decimal places`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Read-only field that looks like a disabled input: same height, border and floating label,
+ * same white box as other inputs. An empty value shows nothing.
+ */
+/** App base path from vite.config ("/myTrading/"), so link hrefs work for "Open in new tab". */
+const APP_BASE = String((import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL || "/").replace(/\/$/, "");
+
+const ReadOnlyField = ({ label, value }: { label: string; value: React.ReactNode }) => {
+  // Empty stays empty (no "Not set"), so it fills in by itself once the backend sends the value.
+  const isEmpty = value == null || value === "" || value === "--";
+  return (
+    <div style={{ position: "relative", marginBottom: "20px", width: "100%" }}>
+      <div
+        className="flex h-[52px] cursor-default items-center rounded-md border border-gray-300 bg-white px-3 pt-3 text-base text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+        aria-readonly="true"
+      >
+        <span className="truncate">{isEmpty ? "" : value}</span>
+      </div>
+      <span className="pointer-events-none absolute left-3 top-0 -translate-y-1/2 bg-white px-1 text-xs font-medium text-gray-500 dark:bg-gray-900 dark:text-gray-400">
+        {label}
+      </span>
+    </div>
+  );
+};
+
+/**
+ * Text area that starts as one line (same height as an input) and grows as the text gets
+ * longer, so short notes don't take up a big empty box.
+ */
+const AutoGrowTextarea = (props: React.ComponentProps<typeof FloatingTextarea>) => {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const resize = () => {
+    const textarea = wrapperRef.current?.querySelector("textarea");
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.max(52, textarea.scrollHeight + 2)}px`;
+  };
+  // Also resizes when the value is filled in from outside (edit form, prefill).
+  useLayoutEffect(resize, [props.value]);
+  return (
+    <div ref={wrapperRef} onInput={resize}>
+      <FloatingTextarea {...props} rows={1} />
+    </div>
+  );
+};
+
 export const makeRelation = (id: any) => (id ? { id: Number(id) } : null);
 
 export const toNumberOrNull = (value: any) =>
@@ -369,12 +508,11 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   const [showForm, setShowForm] = useState(false);
   const [editingRow, setEditingRow] = useState<PurchaseRecord | null>(null);
   const [form, setForm] = useState<PurchaseRecord>({});
-  const [options, setOptions] = useState<Record<string, SelectOption[]>>({});
+  const [fetchedOptions, setOptions] = useState<Record<string, SelectOption[]>>({});
   const [deleteRow, setDeleteRow] = useState<PurchaseRecord | null>(null);
   const [isDrawerEditing, setIsDrawerEditing] = useState(false);
   const [apiFailed, setApiFailed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
   const [inlineUpdatingId, setInlineUpdatingId] = useState<string | number | null>(null);
   const [search, setSearch] = useState("");
   const autoOpenedKey = useRef<string | null>(null);
@@ -430,7 +568,11 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   }, [config]);
 
   const loadOptions = useCallback(async () => {
-    const optionFields = config.fields.filter((field) => field.optionsEndpoint);
+    // Dropdowns that use this page's own list API (e.g. Parent Category) reuse the table rows
+    // below instead of calling the same GET a second time.
+    const optionFields = config.fields.filter(
+      (field) => field.optionsEndpoint && !usesOwnList(field, config.endpoint)
+    );
     if (!optionFields.length) return;
 
     const next: Record<string, SelectOption[]> = {};
@@ -459,11 +601,37 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
 
     setOptions(next);
     if (hasFailure) setApiFailed(true);
-  }, [config.fields]);
+  }, [config.endpoint, config.fields]);
+
+  // Final dropdown options: fetched ones plus those built from the table rows.
+  const options = useMemo(() => {
+    const merged = { ...fetchedOptions };
+    config.fields.filter((field) => usesOwnList(field, config.endpoint)).forEach((field) => {
+      merged[field.name] = rows
+        .map((row) => ({
+          value: optionValue(row, field.optionValue),
+          label: optionText(row, field.optionLabel),
+          raw: row,
+        }))
+        .filter((item) => item.value !== "" && item.label);
+    });
+    return merged;
+  }, [config.endpoint, config.fields, fetchedOptions, rows]);
 
   useEffect(() => {
     loadRows();
     loadOptions();
+  }, [loadRows, loadOptions]);
+
+  // Toolbar Refresh icon: call every GET again (the list and all dropdown lists).
+  // You can see the requests in the browser's Network tab.
+  useEffect(() => {
+    const refreshAll = () => {
+      loadRows();
+      loadOptions();
+    };
+    window.addEventListener("reusable-table:refresh", refreshAll);
+    return () => window.removeEventListener("reusable-table:refresh", refreshAll);
   }, [loadRows, loadOptions]);
 
   const openCreate = useCallback(
@@ -490,7 +658,15 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
 
   const openEdit = async (row: PurchaseRecord) => {
     let selectedRow = row;
-    if (config.getByIdEndpoint) {
+    if (config.loadRecord) {
+      try {
+        selectedRow = (await config.loadRecord(row)) || row;
+      } catch (error) {
+        console.error(`Failed to load ${config.title} details`, error);
+        ToasterService.error(`Failed to load ${config.title} details`);
+        setApiFailed(true);
+      }
+    } else if (config.getByIdEndpoint) {
       try {
         const res = await axios.get(config.getByIdEndpoint(row), {
           params: config.getRequestParams?.(),
@@ -551,6 +727,16 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       const isEmpty = value === "" || value == null;
       if (field.required && field.type !== "checkbox" && field.type !== "toggle" && isEmpty) {
         errors[field.name] = `${field.label.replace(/\s*\(.*\)\s*$/, "")} is required`;
+        return;
+      }
+      const builtIn =
+        field.type === "number"
+          ? numberFieldError(field, value)
+          : field.maxLength && String(value ?? "").length > field.maxLength
+            ? `${plainLabel(field.label)} can be at most ${field.maxLength} characters`
+            : null;
+      if (builtIn) {
+        errors[field.name] = builtIn;
         return;
       }
       const message = field.validate?.(value, form);
@@ -639,6 +825,10 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   };
 
   const resolveRowForUpdate = async (row: PurchaseRecord) => {
+    if (config.loadRecord) {
+      // Must succeed: saving a half-loaded record would wipe the fields that are missing.
+      return (await config.loadRecord(row)) || row;
+    }
     if (!config.getByIdEndpoint) return row;
 
     try {
@@ -729,13 +919,69 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       className: column.className,
       headerClassName: column.headerClassName,
       sortValueGetter: (row: PurchaseRecord) => {
+        if (column.sortValueGetter) return column.sortValueGetter(row);
         const value = getValue(row, column.key);
         return typeof value === "object" ? formatCellValue(value) : value;
+      },
+      // The details drawer shows the same thing as the table cell (badges, ₹, names).
+      detailFormatter: column.detailFormatter
+        ? (row: PurchaseRecord) => column.detailFormatter!(row)
+        : column.render
+          ? (row: PurchaseRecord) => column.render!(row)
+          : undefined,
+      // Export (PDF / Excel) gets readable text: ₹ amounts, 13 Oct 2026 dates, Active/Inactive.
+      exportValueGetter: (row: PurchaseRecord) => {
+        if (column.exportValue) return column.exportValue(row);
+        // A cell that renders plain text (e.g. vendor name from a nested object, ₹ amount) exports that text.
+        const rendered = column.render?.(row);
+        if (typeof rendered === "string" || typeof rendered === "number") return rendered;
+        const value = getValue(row, column.key);
+        if (value == null || value === "") return "--";
+        if (typeof value === "boolean") return formatBooleanFor(column.key, value);
+        if (typeof value === "number") return isMoneyLikeKey(column.key) ? formatMoney(value) : value.toLocaleString("en-IN");
+        if (typeof value === "object") return Array.isArray(value) ? value.length : formatCellValue(value);
+        return formatDisplayText(String(value));
+      },
+      // Filter row: Active/Inactive dropdown for the active flag; nested values filter by their name.
+      filterOptions:
+        column.filterOptions ??
+        (column.key === "active"
+          ? [
+              { label: "Active", value: "active" },
+              { label: "Inactive", value: "inactive" },
+            ]
+          : undefined),
+      filterValueGetter: (row: PurchaseRecord) => {
+        const value = getValue(row, column.key);
+        if (column.key === "active") return value ? "active" : "inactive";
+        if (typeof value === "boolean") return value ? "yes" : "no";
+        return typeof value === "object" ? formatCellValue(value) : (value as string | number | null | undefined);
       },
       render: (row: PurchaseRecord) => {
         const value = getValue(row, column.key);
         const link = column.link?.(row);
-        if (link) return <button type="button" onClick={(event) => { event.stopPropagation(); navigate(link.to); }} className="max-w-[220px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline" title={link.title}>{formatCellValue(value)}</button>;
+        if (link) {
+          // Same text colour as the other cells; on hover it turns cyan and underlined like a link.
+          // A real <a href>, so right-click → "Open in new tab" also works.
+          const rendered = column.render?.(row);
+          const text = typeof rendered === "string" || typeof rendered === "number" ? rendered : formatCellValue(value);
+          const href = `${APP_BASE}${link.to}`;
+          return (
+            <a
+              href={href}
+              onClick={(event) => {
+                if (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;
+                event.preventDefault();
+                event.stopPropagation();
+                navigate(link.to);
+              }}
+              className="block max-w-[220px] truncate text-sm text-gray-700 transition-colors hover:text-cyan-700 hover:underline focus:outline-none focus-visible:underline dark:text-gray-300 dark:hover:text-cyan-300"
+              title={link.title}
+            >
+              {text}
+            </a>
+          );
+        }
         const isInlineBooleanField =
           typeof value === "boolean" &&
           ((column.key === "active" && config.allowInlineActiveToggle) ||
@@ -809,7 +1055,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           <div className="flex items-center justify-end gap-1">
             {config.renderRowActions?.(row, { refreshRows: loadRows })}
 
-            {config.allowEdit !== false && (
+            {config.allowEdit !== false && (config.canEditRow?.(row) ?? true) && (
               <button
                 type="button"
                 onClick={() => openEdit(row)}
@@ -819,7 +1065,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
                 <PencilSquareIcon className="h-4 w-4" />
               </button>
             )}
-            {config.allowDelete !== false && (
+            {config.allowDelete !== false && (config.canDeleteRow?.(row) ?? true) && (
               <button
                 type="button"
                 onClick={() => setDeleteRow(row)}
@@ -833,23 +1079,21 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         ),
       },
     ];
-  }, [config, emptyForm, inlineUpdatingId, navigate, openEdit, options]);
+  }, [config, emptyForm, inlineUpdatingId, loadRows, navigate, openEdit, options]);
 
-  const supportsActiveFilter = useMemo(
-    () => rows.some((row) => typeof row.active === "boolean"),
-    [rows]
+  // Clickable summary cards (shared component): the page's own cards, or a sensible default.
+  const statsCards = useMemo(
+    () => (config.statsCards ? config.statsCards(rows) : defaultStatsCards(rows)),
+    [config, rows]
   );
+  const { filteredRows: cardRows, cardFilterProps } = useStatsCardFilter(rows, statsCards);
   const searchableFields = (config.searchFields ||
     config.columns.map((column) => column.key)) as any[];
 
   const filteredRows = useMemo(() => {
     const term = searchableText(search);
-    return rows.filter((row) => {
+    return cardRows.filter((row) => {
       const matchesScope = !isScoped || Number(row.id) === scopeId;
-      const matchesActive =
-        !supportsActiveFilter || activeFilter === "ALL"
-          ? true
-          : Boolean(row.active) === (activeFilter === "ACTIVE");
 
       const matchesSearch =
         !term ||
@@ -857,11 +1101,10 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           searchableText(getValue(row, String(field))).includes(term)
         );
 
-      return matchesScope && matchesActive && matchesSearch;
+      return matchesScope && matchesSearch;
     });
-  }, [activeFilter, isScoped, rows, scopeId, search, supportsActiveFilter]);
-
-  const activeCount = rows.filter((row) => row.active === true).length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardRows, isScoped, scopeId, search]);
 
   const fieldEntries = config.fields.map((field) => {
     const fieldOptions = field.getOptions
@@ -885,23 +1128,20 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     let control: React.ReactNode;
 
     if (drawerReadOnly) {
-      const displayValue = field.type === "select"
-        ? floatingOptions.find((option) => String(option.id) === String(value))?.name || formatCellValue(value)
-        : formatCellValue(value);
-      control = (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <div className="text-xs font-medium text-slate-500">{field.label}</div>
-          <div className="mt-1 text-sm font-semibold text-slate-800">{displayValue}</div>
-        </div>
-      );
+      const displayValue =
+        field.displayValue?.(form) ||
+        (field.type === "select"
+          ? floatingOptions.find((option) => String(option.id) === String(value))?.name || formatCellValue(value)
+          : formatCellValue(value));
+      control = <ReadOnlyField label={field.label} value={displayValue} />;
     } else if (field.type === "textarea") {
       control = (
-        <FloatingTextarea
+        <AutoGrowTextarea
           label={field.label}
           value={value}
           onChange={(event) => setField(field, event.target.value)}
           required={field.required}
-          rows={4}
+          maxLength={field.maxLength}
         />
       );
     } else if (field.type === "select" && field.searchable) {
@@ -961,12 +1201,12 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       );
     } else if (field.type === "checkbox") {
       control = (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/60">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-medium text-slate-700">{field.label}</div>
-              <div className="text-xs text-slate-400">
-                Enable this option for the current record.
+              <div className="text-sm font-medium text-slate-700 dark:text-gray-200">{field.label}</div>
+              <div className="text-xs text-slate-400 dark:text-gray-500">
+                {value ? "Turned on" : "Turned off"}
               </div>
             </div>
             <input
@@ -994,8 +1234,40 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           label={field.label}
           type={field.type || "text"}
           value={field.type === "datetime-local" ? formatDateTimeForInput(value) : value}
-          onChange={(event) => setField(field, event.target.value)}
+          onChange={(event) => {
+            const input = event.target;
+            if (field.type === "number" || !field.textCase) {
+              setField(field, input.value);
+              return;
+            }
+            // Change the letters (e.g. to CAPITALS) but keep the cursor where the user is typing.
+            const { selectionStart, selectionEnd } = input;
+            setField(field, applyTextCase(input.value, field.textCase));
+            requestAnimationFrame(() => {
+              try {
+                input.setSelectionRange(selectionStart, selectionEnd);
+              } catch {
+                // some input types (email, number) don't support selection
+              }
+            });
+          }}
           required={field.required}
+          maxLength={field.maxLength}
+          {...(field.type === "number"
+            ? {
+                min: field.allowNegative ? field.min : field.min ?? 0,
+                max: field.max,
+                step: field.decimals === 0 ? 1 : field.decimals ? 1 / 10 ** field.decimals : "any",
+                inputMode: field.decimals === 0 ? ("numeric" as const) : ("decimal" as const),
+                // Block the keys that make a negative or odd number: - + e E (and . for whole numbers).
+                onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
+                  const blocked = ["e", "E", "+", ...(field.allowNegative ? [] : ["-"]), ...(field.decimals === 0 ? ["."] : [])];
+                  if (blocked.includes(event.key)) event.preventDefault();
+                },
+                // Scrolling the page over a number box must not change the value.
+                onWheel: (event: React.WheelEvent<HTMLInputElement>) => event.currentTarget.blur(),
+              }
+            : {})}
         />
       );
     }
@@ -1014,7 +1286,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         >
           <div className={error ? "rounded-xl ring-1 ring-red-400" : undefined}>{control}</div>
           {error && (
-            <p className="mt-1 px-1 text-xs font-medium text-red-600" role="alert">
+            <p className="mt-1 px-1 text-xs font-medium text-red-600 dark:text-red-400" role="alert">
               {error}
             </p>
           )}
@@ -1156,7 +1428,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   // Drawer forms show all fields at once; with sections, each section gets a heading.
   const drawerFields = usesSections
     ? groups.flatMap((group) => [
-        <h3 key={`section-${group.label}`} className="col-span-full mt-2 border-b border-slate-100 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
+        <h3 key={`section-${group.label}`} className="col-span-full mt-2 border-b border-slate-100 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-800 dark:text-gray-400">
           {group.label}
         </h3>,
         ...group.nodes,
@@ -1171,25 +1443,11 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       {isInlineForm ? (
         <div className="w-full px-3 py-6">{inlineEdit}</div>
       ) : <div className="w-full max-w-none px-0 py-8">
-        {isScoped && config.scope && <div className="mx-3 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>Showing {config.scope.label.toLowerCase()}: <strong>{scopeName}</strong></span><button type="button" onClick={() => navigate(location.pathname)} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all {config.scope.label.toLowerCase()}s</button></div>}
+        {isScoped && config.scope && <div className="mx-3 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-100"><span>Showing {config.scope.label.toLowerCase()}: <strong>{scopeName}</strong></span><button type="button" onClick={() => navigate(location.pathname)} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline dark:text-cyan-300 dark:hover:text-cyan-200">View all {config.scope.label.toLowerCase()}s</button></div>}
 
         <div className="py-5 px-3">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-[17px]">
-  <StatsCard
-    label="Total Records"
-    value={rows.length}
-    gradient="from-cyan-50 to-blue-50"
-    borderColor="border-cyan-100"
-    labelColor="text-cyan-600"
-  />
-  <StatsCard
-    label="Active Records"
-    value={activeCount || "--"}
-    gradient="from-green-50 to-emerald-50"
-    borderColor="border-green-100"
-    labelColor="text-green-600"
-  />
-</div>
+          {/* Click a card to show only its rows; click it again to show all. */}
+          <StatsCardFilter {...cardFilterProps} />
           <div className="">
             <ReusableTable<PurchaseRecord>
               data={filteredRows}
@@ -1198,12 +1456,31 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
               pageSize={config.pageSize || 10}
               defaultSortKey={config.columns[0]?.key}
               rowDetailsTitle={`${config.title} Details`}
+              searchFields={config.searchFields as any}
+              hiddenDetailKeys={config.hiddenDetailKeys}
+              // Edit straight from the details drawer: the drawer hides while the form is open
+              // and comes back with the saved values (the list reloads after Update).
+              rowDetailsActions={(row) =>
+                config.allowEdit !== false && (config.canEditRow?.(row) ?? true) ? (
+                  <button
+                    type="button"
+                    onClick={() => openEdit(row)}
+                    // No own colours: it takes the drawer header's button style, same as ✕.
+                    title="Edit"
+                    aria-label="Edit this record"
+                  >
+                    <PencilSquareIcon className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                ) : null
+              }
+              suspendRowDetails={showForm}
             />
           </div>
         </div>
       </div>}
 
-      {!isInlineForm && (config.formPresentation === "drawer" ? (
+      {/* Create and Edit open in the side drawer, unless a page asks for the centred popup. */}
+      {!isInlineForm && (config.formPresentation !== "modal" ? (
         <Dragger
           isOpen={showForm}
           title={editingRow ? `Edit ${config.title}` : `Add ${config.title}`}
@@ -1231,7 +1508,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
                 />
               ) : headerDate)}
             </>
-          ) : headerDate}
+          ) : undefined}
           headerAction={config.drawerHeaderDateField || config.drawerHeaderTextField ? (
             <button type="button" onClick={() => setIsDrawerEditing((current) => !current)} aria-label={isDrawerEditing ? "Lock approval date" : "Edit approval date"} title={isDrawerEditing ? "Lock approval date" : "Edit approval date"}>
               <PencilSquareIcon className="h-5 w-5" />
@@ -1242,7 +1519,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           content={customFormContent}
         >
           {!customFormContent && (
-            <div className={sidePanel ? "grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(400px,.9fr)]" : "grid grid-cols-1 gap-3 md:grid-cols-4"}>
+            <div className={sidePanel ? "grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(400px,.9fr)]" : "grid grid-cols-1 gap-3 md:grid-cols-2"}>
               {sidePanel ? <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{drawerFields}</div> : drawerFields}
               {sidePanel && <aside className="min-w-0 border-t border-slate-100 pt-5 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">{sidePanel}</aside>}
             </div>
