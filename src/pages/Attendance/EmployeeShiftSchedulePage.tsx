@@ -51,7 +51,11 @@ export interface CurrentShiftModel {
   effectiveTo?: string;
 }
 
-const EmployeeShiftSchedulePage: React.FC = () => {
+export interface EmployeeShiftSchedulePageProps {
+  isEmbedded?: boolean;
+}
+
+const EmployeeShiftSchedulePage: React.FC<EmployeeShiftSchedulePageProps> = ({ isEmbedded = false }) => {
   // ── States ─────────────────────────────────────────────────────────────
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [shifts, setShifts] = useState<ShiftOption[]>([]);
@@ -337,10 +341,14 @@ const EmployeeShiftSchedulePage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Employee Shift Schedule" description="Assign and manage work shifts for employees" />
-      <PageBreadcrumb pageTitle="Employee Shift Schedule" />
+      {!isEmbedded && (
+        <>
+          <PageMeta title="Employee Shift Schedule" description="Assign and manage work shifts for employees" />
+          <PageBreadcrumb pageTitle="Employee Shift Schedule" />
+        </>
+      )}
 
-      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
+      <div className={`${isEmbedded ? 'w-full' : 'max-w-6xl mx-auto'} pb-6 animate-in fade-in duration-200 mt-1 space-y-4`}>
         
         {/* Header Bar */}
         <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-3.5 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3">

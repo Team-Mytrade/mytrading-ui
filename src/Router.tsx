@@ -167,7 +167,9 @@ import OverTimeEntryPage from "./pages/Attendance/OverTimeEntryPage";
 import AttendanceViolationPage from "./pages/Attendance/AttendanceViolationPage";
 import AttendanceApprovalPage from "./pages/Attendance/AttendanceApprovalRequestPage";
 import ShiftSchedulePage from "./pages/Attendance/EmployeeShiftSchedulePage";
+import UnifiedShiftManagementPage from "./pages/Attendance/UnifiedShiftManagementPage";
 import TimesheetManagementPage from "./pages/Attendance/TimesheetManagementPage";
+import UnifiedRequestCenterPage from "./pages/Attendance/UnifiedRequestCenterPage";
 import PayrollPage from "./pages/Payroll/PayrollPage";
 import EmployeeDocumentsPage from "./pages/Payroll/EmployeeDocumentsPage";
 import SalesDashboard from "./pages/Sales/SalesDashboard";
@@ -357,11 +359,13 @@ export default function AppRouter() {
           <Route path="/payrollSummary" element={<PayrollSummaryPage />} />
           <Route path="/departmentSummary" element={<DepartmentSummaryPage />} />
 
-          <Route path="/att_attendanceApproval" element={<AttendanceApprovalPage />} />
+          <Route path="/att_attendanceApproval" element={<Navigate to="/att_leaveManagerDashboard?tab=leaves" replace />} />
           <Route path="/att_attendanceRecord" element={<AttendanceRecordPage />} />
           <Route path="/att_attendanceViolation" element={<AttendanceViolationPage />} />
-          <Route path="/att_shiftSchedule" element={<ShiftSchedulePage />} />
+          <Route path="/att_shiftSchedule" element={<UnifiedShiftManagementPage defaultTab="roster" />} />
           <Route path="/att_leaveBalance" element={<LeaveBalancePage />} />
+          <Route path="/att_requestCenter" element={<UnifiedRequestCenterPage />} />
+          <Route path="/att_unifiedRequests" element={<Navigate to="/att_requestCenter" replace />} />
           <Route path="/att_leaveRequest" element={<LeaveRequestPage />} />
           <Route path="/att_leavePolicy" element={<LeavePolicyPage />} />
           <Route path="/att_leaveDashboard" element={<Navigate to="/att_selfService" replace />} />
@@ -375,15 +379,15 @@ export default function AppRouter() {
           <Route path="/att_payrollRecord" element={<PayrollRecordPage />} />
           <Route path="/att_remoteAttendanceLog" element={<RemoteAttendanceLogPage />} />
           <Route path="/att_workFromHomeRequests" element={<WorkFromHomeRequestPage />} />
-          <Route path="/att_shift" element={<ShiftPage />} />
+          <Route path="/att_shift" element={<UnifiedShiftManagementPage defaultTab="shifts" />} />
           <Route path="/att_notifications" element={<NotificationPage />} />
           <Route path="/att_attendancePolicy" element={<AttendancePolicyPage />} />
           <Route path="/att_holidayCalendar" element={<HolidayCalendarPage />} />
           <Route path="/att_punch" element={<AttendancePunchPage />} />
           <Route path="/att_reports" element={<AttendanceReportsPage />} />
           <Route path="/att_requests" element={<AttendanceRequestsPage />} />
-          <Route path="/att_onDutyApproval" element={<OnDutyApprovalPage />} />
-          <Route path="/att_regularizationApproval" element={<AttendanceRegularizationApprovalPage />} />
+          <Route path="/att_onDutyApproval" element={<Navigate to="/att_leaveManagerDashboard?tab=onDuty" replace />} />
+          <Route path="/att_regularizationApproval" element={<Navigate to="/att_leaveManagerDashboard?tab=regularizations" replace />} />
           <Route path="/att_timesheetManagement" element={<TimesheetManagementPage />} />
           <Route path="/notifications" element={<NotificationInboxPage />} />
           <Route path="/notifications/:id" element={<NotificationDetailPage />} />

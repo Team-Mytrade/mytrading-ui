@@ -59,7 +59,11 @@ export interface OnDutyDateRow {
   requestType: string;
 }
 
-const AttendanceRequestsPage: React.FC = () => {
+interface AttendanceRequestsPageProps {
+  isEmbedded?: boolean;
+}
+
+const AttendanceRequestsPage: React.FC<AttendanceRequestsPageProps> = ({ isEmbedded = false }) => {
   // ── User Context Resolution ─────────────────────────────────────────────
   const currentUser = useMemo(() => {
     const userStr = localStorage.getItem("user");
@@ -645,8 +649,12 @@ const AttendanceRequestsPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="On Duty & Attendance Requests" description="Submit and track work from home, regularization, and duty requests" />
-      <PageBreadcrumb pageTitle="On Duty Requests" />
+      {!isEmbedded && (
+        <>
+          <PageMeta title="On Duty & Attendance Requests" description="Submit and track work from home, regularization, and duty requests" />
+          <PageBreadcrumb pageTitle="On Duty Requests" />
+        </>
+      )}
 
       <div className="max-w-6xl mx-auto pb-2 animate-in fade-in duration-200 mt-0.5">
         

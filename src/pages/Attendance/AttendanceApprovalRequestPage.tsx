@@ -24,7 +24,15 @@ export interface ApprovalRequestModel {
   [key: string]: any;
 }
 
-const AttendanceApprovalRequestPage: React.FC = () => {
+export interface AttendanceApprovalRequestPageProps {
+  isEmbedded?: boolean;
+  onActionComplete?: () => void;
+}
+
+const AttendanceApprovalRequestPage: React.FC<AttendanceApprovalRequestPageProps> = ({ 
+  isEmbedded = false, 
+  onActionComplete 
+}) => {
   // ── States ─────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
   const [requests, setRequests] = useState<ApprovalRequestModel[]>([]);
@@ -225,6 +233,7 @@ const AttendanceApprovalRequestPage: React.FC = () => {
 
       if (actionSuccess) {
         ToasterService.success(`Leave request #${selectedRequest.id} ${actionType === 'approve' ? 'approved' : 'rejected'} successfully!`);
+        onActionComplete?.();
       }
 
       setActionType(null);
@@ -343,59 +352,64 @@ const AttendanceApprovalRequestPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Attendance Approvals" description="Manage and approve employee attendance requests" />
-      <PageBreadcrumb pageTitle="Attendance Approvals" />
+      {!isEmbedded && (
+        <>
+          <PageMeta title="Attendance Approvals" description="Manage and approve employee attendance requests" />
+          <PageBreadcrumb pageTitle="Attendance Approvals" />
+        </>
+      )}
 
-      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
+      <div className={isEmbedded ? "w-full pb-2 animate-in fade-in duration-200 space-y-4" : "max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4"}>
         
-        {/* Header Bar */}
-        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 flex flex-col sm:flex-row items-center justify-between gap-3 transition-all duration-200 hover:shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-cyan-50 dark:bg-[#222222] text-cyan-700 dark:text-cyan-400 rounded-lg border border-cyan-200 dark:border-transparent transition-transform duration-200 hover:scale-105">
-              <FileCheck className="w-5 h-5" />
+        {/* Header Bar (Shown only in standalone view) */}
+        {!isEmbedded && (
+          <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 flex flex-col sm:flex-row items-center justify-between gap-3 transition-all duration-200 hover:shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-cyan-50 dark:bg-[#222222] text-cyan-700 dark:text-cyan-400 rounded-lg border border-cyan-200 dark:border-transparent transition-transform duration-200 hover:scale-105">
+                <FileCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Attendance Approval Desk</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Review, approve, or reject employee attendance requests</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Attendance Approval Desk</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Review, approve, or reject employee attendance requests</p>
-            </div>
-          </div>
 
-          <button
-            type="button"
-            onClick={() => fetchApprovalRequests(activeTab)}
-            className="p-2 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-transparent rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 self-end sm:self-center"
-            title="Refresh Approvals"
-          >
-            <RotateCw className={`w-3.5 h-3.5 transition-transform duration-500 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => fetchApprovalRequests(activeTab)}
+              className="p-2 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-transparent rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 self-end sm:self-center"
+              title="Refresh Approvals"
+            >
+              <RotateCw className={`w-3.5 h-3.5 transition-transform duration-500 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
+            </button>
+          </div>
+        )}
 
         {/* Tab Navigation with Smooth Transitions */}
-        <div className="flex items-center gap-2 border-b border-gray-200/80 dark:border-[#2a2a2a] pb-2">
-          {(['pending', 'approved', 'rejected'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all duration-200 ease-in-out transform active:scale-95 ${
-                activeTab === tab 
-                ? 'bg-cyan-600 text-white shadow-xs scale-102' 
-                : 'bg-white dark:bg-[#191919] text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-[#222222] border border-gray-200/80 dark:border-transparent hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              {tab} Approvals
-            </button>
-          ))}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200/80 dark:border-[#2a2a2a] pb-2">
+          <div className="flex items-center gap-2">
+            {(['pending', 'approved', 'rejected'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all duration-200 ease-in-out transform active:scale-95 ${
+                  activeTab === tab 
+                  ? 'bg-cyan-600 text-white shadow-xs scale-102' 
+                  : 'bg-white dark:bg-[#191919] text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-[#222222] border border-gray-200/80 dark:border-transparent hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                {tab} Approvals
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <TableToolbar onRefresh={() => fetchApprovalRequests(activeTab)} />
+          </div>
         </div>
 
         {/* Approvals Table with Responsive Horizontal Scroll */}
         <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 transition-all duration-300 overflow-x-auto">
           <div className="min-w-[600px]">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                {activeTab} Approvals
-              </h3>
-              <TableToolbar onRefresh={() => fetchApprovalRequests(activeTab)} />
-            </div>
             <ReusableTable
               data={requests}
               columns={columns}

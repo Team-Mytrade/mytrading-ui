@@ -18,6 +18,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import TableToolbar from "../../components/common/TableToolbar";
 import { ToasterService } from "../../Services/ToasterService";
 
 export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
@@ -89,7 +90,15 @@ const safeString = (val: any, fallback = ""): string => {
   return fallback;
 };
 
-const OnDutyApprovalPage: React.FC = () => {
+export interface OnDutyApprovalPageProps {
+  isEmbedded?: boolean;
+  onActionComplete?: () => void;
+}
+
+const OnDutyApprovalPage: React.FC<OnDutyApprovalPageProps> = ({
+  isEmbedded = false,
+  onActionComplete
+}) => {
   const [activeTab, setActiveTab] = useState<ActiveTab>("pending");
   const [requests, setRequests] = useState<OnDutyApprovalRequest[]>([]);
   const [loading, setLoading] = useState(false);
@@ -341,6 +350,7 @@ const OnDutyApprovalPage: React.FC = () => {
 
       if (actionSuccess) {
         ToasterService.success(`On-duty request #${selectedRequest.id} ${actionType === "APPROVE" ? "approved" : "rejected"} successfully!`);
+        onActionComplete?.();
       }
       await loadOnDutyRequests(activeTab);
     } catch (err: any) {
@@ -461,82 +471,96 @@ const OnDutyApprovalPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="On Duty Request Approvals" description="Live Admin and Manager On-Duty Approval Portal" />
-      <PageBreadcrumb pageTitle="On Duty Approvals" />
+      {!isEmbedded && (
+        <>
+          <PageMeta title="On Duty Request Approvals" description="Live Admin and Manager On-Duty Approval Portal" />
+          <PageBreadcrumb pageTitle="On Duty Approvals" />
+        </>
+      )}
 
-      <div className="max-w-7xl mx-auto pb-8 space-y-5 animate-in fade-in duration-200">
+      <div className={isEmbedded ? "w-full pb-2 space-y-4 animate-in fade-in duration-200" : "max-w-7xl mx-auto pb-8 space-y-5 animate-in fade-in duration-200"}>
         
-        {/* Header Summary Banner */}
-        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-cyan-50 dark:bg-[#222222] text-cyan-700 dark:text-cyan-400 rounded-xl border border-cyan-200 dark:border-transparent shadow-2xs">
-              <Briefcase className="w-6 h-6 text-cyan-700 dark:text-cyan-400" />
+        {/* Header Summary Banner & Metrics Row (Shown only in standalone view) */}
+        {!isEmbedded && (
+          <>
+            <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-cyan-50 dark:bg-[#222222] text-cyan-700 dark:text-cyan-400 rounded-xl border border-cyan-200 dark:border-transparent shadow-2xs">
+                  <Briefcase className="w-6 h-6 text-cyan-700 dark:text-cyan-400" />
+                </div>
+                <div>
+                  <h1 className="text-base font-bold text-gray-900 dark:text-white">On Duty Request Approvals</h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Live portal to review, approve, or reject employee business trip and client visit applications</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => loadOnDutyRequests(activeTab)}
+                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+                >
+                  <RotateCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-cyan-600 dark:text-cyan-400" : ""}`} /> Refresh Live Data
+                </button>
+              </div>
             </div>
-            <div>
-              <h1 className="text-base font-bold text-gray-900 dark:text-white">On Duty Request Approvals</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Live portal to review, approve, or reject employee business trip and client visit applications</p>
+
+            {/* StatsCard Metrics Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <StatsCard
+                label="Pending Requests"
+                value={overallCounts.pending}
+                gradient="from-amber-500/10 to-amber-500/5"
+                borderColor="border-amber-200"
+                labelColor="text-amber-700"
+              />
+              <StatsCard
+                label="Approved Requests"
+                value={overallCounts.approved}
+                gradient="from-emerald-500/10 to-emerald-500/5"
+                borderColor="border-emerald-200"
+                labelColor="text-emerald-700"
+              />
+              <StatsCard
+                label="Rejected Requests"
+                value={overallCounts.rejected}
+                gradient="from-rose-500/10 to-rose-500/5"
+                borderColor="border-rose-200"
+                labelColor="text-rose-700"
+              />
+              <StatsCard
+                label="Total On-Duty Logs"
+                value={overallCounts.total}
+                gradient="from-cyan-500/10 to-cyan-500/5"
+                borderColor="border-cyan-200"
+                labelColor="text-cyan-700"
+              />
             </div>
+          </>
+        )}
+
+        {/* Tab Navigation & TableToolbar Row */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200/80 dark:border-[#2a2a2a] pb-2">
+          <div className="flex items-center gap-2">
+            {(["pending", "approved", "rejected"] as ActiveTab[]).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all duration-200 ease-in-out transform active:scale-95 ${
+                  activeTab === tab
+                    ? "bg-cyan-600 text-white shadow-xs"
+                    : "bg-white dark:bg-[#191919] text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-[#222222] border border-gray-200/80 dark:border-transparent hover:text-gray-900 dark:hover:text-white"
+                }`}
+              >
+                {tab} Approvals
+              </button>
+            ))}
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => loadOnDutyRequests(activeTab)}
-              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
-            >
-              <RotateCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-cyan-600 dark:text-cyan-400" : ""}`} /> Refresh Live Data
-            </button>
+            <TableToolbar onRefresh={() => loadOnDutyRequests(activeTab)} />
           </div>
-        </div>
-
-        {/* StatsCard Metrics Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <StatsCard
-            label="Pending Requests"
-            value={overallCounts.pending}
-            gradient="from-amber-500/10 to-amber-500/5"
-            borderColor="border-amber-200"
-            labelColor="text-amber-700"
-          />
-          <StatsCard
-            label="Approved Requests"
-            value={overallCounts.approved}
-            gradient="from-emerald-500/10 to-emerald-500/5"
-            borderColor="border-emerald-200"
-            labelColor="text-emerald-700"
-          />
-          <StatsCard
-            label="Rejected Requests"
-            value={overallCounts.rejected}
-            gradient="from-rose-500/10 to-rose-500/5"
-            borderColor="border-rose-200"
-            labelColor="text-rose-700"
-          />
-          <StatsCard
-            label="Total On-Duty Logs"
-            value={overallCounts.total}
-            gradient="from-cyan-500/10 to-cyan-500/5"
-            borderColor="border-cyan-200"
-            labelColor="text-cyan-700"
-          />
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="flex items-center gap-2 border-b border-gray-200/80 dark:border-[#2a2a2a] pb-2">
-          {(["pending", "approved", "rejected"] as ActiveTab[]).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all duration-200 ease-in-out transform active:scale-95 ${
-                activeTab === tab
-                  ? "bg-cyan-600 text-white shadow-xs"
-                  : "bg-white dark:bg-[#191919] text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-[#222222] border border-gray-200/80 dark:border-transparent hover:text-gray-900 dark:hover:text-white"
-              }`}
-            >
-              {tab} Approvals
-            </button>
-          ))}
         </div>
 
         {/* Main Content Card */}

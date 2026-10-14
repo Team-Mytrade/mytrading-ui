@@ -265,7 +265,7 @@ const AttendanceReportsPage: React.FC = () => {
       key: 'employeeId',
       label: 'EMP ID',
       sortable: true,
-      render: (row) => <span className="font-mono text-xs font-bold text-slate-700">#{row.employeeId || row.id || '-'}</span>
+      render: (row) => <span className="font-mono text-xs font-bold text-slate-700 dark:text-gray-300">#{row.employeeId || row.id || '-'}</span>
     },
     {
       key: 'employeeName',
@@ -273,8 +273,8 @@ const AttendanceReportsPage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <div>
-          <span className="font-bold text-xs text-gray-900 block">{row.employeeName || '--'}</span>
-          {row.department && <span className="text-[10px] text-gray-400 font-mono">{row.department}</span>}
+          <span className="font-bold text-xs text-gray-900 dark:text-white block">{row.employeeName || '--'}</span>
+          {row.department && <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">{row.department}</span>}
         </div>
       )
     },
@@ -341,9 +341,9 @@ const AttendanceReportsPage: React.FC = () => {
       sortable: true,
       render: (row) => {
         const st = (row.status || 'PRESENT').toUpperCase();
-        let badge = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-        if (st === 'ABSENT') badge = 'bg-rose-50 text-rose-700 border-rose-200';
-        if (st === 'LATE') badge = 'bg-amber-50 text-amber-700 border-amber-200';
+        let badge = 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-[#252525] dark:text-gray-200 dark:border-[#333333]';
+        if (st === 'ABSENT') badge = 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-[#252525] dark:text-gray-300 dark:border-[#333333]';
+        if (st === 'LATE') badge = 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-[#252525] dark:text-gray-300 dark:border-[#333333]';
         return <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase ${badge}`}>{st}</span>;
       }
     }
@@ -354,7 +354,7 @@ const AttendanceReportsPage: React.FC = () => {
       key: 'employeeId',
       label: 'EMP ID',
       sortable: true,
-      render: (row) => <span className="font-mono text-xs font-bold text-slate-700">#{row.employeeId || row.id || '-'}</span>
+      render: (row) => <span className="font-mono text-xs font-bold text-slate-700 dark:text-gray-300">#{row.employeeId || row.id || '-'}</span>
     },
     {
       key: 'employeeName',
@@ -362,8 +362,8 @@ const AttendanceReportsPage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <div>
-          <span className="font-bold text-xs text-gray-900 block">{row.employeeName || '--'}</span>
-          {row.department && <span className="text-[10px] text-gray-400 font-mono">{row.department}</span>}
+          <span className="font-bold text-xs text-gray-900 dark:text-white block">{row.employeeName || '--'}</span>
+          {row.department && <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">{row.department}</span>}
         </div>
       )
     },
@@ -377,7 +377,7 @@ const AttendanceReportsPage: React.FC = () => {
       label: 'Attendance %',
       sortable: true,
       render: (row) => (
-        <span className="font-bold text-xs text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
+        <span className="font-bold text-xs text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200 dark:bg-[#252525] dark:text-gray-200 dark:border-[#333333]">
           {row.attendancePercentage !== undefined && row.attendancePercentage !== null ? `${row.attendancePercentage}%` : '--'}
         </span>
       )
@@ -389,9 +389,14 @@ const AttendanceReportsPage: React.FC = () => {
       key: 'employeeId',
       label: 'EMP ID',
       sortable: true,
-      render: (row) => <span className="font-mono text-xs font-bold text-slate-700">#{row.employeeId || row.id || '-'}</span>
+      render: (row) => <span className="font-mono text-xs font-bold text-slate-700 dark:text-gray-300">#{row.employeeId || row.id || '-'}</span>
     },
-    { key: 'employeeName', label: 'Employee', sortable: true },
+    { 
+      key: 'employeeName', 
+      label: 'Employee', 
+      sortable: true,
+      render: (row) => <span className="font-bold text-xs text-gray-900 dark:text-white">{row.employeeName || '--'}</span>
+    },
     { key: 'date', label: 'Date', sortable: true },
     { key: 'scheduledTime', label: 'Shift Time' },
     { key: 'actualCheckIn', label: 'Actual Punch' },
@@ -400,7 +405,7 @@ const AttendanceReportsPage: React.FC = () => {
       label: 'Delay',
       sortable: true,
       render: (row) => (
-        <span className="font-bold text-xs text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+        <span className="font-bold text-xs text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 dark:bg-[#252525] dark:text-gray-300 dark:border-[#333333]">
           {row.delayMinutes !== undefined && row.delayMinutes !== null ? `${row.delayMinutes} mins late` : '--'}
         </span>
       )
@@ -412,16 +417,21 @@ const AttendanceReportsPage: React.FC = () => {
       key: 'employeeId',
       label: 'EMP ID',
       sortable: true,
-      render: (row) => <span className="font-mono text-xs font-bold text-slate-700">#{row.employeeId || row.id || '-'}</span>
+      render: (row) => <span className="font-mono text-xs font-bold text-slate-700 dark:text-gray-300">#{row.employeeId || row.id || '-'}</span>
     },
-    { key: 'employeeName', label: 'Employee', sortable: true },
+    { 
+      key: 'employeeName', 
+      label: 'Employee', 
+      sortable: true,
+      render: (row) => <span className="font-bold text-xs text-gray-900 dark:text-white">{row.employeeName || '--'}</span>
+    },
     { key: 'date', label: 'Date', sortable: true },
     { key: 'punchType', label: 'Missing Punch' },
     {
       key: 'regularizationStatus',
       label: 'Status',
       render: (row) => (
-        <span className="font-bold text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+        <span className="font-bold text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 dark:bg-[#252525] dark:text-gray-300 dark:border-[#333333]">
           {row.regularizationStatus || 'PENDING'}
         </span>
       )
@@ -445,16 +455,16 @@ const AttendanceReportsPage: React.FC = () => {
       <div className="max-w-7xl mx-auto pb-4 space-y-2.5 animate-in fade-in duration-200 mt-0.5">
         
         {/* Sleek Header Bar matching Leave Dashboard */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-2.5 px-3.5 flex flex-col md:flex-row items-center justify-between gap-2.5">
+        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#2a2a2a] p-2.5 px-3.5 flex flex-col md:flex-row items-center justify-between gap-2.5">
           
           {/* Navigation Tabs */}
-          <div className="flex items-center bg-gray-100/80 p-0.5 rounded-lg border border-gray-200/70 text-[11px] font-semibold overflow-x-auto w-full md:w-auto">
+          <div className="flex items-center bg-gray-100/80 dark:bg-[#222222] p-0.5 rounded-lg border border-gray-200/70 dark:border-[#2e2e2e] text-[11px] font-semibold overflow-x-auto w-full md:w-auto">
             <button
               onClick={() => setActiveTab('dashboard')}
               className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'dashboard'
-                  ? 'bg-cyan-600 text-white shadow-2xs font-bold'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-cyan-600 text-white shadow-2xs font-bold dark:bg-[#191919] dark:text-white dark:border dark:border-[#333333] dark:shadow-none'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
@@ -464,8 +474,8 @@ const AttendanceReportsPage: React.FC = () => {
               onClick={() => setActiveTab('daily')}
               className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'daily'
-                  ? 'bg-cyan-600 text-white shadow-2xs font-bold'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-cyan-600 text-white shadow-2xs font-bold dark:bg-[#191919] dark:text-white dark:border dark:border-[#333333] dark:shadow-none'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               <Calendar className="w-3.5 h-3.5" /> Daily Report
@@ -475,8 +485,8 @@ const AttendanceReportsPage: React.FC = () => {
               onClick={() => setActiveTab('monthly')}
               className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'monthly'
-                  ? 'bg-cyan-600 text-white shadow-2xs font-bold'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-cyan-600 text-white shadow-2xs font-bold dark:bg-[#191919] dark:text-white dark:border dark:border-[#333333] dark:shadow-none'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               <Calendar className="w-3.5 h-3.5" /> Monthly Report
@@ -486,8 +496,8 @@ const AttendanceReportsPage: React.FC = () => {
               onClick={() => setActiveTab('late')}
               className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'late'
-                  ? 'bg-cyan-600 text-white shadow-2xs font-bold'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-cyan-600 text-white shadow-2xs font-bold dark:bg-[#191919] dark:text-white dark:border dark:border-[#333333] dark:shadow-none'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               <Clock className="w-3.5 h-3.5" /> Late Arrivals
@@ -497,8 +507,8 @@ const AttendanceReportsPage: React.FC = () => {
               onClick={() => setActiveTab('missing')}
               className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'missing'
-                  ? 'bg-cyan-600 text-white shadow-2xs font-bold'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-cyan-600 text-white shadow-2xs font-bold dark:bg-[#191919] dark:text-white dark:border dark:border-[#333333] dark:shadow-none'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               <AlertTriangle className="w-3.5 h-3.5" /> Missing Punches
@@ -509,10 +519,10 @@ const AttendanceReportsPage: React.FC = () => {
             type="button"
             onClick={handleRefresh}
             disabled={loading}
-            className="p-1 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg transition-all self-end md:self-auto"
+            className="p-1 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#282828] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#2e2e2e] rounded-lg transition-all self-end md:self-auto cursor-pointer"
             title="Refresh Data"
           >
-            <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
+            <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin text-cyan-600 dark:text-gray-300' : ''}`} />
           </button>
         </div>
 
@@ -523,80 +533,80 @@ const AttendanceReportsPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
               
               {/* Total Employees */}
-              <div className="bg-white rounded-xl shadow-2xs border border-cyan-200/80 p-2 space-y-0.5 hover:border-cyan-400/80 transition-all">
+              <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#2a2a2a] p-2 space-y-0.5 hover:border-gray-300 dark:hover:border-[#333333] transition-all">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-cyan-800 uppercase tracking-wider">Total Employees</span>
-                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">EMP</span>
+                  <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Employees</span>
+                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-gray-100 dark:bg-[#252525] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#333333]">EMP</span>
                 </div>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-lg font-extrabold text-gray-900 font-mono">
+                  <span className="text-lg font-extrabold text-gray-900 dark:text-white font-mono">
                     {dashboardData.totalEmployees ?? 11}
                   </span>
-                  <span className="text-[10px] font-medium text-emerald-600">Active Roster</span>
+                  <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">Active Roster</span>
                 </div>
-                <div className="w-full h-1 bg-cyan-50 rounded-full overflow-hidden">
-                  <div className="h-full bg-cyan-600 rounded-full" style={{ width: '100%' }} />
+                <div className="w-full h-1 bg-gray-100 dark:bg-[#252525] rounded-full overflow-hidden">
+                  <div className="h-full bg-slate-700 dark:bg-gray-400 rounded-full" style={{ width: '100%' }} />
                 </div>
               </div>
 
               {/* Present Today */}
-              <div className="bg-white rounded-xl shadow-2xs border border-emerald-200/80 p-2 space-y-0.5 hover:border-emerald-400/80 transition-all">
+              <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#2a2a2a] p-2 space-y-0.5 hover:border-gray-300 dark:hover:border-[#333333] transition-all">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Present Today</span>
-                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">PRS</span>
+                  <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Present Today</span>
+                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-gray-100 dark:bg-[#252525] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#333333]">PRS</span>
                 </div>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-lg font-extrabold text-gray-900 font-mono">
+                  <span className="text-lg font-extrabold text-gray-900 dark:text-white font-mono">
                     {dashboardData.presentToday ?? 0}
                   </span>
-                  <span className="text-[10px] font-medium text-emerald-600">{dashboardData.attendanceRate ?? 0}% Rate</span>
+                  <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">{dashboardData.attendanceRate ?? 0}% Rate</span>
                 </div>
-                <div className="w-full h-1 bg-emerald-50 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${dashboardData.attendanceRate ?? 0}%` }} />
+                <div className="w-full h-1 bg-gray-100 dark:bg-[#252525] rounded-full overflow-hidden">
+                  <div className="h-full bg-slate-700 dark:bg-gray-400 rounded-full" style={{ width: `${dashboardData.attendanceRate ?? 0}%` }} />
                 </div>
               </div>
 
               {/* Late / Missing */}
-              <div className="bg-white rounded-xl shadow-2xs border border-amber-200/80 p-2 space-y-0.5 hover:border-amber-400/80 transition-all">
+              <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#2a2a2a] p-2 space-y-0.5 hover:border-gray-300 dark:hover:border-[#333333] transition-all">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">Late / Missing</span>
-                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200">LATE</span>
+                  <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Late / Missing</span>
+                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-gray-100 dark:bg-[#252525] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#333333]">LATE</span>
                 </div>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-lg font-extrabold text-gray-900 font-mono">
+                  <span className="text-lg font-extrabold text-gray-900 dark:text-white font-mono">
                     {(dashboardData.lateArrivalsToday ?? 0) + (dashboardData.missingPunchesToday ?? 0)}
                   </span>
-                  <span className="text-[10px] font-medium text-amber-600">{dashboardData.lateArrivalsToday ?? 0} Late</span>
+                  <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">{dashboardData.lateArrivalsToday ?? 0} Late</span>
                 </div>
-                <div className="w-full h-1 bg-amber-50 rounded-full overflow-hidden">
-                  <div className="h-full bg-amber-500 rounded-full" style={{ width: '40%' }} />
+                <div className="w-full h-1 bg-gray-100 dark:bg-[#252525] rounded-full overflow-hidden">
+                  <div className="h-full bg-slate-700 dark:bg-gray-400 rounded-full" style={{ width: '40%' }} />
                 </div>
               </div>
 
               {/* Absent / Leave */}
-              <div className="bg-white rounded-xl shadow-2xs border border-rose-200/80 p-2 space-y-0.5 hover:border-rose-400/80 transition-all">
+              <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#2a2a2a] p-2 space-y-0.5 hover:border-gray-300 dark:hover:border-[#333333] transition-all">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-rose-800 uppercase tracking-wider">Absent / Leave</span>
-                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200">ABS</span>
+                  <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Absent / Leave</span>
+                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-gray-100 dark:bg-[#252525] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#333333]">ABS</span>
                 </div>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-lg font-extrabold text-gray-900 font-mono">
+                  <span className="text-lg font-extrabold text-gray-900 dark:text-white font-mono">
                     {dashboardData.absentToday ?? 0}
                   </span>
-                  <span className="text-[10px] font-medium text-rose-600">{dashboardData.onLeaveToday ?? 0} On Leave</span>
+                  <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">{dashboardData.onLeaveToday ?? 0} On Leave</span>
                 </div>
-                <div className="w-full h-1 bg-rose-50 rounded-full overflow-hidden">
-                  <div className="h-full bg-rose-500 rounded-full" style={{ width: '20%' }} />
+                <div className="w-full h-1 bg-gray-100 dark:bg-[#252525] rounded-full overflow-hidden">
+                  <div className="h-full bg-slate-700 dark:bg-gray-400 rounded-full" style={{ width: '20%' }} />
                 </div>
               </div>
 
             </div>
 
             {/* Department Breakdown Section */}
-            <div className="bg-white rounded-xl border border-gray-200/80 p-4 shadow-2xs space-y-3">
-              <div className="border-b border-gray-100 pb-2">
-                <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <Building className="w-4 h-4 text-cyan-600" />
+            <div className="bg-white dark:bg-[#191919] rounded-xl border border-gray-200/80 dark:border-[#2a2a2a] p-4 shadow-2xs space-y-3">
+              <div className="border-b border-gray-100 dark:border-[#262626] pb-2">
+                <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <Building className="w-4 h-4 text-slate-600 dark:text-gray-400" />
                   Department Wise Attendance Summary
                 </h3>
               </div>
@@ -615,28 +625,28 @@ const AttendanceReportsPage: React.FC = () => {
                     {deptList.map((dept, idx) => {
                       const pct = Math.round((dept.present / (dept.total || 1)) * 100);
                       return (
-                        <div key={idx} className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-200/80 space-y-2 hover:border-cyan-300 transition-all">
+                        <div key={idx} className="p-2.5 rounded-xl bg-slate-50/70 dark:bg-[#202020] border border-slate-200/80 dark:border-[#2a2a2a] space-y-2 hover:border-gray-300 dark:hover:border-[#333333] transition-all">
                           <div className="flex justify-between items-center">
-                            <span className="font-bold text-xs text-gray-900 truncate">{dept.department}</span>
-                            <span className="text-[10px] bg-cyan-50 text-cyan-700 border border-cyan-200 font-bold px-1.5 py-0.5 rounded font-mono shrink-0">
+                            <span className="font-bold text-xs text-gray-900 dark:text-white truncate">{dept.department}</span>
+                            <span className="text-[10px] bg-gray-100 text-gray-700 border border-gray-200 dark:bg-[#282828] dark:text-gray-300 dark:border-[#333333] font-bold px-1.5 py-0.5 rounded font-mono shrink-0">
                               {pct}%
                             </span>
                           </div>
-                          <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                            <div className="bg-cyan-600 h-full rounded-full transition-all duration-300" style={{ width: `${pct}%` }}></div>
+                          <div className="w-full bg-slate-200 dark:bg-[#262626] h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-slate-700 dark:bg-gray-400 h-full rounded-full transition-all duration-300" style={{ width: `${pct}%` }}></div>
                           </div>
                           <div className="grid grid-cols-3 gap-1 text-center text-[10px] font-mono">
-                            <div className="bg-white p-1 rounded border border-slate-100">
-                              <p className="text-gray-400 text-[9px]">PRESENT</p>
-                              <p className="font-bold text-emerald-600">{dept.present}</p>
+                            <div className="bg-white dark:bg-[#171717] p-1 rounded border border-slate-100 dark:border-[#262626]">
+                              <p className="text-gray-400 dark:text-gray-500 text-[9px]">PRESENT</p>
+                              <p className="font-bold text-slate-800 dark:text-gray-200">{dept.present}</p>
                             </div>
-                            <div className="bg-white p-1 rounded border border-slate-100">
-                              <p className="text-gray-400 text-[9px]">ABSENT</p>
-                              <p className="font-bold text-rose-500">{dept.absent}</p>
+                            <div className="bg-white dark:bg-[#171717] p-1 rounded border border-slate-100 dark:border-[#262626]">
+                              <p className="text-gray-400 dark:text-gray-500 text-[9px]">ABSENT</p>
+                              <p className="font-bold text-slate-800 dark:text-gray-200">{dept.absent}</p>
                             </div>
-                            <div className="bg-white p-1 rounded border border-slate-100">
-                              <p className="text-gray-400 text-[9px]">LATE</p>
-                              <p className="font-bold text-amber-600">{dept.late}</p>
+                            <div className="bg-white dark:bg-[#171717] p-1 rounded border border-slate-100 dark:border-[#262626]">
+                              <p className="text-gray-400 dark:text-gray-500 text-[9px]">LATE</p>
+                              <p className="font-bold text-slate-800 dark:text-gray-200">{dept.late}</p>
                             </div>
                           </div>
                         </div>
@@ -651,40 +661,40 @@ const AttendanceReportsPage: React.FC = () => {
 
         {/* ── REPORT TABLES VIEWS ── */}
         {activeTab !== 'dashboard' && (
-          <div className="bg-white rounded-xl shadow-2xs border border-gray-200/80 p-4 space-y-3">
+          <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-[#2a2a2a] p-4 space-y-3">
             {/* Filters Toolbar */}
-            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 border-b border-gray-100 pb-3">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 border-b border-gray-100 dark:border-[#262626] pb-3">
               <div className="relative flex-1 max-w-md">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-gray-400" />
+                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-gray-400 dark:text-gray-500" />
                 <input
                   type="text"
                   placeholder="Search by Employee, Department, Status..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-3 h-8 text-xs border border-gray-200 rounded-lg bg-gray-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:bg-white"
+                  className="w-full pl-9 pr-3 h-8 text-xs border border-gray-200 dark:border-[#303030] rounded-lg bg-gray-50 dark:bg-[#222222] text-gray-800 dark:text-gray-200 placeholder:dark:text-gray-500 focus:outline-none focus:ring-1 focus:ring-slate-400 dark:focus:ring-gray-500"
                 />
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
                 {(activeTab === 'daily' || activeTab === 'late' || activeTab === 'missing') && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-bold text-gray-500">Date:</span>
+                    <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400">Date:</span>
                     <input
                       type="date"
                       value={dateFilter}
                       onChange={(e) => setDateFilter(e.target.value)}
-                      className="px-2.5 h-8 text-xs border border-gray-200 rounded-lg bg-white text-gray-800"
+                      className="px-2.5 h-8 text-xs border border-gray-200 dark:border-[#303030] rounded-lg bg-white dark:bg-[#222222] text-gray-800 dark:text-gray-200"
                     />
                   </div>
                 )}
 
                 {(activeTab === 'monthly' || activeTab === 'late' || activeTab === 'missing') && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-bold text-gray-500">Month:</span>
+                    <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400">Month:</span>
                     <select
                       value={monthFilter}
                       onChange={(e) => setMonthFilter(e.target.value)}
-                      className="px-2.5 h-8 text-xs border border-gray-200 rounded-lg bg-white text-gray-800 font-semibold"
+                      className="px-2.5 h-8 text-xs border border-gray-200 dark:border-[#303030] rounded-lg bg-white dark:bg-[#222222] text-gray-800 dark:text-gray-200 font-semibold"
                     >
                       <option value="01">Jan</option>
                       <option value="02">Feb</option>

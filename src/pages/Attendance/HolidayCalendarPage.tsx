@@ -637,8 +637,8 @@ const HolidayCalendarPage: React.FC = () => {
     // Prev Month Padding
     for (let i = firstDayIndex - 1; i >= 0; i--) {
       cells.push(
-        <div key={`prev-${i}`} className="flex items-center justify-center py-0.5">
-          <span className="text-[9px] text-gray-300 font-mono">{prevMonthDays - i}</span>
+        <div key={`prev-${i}`} className="flex items-center justify-center py-0.2 sm:py-0.5">
+          <span className="w-full max-w-[28px] sm:max-w-[32px] aspect-square flex items-center justify-center text-[10px] text-gray-300 dark:text-gray-700 font-mono">{prevMonthDays - i}</span>
         </div>
       );
     }
@@ -656,13 +656,13 @@ const HolidayCalendarPage: React.FC = () => {
       const hasFestival = dayHolidays.some(h => (h.holidayType || '').toUpperCase() === 'FESTIVAL');
 
       cells.push(
-        <div key={`curr-${day}`} className="flex flex-col items-center justify-center py-0.5 relative">
+        <div key={`curr-${day}`} className="flex items-center justify-center py-0.2 sm:py-0.5">
           <button
             type="button"
             onClick={() => setSelectedDateStr(dateStr)}
-            className={`w-6.5 h-6.5 rounded-md text-[11px] font-bold transition-all flex items-center justify-center relative ${
+            className={`w-full max-w-[28px] sm:max-w-[32px] aspect-square rounded-md text-[11px] sm:text-xs font-semibold transition-all flex items-center justify-center relative cursor-pointer ${
               isSelected
-                ? 'bg-cyan-600 dark:bg-cyan-500 text-white shadow-xs'
+                ? 'bg-cyan-600 dark:bg-cyan-500 text-white shadow-xs font-bold ring-2 ring-cyan-500/20'
                 : isToday
                 ? 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800 font-extrabold'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#222222]'
@@ -681,8 +681,8 @@ const HolidayCalendarPage: React.FC = () => {
     const totalCells = Math.ceil((daysInMonth + firstDayIndex) / 7) * 7;
     for (let i = 1; i <= totalCells - (daysInMonth + firstDayIndex); i++) {
       cells.push(
-        <div key={`next-${i}`} className="flex items-center justify-center py-0.5">
-          <span className="text-[9px] text-gray-300 dark:text-gray-600 font-mono">{i}</span>
+        <div key={`next-${i}`} className="flex items-center justify-center py-0.2 sm:py-0.5">
+          <span className="w-full max-w-[28px] sm:max-w-[32px] aspect-square flex items-center justify-center text-[10px] text-gray-300 dark:text-gray-700 font-mono">{i}</span>
         </div>
       );
     }
@@ -700,297 +700,285 @@ const HolidayCalendarPage: React.FC = () => {
       />
       <PageBreadcrumb pageTitle="Holiday Calendar Master" />
 
-      <div className="w-full max-w-6xl mx-auto pb-2 animate-in fade-in duration-200 mt-0.5 space-y-2.5 px-2 sm:px-4">
+      <div className="w-full pb-1 animate-in fade-in duration-200 space-y-1.5 sm:space-y-2">
         
-        {/* User Profile Banner matching minimal dark aesthetic */}
-        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-2.5 px-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7.5 h-7.5 rounded-lg bg-cyan-600 dark:bg-cyan-700 flex items-center justify-center text-white font-bold text-xs shadow-xs shrink-0">
+        {/* User Profile Banner - Ultra Compact */}
+        <div className="w-full bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent px-3 py-1.5 sm:py-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 sm:gap-2 transition-all">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-cyan-600 text-white font-bold text-xs shadow-2xs flex items-center justify-center shrink-0">
               {currentUser.name.charAt(0).toUpperCase()}
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h2 className="text-xs font-bold text-gray-900 dark:text-white">{currentUser.name}</h2>
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-gray-100 dark:bg-transparent text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-transparent uppercase">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h2 className="text-xs font-bold text-slate-900 dark:text-white tracking-tight leading-none truncate">{currentUser.name}</h2>
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-cyan-50 dark:bg-transparent text-cyan-700 dark:text-gray-300 border border-cyan-200/80 dark:border-transparent uppercase tracking-wider leading-none shrink-0">
                   {currentUser.role.replace(/_/g, " ")}
                 </span>
               </div>
-              <p className="text-[10px] text-gray-500 dark:text-gray-400">{currentUser.email}</p>
+              <p className="text-[10px] text-slate-500 dark:text-gray-400 leading-none truncate">{currentUser.email}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-start sm:justify-end flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
             <button
               type="button"
               onClick={() => setActiveTab(activeTab === 'table' ? 'manager' : 'table')}
-              className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200/70 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 rounded-lg border border-gray-200 dark:!border-transparent text-[11px] font-semibold shadow-2xs transition-all flex items-center gap-1 cursor-pointer"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] border border-slate-200 dark:!border-transparent text-slate-700 dark:text-gray-200 text-[11px] font-semibold shadow-2xs transition-all cursor-pointer"
             >
               <FileSpreadsheet className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
-              <span className="hidden sm:inline">{activeTab === 'table' ? 'Split Calendar View' : `Master Records (${calendars.length})`}</span>
-              <span className="sm:hidden">{activeTab === 'table' ? 'Calendar View' : `Records (${calendars.length})`}</span>
+              <span>{activeTab === 'table' ? 'Split Calendar View' : `Master Records (${calendars.length})`}</span>
             </button>
             <button
               type="button"
               onClick={openCreateCalendarModal}
-              className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-[11px] font-semibold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+              className="inline-flex items-center gap-1 px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-lg text-[11px] font-bold transition-all shadow-xs cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Create Calendar</span>
-              <span className="sm:hidden">Create</span>
+              <Plus className="w-3 h-3" />
+              <span>Create Calendar</span>
             </button>
-            <div className="text-right hidden sm:block border-l border-gray-200 dark:!border-transparent pl-2.5 ml-0.5">
-              <span className="text-[8.5px] text-gray-400 dark:text-gray-500 font-medium block">Employee ID</span>
-              <span className="text-[11px] font-mono font-bold text-gray-700 dark:text-gray-300">{currentUser.code}</span>
+            <div className="bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-lg px-2 py-0.5 text-right">
+              <span className="text-[8px] text-slate-400 dark:text-gray-500 font-medium block uppercase tracking-wider leading-none">Employee ID</span>
+              <span className="text-[11px] font-mono font-bold text-slate-700 dark:text-gray-200 leading-tight">#{currentUser.code}</span>
             </div>
           </div>
         </div>
 
         {/* ── MODE 1: SPLIT CALENDAR & MANAGER VIEW ────────────────────── */}
         {activeTab === 'manager' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-2.5 items-stretch">
             
             {/* LEFT COLUMN: Mini Calendar Widget */}
-            <div className="lg:col-span-5 bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-3 flex flex-col justify-between min-h-[330px]">
+            <div className="lg:col-span-5 xl:col-span-5 bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-2.5 sm:p-3 flex flex-col justify-between h-full">
               <div>
                 {/* Month Header */}
-                <div className="flex items-center justify-between mb-1.5 border-b border-gray-100 dark:!border-transparent pb-1.5">
+                <div className="flex items-center justify-between mb-1 border-b border-gray-100 dark:!border-transparent pb-1">
                   <button 
                     type="button" 
                     onClick={handlePrevMonth}
-                    className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-[#222222] text-gray-600 dark:text-gray-400 transition-colors font-bold text-xs cursor-pointer"
+                    className="p-0.5 px-1.5 rounded hover:bg-gray-100 dark:hover:bg-[#222222] text-gray-600 dark:text-gray-400 transition-colors font-bold text-xs cursor-pointer"
                   >
                     &lt;
                   </button>
                   <div className="text-center">
-                    <h3 className="text-[11px] font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+                    <h3 className="text-[11px] font-bold text-gray-900 dark:text-white uppercase tracking-wider leading-none">
                       {monthNames[miniCalendarDate.getMonth()]} {miniCalendarDate.getFullYear()}
                     </h3>
-                    <span className="text-[9.5px] text-gray-400 dark:text-gray-500 font-mono">Select date to inspect</span>
+                    <span className="text-[9px] text-gray-400 dark:text-gray-500 font-mono leading-none">Select date to inspect</span>
                   </div>
                   <button 
                     type="button" 
                     onClick={handleNextMonth}
-                    className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-[#222222] text-gray-600 dark:text-gray-400 transition-colors font-bold text-xs cursor-pointer"
+                    className="p-0.5 px-1.5 rounded hover:bg-gray-100 dark:hover:bg-[#222222] text-gray-600 dark:text-gray-400 transition-colors font-bold text-xs cursor-pointer"
                   >
                     &gt;
                   </button>
                 </div>
 
                 {/* Weekday Headers */}
-                <div className="grid grid-cols-7 gap-1 text-center text-[9.5px] font-bold text-gray-400 dark:text-gray-500 mb-1">
+                <div className="grid grid-cols-7 gap-0.5 text-center text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase mb-0.5 max-w-xs mx-auto">
                   <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
                 </div>
 
                 {/* Days Matrix */}
-                <div className="grid grid-cols-7 gap-1 max-w-xs mx-auto lg:max-w-none">
+                <div className="grid grid-cols-7 gap-0.5 max-w-xs mx-auto">
                   {renderMiniCalendar()}
                 </div>
               </div>
 
-              {/* Bottom Legend & Selected Date Holiday Inspector */}
-              <div className="mt-2 pt-2 border-t border-gray-100 dark:!border-transparent space-y-2">
-                <div className="flex items-center justify-between text-[9.5px] text-gray-500 dark:text-gray-400 font-medium">
-                  <span className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-600 dark:bg-cyan-500" /> Selected
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> National
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Festival
-                  </span>
-                </div>
-
-                {/* Selected Date Preview - Clean Minimal Pill */}
-                <div className="bg-gray-50/80 dark:bg-[#222222] p-2 rounded-lg border border-gray-200/80 dark:!border-transparent flex items-center justify-between">
-                  <div>
-                    <span className="text-[9px] text-gray-400 dark:text-gray-500 font-semibold uppercase tracking-wider block">Selected Date</span>
-                    <span className="text-xs font-mono font-bold text-gray-900 dark:text-white">{selectedDateStr}</span>
-                  </div>
-                  <span className="text-[9.5px] font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-[#191919] px-2.5 py-0.5 rounded-full border border-gray-200 dark:!border-transparent">
+              {/* Bottom Legend & Selected Date Holiday Inspector - Compact Integrated Footer */}
+              <div className="mt-1.5 pt-1.5 border-t border-gray-100 dark:!border-transparent flex items-center justify-between gap-1 text-[9.5px]">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="font-mono font-bold text-gray-800 dark:text-gray-200 text-[10px]">{selectedDateStr}</span>
+                  <span className="text-[8.5px] px-1.5 py-0.2 rounded-full bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 font-bold border border-cyan-200/60 dark:!border-transparent">
                     {holidaysList.filter(h => h.holidayDate === selectedDateStr).length} Holidays
                   </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[9px] text-gray-500 dark:text-gray-400 font-medium">
+                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-cyan-600 dark:bg-cyan-500 inline-block" /> Selected</span>
+                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block" /> National</span>
+                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" /> Festival</span>
                 </div>
               </div>
             </div>
 
             {/* RIGHT COLUMN: Quick Holiday Master & Manager */}
-            <div className="lg:col-span-7 bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-3.5 space-y-3">
-              
-              {/* Select Calendar Dropdown */}
-              <div>
-                <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 mb-1">Select Holiday Calendar Master *</label>
-                <select
-                  value={selectedCalendarCodeId || ''}
-                  onChange={(e) => {
-                    const id = Number(e.target.value);
-                    setSelectedCalendarCodeId(id);
-                    if (id) loadHolidaysForSelectedCalendar(id);
-                  }}
-                  className="w-full py-1.5 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-lg text-xs font-bold text-gray-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
-                >
-                  {calendars.map(cal => (
-                    <option key={cal.id} value={cal.id} className="dark:bg-[#222222] dark:text-white">
-                      {cal.calendarName} ({cal.calendarCode}) — Year {cal.calendarYear}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="lg:col-span-7 xl:col-span-7 bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-2.5 sm:p-3 flex flex-col justify-between h-full">
+              <div className="space-y-1.5">
+                {/* Select Calendar Dropdown */}
+                <div>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Select Holiday Calendar Master *</label>
+                    {activeSelectedCalendar && (
+                      <span className="text-[9px] font-mono text-cyan-600 dark:text-cyan-400 font-semibold">{activeSelectedCalendar.calendarCode}</span>
+                    )}
+                  </div>
+                  <select
+                    value={selectedCalendarCodeId || ''}
+                    onChange={(e) => {
+                      const id = Number(e.target.value);
+                      setSelectedCalendarCodeId(id);
+                      if (id) loadHolidaysForSelectedCalendar(id);
+                    }}
+                    className="w-full py-1 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-lg text-xs font-semibold text-gray-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
+                  >
+                    {calendars.map(cal => (
+                      <option key={cal.id} value={cal.id} className="dark:bg-[#222222] dark:text-white">
+                        {cal.calendarName} ({cal.calendarCode}) — Year {cal.calendarYear}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              {/* Active Calendar Details Card */}
-              {activeSelectedCalendar && (
-                <div className="p-2.5 px-3 bg-gray-50/70 dark:bg-[#222222] rounded-xl border border-gray-200/80 dark:!border-transparent space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-[11px] font-bold text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-transparent px-1.5 py-0.2 rounded border border-cyan-200 dark:border-transparent">
-                        {activeSelectedCalendar.calendarCode}
-                      </span>
-                      <h4 className="text-xs font-bold text-gray-900 dark:text-white">{activeSelectedCalendar.calendarName}</h4>
+                {/* Active Calendar Details Card */}
+                {activeSelectedCalendar && (
+                  <div className="p-1.5 px-2.5 bg-gray-50/70 dark:bg-[#222222] rounded-lg border border-gray-200/80 dark:!border-transparent flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono text-[10px] font-bold text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-transparent px-1 py-0.2 rounded border border-cyan-200 dark:border-transparent shrink-0">
+                          {activeSelectedCalendar.calendarCode}
+                        </span>
+                        <h4 className="text-xs font-bold text-gray-900 dark:text-white truncate">{activeSelectedCalendar.calendarName}</h4>
+                      </div>
+                      <p className="text-[9.5px] text-gray-500 dark:text-gray-400 truncate">{activeSelectedCalendar.description || 'Holidays schedule for employees'}</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => openManageHolidaysModal(activeSelectedCalendar)}
-                      className="px-2 py-0.5 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded text-[10px] font-bold shadow-2xs flex items-center gap-1 transition-colors cursor-pointer"
+                      className="px-2 py-0.5 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded text-[10px] font-bold shadow-2xs flex items-center gap-1 transition-colors cursor-pointer shrink-0"
                     >
-                      <Edit className="w-2.5 h-2.5" /> Edit Holidays
-                    </button>
-                  </div>
-
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400">{activeSelectedCalendar.description || 'Holidays schedule for employees'}</p>
-                </div>
-              )}
-
-              {/* Holidays List Preview & Quick Add */}
-              <div className="space-y-2 pt-1 border-t border-gray-100 dark:!border-transparent">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-xs font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider">
-                      Holidays Schedule ({holidaysList.length})
-                    </h4>
-                    {selectedDateStr && (
-                      <span className="px-2 py-0.5 bg-gray-100 dark:bg-[#222222] text-gray-700 dark:text-gray-300 border border-gray-200 dark:!border-transparent rounded text-[10px] font-mono font-bold">
-                        Selected: {selectedDateStr}
-                      </span>
-                    )}
-                  </div>
-
-                  {holidaysList.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={addHolidayRow}
-                      className="px-2.5 py-1 bg-cyan-50 hover:bg-cyan-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:!border-transparent rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Add Holiday for {selectedDateStr || 'Today'}
-                    </button>
-                  )}
-                </div>
-
-                <div className="max-h-52 overflow-y-auto no-scrollbar space-y-1.5 pr-1">
-                  {holidaysList.length === 0 ? (
-                    <div className="p-4 text-center text-[11px] text-gray-500 dark:text-gray-400 italic bg-gray-50/60 dark:bg-[#222222] rounded-xl border border-dashed border-gray-200 dark:!border-transparent space-y-2">
-                      <p>No holidays configured for this calendar on <span className="font-mono font-bold text-cyan-600 dark:text-cyan-400">{selectedDateStr}</span>.</p>
-                      <button
-                        type="button"
-                        onClick={addHolidayRow}
-                        className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-xs font-bold inline-flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
-                      >
-                        <Plus className="w-3 h-3" /> Create Holiday on {selectedDateStr}
-                      </button>
-                    </div>
-                  ) : (
-                    holidaysList.map((h, idx) => {
-                      const isMatchSelected = h.holidayDate === selectedDateStr;
-
-                      return (
-                        <div 
-                          key={idx} 
-                          onClick={() => {
-                            if (h.holidayDate) {
-                              setSelectedDateStr(h.holidayDate);
-                              const d = new Date(h.holidayDate);
-                              if (!isNaN(d.getTime())) setMiniCalendarDate(d);
-                            }
-                          }}
-                          className={`p-2.5 rounded-xl border transition-all space-y-2 cursor-pointer ${
-                            isMatchSelected 
-                              ? 'bg-cyan-50/50 dark:bg-[#222222] border-cyan-300 dark:!border-transparent ring-1 ring-cyan-400/20 shadow-2xs' 
-                              : 'bg-gray-50/70 dark:bg-[#222222] border-gray-200 dark:!border-transparent hover:border-gray-300 dark:hover:bg-[#262626]'
-                          }`}
-                        >
-                          {/* Row 1: Name + Date */}
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={h.holidayName}
-                              onChange={(e) => handleHolidayFieldChange(idx, 'holidayName', e.target.value)}
-                              placeholder="Holiday Name (e.g. Independence Day)"
-                              className="flex-1 h-9 px-3 bg-white dark:bg-[#191919] border border-gray-300 dark:!border-transparent rounded-lg text-xs font-semibold text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-cyan-500 outline-none min-w-0"
-                            />
-                            <div className="w-36 sm:w-44 h-9 relative flex items-center shrink-0">
-                              <input
-                                type="date"
-                                value={h.holidayDate}
-                                onClick={(e) => {
-                                  try {
-                                    e.currentTarget.showPicker();
-                                  } catch {}
-                                }}
-                                onChange={(e) => {
-                                  handleHolidayFieldChange(idx, 'holidayDate', e.target.value);
-                                  if (e.target.value) {
-                                    setSelectedDateStr(e.target.value);
-                                    const d = new Date(e.target.value);
-                                    if (!isNaN(d.getTime())) setMiniCalendarDate(d);
-                                  }
-                                }}
-                                className="w-full h-9 pl-3 pr-8 bg-white dark:bg-[#191919] border border-gray-300 dark:!border-transparent rounded-lg text-xs font-mono text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-cyan-500 cursor-pointer outline-none"
-                              />
-                              <Calendar className="w-4 h-4 text-gray-400 absolute right-2.5 pointer-events-none" />
-                            </div>
-                          </div>
-                          {/* Row 2: Type + Delete */}
-                          <div className="flex items-center gap-2">
-                            <select
-                              value={h.holidayType}
-                              onChange={(e) => handleHolidayFieldChange(idx, 'holidayType', e.target.value)}
-                              className="flex-1 h-9 pl-2.5 pr-8 bg-white dark:bg-[#191919] border border-gray-300 dark:!border-transparent rounded-lg text-xs font-bold text-gray-800 dark:text-gray-100 cursor-pointer outline-none focus:ring-1 focus:ring-cyan-500"
-                            >
-                              <option value="NATIONAL">NATIONAL</option>
-                              <option value="STATE">STATE</option>
-                              <option value="FESTIVAL">FESTIVAL</option>
-                            </select>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteSingleHoliday(idx, h);
-                              }}
-                              className="h-9 w-9 flex items-center justify-center text-rose-500 hover:text-rose-700 bg-white dark:bg-[#191919] hover:bg-rose-50 dark:hover:bg-[#2a2a2a] border border-gray-300 dark:!border-transparent rounded-lg shrink-0 transition-colors shadow-2xs cursor-pointer"
-                              title="Delete Holiday"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-
-                {holidaysList.length > 0 && (
-                  <div className="pt-2 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={handleBulkCreateHolidays}
-                      disabled={isSubmitting}
-                      className="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white text-xs font-bold rounded-lg shadow-2xs disabled:opacity-70 transition-colors cursor-pointer"
-                    >
-                      {isSubmitting ? "Saving..." : "Save Holidays Schedule"}
+                      <Edit className="w-2.5 h-2.5" /> Edit
                     </button>
                   </div>
                 )}
+
+                {/* Holidays List Preview & Quick Add */}
+                <div className="space-y-1.5 pt-1 border-t border-gray-100 dark:!border-transparent">
+                  <div className="flex items-center justify-between flex-wrap gap-1">
+                    <div className="flex items-center gap-1.5">
+                      <h4 className="text-[11px] font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider">
+                        Holidays Schedule ({holidaysList.length})
+                      </h4>
+                      {selectedDateStr && (
+                        <span className="px-1.5 py-0.2 bg-gray-100 dark:bg-[#222222] text-gray-700 dark:text-gray-300 border border-gray-200 dark:!border-transparent rounded text-[9.5px] font-mono font-bold">
+                          {selectedDateStr}
+                        </span>
+                      )}
+                    </div>
+
+                    {holidaysList.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={addHolidayRow}
+                        className="px-2 py-0.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:!border-transparent rounded text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" /> Add for {selectedDateStr || 'Today'}
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-48 overflow-y-auto no-scrollbar space-y-1 pr-0.5">
+                    {holidaysList.length === 0 ? (
+                      <div className="p-3 text-center text-[10.5px] text-gray-500 dark:text-gray-400 italic bg-gray-50/60 dark:bg-[#222222] rounded-lg border border-dashed border-gray-200 dark:!border-transparent space-y-1.5">
+                        <p>No holidays configured for this calendar on <span className="font-mono font-bold text-cyan-600 dark:text-cyan-400">{selectedDateStr}</span>.</p>
+                        <button
+                          type="button"
+                          onClick={addHolidayRow}
+                          className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-[11px] font-bold inline-flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" /> Create Holiday on {selectedDateStr}
+                        </button>
+                      </div>
+                    ) : (
+                      holidaysList.map((h, idx) => {
+                        const isMatchSelected = h.holidayDate === selectedDateStr;
+
+                        return (
+                          <div 
+                            key={idx} 
+                            onClick={() => {
+                              if (h.holidayDate) {
+                                setSelectedDateStr(h.holidayDate);
+                                const d = new Date(h.holidayDate);
+                                if (!isNaN(d.getTime())) setMiniCalendarDate(d);
+                              }
+                            }}
+                            className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                              isMatchSelected 
+                                ? 'bg-cyan-50/50 dark:bg-[#222222] border-cyan-300 dark:!border-transparent ring-1 ring-cyan-400/20 shadow-2xs' 
+                                : 'bg-gray-50/70 dark:bg-[#222222] border-gray-200 dark:!border-transparent hover:border-gray-300 dark:hover:bg-[#262626]'
+                            }`}
+                          >
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5">
+                              <input
+                                type="text"
+                                value={h.holidayName}
+                                onChange={(e) => handleHolidayFieldChange(idx, 'holidayName', e.target.value)}
+                                placeholder="Holiday Name (e.g. Independence Day)"
+                                className="flex-1 h-7.5 px-2 bg-white dark:bg-[#191919] border border-gray-300 dark:!border-transparent rounded text-[11px] font-semibold text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-cyan-500 outline-none min-w-0"
+                              />
+                              <div className="w-full sm:w-36 h-7.5 relative flex items-center shrink-0">
+                                <input
+                                  type="date"
+                                  value={h.holidayDate}
+                                  onClick={(e) => {
+                                    try {
+                                      e.currentTarget.showPicker();
+                                    } catch {}
+                                  }}
+                                  onChange={(e) => {
+                                    handleHolidayFieldChange(idx, 'holidayDate', e.target.value);
+                                    if (e.target.value) {
+                                      setSelectedDateStr(e.target.value);
+                                      const d = new Date(e.target.value);
+                                      if (!isNaN(d.getTime())) setMiniCalendarDate(d);
+                                    }
+                                  }}
+                                  className="w-full h-7.5 pl-2 pr-6 bg-white dark:bg-[#191919] border border-gray-300 dark:!border-transparent rounded text-[11px] font-mono text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-cyan-500 cursor-pointer outline-none"
+                                />
+                                <Calendar className="w-3 h-3 text-gray-400 absolute right-1.5 pointer-events-none" />
+                              </div>
+                              <select
+                                value={h.holidayType}
+                                onChange={(e) => handleHolidayFieldChange(idx, 'holidayType', e.target.value)}
+                                className="w-full sm:w-24 h-7.5 px-1.5 bg-white dark:bg-[#191919] border border-gray-300 dark:!border-transparent rounded text-[10.5px] font-bold text-gray-800 dark:text-gray-100 cursor-pointer outline-none focus:ring-1 focus:ring-cyan-500"
+                              >
+                                <option value="NATIONAL">NATIONAL</option>
+                                <option value="STATE">STATE</option>
+                                <option value="FESTIVAL">FESTIVAL</option>
+                              </select>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteSingleHoliday(idx, h);
+                                }}
+                                className="h-7.5 w-7.5 flex items-center justify-center text-rose-500 hover:text-rose-700 bg-white dark:bg-[#191919] hover:bg-rose-50 dark:hover:bg-[#2a2a2a] border border-gray-300 dark:!border-transparent rounded shrink-0 transition-colors shadow-2xs cursor-pointer"
+                                title="Delete Holiday"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
               </div>
 
+              {/* Footer Actions */}
+              {holidaysList.length > 0 && (
+                <div className="pt-1.5 border-t border-gray-100 dark:!border-transparent flex justify-end shrink-0 mt-1.5">
+                  <button
+                    type="button"
+                    onClick={handleBulkCreateHolidays}
+                    disabled={isSubmitting}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white text-[11px] font-bold rounded-lg shadow-xs disabled:opacity-70 transition-all cursor-pointer"
+                  >
+                    {isSubmitting ? "Saving..." : "Save Holidays Schedule"}
+                  </button>
+                </div>
+              )}
             </div>
 
           </div>

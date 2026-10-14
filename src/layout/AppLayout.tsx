@@ -18,6 +18,8 @@ const LayoutContent: React.FC = () => {
   const scrollablePages = ["/purchase-reports", "/rolesPermissions", "/delivery_dashboard", "/profile"];
   const isScrollablePage =
     scrollablePages.includes(location.pathname) ||
+    location.pathname.startsWith("/att_requestCenter") ||
+    location.pathname.startsWith("/att_unifiedRequests") ||
     location.pathname.startsWith("/att_leaveDashboard") ||
     location.pathname.startsWith("/att_leaveManagerDashboard") ||
     location.pathname.startsWith("/att_leaveRequest") ||
@@ -27,6 +29,8 @@ const LayoutContent: React.FC = () => {
     location.pathname.startsWith("/att_selfService") ||
     location.pathname.startsWith("/att_attendanceTracking") ||
     location.pathname.startsWith("/att_holidayCalendar") ||
+    location.pathname.startsWith("/att_shiftSchedule") ||
+    location.pathname.startsWith("/att_shift") ||
     location.pathname.startsWith("/payrollSummary") ||
     location.pathname.startsWith("/departmentSummary") ||
     location.pathname.startsWith("/payrollEngine") ||

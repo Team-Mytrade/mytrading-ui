@@ -49,7 +49,11 @@ export interface ShiftModel {
   [key: string]: any;
 }
 
-const ShiftPage: React.FC = () => {
+export interface ShiftPageProps {
+  isEmbedded?: boolean;
+}
+
+const ShiftPage: React.FC<ShiftPageProps> = ({ isEmbedded = false }) => {
   // ── States ─────────────────────────────────────────────────────────────
   const [shifts, setShifts] = useState<ShiftModel[]>([]);
   const [loading, setLoading] = useState(false);
@@ -503,10 +507,14 @@ const ShiftPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Shift Master" description="Configure work shift timings and weekly off rules" />
-      <PageBreadcrumb pageTitle="Shift Master" />
+      {!isEmbedded && (
+        <>
+          <PageMeta title="Shift Master" description="Configure work shift timings and weekly off rules" />
+          <PageBreadcrumb pageTitle="Shift Master" />
+        </>
+      )}
 
-      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
+      <div className={`${isEmbedded ? 'w-full' : 'max-w-6xl mx-auto'} pb-6 animate-in fade-in duration-200 mt-1 space-y-4`}>
         
         {/* Header Bar */}
         <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-4 flex flex-col sm:flex-row items-center justify-between gap-3">

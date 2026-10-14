@@ -24,7 +24,7 @@ import { publicAsset } from "../utils/assets";
 type SubItem = {
   name: string;
   path?: string;
-  subItems?: { name: string; path: string }[];
+  subItems?: { name: string; path: string; roles?: string[] }[];
   roles?: string[];
 };
 
@@ -174,11 +174,32 @@ export const navItems: NavItem[] = [
     icon: <Briefcase className="w-5 h-5" />,
     name: "HRMS",
     subItems: [
-      { name: "Department", path: "/employeeDepartments" },
-      { name: "Compensation", path: "/employeeCompensation" },
-      { name: "Records", path: "/employeeRecords" },
-      { name: "Salary", path: "/employeeSalary" },
-      { name: "Payslips", path: "/employeePayslips" },
+      {
+        name: "Employee Management",
+        subItems: [
+          { name: "Employee Records", path: "/employeeRecords" },
+          { name: "Department", path: "/employeeDepartments" },
+          { name: "Documents", path: "/employeeDocuments" },
+        ],
+      },
+      {
+        name: "Payroll & Compensation",
+        subItems: [
+          { name: "Payroll Engine", path: "/payrollEngine" },
+          { name: "Salary Structure", path: "/salaryStructure" },
+          { name: "Compensation", path: "/employeeCompensation" },
+          { name: "Salary", path: "/employeeSalary" },
+          { name: "Payslips", path: "/employeePayslips" },
+          { name: "IT Declaration", path: "/it-declaration" },
+        ],
+      },
+      {
+        name: "Exit & Offboarding",
+        subItems: [
+          { name: "Exit Management", path: "/exit-management" },
+          { name: "Exit Approvals", path: "/exitApprovals", roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"] },
+        ],
+      },
       {
         name: "Reports",
         subItems: [
@@ -186,45 +207,30 @@ export const navItems: NavItem[] = [
           { name: "Department Summary", path: "/departmentSummary" },
         ],
       },
-      { name: "Payroll Engine", path: "/payrollEngine" },
-      { name: "IT Declaration", path: "/it-declaration" },
-      { name: "Salary Structure", path: "/salaryStructure" },
-      { name: "Documents", path: "/employeeDocuments" },
-      { name: "Exit Approvals", path: "/exitApprovals" },
-      { name: "Exit Management", path: "/exit-management" },
     ],
   },
   {
     icon: <Calendar className="w-5 h-5" />,
     name: "Attendance",
     subItems: [
-      // 1. Dashboards & Calendars
+      // 1. Daily Operations & Self-Service
       { name: "Employee Self Service", path: "/att_selfService" },
-      { name: "Manager Leave Dashboard", path: "/att_leaveManagerDashboard", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+      { name: "Request Center", path: "/att_requestCenter" },
       { name: "Attendance Tracking", path: "/att_attendanceTracking" },
+
+      // 2. Approvals & Supervision
+      { name: "Approvals Desk", path: "/att_leaveManagerDashboard", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
+
+      // 3. Scheduling & Shifts
+      { name: "Shift & Roster", path: "/att_shiftSchedule", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
       { name: "Holiday Calendar", path: "/att_holidayCalendar" },
 
-      // 2. Employee Requests & Punch
-      { name: "Attendance Punch", path: "/att_punch" },
-      { name: "Leave Requests", path: "/att_leaveRequest" },
-      { name: "Attendance Regularization", path: "/att_timesheetManagement" },
-      { name: "On-Duty Requests", path: "/att_requests" },
+      // 4. Intelligence & Reports
+      { name: "Attendance Reports", path: "/att_reports" },
 
-      // 3. Shift & Roster Management
-      { name: "Shift Roster & Schedule", path: "/att_shiftSchedule", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
-      { name: "Shift Master", path: "/att_shift", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
-
-      // 4. Policy & Configuration
+      // 5. Policy & Master Setup
       { name: "Attendance Policy", path: "/att_attendancePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
       { name: "Leave Policy Master", path: "/att_leavePolicy", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN"] },
-
-      // 5. Approvals Desk
-      { name: "Leave Approvals", path: "/att_attendanceApproval", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
-      { name: "Regularization Approvals", path: "/att_regularizationApproval", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
-      { name: "On-Duty Approvals", path: "/att_onDutyApproval", roles: ["SUPER_ADMIN", "SUPER ADMIN", "ADMIN", "MANAGER"] },
-
-      // 6. Reports
-      { name: "Attendance Reports", path: "/att_reports" },
     ],
   },
   {
@@ -427,7 +433,7 @@ const AppSidebar: React.FC = () => {
     if (!isResizing) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const newWidth = Math.max(220, Math.min(300, e.clientX));
+      const newWidth = Math.max(245, Math.min(300, e.clientX));
       setSidebarWidth(newWidth);
     };
 
@@ -675,42 +681,46 @@ const AppSidebar: React.FC = () => {
                   const hasSubSubItems = subItem.subItems && subItem.subItems.length > 0;
 
                   if (hasSubSubItems) {
+                    const isGroupActive = subItem.subItems?.some(ss => ss.path && isActive(ss.path));
+                    const isGroupOpen = openSubSubmenu === subKey || (openSubSubmenu === null && isGroupActive);
+
                     return (
-                      <div key={subItem.name} className="relative mt-0.5">
+                      <div key={subItem.name} className="relative mt-1">
                         <button
-                          onClick={(e) => handleSubSubmenuToggle(subKey, e)}
-                          className={`
-                            w-full flex items-center justify-between px-3 py-1.5 text-sm rounded-md transition-all duration-200
-                            ${openSubSubmenu === subKey
-                              ? "bg-cyan-50 text-cyan-600"
-                              : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                            }
-                          `}
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setOpenSubSubmenu(prev => prev === subKey ? 'closed' : subKey);
+                          }}
+                          className={`app-sidebar__subgroup-btn ${isGroupOpen ? 'is-open' : ''} ${isGroupActive ? 'is-active' : ''}`}
                         >
                           <span>{subItem.name}</span>
-                          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openSubSubmenu === subKey ? "rotate-180" : ""}`} />
+                          <ChevronDown className={`w-3.5 h-3.5 ${isGroupOpen ? "rotate-180" : ""}`} />
                         </button>
 
                         <div
-                          className={`grid transition-all duration-300 ease-in-out ${openSubSubmenu === subKey ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+                          className={`grid transition-all duration-300 ease-in-out ${isGroupOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
                         >
                           <div className="overflow-hidden">
-                            <div className="ml-4 pl-2 mt-1 space-y-0.5">
-                            {subItem.subItems!.map((ssItem) => (
-                              <Link
-                                key={ssItem.name}
-                                to={ssItem.path || "#"}
-                                className={`
-                                  block px-3 py-1.5 text-xs rounded-md transition-all duration-200
-                                  ${isActive(ssItem.path || "")
-                                    ? "bg-cyan-50 text-cyan-600"
-                                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                                  }
-                                `}
-                              >
-                                {ssItem.name}
-                              </Link>
-                            ))}
+                            <div className="app-sidebar__subgroup-container">
+                            {subItem.subItems!.filter(ssItem => {
+                              if (!ssItem.roles) return true;
+                              const currentRole = (user?.role || userRole || "").toUpperCase().replace(/[\s_]+/g, "");
+                              if (!currentRole) return false;
+                              return ssItem.roles.some(r => r.toUpperCase().replace(/[\s_]+/g, "") === currentRole || currentRole === "SUPERADMIN");
+                            }).map((ssItem) => {
+                              const itemActive = isActive(ssItem.path || "");
+                              return (
+                                <Link
+                                  key={ssItem.name}
+                                  to={ssItem.path || "#"}
+                                  onClick={() => isMobileOpen && toggleMobileSidebar()}
+                                  className={`app-sidebar__subgroup-link ${itemActive ? "is-active" : ""}`}
+                                >
+                                  {ssItem.name}
+                                </Link>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
@@ -844,18 +854,33 @@ const AppSidebar: React.FC = () => {
         </div>
 
         {/* Navigation */}
-        <div className="app-sidebar__navigation flex-1 overflow-y-auto py-4 px-2 no-scrollbar">
+        <div
+          className={`app-sidebar__navigation flex-1 py-4 px-2 ${
+            navItems[selectedModuleIndex]?.name === "Attendance"
+              ? "is-attendance overflow-y-auto"
+              : "overflow-y-auto no-scrollbar"
+          }`}
+        >
           <div className="app-sidebar__menu space-y-1">
             {navItems.filter((_, index) => index === selectedModuleIndex).map((nav) => {
               const index = selectedModuleIndex;
-              const isAdmin = (userRole === "SUPER_ADMIN" || userRole === "ADMIN" || user?.roles?.includes("SUPER_ADMIN") || user?.roles?.includes("ADMIN")) && user?.userType !== "USER" && user?.userType !== "EMPLOYEE";
+              const isAdmin = (userRole === "SUPER_ADMIN" || userRole === "ADMIN" || user?.roles?.includes("SUPER_ADMIN" ) || user?.roles?.includes("ADMIN")) && user?.userType !== "USER" && user?.userType !== "EMPLOYEE";
               if (nav.name === "HRMS" && nav.subItems) {
-                const mappedSubItems = nav.subItems.filter(sub => {
-                  if (sub.name === "Exit Approvals" && !isAdmin) {
-                    return false;
+                const mappedSubItems = nav.subItems.map(sub => {
+                  if (sub.subItems) {
+                    const filteredSubSub = sub.subItems.filter(ss => {
+                      if (ss.name === "Exit Approvals" && !isAdmin) {
+                        return false;
+                      }
+                      return true;
+                    });
+                    return { ...sub, subItems: filteredSubSub };
                   }
-                  return true;
-                });
+                  if (sub.name === "Exit Approvals" && !isAdmin) {
+                    return null;
+                  }
+                  return sub;
+                }).filter(Boolean) as SubItem[];
                 return renderMenuItem({ ...nav, subItems: mappedSubItems }, index);
               }
               if (nav.name === "Profile" && nav.subItems) {
