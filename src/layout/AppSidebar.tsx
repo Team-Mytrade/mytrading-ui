@@ -338,6 +338,9 @@ const crmDetailNavPaths: Record<string, string> = {
   contacts: "/contactPerson",
   leads: "/leads",
   tasks: "/activities",
+  customers: "/customer-management",
+  opportunities: "/opportunities",
+  deals: "/opportunities",
 };
 
 const getInitials = (fullName: string): string => {
@@ -408,6 +411,11 @@ const AppSidebar: React.FC = () => {
   const isActive = useCallback(
     (path: string) => {
       if (location.pathname === path || location.pathname.startsWith(`${path}/`)) {
+        return true;
+      }
+
+      // The customer create / edit pages belong to the Customers list
+      if (path === "/customer-management" && location.pathname.startsWith("/customers/")) {
         return true;
       }
 

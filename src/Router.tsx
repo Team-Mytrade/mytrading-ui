@@ -83,18 +83,6 @@ const DashboardOverview = lazy(() => import("./pages/Dashboard/DashboardOverview
 const KeyMetrics = lazy(() => import("./pages/Dashboard/KeyMetrics"));
 const RecentInteractions = lazy(() => import("./pages/Dashboard/RecentInteractions"));
 const Leads = lazy(() => import("./pages/CRM/Leads"));
-const ContactPage = lazy(() => import("./pages/Contacts/ContactsPage"));
-const AccountsPage = lazy(() => import("./pages/Account/AccountsPage"));
-const OpportunitiesPage = lazy(() => import("./pages/Deal/OpportunitiesPage"));
-const SalesPipeline = lazy(() => import("./pages/Deal/SalesPipeline"));
-const StagesManagement = lazy(() => import("./pages/Deal/StagesManagement"));
-const ForecastPage = lazy(() => import("./pages/Deal/ForecastPage"));
-const WonLostAnalysis = lazy(() => import("./pages/Deal/WonLostAnalysis"));
-const TaskPage = lazy(() => import("./pages/TaskManagement/TaskPage"));
-const MeetingsPage = lazy(() => import("./pages/TaskManagement/MeetingsPage"));
-const CallsPage = lazy(() => import("./pages/TaskManagement/CallsPage"));
-const RemindersPage = lazy(() => import("./pages/TaskManagement/RemindersPage"));
-const ActivityCalendar = lazy(() => import("./pages/TaskManagement/ActivityCalendar"));
 const CampaignPage = lazy(() => import("./pages/Marketing/CampaignPage"));
 const CampaignReports = lazy(() => import("./pages/Marketing/CampaignReports"));
 const EmailMarketingPage = lazy(() => import("./pages/Marketing/EmailMarketingPage"));
@@ -393,20 +381,21 @@ export default function AppRouter() {
           <Route path="/recentInteractions" element={<RecentInteractions />} />
 
           <Route path="/leads" element={<Leads />} />
-          <Route path="/contacts" element={<ContactPage />} />
-          <Route path="/accounts" element={<AccountsPage />} />
+          {/* Old CRM demo screens (hard-coded sample data) open the live CRM pages instead */}
+          <Route path="/contacts" element={<Navigate to="/contactPerson" replace />} />
+          <Route path="/accounts" element={<Navigate to="/customer-management" replace />} />
 
-          <Route path="/opportunities-deal" element={<OpportunitiesPage />} />
-          <Route path="/salesPipeline" element={<SalesPipeline />} />
-          <Route path="/stagesManagement" element={<StagesManagement />} />
-          <Route path="/forecastPage" element={<ForecastPage />} />
-          <Route path="/wonLostAnalysis" element={<WonLostAnalysis />} />
+          <Route path="/opportunities-deal" element={<Navigate to="/opportunities" replace />} />
+          <Route path="/salesPipeline" element={<Navigate to="/opportunities" replace />} />
+          <Route path="/stagesManagement" element={<Navigate to="/opportunities" replace />} />
+          <Route path="/forecastPage" element={<Navigate to="/crm-reports" replace />} />
+          <Route path="/wonLostAnalysis" element={<Navigate to="/crm-reports" replace />} />
 
-          <Route path="/taskPage" element={<TaskPage />} />
-          <Route path="/meetingsPage" element={<MeetingsPage />} />
-          <Route path="/callsPage" element={<CallsPage />} />
-          <Route path="/remindersPage" element={<RemindersPage />} />
-          <Route path="/activityCalendar" element={<ActivityCalendar />} />
+          <Route path="/taskPage" element={<Navigate to="/activities" replace />} />
+          <Route path="/meetingsPage" element={<Navigate to="/activities" replace />} />
+          <Route path="/callsPage" element={<Navigate to="/activities" replace />} />
+          <Route path="/remindersPage" element={<Navigate to="/activities" replace />} />
+          <Route path="/activityCalendar" element={<Navigate to="/activities" replace />} />
 
           <Route path="/campaigns" element={<CampaignPage />} />
           <Route path="/emailMarketing" element={<EmailMarketingPage />} />

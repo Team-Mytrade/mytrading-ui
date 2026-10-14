@@ -76,6 +76,10 @@ const STATUS_COLORS: Record<string, string> = {
   QUALIFIED:
     "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60",
   LOST: "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
+  DISQUALIFIED: "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
+  CONVERTED:
+    "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60",
+  WON: "bg-green-100 text-green-800 border-green-200 dark:bg-green-950/40 dark:text-green-300 dark:border-green-800/60",
 };
 
 export default function CrmViewPage() {
@@ -120,7 +124,14 @@ export default function CrmViewPage() {
       setLoading(false);
     } catch (err: any) {
       console.error(err);
-      setError("Failed to fetch data. Please try again.");
+      const status = err?.response?.status;
+      setError(
+        status === 404
+          ? "This record doesn't exist or was deleted."
+          : status === 403
+          ? "You don't have access to this record."
+          : err?.response?.data?.message || "Failed to fetch data. Please try again."
+      );
       setLoading(false);
     }
   };
@@ -165,6 +176,16 @@ export default function CrmViewPage() {
           Not provided
         </span>
       );
+
+    // Timestamps such as assignedAt / communicationTime
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) {
+      return (
+        <div className="flex items-center gap-2">
+          <CalendarIcon className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+          <span>{new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</span>
+        </div>
+      );
+    }
 
     if (typeof value === "string" && key.toLowerCase().includes("date")) {
       return (
@@ -235,7 +256,10 @@ export default function CrmViewPage() {
                 className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-white dark:bg-gray-900 shadow-sm hover:shadow-md transition-shadow"
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {Object.entries(item).map(([subKey, subValue]) => (
+                  {/* Rows in a list skip empty fields (a contact listed under its customer has no customer of its own) */}
+                  {Object.entries(item)
+                    .filter(([, subValue]) => subValue !== null && subValue !== undefined && subValue !== "")
+                    .map(([subKey, subValue]) => (
                     <div key={subKey} className="flex flex-col">
                       <span className="text-xs text-gray-500 dark:text-gray-400 capitalize mb-1">
                         {subKey}
@@ -266,7 +290,12 @@ export default function CrmViewPage() {
     }
 
     if (typeof value === "object" && value !== null) {
-      const filteredObject = filterDisplayData(value);
+      // A linked record (a lead's customer) shows only the fields it has
+      const filteredObject = Object.fromEntries(
+        Object.entries(filterDisplayData(value)).filter(
+          ([, subValue]) => subValue !== null && subValue !== undefined && subValue !== ""
+        )
+      );
       if (Object.keys(filteredObject).length === 0) return null;
 
       return (
@@ -401,9 +430,22 @@ export default function CrmViewPage() {
   const nameField =
     displayData.name ||
     displayData.fullName ||
+    displayData.customerName ||
+    displayData.dealName ||
     displayData.companyName ||
     displayData.title ||
     `${requestFrom} Details`;
+
+  // Lists and linked records (a customer's addresses, contacts and segments; a lead's customer)
+  const relatedSections = Object.entries(displayData).filter(
+    ([key, value]) =>
+      key !== "address" &&
+      value !== null &&
+      typeof value === "object" &&
+      (!Array.isArray(value) || value.length > 0)
+  );
+  const sectionTitle = (key: string) =>
+    key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
   const statusField = displayData.status || displayData.state;
 
   // Separate address and notes from other fields
@@ -472,14 +514,17 @@ export default function CrmViewPage() {
               <div className="flex w-full items-center gap-3 sm:w-auto">
                 <button
                   onClick={() => {
+                    // Customers have their own edit page; the other lists open their edit form from ?editId=
+                    if (requestFrom === "customers") {
+                      navigate(`/customers/edit/${id}`);
+                      return;
+                    }
                     const sourcePath =
                       requestFrom === "leads"
                         ? "/leads"
-                        : requestFrom === "customers"
-                        ? "/customer-management"
                         : requestFrom === "contacts"
                         ? "/contactPerson"
-                        : requestFrom === "opportunities"
+                        : requestFrom === "opportunities" || requestFrom === "deals"
                         ? "/opportunities"
                         : requestFrom === "segments"
                         ? "/customer-segment"
@@ -489,7 +534,7 @@ export default function CrmViewPage() {
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 font-semibold text-cyan-700 shadow-md transition-all hover:bg-cyan-50 active:scale-95 sm:w-auto dark:text-white/80"
                 >
                   <PencilSquareIcon className="h-4 w-4" />
-                  Edit {requestFrom?.replace("/s$/", "")}
+                  Edit {requestFrom?.replace(/s$/, "")}
                 </button>
               </div>
             </div>
@@ -620,6 +665,17 @@ export default function CrmViewPage() {
                   </div>
                 )}
 
+                {/* Lists and linked records */}
+                {relatedSections.map(([key, value]) => (
+                  <div key={key} className="space-y-3">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                      <DocumentTextIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+                      {sectionTitle(key)}
+                    </h3>
+                    {renderValue(key, value)}
+                  </div>
+                ))}
+
                 {/* Notes Section */}
                 {notesField && (
                   <div className="space-y-4">
@@ -644,19 +700,18 @@ export default function CrmViewPage() {
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Communications */}
+                  {/* Communications (customers, leads and contacts have a history) */}
+                  {(requestFrom === "customers" || requestFrom === "leads" || requestFrom === "contacts") && (
                   <div
                     className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 hover:shadow-md transition-shadow cursor-pointer"
                     onClick={() => {
-    const params = new URLSearchParams();
-    if (requestFrom === "segments") {
-      params.set("segmentId", String(id));
-      params.set("segmentName", nameField || `Segment #${id}`);
-    }
-    navigate(`/communication-history?${params.toString()}`);
-  }}
-                  
-                    
+                      const params = new URLSearchParams();
+                      const scopeKey =
+                        requestFrom === "customers" ? "customerId" : requestFrom === "leads" ? "leadId" : "contactId";
+                      params.set(scopeKey, String(id));
+                      params.set("name", typeof nameField === "string" ? nameField : `#${id}`);
+                      navigate(`/communication-history?${params.toString()}`);
+                    }}
                   >
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
@@ -673,16 +728,13 @@ export default function CrmViewPage() {
                       View all communications related to this {requestFrom}
                     </p>
                   </div>
+                  )}
 
-                  {/* Contacts (for Customers/Leads) */}
-                  {(requestFrom === "customers" || requestFrom === "leads") && (
+                  {/* Contacts (a customer's people) */}
+                  {requestFrom === "customers" && (
                     <div
                       className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 hover:shadow-md transition-shadow cursor-pointer"
-                      onClick={() =>
-                        navigate(
-                          `/contactPerson?${requestFrom?.replace("s", "")}Id=${id}`
-                        )
-                      }
+                      onClick={() => navigate(`/contactPerson?customerId=${id}`)}
                     >
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
@@ -697,6 +749,37 @@ export default function CrmViewPage() {
                       </div>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         View all contacts associated with this {requestFrom}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Customers (for Segments) */}
+                  {requestFrom === "segments" && (
+                    <div
+                      className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => {
+                        const ids = [...new Set((data?.segmentCustomers ?? []).map((c: any) => c.customerId))];
+                        const params = new URLSearchParams({
+                          segmentId: String(id),
+                          segmentName: typeof nameField === "string" ? nameField : `Segment #${id}`,
+                          customerIds: ids.join(","),
+                        });
+                        navigate(`/customer-management?${params.toString()}`);
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-purple-100 dark:bg-purple-950/50 rounded-lg">
+                            <BuildingOfficeIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                          </div>
+                          <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                            Customers
+                          </h4>
+                        </div>
+                        <ChevronRightIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                      </div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        View the customers in this segment
                       </p>
                     </div>
                   )}

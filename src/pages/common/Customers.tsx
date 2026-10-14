@@ -16,7 +16,7 @@ import {
   FunnelIcon,
   MapPinIcon,
 } from "@heroicons/react/24/outline";
-import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import { useNavigate, Link, useSearchParams, useParams } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
@@ -24,6 +24,7 @@ import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import DynamicPopup from "../../components/common/Popup";
 import { todayIso } from "../../utils/localDate";
+import { COMMUNICATION_TYPE_OPTIONS, apiError, toDateTimeInput, toLocalDateTime } from "../CRM/crmShared";
 
 // Enums
 enum CustomerStatus {
@@ -77,11 +78,13 @@ const PAGE_SIZE = 10;
 const Customers: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  // /customer-management/:id shows that one customer
+  const { id: routeCustomerId } = useParams<{ id: string }>();
   const segmentId = Number(searchParams.get("segmentId")) || null;
   const segmentName = searchParams.get("segmentName") || "Selected segment";
-  const customerIdsParam = searchParams.get("customerIds");
+  const customerIdsParam = searchParams.get("customerIds") ?? routeCustomerId ?? null;
   const customerName = searchParams.get("customerName") || "Selected customer";
-  const isCustomerScoped = searchParams.has("customerIds");
+  const isCustomerScoped = customerIdsParam !== null;
   const assignedCustomerIds = new Set((customerIdsParam || "").split(",").map(Number).filter(Number.isFinite));
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
@@ -100,7 +103,7 @@ const Customers: React.FC = () => {
     type: "EMAIL",
     subject: "",
     notes: "",
-    communicationTime: todayIso(),
+    communicationTime: toDateTimeInput(toLocalDateTime(new Date())),
   });
 
   // Fetch customers
@@ -163,7 +166,7 @@ const Customers: React.FC = () => {
 
   // Navigation to view customer
   const handleViewCustomer = (customer: Customer) => {
-    navigate(`/customers/${customer.id}`);
+    navigate(`/crm-view/customers/${customer.id}`, { state: { from: "customers" } });
   };
 
   const handleDeleteCustomer = async () => {
@@ -175,7 +178,8 @@ const Customers: React.FC = () => {
       fetchCustomers();
     } catch (err: any) {
       console.error("Error deleting customer:", err);
-      ToasterService.error(err.response?.data?.message || "Failed to delete customer!");
+      ToasterService.error(apiError(err, "Failed to delete customer!"));
+      setShowDeleteModal(false);
     }
   };
 
@@ -184,24 +188,24 @@ const Customers: React.FC = () => {
     setSelectedCustomer(customer);
     try {
       const res = await axios.get("/v1/api/crm/segments");
-      setSegments(res.data);
+      setSegments(Array.isArray(res.data) ? res.data : []);
       setShowSegmentModal(true);
     } catch (err) {
       console.error("Error fetching segments:", err);
-      ToasterService.error("Failed to load segments");
+      ToasterService.error(apiError(err, "Failed to load segments"));
     }
   };
 
   const handleAssignSegment = async (segmentId: number) => {
     if (!selectedCustomer?.id) return;
     try {
-      await axios.post(`/v1/api/crm/segments/${segmentId}/assign/${selectedCustomer.id}`);
+      await axios.post(`/v1/api/crm/segments/${segmentId}/customers/${selectedCustomer.id}`);
       ToasterService.success("Customer assigned to segment successfully!");
       setShowSegmentModal(false);
       fetchCustomers();
     } catch (err) {
       console.error("Error assigning segment:", err);
-      ToasterService.error("Failed to assign segment");
+      ToasterService.error(apiError(err, "Failed to assign segment"));
     }
   };
 
@@ -212,7 +216,7 @@ const Customers: React.FC = () => {
       type: "EMAIL",
       subject: "",
       notes: "",
-      communicationTime: todayIso(),
+      communicationTime: toDateTimeInput(toLocalDateTime(new Date())),
     });
     setShowCommModal(true);
   };
@@ -224,6 +228,8 @@ const Customers: React.FC = () => {
     try {
       const payload = {
         ...commForm,
+        // datetime-local value is local wall-clock time, which the service stores as given
+        communicationTime: `${commForm.communicationTime.slice(0, 16)}:00`,
         customer: { id: selectedCustomer.id },
       };
       await axios.post("/v1/api/crm/communications", payload);
@@ -231,7 +237,7 @@ const Customers: React.FC = () => {
       setShowCommModal(false);
     } catch (err) {
       console.error("Error saving communication:", err);
-      ToasterService.error("Failed to record communication");
+      ToasterService.error(apiError(err, "Failed to record communication"));
     }
   };
 
@@ -255,7 +261,8 @@ const Customers: React.FC = () => {
     phone: customer.phone,
     email: customer.email,
     website: customer.website,
-    creditLimit: toNumberOrZero(customer.creditLimit),
+    // No credit limit (null) means Sales does not check credit; 0 would block every order
+    creditLimit: customer.creditLimit ?? null,
     currentCredit: toNumberOrZero(customer.currentCredit),
     outstandingBalance: toNumberOrZero(customer.outstandingBalance),
     paymentTerms: customer.paymentTerms,
@@ -285,7 +292,7 @@ const Customers: React.FC = () => {
     } catch (err: any) {
       console.error("Error updating customer status:", err);
       setCustomers(previousCustomers);
-      ToasterService.error(err.response?.data?.message || "Failed to update customer status!");
+      ToasterService.error(apiError(err, "Failed to update customer status!"));
     } finally {
       setStatusUpdatingId(null);
     }
@@ -459,7 +466,7 @@ const Customers: React.FC = () => {
       <PageBreadcrumb pageTitle="Customers" showAddButton addButtonLabel="Add Customer" onAddClick={handleAddCustomer} />
 
       <div className="min-w-0 w-full max-w-full px-3 py-8 ">
-        {isCustomerScoped && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>{segmentId ? <>Showing customers in segment: <strong>{segmentName}</strong></> : <>Showing customer: <strong>{customerName}</strong></>}</span><button type="button" onClick={() => navigate("/customer-management")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all customers</button></div>}
+        {isCustomerScoped && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>{segmentId ? <>Showing customers in segment: <strong>{segmentName}</strong></> : <>Showing customer: <strong>{customers.length === 1 ? customers[0].customerName : customerName}</strong></>}</span><button type="button" onClick={() => navigate("/customer-management")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all customers</button></div>}
         <div className="my-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
             label="Total Customers"
@@ -587,13 +594,12 @@ const Customers: React.FC = () => {
                     onChange={(e) => setCommForm({ ...commForm, type: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                   >
-                    <option value="EMAIL">Email</option>
-                    <option value="CALL">Call</option>
-                    <option value="MEETING">Meeting</option>
-                    <option value="OTHER">Other</option>
+                    {COMMUNICATION_TYPE_OPTIONS.map((option) => (
+                      <option key={option.id} value={option.id}>{option.name}</option>
+                    ))}
                   </select>
                   <input
-                    type="date"
+                    type="datetime-local"
                     value={commForm.communicationTime}
                     onChange={(e) => setCommForm({ ...commForm, communicationTime: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"

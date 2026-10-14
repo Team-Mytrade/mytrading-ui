@@ -182,17 +182,28 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
     }
   };
 
+  // One request at a time: each one saves the whole segment, so parallel saves could drop each other's customer
+  const forEachSelected = async (send: (cid: number) => Promise<unknown>) => {
+    const results: PromiseSettledResult<unknown>[] = [];
+    for (const cid of selectedIds) {
+      try {
+        results.push({ status: "fulfilled", value: await send(cid) });
+      } catch (reason) {
+        results.push({ status: "rejected", reason });
+      }
+    }
+    return results;
+  };
+
   const handleAdd = async () => {
     if (!segmentId || selectedIds.length === 0) return;
     try {
       setBusy(true);
-      const results = await Promise.allSettled(
-        selectedIds.map((cid) =>
-          axios.post(
-            `${API_URL}/${segmentId}/customers/${cid}`,
-            {},
-            { headers: { Authorization: `Bearer ${token}` } }
-          )
+      const results = await forEachSelected((cid) =>
+        axios.post(
+          `${API_URL}/${segmentId}/customers/${cid}`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
         )
       );
       const ok = results.filter((r) => r.status === "fulfilled").length;
@@ -211,12 +222,10 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
     if (!segmentId || selectedIds.length === 0) return;
     try {
       setBusy(true);
-      const results = await Promise.allSettled(
-        selectedIds.map((cid) =>
-          axios.delete(`${API_URL}/${segmentId}/customers/${cid}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-        )
+      const results = await forEachSelected((cid) =>
+        axios.delete(`${API_URL}/${segmentId}/customers/${cid}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
       );
       const ok = results.filter((r) => r.status === "fulfilled").length;
       const fail = results.length - ok;

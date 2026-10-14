@@ -20,7 +20,7 @@ import {
   BuildingOfficeIcon,
   DocumentTextIcon,
 } from "@heroicons/react/24/outline";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import DynamicPopup from "../../components/common/Popup";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -30,15 +30,20 @@ import { AddButton } from "../../components/common/AddButton";
 import {
   FloatingInput,
   FloatingSelect1 as FloatingSelect,
-  FloatingDatePicker,
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import PaginatedPopup from "../../components/common/unpopup";
-import { todayIso } from "../../utils/localDate";
+import {
+  COMMUNICATION_TYPE_OPTIONS,
+  apiError,
+  contactsOfCustomers,
+  toDateTimeInput,
+  toLocalDateTime,
+} from "./crmShared";
 interface CommunicationEntry {
   id: number;
-  type: "EMAIL" | "CALL" | "MEETING" | "OTHER";
+  type: string;
   subject: string;
   notes: string;
   communicationTime: string;
@@ -50,7 +55,7 @@ interface CommunicationEntry {
 interface ContactPerson {
   id: number;
   fullName: string;
-  customerId?: number;
+  customerId?: number | null;
 }
 
 interface Customer {
@@ -76,8 +81,19 @@ const safeText = (v?: string | null) => v?.trim() || "";
 const getCustomerLabel = (c?: Customer | null) =>
   c?.customerName || c?.name || "";
 
+const typeLabel = (type: string) => COMMUNICATION_TYPE_OPTIONS.find((o) => o.id === type)?.name ?? type;
+
 const Interactions: React.FC = () => {
   const navigate = useNavigate();
+  // Opened from a customer, lead or contact page: only their history
+  const [searchParams] = useSearchParams();
+  const scope = {
+    customerId: Number(searchParams.get("customerId")) || null,
+    leadId: Number(searchParams.get("leadId")) || null,
+    contactId: Number(searchParams.get("contactId")) || null,
+    name: searchParams.get("name") || "",
+  };
+  const isScoped = Boolean(scope.customerId || scope.leadId || scope.contactId);
   const [contacts, setContacts] = useState<ContactPerson[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -134,9 +150,20 @@ const Interactions: React.FC = () => {
         .filter(Boolean)
         .some((t) => String(t ?? "").toLowerCase().includes(term));
       const matchesType = selectedType ? entry.type === selectedType : true;
-      return matchesSearch && matchesType;
+      const matchesScope =
+        (!scope.customerId || entry.customer?.id === scope.customerId) &&
+        (!scope.leadId || entry.lead?.id === scope.leadId) &&
+        (!scope.contactId || entry.contact?.id === scope.contactId);
+      return matchesSearch && matchesType && matchesScope;
     });
-  }, [entries, search, selectedType, contacts, customers, leads]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, search, selectedType, contacts, customers, leads, scope.customerId, scope.leadId, scope.contactId]);
+
+  // Only the chosen customer's people
+  const contactOptions = useMemo(
+    () => (form.customerId ? contacts.filter((c) => c.customerId === Number(form.customerId)) : contacts),
+    [contacts, form.customerId]
+  );
 
   const fetchAllData = async () => {
     try {
@@ -156,9 +183,7 @@ const Interactions: React.FC = () => {
       const contactData = Array.isArray(cont.data) ? cont.data : [];
 
       setEntries(communicationData);
-      const customerContacts = customerData.flatMap(
-        (customer: Customer) => customer.contacts || []
-      );
+      const customerContacts = contactsOfCustomers(customerData);
       setContacts(customerContacts.length ? customerContacts : contactData);
       setCustomers(customerData);
       setLeads(leadData);
@@ -169,7 +194,18 @@ const Interactions: React.FC = () => {
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => setForm({ ...form, [e.target.name]: e.target.value });
+  ) => {
+    const { name, value } = e.target;
+    setForm((current) => {
+      const next = { ...current, [name]: value };
+      // A contact from another company no longer fits
+      if (name === "customerId" && current.contactId) {
+        const contact = contacts.find((c) => c.id === Number(current.contactId));
+        if (value && contact?.customerId !== Number(value)) next.contactId = "";
+      }
+      return next;
+    });
+  };
 
   const resetForm = () => {
     setForm({
@@ -208,7 +244,8 @@ const Interactions: React.FC = () => {
         type: (type as string).toUpperCase(),
         subject,
         notes,
-        communicationTime: new Date(communicationTime).toISOString(),
+        // datetime-local value is the user's local time; the service stores it as given
+        communicationTime: `${String(communicationTime).slice(0, 16)}:00`,
       };
       if (leadId) payload.lead = { id: Number(leadId) };
       if (customerId) payload.customer = { id: Number(customerId) };
@@ -228,9 +265,7 @@ const Interactions: React.FC = () => {
       resetForm();
     } catch (err: any) {
       console.error("Error saving communication:", err);
-      ToasterService.error(
-        err.response?.data?.message || "Failed to save communication"
-      );
+      ToasterService.error(apiError(err, "Failed to save communication"));
     } finally {
       setIsSaving(false);
     }
@@ -243,7 +278,7 @@ const Interactions: React.FC = () => {
       leadId: entry.lead?.id ?? "",
       type: entry.type,
       subject: entry.subject,
-      communicationTime: entry.communicationTime.split("T")[0],
+      communicationTime: toDateTimeInput(entry.communicationTime),
       notes: entry.notes || "",
     });
     setEditingId(entry.id);
@@ -257,9 +292,7 @@ const Interactions: React.FC = () => {
       ToasterService.success("Communication deleted successfully!");
     } catch (err: any) {
       console.error("Error deleting:", err);
-      ToasterService.error(
-        err.response?.data?.message || "Failed to delete communication"
-      );
+      ToasterService.error(apiError(err, "Failed to delete communication"));
     } finally {
       setDeleteId(null);
       setShowDeletePopup(false);
@@ -359,7 +392,7 @@ const Interactions: React.FC = () => {
               entry.type
             )}`}
           >
-            {entry.type}
+            {typeLabel(entry.type)}
           </span>
         </div>
       ),
@@ -479,54 +512,64 @@ const Interactions: React.FC = () => {
         title="Communication History"
         description="Manage your communication history"
       />
-      <PageBreadcrumb pageTitle="Communication History" />
-
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
-        <div className="mb-6 mx-4 flex justify-start sm:justify-end lg:-mt-[134px]">
+      <PageBreadcrumb
+        pageTitle="Communication History"
+        actions={
           <AddButton
             onClick={() => {
               setEditingId(null);
+              // From a customer / lead page the new entry is for them
               setForm({
-                contactId: "",
-                customerId: "",
-                leadId: "",
+                contactId: scope.contactId ?? "",
+                customerId: scope.customerId ?? "",
+                leadId: scope.leadId ?? "",
                 type: "",
                 subject: "",
-                communicationTime: todayIso(),
+                communicationTime: toDateTimeInput(toLocalDateTime(new Date())),
                 notes: "",
               });
               setShowFormModal(true);
             }}
             label="New Communication"
           />
-        </div>
+        }
+      />
 
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
+        {isScoped && (
+          <div className="mb-4 mx-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
+            <span>Showing communications with <strong>{scope.name || "the selected record"}</strong></span>
+            <button type="button" onClick={() => navigate("/communication-history")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">
+              View all communications
+            </button>
+          </div>
+        )}
         <div className="py-4 px-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-[17px]">
             <StatsCard
               label="Total Communications"
-              value={entries.length}
+              value={filteredEntries.length}
               gradient="from-cyan-50 to-blue-50"
               borderColor="border-cyan-100"
               labelColor="text-cyan-600"
             />
             <StatsCard
               label="Emails"
-              value={entries.filter((e) => e.type === "EMAIL").length}
+              value={filteredEntries.filter((e) => e.type === "EMAIL").length}
               gradient="from-green-50 to-emerald-50"
               borderColor="border-green-100"
               labelColor="text-green-600"
             />
             <StatsCard
               label="Calls"
-              value={entries.filter((e) => e.type === "CALL").length}
+              value={filteredEntries.filter((e) => e.type === "CALL").length}
               gradient="from-purple-50 to-pink-50"
               borderColor="border-purple-100"
               labelColor="text-purple-600"
             />
             <StatsCard
               label="Meetings"
-              value={entries.filter((e) => e.type === "MEETING").length}
+              value={filteredEntries.filter((e) => e.type === "MEETING").length}
               gradient="from-orange-50 to-yellow-50"
               borderColor="border-orange-100"
               labelColor="text-orange-600"
@@ -604,7 +647,7 @@ const Interactions: React.FC = () => {
             name="contactId"
             value={form.contactId}
             onChange={handleChange}
-            options={contacts.map((c) => ({
+            options={contactOptions.map((c) => ({
               id: c.id,
               name: c.fullName,
             }))}
@@ -621,23 +664,15 @@ const Interactions: React.FC = () => {
           name="type"
           value={form.type}
           onChange={handleChange}
-          options={[
-            { id: "EMAIL", name: "Email" },
-            { id: "CALL", name: "Call" },
-            { id: "MEETING", name: "Meeting" },
-            { id: "OTHER", name: "Other" },
-          ]}
+          options={COMMUNICATION_TYPE_OPTIONS}
           required
         />,
-        <FloatingDatePicker
+        <FloatingInput
           key="communicationTime"
+          type="datetime-local"
           label="Date & Time"
           name="communicationTime"
-          value={
-            form.communicationTime
-              ? new Date(form.communicationTime).toISOString().split("T")[0]
-              : ""
-          }
+          value={String(form.communicationTime || "")}
           onChange={(e) =>
             setForm({
               ...form,

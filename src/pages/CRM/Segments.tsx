@@ -30,6 +30,7 @@ import { FloatingInput, FloatingTextarea } from "../../components/inputfeild/Flo
 import StatsCard from "../../components/common/Statscard";
 import TableExportModal from "../../components/common/TableExportModal";
 import "../../styles/Deals.css";
+import { apiError } from "./crmShared";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -147,6 +148,8 @@ const Segments: React.FC = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
+  // Opened from a customer's page: the segments that customer is in
+  const scopedCustomerId = Number(new URLSearchParams(location.search).get("customerId")) || null;
 
   /* ---------------- Fetching ---------------- */
 
@@ -264,7 +267,7 @@ const Segments: React.FC = () => {
       }
     } catch (err) {
       console.error("Error submitting segment", err);
-      ToasterService.error("Failed to save segment");
+      ToasterService.error(apiError(err, "Failed to save segment"));
     }
      finally {
     setIsSaving(false);
@@ -349,7 +352,9 @@ const Segments: React.FC = () => {
       fetchSegments();
     } catch (err) {
       console.error("Error deleting segment", err);
-      ToasterService.error("Failed to delete segment");
+      ToasterService.error(apiError(err, "Failed to delete segment"));
+      setShowDeletePopup(false);
+      setSegmentToDelete(null);
     }
   };
 
@@ -365,9 +370,15 @@ const Segments: React.FC = () => {
       let matches = true;
       if (activeFilter === "ACTIVE") matches = getCustomerCount(segment) > 0;
       else if (activeFilter === "INACTIVE") matches = getCustomerCount(segment) === 0;
+      if (scopedCustomerId) {
+        matches = matches && (segment.segmentCustomers || []).some((c) => c.customerId === scopedCustomerId);
+      }
       return matches;
     });
-  }, [segments, activeFilter]);
+  }, [segments, activeFilter, scopedCustomerId]);
+  const scopedCustomerName = scopedCustomerId
+    ? segments.flatMap((s) => s.segmentCustomers || []).find((c) => c.customerId === scopedCustomerId)?.customerName
+    : undefined;
 
   const stats = useMemo(
     () => ({
@@ -518,6 +529,14 @@ const Segments: React.FC = () => {
       />
 
       <div className="crm-report-page w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
+        {scopedCustomerId && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
+            <span>Segments of <strong>{scopedCustomerName || `customer #${scopedCustomerId}`}</strong></span>
+            <button type="button" onClick={() => navigate("/customer-segment")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">
+              View all segments
+            </button>
+          </div>
+        )}
         <div className="mb-[17px] grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4" aria-busy={isLoading}>
           <StatsCard label="Total Segments" value={stats.totalSegments} loading={isLoading} />
           <StatsCard label="Active Segments" value={stats.activeSegments} loading={isLoading} />

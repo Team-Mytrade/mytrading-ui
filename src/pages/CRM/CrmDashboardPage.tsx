@@ -3,6 +3,7 @@ import axios from "axios";
 import { Link } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import { formatMoney } from "../Dashboard/dashboardKit";
 
 // Live CRM overview. Every figure comes from the CRM service; nothing is hard-coded.
 
@@ -36,8 +37,7 @@ const listOf = <T,>(data: unknown): T[] => {
   return Array.isArray(content) ? (content as T[]) : [];
 };
 
-const money = (value: number) =>
-  new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value);
+const money = (value: number) => formatMoney(value, "INR");
 
 export default function CrmDashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -76,7 +76,8 @@ export default function CrmDashboardPage() {
     });
   }, []);
 
-  const openDeals = deals.filter((d) => d.stage !== "WON" && d.stage !== "LOST");
+  // Same rule as the CRM report: open = not won, lost or cancelled
+  const openDeals = deals.filter((d) => d.stage !== "WON" && d.stage !== "LOST" && d.status !== "CANCELLED");
   const pipelineValue = openDeals.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
   const wonValue = deals.filter((d) => d.stage === "WON").reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
   const pendingActivities = activities.filter((a) => a.status !== "COMPLETED" && a.status !== "CANCELLED");
