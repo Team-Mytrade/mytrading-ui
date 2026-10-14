@@ -438,25 +438,6 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   description: "Create purchase requisitions for products from the Product Catalogue service.",
   endpoint: `${PURCHASE}/purchase-requisitions`,
   getByIdEndpoint: (row) => `${PURCHASE}/purchase-requisitions/${row.id}`,
-<<<<<<< HEAD
-  // Status and requester are set by the server; status changes only via Submit/Approve/Reject/Cancel
-  columns: [
-    { key: "requisitionNumber", label: "Number" },
-    { key: "notes", label: "Remarks" },
-    { key: "requiredByDate", label: "Required Date" },
-    { key: "userId", label: "Requested By" },
-    { key: "status", label: "Status", render: (row) => statusBadge(String(row.status ?? "")) },
-  ],
-  fields: [
-    {
-      name: "requiredDate",
-      label: "Required Date",
-      type: "date",
-      required: true,
-      defaultValue: todayIso(),
-    },
-    { name: "remarks", label: "Remarks", type: "textarea", required: true, gridClassName: "md:col-span-2" },
-=======
   // Opened from a link (e.g. PR number in a PO): show only that requisition.
   scope: { idParam: "requisitionId", nameParam: "requisitionNumber", label: "Requisition" },
   // Status flow: DRAFT -> SUBMITTED -> APPROVED / REJECTED; CANCELLED.
@@ -523,7 +504,6 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
     },
     // Shown as "Remarks"; the API field is still `notes`.
     { name: "notes", section: "Requisition Details", label: "Remarks", type: "textarea", gridClassName: "md:col-span-2" },
->>>>>>> 9eab49581e2a9928f3e4d21cb76199b92f8c2b05
     {
       name: "productId",
       label: "Product",
@@ -533,22 +513,6 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
       gridClassName: "hidden",
     },
   ],
-<<<<<<< HEAD
-  searchFields: ["id", "requisitionNumber", "notes", "status", "userId"],
-  initialFormState: {
-    requiredDate: todayIso(),
-    remarks: "",
-    items: [],
-  },
-  normalizeForm: (row) => ({
-    requiredDate: dateOnly(row.requiredDate || row.requiredByDate),
-    remarks: row.remarks || row.notes || "",
-    items: Array.isArray(row.items) ? row.items : [],
-  }),
-    validateForm: (form) => {
-
-    const requiredByDate = String(form.requiredDate || "");
-=======
   searchFields: ["requisitionNumber", "notes", "status", "userId"],
   initialFormState: {
     requiredByDate: "",
@@ -564,7 +528,6 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   }),
   validateForm: (form) => {
     const requiredByDate = String(form.requiredByDate || "");
->>>>>>> 9eab49581e2a9928f3e4d21cb76199b92f8c2b05
     if (!requiredByDate) return "Select the required-by date.";
     if (requiredByDate < todayLocal()) return "Required-by date cannot be in the past.";
     if (toNumberOrZero(form.userId) <= 0) return "Enter a valid User ID.";
@@ -583,19 +546,12 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   renderFormExtras: ({ form, setForm, options }) => (
     <RequisitionItemsEditor form={form} setForm={setForm} options={options} />
   ),
-<<<<<<< HEAD
-  // Field names match the Purchase service (notes, requiredByDate); no status or requester
-  buildPayload: (form, editingRow) => ({
-    requiredByDate: form.requiredDate,
-    notes: String(form.remarks || "").trim(),
-=======
   // Field names match the Purchase service (requiredByDate, userId, notes).
   // No status: it changes only through the workflow buttons (Submit/Approve/Reject/Cancel).
   buildPayload: (form, editingRow) => ({
     requiredByDate: form.requiredByDate,
     userId: toNumberOrZero(form.userId),
     notes: String(form.notes || "").trim() || null,
->>>>>>> 9eab49581e2a9928f3e4d21cb76199b92f8c2b05
     items: (Array.isArray(form.items) ? form.items : [])
       .filter((item) => item.productId && Number(item.quantity) > 0)
       .map((item) => {
@@ -616,25 +572,6 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   renderRowActions: (row, { refreshRows }) => (
     <>
       <RequisitionWorkflowActions row={row} refreshRows={refreshRows} />
-<<<<<<< HEAD
-      {String(row.status) === "APPROVED" && (
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          document.dispatchEvent(
-            new CustomEvent("purchase:convert-requisition", {
-              detail: { requisitionId: row.id },
-            })
-          );
-        }}
-        title="Create Purchase Order"
-        aria-label="Create Purchase Order"
-        className="group relative rounded-lg p-2 text-gray-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600"
-      >
-        <ShoppingCartIcon className="h-4 w-4" aria-hidden="true" />
-      </button>
-=======
       {/* Create PO only for an APPROVED PR. */}
       {prStatus(row) === "APPROVED" && (
         <button
@@ -654,7 +591,6 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
           <ShoppingCartIcon className="h-3.5 w-3.5" aria-hidden="true" />
           Create PO
         </button>
->>>>>>> 9eab49581e2a9928f3e4d21cb76199b92f8c2b05
       )}
     </>
   ),
