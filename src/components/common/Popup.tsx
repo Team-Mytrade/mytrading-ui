@@ -26,27 +26,10 @@ const DynamicPopup: React.FC<DynamicPopupProps> = ({
   cancelLabel,
   onConfirm,
   onCancel,
-  iconBg = "bg-cyan-100",
+  iconBg = "bg-cyan-100 dark:bg-cyan-950/50",
   confirmBtnClass = "bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-500 text-white",
 }) => {
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (isPopupOpen) {
-      setTimeout(() => confirmBtnRef.current?.focus(), 50);
-    }
-  }, [isPopupOpen]);
-
-  useEffect(() => {
-    if (!isPopupOpen) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") handleCancel();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [isPopupOpen]);
-
-  if (!isPopupOpen) return null;
 
   const handleCancel = () => {
     setIsPopupOpen(false);
@@ -58,6 +41,29 @@ const DynamicPopup: React.FC<DynamicPopupProps> = ({
     onConfirm?.();
   };
 
+  // Keep the latest cancel handler for the Escape key (avoids an old copy being used).
+  const cancelRef = useRef(handleCancel);
+  cancelRef.current = handleCancel;
+
+  // Focus the main button when the popup opens, so Enter confirms.
+  useEffect(() => {
+    if (!isPopupOpen) return undefined;
+    const timer = window.setTimeout(() => confirmBtnRef.current?.focus(), 50);
+    return () => window.clearTimeout(timer);
+  }, [isPopupOpen]);
+
+  // Escape closes the popup.
+  useEffect(() => {
+    if (!isPopupOpen) return undefined;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") cancelRef.current();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [isPopupOpen]);
+
+  if (!isPopupOpen) return null;
+
   return (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center"
@@ -66,18 +72,15 @@ const DynamicPopup: React.FC<DynamicPopupProps> = ({
       aria-labelledby="dynamic-popup-title"
     >
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={handleCancel}
-      />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCancel} />
 
       {/* Panel */}
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-fade-in">
-
+      <div className="relative mx-4 w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl animate-fade-in dark:bg-gray-900 dark:ring-1 dark:ring-gray-700">
         {/* Close ✕ */}
         <button
+          type="button"
           onClick={handleCancel}
-          className="absolute top-4 right-4 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          className="absolute right-4 top-4 rounded-full p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300"
           aria-label="Close"
         >
           <XMarkIcon className="h-5 w-5" />
@@ -87,36 +90,29 @@ const DynamicPopup: React.FC<DynamicPopupProps> = ({
         <div className="p-6">
           <div className="flex items-start gap-4">
             {/* Icon bubble */}
-            <div
-              className={`flex-shrink-0 w-12 h-12 rounded-full ${iconBg} flex items-center justify-center`}
-            >
+            <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full ${iconBg}`}>
               {icon}
             </div>
 
             {/* Text */}
-            <div className="flex-1 min-w-0">
-              <h3
-                id="dynamic-popup-title"
-                className="text-lg font-semibold text-gray-900"
-              >
+            <div className="min-w-0 flex-1 pr-6">
+              <h3 id="dynamic-popup-title" className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {innerText}
               </h3>
               {subText && (
-                <p className="mt-1 text-sm text-gray-600 leading-relaxed">
-                  {subText}
-                </p>
+                <p className="mt-1 text-sm leading-relaxed text-gray-600 dark:text-gray-400">{subText}</p>
               )}
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t border-gray-200">
+        <div className="flex justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-800/60">
           {cancelLabel && (
             <button
               type="button"
               onClick={handleCancel}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300 transition-colors"
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 dark:focus:ring-offset-gray-900"
             >
               {cancelLabel}
             </button>
@@ -125,7 +121,7 @@ const DynamicPopup: React.FC<DynamicPopupProps> = ({
             ref={confirmBtnRef}
             type="button"
             onClick={handleConfirm}
-            className={`px-4 py-2 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${confirmBtnClass}`}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${confirmBtnClass}`}
           >
             {confirmLabel}
           </button>

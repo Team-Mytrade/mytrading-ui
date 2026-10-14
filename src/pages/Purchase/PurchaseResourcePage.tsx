@@ -1548,7 +1548,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         isPopupOpen={Boolean(deleteRow)}
         setIsPopupOpen={(open) => !open && setDeleteRow(null)}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-        iconBg="bg-red-100"
+        iconBg="bg-red-100 dark:bg-red-950/50"
         innerText={`Delete ${config.title}`}
         subText="Are you sure you want to delete this record? This action cannot be undone."
         confirmLabel="Delete"

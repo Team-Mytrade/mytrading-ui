@@ -1040,6 +1040,8 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
   searchFields: ["id", "poNumber", "receiptDate"],
   normalizeForm: (row) => ({
     purchaseOrderId: row.purchaseOrder?.id ?? row.purchaseOrderId ?? "",
+    // Shown as text on edit (the PO may no longer be in the dropdown once fully received).
+    poNumber: row.poNumber || row.purchaseOrder?.poNumber || "",
     warehouseId: row.warehouse?.id ?? row.warehouseId ?? "",
     receiptDate: dateOnly(row.receiptDate),
     items: row.items || row.lineItems || [],
@@ -1050,13 +1052,25 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
     receiptDate: form.receiptDate || todayIso(),
     items: (Array.isArray(form.items) ? form.items : []).map((item) => ({
       purchaseOrderLineItemId: toNumberOrZero(item.purchaseOrderLineItemId),
+      // Product details sent too, so the backend doesn't depend only on the PO line having them.
+      productId: toNumberOrZero(item.productId) || null,
+      productCode: item.productCode || null,
+      productName: item.productName && item.productName !== "Product" ? item.productName : null,
       receivedQuantity: toNumberOrZero(item.receivedQuantity),
-      acceptedQuantity: toNumberOrZero(item.acceptedQuantity),
+      // Always Received − Rejected (the form shows it read-only).
+      acceptedQuantity: Math.max(0, toNumberOrZero(item.receivedQuantity) - toNumberOrZero(item.rejectedQuantity)),
       rejectedQuantity: toNumberOrZero(item.rejectedQuantity),
-      batchNumber: item.batchNumber || null,
-      manufacturingDate: item.manufacturingDate || null,
-      expiryDate: item.expiryDate || null,
-      serialNumbers: Array.isArray(item.serialNumbers) ? item.serialNumbers : [],
+      // Only send what the product tracks (tracking unknown = send whatever was entered).
+      batchNumber: item.tracking?.batch === false ? null : item.batchNumber || null,
+      manufacturingDate: item.tracking?.batch === false ? null : item.manufacturingDate || null,
+      expiryDate: item.tracking?.expiry === false ? null : item.expiryDate || null,
+      // Empty boxes are left out.
+      serialNumbers:
+        item.tracking?.serial === false
+          ? []
+          : Array.isArray(item.serialNumbers)
+            ? item.serialNumbers.map((serial: unknown) => String(serial ?? "").trim()).filter(Boolean)
+            : [],
     })),
   }),
   renderCustomForm: ({ form, setForm, options, editingRow, onClose, onSubmit, submitting }) => {
