@@ -173,8 +173,9 @@ const vendorConfig: PurchaseResourceConfig = {
       bankName: text(form.bankName),
       bankAccountNumber: compact(form.bankAccountNumber),
       bankIfscCode: code(form.bankIfscCode),
-      // A new vendor is always active. Activate / deactivate from the Status column in the table.
-      active: editingRow ? Boolean(editingRow.active) : true,
+      // New vendor: active. Edit form: keeps the current status (form.active comes from the record).
+      // Status dropdown in the table: sends the new value chosen there.
+      active: form.active === undefined ? true : Boolean(form.active),
     };
   },
 };

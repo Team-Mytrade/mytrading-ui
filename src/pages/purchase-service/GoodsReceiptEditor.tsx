@@ -565,14 +565,16 @@ export default function GoodsReceiptEditor({
             </div>
             <div className="overflow-x-auto">
               {/* Product takes the free space; the 4 quantity columns are all the same width, so the gaps are even. */}
-              <table className="w-full min-w-[760px] table-fixed">
+              {/* Fixed columns add up to 660px; min width 900px keeps at least 240px for the product name,
+                  so Product and Code never overlap in a narrow drawer (it scrolls sideways instead). */}
+              <table className="w-full min-w-[900px] table-fixed">
                 <colgroup>
                   <col />
-                  <col className="w-[170px]" />
-                  <col className="w-[150px]" />
-                  <col className="w-[150px]" />
-                  <col className="w-[150px]" />
-                  <col className="w-[150px]" />
+                  <col className="w-[160px]" />
+                  <col className="w-[120px]" />
+                  <col className="w-[140px]" />
+                  <col className="w-[120px]" />
+                  <col className="w-[120px]" />
                 </colgroup>
                 <thead>
                   <tr className="border-b border-gray-100 dark:border-gray-800">
@@ -749,17 +751,16 @@ export default function GoodsReceiptEditor({
         })}
       </section>
 
-      <footer className="goods-receipt-editor__footer">
-        <button type="button" className="goods-receipt-editor__cancel" onClick={onCancel}>
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="goods-receipt-editor__submit"
-          disabled={submitting || loadingItems || !items.length}
-        >
-          {submitting ? "Saving…" : isEditing ? "Update receipt" : "Create GRN"}
-        </button>
+      {/* Same footer and buttons as every other create / edit drawer (styles from Dragger.css). */}
+      <footer className="dragger__footer mt-6">
+        <div className="dragger__footer-actions">
+          <button type="button" className="dragger__cancel" onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="submit" className="dragger__submit" disabled={submitting || loadingItems || !items.length}>
+            {submitting ? "Saving..." : isEditing ? "Update" : "Create"}
+          </button>
+        </div>
       </footer>
     </form>
   );

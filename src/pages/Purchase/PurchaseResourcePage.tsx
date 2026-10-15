@@ -21,6 +21,7 @@ import ReusableTable, {
 } from "../../components/common/Table";
 import DynamicPopup from "../../components/common/Popup";
 import { ICON_BUTTON_CLASS } from "../../components/common/CloseButton";
+import { PermissionAction, usePermissions } from "../../access/usePermissions";
 import FilterPopover from "../../components/common/filter";
 import Dragger from "../../components/common/Dragger";
 import StatsCardFilter, {
@@ -37,7 +38,6 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import SearchableSelect from "../../components/inputfeild/SearchableSelect";
 import { ToasterService } from "../../Services/ToasterService";
-import { PermissionAction, usePermissions } from "../../access/usePermissions";
 
 export type PurchaseRecord = Record<string, any> & { id?: number | string };
 
@@ -176,16 +176,22 @@ export type PurchaseResourceConfig = {
   getListParams?: () => Record<string, string | number | boolean>;
   getRequestParams?: () => Record<string, string | number | boolean>;
   allowInlineActiveToggle?: boolean;
+  /**
+   * Own handler for the Status dropdown (e.g. PATCH /activate or /deactivate, or a confirm popup first).
+   * Return true when the change was saved, false when it was cancelled or the page reloads itself.
+   * Without it, the engine saves the status with a full PUT of the record.
+   */
+  onActiveChange?: (row: PurchaseRecord, nextActive: boolean) => Promise<boolean> | boolean;
   inlineBooleanFields?: string[];
   inlineSelectFields?: Array<{
     name: string;
     options: SelectOption[];
     widthClassName?: string;
     defaultValue?: string;
+    /** Permission needed to change it (e.g. "APPROVE"). Without it the dropdown is shown read-only. */
+    permission?: PermissionAction;
     /** Handles field changes that use an endpoint other than the resource update URL. */
     onChange?: (row: PurchaseRecord, nextValue: string) => Promise<void> | void;
-    /** Permission needed to change the value here (default UPDATE); without it the value is read-only. */
-    permission?: PermissionAction;
   }>;
   buildPayload?: (
     form: PurchaseRecord,
@@ -506,11 +512,10 @@ export const toNumberOrZero = (value: any) =>
   value === "" || value == null ? 0 : Number(value);
 
 export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> = ({ config }) => {
+  // What the signed-in user may do on this page (used by inline dropdowns that need a permission).
+  const { can } = usePermissions();
   const navigate = useNavigate();
   const location = useLocation();
-  const { can, canCreate, canUpdate, canDelete } = usePermissions();
-  const allowEdit = config.allowEdit !== false && canUpdate;
-  const allowDelete = config.allowDelete !== false && canDelete;
   const [searchParams] = useSearchParams();
   const scopeId = Number(config.scope ? searchParams.get(config.scope.idParam) : "") || null;
   const scopeName = config.scope ? searchParams.get(config.scope.nameParam) || `Selected ${config.scope.label.toLowerCase()}` : "";
@@ -662,11 +667,11 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
 
   useEffect(() => {
     const autoOpenKey = config.autoOpenCreateKey || config.title;
-    if (config.autoOpenCreate && canCreate && autoOpenedKey.current !== autoOpenKey) {
+    if (config.autoOpenCreate && autoOpenedKey.current !== autoOpenKey) {
       autoOpenedKey.current = autoOpenKey;
       openCreate(config.initialCreateState);
     }
-  }, [canCreate, config.autoOpenCreate, config.autoOpenCreateKey, config.initialCreateState, config.title, openCreate]);
+  }, [config.autoOpenCreate, config.autoOpenCreateKey, config.initialCreateState, config.title, openCreate]);
 
   const openEdit = async (row: PurchaseRecord) => {
     let selectedRow = row;
@@ -859,6 +864,11 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
 
     try {
       setInlineUpdatingId(row.id);
+      if (config.onActiveChange) {
+        const saved = await config.onActiveChange(row, nextActive);
+        if (saved) updateRowLocally(row.id, (currentRow) => ({ ...currentRow, active: nextActive }));
+        return;
+      }
       const rowForUpdate = await resolveRowForUpdate(row);
       const baseForm = config.normalizeForm ? config.normalizeForm(rowForUpdate) : rowForUpdate;
       const nextForm = { ...emptyForm, ...baseForm, active: nextActive };
@@ -995,7 +1005,6 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           );
         }
         const isInlineBooleanField =
-          canUpdate &&
           typeof value === "boolean" &&
           ((column.key === "active" && config.allowInlineActiveToggle) ||
             config.inlineBooleanFields?.includes(column.key));
@@ -1022,20 +1031,21 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         );
         if (inlineSelectConfig) {
           const currentValue = String(value ?? inlineSelectConfig.defaultValue ?? "");
-          if (!can(inlineSelectConfig.permission ?? "UPDATE")) {
-            return (
-              <span className={`inline-flex rounded-2xl border px-4 py-2 text-sm font-medium ${getInlineSelectTone(currentValue)}`}>
-                {inlineSelectConfig.options.find((option) => String(option.value) === currentValue)?.label ?? formatCellValue(value)}
-              </span>
-            );
-          }
           return (
             <select
               value={currentValue}
               onChange={(event) =>
                 handleInlineSelectChange(row, column.key, event.target.value)
               }
-              disabled={inlineUpdatingId === `${row.id}-${column.key}`}
+              disabled={
+                inlineUpdatingId === `${row.id}-${column.key}` ||
+                Boolean(inlineSelectConfig.permission && !can(inlineSelectConfig.permission))
+              }
+              title={
+                inlineSelectConfig.permission && !can(inlineSelectConfig.permission)
+                  ? "You don't have permission to change this"
+                  : undefined
+              }
               className={[
                 inlineSelectConfig.widthClassName || "w-24",
                 INLINE_SELECT_SIZE,
@@ -1056,7 +1066,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       },
     }));
 
-    if (!allowEdit && !allowDelete && !config.renderRowActions) {
+    if (config.allowEdit === false && config.allowDelete === false && !config.renderRowActions) {
       return cols;
     }
 
@@ -1096,7 +1106,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         ),
       },
     ];
-  }, [config, emptyForm, inlineUpdatingId, loadRows, navigate, openEdit, options]);
+  }, [config, emptyForm, inlineUpdatingId, loadRows, navigate, openEdit, options, can]);
 
   // Clickable summary cards (shared component): the page's own cards, or a sensible default.
   const statsCards = useMemo(
