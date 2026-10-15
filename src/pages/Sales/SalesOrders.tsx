@@ -71,6 +71,13 @@ type SalesOrderItem = {
   pendingQuantity: number;
 };
 
+type WarehouseOption = {
+  id: number;
+  name?: string;
+  code?: string;
+  active?: boolean;
+};
+
 type SalesOrder = {
   id: number;
   orderNumber: string;
@@ -175,6 +182,7 @@ type QuotationOption = {
 
 type OrderItemForm = {
   key: string;
+  id: string;
   quotationItemId: string;
   itemType: string;
   serviceItemId: string;
@@ -191,6 +199,9 @@ type OrderItemForm = {
   taxRate: string;
   taxCode: string;
   remarks: string;
+  status: string;
+  deliveredQuantity: string;
+  pendingQuantity: string;
 };
 
 type OrderForm = {
@@ -222,11 +233,15 @@ type OrderForm = {
   quotationDate: string;
   quotationValidUntil: string;
   billingAddressLine1: string;
+  billingAddressLine2: string;
+  billingStreet: string;
   billingCity: string;
   billingState: string;
   billingCountry: string;
   billingPostalCode: string;
   shippingAddressLine1: string;
+  shippingAddressLine2: string;
+  shippingStreet: string;
   shippingCity: string;
   shippingState: string;
   shippingCountry: string;
@@ -235,10 +250,13 @@ type OrderForm = {
   internalNotes: string;
   customerNotes: string;
   termsAndConditions: string;
+  billingAddressSnapshot: Partial<Address>;
+  shippingAddressSnapshot: Partial<Address>;
   items: OrderItemForm[];
 };
 
 const API_URL = "/v1/api/sales/sales-orders";
+const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
 const PAGE_SIZE = 10;
 
 const quotationTypeOptions = ["PRODUCT", "SERVICE"];
@@ -261,6 +279,7 @@ function nextItemKey() {
 function itemFromQuotationItem(qItem: QuotationItemOption): OrderItemForm {
   return {
     key: nextItemKey(),
+    id: "0",
     quotationItemId: String(firstPositiveNumber(qItem.id, qItem.quotationItemId)),
     itemType: "PRODUCT",
     serviceItemId: "0",
@@ -277,12 +296,16 @@ function itemFromQuotationItem(qItem: QuotationItemOption): OrderItemForm {
     taxRate: String(qItem.taxRate ?? 0),
     taxCode: qItem.taxCode || "",
     remarks: qItem.remarks || "",
+    status: "NEW",
+    deliveredQuantity: "0",
+    pendingQuantity: String(qItem.quantity ?? 1),
   };
 }
 
 function itemFromOrderItem(item: SalesOrderItem): OrderItemForm {
   return {
     key: nextItemKey(),
+    id: String(item.id || 0),
     quotationItemId: String(item.quotationItemId || 0),
     itemType: item.itemType || "PRODUCT",
     serviceItemId: String(item.serviceItemId || 0),
@@ -299,6 +322,9 @@ function itemFromOrderItem(item: SalesOrderItem): OrderItemForm {
     taxRate: String(item.taxRate || 0),
     taxCode: item.taxCode || "",
     remarks: item.remarks || "",
+    status: item.status || "NEW",
+    deliveredQuantity: String(item.deliveredQuantity || 0),
+    pendingQuantity: String(item.pendingQuantity ?? item.quantity ?? 0),
   };
 }
 
@@ -331,11 +357,15 @@ const emptyForm: OrderForm = {
   quotationDate: "",
   quotationValidUntil: "",
   billingAddressLine1: "",
+  billingAddressLine2: "",
+  billingStreet: "",
   billingCity: "",
   billingState: "",
   billingCountry: "",
   billingPostalCode: "",
   shippingAddressLine1: "",
+  shippingAddressLine2: "",
+  shippingStreet: "",
   shippingCity: "",
   shippingState: "",
   shippingCountry: "",
@@ -344,6 +374,8 @@ const emptyForm: OrderForm = {
   internalNotes: "",
   customerNotes: "",
   termsAndConditions: "",
+  billingAddressSnapshot: {},
+  shippingAddressSnapshot: {},
   items: [],
 };
 
@@ -416,21 +448,22 @@ function customerOptionLabel(customer: CustomerOption) {
 
 function buildAddress(form: OrderForm, type: "BILLING" | "SHIPPING"): Address {
   const prefix = type === "BILLING" ? "billing" : "shipping";
+  const snapshot = form[`${prefix}AddressSnapshot` as keyof OrderForm] as Partial<Address>;
   return {
-    id: 0,
+    id: Number(snapshot?.id || 0),
     customerId: toNumber(form.customerId),
-    customerName: "",
-    customerCode: "",
+    customerName: snapshot?.customerName || "",
+    customerCode: snapshot?.customerCode || "",
     type,
     addressLine1: form[`${prefix}AddressLine1` as keyof OrderForm] as string,
-    addressLine2: "",
-    street: "",
+    addressLine2: form[`${prefix}AddressLine2` as keyof OrderForm] as string,
+    street: form[`${prefix}Street` as keyof OrderForm] as string,
     city: form[`${prefix}City` as keyof OrderForm] as string,
     state: form[`${prefix}State` as keyof OrderForm] as string,
     country: form[`${prefix}Country` as keyof OrderForm] as string,
     postalCode: form[`${prefix}PostalCode` as keyof OrderForm] as string,
-    primaryAddress: type === "BILLING",
-    defaultAddress: true,
+    primaryAddress: snapshot?.primaryAddress ?? type === "BILLING",
+    defaultAddress: snapshot?.defaultAddress ?? true,
   };
 }
 
@@ -460,7 +493,7 @@ function computeItemTotals(item: OrderItemForm) {
 function buildOrderItemPayload(item: OrderItemForm): SalesOrderItem {
   const totals = computeItemTotals(item);
   return {
-    id: 0,
+    id: toNumber(item.id),
     quotationItemId: toNumber(item.quotationItemId),
     itemType: item.itemType,
     serviceItemId: toNumber(item.serviceItemId),
@@ -477,13 +510,13 @@ function buildOrderItemPayload(item: OrderItemForm): SalesOrderItem {
     taxRate: totals.taxRate,
     taxCode: item.taxCode,
     remarks: item.remarks,
-    status: "NEW",
+    status: item.status || "NEW",
     grossAmount: totals.grossAmount,
     taxableAmount: totals.taxableAmount,
     taxAmount: totals.taxAmount,
     lineTotal: totals.lineTotal,
-    deliveredQuantity: 0,
-    pendingQuantity: totals.quantity,
+    deliveredQuantity: toNumber(item.deliveredQuantity),
+    pendingQuantity: item.pendingQuantity === "" ? totals.quantity : toNumber(item.pendingQuantity),
   };
 }
 
@@ -508,7 +541,11 @@ const SalesOrders: React.FC = () => {
   const [salesChannels, setSalesChannels] = useState<SalesChannelOption[]>([]);
   const [quotations, setQuotations] = useState<QuotationOption[]>([]);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [warehouses, setWarehouses] = useState<WarehouseOption[]>([]);
   const [customerOrders, setCustomerOrders] = useState<SalesOrder[]>([]);
+  const [confirmOrder, setConfirmOrder] = useState<SalesOrder | null>(null);
+  const [confirmWarehouseId, setConfirmWarehouseId] = useState("");
+  const [confirming, setConfirming] = useState(false);
   const [creditCheck, setCreditCheck] = useState<{
     status: "idle" | "checking" | "ok" | "insufficient" | "error";
     availableCredit?: number;
@@ -659,11 +696,12 @@ const SalesOrders: React.FC = () => {
   };
 
   const fetchDropdowns = async () => {
-    const [personsRes, channelsRes, quotationsRes, customersRes] = await Promise.allSettled([
+    const [personsRes, channelsRes, quotationsRes, customersRes, warehousesRes] = await Promise.allSettled([
       axios.get<SalesPersonOption[]>("/v1/api/sales/sales-persons", { headers }),
       axios.get<SalesChannelOption[]>("/v1/api/sales/channels", { headers }),
       axios.get<QuotationOption[]>("/v1/api/sales/quotations", { headers }),
       axios.get<CustomerOption[]>("/v1/api/crm/customers", { headers }),
+      axios.get<WarehouseOption[]>(WAREHOUSE_API_URL, { headers }),
     ]);
 
     if (personsRes.status === "fulfilled") {
@@ -703,6 +741,16 @@ const SalesOrders: React.FC = () => {
       ToasterService.error(
         "Failed to load customers",
         getErrorMessage(customersRes.reason, "Please try again.")
+      );
+    }
+
+    if (warehousesRes.status === "fulfilled") {
+      const data = warehousesRes.value.data;
+      setWarehouses(Array.isArray(data) ? data : []);
+    } else {
+      ToasterService.error(
+        "Failed to load warehouses",
+        getErrorMessage(warehousesRes.reason, "Please try again.")
       );
     }
   };
@@ -913,8 +961,7 @@ const SalesOrders: React.FC = () => {
     setShowFormModal(true);
   };
 
-  const openEdit = (order: SalesOrder) => {
-    setEditingId(order.id);
+  const populateOrderForm = (order: SalesOrder) => {
     setForm({
       orderNumber: order.orderNumber || "",
       quotationType: order.quotationType || "PRODUCT",
@@ -944,11 +991,15 @@ const SalesOrders: React.FC = () => {
       quotationDate: order.quotationDate || "",
       quotationValidUntil: order.quotationValidUntil || "",
       billingAddressLine1: order.billingAddress?.addressLine1 || "",
+      billingAddressLine2: order.billingAddress?.addressLine2 || "",
+      billingStreet: order.billingAddress?.street || "",
       billingCity: order.billingAddress?.city || "",
       billingState: order.billingAddress?.state || "",
       billingCountry: order.billingAddress?.country || "",
       billingPostalCode: order.billingAddress?.postalCode || "",
       shippingAddressLine1: order.shippingAddress?.addressLine1 || "",
+      shippingAddressLine2: order.shippingAddress?.addressLine2 || "",
+      shippingStreet: order.shippingAddress?.street || "",
       shippingCity: order.shippingAddress?.city || "",
       shippingState: order.shippingAddress?.state || "",
       shippingCountry: order.shippingAddress?.country || "",
@@ -957,9 +1008,83 @@ const SalesOrders: React.FC = () => {
       internalNotes: order.internalNotes || "",
       customerNotes: order.customerNotes || "",
       termsAndConditions: order.termsAndConditions || "",
+      billingAddressSnapshot: order.billingAddress || {},
+      shippingAddressSnapshot: order.shippingAddress || {},
       items: (order.items || []).map(itemFromOrderItem),
     });
-    setShowFormModal(true);
+  };
+
+  const openEdit = async (order: SalesOrder) => {
+    try {
+      setLoading(true);
+      const response = await axios.get<SalesOrder>(`${API_URL}/${order.id}`, { headers });
+      setEditingId(order.id);
+      populateOrderForm(response.data);
+      setShowFormModal(true);
+    } catch (error) {
+      ToasterService.error(
+        "Failed to load sales order",
+        getErrorMessage(error, "Please refresh and try again.")
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openConfirm = async (order: SalesOrder) => {
+    setConfirmOrder(order);
+    setConfirmWarehouseId("");
+    try {
+      const response = await axios.get<WarehouseOption[]>(WAREHOUSE_API_URL, { headers });
+      const listedWarehouses = Array.isArray(response.data) ? response.data : [];
+      const detailedWarehouses = await Promise.all(
+        listedWarehouses.map(async (warehouse) => {
+          try {
+            const detail = await axios.get<WarehouseOption>(`${WAREHOUSE_API_URL}/${warehouse.id}`, {
+              headers,
+            });
+            return { ...warehouse, ...detail.data };
+          } catch {
+            return { ...warehouse, active: false };
+          }
+        })
+      );
+      const activeWarehouses = detailedWarehouses.filter((warehouse) => warehouse.active === true);
+      setWarehouses(activeWarehouses);
+      if (activeWarehouses.length === 0) {
+        ToasterService.error("No active warehouses", "Create or activate a warehouse before confirming this sales order.");
+      }
+    } catch (error) {
+      ToasterService.error(
+        "Failed to load active warehouses",
+        getErrorMessage(error, "Please refresh and try again.")
+      );
+    }
+  };
+
+  const confirmSalesOrder = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!confirmOrder || !isPositiveNumber(confirmWarehouseId)) {
+      ToasterService.error("Warehouse required", "Select the warehouse that will fulfil this sales order.");
+      return;
+    }
+
+    try {
+      setConfirming(true);
+      const response = await axios.post<SalesOrder>(
+        `${API_URL}/${confirmOrder.id}/confirm`,
+        { warehouseId: toNumber(confirmWarehouseId) },
+        { headers }
+      );
+      upsertOrder(response.data);
+      setConfirmOrder(null);
+      setConfirmWarehouseId("");
+      ToasterService.success("Sales order confirmed");
+    } catch (error) {
+      ToasterService.error("Unable to confirm sales order", getErrorMessage(error, "Please try again."));
+    } finally {
+      setConfirming(false);
+    }
   };
 
   const closeForm = () => {
@@ -1801,6 +1926,34 @@ const SalesOrders: React.FC = () => {
                 onChange={handleChange}
               />,
               <FloatingInput
+                key="billingAddressLine2"
+                label="Billing Address Line 2"
+                name="billingAddressLine2"
+                value={form.billingAddressLine2}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="shippingAddressLine2"
+                label="Shipping Address Line 2"
+                name="shippingAddressLine2"
+                value={form.shippingAddressLine2}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="billingStreet"
+                label="Billing Street"
+                name="billingStreet"
+                value={form.billingStreet}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="shippingStreet"
+                label="Shipping Street"
+                name="shippingStreet"
+                value={form.shippingStreet}
+                onChange={handleChange}
+              />,
+              <FloatingInput
                 key="billingCity"
                 label="Billing City"
                 name="billingCity"
@@ -1895,6 +2048,35 @@ const SalesOrders: React.FC = () => {
               />,
             ],
           },
+        ]}
+      />
+
+      <PaginatedPopup
+        isOpen={!!confirmOrder}
+        title="Confirm Sales Order"
+        subtitle={`Select the fulfilment warehouse for ${confirmOrder?.orderNumber || "this sales order"}.`}
+        onClose={() => {
+          setConfirmOrder(null);
+          setConfirmWarehouseId("");
+        }}
+        onSubmit={confirmSalesOrder}
+        submitLabel="Confirm Order"
+        submitting={confirming}
+        maxWidthClassName="max-w-md"
+        fields={[
+          <FloatingSelect
+            key="warehouseId"
+            label="Warehouse"
+            name="warehouseId"
+            value={confirmWarehouseId}
+            onChange={(event) => setConfirmWarehouseId(event.target.value)}
+            emptyOptionLabel="Select warehouse"
+            options={warehouses.filter((warehouse) => warehouse.active === true).map((warehouse) => ({
+              id: String(warehouse.id),
+              name: warehouse.name || warehouse.code || `Warehouse #${warehouse.id}`,
+            }))}
+            required
+          />,
         ]}
       />
 

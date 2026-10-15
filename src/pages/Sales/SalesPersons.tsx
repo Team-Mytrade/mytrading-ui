@@ -17,6 +17,7 @@ import StatsCard from "../../components/common/Statscard";
 import { FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 import { useStatsCardFilter } from "../../components/common/StatsCardFilter";
+import { usePermissions } from "../../access/usePermissions";
 
 type SalesPerson = {
   id: number;

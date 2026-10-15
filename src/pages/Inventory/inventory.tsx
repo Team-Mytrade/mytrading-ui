@@ -84,6 +84,7 @@ type Warehouse = {
   stockMovements?: any[];
   stockAdjustments?: any[];
   stockEntries?: any[];
+  active?: boolean;
 };
 
 type ProductOption = {
@@ -136,7 +137,7 @@ type AvailabilityCheck = {
 
 const API_URL = "/v1/api/inventory/stock";
 const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
-const PRODUCT_API_URL = "/v1/api/purchase/products";
+const PRODUCT_API_URL = "/v1/api/product/products";
 const ENUM_API_URL = "/v1/api/inventory/enums";
 const PAGE_SIZE = 10;
 
@@ -382,16 +383,49 @@ const InventoryStockManager: React.FC = () => {
         axios.get<Warehouse[]>(WAREHOUSE_API_URL, { headers }),
         axios.get<ProductOption[]>(PRODUCT_API_URL, { headers }),
       ]);
-      setWarehouses(Array.isArray(warehouseRes.data) ? warehouseRes.data : []);
-      setProducts(Array.isArray(productRes.data) ? productRes.data : []);
+      const warehouseList = Array.isArray(warehouseRes.data)
+        ? warehouseRes.data
+        : (warehouseRes.data as any)?.content || (warehouseRes.data as any)?.data || [];
+      const productList = Array.isArray(productRes.data)
+        ? productRes.data
+        : (productRes.data as any)?.content || (productRes.data as any)?.data || [];
+
+      const [warehouseDetails, productDetails] = await Promise.all([
+        Promise.all(
+          warehouseList.map(async (warehouse: Warehouse) => {
+            try {
+              const detail = await axios.get<Warehouse>(`${WAREHOUSE_API_URL}/${warehouse.id}`, { headers });
+              return { ...warehouse, ...detail.data };
+            } catch {
+              return warehouse;
+            }
+          })
+        ),
+        Promise.all(
+          productList.map(async (product: ProductOption) => {
+            const productId = product.id || product.productId;
+            if (!productId) return product;
+            try {
+              const detail = await axios.get<ProductOption>(`${PRODUCT_API_URL}/${productId}`, { headers });
+              return { ...product, ...detail.data };
+            } catch {
+              return product;
+            }
+          })
+        ),
+      ]);
+
+      setWarehouses(warehouseDetails);
+      setProducts(productDetails);
     } catch (error) {
       ToasterService.error("Failed to load dropdown data", getErrorMessage(error, "Please try again."));
     }
   };
 
-  const openCreate = (): void => {
+  const openCreate = async (): Promise<void> => {
     setEditingId(null);
     setForm(emptyForm);
+    await fetchDropdowns();
     setShowFormModal(true);
   };
 
