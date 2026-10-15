@@ -20,6 +20,7 @@ import ReusableTable, {
   isMoneyLikeKey,
 } from "../../components/common/Table";
 import DynamicPopup from "../../components/common/Popup";
+import { ICON_BUTTON_CLASS } from "../../components/common/CloseButton";
 import FilterPopover from "../../components/common/filter";
 import Dragger from "../../components/common/Dragger";
 import StatsCardFilter, {
@@ -377,23 +378,28 @@ function getInlineSelectTone(value: unknown) {
   const normalized = String(value || "").toLowerCase();
 
   if (["active", "approved", "issued", "received"].includes(normalized)) {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700 focus:border-emerald-300";
+    return "border-emerald-200 bg-emerald-50 text-emerald-700 focus:border-emerald-300 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300";
   }
 
   if (["inactive", "rejected", "cancelled", "block"].includes(normalized)) {
-    return "border-rose-200 bg-rose-50 text-red-600 focus:border-rose-300";
+    return "border-rose-200 bg-rose-50 text-red-600 focus:border-rose-300 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300";
   }
 
   if (["draft", "pending", "submitted"].includes(normalized)) {
-    return "border-amber-200 bg-amber-50 text-amber-700 focus:border-amber-300";
+    return "border-amber-200 bg-amber-50 text-amber-700 focus:border-amber-300 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300";
   }
 
   if (normalized === "closed") {
-    return "border-slate-200 bg-slate-100 text-slate-600 focus:border-slate-300";
+    return "border-slate-200 bg-slate-100 text-slate-600 focus:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300";
   }
 
-  return "border-slate-200 bg-slate-50 text-slate-700 focus:border-cyan-300";
+  return "border-slate-200 bg-slate-50 text-slate-700 focus:border-cyan-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200";
 }
+
+/** Shared size for the status dropdowns in table rows: same height as the action pills (28px). */
+const INLINE_SELECT_SIZE =
+  "rounded-xl border px-2.5 py-2 text-xs font-normal outline-none transition " +
+  "focus:ring-2 focus:ring-cyan-100 dark:focus:ring-cyan-900 disabled:cursor-not-allowed disabled:opacity-60";
 
 const StatusPill = ({ active }: { active: boolean }) => (
   <span
@@ -1001,11 +1007,9 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
               onChange={(event) => handleInlineActiveChange(row, event.target.value === "ACTIVE")}
               disabled={inlineUpdatingId === row.id}
               className={[
-                "w-[126px] rounded-2xl border px-4 py-2.5 text-sm font-medium outline-none transition",
-                "focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60",
-                isActive
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 focus:border-emerald-300"
-                  : "border-rose-200 bg-rose-50 text-red-600 focus:border-rose-300",
+                "w-24",
+                INLINE_SELECT_SIZE,
+                getInlineSelectTone(isActive ? "active" : "inactive"),
               ].join(" ")}
             >
               <option value="ACTIVE">Active</option>
@@ -1033,9 +1037,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
               }
               disabled={inlineUpdatingId === `${row.id}-${column.key}`}
               className={[
-                inlineSelectConfig.widthClassName || "w-[126px]",
-                "rounded-2xl border px-4 py-2.5 text-sm font-medium outline-none transition",
-                "focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60",
+                inlineSelectConfig.widthClassName || "w-24",
+                INLINE_SELECT_SIZE,
                 getInlineSelectTone(currentValue),
               ].join(" ")}
             >
@@ -1479,7 +1482,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
                   <button
                     type="button"
                     onClick={() => openEdit(row)}
-                    // No own colours: it takes the drawer header's button style, same as ✕.
+                    // Same classes as the ✕ next to it, so both hover the same in light and dark mode.
+                    className={ICON_BUTTON_CLASS}
                     title="Edit"
                     aria-label="Edit this record"
                   >
@@ -1562,7 +1566,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         isPopupOpen={Boolean(deleteRow)}
         setIsPopupOpen={(open) => !open && setDeleteRow(null)}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-        iconBg="bg-red-100"
+        iconBg="bg-red-100 dark:bg-red-950/50"
         innerText={`Delete ${config.title}`}
         subText="Are you sure you want to delete this record? This action cannot be undone."
         confirmLabel="Delete"

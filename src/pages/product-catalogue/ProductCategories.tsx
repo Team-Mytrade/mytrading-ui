@@ -10,6 +10,7 @@ import PurchaseResourcePage, {
 import { APP_ROUTES, recordLink } from "../../utils/appRoutes";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
+import DynamicPopup from "../../components/common/Popup";
 
 const CATEGORIES = "/v1/api/product/product-categories";
 
@@ -236,12 +237,12 @@ export default function ProductCategories() {
   const { canCreate, canUpdate } = usePermissions();
   const [reloadKey, setReloadKey] = useState(0);
   const [busyId, setBusyId] = useState<string | number | null>(null);
+  // Category waiting for the user to confirm Deactivate in the popup (null = popup closed).
+  const [deactivateRow, setDeactivateRow] = useState<PurchaseRecord | null>(null);
 
   /** Calls PATCH /{id}/activate or /{id}/deactivate, then reloads the list. */
   const changeStatus = async (row: PurchaseRecord, activate: boolean) => {
     const name = String(row.categoryName || "this category");
-    if (!activate && !window.confirm(`Deactivate ${name}? New products cannot be added to it.`)) return;
-
     try {
       setBusyId(row.id ?? null);
       await axios.patch(`${CATEGORIES}/${row.id}/${activate ? "activate" : "deactivate"}`);
@@ -271,7 +272,7 @@ export default function ProductCategories() {
                 disabled={isBusy}
                 onClick={(event) => {
                   event.stopPropagation();
-                  changeStatus(row, false);
+                  setDeactivateRow(row); // ask first, in the app's own popup
                 }}
                 className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                 title={`Deactivate ${categoryName}`}
@@ -320,5 +321,27 @@ export default function ProductCategories() {
   );
 
   // Changing the key reloads the list (and the parent dropdown) after a status change.
-  return <PurchaseResourcePage key={reloadKey} config={config} />;
+  return (
+    <>
+      <PurchaseResourcePage key={reloadKey} config={config} />
+
+      {/* Same popup style as Delete, instead of the browser's "localhost says" box. */}
+      <DynamicPopup
+        isPopupOpen={Boolean(deactivateRow)}
+        setIsPopupOpen={(open: boolean) => !open && setDeactivateRow(null)}
+        icon={<NoSymbolIcon className="h-6 w-6 text-red-600" />}
+        iconBg="bg-red-100 dark:bg-red-950/50"
+        innerText={`Deactivate ${String(deactivateRow?.categoryName || "this category")}?`}
+        subText="New products can't be added to this category. Existing products stay as they are. You can activate it again any time."
+        confirmLabel="Deactivate"
+        cancelLabel="Cancel"
+        onConfirm={async () => {
+          const row = deactivateRow;
+          setDeactivateRow(null);
+          if (row) await changeStatus(row, false);
+        }}
+        confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
+      />
+    </>
+  );
 }

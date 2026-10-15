@@ -586,10 +586,10 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
           }}
           title="Create Purchase Order"
           aria-label="Create Purchase Order"
-          className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-cyan-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-cyan-700 dark:hover:bg-cyan-500"
+          // Icon only, same look as the edit/delete icons; the tooltip says what it does.
+          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600 dark:text-gray-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
         >
-          <ShoppingCartIcon className="h-3.5 w-3.5" aria-hidden="true" />
-          Create PO
+          <ShoppingCartIcon className="h-4 w-4" aria-hidden="true" />
         </button>
       )}
     </>
@@ -1042,6 +1042,8 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
   searchFields: ["id", "poNumber", "receiptDate"],
   normalizeForm: (row) => ({
     purchaseOrderId: row.purchaseOrder?.id ?? row.purchaseOrderId ?? "",
+    // Shown as text on edit (the PO may no longer be in the dropdown once fully received).
+    poNumber: row.poNumber || row.purchaseOrder?.poNumber || "",
     warehouseId: row.warehouse?.id ?? row.warehouseId ?? "",
     receiptDate: dateOnly(row.receiptDate),
     items: row.items || row.lineItems || [],
@@ -1052,13 +1054,25 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
     receiptDate: form.receiptDate || todayIso(),
     items: (Array.isArray(form.items) ? form.items : []).map((item) => ({
       purchaseOrderLineItemId: toNumberOrZero(item.purchaseOrderLineItemId),
+      // Product details sent too, so the backend doesn't depend only on the PO line having them.
+      productId: toNumberOrZero(item.productId) || null,
+      productCode: item.productCode || null,
+      productName: item.productName && item.productName !== "Product" ? item.productName : null,
       receivedQuantity: toNumberOrZero(item.receivedQuantity),
-      acceptedQuantity: toNumberOrZero(item.acceptedQuantity),
+      // Always Received − Rejected (the form shows it read-only).
+      acceptedQuantity: Math.max(0, toNumberOrZero(item.receivedQuantity) - toNumberOrZero(item.rejectedQuantity)),
       rejectedQuantity: toNumberOrZero(item.rejectedQuantity),
-      batchNumber: item.batchNumber || null,
-      manufacturingDate: item.manufacturingDate || null,
-      expiryDate: item.expiryDate || null,
-      serialNumbers: Array.isArray(item.serialNumbers) ? item.serialNumbers : [],
+      // Only send what the product tracks (tracking unknown = send whatever was entered).
+      batchNumber: item.tracking?.batch === false ? null : item.batchNumber || null,
+      manufacturingDate: item.tracking?.batch === false ? null : item.manufacturingDate || null,
+      expiryDate: item.tracking?.expiry === false ? null : item.expiryDate || null,
+      // Empty boxes are left out.
+      serialNumbers:
+        item.tracking?.serial === false
+          ? []
+          : Array.isArray(item.serialNumbers)
+            ? item.serialNumbers.map((serial: unknown) => String(serial ?? "").trim()).filter(Boolean)
+            : [],
     })),
   }),
   renderCustomForm: ({ form, setForm, options, editingRow, onClose, onSubmit, submitting }) => {

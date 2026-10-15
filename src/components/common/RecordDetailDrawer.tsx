@@ -1,4 +1,4 @@
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import CloseButton from "./CloseButton";
 import { useEffect } from "react";
 import "../../styles/RecordDetailDrawer.css";
 
@@ -50,7 +50,7 @@ const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({
           <div><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div>
           <div className="flex items-center gap-1">
             {headerActions}
-            <button type="button" onClick={onClose} aria-label="Close details" title="Close"><XMarkIcon className="h-5 w-5" /></button>
+            <CloseButton onClick={onClose} label="Close details" />
           </div>
         </header>
         <div className="record-detail-drawer__body">{children}</div>
