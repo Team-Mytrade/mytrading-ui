@@ -37,8 +37,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      // Proxy only the API calls (/v1/api/...) to the backend. The app itself, under /myTrading/,
+      // must be served by Vite: proxying it sent the page request to the gateway, which answered 401.
       "/v1/api": {
-         target: process.env.API_TARGET || "http://localhost:9595",
+        target: "http://193.181.209.14:9595",
         changeOrigin: true,
         secure: false,
       },

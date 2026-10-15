@@ -29,7 +29,8 @@ interface DeliveryOrder {
   deliveryOrderNumber?: string;
   deliveryDate?: string;
   customerName?: string;
-  status?: string; // PENDING, CONFIRMED, IN_TRANSIT, PARTIAL, DELIVERED, RETURNED, CANCELLED
+  // Latest status record; none yet means the order is still pending
+  status?: { currentStatus?: string; statusUpdatedAt?: string } | null;
 }
 
 interface Vehicle {
@@ -73,17 +74,16 @@ const LABELS: Record<keyof typeof SOURCES, string> = {
   notes: "delivery notes",
 };
 
-const CLOSED = ["DELIVERED", "RETURNED", "CANCELLED"];
-const statusOf = (order: DeliveryOrder) => String(order.status || "PENDING").toUpperCase();
+const CLOSED = ["DELIVERED", "CANCELLED", "FAILED"];
+const statusOf = (order: DeliveryOrder) => String(order.status?.currentStatus || "PENDING").toUpperCase();
 
 const STATUS_STYLE: Record<string, string> = {
   DELIVERED: "bg-green-100 text-green-700",
-  IN_TRANSIT: "bg-purple-100 text-purple-700",
-  PARTIAL: "bg-amber-100 text-amber-700",
-  CONFIRMED: "bg-blue-100 text-blue-700",
+  SHIPPED: "bg-purple-100 text-purple-700",
+  IN_PROGRESS: "bg-blue-100 text-blue-700",
   PENDING: "bg-yellow-100 text-yellow-700",
-  RETURNED: "bg-orange-100 text-orange-700",
   CANCELLED: "bg-red-100 text-red-700",
+  FAILED: "bg-orange-100 text-orange-700",
 };
 
 const DeliveryDashboard: React.FC = () => {

@@ -1,6 +1,6 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import { ArrowDownTrayIcon, CheckCircleIcon, NoSymbolIcon, PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { ArrowDownTrayIcon, PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
@@ -10,6 +10,7 @@ import PurchaseResourcePage, {
   SelectOption,
   toNumberOrZero,
 } from "../Purchase/PurchaseResourcePage";
+import { APP_ROUTES, recordLink } from "../../utils/appRoutes";
 
 /* ------------------------------------------------------------------ */
 /* Endpoints & constants                                               */
@@ -459,6 +460,43 @@ const validateProductForm = (form: PurchaseRecord, categories: SelectOption[]): 
 };
 
 /* ------------------------------------------------------------------ */
+/* Loading one product in full                                         */
+/* ------------------------------------------------------------------ */
+
+/** Copies only the fields that have a value, so a missing field never overwrites a real one. */
+const mergeFilled = (base: PurchaseRecord, extra: PurchaseRecord | undefined) => {
+  const merged = { ...base };
+  Object.entries(extra || {}).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && value !== "") merged[key] = value;
+  });
+  return merged;
+};
+
+/**
+ * GET /products/{id} does not return shortName, description and taxCode yet, but
+ * POST /products/batch does. Both are called and merged, so Edit shows every field and
+ * the status dropdown never saves those fields as empty.
+ * When the backend fixes GET, this still works (the batch call just adds nothing new).
+ */
+const loadProduct = async (row: PurchaseRecord): Promise<PurchaseRecord> => {
+  const [byId, batch] = await Promise.allSettled([
+    axios.get(`${PRODUCTS}/${row.id}`),
+    axios.post(`${PRODUCTS}/batch`, { productIds: [Number(row.id)] }),
+  ]);
+
+  if (byId.status === "rejected" && batch.status === "rejected") throw byId.reason;
+
+  const fromGet = byId.status === "fulfilled" ? byId.value.data : undefined;
+  const batchData = batch.status === "fulfilled" ? batch.value.data : undefined;
+  const batchList: PurchaseRecord[] = Array.isArray(batchData)
+    ? batchData
+    : batchData?.data || batchData?.content || [];
+  const fromBatch = batchList.find((item) => String(item?.id) === String(row.id));
+
+  return mergeFilled(mergeFilled(row, fromGet), fromBatch);
+};
+
+/* ------------------------------------------------------------------ */
 /* Resource configuration                                              */
 /* ------------------------------------------------------------------ */
 
@@ -480,21 +518,34 @@ const baseProductConfig: PurchaseResourceConfig = {
   description: "Maintain products from the Product Catalogue service.",
   endpoint: PRODUCTS,
   getByIdEndpoint: (row) => `${PRODUCTS}/${row.id}`,
-  // Status changes use PATCH /products/{id}/activate|deactivate (row button in Actions),
-  // not a full PUT of the product, so no other field can be overwritten by mistake.
-  allowInlineActiveToggle: false,
+  // Opened from a link: show only that product.
+  scope: { idParam: "productId", nameParam: "productName", label: "Product" },
+  // Active / Inactive dropdown in the table. It saves the whole product with PUT, so the
+  // product is first loaded in full by loadProduct() below (GET + batch), so no field is lost.
+  allowInlineActiveToggle: true,
+  loadRecord: (row) => loadProduct(row),
   // Stock/service flags are not toggled inline: changing them on a product that
   // already has stock or transactions must go through the edit form.
 
   columns: [
     { key: "imageName", label: "Image", render: (row) => <ProductImageCell row={row} /> },
     { key: "productName", label: "Product Name" },
-    { key: "productCode", label: "Product Code" },
+    // Codes should stay on one line (e.g. TEXTILE-TXTL-0001), never break in the middle.
+    { key: "productCode", label: "Product Code", className: "whitespace-nowrap" },
     // The product API now returns the category as a nested object (productCategory).
     {
       key: "categoryName",
       label: "Category",
       render: (row) => row.productCategory?.categoryName || row.categoryName || "--",
+      // Click → Product Categories page showing only this category.
+      link: (row) =>
+        recordLink(
+          APP_ROUTES.productCategories,
+          "categoryId",
+          row.productCategory?.id ?? row.categoryId,
+          "categoryName",
+          row.productCategory?.categoryName || row.categoryName
+        ),
     },
     { key: "brand", label: "Brand" },
     { key: "uom", label: "UOM" },
@@ -503,7 +554,7 @@ const baseProductConfig: PurchaseResourceConfig = {
     { key: "serviceItem", label: "Service Item", render: (row) => renderYesNo(row.serviceItem) },
     { key: "standardCost", label: "Standard Cost", render: renderAmount("standardCost") },
     { key: "sellingPrice", label: "Selling Price", render: renderAmount("sellingPrice") },
-    // Status is the last column, next to the Activate/Deactivate button in Actions.
+    // Status is the last column.
     {
       key: "active",
       label: "Status",
@@ -539,15 +590,17 @@ const baseProductConfig: PurchaseResourceConfig = {
             option.raw?.active !== false || String(option.value) === String(form.originalCategoryId ?? "")
         ),
     },
-    { name: "productName", section: "Category & Name", label: "Product Name", required: true },
-    { name: "shortName", section: "Category & Name", label: "Short Name" },
+    // Typed in small letters → shown and saved in CAPITALS.
+    { name: "productName", section: "Category & Name", label: "Product Name", required: true, textCase: "upper", maxLength: 100 },
+    { name: "shortName", section: "Category & Name", label: "Short Name", textCase: "upper", maxLength: 20 },
     { name: "description", section: "Category & Name", label: "Description", type: "textarea", gridClassName: "md:col-span-2" },
     // Tab 2: optional details that identify the exact item.
-    { name: "brand", section: "Brand & Identification", label: "Brand" },
-    { name: "modelNo", section: "Brand & Identification", label: "Model No" },
+    { name: "brand", section: "Brand & Identification", label: "Brand", textCase: "title", maxLength: 50 },
+    { name: "modelNo", section: "Brand & Identification", label: "Model No", textCase: "upper", maxLength: 50 },
     {
       name: "barcode", section: "Brand & Identification",
       label: "Barcode (EAN/UPC, 8–14 digits)",
+      maxLength: 14,
       // Standard retail barcodes are EAN-8, UPC-A (12), EAN-13 or GTIN-14: digits only.
       validate: (value) => {
         const barcode = String(value ?? "").replace(/\s/g, "");
@@ -566,8 +619,8 @@ const baseProductConfig: PurchaseResourceConfig = {
       defaultValue: "PIECES",
       options: UOM_OPTIONS.map((item) => ({ value: item, label: item })),
     },
-    { name: "standardCost", section: "Pricing & Tax", label: "Standard Cost", type: "number", defaultValue: 0 },
-    { name: "sellingPrice", section: "Pricing & Tax", label: "Selling Price", type: "number", defaultValue: 0 },
+    { name: "standardCost", section: "Pricing & Tax", label: "Standard Cost (₹)", type: "number", defaultValue: 0, min: 0, decimals: 2, max: 99999999 },
+    { name: "sellingPrice", section: "Pricing & Tax", label: "Selling Price (₹)", type: "number", defaultValue: 0, min: 0, decimals: 2, max: 99999999 },
     {
       name: "taxCode", section: "Pricing & Tax",
       label: "Tax Code",
@@ -580,8 +633,8 @@ const baseProductConfig: PurchaseResourceConfig = {
     { name: "serialTracking", section: "Inventory Tracking", label: "Serial Tracking", type: "checkbox", defaultValue: false },
     { name: "batchTracking", section: "Inventory Tracking", label: "Batch Tracking", type: "checkbox", defaultValue: false },
     { name: "expiryTracking", section: "Inventory Tracking", label: "Expiry Tracking (needs Batch Tracking)", type: "checkbox", defaultValue: false },
-    // Only on create. Existing products are activated/deactivated with the row button.
-    { name: "active", section: "Inventory Tracking", label: "Active", type: "checkbox", defaultValue: true, showOnEdit: false },
+    // Status is changed here (create and edit).
+    { name: "active", section: "Inventory Tracking", label: "Active", type: "checkbox", defaultValue: true },
   ],
 
   searchFields: ["productName", "productCode", "categoryName", "brand", "uom"],
@@ -617,7 +670,7 @@ const baseProductConfig: PurchaseResourceConfig = {
     originalCategoryId: row.productCategory?.id ?? row.categoryId ?? row.category?.id ?? "",
   }),
 
-  buildPayload: (form, editingRow) => {
+  buildPayload: (form) => {
     // Business rules:
     //  - a service item is never a stock item and has no tracking
     //  - serial/batch tracking only applies to stock items
@@ -643,8 +696,7 @@ const baseProductConfig: PurchaseResourceConfig = {
       serialTracking: stockItem && Boolean(form.serialTracking),
       batchTracking,
       expiryTracking: batchTracking && Boolean(form.expiryTracking),
-      // Edit keeps the current status; status changes go through PATCH activate/deactivate.
-      active: editingRow ? Boolean(editingRow.active) : Boolean(form.active),
+      active: Boolean(form.active),
     };
   },
 };
@@ -663,7 +715,6 @@ export default function Products() {
   const categoryName = searchParams.get("categoryName") || "";
 
   const [reloadKey, setReloadKey] = useState(0);
-  const [statusBusyId, setStatusBusyId] = useState<string | number | null>(null);
   const [createdProduct, setCreatedProduct] = useState<PurchaseRecord | null>(null);
   const [postCreateImageFile, setPostCreateImageFile] = useState<File | null>(null);
   const [isPostCreateUploading, setIsPostCreateUploading] = useState(false);
@@ -696,67 +747,8 @@ export default function Products() {
     }
   };
 
-  /** PATCH /products/{id}/activate or /deactivate, then reload the list. */
-  const changeStatus = async (row: PurchaseRecord, activate: boolean) => {
-    const name = String(row.productName || "this product");
-    if (!activate && !window.confirm(`Deactivate ${name}? It can no longer be added to new PRs and POs.`)) return;
-
-    try {
-      setStatusBusyId(row.id ?? null);
-      await axios.patch(`${PRODUCTS}/${row.id}/${activate ? "activate" : "deactivate"}`);
-      ToasterService.success(`${name} ${activate ? "activated" : "deactivated"}`);
-      setReloadKey((current) => current + 1);
-    } catch (error: any) {
-      const status = error?.response?.status;
-      ToasterService.error(
-        status === 404 || status === 405
-          ? "Status change is not available on the server yet (PATCH activate/deactivate missing)."
-          : getErrorMessage(error, `Could not change the status of ${name}`)
-      );
-    } finally {
-      setStatusBusyId(null);
-    }
-  };
-
   const productConfig: PurchaseResourceConfig = {
     ...baseProductConfig,
-
-    // Activate / Deactivate button in the Actions column (before Edit and Delete).
-    renderRowActions: (row) => {
-      const name = String(row.productName || "this product");
-      const isBusy = statusBusyId === row.id;
-      // Activating / deactivating is an update
-      if (!canUpdate) return null;
-      return row.active ? (
-        <button
-          type="button"
-          disabled={isBusy}
-          onClick={(event) => {
-            event.stopPropagation();
-            changeStatus(row, false);
-          }}
-          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-          title={`Deactivate ${name}`}
-          aria-label={`Deactivate ${name}`}
-        >
-          <NoSymbolIcon className="h-4 w-4" aria-hidden="true" />
-        </button>
-      ) : (
-        <button
-          type="button"
-          disabled={isBusy}
-          onClick={(event) => {
-            event.stopPropagation();
-            changeStatus(row, true);
-          }}
-          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-green-50 hover:text-green-600 disabled:opacity-50"
-          title={`Activate ${name}`}
-          aria-label={`Activate ${name}`}
-        >
-          <CheckCircleIcon className="h-4 w-4" aria-hidden="true" />
-        </button>
-      );
-    },
 
     // Coming from a category: open the create form with that category pre-selected.
     autoOpenCreate: Boolean(categoryId),

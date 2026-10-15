@@ -1,311 +1,553 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import { FloatingInput } from "../../components/inputfeild/FloatingInput";
 
-import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import {
+  MagnifyingGlassIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ClockIcon,
+  TruckIcon,
+  EyeIcon,
+  PencilIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/solid";
 import {
   FunnelIcon,
+  PackageIcon,
   ClipboardListIcon,
   CalendarIcon,
   UserIcon,
   RefreshCwIcon,
-  EyeIcon,
-  ArrowRightLeftIcon,
-  TruckIcon,
-  MapPinIcon,
+  TrashIcon,
 } from "lucide-react";
-import {
-  DELIVERY_API,
-  DELIVERY_STATUSES,
-  FAILURE_STATUSES,
-  DeliveryOrder,
-  DeliveryStatus,
-  StatusBadge,
-  apiError,
-  formatDate,
-  formatDateTime,
-  nextStatuses,
-  statusConfig,
-  useDeliveryLookups,
-} from "./deliveryShared";
 
-// Tracking board: every update is recorded on the order (who, when, remarks) and moves it to that status.
+// ================= TYPES =================
+
+type DeliveryStatus = "PENDING" | "IN_PROGRESS" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "FAILED";
+
+interface DeliveryStatusHistory {
+  id: number;
+  deliveryOrderId: number;
+  currentStatus: DeliveryStatus;
+  remarks: string;
+  updatedBy: string;
+  deliveredSuccessfully: boolean;
+  failureReason: string;
+  statusUpdatedAt: string;
+}
+
+interface DeliveryItem {
+  id?: number;
+  productId: number;
+  orderedQty: number;
+  deliveredQty: number;
+  deliveryNote?: string;
+}
+
+interface Delivery {
+  id: number;
+  createdDate: string;
+  updatedDate: string;
+  createdBy: string;
+  tenantId: string;
+  deliveryNo: string;
+  deliveryDate: string;
+  salesOrderId: number;
+  customerId: number;
+  status: DeliveryStatus;
+  items: DeliveryItem[];
+}
+
+interface DeliveryStatusUpdate {
+  deliveryOrderId: number;
+  currentStatus: DeliveryStatus;
+  remarks: string;
+  updatedBy: string;
+  deliveredSuccessfully: boolean;
+  failureReason: string;
+}
+
+// ================= API CONFIGURATION =================
+
+const API_BASE_URL = "/v1/api/delivery";
 
 const API = {
-  orders: `${DELIVERY_API}/delivery-orders`,
-  updateStatus: `${DELIVERY_API}/delivery-status`,
+  deliveries: `${API_BASE_URL}/delivery-orders`,
+  statusHistory: (id: number) => `${API_BASE_URL}/delivery-status/${id}`,
+  updateStatus: `${API_BASE_URL}/delivery-status`,
+  deleteDelivery: (id: number) => `${API_BASE_URL}/delivery-orders/${id}`,
 };
 
+// ================= CONSTANTS =================
+
 const PAGE_SIZE = 10;
+const STATUS_OPTIONS: DeliveryStatus[] = ["PENDING", "IN_PROGRESS", "SHIPPED", "DELIVERED", "CANCELLED", "FAILED"];
+
+const STATUS_CONFIG: Record<string, { color: string; bgColor: string; icon: React.ReactNode; label: string }> = {
+  PENDING: {
+    color: "text-yellow-700",
+    bgColor: "bg-yellow-50 border-yellow-200",
+    icon: <ClockIcon className="h-3 w-3" />,
+    label: "Pending"
+  },
+  IN_PROGRESS: {
+    color: "text-blue-700",
+    bgColor: "bg-blue-50 border-blue-200",
+    icon: <RefreshCwIcon className="h-3 w-3" />,
+    label: "In Progress"
+  },
+  SHIPPED: {
+    color: "text-purple-700",
+    bgColor: "bg-purple-50 border-purple-200",
+    icon: <TruckIcon className="h-3 w-3" />,
+    label: "Shipped"
+  },
+  DELIVERED: {
+    color: "text-green-700",
+    bgColor: "bg-green-50 border-green-200",
+    icon: <CheckCircleIcon className="h-3 w-3" />,
+    label: "Delivered"
+  },
+  CANCELLED: {
+    color: "text-red-700",
+    bgColor: "bg-red-50 border-red-200",
+    icon: <XCircleIcon className="h-3 w-3" />,
+    label: "Cancelled"
+  },
+  FAILED: {
+    color: "text-orange-700",
+    bgColor: "bg-orange-50 border-orange-200",
+    icon: <XCircleIcon className="h-3 w-3" />,
+    label: "Failed"
+  }
+};
+
+// ================= COMPONENT =================
 
 const DeliveryStatusPage: React.FC = () => {
-  const lookups = useDeliveryLookups(["customers"]);
-
-  const [orders, setOrders] = useState<DeliveryOrder[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<DeliveryStatus | "ALL" | "ACTIVE">("ACTIVE");
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<DeliveryStatus | "ALL">("ALL");
   const [dateFilter, setDateFilter] = useState("");
-
-  const [selected, setSelected] = useState<DeliveryOrder | null>(null);
-  const [showTrackingModal, setShowTrackingModal] = useState(false);
+  const [statusHistory, setStatusHistory] = useState<DeliveryStatusHistory | null>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
-  const [newStatus, setNewStatus] = useState<DeliveryStatus | "">("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
+  const [newStatus, setNewStatus] = useState<DeliveryStatus>("PENDING");
   const [remarks, setRemarks] = useState("");
   const [failureReason, setFailureReason] = useState("");
+  const [deliveredSuccessfully, setDeliveredSuccessfully] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
-  const fetchOrders = async () => {
+  // ================= API FUNCTIONS =================
+
+  const fetchDeliveries = async () => {
     setLoading(true);
     try {
-      const { data } = await axios.get<DeliveryOrder[]>(API.orders);
-      setOrders(data);
-    } catch (err) {
-      toast.error(apiError(err, "Failed to load deliveries"));
+      const response = await axios.get(API.deliveries);
+      setDeliveries(response.data || []);
+      if (response.data?.length > 0) {
+        toast.success(`Loaded ${response.data.length} delivery(s)`);
+      }
+    } catch (err: any) {
+      console.error("Error fetching deliveries:", err);
+      toast.error(err.response?.data?.message || "Failed to fetch deliveries!");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  // "Active" = still on its way: not delivered, returned or cancelled
-  const isActive = (o: DeliveryOrder) => !["DELIVERED", "RETURNED", "CANCELLED"].includes(o.status);
-
-  const filteredOrders = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return orders.filter((o) => {
-      const matchesSearch =
-        !term ||
-        [o.deliveryOrderNumber, lookups.customerName(o.customerId, o.customerName), o.vehiclePlate, o.transporterName, o.tracking?.remarks]
-          .some((value) => (value ?? "").toLowerCase().includes(term));
-      const matchesStatus =
-        statusFilter === "ALL" || (statusFilter === "ACTIVE" ? isActive(o) : o.status === statusFilter);
-      const matchesDate = !dateFilter || (o.deliveryDate ?? "").startsWith(dateFilter);
-      return matchesSearch && matchesStatus && matchesDate;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders, search, statusFilter, dateFilter, lookups.customers]);
-
-  const stats = useMemo(() => {
-    const count = (...statuses: DeliveryStatus[]) => orders.filter((o) => statuses.includes(o.status)).length;
-    const today = new Date().toISOString().slice(0, 10);
-    return {
-      active: orders.filter(isActive).length,
-      dueToday: orders.filter((o) => isActive(o) && (o.deliveryDate ?? "").startsWith(today)).length,
-      inTransit: count("IN_TRANSIT", "PARTIAL"),
-      delivered: count("DELIVERED"),
-      returned: count("RETURNED"),
-      cancelled: count("CANCELLED"),
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders]);
-
-  const openTracking = (order: DeliveryOrder) => {
-    setSelected(order);
-    setShowTrackingModal(true);
+  const fetchStatusHistory = async (deliveryOrderId: number) => {
+    setLoadingHistory(true);
+    try {
+      const response = await axios.get(API.statusHistory(deliveryOrderId));
+      setStatusHistory(response.data);
+      setShowHistoryModal(true);
+    } catch (err: any) {
+      console.error("Error fetching status history:", err);
+      toast.error(err.response?.data?.message || "Failed to load status history!");
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
-  const openStatus = (order: DeliveryOrder) => {
-    setSelected(order);
-    setNewStatus(nextStatuses(order.status)[0] ?? "");
+  const updateDeliveryStatus = async (data: DeliveryStatusUpdate) => {
+    try {
+      const response = await axios.post(API.updateStatus, data);
+      toast.success(`Status updated to ${STATUS_CONFIG[data.currentStatus].label}!`);
+      return response.data;
+    } catch (err: any) {
+      console.error("Error updating status:", err);
+      toast.error(err.response?.data?.message || "Failed to update status!");
+      throw err;
+    }
+  };
+
+  const deleteDelivery = async (id: number) => {
+    try {
+      await axios.delete(API.deleteDelivery(id));
+      toast.success("Delivery deleted successfully!");
+      setShowDeleteModal(false);
+      setSelectedDelivery(null);
+      await fetchDeliveries();
+    } catch (err: any) {
+      console.error("Error deleting delivery:", err);
+      toast.error(err.response?.data?.message || "Failed to delete delivery!");
+      throw err;
+    }
+  };
+
+  // ================= FETCH =================
+
+  useEffect(() => {
+    fetchDeliveries();
+  }, []);
+
+  // ================= FILTER =================
+
+  const filteredDeliveries = useMemo(() => {
+    return deliveries.filter((d) => {
+      const matchesSearch =
+        d.deliveryNo?.toLowerCase().includes(search.toLowerCase()) ||
+        String(d.customerId).includes(search) ||
+        String(d.salesOrderId).includes(search) ||
+        String(d.id).includes(search);
+
+      const matchesStatus =
+        statusFilter === "ALL" || d.status === statusFilter;
+
+      const matchesDate =
+        !dateFilter || d.deliveryDate?.startsWith(dateFilter);
+
+      return matchesSearch && matchesStatus && matchesDate;
+    });
+  }, [deliveries, search, statusFilter, dateFilter]);
+
+  // ================= STATS =================
+
+  const getStats = () => ({
+    total: deliveries.length,
+    pending: deliveries.filter(d => d.status === "PENDING").length,
+    inProgress: deliveries.filter(d => d.status === "IN_PROGRESS").length,
+    shipped: deliveries.filter(d => d.status === "SHIPPED").length,
+    delivered: deliveries.filter(d => d.status === "DELIVERED").length,
+    cancelled: deliveries.filter(d => d.status === "CANCELLED" || d.status === "FAILED").length,
+  });
+
+  const stats = getStats();
+
+  // ================= HANDLERS =================
+
+  const handleViewHistory = async (delivery: Delivery) => {
+    setSelectedDelivery(delivery);
+    await fetchStatusHistory(delivery.id);
+  };
+
+  const handleOpenStatusModal = (delivery: Delivery) => {
+    setSelectedDelivery(delivery);
+    setNewStatus(delivery.status);
     setRemarks("");
     setFailureReason("");
+    setDeliveredSuccessfully(false);
     setShowStatusModal(true);
   };
 
-  const needsReason = FAILURE_STATUSES.includes(newStatus as DeliveryStatus);
+  const handleDeleteClick = (delivery: Delivery) => {
+    setSelectedDelivery(delivery);
+    setShowDeleteModal(true);
+  };
 
   const handleUpdateStatus = async () => {
-    if (!selected || !newStatus) return;
-    if (needsReason && !failureReason.trim()) {
-      toast.warning("Please give the reason");
+    if (!selectedDelivery) return;
+
+    if (newStatus === selectedDelivery.status) {
+      toast.warning("New status is the same as current status.");
       return;
     }
+
+    // Validate based on status
+    if (newStatus === "DELIVERED" && !deliveredSuccessfully) {
+      toast.warning("Please confirm if delivery was successful.");
+      return;
+    }
+
+    if (newStatus === "FAILED" && !failureReason) {
+      toast.warning("Please provide a failure reason.");
+      return;
+    }
+
+    const statusData: DeliveryStatusUpdate = {
+      deliveryOrderId: selectedDelivery.id,
+      currentStatus: newStatus,
+      remarks: remarks || `Status changed from ${selectedDelivery.status} to ${newStatus}`,
+      updatedBy: localStorage.getItem("username") || "ADMIN",
+      deliveredSuccessfully: newStatus === "DELIVERED" ? deliveredSuccessfully : false,
+      failureReason: newStatus === "FAILED" ? failureReason : "",
+    };
+
+    console.log("📦 STATUS UPDATE PAYLOAD:", JSON.stringify(statusData, null, 2));
+
     setSubmitting(true);
     try {
-      await axios.post(API.updateStatus, {
-        deliveryOrderId: selected.id,
-        currentStatus: newStatus,
-        remarks: remarks.trim() || undefined,
-        failureReason: needsReason ? failureReason.trim() : undefined,
-      });
-      toast.success(`${selected.deliveryOrderNumber} is now ${statusConfig(newStatus).label}`);
+      await updateDeliveryStatus(statusData);
       setShowStatusModal(false);
-      setShowTrackingModal(false);
-      await fetchOrders();
+      await fetchDeliveries();
     } catch (err) {
-      toast.error(apiError(err, "Failed to update the status"));
+      // Error already handled
     } finally {
       setSubmitting(false);
     }
   };
 
-  const tableColumns: ColumnDef<DeliveryOrder>[] = [
+  const handleConfirmDelete = async () => {
+    if (selectedDelivery) {
+      await deleteDelivery(selectedDelivery.id);
+    }
+  };
+
+  // ================= TABLE COLUMNS =================
+
+  const tableColumns: ColumnDef<Delivery>[] = [
     {
-      key: "deliveryOrderNumber",
-      label: "Delivery Order",
+      key: "deliveryNo",
+      label: "Delivery No",
       sortable: true,
-      headerClassName: "w-[16%] text-left",
-      className: "w-[16%]",
+      headerClassName: "w-[15%] text-left",
+      className: "w-[15%]",
       render: (row) => (
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
             <ClipboardListIcon className="h-4 w-4 text-cyan-600" />
           </div>
-          <span className="text-sm font-semibold text-slate-900 truncate">{row.deliveryOrderNumber}</span>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-semibold text-slate-900 truncate leading-snug">
+              {row.deliveryNo || `DEL-${row.id}`}
+            </span>
+            <span className="text-xs text-slate-400 truncate">ID: #{row.id}</span>
+          </div>
         </div>
       ),
     },
     {
-      key: "customerName",
+      key: "customerId",
       label: "Customer",
-      sortable: true,
-      sortValueGetter: (row) => lookups.customerName(row.customerId, row.customerName),
-      headerClassName: "w-[16%] text-left",
-      className: "w-[16%]",
-      render: (row) => (
-        <div className="flex items-center gap-1.5 min-w-0">
-          <UserIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-          <span className="text-sm font-medium text-slate-700 truncate">{lookups.customerName(row.customerId, row.customerName)}</span>
-        </div>
-      ),
-    },
-    {
-      key: "deliveryDate",
-      label: "Due",
-      sortable: true,
-      headerClassName: "w-[11%] text-left",
-      className: "w-[11%]",
-      render: (row) => (
-        <div className="flex items-center gap-1.5">
-          <CalendarIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-          <span className="text-sm text-slate-600">{formatDate(row.deliveryDate)}</span>
-        </div>
-      ),
-    },
-    {
-      key: "vehiclePlate",
-      label: "Vehicle",
       sortable: true,
       headerClassName: "w-[12%] text-left",
       className: "w-[12%]",
-      render: (row) => <span className="text-sm text-slate-600 truncate">{row.vehiclePlate ?? "—"}</span>,
+      render: (row) => (
+        <div className="flex items-center gap-1.5">
+          <UserIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+          <span className="text-sm font-medium text-slate-700">#{row.customerId}</span>
+        </div>
+      ),
+    },
+    {
+      key: "salesOrderId",
+      label: "Sales Order",
+      sortable: true,
+      headerClassName: "w-[12%] text-left",
+      className: "w-[12%]",
+      render: (row) => (
+        <span className="text-sm text-slate-600">SO-{row.salesOrderId}</span>
+      ),
     },
     {
       key: "status",
       label: "Status",
       sortable: true,
-      headerClassName: "w-[13%] text-left",
-      className: "w-[13%]",
-      render: (row) => <StatusBadge status={row.status} />,
+      headerClassName: "w-[15%] text-left",
+      className: "w-[15%]",
+      render: (row) => {
+        const config = STATUS_CONFIG[row.status];
+        return (
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border ${config.bgColor} ${config.color}`}>
+            {config.icon}
+            {config.label}
+          </span>
+        );
+      },
     },
     {
-      key: "tracking",
-      label: "Last Update",
+      key: "deliveryDate",
+      label: "Delivery Date",
       sortable: true,
-      sortValueGetter: (row) => row.tracking?.statusUpdatedAt ?? "",
-      headerClassName: "w-[22%] text-left",
-      className: "w-[22%]",
-      render: (row) =>
-        row.tracking ? (
-          <div className="flex flex-col min-w-0">
-            <span className="text-sm text-slate-700 truncate">{row.tracking.remarks || statusConfig(row.tracking.currentStatus).label}</span>
-            <span className="text-xs text-slate-400 truncate">
-              {formatDateTime(row.tracking.statusUpdatedAt)}
-              {row.tracking.updatedBy ? ` · ${row.tracking.updatedBy}` : ""}
-            </span>
-          </div>
-        ) : (
-          <span className="text-xs text-slate-400">No updates yet</span>
-        ),
+      headerClassName: "w-[12%] text-left",
+      className: "w-[12%]",
+      render: (row) => (
+        <div className="flex items-center gap-1.5">
+          <CalendarIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+          <span className="text-sm text-slate-600">
+            {row.deliveryDate ? new Date(row.deliveryDate).toLocaleDateString() : "-"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "items",
+      label: "Items",
+      sortable: false,
+      headerClassName: "w-[10%] text-left",
+      className: "w-[10%]",
+      render: (row) => (
+        <div className="flex items-center gap-1.5">
+          <PackageIcon className="h-3.5 w-3.5 text-slate-400" />
+          <span className="text-sm font-medium text-slate-600">{row.items?.length || 0}</span>
+        </div>
+      ),
     },
     {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "w-[10%] text-right pr-4",
-      className: "w-[10%] text-right",
+      headerClassName: "w-[24%] text-right pr-4",
+      className: "w-[24%] text-right",
       render: (row) => (
         <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
-          <button type="button" onClick={() => openTracking(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600" title="Tracking details">
+          <button
+            type="button"
+            onClick={() => handleViewHistory(row)}
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
+            title="View Status History"
+          >
             <EyeIcon className="h-4 w-4" />
           </button>
-          {nextStatuses(row.status).length > 0 && (
-            <button type="button" onClick={() => openStatus(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-purple-50 hover:text-purple-600" title="Post an update">
-              <ArrowRightLeftIcon className="h-4 w-4" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => handleOpenStatusModal(row)}
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-purple-50 hover:text-purple-600"
+            title="Update Status"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDeleteClick(row)}
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+            title="Delete Delivery"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
         </div>
       ),
     },
   ];
 
+  // ================= UI =================
+
   return (
     <>
-      <PageMeta title="Delivery Status" description="Track deliveries and post status updates" />
+      <PageMeta title="Delivery Status" description="Manage delivery statuses" />
       <PageBreadcrumb pageTitle="Delivery Status" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
+
+        {/* STATS */}
         <div className="grid grid-cols-3 lg:grid-cols-6 gap-4">
-          <StatsCard label="Active" value={stats.active} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-          <StatsCard label="Due Today" value={stats.dueToday} gradient="from-yellow-50 to-amber-50" borderColor="border-yellow-100" labelColor="text-yellow-600" />
-          <StatsCard label="In Transit" value={stats.inTransit} gradient="from-purple-50 to-violet-50" borderColor="border-purple-100" labelColor="text-purple-600" />
-          <StatsCard label="Delivered" value={stats.delivered} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-          <StatsCard label="Returned" value={stats.returned} gradient="from-orange-50 to-amber-50" borderColor="border-orange-100" labelColor="text-orange-600" />
-          <StatsCard label="Cancelled" value={stats.cancelled} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
+          <StatsCard
+            label="Total"
+            value={stats.total}
+            gradient="from-cyan-50 to-blue-50"
+            borderColor="border-cyan-100"
+            labelColor="text-cyan-600"
+          />
+          <StatsCard
+            label="Pending"
+            value={stats.pending}
+            gradient="from-yellow-50 to-amber-50"
+            borderColor="border-yellow-100"
+            labelColor="text-yellow-600"
+          />
+          <StatsCard
+            label="In Progress"
+            value={stats.inProgress}
+            gradient="from-blue-50 to-indigo-50"
+            borderColor="border-blue-100"
+            labelColor="text-blue-600"
+          />
+          <StatsCard
+            label="Shipped"
+            value={stats.shipped}
+            gradient="from-purple-50 to-violet-50"
+            borderColor="border-purple-100"
+            labelColor="text-purple-600"
+          />
+          <StatsCard
+            label="Delivered"
+            value={stats.delivered}
+            gradient="from-green-50 to-emerald-50"
+            borderColor="border-green-100"
+            labelColor="text-green-600"
+          />
+          <StatsCard
+            label="Cancelled/Failed"
+            value={stats.cancelled}
+            gradient="from-red-50 to-rose-50"
+            borderColor="border-red-100"
+            labelColor="text-red-600"
+          />
         </div>
 
+        {/* SEARCH & FILTERS */}
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="w-full sm:flex-1 sm:max-w-md">
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
-                placeholder="Search by order no, customer, vehicle or remarks..."
+                placeholder="Search by delivery no, customer ID, or sales order..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
               />
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={fetchOrders} className="p-2 border rounded-lg hover:bg-gray-50" title="Refresh">
-              <RefreshCwIcon className={`h-5 w-5 text-gray-600 ${loading ? "animate-spin" : ""}`} />
-            </button>
-            <button onClick={() => setShowFilters(!showFilters)} className="p-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2">
-              <FunnelIcon className="h-5 w-5 text-gray-600" />
-              <span className="text-sm text-gray-600">Filters</span>
-            </button>
-          </div>
+
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="p-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2"
+          >
+            <FunnelIcon className="h-5 w-5 text-gray-600" />
+            <span className="text-sm text-gray-600">Filters</span>
+          </button>
         </div>
 
+        {/* FILTERS */}
         {showFilters && (
           <div className="p-4 border rounded bg-gray-50 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as DeliveryStatus | "ALL" | "ACTIVE")}
+                onChange={(e) => setStatusFilter(e.target.value as DeliveryStatus | "ALL")}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
               >
-                <option value="ACTIVE">Active (on its way)</option>
                 <option value="ALL">All Statuses</option>
-                {DELIVERY_STATUSES.map((status) => (
-                  <option key={status} value={status}>{statusConfig(status).label}</option>
+                {STATUS_OPTIONS.map(status => (
+                  <option key={status} value={status}>
+                    {STATUS_CONFIG[status].label}
+                  </option>
                 ))}
               </select>
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Delivery Date
+              </label>
               <input
                 type="date"
                 value={dateFilter}
@@ -313,165 +555,286 @@ const DeliveryStatusPage: React.FC = () => {
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
               />
             </div>
+
             <div className="flex items-end">
-              {(statusFilter !== "ACTIVE" || dateFilter) && (
+              {(statusFilter !== "ALL" || dateFilter) && (
                 <button
                   onClick={() => {
-                    setStatusFilter("ACTIVE");
+                    setStatusFilter("ALL");
                     setDateFilter("");
                   }}
                   className="text-sm text-red-600 hover:text-red-800 font-medium"
                 >
-                  ✕ Reset Filters
+                  ✕ Clear All Filters
                 </button>
               )}
             </div>
           </div>
         )}
 
-        {!showFilters && statusFilter === "ACTIVE" && (
-          <p className="-mt-3 text-xs text-slate-500">
-            Showing deliveries still on their way. Use Filters to see delivered, returned or cancelled ones.
-          </p>
-        )}
-
-        <ReusableTable<DeliveryOrder>
-          data={filteredOrders}
+        {/* TABLE */}
+        <ReusableTable<Delivery>
+          data={filteredDeliveries}
           columns={tableColumns}
           pageSize={PAGE_SIZE}
-          defaultSortKey="deliveryDate"
-          defaultSortOrder="asc"
-          onRowClick={openTracking}
+          defaultSortKey="createdDate"
+          defaultSortOrder="desc"
           loading={loading}
           emptyState={
             <div className="flex flex-col items-center -mt-10">
-              <TruckIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-1">No deliveries to show</p>
-              <p className="text-gray-400 text-xs">Delivery orders created on the Delivery Order page appear here.</p>
+              <ClipboardListIcon className="h-12 w-12 text-gray-400 mb-3" />
+              <p className="text-gray-500 text-sm mb-2">No Deliveries Found</p>
+              {search || statusFilter !== "ALL" || dateFilter ? (
+                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
+              ) : (
+                <p className="text-gray-400 text-xs">Create a delivery to get started</p>
+              )}
             </div>
           }
         />
 
-        {/* ================= TRACKING MODAL ================= */}
-        {showTrackingModal && selected && (
-          <div className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-white p-6 rounded-xl w-full max-w-lg">
+        {/* ================= STATUS HISTORY MODAL ================= */}
+        {showHistoryModal && selectedDelivery && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-xl w-[600px] max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                    <ClipboardListIcon className="h-6 w-6 text-cyan-600" />
-                    {selected.deliveryOrderNumber}
-                  </h2>
-                  <p className="text-sm text-slate-500 mt-1">{lookups.customerName(selected.customerId, selected.customerName)}</p>
-                </div>
-                <button onClick={() => setShowTrackingModal(false)} className="p-1.5 hover:bg-gray-100 rounded-lg">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <ClipboardListIcon className="h-6 w-6 text-cyan-600" />
+                  Status History
+                </h2>
+                <button
+                  onClick={() => setShowHistoryModal(false)}
+                  className="p-1.5 hover:bg-gray-100 rounded-lg"
+                >
                   <XMarkIcon className="h-5 w-5 text-gray-500" />
                 </button>
               </div>
 
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-slate-500">Status</span><StatusBadge status={selected.status} /></div>
-                <div className="flex justify-between"><span className="text-slate-500">Due</span><span className="text-slate-700">{formatDateTime(selected.deliveryDate)}</span></div>
-                <div className="flex justify-between gap-4"><span className="text-slate-500">Vehicle</span><span className="text-slate-700 text-right">{selected.vehiclePlate ?? "Not assigned"}{selected.transporterName ? ` · ${selected.transporterName}` : ""}</span></div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-slate-500 flex items-center gap-1"><MapPinIcon className="h-3.5 w-3.5" />Address</span>
-                  <span className="text-slate-700 text-right">{selected.deliveryAddress ?? "Not set"}</span>
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-500">Delivery No</label>
+                    <p className="font-medium">{selectedDelivery.deliveryNo}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">Current Status</label>
+                    <p className="font-medium">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border ${STATUS_CONFIG[selectedDelivery.status].bgColor} ${STATUS_CONFIG[selectedDelivery.status].color}`}>
+                        {STATUS_CONFIG[selectedDelivery.status].icon}
+                        {STATUS_CONFIG[selectedDelivery.status].label}
+                      </span>
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">Latest update</p>
-                {selected.tracking ? (
-                  <>
-                    <p className="text-slate-700">
-                      {statusConfig(selected.tracking.currentStatus).label}
-                      {selected.tracking.remarks ? ` — ${selected.tracking.remarks}` : ""}
-                    </p>
-                    {selected.tracking.failureReason && <p className="text-red-600 text-xs mt-1">Reason: {selected.tracking.failureReason}</p>}
-                    <p className="text-xs text-slate-400 mt-1">
-                      {formatDateTime(selected.tracking.statusUpdatedAt)}
-                      {selected.tracking.updatedBy ? ` by ${selected.tracking.updatedBy}` : ""}
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-slate-500">No updates yet. The order is {statusConfig(selected.status).label.toLowerCase()}.</p>
-                )}
-              </div>
-
-              {nextStatuses(selected.status).length > 0 && (
-                <div className="mt-4 border-t pt-4 flex justify-end">
-                  <button
-                    onClick={() => {
-                      setShowTrackingModal(false);
-                      openStatus(selected);
-                    }}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium"
-                  >
-                    <ArrowRightLeftIcon className="h-4 w-4 inline mr-1" />
-                    Post an Update
-                  </button>
+              {loadingHistory ? (
+                <div className="text-center py-8">
+                  <RefreshCwIcon className="h-8 w-8 animate-spin text-gray-400 mx-auto" />
+                  <p className="text-gray-500 mt-2">Loading history...</p>
+                </div>
+              ) : statusHistory ? (
+                <div className="space-y-3 max-h-60 overflow-y-auto">
+                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-shrink-0 mt-1">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border ${STATUS_CONFIG[statusHistory.currentStatus]?.bgColor} ${STATUS_CONFIG[statusHistory.currentStatus]?.color}`}>
+                        {STATUS_CONFIG[statusHistory.currentStatus]?.icon}
+                        {STATUS_CONFIG[statusHistory.currentStatus]?.label}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      {statusHistory.remarks && (
+                        <p className="text-sm text-gray-700">{statusHistory.remarks}</p>
+                      )}
+                      {statusHistory.deliveredSuccessfully && (
+                        <p className="text-sm text-green-600">✅ Delivered Successfully</p>
+                      )}
+                      {statusHistory.failureReason && (
+                        <p className="text-sm text-red-600">❌ Failure: {statusHistory.failureReason}</p>
+                      )}
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-gray-500">
+                          Updated by: {statusHistory.updatedBy || 'System'}
+                        </span>
+                        <span className="text-xs text-gray-400">•</span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(statusHistory.statusUpdatedAt).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">No status history available</p>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* ================= STATUS UPDATE MODAL ================= */}
-        {showStatusModal && selected && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className="bg-white p-6 rounded-xl w-full max-w-md">
+        {/* ================= UPDATE STATUS MODAL ================= */}
+        {showStatusModal && selectedDelivery && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-xl w-[500px] max-h-[90vh] overflow-y-auto">
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <ArrowRightLeftIcon className="h-6 w-6 text-purple-600" />
-                Post an Update
+                <PencilIcon className="h-6 w-6 text-purple-600" />
+                Update Status
               </h2>
-              <div className="mb-4 flex items-center justify-between text-sm">
-                <span className="font-medium text-gray-700">{selected.deliveryOrderNumber}</span>
-                <StatusBadge status={selected.status} />
+
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-gray-500">Delivery No</label>
+                    <p className="font-medium text-sm">{selectedDelivery.deliveryNo}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">Current Status</label>
+                    <p className="font-medium">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border ${STATUS_CONFIG[selectedDelivery.status].bgColor} ${STATUS_CONFIG[selectedDelivery.status].color}`}>
+                        {STATUS_CONFIG[selectedDelivery.status].icon}
+                        {STATUS_CONFIG[selectedDelivery.status].label}
+                      </span>
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              <label className="block text-sm font-medium text-gray-700 mb-1">New Status *</label>
-              <select
-                value={newStatus}
-                onChange={(e) => setNewStatus(e.target.value as DeliveryStatus)}
-                className="w-full p-2 mb-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-              >
-                {nextStatuses(selected.status).map((status) => (
-                  <option key={status} value={status}>{statusConfig(status).label}</option>
-                ))}
-              </select>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  New Status *
+                </label>
+                <select
+                  value={newStatus}
+                  onChange={(e) => setNewStatus(e.target.value as DeliveryStatus)}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                >
+                  {STATUS_OPTIONS.map(status => (
+                    <option key={status} value={status}>
+                      {STATUS_CONFIG[status].label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-              <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
-              <textarea
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                rows={2}
-                placeholder="e.g. Left the warehouse at 9:40, signed by store manager"
-                className="w-full p-2 mb-4 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
-              />
-
-              {needsReason && (
-                <>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Reason *</label>
-                  <input
-                    value={failureReason}
-                    onChange={(e) => setFailureReason(e.target.value)}
-                    placeholder="e.g. Customer not available, damaged in transit"
-                    className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
-                  />
-                </>
+              {/* Show additional fields based on status */}
+              {newStatus === "DELIVERED" && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Delivered Successfully *
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        checked={deliveredSuccessfully === true}
+                        onChange={() => setDeliveredSuccessfully(true)}
+                        className="h-4 w-4 text-green-600"
+                      />
+                      <span className="text-sm">Yes</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        checked={deliveredSuccessfully === false}
+                        onChange={() => setDeliveredSuccessfully(false)}
+                        className="h-4 w-4 text-red-600"
+                      />
+                      <span className="text-sm">No</span>
+                    </label>
+                  </div>
+                </div>
               )}
 
+              {newStatus === "FAILED" && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Failure Reason *
+                  </label>
+                  <textarea
+                    value={failureReason}
+                    onChange={(e) => setFailureReason(e.target.value)}
+                    placeholder="Please provide the reason for failure..."
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    rows={2}
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Remarks (Optional)
+                </label>
+                <textarea
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  placeholder="Add any additional remarks..."
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  rows={2}
+                />
+              </div>
+
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-                <button type="button" onClick={() => setShowStatusModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium" disabled={submitting}>
+                <button
+                  type="button"
+                  onClick={() => setShowStatusModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleUpdateStatus}
+                  disabled={submitting}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submitting ? "Updating..." : "Update Status"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================= DELETE CONFIRMATION MODAL ================= */}
+        {showDeleteModal && selectedDelivery && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-xl w-[450px]">
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <TrashIcon className="h-6 w-6 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">Delete Delivery</h3>
+                  <p className="text-sm text-gray-500">
+                    Are you sure you want to delete delivery <span className="font-semibold text-gray-700">{selectedDelivery.deliveryNo}</span>?
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Customer: #{selectedDelivery.customerId} • Items: {selectedDelivery.items?.length || 0}
+                  </p>
+                  <p className="text-xs text-red-500 mt-2">⚠️ This action cannot be undone.</p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setSelectedDelivery(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  onClick={handleUpdateStatus}
-                  disabled={submitting || !newStatus}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleConfirmDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
                 >
-                  {submitting ? "Saving..." : "Save Update"}
+                  Delete Delivery
                 </button>
               </div>
             </div>

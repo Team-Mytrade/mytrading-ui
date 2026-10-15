@@ -68,6 +68,33 @@ const emptyForm: Vehicle = {
   status:       "Active",
 };
 
+// ─── Auth helpers (same pattern as CRM segments page) ──────────────────────────
+
+const getTenantIdFromToken = (token: string) => {
+  try {
+    const payload = token.split(".")[1];
+    const decoded = JSON.parse(atob(payload));
+    return decoded?.tenantId || null;
+  } catch {
+    return null;
+  }
+};
+
+const getTenantId = () => {
+  try {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      if (user?.tenantId) return user.tenantId;
+    }
+    const token = localStorage.getItem("accessToken");
+    if (token) return getTenantIdFromToken(token);
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const VehiclePage: React.FC = () => {
@@ -86,6 +113,9 @@ const VehiclePage: React.FC = () => {
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [deletingItem, setDeletingItem]       = useState<Vehicle | null>(null);
 
+  const token = localStorage.getItem("accessToken");
+  const tenantId = getTenantId();
+  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
   useEffect(() => { loadData(); }, []);
 
@@ -98,7 +128,10 @@ const VehiclePage: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const res = await axios.get<Vehicle[]>(API_URL);
+      const res = await axios.get<Vehicle[]>(API_URL, {
+        headers: authHeaders,
+        params: tenantId ? { tenantId } : {},
+      });
       setVehicles(res.data);
     } catch (err) {
       console.error("Failed to load vehicles:", err);
@@ -144,17 +177,17 @@ const VehiclePage: React.FC = () => {
 
     try {
       if (form.id) {
-        await axios.put(`${API_URL}/${form.id}`, payload);
+        await axios.put(`${API_URL}/${form.id}`, payload, { headers: authHeaders });
         ToasterService.success("Vehicle updated successfully!");
       } else {
-        await axios.post(API_URL, payload);
+        await axios.post(API_URL, payload, { headers: authHeaders });
         ToasterService.success("Vehicle added successfully!");
       }
       await loadData();
       resetForm();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error saving vehicle:", err);
-      ToasterService.error(err.response?.data?.message || "Failed to save vehicle");
+      ToasterService.error("Failed to save vehicle");
     } finally {
       setSaving(false);
     }
@@ -168,7 +201,7 @@ const VehiclePage: React.FC = () => {
   const confirmDelete = async () => {
     if (!deletingItem?.id) return;
     try {
-      await axios.delete(`${API_URL}/${deletingItem.id}`);
+      await axios.delete(`${API_URL}/${deletingItem.id}`, { headers: authHeaders });
       ToasterService.success("Vehicle deleted successfully!");
       setVehicles(prev => prev.filter(v => v.id !== deletingItem.id));
     } catch (err) {

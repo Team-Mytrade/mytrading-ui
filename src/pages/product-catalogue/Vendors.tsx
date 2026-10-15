@@ -42,6 +42,8 @@ const vendorConfig: PurchaseResourceConfig = {
   description: "Manage vendors from the Product Catalogue service.",
   endpoint: VENDORS,
   getByIdEndpoint: (row) => `${VENDORS}/${row.id}`,
+  // Opened from a link (e.g. vendor name in a PO): show only that vendor.
+  scope: { idParam: "vendorId", nameParam: "vendorName", label: "Vendor" },
   allowInlineActiveToggle: true,
 
   columns: [
@@ -55,30 +57,30 @@ const vendorConfig: PurchaseResourceConfig = {
   ],
 
   fields: [
-    { name: "vendorCode", section: "Basic Details", label: "Vendor Code (e.g. VEN-001)", required: true, readOnlyOnEdit: true },
-    { name: "name", section: "Basic Details", label: "Vendor Name", required: true },
-    { name: "legalName", section: "Basic Details", label: "Legal Name (registered company name)" },
-    { name: "contactName", section: "Contact", label: "Contact Person" },
-    { name: "contactEmail", section: "Contact", label: "Contact Email", type: "email" },
-    { name: "contactPhone", section: "Contact", label: "Contact Phone", type: "tel" },
+    { name: "vendorCode", section: "Basic Details", label: "Vendor Code (e.g. VEN-001)", required: true, readOnlyOnEdit: true, textCase: "upper", maxLength: 20 },
+    { name: "name", section: "Basic Details", label: "Vendor Name", required: true, textCase: "title", maxLength: 100 },
+    { name: "legalName", section: "Basic Details", label: "Legal Name (registered company name)", textCase: "title", maxLength: 150 },
+    { name: "contactName", section: "Contact", label: "Contact Person", textCase: "title", maxLength: 60 },
+    { name: "contactEmail", section: "Contact", label: "Contact Email", type: "email", textCase: "lower", maxLength: 100 },
+    { name: "contactPhone", section: "Contact", label: "Contact Phone", type: "tel", maxLength: 16 },
     { name: "website", section: "Contact", label: "Website" },
     // Address comes before Tax: the GST number must belong to the state chosen here.
     // Order goes from big to small: Country → State → City → PIN → street address,
     // because the State list and the GST/PIN checks depend on the country and state.
-    { name: "country", section: "Address", label: "Country" },
+    { name: "country", section: "Address", label: "Country", textCase: "title", maxLength: 60 },
     {
       name: "state", section: "Address",
       label: "State",
       type: "select",
       searchable: true, // type "t" → Tamil Nadu, Telangana, Tripura
-      placeholder: "search state",
+      placeholder: "Type state name, e.g. Tamil",
       options: INDIAN_STATE_OPTIONS,
     },
-    { name: "city", section: "Address", label: "City" },
-    { name: "postalCode", section: "Address", label: "PIN Code" },
+    { name: "city", section: "Address", label: "City", textCase: "title", maxLength: 60 },
+    { name: "postalCode", section: "Address", label: "PIN Code", maxLength: 6 },
     { name: "address", section: "Address", label: "Address (building, street, area)", type: "textarea", gridClassName: "md:col-span-2" },
-    { name: "gstNumber", section: "Tax & Terms", label: "GST Number" },
-    { name: "panNumber", section: "Tax & Terms", label: "PAN Number (e.g. ABCDE1234F)" },
+    { name: "gstNumber", section: "Tax & Terms", label: "GST Number (first 2 digits = state code, e.g. 33 for Tamil Nadu)", textCase: "upper", maxLength: 15 },
+    { name: "panNumber", section: "Tax & Terms", label: "PAN Number (e.g. ABCDE1234F)", textCase: "upper", maxLength: 10 },
     {
       name: "paymentTerms", section: "Tax & Terms",
       label: "Payment Terms",
@@ -93,9 +95,9 @@ const vendorConfig: PurchaseResourceConfig = {
       placeholderOption: "Select Currency",
       options: CURRENCIES.map((value) => ({ value, label: value })),
     },
-    { name: "bankName", section: "Bank Details", label: "Bank Name" },
-    { name: "bankAccountNumber", section: "Bank Details", label: "Bank Account Number" },
-    { name: "bankIfscCode", section: "Bank Details", label: "Bank IFSC Code (e.g. HDFC0001234)" },
+    { name: "bankName", section: "Bank Details", label: "Bank Name", textCase: "title", maxLength: 100 },
+    { name: "bankAccountNumber", section: "Bank Details", label: "Bank Account Number", maxLength: 18 },
+    { name: "bankIfscCode", section: "Bank Details", label: "Bank IFSC Code (e.g. HDFC0001234)", textCase: "upper", maxLength: 11 },
     { name: "active", section: "Basic Details", label: "Active", type: "checkbox", defaultValue: true },
   ],
 

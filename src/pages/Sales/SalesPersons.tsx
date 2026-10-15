@@ -16,7 +16,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import { FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
-import { usePermissions } from "../../access/usePermissions";
+import { useStatsCardFilter } from "../../components/common/StatsCardFilter";
 
 type SalesPerson = {
   id: number;

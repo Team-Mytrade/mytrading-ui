@@ -28,36 +28,37 @@ import {
   ClockIcon,
   PackageIcon,
   MapPinIcon,
-  ListChecksIcon,
-  XCircleIcon,
-  ArrowRightLeftIcon,
 } from "lucide-react";
 import { todayIso } from "../../utils/localDate";
-import { apiError, useDeliveryLookups } from "./deliveryShared";
-import { usePermissions } from "../../access/usePermissions";
 
 // ================= TYPES =================
 
-// Moves forward through these steps (steps may be skipped); can be cancelled until delivered
-type ShipmentStatus = "DRAFT" | "PICKED" | "PACKED" | "SHIPPED" | "DELIVERED" | "CANCELLED";
+type ShipmentStatus = "DRAFT" | "SHIPPED" | "DELIVERED";
 
 interface ShipmentItem {
   id?: number;
   productId: number;
   shippedQty: number;
+  createdDate?: string;
+  updatedDate?: string;
+  createdBy?: string;
+  tenantId?: string;
+  shipment?: string;
 }
 
-// ShipmentResponseDTO
 interface Shipment {
   id: number;
-  createdDate?: string;
+  createdDate: string;
+  updatedDate: string;
+  createdBy: string;
+  tenantId: string;
   shipmentNo: string;
   shipmentDate: string;
-  salesOrderId?: number;
-  reservationId?: number;
-  warehouseId?: number;
-  carrier?: string;
-  trackingNumber?: string;
+  salesOrderId: number;
+  reservationId: number;
+  warehouseId: number;
+  carrier: string;
+  trackingNumber: string;
   status: ShipmentStatus;
   active: boolean;
   items: ShipmentItem[];
@@ -83,13 +84,15 @@ const API = {
   shipmentById: (id: number) => `${API_BASE_URL}/shipments/${id}`,
   shipmentStatus: (id: number) => `${API_BASE_URL}/shipments/${id}/status`,
   warehouses: "/v1/api/inventory/warehouses",
+  customers: `${API_BASE_URL}/customers`,
+  salesOrders: `${API_BASE_URL}/sales-orders`,
+  products: `${API_BASE_URL}/products`,
 };
 
 // ================= CONSTANTS =================
 
 const PAGE_SIZE = 10;
-const FLOW: ShipmentStatus[] = ["DRAFT", "PICKED", "PACKED", "SHIPPED", "DELIVERED"];
-const STATUS_OPTIONS: ShipmentStatus[] = [...FLOW, "CANCELLED"];
+const STATUS_OPTIONS: ShipmentStatus[] = ["DRAFT", "SHIPPED", "DELIVERED"];
 
 const STATUS_CONFIG: Record<ShipmentStatus, { color: string; bgColor: string; icon: React.ReactNode; label: string }> = {
   DRAFT: {
@@ -97,18 +100,6 @@ const STATUS_CONFIG: Record<ShipmentStatus, { color: string; bgColor: string; ic
     bgColor: "bg-yellow-50 border-yellow-200",
     icon: <ClockIcon className="h-3 w-3" />,
     label: "Draft"
-  },
-  PICKED: {
-    color: "text-sky-700",
-    bgColor: "bg-sky-50 border-sky-200",
-    icon: <ListChecksIcon className="h-3 w-3" />,
-    label: "Picked"
-  },
-  PACKED: {
-    color: "text-indigo-700",
-    bgColor: "bg-indigo-50 border-indigo-200",
-    icon: <PackageIcon className="h-3 w-3" />,
-    label: "Packed"
   },
   SHIPPED: {
     color: "text-blue-700",
@@ -121,28 +112,12 @@ const STATUS_CONFIG: Record<ShipmentStatus, { color: string; bgColor: string; ic
     bgColor: "bg-green-50 border-green-200",
     icon: <CheckCircleIcon className="h-3 w-3" />,
     label: "Delivered"
-  },
-  CANCELLED: {
-    color: "text-red-700",
-    bgColor: "bg-red-50 border-red-200",
-    icon: <XCircleIcon className="h-3 w-3" />,
-    label: "Cancelled"
   }
 };
-
-// Same rules as the service: forward only, cancel any time before delivery
-const nextStatuses = (current: ShipmentStatus): ShipmentStatus[] =>
-  current === "DELIVERED" || current === "CANCELLED"
-    ? []
-    : [...FLOW.slice(FLOW.indexOf(current) + 1), "CANCELLED"];
-const isEditable = (s: Shipment) => ["DRAFT", "PICKED", "PACKED"].includes(s.status);
-const isDeletable = (s: Shipment) => s.status === "DRAFT" || s.status === "CANCELLED";
 
 // ================= COMPONENT =================
 
 const Shipment: React.FC = () => {
-  const { canCreate, canDelete, canUpdate } = usePermissions();
-  const lookups = useDeliveryLookups(["products"]);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -180,9 +155,12 @@ const Shipment: React.FC = () => {
     try {
       const response = await axios.get(API.shipments);
       setShipments(response.data || []);
+      if (response.data?.length > 0) {
+        toast.success(`Loaded ${response.data.length} shipment(s)`);
+      }
     } catch (err: any) {
       console.error("Error fetching shipments:", err);
-      toast.error(apiError(err, "Failed to fetch shipments!"));
+      toast.error(err.response?.data?.message || "Failed to fetch shipments!");
     } finally {
       setLoading(false);
     }
@@ -192,35 +170,27 @@ const Shipment: React.FC = () => {
     try {
       const response = await axios.get(API.warehouses);
       setWarehouses(response.data || []);
-    } catch (err: any) {
-      // Without inventory access the warehouse can still be shown by id
+       if (response.data?.length > 0) {
+      console.log(`✅ Loaded ${response.data.length} warehouses`);
+      }
+     } catch (err: any) {
       console.error("Error fetching warehouses:", err);
+      toast.error("Failed to load warehouses");
     }
   };
-
-  const warehouseName = (id?: number) =>
-    id ? warehouses.find((w) => w.id === id)?.name ?? `Warehouse #${id}` : "-";
+  useEffect(() => {
+  fetchShipments();
+  fetchWarehouses(); 
+}, []);
 
   const createShipment = async (data: any) => {
     try {
       const response = await axios.post(API.shipments, data);
-      toast.success(`Shipment ${response.data?.shipmentNo ?? ""} created`);
+      toast.success("Shipment created successfully!");
       return response.data;
     } catch (err: any) {
       console.error("Error creating shipment:", err);
-      toast.error(apiError(err, "Failed to create shipment!"));
-      throw err;
-    }
-  };
-
-  const updateShipment = async (id: number, data: any) => {
-    try {
-      const response = await axios.put(API.shipmentById(id), data);
-      toast.success("Shipment updated");
-      return response.data;
-    } catch (err: any) {
-      console.error("Error updating shipment:", err);
-      toast.error(apiError(err, "Failed to update shipment!"));
+      toast.error(err.response?.data?.message || "Failed to create shipment!");
       throw err;
     }
   };
@@ -228,11 +198,11 @@ const Shipment: React.FC = () => {
   const updateShipmentStatus = async (id: number, status: ShipmentStatus) => {
     try {
       const response = await axios.put(API.shipmentStatus(id), { status });
-      toast.success(`Status updated to ${STATUS_CONFIG[status].label}`);
+      toast.success(`Status updated to ${status}!`);
       return response.data;
     } catch (err: any) {
       console.error("Error updating status:", err);
-      toast.error(apiError(err, "Failed to update status!"));
+      toast.error(err.response?.data?.message || "Failed to update status!");
       throw err;
     }
   };
@@ -246,7 +216,7 @@ const Shipment: React.FC = () => {
       await fetchShipments();
     } catch (err: any) {
       console.error("Error deleting shipment:", err);
-      toast.error(apiError(err, "Failed to delete shipment!"));
+      toast.error(err.response?.data?.message || "Failed to delete shipment!");
       throw err;
     }
   };
@@ -279,7 +249,7 @@ const Shipment: React.FC = () => {
 
   const getStats = () => ({
     total: shipments.length,
-    preparing: shipments.filter(s => ["DRAFT", "PICKED", "PACKED"].includes(s.status)).length,
+    draft: shipments.filter(s => s.status === "DRAFT").length,
     shipped: shipments.filter(s => s.status === "SHIPPED").length,
     delivered: shipments.filter(s => s.status === "DELIVERED").length,
   });
@@ -292,7 +262,7 @@ const Shipment: React.FC = () => {
     setEditingId(null);
     setForm({
       id: null,
-      shipmentNo: "", // assigned by the service on save
+      shipmentNo: `SHIP-${Date.now()}`,
       trackingNumber: "",
       carrier: "",
       shipmentDate: todayIso(),
@@ -339,7 +309,7 @@ const Shipment: React.FC = () => {
 
   const handleOpenStatusModal = (shipment: Shipment) => {
     setSelectedShipment(shipment);
-    setNewStatus(nextStatuses(shipment.status)[0] ?? shipment.status);
+    setNewStatus(shipment.status);
     setShowStatusModal(true);
   };
 
@@ -394,6 +364,11 @@ const Shipment: React.FC = () => {
   const handleSaveShipment = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!form.shipmentNo) {
+      toast.warning("Shipment No is required!");
+      return;
+    }
+
     if (!form.warehouseId || form.warehouseId <= 0) {
       toast.warning("Please select a warehouse!");
       return;
@@ -415,24 +390,31 @@ const Shipment: React.FC = () => {
       }
     }
 
-    // Number, status, tenant and audit fields are set by the service
     const payload = {
+      shipmentNo: form.shipmentNo,
       shipmentDate: form.shipmentDate || todayIso(),
-      salesOrderId: Number(form.salesOrderId) || undefined,
-      reservationId: Number(form.reservationId) || undefined,
+      salesOrderId: Number(form.salesOrderId) || 0,
+      reservationId: Number(form.reservationId) || 0,
       warehouseId: Number(form.warehouseId),
-      carrier: form.carrier.trim() || undefined,
-      trackingNumber: form.trackingNumber.trim() || undefined,
+      carrier: form.carrier || "",
+      trackingNumber: form.trackingNumber || "",
+      status: form.status,
+      active: true,
+      createdBy: localStorage.getItem("username") || "ADMIN",
+      tenantId: "TENANT-001",
       items: form.items.map(item => ({
         productId: Number(item.productId),
         shippedQty: Number(item.shippedQty),
       })),
     };
 
+    console.log("📦 SAVE PAYLOAD:", JSON.stringify(payload, null, 2));
+
     setSubmitting(true);
     try {
       if (editingId) {
-        await updateShipment(editingId, payload);
+        // For edit, update status (since full update might not be available)
+        await updateShipmentStatus(editingId, form.status);
       } else {
         await createShipment(payload);
       }
@@ -568,9 +550,9 @@ const Shipment: React.FC = () => {
       headerClassName: "w-[12%] text-left",
       className: "w-[12%]",
       render: (row) => (
-        <div className="flex items-center gap-1.5 min-w-0">
-          <MapPinIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-          <span className="text-sm text-slate-600 truncate">{warehouseName(row.warehouseId)}</span>
+        <div className="flex items-center gap-1.5">
+          <MapPinIcon className="h-3.5 w-3.5 text-slate-400" />
+          <span className="text-sm text-slate-600">#{row.warehouseId}</span>
         </div>
       ),
     },
@@ -590,36 +572,22 @@ const Shipment: React.FC = () => {
           >
             <EyeIcon className="h-4 w-4" />
           </button>
-          {isEditable(row) && (
-            canUpdate && <button
-              type="button"
-              onClick={() => handleEditShipment(row)}
-              className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-              title="Edit Shipment"
-            >
-              <PencilIcon className="h-4 w-4" />
-            </button>
-          )}
-          {nextStatuses(row.status).length > 0 && (
-            canUpdate && <button
-              type="button"
-              onClick={() => handleOpenStatusModal(row)}
-              className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-purple-50 hover:text-purple-600"
-              title="Change Status"
-            >
-              <ArrowRightLeftIcon className="h-4 w-4" />
-            </button>
-          )}
-          {isDeletable(row) && (
-            canDelete && <button
-              type="button"
-              onClick={() => handleDeleteClick(row)}
-              className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-              title="Delete Shipment"
-            >
-              <TrashIcon className="h-4 w-4" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => handleOpenStatusModal(row)}
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-purple-50 hover:text-purple-600"
+            title="Update Status"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDeleteClick(row)}
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+            title="Delete Shipment"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
         </div>
       ),
     },
@@ -649,8 +617,8 @@ const Shipment: React.FC = () => {
             labelColor="text-cyan-600"
           />
           <StatsCard
-            label="Preparing"
-            value={stats.preparing}
+            label="Draft"
+            value={stats.draft}
             gradient="from-yellow-50 to-amber-50"
             borderColor="border-yellow-100"
             labelColor="text-yellow-600"
@@ -770,9 +738,9 @@ const Shipment: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <FloatingInput
-                  label="Shipment No"
+                  label="Shipment No *"
                   name="shipmentNo"
-                  value={form.shipmentNo || "Assigned on save"}
+                  value={form.shipmentNo}
                   onChange={handleChange}
                   disabled
                 />
@@ -823,8 +791,18 @@ const Shipment: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Status
                   </label>
-                  {/* New shipments start as Draft; later steps use Change Status */}
-                  <p className="p-2 text-sm text-gray-600">{STATUS_CONFIG[form.status].label}</p>
+                  <select
+                    name="status"
+                    value={form.status}
+                    onChange={handleChange}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                  >
+                    {STATUS_OPTIONS.map(status => (
+                      <option key={status} value={status}>
+                        {STATUS_CONFIG[status].label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <FloatingInput
@@ -871,41 +849,22 @@ const Shipment: React.FC = () => {
                   <div className="space-y-2 max-h-60 overflow-y-auto">
                     {form.items.map((item, index) => (
                       <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                        {lookups.products.length > 0 ? (
-                          <select
-                            value={item.productId || ""}
-                            onChange={(e) => handleItemChange(index, 'productId', Number(e.target.value))}
-                            className="flex-1 min-w-0 p-1.5 border rounded text-sm bg-white"
-                            required
-                            aria-label="Product"
-                          >
-                            <option value="">Choose a product</option>
-                            {item.productId > 0 && !lookups.products.some((p) => p.id === item.productId) && (
-                              <option value={item.productId}>{lookups.productName(item.productId)}</option>
-                            )}
-                            {lookups.products.map((p) => (
-                              <option key={p.id} value={p.id}>{p.productCode ? `${p.productName} (${p.productCode})` : p.productName}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            type="number"
-                            placeholder="Product ID *"
-                            value={item.productId || ''}
-                            onChange={(e) => handleItemChange(index, 'productId', Number(e.target.value))}
-                            className="w-1/3 p-1 border rounded text-sm"
-                            required
-                          />
-                        )}
+                        <input
+                          type="number"
+                          placeholder="Product ID *"
+                          value={item.productId || ''}
+                          onChange={(e) => handleItemChange(index, 'productId', Number(e.target.value))}
+                          className="w-1/3 p-1 border rounded text-sm"
+                          required
+                        />
                         <input
                           type="number"
                           placeholder="Qty *"
                           value={item.shippedQty || ''}
                           onChange={(e) => handleItemChange(index, 'shippedQty', Number(e.target.value))}
-                          className="w-28 p-1.5 border rounded text-sm"
+                          className="w-1/4 p-1 border rounded text-sm"
                           required
-                          min="0"
-                          step="any"
+                          min="1"
                         />
                         <button
                           type="button"
@@ -988,15 +947,19 @@ const Shipment: React.FC = () => {
                 </div>
                 <div>
                   <label className="text-xs text-gray-500">Sales Order</label>
-                  <p className="font-medium">{selectedShipment.salesOrderId ? `SO #${selectedShipment.salesOrderId}` : "-"}</p>
+                  <p className="font-medium">SO-{selectedShipment.salesOrderId}</p>
                 </div>
                 <div>
                   <label className="text-xs text-gray-500">Warehouse</label>
-                  <p className="font-medium">{warehouseName(selectedShipment.warehouseId)}</p>
+                  <p className="font-medium">#{selectedShipment.warehouseId}</p>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500">Reservation</label>
-                  <p className="font-medium">{selectedShipment.reservationId ? `#${selectedShipment.reservationId}` : "-"}</p>
+                  <label className="text-xs text-gray-500">Reservation ID</label>
+                  <p className="font-medium">#{selectedShipment.reservationId}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Active</label>
+                  <p className="font-medium">{selectedShipment.active ? '✅ Yes' : '❌ No'}</p>
                 </div>
               </div>
 
@@ -1009,7 +972,7 @@ const Shipment: React.FC = () => {
                   {selectedShipment.items?.map((item, index) => (
                     <div key={index} className="flex justify-between items-center bg-gray-50 p-2 rounded">
                       <div>
-                        <span className="font-medium text-sm">{lookups.productName(item.productId)}</span>
+                        <span className="font-medium text-sm">Product #{item.productId}</span>
                       </div>
                       <div className="text-sm">
                         <span className="text-gray-500">Qty: {item.shippedQty}</span>
@@ -1020,49 +983,32 @@ const Shipment: React.FC = () => {
               </div>
 
               <div className="mt-4 border-t pt-4 flex justify-end gap-2">
-                {isEditable(selectedShipment) && (
-                  canUpdate && <button
-                    onClick={() => {
-                      setShowDetailModal(false);
-                      handleEditShipment(selectedShipment);
-                    }}
-                    className="px-4 py-2 bg-cyan-50 text-cyan-700 rounded-lg hover:bg-cyan-100 text-sm font-medium"
-                  >
-                    <PencilIcon className="h-4 w-4 inline mr-1" />
-                    Edit
-                  </button>
-                )}
-                {nextStatuses(selectedShipment.status).length > 0 && (
-                  canUpdate && <button
-                    onClick={() => {
-                      setShowDetailModal(false);
-                      handleOpenStatusModal(selectedShipment);
-                    }}
-                    className="px-4 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 text-sm font-medium"
-                  >
-                    <ArrowRightLeftIcon className="h-4 w-4 inline mr-1" />
-                    Change Status
-                  </button>
-                )}
-                {isDeletable(selectedShipment) && (
-                  canDelete && <button
-                    onClick={() => {
-                      setShowDetailModal(false);
-                      handleDeleteClick(selectedShipment);
-                    }}
-                    className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-medium"
-                  >
-                    <TrashIcon className="h-4 w-4 inline mr-1" />
-                    Delete
-                  </button>
-                )}
+                <button
+                  onClick={() => {
+                    setShowDetailModal(false);
+                    handleOpenStatusModal(selectedShipment);
+                  }}
+                  className="px-4 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 text-sm font-medium"
+                >
+                  <PencilIcon className="h-4 w-4 inline mr-1" />
+                  Update Status
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDetailModal(false);
+                    handleDeleteClick(selectedShipment);
+                  }}
+                  className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-medium"
+                >
+                  <TrashIcon className="h-4 w-4 inline mr-1" />
+                  Delete
+                </button>
               </div>
 
-              {selectedShipment.createdDate && (
-                <div className="mt-4 border-t pt-4 text-xs text-gray-400">
-                  <p>Created: {new Date(selectedShipment.createdDate).toLocaleString()}</p>
-                </div>
-              )}
+              <div className="mt-4 border-t pt-4 text-xs text-gray-400">
+                <p>Created: {new Date(selectedShipment.createdDate).toLocaleString()} by {selectedShipment.createdBy}</p>
+                <p>Updated: {new Date(selectedShipment.updatedDate).toLocaleString()}</p>
+              </div>
             </div>
           </div>
         )}
@@ -1147,7 +1093,7 @@ const Shipment: React.FC = () => {
                   onChange={(e) => setNewStatus(e.target.value as ShipmentStatus)}
                   className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                 >
-                  {nextStatuses(selectedShipment.status).map(status => (
+                  {STATUS_OPTIONS.map(status => (
                     <option key={status} value={status}>
                       {STATUS_CONFIG[status].label}
                     </option>
