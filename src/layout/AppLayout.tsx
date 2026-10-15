@@ -20,7 +20,7 @@ const LayoutContent: React.FC = () => {
   const location = useLocation();
   const { access } = useContext(AuthContext);
   const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
-  const scrollablePages = ["/purchase-reports", "/rolesPermissions", "/delivery_dashboard", "/profile", "/vehicle-tracking"];
+  const scrollablePages = ["/purchase-reports", "/rolesPermissions", "/delivery_dashboard", "/profile"];
   const isScrollablePage =
     scrollablePages.includes(location.pathname) ||
     location.pathname.startsWith("/att_leaveDashboard") ||

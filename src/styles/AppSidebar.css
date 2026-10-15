@@ -23,46 +23,22 @@
 .app-sidebar__navigation::-webkit-scrollbar { width: 5px; }
 .app-sidebar__navigation::-webkit-scrollbar-thumb { background: var(--thumb); border-radius: 999px; }
 
-/* Rail: an edge bar marks the module whose panel is open. */
-.app-sidebar__rail-button { position: relative; }
-.app-sidebar__rail-button.is-active::before { position: absolute; top: 8px; bottom: 8px; left: -11px; width: 3px; border-radius: 0 3px 3px 0; background: var(--active); content: ""; }
-.app-sidebar__rail-button:focus-visible, .app-sidebar__collapse:focus-visible { outline: 2px solid #6d9bf1; outline-offset: 2px; }
-
-/* Module panel: a sticky header, uppercase section labels and icon + label rows. */
-.app-sidebar > .app-sidebar__navigation { overflow-x: hidden; overflow-y: auto; padding: 0 10px 16px; }
-.app-nav__header { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 11px; margin: 0 -10px 4px; padding: 16px 16px 14px; background: var(--panel); border-bottom: 1px solid var(--line); }
-.app-nav__header-icon { display: grid; width: 34px; height: 34px; flex: none; place-items: center; color: var(--active); border-radius: 9px; background: var(--active-soft); }
-.app-nav__header-icon svg { width: 18px; height: 18px; }
-.app-nav__header-text { display: flex; min-width: 0; flex-direction: column; }
-.app-nav__title { overflow: hidden; color: var(--ink); font-size: 14px; font-weight: 600; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
-.app-nav__meta { color: var(--muted); font-size: 11.5px; line-height: 1.3; }
-.app-nav__list { display: flex; flex-direction: column; gap: 2px; }
-.app-nav__section { margin: 14px 10px 4px; color: var(--section); font-size: 10.5px; font-weight: 600; letter-spacing: .08em; line-height: 1.4; text-transform: uppercase; }
-.app-nav__list > .app-nav__section:first-child { margin-top: 10px; }
-.app-nav__link { position: relative; display: flex; width: 100%; min-height: 36px; align-items: center; gap: 10px; padding: 7px 10px; color: var(--text); border-radius: 8px; font-size: 13px; font-weight: 500; line-height: 1.25; text-align: left; transition: background .15s ease, color .15s ease; }
-.app-nav__link:hover { color: #0f172a; background: var(--hover); }
-.app-nav__link:focus-visible { outline: 2px solid #6d9bf1; outline-offset: -2px; }
-.app-nav__icon { display: grid; width: 18px; height: 18px; flex: none; place-items: center; color: var(--icon); transition: color .15s ease; }
-.app-nav__icon svg { width: 16px; height: 16px; }
-.app-nav__link:hover .app-nav__icon { color: var(--ink); }
-/* The panel is narrow (about 190px), so long names wrap to a second line instead of losing words. */
-.app-nav__label { display: -webkit-box; min-width: 0; flex: 1; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
-.app-nav__link.is-active { color: var(--active-ink); background: var(--active-soft); font-weight: 600; }
-.app-nav__link.is-active::before { position: absolute; top: 8px; bottom: 8px; left: 0; width: 3px; border-radius: 0 3px 3px 0; background: var(--active); content: ""; }
-.app-nav__link.is-active .app-nav__icon, .app-nav__toggle.has-active .app-nav__icon { color: var(--active); }
-.app-nav__toggle.has-active { color: var(--active-ink); }
-.app-nav__chevron { width: 15px; height: 15px; flex: none; color: var(--muted); transition: transform .2s ease; }
-.app-nav__chevron.is-open { transform: rotate(180deg); }
-/* Nested pages slide open under their group, hanging off a guide line. */
-.app-nav__children { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows .25s ease, visibility 0s linear .25s; }
-.app-nav__children.is-open { grid-template-rows: 1fr; visibility: visible; transition: grid-template-rows .25s ease, visibility 0s; }
-.app-nav__children-inner { display: flex; min-height: 0; flex-direction: column; gap: 2px; overflow: hidden; margin-left: 19px; padding-left: 10px; border-left: 1px solid var(--line); }
-.app-nav__link--nested { min-height: 32px; padding: 6px 10px; font-size: 12.5px; }
-.app-nav__link--nested:first-child { margin-top: 2px; }
-.app-nav__link--nested.is-active::before { top: 6px; bottom: 6px; left: -10px; width: 2px; border-radius: 2px; }
-@media (prefers-reduced-motion: reduce) { .app-nav__link, .app-nav__icon, .app-nav__chevron, .app-nav__children, .app-nav__children.is-open { transition: none; } }
-.app-sidebar .app-sidebar__profile { border-color: var(--line); background: var(--panel); }
-.app-sidebar__profile a:hover { background: var(--hover); }
+/* Module rows are text-first because their icon is already represented in the rail. */
+.app-sidebar__menu .app-sidebar__menu-icon { display: none; }
+.app-sidebar__menu > .relative > button { display: none; }
+.app-sidebar__menu > .relative > button, .app-sidebar__menu > div > a { min-height: 39px; color: #d4dfe9; border: 1px solid transparent; font-weight: 500; }
+.app-sidebar__menu > .relative > button > div { width: 100%; }
+.app-sidebar__menu > .relative > button:hover, .app-sidebar__menu > div > a:hover { color: #fff; background: #2b4054; }
+.app-sidebar__menu > .relative > button.bg-cyan-50, .app-sidebar__menu > div > a.bg-cyan-50 { color: #fff; border-color: transparent; background: var(--active-soft); box-shadow: none; }
+/* Selected submodule links use a solid blue state so they remain unmistakable in the dark panel. */
+.app-sidebar__menu a.bg-cyan-50 { color: #fff; border-color: transparent; background: var(--active); box-shadow: 0 4px 10px rgba(35, 81, 163, .24); }
+.app-sidebar__menu .text-gray-500 { color: var(--muted); }
+.app-sidebar__menu .hover\:bg-gray-50:hover, .app-sidebar__menu .hover\:bg-gray-100\/60:hover { color: #fff; background: #2b4054; }
+.app-sidebar__menu .bg-gray-100 { color: #fff; background: #2b4054; }
+.app-sidebar__menu .border-cyan-600 { border-color: var(--active); }
+.app-sidebar__menu .text-cyan-600 { color: var(--active); }
+.app-sidebar .app-sidebar__profile { border-color: rgba(255, 255, 255, .08); background: var(--panel); }
+.app-sidebar__profile a:hover { background: #2b4054; }
 .app-sidebar__profile .text-gray-900 { color: var(--ink); }
 .app-sidebar__profile .text-gray-500 { color: var(--muted); }
 .app-sidebar__rail-tooltip { position: fixed; z-index: 110; padding: 7px 10px; color: #fff; border-radius: 6px; background: #1e293b; box-shadow: 0 8px 18px rgba(15, 23, 42, .25); font-size: 12px; font-weight: 600; pointer-events: none; transform: translateY(-50%); white-space: nowrap; }
@@ -81,17 +57,12 @@
 .dark .app-sidebar__collapse { color: #cbd5e1; border-color: #343434; background: #252525; box-shadow: none; }
 .dark .app-sidebar__collapse:hover { color: #fff; border-color: #5b8ceb; background: #303030; }
 .dark .app-sidebar .app-sidebar__brand, .dark .app-sidebar__navigation, .dark .app-sidebar .app-sidebar__profile { background: #1d1d1d; border-color: #303030; }
-.dark .app-nav__header { border-color: #2c2c2c; }
-.dark .app-nav__header-icon { color: #9cbcff; }
-.dark .app-nav__section { color: #7d8794; }
-.dark .app-nav__link { color: #cbd5e1; }
-.dark .app-nav__link:hover { color: #fff; background: #292929; }
-.dark .app-nav__icon { color: #8b95a3; }
-.dark .app-nav__link:hover .app-nav__icon { color: #dbe6f0; }
-.dark .app-nav__link.is-active { color: #fff; background: rgba(61, 115, 221, .2); }
-.dark .app-nav__link.is-active .app-nav__icon, .dark .app-nav__toggle.has-active .app-nav__icon { color: #9cbcff; }
-.dark .app-nav__children-inner { border-color: #333; }
-.dark .app-sidebar__profile .text-gray-500 { color: #94a3b8; }
+.dark .app-sidebar__menu > .relative > button, .dark .app-sidebar__menu > div > a { color: #cbd5e1; }
+.dark .app-sidebar__menu > .relative > button:hover, .dark .app-sidebar__menu > div > a:hover { color: #fff; background: #292929; }
+.dark .app-sidebar__menu > .relative > button.bg-cyan-50, .dark .app-sidebar__menu > div > a.bg-cyan-50, .dark .app-sidebar__menu a.bg-cyan-50 { color: #fff; border-color: transparent; background: #3d73dd; }
+.dark .app-sidebar__menu .text-gray-500, .dark .app-sidebar__profile .text-gray-500 { color: #94a3b8; }
+.dark .app-sidebar__menu .bg-gray-100 { color: #fff; background: #292929; }
+.dark .app-sidebar__menu .hover\:bg-gray-50:hover, .dark .app-sidebar__menu .hover\:bg-gray-100\/60:hover { color: #fff; background: #292929; }
 .dark .app-sidebar__profile a:hover { background: #292929; }
 .dark .app-sidebar__profile .text-gray-900 { color: #f1f5f9; }
 .dark .app-sidebar__rail-tooltip, .dark .app-sidebar__rail-tooltip::before { background: #111; }

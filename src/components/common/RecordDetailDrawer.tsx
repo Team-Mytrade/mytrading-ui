@@ -1,4 +1,4 @@
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import CloseButton from "./CloseButton";
 import { useEffect } from "react";
 import "../../styles/RecordDetailDrawer.css";
 
@@ -11,10 +11,22 @@ interface RecordDetailDrawerProps {
   drawerWidth?: number;
   isResizing?: boolean;
   resizeHandle?: React.ReactNode;
+  /** Buttons shown in the header, just before the close (✕) button — e.g. an Edit icon. */
+  headerActions?: React.ReactNode;
 }
 
 /** Reusable, non-navigating detail view for table rows. */
-const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({ isOpen, title, subtitle, onClose, children, drawerWidth, isResizing = false, resizeHandle }) => {
+const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({
+  isOpen,
+  title,
+  subtitle,
+  onClose,
+  children,
+  drawerWidth,
+  isResizing = false,
+  resizeHandle,
+  headerActions,
+}) => {
   useEffect(() => {
     if (!isOpen) return;
     const originalOverflow = document.body.style.overflow;
@@ -36,7 +48,10 @@ const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({ isOpen, title, 
         {resizeHandle}
         <header>
           <div><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div>
-          <button type="button" onClick={onClose} aria-label="Close details"><XMarkIcon className="h-5 w-5" /></button>
+          <div className="flex items-center gap-1">
+            {headerActions}
+            <CloseButton onClick={onClose} label="Close details" />
+          </div>
         </header>
         <div className="record-detail-drawer__body">{children}</div>
       </aside>

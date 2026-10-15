@@ -44,9 +44,11 @@ type Warehouse = {
   stockEntries?: any[];
   stockCount?: number;
   status?: WarehouseStatus;
+  active?: boolean;
 };
 
 type WarehouseForm = {
+  code: string;
   name: string;
   locationType: string;
   status: string;
@@ -62,12 +64,8 @@ const WAREHOUSE_ROUTE = "/warehouse";
 const FALLBACK_LOCATION_TYPES = ["MAIN", "DISTRIBUTION", "TRANSIT", "RETURN_CENTER"];
 const FALLBACK_STATUS = ["ACTIVE", "INACTIVE"];
 
-const STATIC_CREATED_BY = "system-admin";
-const STATIC_TENANT_ID = "tenant-001";
-
-const LOCAL_STATUS_STORAGE_KEY = "warehouseLocalStatus";
-
 const emptyForm: WarehouseForm = {
+  code: "",
   name: "",
   locationType: "",
   status: "ACTIVE",
@@ -119,34 +117,6 @@ function getStatusColor(status: string) {
     default:
       return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
   }
-}
-
-// ---------------------------------------------------------------------------
-// Local-only status storage
-// ---------------------------------------------------------------------------
-
-function loadLocalStatusMap(): Record<number, WarehouseStatus> {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(LOCAL_STATUS_STORAGE_KEY) || "{}");
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveLocalStatus(id: number, status: WarehouseStatus) {
-  if (typeof id !== "number" || !Number.isFinite(id)) return;
-  const all = loadLocalStatusMap();
-  all[id] = status;
-  try {
-    localStorage.setItem(LOCAL_STATUS_STORAGE_KEY, JSON.stringify(all));
-  } catch {
-    // fail silently
-  }
-}
-
-function getDisplayStatus(id: number): WarehouseStatus {
-  return loadLocalStatusMap()[id] ?? "ACTIVE";
 }
 
 // ---------------------------------------------------------------------------
@@ -292,6 +262,7 @@ const WarehousePage: React.FC = () => {
   const openCreate = (): void => {
     setEditingId(null);
     setForm({
+      code: "",
       name: "",
       locationType: locationTypeOptions[0] || "",
       status: "ACTIVE",
@@ -308,6 +279,7 @@ const WarehousePage: React.FC = () => {
   const openEdit = (warehouse: Warehouse): void => {
     setEditingId(warehouse.id);
     setForm({
+      code: warehouse.code ?? "",
       name: warehouse.name ?? "",
       locationType: warehouse.locationType ?? "",
       status: warehouse.status || "ACTIVE",
@@ -335,13 +307,23 @@ const WarehousePage: React.FC = () => {
     if (!previous) return;
 
     if (field === "status") {
-      saveLocalStatus(id, value);
+      savingRowsRef.current.add(id);
+      try {
+        await axios.put(
+          `${API_URL}/${id}`,
+          { id, code: previous.code, name: previous.name, locationType: previous.locationType, active: value === "ACTIVE" },
+          { headers }
+        );
+      } catch (error) {
+        ToasterService.error("Failed to update status", getErrorMessage(error, "Please try again."));
+        return;
+      } finally {
+        savingRowsRef.current.delete(id);
+      }
       setWarehouses((prev) =>
-        prev.map((w) => (w.id === id ? { ...w, status: value } : w))
+        prev.map((w) => (w.id === id ? { ...w, status: value, active: value === "ACTIVE" } : w))
       );
-      ToasterService.success(
-        "Status updated (saved locally — not yet supported by the server)"
-      );
+      ToasterService.success("Warehouse status updated successfully");
       return;
     }
 
@@ -355,10 +337,10 @@ const WarehousePage: React.FC = () => {
         `${API_URL}/${id}`,
         {
           id,
-          createdBy: previous.createdBy || STATIC_CREATED_BY,
-          tenantId: previous.tenantId || STATIC_TENANT_ID,
+          code: previous.code,
           name: previous.name,
           locationType: value,
+          active: previous.active !== false,
         },
         { headers }
       );
@@ -382,10 +364,10 @@ const WarehousePage: React.FC = () => {
 
   const buildPayload = () => {
     const base = {
-      createdBy: STATIC_CREATED_BY,
-      tenantId: STATIC_TENANT_ID,
+      code: form.code.trim(),
       name: form.name.trim(),
       locationType: form.locationType,
+      active: form.status === "ACTIVE",
     };
     return editingId ? { id: editingId, ...base } : base;
   };
@@ -394,6 +376,12 @@ const WarehousePage: React.FC = () => {
     e.preventDefault();
 
     const trimmedName = form.name.trim();
+    const trimmedCode = form.code.trim();
+
+    if (!trimmedCode) {
+      ToasterService.error("Warehouse Code is required");
+      return;
+    }
 
     if (!trimmedName) {
       ToasterService.error("Warehouse Name is required");
@@ -426,17 +414,16 @@ const WarehousePage: React.FC = () => {
         await axios.put(`${API_URL}/${editingId}`, payload, { headers });
         ToasterService.success("Warehouse updated successfully");
 
-        saveLocalStatus(editingId, form.status);
-
         setWarehouses((prev) =>
           prev.map((w) => {
             if (w.id !== editingId) return w;
             return {
               ...w,
+              code: payload.code,
               name: payload.name,
               locationType: payload.locationType,
               status: form.status,
-              code: resolveWarehouseCode(w.code, w.id),
+              active: payload.active,
             };
           })
         );
@@ -446,15 +433,12 @@ const WarehousePage: React.FC = () => {
 
         const code = resolveWarehouseCode(response.data?.code, response.data?.id);
 
-        if (typeof response.data?.id === "number") {
-          saveLocalStatus(response.data.id, form.status || "ACTIVE");
-        }
-
         const newWarehouse: Warehouse = {
           ...response.data,
           code,
           locationType: payload.locationType,
           status: form.status || "ACTIVE",
+          active: payload.active,
         };
         setWarehouses((prev) => [newWarehouse, ...prev]);
       }
@@ -784,6 +768,14 @@ const WarehousePage: React.FC = () => {
             label: "Warehouse Details",
             fields: [
               <FloatingInput
+                key="code"
+                label="Warehouse Code"
+                name="code"
+                value={form.code}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingInput
                 key="name"
                 label="Name"
                 name="name"
@@ -813,8 +805,7 @@ const WarehousePage: React.FC = () => {
                 key="status-hint"
                 className="text-xs text-amber-600 dark:text-amber-400"
               >
-                ⚠ Status is currently stored locally in this browser only — the
-                backend does not yet have a field to persist it server-side.
+                Status is saved to the warehouse API as <code>active: true</code> or <code>active: false</code>.
               </p>,
             ],
           },

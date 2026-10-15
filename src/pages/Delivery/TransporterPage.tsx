@@ -212,8 +212,8 @@ useEffect(() => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const res = await axios.get<(Omit<Transporter, "status"> & { active: boolean })[]>(API_URL);
-      setTransporters(res.data.map(({ active, ...t }) => ({ ...t, status: active ? "Active" : "Inactive" })));
+      const res = await axios.get<Transporter[]>(API_URL);
+      setTransporters(res.data);
     } catch (err) {
       console.error("Failed to load transporters:", err);
       ToasterService.error("Failed to load transporters");
@@ -253,7 +253,7 @@ useEffect(() => {
       email: form.email,
       address: form.address,
       gstNumber: form.gstNumber,
-      active: form.status === "Active",
+      status: form.status,
     };
 
     try {
@@ -266,9 +266,9 @@ useEffect(() => {
       }
       await loadData();
       resetForm();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error saving transporter:", err);
-      ToasterService.error(err.response?.data?.message || "Failed to save transporter");
+      ToasterService.error("Failed to save transporter");
     } finally {
       setSaving(false);
     }
@@ -285,10 +285,9 @@ useEffect(() => {
       await axios.delete(`${API_URL}/${deletingItem.id}`);
       ToasterService.success("Transporter deleted successfully!");
       setTransporters(prev => prev.filter(t => t.id !== deletingItem.id));
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error deleting transporter:", err);
-      // e.g. still used by delivery orders: the server says to mark it Inactive instead
-      ToasterService.error(err.response?.data?.message || "Failed to delete transporter");
+      ToasterService.error("Failed to delete transporter");
     } finally {
       setShowDeletePopup(false);
       setDeletingItem(null);
@@ -300,9 +299,12 @@ useEffect(() => {
   const filteredTransporters = useMemo(() => {
     return transporters.filter(t => {
       const term = search.toLowerCase();
-      // Every column is optional on the backend, so a transporter without an email or GST number must not crash the page
-      const matchesSearch = [t.name, t.contactPerson, t.contactNumber, t.email, t.gstNumber]
-        .some((field) => (field ?? "").toLowerCase().includes(term));
+      const matchesSearch =
+        t.name.toLowerCase().includes(term) ||
+        t.contactPerson.toLowerCase().includes(term) ||
+        t.contactNumber.toLowerCase().includes(term) ||
+        t.email.toLowerCase().includes(term) ||
+        t.gstNumber.toLowerCase().includes(term);
 
       const matchesFilter = activeFilter === "ALL" || t.status === activeFilter;
 

@@ -87,3 +87,5 @@
 - New quotations are created in DRAFT status. Status is changed only after creation from the quotation list, using the lifecycle APIs.
 
 - Creating or editing a quotation now opens in the shared right-side Dragger used for Purchase Orders instead of replacing the quotation list page.
+
+- Draft Sales Orders now provide a Confirm action that requires a fulfilment warehouse before calling the Sales Order confirmation API.
