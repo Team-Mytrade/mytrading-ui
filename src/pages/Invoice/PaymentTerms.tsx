@@ -18,6 +18,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import FilterPopover from "../../components/common/filter";
 import { FloatingInput } from "../../components/inputfeild/FloatingInput";
 import { usePermissions } from "../../access/usePermissions";
+import { apiError } from "./invoiceShared";
 
 interface PaymentTerm {
   id: number;
@@ -69,16 +70,23 @@ const PaymentTerms: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!form.termCode?.trim()) {
-      ToasterService.error("Term code is required");
+    const dueDays = Number(form.dueDays);
+    if (form.dueDays === undefined || String(form.dueDays) === "" || !Number.isInteger(dueDays) || dueDays < 0) {
+      ToasterService.error("Enter the number of days until payment is due");
       return;
     }
+    // A blank code becomes NET<days> on the server
+    const payload = {
+      termCode: form.termCode?.trim() || null,
+      description: form.description?.trim() || null,
+      dueDays,
+    };
     setSubmitting(true);
     try {
       const res =
         editingId !== null
-          ? await axios.put(`${API_URL}/${editingId}`, form, { headers })
-          : await axios.post(API_URL, form, { headers });
+          ? await axios.put(`${API_URL}/${editingId}`, payload, { headers })
+          : await axios.post(API_URL, payload, { headers });
       if (res.status === 200 || res.status === 201) {
         ToasterService.success(editingId !== null ? "Payment term updated successfully!" : "Payment term added successfully!");
         setShowFormModal(false);
@@ -87,8 +95,7 @@ const PaymentTerms: React.FC = () => {
         await fetchPaymentTerms();
       }
     } catch (err) {
-      console.error("Error submitting payment term", err);
-      ToasterService.error("Failed to save payment term");
+      ToasterService.error(apiError(err, "Failed to save payment term"));
     } finally {
       setSubmitting(false);
     }
@@ -126,8 +133,8 @@ const PaymentTerms: React.FC = () => {
       setTermToDelete(null);
       fetchPaymentTerms();
     } catch (err) {
-      console.error("Error deleting payment term", err);
-      ToasterService.error("Failed to delete payment term");
+      setShowDeletePopup(false);
+      ToasterService.error(apiError(err, "Failed to delete payment term"));
     }
   };
 
@@ -229,7 +236,7 @@ const PaymentTerms: React.FC = () => {
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Payment Term" />
+          {canCreate && <AddButton onClick={openCreate} label="Add Payment Term" />}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
@@ -343,11 +350,10 @@ const PaymentTerms: React.FC = () => {
               fields: [
                 <FloatingInput
                   key="termCode"
-                  label="Term Code"
+                  label="Term code (blank = NET + days)"
                   name="termCode"
                   value={form.termCode || ""}
                   onChange={handleChange}
-                  required
                 />,
                 <FloatingInput
                   key="description"
@@ -358,11 +364,12 @@ const PaymentTerms: React.FC = () => {
                 />,
                 <FloatingInput
                   key="dueDays"
-                  label="Due Days"
+                  label="Due in (days)"
                   name="dueDays"
                   type="number"
                   value={form.dueDays ?? ""}
                   onChange={handleChange}
+                  required
                 />,
               ],
             },
