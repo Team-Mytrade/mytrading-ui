@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { CheckCircleIcon, NoSymbolIcon, PlusCircleIcon } from "@heroicons/react/24/outline";
+import { NoSymbolIcon, PlusCircleIcon } from "@heroicons/react/24/outline";
 import PurchaseResourcePage, {
   PurchaseRecord,
   PurchaseResourceConfig,
@@ -9,7 +9,6 @@ import PurchaseResourcePage, {
 } from "../Purchase/PurchaseResourcePage";
 import { APP_ROUTES, recordLink } from "../../utils/appRoutes";
 import { ToasterService } from "../../Services/ToasterService";
-import { usePermissions } from "../../access/usePermissions";
 import DynamicPopup from "../../components/common/Popup";
 
 const CATEGORIES = "/v1/api/product/product-categories";
@@ -119,14 +118,14 @@ const productCategoryConfig: PurchaseResourceConfig = {
   endpoint: CATEGORIES,
   // Activate / deactivate use their own PATCH APIs (row action below),
   // not a full PUT of the record, so the backend can apply its rules.
-  allowInlineActiveToggle: false,
+  allowInlineActiveToggle: true,
   getByIdEndpoint: (row) => `${CATEGORIES}/${row.id}`,
   // Opened from a link (e.g. category in Products): show only that category.
   scope: { idParam: "categoryId", nameParam: "categoryName", label: "Category" },
   // Delete is only for a category created by mistake (no products, no sub-categories).
   // A category in use is refused by the backend; the user is told to deactivate it instead.
   deleteInUseMessage:
-    "This category has products or sub-categories, so it cannot be deleted. Use Deactivate (⛔) to stop new products being added to it.",
+    "This category has products or sub-categories, so it cannot be deleted. Set its Status to Inactive to stop new products being added to it.",
 
   columns: [
     { key: "categoryCode", label: "Category Code" },
@@ -135,22 +134,15 @@ const productCategoryConfig: PurchaseResourceConfig = {
     {
       key: "parentName",
       label: "Parent",
+      // A main category has no parent: show a light dash, never "null".
+      render: (row) =>
+        row.parentName || <span className="text-gray-300 dark:text-gray-600" title="Main category">—</span>,
+      exportValue: (row) => String(row.parentName || ""),
       // Click → show only the parent category.
       link: (row) => recordLink(APP_ROUTES.productCategories, "categoryId", row.parentId, "categoryName", row.parentName),
     },
-    {
-      key: "active",
-      label: "Status",
-      render: (row) => (
-        <span
-          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-            row.active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-          }`}
-        >
-          {row.active ? "Active" : "Inactive"}
-        </span>
-      ),
-    },
+    // Active / Inactive dropdown, same as Vendors and Products. It calls the PATCH APIs (see onActiveChange below).
+    { key: "active", label: "Status" },
   ],
 
   // One named tab, so the form is not split into "Step 1 / Step 2".
@@ -234,9 +226,7 @@ const productCategoryConfig: PurchaseResourceConfig = {
 
 export default function ProductCategories() {
   const navigate = useNavigate();
-  const { canCreate, canUpdate } = usePermissions();
   const [reloadKey, setReloadKey] = useState(0);
-  const [busyId, setBusyId] = useState<string | number | null>(null);
   // Category waiting for the user to confirm Deactivate in the popup (null = popup closed).
   const [deactivateRow, setDeactivateRow] = useState<PurchaseRecord | null>(null);
 
@@ -244,7 +234,6 @@ export default function ProductCategories() {
   const changeStatus = async (row: PurchaseRecord, activate: boolean) => {
     const name = String(row.categoryName || "this category");
     try {
-      setBusyId(row.id ?? null);
       await axios.patch(`${CATEGORIES}/${row.id}/${activate ? "activate" : "deactivate"}`);
       ToasterService.success(`${name} ${activate ? "activated" : "deactivated"}`);
       setReloadKey((current) => current + 1);
@@ -252,52 +241,26 @@ export default function ProductCategories() {
       ToasterService.error(
         error?.response?.data?.message || error?.response?.data?.error || `Could not change the status of ${name}`
       );
-    } finally {
-      setBusyId(null);
     }
   };
 
   const config = useMemo<PurchaseResourceConfig>(
     () => ({
       ...productCategoryConfig,
+      // Status dropdown → PATCH /activate right away; Inactive asks first in a popup.
+      // Returns false: the page reloads itself after the PATCH (changeStatus), so the engine does nothing more.
+      onActiveChange: (row, nextActive) => {
+        if (nextActive) changeStatus(row, true);
+        else setDeactivateRow(row);
+        return false;
+      },
       renderRowActions: (row) => {
         const categoryName = String(row.categoryName || "this category");
-        const isBusy = busyId === row.id;
 
         return (
           <>
-            {!canUpdate ? null : row.active ? (
-              <button
-                type="button"
-                disabled={isBusy}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setDeactivateRow(row); // ask first, in the app's own popup
-                }}
-                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                title={`Deactivate ${categoryName}`}
-                aria-label={`Deactivate ${categoryName}`}
-              >
-                <NoSymbolIcon className="h-4 w-4" aria-hidden="true" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={isBusy}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  changeStatus(row, true);
-                }}
-                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-green-50 hover:text-green-600 disabled:opacity-50"
-                title={`Activate ${categoryName}`}
-                aria-label={`Activate ${categoryName}`}
-              >
-                <CheckCircleIcon className="h-4 w-4" aria-hidden="true" />
-              </button>
-            )}
-
             {/* New products can only go into active categories. */}
-            {row.active && canCreate && (
+            {row.active && (
               <button
                 type="button"
                 onClick={(event) => {
@@ -317,7 +280,7 @@ export default function ProductCategories() {
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [navigate, busyId, canCreate, canUpdate]
+    [navigate]
   );
 
   // Changing the key reloads the list (and the parent dropdown) after a status change.

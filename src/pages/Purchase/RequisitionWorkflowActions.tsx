@@ -1,11 +1,10 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
 import { EllipsisVerticalIcon } from "@heroicons/react/24/outline";
 import CloseButton from "../../components/common/CloseButton";
-import { AuthContext } from "../../context/AuthContext";
-import { hasPermission } from "../../access/access";
 import { ToasterService } from "../../Services/ToasterService";
+import {usePermissions} from "../../access/usePermissions"
 
 const BASE = "/v1/api/purchase/purchase-requisitions";
 
@@ -55,7 +54,6 @@ export default function RequisitionWorkflowActions({
 
   const status = String(row.status ?? "").toUpperCase();
   const prName = String(row.requisitionNumber || "this requisition");
-  const canApprove = hasPermission(access, "PURCHASE:APPROVE");
 
   const actions: Action[] = [];
   if (status === "DRAFT") {

@@ -3,7 +3,6 @@ import axios from "axios";
 import { ArrowDownTrayIcon, PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ToasterService } from "../../Services/ToasterService";
-import { usePermissions } from "../../access/usePermissions";
 import PurchaseResourcePage, {
   PurchaseRecord,
   PurchaseResourceConfig,
@@ -169,8 +168,6 @@ const createInitialImageFile = async (row: PurchaseRecord) => {
 type LoadedImage = { url: string; type: string };
 
 const ProductImageCell = ({ row }: { row: PurchaseRecord }) => {
-  // Uploading an image is a POST (PRODUCT_CATALOGUE:CREATE)
-  const { canCreate: canUpload } = usePermissions();
   const [image, setImage] = useState<LoadedImage | null>(null);
   const [imageVersion, setImageVersion] = useState(0);
   const [isLoadingImage, setIsLoadingImage] = useState(false);
@@ -296,9 +293,9 @@ const ProductImageCell = ({ row }: { row: PurchaseRecord }) => {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          disabled={isBusy || !canUpload}
+          disabled={isBusy}
           className="h-12 w-12 overflow-hidden rounded-xl border border-cyan-200 bg-cyan-50 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
-          title={!canUpload ? productLabel : isUploading ? "Uploading image" : "Upload image"}
+          title={isUploading ? "Uploading image" : "Upload image"}
         >
           {isBusy || !initialPreviewUrl ? (
             <span className="flex h-full w-full items-center justify-center text-sm font-semibold text-cyan-700">
@@ -338,27 +335,23 @@ const ProductImageCell = ({ row }: { row: PurchaseRecord }) => {
             <div className="mt-4 text-sm font-semibold text-slate-800">{productLabel}</div>
 
             <div className="mt-4 flex flex-wrap gap-2">
-              {canUpload && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
-                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <PhotoIcon className="h-4 w-4" aria-hidden="true" />
-                    {isUploading ? "Uploading..." : "Change"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleUseInitial}
-                    disabled={isUploading}
-                    className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Use Initial
-                  </button>
-                </>
-              )}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <PhotoIcon className="h-4 w-4" aria-hidden="true" />
+                {isUploading ? "Uploading..." : "Change"}
+              </button>
+              <button
+                type="button"
+                onClick={handleUseInitial}
+                disabled={isUploading}
+                className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Use Initial
+              </button>
               <button
                 type="button"
                 onClick={handleDownload}
@@ -500,15 +493,29 @@ const loadProduct = async (row: PurchaseRecord): Promise<PurchaseRecord> => {
 /* Resource configuration                                              */
 /* ------------------------------------------------------------------ */
 
-const renderYesNo = (value: unknown) => (
-  <span
-    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-      value ? "bg-cyan-50 text-cyan-700" : "bg-slate-100 text-slate-500"
-    }`}
-  >
-    {value ? "Yes" : "No"}
-  </span>
-);
+/** "Stock" or "Service" (they can't both be true; see validateProductForm). */
+const itemTypeText = (row: PurchaseRecord) => (row.serviceItem ? "Service" : row.stockItem ? "Stock" : "--");
+
+/** Type pill: cyan for Stock, violet for Service. Tracking (Batch / Serial / Expiry) shows on hover. */
+const renderItemType = (row: PurchaseRecord) => {
+  const text = itemTypeText(row);
+  if (text === "--") return "--";
+  const tracking = [row.batchTracking && "Batch", row.serialTracking && "Serial", row.expiryTracking && "Expiry"]
+    .filter(Boolean)
+    .join(", ");
+  return (
+    <span
+      title={text === "Stock" ? `Tracking: ${tracking || "none"}` : "Service item (no stock)"}
+      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+        text === "Stock"
+          ? "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300"
+          : "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"
+      }`}
+    >
+      {text}
+    </span>
+  );
+};
 
 const renderAmount = (key: string) => (row: PurchaseRecord) =>
   row[key] == null ? "--" : currencyFormatter.format(Number(row[key]));
@@ -549,9 +556,14 @@ const baseProductConfig: PurchaseResourceConfig = {
     },
     { key: "brand", label: "Brand" },
     { key: "uom", label: "UOM" },
-    // Yes/No, not Active/Inactive: these say what kind of item it is, not its status.
-    { key: "stockItem", label: "Stock Item", render: (row) => renderYesNo(row.stockItem) },
-    { key: "serviceItem", label: "Service Item", render: (row) => renderYesNo(row.serviceItem) },
+    // One "Type" column instead of two Yes/No columns: a product is either Stock or Service, never both.
+    {
+      key: "stockItem",
+      label: "Type",
+      render: (row) => renderItemType(row),
+      exportValue: (row) => itemTypeText(row),
+      sortValueGetter: (row) => itemTypeText(row),
+    },
     { key: "standardCost", label: "Standard Cost", render: renderAmount("standardCost") },
     { key: "sellingPrice", label: "Selling Price", render: renderAmount("sellingPrice") },
     // Status is the last column.
@@ -707,7 +719,6 @@ const baseProductConfig: PurchaseResourceConfig = {
 
 export default function Products() {
   const navigate = useNavigate();
-  const { canUpdate } = usePermissions();
 
   // Set when the user clicks "+" on a category in the Categories page.
   const [searchParams, setSearchParams] = useSearchParams();

@@ -8,7 +8,7 @@ import {
   SelectOption,
   toNumberOrZero,
 } from "./PurchaseResourcePage";
-import LineItemsEditor, { LineItem } from "../Purchase/LineItemsEditor";
+import LineItemsEditor, { LineItem, taxRateFromCode } from "../Purchase/LineItemsEditor";
 import GoodsReceiptEditor from "../purchase-service/GoodsReceiptEditor";
 import RequisitionWorkflowActions from "./RequisitionWorkflowActions";
 import { todayIso } from "../../utils/localDate";
@@ -430,6 +430,20 @@ const isPoEditable = (row: PurchaseRecord) => {
   return approval === "PENDING" && !["RECEIVED", "PARTIALLY_RECEIVED", "CANCELLED", "CLOSED"].includes(status);
 };
 
+/**
+ * The backend writes the reject / cancel reason into `notes`, e.g. ",kbhjvgh Rejected: no budget".
+ * Splits it into the requester's remarks and the reason. A separate rejectionReason /
+ * cancellationReason field from the backend is used when present.
+ */
+const splitNotes = (value: unknown, row?: PurchaseRecord) => {
+  const text = String(value ?? "").trim();
+  const match = text.match(/\s*(Rejected|Cancelled|Canceled):\s*(.*)$/is);
+  const separate = row?.rejectionReason || row?.cancellationReason;
+  if (!match) return { remarks: text, reason: separate ? String(separate) : "", reasonLabel: "Reason" };
+  const label = match[1].toLowerCase().startsWith("rej") ? "Rejection reason" : "Cancellation reason";
+  return { remarks: text.slice(0, match.index).trim(), reason: match[2].trim(), reasonLabel: label };
+};
+
 const prStatus = (row: PurchaseRecord) => String(row.status || "DRAFT").toUpperCase();
 
 export const purchaseRequisitionConfig: PurchaseResourceConfig = {
@@ -471,12 +485,47 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
       sortValueGetter: (row) => dateOnly(row.requiredByDate ?? row.requiredDate),
     },
     { key: "items", label: "Items", render: (row) => String(Array.isArray(row.items) ? row.items.length : 0) },
-    { key: "notes", label: "Remarks" },
+    // The backend adds "Rejected: <reason>" to the end of notes. Remarks shows the requester's text,
+    // and for a rejected / cancelled PR the reason under it in red.
+    {
+      key: "notes",
+      label: "Remarks",
+      render: (row) => {
+        const { remarks, reason, reasonLabel } = splitNotes(row.notes, row);
+        if (!reason) return remarks || "--";
+        return (
+          <div className="leading-snug">
+            <div>{remarks || "--"}</div>
+            <div className="mt-0.5 text-xs text-red-600 dark:text-red-400">
+              {reasonLabel}: {reason}
+            </div>
+          </div>
+        );
+      },
+      exportValue: (row) => splitNotes(row.notes, row).remarks,
+      detailFormatter: (row) => splitNotes(row.notes, row).remarks || "--",
+    },
     {
       key: "status",
       label: "Status",
       render: (row) => statusBadge(String(row.status ?? "")),
-      exportValue: (row) => statusLabel(row.status),
+      detailFormatter: (row) => {
+        const { reason, reasonLabel } = splitNotes(row.notes, row);
+        return (
+          <div className="space-y-1">
+            {statusBadge(String(row.status ?? ""))}
+            {reason && (
+              <p className="text-sm text-red-700 dark:text-red-300">
+                <span className="font-medium">{reasonLabel}:</span> {reason}
+              </p>
+            )}
+          </div>
+        );
+      },
+      exportValue: (row) => {
+        const { reason } = splitNotes(row.notes, row);
+        return reason ? `${statusLabel(row.status)} (${reason})` : statusLabel(row.status);
+      },
     },
   ],
   fields: [
@@ -523,7 +572,8 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   normalizeForm: (row) => ({
     requiredByDate: dateOnly(row.requiredByDate ?? row.requiredDate ?? row.required_by_date),
     userId: row.userId ?? "",
-    notes: row.notes || row.remarks || "",
+    // Edit shows only the requester's remarks, not the "Rejected: …" part added by the backend.
+    notes: splitNotes(row.notes || row.remarks, row).remarks,
     items: Array.isArray(row.items) ? row.items : [],
   }),
   validateForm: (form) => {
@@ -753,6 +803,13 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
       required: true,
       optionsEndpoint: "/v1/api/product/vendors",
       optionLabel: "name",
+      searchable: true,
+      // Only active vendors can get a new PO (the server refuses an inactive one with "Vendor is inactive").
+      // The PO's current vendor stays in the list on edit, even if it was deactivated later.
+      getOptions: ({ form, options }) =>
+        (options.vendorId || []).filter(
+          (option) => option.raw?.active !== false || String(option.value) === String(form.vendorId ?? "")
+        ),
       onValueChange: (value, { options }) => {
         const vendor = options.vendorId?.find((option) => String(option.value) === String(value))?.raw;
         return { vendorCode: vendor?.vendorCode || "", name: vendor?.name || "" };
@@ -801,6 +858,8 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
             productName: item.productName ?? item.product?.productName ?? product?.productName ?? "",
             categoryId: item.category?.id ?? item.categoryId ?? product?.productCategory?.id ?? product?.category?.id ?? product?.categoryId ?? "",
             quantity: item.quantity ?? 1,
+            // Requested quantity: the PO may order this much or less (checked on save).
+            prQuantity: item.quantity ?? 1,
             // PR estimate if given, otherwise the product's standard cost; the buyer can change it.
             unitPrice: toNumberOrZero(item.estimatedUnitCost) || toNumberOrZero(product?.standardCost),
             unitOfMeasure: item.unitOfMeasure ?? product?.uom ?? "PIECES",
@@ -911,6 +970,10 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
         }))}
         showUom={false}
         showPricing
+        // Tax = (Qty × Unit price − Discount) × the product's GST % (from its tax code, e.g. GST18 → 18%).
+        taxRateFor={(productId) =>
+          taxRateFromCode(productOptions.find((p) => String(p.value) === String(productId))?.raw?.taxCode)
+        }
       />
     );
   },
@@ -926,7 +989,12 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
       const quantity = toNumberOrZero(item.quantity);
       const unitPrice = toNumberOrZero(item.unitPrice);
       const discountAmount = toNumberOrZero(item.discountAmount);
-      const taxAmount = toNumberOrZero(item.taxAmount);
+      // Same rule as the form: GST % of the product on (qty × price − discount); typed value if no tax code.
+      const rate = taxRateFromCode(product?.taxCode);
+      const taxAmount =
+        rate == null
+          ? toNumberOrZero(item.taxAmount)
+          : Math.round(Math.max(0, quantity * unitPrice - discountAmount) * rate) / 100;
       return {
         // Existing PO lines keep their id on edit so they are updated, not duplicated.
         ...(toNumberOrZero(item.id) > 0 ? { id: toNumberOrZero(item.id) } : {}),
@@ -995,8 +1063,21 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
   description: "Record received goods against purchase orders.",
   endpoint: `${PURCHASE}/grns`,
   getByIdEndpoint: (row) => `${PURCHASE}/grns/${row.id}`,
+  // Cards that mean something for receipts: all, clean receipts, and receipts with rejected goods.
+  statsCards: () => {
+    const rejectedQty = (row: PurchaseRecord) =>
+      (Array.isArray(row.items) ? row.items : []).reduce(
+        (total: number, item: PurchaseRecord) => total + toNumberOrZero(item.rejectedQuantity),
+        0
+      );
+    return [
+      { key: "ALL", label: "All Receipts", match: () => true, tone: "cyan" },
+      { key: "CLEAN", label: "Fully Accepted", match: (row) => rejectedQty(row) === 0, tone: "green" },
+      { key: "REJECTS", label: "With Rejections", match: (row) => rejectedQty(row) > 0, tone: "red" },
+    ];
+  },
   columns: [
-    // { key: "id", label: "GRN ID" },
+    { key: "receiptNumber", label: "GRN Number" },
     {
       key: "poNumber",
       label: "PO Number",
@@ -1004,8 +1085,29 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
       link: (row) =>
         recordLink(APP_ROUTES.purchaseOrders, "purchaseOrderId", row.purchaseOrderId ?? row.purchaseOrder?.id, "poNumber", row.poNumber),
     },
-    { key: "receiptDate", label: "Receipt Date" },
-    { key: "items", label: "Items", render: (row) => String(row.items?.length ?? row.lineItems?.length ?? "--") },
+    {
+      key: "receiptDate",
+      label: "Receipt Date",
+      // 15 Oct 2026; sorting uses the real date.
+      render: (row) => {
+        const date = dateOnly(row.receiptDate);
+        if (!date) return "--";
+        const [year, month, day] = date.split("-").map(Number);
+        return new Date(year, month - 1, day).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+      },
+      sortValueGetter: (row) => dateOnly(row.receiptDate),
+    },
+    { key: "items", label: "Items", render: (row) => String(row.items?.length ?? row.lineItems?.length ?? 0) },
+    {
+      key: "receivedQuantity",
+      label: "Accepted / Received",
+      render: (row) => {
+        const items: PurchaseRecord[] = Array.isArray(row.items) ? row.items : [];
+        const received = items.reduce((t, i) => t + toNumberOrZero(i.receivedQuantity), 0);
+        const accepted = items.reduce((t, i) => t + toNumberOrZero(i.acceptedQuantity), 0);
+        return `${accepted} / ${received}`;
+      },
+    },
   ],
   fields: [
     {

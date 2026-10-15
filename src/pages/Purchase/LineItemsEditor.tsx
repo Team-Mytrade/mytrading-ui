@@ -23,7 +23,23 @@ type Props = {
   showUom?: boolean;
   showPricing?: boolean;
   disabled?: boolean;
+  /**
+   * GST % for a product (e.g. 18 for tax code "GST18"). When it returns a number, the line's tax is
+   * worked out automatically: (Qty × Unit price − Discount) × GST % and shown read-only.
+   * Return null for a product with no tax code: its Tax box stays editable.
+   */
+  taxRateFor?: (productId: number | string) => number | null;
 };
+
+/** "GST18" → 18, "GST 5%" → 5, "IGST_12" → 12, "18" → 18. No number → null. */
+export const taxRateFromCode = (code: unknown): number | null => {
+  const match = String(code ?? "").match(/(\d+(?:\.\d+)?)/);
+  if (!match) return null;
+  const rate = Number(match[1]);
+  return Number.isFinite(rate) && rate >= 0 && rate <= 100 ? rate : null;
+};
+
+const round2 = (value: number) => Math.round(value * 100) / 100;
 
 const DEFAULT_UOM = ["PIECES", "KG", "LITER", "METER", "BOX", "PACK"];
 
@@ -129,9 +145,32 @@ export default function LineItemsEditor({
   showUom = true,
   showPricing = false,
   disabled = false,
+  taxRateFor,
 }: Props) {
+  const rateOf = (row: LineItem) => (taxRateFor && row.productId !== "" ? taxRateFor(row.productId) : null);
+
+  /** Lines with a known GST % get their tax recalculated; others keep what was typed. */
+  const withTax = (rows: LineItem[]) =>
+    rows.map((row) => {
+      const rate = rateOf(row);
+      if (rate == null) return row;
+      const taxable = Math.max(0, toNumber(row.quantity) * toNumber(row.unitPrice) - toNumber(row.discountAmount));
+      return { ...row, taxAmount: round2((taxable * rate) / 100) };
+    });
+
+  /** Every change goes through here, so tax always matches qty, price and discount. */
+  const emit = (rows: LineItem[]) => onChange(withTax(rows));
+
+  // Lines that arrive from outside (copied from a PR, opened for edit) get their tax filled in once.
+  useEffect(() => {
+    if (!taxRateFor || !showPricing) return;
+    const next = withTax(items);
+    if (next.some((row, i) => Math.abs(toNumber(row.taxAmount) - toNumber(items[i].taxAmount)) > 0.004)) onChange(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, taxRateFor, showPricing]);
+
   const addRow = () => {
-    onChange([
+    emit([
       ...items,
       {
         productId: "",
@@ -147,11 +186,11 @@ export default function LineItemsEditor({
   };
 
   const updateRow = (index: number, patch: Partial<LineItem>) => {
-    onChange(items.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+    emit(items.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   };
 
   const removeRow = (index: number) => {
-    onChange(items.filter((_, i) => i !== index));
+    emit(items.filter((_, i) => i !== index));
   };
 
   /** Messages shown under a line's boxes. */
@@ -306,7 +345,14 @@ export default function LineItemsEditor({
                       </td>
                     )}
                     {showPricing &&
-                      (["unitPrice", "discountAmount", "taxAmount"] as const).map((field) => (
+                      (["unitPrice", "discountAmount", "taxAmount"] as const).map((field) =>
+                        field === "taxAmount" && rateOf(row) != null ? (
+                          // Worked out from the product's GST %, so it can't be typed.
+                          <td key={field} className="px-3 py-2 pt-3 text-right">
+                            <div className="text-sm text-slate-800 dark:text-gray-100">{money(toNumber(row.taxAmount))}</div>
+                            <div className="text-[11px] text-slate-400 dark:text-gray-500">GST {rateOf(row)}%</div>
+                          </td>
+                        ) : (
                         <td key={field} className="px-3 py-2">
                           <NumberCell
                             label={field === "unitPrice" ? "Unit price" : field === "discountAmount" ? "Discount" : "Tax"}
@@ -317,7 +363,8 @@ export default function LineItemsEditor({
                             error={field === "taxAmount" ? null : errors[field]}
                           />
                         </td>
-                      ))}
+                        )
+                      )}
                     {showPricing && (
                       <td className="whitespace-nowrap px-3 py-2 pt-3.5 text-right text-sm font-medium text-slate-800 dark:text-gray-100">
                         {money(lineTotal(row))}
