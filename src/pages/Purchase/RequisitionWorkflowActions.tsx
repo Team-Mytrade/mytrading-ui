@@ -1,7 +1,8 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
-import { EllipsisVerticalIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { EllipsisVerticalIcon } from "@heroicons/react/24/outline";
+import CloseButton from "../../components/common/CloseButton";
 import { AuthContext } from "../../context/AuthContext";
 import { hasPermission } from "../../access/access";
 import { ToasterService } from "../../Services/ToasterService";
@@ -119,7 +120,7 @@ export default function RequisitionWorkflowActions({
   const openMenu = () => {
     const rect = menuButtonRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setMenuAt({ top: rect.bottom + 4, left: Math.max(8, rect.right - 200) });
+    setMenuAt({ top: rect.bottom + 4, left: Math.max(8, rect.right - 170) });
   };
 
   if (!actions.length) return null;
@@ -138,7 +139,7 @@ export default function RequisitionWorkflowActions({
             event.stopPropagation();
             onAction(action.key);
           }}
-          className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold transition disabled:opacity-50 ${action.className}`}
+          className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-medium leading-5 transition disabled:opacity-50 ${action.className}`}
         >
           {action.label}
         </button>
@@ -154,7 +155,7 @@ export default function RequisitionWorkflowActions({
             if (menuAt) setMenuAt(null);
             else openMenu();
           }}
-          className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+          className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-200"
           title="More actions"
           aria-label="More actions"
           aria-haspopup="menu"
@@ -169,7 +170,7 @@ export default function RequisitionWorkflowActions({
         createPortal(
           <div
             role="menu"
-            style={{ position: "fixed", top: menuAt.top, left: menuAt.left, width: 200, zIndex: 10000 }}
+            style={{ position: "fixed", top: menuAt.top, left: menuAt.left, width: 170, zIndex: 10000 }}
             className="rounded-xl border border-gray-200 bg-white py-1 text-left shadow-lg dark:border-gray-700 dark:bg-gray-900"
             onMouseDown={(event) => event.stopPropagation()}
           >
@@ -179,7 +180,7 @@ export default function RequisitionWorkflowActions({
                 type="button"
                 role="menuitem"
                 onClick={() => onAction(action.key)}
-                className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                className="block w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
               >
                 {action.label}
               </button>
@@ -205,15 +206,7 @@ export default function RequisitionWorkflowActions({
                 <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
                   {isReject ? `Reject ${prName}?` : `Cancel ${prName}?`}
                 </h3>
-                <button
-                  type="button"
-                  onClick={() => setConfirm(null)}
-                  disabled={busy}
-                  className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-                  aria-label="Close"
-                >
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
+                <CloseButton onClick={() => setConfirm(null)} disabled={busy} />
               </div>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 {isReject

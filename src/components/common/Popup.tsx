@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import CloseButton from "./CloseButton";
 
 interface DynamicPopupProps {
   isPopupOpen: boolean;
@@ -77,14 +77,7 @@ const DynamicPopup: React.FC<DynamicPopupProps> = ({
       {/* Panel */}
       <div className="relative mx-4 w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl animate-fade-in dark:bg-gray-900 dark:ring-1 dark:ring-gray-700">
         {/* Close ✕ */}
-        <button
-          type="button"
-          onClick={handleCancel}
-          className="absolute right-4 top-4 rounded-full p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-          aria-label="Close"
-        >
-          <XMarkIcon className="h-5 w-5" />
-        </button>
+        <CloseButton onClick={handleCancel} className="absolute right-3 top-3" />
 
         {/* Body */}
         <div className="p-6">

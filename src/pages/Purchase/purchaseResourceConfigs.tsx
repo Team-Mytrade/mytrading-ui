@@ -586,10 +586,10 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
           }}
           title="Create Purchase Order"
           aria-label="Create Purchase Order"
-          className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-cyan-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-cyan-700 dark:hover:bg-cyan-500"
+          // Icon only, same look as the edit/delete icons; the tooltip says what it does.
+          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600 dark:text-gray-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
         >
-          <ShoppingCartIcon className="h-3.5 w-3.5" aria-hidden="true" />
-          Create PO
+          <ShoppingCartIcon className="h-4 w-4" aria-hidden="true" />
         </button>
       )}
     </>
@@ -737,7 +737,7 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
         value,
         label: value.charAt(0) + value.slice(1).toLowerCase(),
       })),
-      widthClassName: "w-[136px]",
+      widthClassName: "w-24",
       onChange: async (row, status) => {
         await axios.put(`${PURCHASE}/approval-status/${row.id}/${status}`);
       },

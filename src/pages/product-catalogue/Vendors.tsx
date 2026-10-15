@@ -59,7 +59,7 @@ const vendorConfig: PurchaseResourceConfig = {
   fields: [
     { name: "vendorCode", section: "Basic Details", label: "Vendor Code (e.g. VEN-001)", required: true, readOnlyOnEdit: true, textCase: "upper", maxLength: 20 },
     { name: "name", section: "Basic Details", label: "Vendor Name", required: true, textCase: "title", maxLength: 100 },
-    { name: "legalName", section: "Basic Details", label: "Legal Name (registered company name)", textCase: "title", maxLength: 150 },
+    { name: "legalName", section: "Basic Details", label: "Legal Name (registered company name)", textCase: "title", maxLength: 150, gridClassName: "md:col-span-2" },
     { name: "contactName", section: "Contact", label: "Contact Person", textCase: "title", maxLength: 60 },
     { name: "contactEmail", section: "Contact", label: "Contact Email", type: "email", textCase: "lower", maxLength: 100 },
     { name: "contactPhone", section: "Contact", label: "Contact Phone", type: "tel", maxLength: 16 },
@@ -79,26 +79,36 @@ const vendorConfig: PurchaseResourceConfig = {
     { name: "city", section: "Address", label: "City", textCase: "title", maxLength: 60 },
     { name: "postalCode", section: "Address", label: "PIN Code", maxLength: 6 },
     { name: "address", section: "Address", label: "Address (building, street, area)", type: "textarea", gridClassName: "md:col-span-2" },
-    { name: "gstNumber", section: "Tax & Terms", label: "GST Number (first 2 digits = state code, e.g. 33 for Tamil Nadu)", textCase: "upper", maxLength: 15 },
-    { name: "panNumber", section: "Tax & Terms", label: "PAN Number (e.g. ABCDE1234F)", textCase: "upper", maxLength: 10 },
+    // Terms first (Currency, Payment Terms), then tax IDs: two rows of two.
     {
-      name: "paymentTerms", section: "Tax & Terms",
+      name: "currency", section: "Terms & Tax",
+      label: "Currency",
+      type: "select",
+      placeholderOption: "Select Currency",
+      options: CURRENCIES.map((value) => ({ value, label: value })),
+    },
+    {
+      name: "paymentTerms", section: "Terms & Tax",
       label: "Payment Terms",
       type: "select",
       placeholderOption: "Select Payment Terms",
       options: PAYMENT_TERMS.map((value) => ({ value, label: value })),
     },
     {
-      name: "currency", section: "Tax & Terms",
-      label: "Currency",
-      type: "select",
-      placeholderOption: "Select Currency",
-      options: CURRENCIES.map((value) => ({ value, label: value })),
+      name: "gstNumber", section: "Terms & Tax",
+      label: "GSTIN (e.g. 33ABCDE1234F1Z7)",
+      textCase: "upper",
+      maxLength: 15,
+      // A GSTIN contains the PAN (characters 3–12), so a full GSTIN fills PAN by itself.
+      onValueChange: (value) => {
+        const gst = String(value ?? "").toUpperCase();
+        return gst.length === 15 ? { panNumber: gst.slice(2, 12) } : undefined;
+      },
     },
+    { name: "panNumber", section: "Terms & Tax", label: "PAN (filled from GSTIN)", textCase: "upper", maxLength: 10 },
     { name: "bankName", section: "Bank Details", label: "Bank Name", textCase: "title", maxLength: 100 },
     { name: "bankAccountNumber", section: "Bank Details", label: "Bank Account Number", maxLength: 18 },
     { name: "bankIfscCode", section: "Bank Details", label: "Bank IFSC Code (e.g. HDFC0001234)", textCase: "upper", maxLength: 11 },
-    { name: "active", section: "Basic Details", label: "Active", type: "checkbox", defaultValue: true },
   ],
 
   searchFields: ["vendorCode", "name", "legalName", "contactName", "contactEmail", "city", "country"],
@@ -163,7 +173,8 @@ const vendorConfig: PurchaseResourceConfig = {
       bankName: text(form.bankName),
       bankAccountNumber: compact(form.bankAccountNumber),
       bankIfscCode: code(form.bankIfscCode),
-      active: Boolean(form.active),
+      // A new vendor is always active. Activate / deactivate from the Status column in the table.
+      active: editingRow ? Boolean(editingRow.active) : true,
     };
   },
 };
