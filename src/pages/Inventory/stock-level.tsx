@@ -24,6 +24,7 @@ import {
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { usePermissions } from "../../access/usePermissions";
 
 // ---------- Type Definitions ----------
 interface Product {
@@ -186,6 +187,7 @@ function getWarehouseCode(stock: StockLevel) {
 
 // ---------- Component ----------
 const StockLevelsManager: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const token = localStorage.getItem("accessToken");
   const headers = token
     ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
@@ -537,22 +539,22 @@ const StockLevelsManager: React.FC = () => {
       className: "text-right",
       render: (stock) => (
         <div className="flex justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => openEdit(stock)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Adjust Stock"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             type="button"
             onClick={() => setDeletingStock(stock)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -621,13 +623,13 @@ const StockLevelsManager: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               <CubeIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
               <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No stock levels found</p>
-              <button
+              {canCreate && (<button
                 type="button"
                 onClick={openCreate}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 Add your first stock
-              </button>
+              </button>)}
             </div>
           }
         />

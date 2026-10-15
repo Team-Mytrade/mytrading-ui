@@ -27,6 +27,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { AuthContext } from "../../context/AuthContext";
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 interface Product { id: number; productName: string; sku?: string; code?: string; }
 type ResultCode = "PASS" | "FAIL" | "HOLD" | "REJECT";
@@ -98,6 +99,7 @@ const emptyFormState: FormState = {
 };
 
 const QualityInspectionManager: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [records, setRecords] = useState<QualityInspection[]>([]);
@@ -389,12 +391,12 @@ const QualityInspectionManager: React.FC = () => {
           <button type="button" onClick={() => handleView(record)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600 dark:text-slate-500 dark:hover:bg-blue-950/40 dark:hover:text-blue-400"
             title="View Details"><ClipboardDocumentCheckIcon className="h-4 w-4" /></button>
-          <button type="button" onClick={() => handleEdit(record)}
+          {canUpdate && (<button type="button" onClick={() => handleEdit(record)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-            title="Edit Inspection"><PencilSquareIcon className="h-4 w-4" /></button>
-          <button type="button" onClick={() => setDeletingRecord(record)}
+            title="Edit Inspection"><PencilSquareIcon className="h-4 w-4" /></button>)}
+          {canDelete && (<button type="button" onClick={() => setDeletingRecord(record)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-            title="Delete Inspection"><TrashIcon className="h-4 w-4" /></button>
+            title="Delete Inspection"><TrashIcon className="h-4 w-4" /></button>)}
         </div>
       ),
     },
@@ -428,10 +430,10 @@ const QualityInspectionManager: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               <ClipboardDocumentCheckIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
               <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No inspection records found</p>
-              <button type="button" onClick={() => { setFormMode("add"); setEditingId(null); setFormData(emptyFormState); setShowForm(true); }}
+              {canCreate && (<button type="button" onClick={() => { setFormMode("add"); setEditingId(null); setFormData(emptyFormState); setShowForm(true); }}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300">
                 Create your first inspection record
-              </button>
+              </button>)}
             </div>
           }
         />

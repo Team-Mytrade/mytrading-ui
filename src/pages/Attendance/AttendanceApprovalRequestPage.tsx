@@ -9,6 +9,7 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 // Relative API Base Endpoint (routing via Vite dev proxy)
 const BASE_APPROVAL_URL = '/v1/api/attendance/attendance-approvals';
@@ -26,6 +27,7 @@ export interface ApprovalRequestModel {
 }
 
 const AttendanceApprovalRequestPage: React.FC = () => {
+  const { canApprove } = usePermissions();
   // ── States ─────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
   const [requests, setRequests] = useState<ApprovalRequestModel[]>([]);
@@ -317,7 +319,7 @@ const AttendanceApprovalRequestPage: React.FC = () => {
           >
             <Eye className="w-3.5 h-3.5" />
           </button>
-          {activeTab === 'pending' && (
+          {activeTab === 'pending' && canApprove && (
             <>
               <button
                 type="button"

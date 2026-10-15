@@ -21,6 +21,7 @@ import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -79,6 +80,7 @@ const inputStringToApiTime = (t: string): string => `${t}:00`;
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const SchedulePage: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const [schedules, setSchedules] = useState<ScheduleApi[]>([]);
   const [routeOptions, setRouteOptions] = useState<RouteOption[]>([]);
   const [vehicleOptions, setVehicleOptions] = useState<VehicleOption[]>([]);
@@ -339,22 +341,22 @@ const SchedulePage: React.FC = () => {
       className: "w-[14%] text-right",
       render: (s) => (
         <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => handleEdit(s)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
             title="Edit Schedule"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             type="button"
             onClick={() => promptDelete(s)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
             title="Delete Schedule"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -486,7 +488,7 @@ const SchedulePage: React.FC = () => {
               {search || activeFilter !== "ALL" ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
               ) : (
-                <button
+                canCreate && <button
                   type="button"
                   onClick={handleAddNew}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"

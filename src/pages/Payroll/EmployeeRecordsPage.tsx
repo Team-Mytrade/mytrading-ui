@@ -38,12 +38,14 @@ import {
     Department
 } from "../../shared/types/employee.types";
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 const DEPARTMENT_API_URL = "/v1/api/payroll/department";
 const PAGE_SIZE = 10;
 
 const EmployeeRecordsPage: React.FC = () => {
+  const { canDelete, canExport, canUpdate } = usePermissions();
     const navigate = useNavigate();
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
@@ -326,20 +328,20 @@ const EmployeeRecordsPage: React.FC = () => {
                     >
                         <EyeIcon className="h-3.5 w-3.5" />
                     </button>
-                    <button
+                    {canUpdate && (<button
                         onClick={() => navigate(`/addEmployee?editId=${row.id}`)}
                         className="text-cyan-600 hover:text-cyan-900 bg-cyan-50 hover:bg-cyan-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-gray-200 p-1.5 rounded-md transition-colors cursor-pointer"
                         title="Edit"
                     >
                         <PencilSquareIcon className="h-3.5 w-3.5" />
-                    </button>
-                    <button
+                    </button>)}
+                    {canDelete && (<button
                         onClick={() => handleDelete(row.id)}
                         className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-rose-400 p-1.5 rounded-md transition-colors cursor-pointer"
                         title="Delete"
                     >
                         <TrashIcon className="h-3.5 w-3.5" />
-                    </button>
+                    </button>)}
                 </div>
             )
         }
@@ -378,14 +380,14 @@ const EmployeeRecordsPage: React.FC = () => {
                 <div className="mb-6 flex justify-end items-center">
                     {/* Export Menu */}
                     <div ref={exportMenuRef} className="relative inline-flex items-center">
-                        <button
+                        {canExport && (<button
                             type="button"
                             onClick={() => setShowExportMenu(!showExportMenu)}
                             className="h-10 w-10 border border-cyan-200 dark:border-transparent bg-cyan-50 dark:bg-[#191919] dark:hover:bg-[#222222] text-cyan-700 dark:text-gray-300 hover:bg-cyan-100 rounded-lg transition-colors inline-flex items-center justify-center focus:outline-none shrink-0 cursor-pointer"
                             title="Export"
                         >
                             <DocumentArrowDownIcon className="h-4 w-4 text-cyan-700 dark:text-gray-300" />
-                        </button>
+                        </button>)}
 
                         {showExportMenu && (
                             <div className="absolute right-0 top-12 w-40 bg-white dark:bg-[#191919] shadow-lg rounded-md border border-gray-200 dark:border-transparent z-50 py-1">

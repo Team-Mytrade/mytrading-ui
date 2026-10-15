@@ -10,6 +10,7 @@ import {
   EyeIcon,
 } from "@heroicons/react/24/outline";
 import { ToasterService } from "../../Services/ToasterService";
+import { usePermissions } from "../../access/usePermissions";
 
 /* ---------------- Types ---------------- */
 
@@ -80,6 +81,8 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
   onViewCustomer,
 }) => {
   const token = localStorage.getItem("accessToken");
+  // Adding a customer to a segment is a create, removing one a delete
+  const { canCreate, canDelete } = usePermissions();
 
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -144,6 +147,8 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
   }, [allCustomers, assigned]);
 
   const sourceList: any[] = showAddPanel ? available : assigned;
+  // Selecting only matters when the user may add (or remove) the selection
+  const canSelect = showAddPanel ? canCreate : canDelete;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -343,17 +348,19 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
                   {showAddPanel ? "Add Customers" : "Details"}
                 </h3>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddPanel((v) => !v);
-                  setSelectedIds([]);
-                  setSearch("");
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800/60 rounded-lg hover:bg-cyan-50 dark:hover:bg-cyan-950/30 transition-colors"
-              >
-                {showAddPanel ? "← Back to Segment" : "+ Add Customers"}
-              </button>
+              {canCreate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddPanel((v) => !v);
+                    setSelectedIds([]);
+                    setSearch("");
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800/60 rounded-lg hover:bg-cyan-50 dark:hover:bg-cyan-950/30 transition-colors"
+                >
+                  {showAddPanel ? "← Back to Segment" : "+ Add Customers"}
+                </button>
+              )}
             </div>
 
             {/* ---------- Search + Select All ---------- */}
@@ -368,7 +375,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
                   className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                 />
               </div>
-              {filtered.length > 0 && (
+              {filtered.length > 0 && canSelect && (
                 <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer whitespace-nowrap">
                   <input
                     type="checkbox"
@@ -420,12 +427,14 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
                       {/* Card heading */}
                       <div className="flex items-center justify-between pb-2.5 border-b border-gray-100 dark:border-gray-800">
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <input
-                            type="checkbox"
-                            checked={selected}
-                            onChange={() => toggle(id)}
-                            className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-cyan-600 focus:ring-cyan-500"
-                          />
+                          {canSelect && (
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => toggle(id)}
+                              className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-cyan-600 focus:ring-cyan-500"
+                            />
+                          )}
                           <span className="text-sm font-semibold text-cyan-600 dark:text-cyan-400 truncate">
                             {showAddPanel ? "Available Customer" : "Segment Customer"} #{idx + 1}
                           </span>
@@ -563,7 +572,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
                   : `Add${selectedIds.length ? ` (${selectedIds.length})` : ""}`}
               </button>
             ) : (
-              <button
+              canDelete && <button
                 onClick={handleRemove}
                 disabled={selectedIds.length === 0 || busy}
                 className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-all ${

@@ -25,6 +25,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { SellerProfile } from "../../components/quotation/QuotationPreviewTemplate";
 import { todayIso } from "../../utils/localDate";
 import { publicAsset } from "../../utils/assets";
+import { usePermissions } from "../../access/usePermissions";
 
 type Address = {
   id: number;
@@ -646,6 +647,11 @@ const itemStaticChipClass =
   "rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400";
 
 const Quotations: React.FC = () => {
+  const { canApprove, canCreate, canDelete, canExport, canUpdate } = usePermissions();
+  // Statuses the user may move a quotation to: send is a POST, accept needs SALES:APPROVE, the rest are updates
+  const canSetStatus = (status: string) =>
+    status === "ACCEPTED" ? canApprove : status === "SENT" ? canCreate : canUpdate;
+  const { canCreate: canCreateCustomer } = usePermissions("CRM");
   const navigate = useNavigate();
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
@@ -1483,6 +1489,15 @@ const Quotations: React.FC = () => {
       sortable: true,
       render: (quotation) => {
         const apiError = quotationApiErrors[quotation.id];
+        const currentStatus = getQuotationStatus(quotation.status) || "DRAFT";
+        const choices = statusOptions.filter((status) => status === currentStatus || canSetStatus(status));
+        if (choices.length <= 1) {
+          return (
+            <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
+              {currentStatus}
+            </span>
+          );
+        }
         return (
           <select
             value={getQuotationStatus(quotation.status) || "DRAFT"}
@@ -1495,7 +1510,7 @@ const Quotations: React.FC = () => {
                 : "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300"
             }`}
           >
-            {statusOptions.map((status) => (
+            {choices.map((status) => (
               <option key={status} value={status}>
                 {status}
               </option>
@@ -1522,16 +1537,16 @@ const Quotations: React.FC = () => {
       className: "text-right",
       render: (quotation) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <button
+          {canExport && (<button
             type="button"
             onClick={() => exportQuotationPdf(quotation)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
             title="Export quotation as PDF"
           >
             <ArrowDownTrayIcon className="h-4 w-4" />
-          </button>
+          </button>)}
           {getQuotationStatus(quotation.status) === "DRAFT" && (
-            <button
+            canUpdate && <button
               type="button"
               onClick={() => openEdit(quotation)}
               className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
@@ -1540,7 +1555,7 @@ const Quotations: React.FC = () => {
               <PencilSquareIcon className="h-4 w-4" />
             </button>
           )}
-          {getQuotationStatus(quotation.status) === "ACCEPTED" && (
+          {getQuotationStatus(quotation.status) === "ACCEPTED" && canCreate && (
             <button
               type="button"
               onClick={() => convertQuotationToSalesOrder(quotation)}
@@ -1550,14 +1565,14 @@ const Quotations: React.FC = () => {
               <ArrowRightCircleIcon className="h-4 w-4" />
             </button>
           )}
-          <button
+          {canDelete && (<button
             type="button"
             onClick={() => setDeleteQuotation(quotation)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -1624,7 +1639,7 @@ const Quotations: React.FC = () => {
                                 </span>
                               </div>
                             )}
-                            {customers.length === 0 && (
+                            {customers.length === 0 && canCreateCustomer && (
                               <button
                                 type="button"
                                 onClick={() => navigate("/customers/new")}
@@ -2275,13 +2290,13 @@ const Quotations: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               <DocumentTextIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
               <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No quotations found</p>
-              <button
+              {canCreate && (<button
                 type="button"
                 onClick={openCreate}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 Create your first quotation
-              </button>
+              </button>)}
             </div>
           }
         />

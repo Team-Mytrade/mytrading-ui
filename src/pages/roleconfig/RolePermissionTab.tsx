@@ -12,6 +12,7 @@ import { Permission, RolePermission } from "./RoleConfigTypes";
 import { StatusBadge, Toggle } from "./RoleConfigShared";
 import { AuthContext } from "../../context/AuthContext";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import { usePermissions } from "../../access/usePermissions";
 
 const API_BASE = "/v1/api/user/role-permissions";
 const PERMISSION_API_BASE = "/v1/api/user/permissions/all";
@@ -24,6 +25,7 @@ interface RolePermissionTabProps {
 }
 
 const RolePermissionTab: React.FC<RolePermissionTabProps> = ({ selectedPermissionFilter, onClearPermissionFilter }) => {
+  const { canCreate, canDelete, canUpdate } = usePermissions();
   const { user } = useContext(AuthContext);
 
   const [search, setSearch] = useState("");
@@ -300,20 +302,20 @@ const RolePermissionTab: React.FC<RolePermissionTabProps> = ({ selectedPermissio
       className: "text-right",
       render: (row: RolePermission) => (
         <div className="flex items-center justify-end gap-1">
-          <button
+          {canUpdate && (<button
             onClick={() => handleEdit(row)}
             className="p-1.5 text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             onClick={() => setShowDeleteConfirm(row.id)}
             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -393,7 +395,7 @@ const RolePermissionTab: React.FC<RolePermissionTabProps> = ({ selectedPermissio
           )}
         </div>
 
-        <button
+        {canCreate && (<button
           onClick={() => {
             setForm({ roleId: 0, permissionId: 0, validFrom: "", validTo: "", active: true });
             setEditingId(null);
@@ -403,7 +405,7 @@ const RolePermissionTab: React.FC<RolePermissionTabProps> = ({ selectedPermissio
         >
           <PlusIcon className="h-4 w-4" />
           Add Assignment
-        </button>
+        </button>)}
       </div>
 
       {/* Table */}
@@ -422,7 +424,7 @@ const RolePermissionTab: React.FC<RolePermissionTabProps> = ({ selectedPermissio
             {(search || roleFilter) ? (
               <p className="text-gray-400 text-xs mt-2">Try adjusting your search or filter</p>
             ) : (
-              <button
+              canCreate && <button
                 onClick={() => {
                   setForm({ roleId: 0, permissionId: 0, validFrom: "", validTo: "", active: true });
                   setEditingId(null);

@@ -21,6 +21,7 @@ import { AuthContext } from '../../context/AuthContext';
 import { Employee } from '../../shared/types/employee.types';
 import { formatFileSize } from '../../shared/utils/file';
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 interface Document {
     id: number;
@@ -51,6 +52,8 @@ const BASE_API_URL = "/v1/api/payroll/empdocuments";
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 
 const DocumentManagementPage: React.FC = () => {
+  // Approving or rejecting a document needs HRM:APPROVE
+  const { canApprove, canDelete } = usePermissions();
     const { user } = useContext(AuthContext);
     const [resolvedEmployeeId, setResolvedEmployeeId] = useState<number | null>(null);
     const [documents, setDocuments] = useState<Document[]>([]);
@@ -469,7 +472,7 @@ const DocumentManagementPage: React.FC = () => {
                                                         </td>
                                                         <td className="px-6 py-4">
                                                             <select
-                                                                disabled={doc.status === 'APPROVED'}
+                                                                disabled={doc.status === 'APPROVED' || !canApprove}
                                                                 value={doc.status}
                                                                 onChange={(e) => {
                                                                     const value = e.target.value as DocumentStatus;
@@ -523,7 +526,7 @@ const DocumentManagementPage: React.FC = () => {
                                                                     </button>
                                                                 )}
                                                                 {doc.status !== 'APPROVED' && (
-                                                                    <button title="Delete"
+                                                                    canDelete && <button title="Delete"
                                                                         onClick={() => handleDelete(doc.id)}
                                                                         className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors"
                                                                     >

@@ -38,12 +38,14 @@ import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import { AttendanceRecord, AttendanceStatus, AttendanceCreateInput } from '../../shared/types/attendance.types';
 import { Employee, Department } from '../../shared/types/employee.types';
+import { usePermissions } from "../../access/usePermissions";
 
 const ATTENDANCE_API_URL = "/v1/api/payroll/attendance";
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 const DEPARTMENT_API_URL = "/v1/api/payroll/department";
 
 const AttendanceManagementPage: React.FC = () => {
+  const { canCreate, canDelete, canUpdate } = usePermissions();
     const [activeTab, setActiveTab] = useState<'list' | 'calendar' | 'insights'>('list');
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
     const [employees, setEmployees] = useState<Employee[]>([]);
@@ -137,13 +139,13 @@ const AttendanceManagementPage: React.FC = () => {
                         <Upload size={16} />
                         Sync Logs
                     </button>
-                    <button
+                    {canCreate && (<button
                         onClick={() => { setEditingRecord(null); setFormData({ ...formData, employee: { id: 0 } }); setShowModal(true); }}
                         className="bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 shadow-lg hover:shadow-xl transition-all text-sm"
                     >
                         <Plus size={16} />
                         Manual Log
-                    </button>
+                    </button>)}
                 </div>
             </div>
 
@@ -245,12 +247,12 @@ const AttendanceManagementPage: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                                                    <button onClick={() => { setEditingRecord(record); setShowModal(true); setFormData({ employee: { id: record.employee.id }, date: record.date, checkInTime: record.checkInTime, checkOutTime: record.checkOutTime, remarks: record.remarks || '', late: record.late, halfDay: record.halfDay, absent: record.absent }); }} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                                                    {canUpdate && (<button onClick={() => { setEditingRecord(record); setShowModal(true); setFormData({ employee: { id: record.employee.id }, date: record.date, checkInTime: record.checkInTime, checkOutTime: record.checkOutTime, remarks: record.remarks || '', late: record.late, halfDay: record.halfDay, absent: record.absent }); }} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
                                                         <Edit3 size={16} />
-                                                    </button>
-                                                    <button onClick={() => handleDelete(record.id)} className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+                                                    </button>)}
+                                                    {canDelete && (<button onClick={() => handleDelete(record.id)} className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
                                                         <Trash2 size={16} />
-                                                    </button>
+                                                    </button>)}
                                                 </div>
                                             </td>
                                         </tr>

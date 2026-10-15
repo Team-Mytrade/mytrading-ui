@@ -27,6 +27,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 /**
  * =====================================================================================
@@ -188,6 +189,7 @@ function getCustomerName(customer: Customer | undefined): string {
 }
 
 const InventoryReservationManager: React.FC = () => {
+  const { canUpdate, canDelete: canDeleteReservations } = usePermissions();
   const token = localStorage.getItem("accessToken");
   const headers = token
     ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
@@ -877,7 +879,7 @@ const InventoryReservationManager: React.FC = () => {
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           {/* No edit: changing a reservation would re-lock stock. Release it and reserve again. */}
           {canRelease(reservation.status) && (
-            <button
+            canUpdate && <button
               type="button"
               onClick={() => {
                 setActionId(reservation.id || null);
@@ -891,7 +893,7 @@ const InventoryReservationManager: React.FC = () => {
           )}
 
           {canConsume(reservation.status) && (
-            <button
+            canUpdate && <button
               type="button"
               onClick={() => {
                 setActionId(reservation.id || null);
@@ -904,7 +906,7 @@ const InventoryReservationManager: React.FC = () => {
             </button>
           )}
 
-          <button
+          {canDeleteReservations && <button
             type="button"
             onClick={() => {
               if (canDelete(reservation.status)) {
@@ -924,7 +926,7 @@ const InventoryReservationManager: React.FC = () => {
             disabled={!canDelete(reservation.status)}
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>}
         </div>
       ),
     },

@@ -17,6 +17,7 @@ import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import FilterPopover from "../../components/common/filter";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import { usePermissions } from "../../access/usePermissions";
 
 interface TaxRecord {
   id: number;
@@ -40,6 +41,7 @@ const TRANSACTION_TONES: Record<string, string> = {
 };
 
 const TaxRecords: React.FC = () => {
+  const { canCreate } = usePermissions();
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
@@ -359,7 +361,7 @@ const TaxRecords: React.FC = () => {
               {search || activeFilter !== "ALL" ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
               ) : (
-                <button
+                canCreate && <button
                   type="button"
                   onClick={() => openCreate()}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"

@@ -8,6 +8,7 @@ import PurchaseResourcePage, {
   SelectOption,
 } from "../Purchase/PurchaseResourcePage";
 import { ToasterService } from "../../Services/ToasterService";
+import { usePermissions } from "../../access/usePermissions";
 
 const CATEGORIES = "/v1/api/product/product-categories";
 
@@ -218,6 +219,7 @@ const productCategoryConfig: PurchaseResourceConfig = {
 
 export default function ProductCategories() {
   const navigate = useNavigate();
+  const { canCreate, canUpdate } = usePermissions();
   const [reloadKey, setReloadKey] = useState(0);
   const [busyId, setBusyId] = useState<string | number | null>(null);
 
@@ -249,7 +251,7 @@ export default function ProductCategories() {
 
         return (
           <>
-            {row.active ? (
+            {!canUpdate ? null : row.active ? (
               <button
                 type="button"
                 disabled={isBusy}
@@ -280,7 +282,7 @@ export default function ProductCategories() {
             )}
 
             {/* New products can only go into active categories. */}
-            {row.active && (
+            {row.active && canCreate && (
               <button
                 type="button"
                 onClick={(event) => {
@@ -300,7 +302,7 @@ export default function ProductCategories() {
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [navigate, busyId]
+    [navigate, busyId, canCreate, canUpdate]
   );
 
   // Changing the key reloads the list (and the parent dropdown) after a status change.

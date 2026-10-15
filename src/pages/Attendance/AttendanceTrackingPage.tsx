@@ -16,6 +16,7 @@ import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import { ToasterService } from '../../Services/ToasterService';
 import { AuthContext } from '../../context/AuthContext';
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 // ── API Schema Interfaces for GET /v1/api/attendance/records/my-calendar/{employeeId}
 export interface CalendarDayModel {
@@ -62,6 +63,7 @@ const formatMinutesToHoursStr = (totalMins: number = 0): string => {
 };
 
 const AttendanceTrackingPage: React.FC = () => {
+  const { canExport } = usePermissions();
   const { user } = useContext(AuthContext);
 
   // Own employee identity from the login token (no hard-coded ids)
@@ -534,7 +536,7 @@ const AttendanceTrackingPage: React.FC = () => {
 
             {/* Export Controls */}
             <div className="flex items-center gap-1.5">
-              <button
+              {canExport && (<button
                 type="button"
                 onClick={handleExportCSV}
                 className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-700 dark:bg-[#222222] dark:hover:bg-[#282828] dark:text-gray-200 dark:border dark:border-transparent active:scale-95 text-white transition shadow-xs cursor-pointer"
@@ -542,9 +544,9 @@ const AttendanceTrackingPage: React.FC = () => {
               >
                 <Download className="w-3.5 h-3.5 text-white dark:text-gray-300" />
                 <span>Excel</span>
-              </button>
+              </button>)}
 
-              <button
+              {canExport && (<button
                 type="button"
                 onClick={handleExportPDF}
                 className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-700 dark:bg-[#222222] dark:hover:bg-[#282828] dark:text-gray-200 dark:border dark:border-transparent active:scale-95 text-white transition shadow-xs cursor-pointer"
@@ -552,7 +554,7 @@ const AttendanceTrackingPage: React.FC = () => {
               >
                 <FileText className="w-3.5 h-3.5 text-white dark:text-gray-300" />
                 <span>PDF</span>
-              </button>
+              </button>)}
             </div>
           </div>
         </div>

@@ -41,6 +41,7 @@ import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import PayslipPreviewModal from "../../components/Payroll/PayslipPreviewModal";
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 const BASE_URL = "/v1/api/payroll";
 const PAGE_SIZE = 10;
@@ -85,6 +86,7 @@ interface EmployeeSalary {
 }
 
 const PayrollPage: React.FC = () => {
+  const { canCreate, canExport } = usePermissions();
     const [searchParams] = useSearchParams();
     const [salaries, setSalaries] = useState<EmployeeSalary[]>([]);
     const [search, setSearch] = useState(() => {
@@ -539,7 +541,7 @@ const PayrollPage: React.FC = () => {
                         <FolderArrowDownIcon className="h-3.5 w-3.5" />
                     </button>
                     {row.isProcessed && (
-                        <button
+                        canCreate && <button
                             onClick={() => rollback(row.id, `${row.employee?.firstName} ${row.employee?.lastName}`)}
                             className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-rose-400 p-1.5 rounded-md transition-colors cursor-pointer"
                             title="Rollback"
@@ -567,7 +569,7 @@ const PayrollPage: React.FC = () => {
 
             <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
                 <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-                    <AddButton label={actionButtonLabel} onClick={() => setIsProcessModalOpen(true)} />
+                    <AddButton label={actionButtonLabel} permission="APPROVE" onClick={() => setIsProcessModalOpen(true)} />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 [&_.stats-card]:dark:!border-transparent [&_.stats-card]:dark:!bg-[#191919] [&_.stats-card__icon]:dark:!bg-[#222222] [&_.stats-card__icon]:dark:!text-gray-300 [&_.stats-card__value]:dark:!text-white [&_.stats-card__label]:dark:!text-gray-400">
@@ -592,7 +594,7 @@ const PayrollPage: React.FC = () => {
                     <div className="flex items-center gap-3">
                         {/* Export Menu */}
                         <div ref={exportMenuRef} className="relative flex h-10 items-center">
-                            <button
+                            {canExport && (<button
                                 type="button"
                                 onClick={() => setShowExportMenu(!showExportMenu)}
                                 className="h-10 w-10 border border-gray-300 dark:border-transparent bg-white dark:bg-[#191919] dark:hover:bg-[#222222] rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center focus:outline-none cursor-pointer"
@@ -600,7 +602,7 @@ const PayrollPage: React.FC = () => {
                                 title="Export options"
                             >
                                 <DocumentArrowDownIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                            </button>
+                            </button>)}
 
                             {showExportMenu && (
                                 <div className="absolute right-0 top-12 w-48 bg-white dark:bg-[#191919] shadow-lg rounded-md border border-gray-200 dark:border-transparent z-50 py-1">

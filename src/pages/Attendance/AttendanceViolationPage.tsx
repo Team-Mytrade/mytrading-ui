@@ -30,6 +30,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -162,6 +163,7 @@ const parseDurationFromAPI = (duration: string): { value: string; unit: "M" | "H
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const AttendanceViolationPage: React.FC = () => {
+  const { canCreate, canDelete, canUpdate } = usePermissions();
   const [violations, setViolations] = useState<AttendanceViolation[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
@@ -486,27 +488,27 @@ const AttendanceViolationPage: React.FC = () => {
       headerClassName: "!text-right pr-8", className: "text-right",
       render: (row) => (
         <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-          <button
+          {canUpdate && (<button
             onClick={() => toggleResolved(row)}
             title={row.resolved ? "Mark as Pending" : "Mark as Resolved"}
             className="p-2 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"
           >
             <CheckCircleIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canUpdate && (<button
             onClick={() => openEditForm(row)}
             title="Edit"
             className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             onClick={() => handleDelete(row.id!)}
             title="Delete"
             className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -781,13 +783,13 @@ const AttendanceViolationPage: React.FC = () => {
                     <ExclamationTriangleIcon className="h-8 w-8 text-gray-400" />
                   </div>
                   <p className="text-gray-500 text-sm font-medium mb-2">No violations found</p>
-                  <button
+                  {canCreate && (<button
                     onClick={openCreateForm}
                     className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
                   >
                     <PlusIcon className="h-4 w-4" />
                     Record a violation
-                  </button>
+                  </button>)}
                 </div>
               }
             />

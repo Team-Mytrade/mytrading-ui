@@ -10,6 +10,7 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 import { AuthContext } from '../../context/AuthContext';
+import { usePermissions } from '../../access/usePermissions';
 
 // ── Attendance Regularization API Base Endpoints ─────────────────────────
 // POST   /v1/api/attendance/regularization
@@ -36,6 +37,7 @@ export interface RegularizationItemModel {
 
 const AttendanceRegularizationApprovalPage: React.FC = () => {
   const { user } = useContext(AuthContext);
+  const { canApprove } = usePermissions();
 
   // Own employee identity from the login token (no hard-coded ids)
   const currentUser = useCurrentEmployee();
@@ -323,7 +325,7 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
       className: 'whitespace-nowrap text-right',
       render: (row) => (
         <div className="flex items-center justify-end gap-1 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-          {activeTab === 'pending' && (
+          {activeTab === 'pending' && canApprove && (
             <>
               <button
                 type="button"

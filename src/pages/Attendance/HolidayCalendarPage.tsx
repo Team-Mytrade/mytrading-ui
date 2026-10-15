@@ -10,6 +10,7 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 // Base relative API endpoints (routing via Vite dev proxy)
 const BASE_CALENDAR_URL = '/v1/api/attendance/holiday-calendars';
@@ -38,6 +39,8 @@ export interface HolidayCalendarModel {
 }
 
 const HolidayCalendarPage: React.FC = () => {
+  // Everyone may view holidays here (self-service page); changing them needs ATTENDANCE permissions
+  const { canCreate, canDelete, canUpdate } = usePermissions("ATTENDANCE");
   // ── States ─────────────────────────────────────────────────────────────
   const [calendars, setCalendars] = useState<HolidayCalendarModel[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -519,12 +522,13 @@ const HolidayCalendarPage: React.FC = () => {
         <button
           type="button"
           onClick={() => handleToggleCalendarActive(row)}
-          className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shadow-2xs ${
+          disabled={!canUpdate}
+          className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shadow-2xs disabled:pointer-events-none ${
             row.active !== false 
               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent hover:bg-emerald-100 dark:hover:bg-[#222222]' 
               : 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent hover:bg-rose-100 dark:hover:bg-[#222222]'
           }`}
-          title="Click to toggle Active / Inactive"
+          title={canUpdate ? "Click to toggle Active / Inactive" : undefined}
         >
           {row.active !== false ? 'Active' : 'Inactive'}
         </button>
@@ -543,38 +547,38 @@ const HolidayCalendarPage: React.FC = () => {
           >
             <Eye className="w-3.5 h-3.5" />
           </button>
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => openManageHolidaysModal(row)}
             className="p-1.5 bg-indigo-50 dark:bg-[#222222] hover:bg-indigo-100 dark:hover:bg-[#2a2a2a] border border-indigo-200 dark:!border-transparent rounded-lg text-indigo-700 dark:text-indigo-400 transition-colors cursor-pointer"
             title="Manage Holidays List"
           >
             <CalendarDays className="w-3.5 h-3.5" />
-          </button>
-          <button
+          </button>)}
+          {canCreate && (<button
             type="button"
             onClick={() => handleDuplicateCalendar(row)}
             className="p-1.5 bg-amber-50 dark:bg-[#222222] hover:bg-amber-100 dark:hover:bg-[#2a2a2a] border border-amber-200 dark:!border-transparent rounded-lg text-amber-700 dark:text-amber-400 transition-colors cursor-pointer"
             title="Duplicate Calendar for Next Year"
           >
             <Copy className="w-3.5 h-3.5" />
-          </button>
-          <button
+          </button>)}
+          {canUpdate && (<button
             type="button"
             onClick={() => openEditCalendarModal(row)}
             className="p-1.5 bg-cyan-50 dark:bg-[#222222] hover:bg-cyan-100 dark:hover:bg-[#2a2a2a] border border-cyan-200 dark:!border-transparent rounded-lg text-cyan-700 dark:text-cyan-400 transition-colors cursor-pointer"
             title="Edit Calendar Master"
           >
             <Edit className="w-3.5 h-3.5" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             type="button"
             onClick={() => handleDeleteCalendar(row)}
             className="p-1.5 bg-rose-50 dark:bg-[#222222] hover:bg-rose-100 dark:hover:bg-[#2a2a2a] border border-rose-200 dark:!border-transparent rounded-lg text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
             title="Delete Calendar"
           >
             <Trash2 className="w-3.5 h-3.5" />
-          </button>
+          </button>)}
         </div>
       )
     }
@@ -718,7 +722,7 @@ const HolidayCalendarPage: React.FC = () => {
               <span className="hidden sm:inline">{activeTab === 'table' ? 'Split Calendar View' : `Master Records (${calendars.length})`}</span>
               <span className="sm:hidden">{activeTab === 'table' ? 'Calendar View' : `Records (${calendars.length})`}</span>
             </button>
-            <button
+            {canCreate && (<button
               type="button"
               onClick={openCreateCalendarModal}
               className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-[11px] font-semibold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
@@ -726,7 +730,7 @@ const HolidayCalendarPage: React.FC = () => {
               <Plus className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Create Calendar</span>
               <span className="sm:hidden">Create</span>
-            </button>
+            </button>)}
             <div className="text-right hidden sm:block border-l border-gray-200 dark:!border-transparent pl-2.5 ml-0.5">
               <span className="text-[8.5px] text-gray-400 dark:text-gray-500 font-medium block">Employee ID</span>
               <span className="text-[11px] font-mono font-bold text-gray-700 dark:text-gray-300">{currentUser.code}</span>
@@ -836,13 +840,15 @@ const HolidayCalendarPage: React.FC = () => {
                       </span>
                       <h4 className="text-xs font-bold text-gray-900 dark:text-white">{activeSelectedCalendar.calendarName}</h4>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => openManageHolidaysModal(activeSelectedCalendar)}
-                      className="px-2 py-0.5 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded text-[10px] font-bold shadow-2xs flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      <Edit className="w-2.5 h-2.5" /> Edit Holidays
-                    </button>
+                    {canUpdate && (
+                      <button
+                        type="button"
+                        onClick={() => openManageHolidaysModal(activeSelectedCalendar)}
+                        className="px-2 py-0.5 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded text-[10px] font-bold shadow-2xs flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Edit className="w-2.5 h-2.5" /> Edit Holidays
+                      </button>
+                    )}
                   </div>
 
                   <p className="text-[10px] text-gray-500 dark:text-gray-400">{activeSelectedCalendar.description || 'Holidays schedule for employees'}</p>
@@ -863,7 +869,7 @@ const HolidayCalendarPage: React.FC = () => {
                     )}
                   </div>
 
-                  {holidaysList.length > 0 && (
+                  {holidaysList.length > 0 && canUpdate && (
                     <button
                       type="button"
                       onClick={addHolidayRow}
@@ -878,13 +884,15 @@ const HolidayCalendarPage: React.FC = () => {
                   {holidaysList.length === 0 ? (
                     <div className="p-4 text-center text-[11px] text-gray-500 dark:text-gray-400 italic bg-gray-50/60 dark:bg-[#222222] rounded-xl border border-dashed border-gray-200 dark:!border-transparent space-y-2">
                       <p>No holidays configured for this calendar on <span className="font-mono font-bold text-cyan-600 dark:text-cyan-400">{selectedDateStr}</span>.</p>
-                      <button
-                        type="button"
-                        onClick={addHolidayRow}
-                        className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-xs font-bold inline-flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
-                      >
-                        <Plus className="w-3 h-3" /> Create Holiday on {selectedDateStr}
-                      </button>
+                      {canUpdate && (
+                        <button
+                          type="button"
+                          onClick={addHolidayRow}
+                          className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-xs font-bold inline-flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" /> Create Holiday on {selectedDateStr}
+                        </button>
+                      )}
                     </div>
                   ) : (
                     holidaysList.map((h, idx) => {
@@ -948,7 +956,7 @@ const HolidayCalendarPage: React.FC = () => {
                               <option value="STATE">STATE</option>
                               <option value="FESTIVAL">FESTIVAL</option>
                             </select>
-                            <button
+                            {canDelete && (<button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -958,7 +966,7 @@ const HolidayCalendarPage: React.FC = () => {
                               title="Delete Holiday"
                             >
                               <Trash2 className="w-4 h-4" />
-                            </button>
+                            </button>)}
                           </div>
                         </div>
                       );
@@ -966,7 +974,7 @@ const HolidayCalendarPage: React.FC = () => {
                   )}
                 </div>
 
-                {holidaysList.length > 0 && (
+                {holidaysList.length > 0 && canUpdate && (
                   <div className="pt-2 flex justify-end">
                     <button
                       type="button"
@@ -1207,14 +1215,14 @@ const HolidayCalendarPage: React.FC = () => {
                         <option value="STATE">STATE</option>
                         <option value="FESTIVAL">FESTIVAL</option>
                       </select>
-                      <button
+                      {canDelete && (<button
                         type="button"
                         onClick={() => handleDeleteSingleHoliday(idx, h)}
                         className="h-9 w-9 flex items-center justify-center text-rose-500 hover:text-rose-700 bg-white dark:bg-[#191919] hover:bg-rose-50 dark:hover:bg-[#2a2a2a] border border-gray-300 dark:!border-transparent rounded-lg shrink-0 transition-colors shadow-2xs cursor-pointer"
                         title="Remove Holiday"
                       >
                         <Trash2 className="w-4 h-4" />
-                      </button>
+                      </button>)}
                     </div>
                   </div>
                 ))
@@ -1314,7 +1322,7 @@ const HolidayCalendarPage: React.FC = () => {
             </div>
 
             <div className="pt-3 border-t border-gray-100 dark:!border-transparent flex items-center justify-between">
-              <button
+              {canUpdate && (<button
                 type="button"
                 onClick={() => {
                   const target = viewingCalendarDetails;
@@ -1324,7 +1332,7 @@ const HolidayCalendarPage: React.FC = () => {
                 className="px-3 py-1.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-cyan-700 dark:text-cyan-300 rounded-lg text-xs font-bold border border-cyan-200 dark:!border-transparent transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <Edit className="w-3.5 h-3.5" /> Manage Holiday List
-              </button>
+              </button>)}
 
               <button
                 type="button"

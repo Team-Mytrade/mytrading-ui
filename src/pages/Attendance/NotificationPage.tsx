@@ -127,6 +127,7 @@ const formatDateTime = (dateStr: string | null) => {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const NotificationPage: React.FC = () => {
+  const { canCreate, canDelete, canUpdate } = usePermissions();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
@@ -410,7 +411,7 @@ const NotificationPage: React.FC = () => {
       render: (row: Notification) => (
         <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
           {!row.isRead && (
-            <button
+            canUpdate && <button
               onClick={() => markAsRead(row.id!)}
               title="Mark as Read"
               className="p-2 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"
@@ -418,20 +419,20 @@ const NotificationPage: React.FC = () => {
               <CheckCircleIcon className="h-4 w-4" />
             </button>
           )}
-          <button
+          {canUpdate && (<button
             onClick={() => openEditForm(row)}
             title="Edit"
             className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             onClick={() => handleDelete(row.id!)}
             title="Delete"
             className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -593,13 +594,13 @@ const NotificationPage: React.FC = () => {
                 <BellIcon className="h-8 w-8 text-gray-400" />
               </div>
               <p className="text-gray-500 text-sm font-medium mb-2">No notifications found</p>
-              <button
+              {canCreate && (<button
                 onClick={openCreateForm}
                 className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
               >
                 <PlusIcon className="h-4 w-4" />
                 Add your first notification
-              </button>
+              </button>)}
             </div>
           }
         />
@@ -750,5 +751,6 @@ const NotificationPage: React.FC = () => {
 
 // Missing imports
 import { ClockIcon, CurrencyDollarIcon } from "@heroicons/react/24/outline";
+import { usePermissions } from "../../access/usePermissions";
 
 export default NotificationPage;

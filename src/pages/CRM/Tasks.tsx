@@ -30,6 +30,7 @@ import {
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
 import { useUserDirectory, userOptions } from "../../access/useUserDirectory";
+import { usePermissions } from "../../access/usePermissions";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import DynamicPopup from "../../components/common/Popup";
@@ -91,6 +92,7 @@ const getCustomerLabel = (c?: Customer | null) =>
   c?.customerName || c?.name || "";
 
 const Tasks: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [form, setForm] = useState<Partial<Activity>>({});
   const [showFormModal, setShowFormModal] = useState(false);
@@ -396,7 +398,11 @@ const Tasks: React.FC = () => {
       key: "status",
       label: "Status",
       sortable: true,
-      render: (a) => (
+      render: (a) => !canUpdate ? (
+        <span className={`inline-flex w-[112px] items-center rounded-lg border px-2 py-1.5 text-xs font-semibold ${getStatusBadgeColor(a.status)}`}>
+          {ACTIVITY_STATUS_OPTIONS.find((option) => option.id === (a.status || "PENDING"))?.name ?? a.status}
+        </span>
+      ) : (
         <div onClick={(e) => e.stopPropagation()}>
           <select
             value={a.status || "PENDING"}
@@ -488,22 +494,26 @@ const Tasks: React.FC = () => {
           className="flex items-center justify-end gap-1"
           onClick={(e) => e.stopPropagation()}
         >
-          <button
-            type="button"
-            onClick={() => handleEdit(a)}
-            className="rounded-lg p-2 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600"
-            title="Edit"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => confirmDelete(a.id)}
-            className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
-            title="Delete"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
+          {canUpdate && (
+            <button
+              type="button"
+              onClick={() => handleEdit(a)}
+              className="rounded-lg p-2 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600"
+              title="Edit"
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+            </button>
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => confirmDelete(a.id)}
+              className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
+              title="Delete"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -592,16 +602,18 @@ const Tasks: React.FC = () => {
                 <p className="text-gray-500 text-sm mb-2">
                   No activities found
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setForm({ activityType: "TASK", priority: "MEDIUM", status: "PENDING" });
-                    setShowFormModal(true);
-                  }}
-                  className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
-                >
-                  Add your first activity
-                </button>
+                {canCreate && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm({ activityType: "TASK", priority: "MEDIUM", status: "PENDING" });
+                      setShowFormModal(true);
+                    }}
+                    className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
+                  >
+                    Add your first activity
+                  </button>
+                )}
               </div>
             }
           />

@@ -31,6 +31,7 @@ import StatsCard from "../../components/common/Statscard";
 import TableExportModal from "../../components/common/TableExportModal";
 import "../../styles/Deals.css";
 import { apiError } from "./crmShared";
+import { usePermissions } from "../../access/usePermissions";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -147,6 +148,7 @@ const Segments: React.FC = () => {
   const processedEditIdRef = useRef<number | null>(null);
 
   const navigate = useNavigate();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const location = useLocation();
   // Opened from a customer's page: the segments that customer is in
   const scopedCustomerId = Number(new URLSearchParams(location.search).get("customerId")) || null;
@@ -484,33 +486,39 @@ const Segments: React.FC = () => {
               <EyeIcon className="h-4 w-4" />
             </button>
 
-            <button
-              type="button"
-              onClick={() => handleEdit(segment)}
-              className="rounded-lg p-2 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-              title="Edit Segment"
-            >
-              <PencilSquareIcon className="h-4 w-4" />
-            </button>
+            {canUpdate && (
+              <button
+                type="button"
+                onClick={() => handleEdit(segment)}
+                className="rounded-lg p-2 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+                title="Edit Segment"
+              >
+                <PencilSquareIcon className="h-4 w-4" />
+              </button>
+            )}
 
-            {/* Opens the drawer */}
-            <button
-              type="button"
-              onClick={() => openCustomerDrawer(segment.id)}
-              className="rounded-lg p-2 text-slate-400 transition-all hover:bg-indigo-50 hover:text-indigo-600"
-              title={count > 0 ? "Manage Customers" : "Add Customers"}
-            >
-              {count > 0 ? <UsersIcon className="h-4 w-4" /> : <UserPlusIcon className="h-4 w-4" />}
-            </button>
+            {/* Opens the drawer (adding customers is a create, removing them a delete) */}
+            {(canCreate || (canDelete && count > 0)) && (
+              <button
+                type="button"
+                onClick={() => openCustomerDrawer(segment.id)}
+                className="rounded-lg p-2 text-slate-400 transition-all hover:bg-indigo-50 hover:text-indigo-600"
+                title={count > 0 ? "Manage Customers" : "Add Customers"}
+              >
+                {count > 0 ? <UsersIcon className="h-4 w-4" /> : <UserPlusIcon className="h-4 w-4" />}
+              </button>
+            )}
 
-            <button
-              type="button"
-              onClick={(e) => handleDelete(segment.id, e)}
-              className="rounded-lg p-2 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-              title="Delete Segment"
-            >
-              <TrashIcon className="h-4 w-4" />
-            </button>
+            {canDelete && (
+              <button
+                type="button"
+                onClick={(e) => handleDelete(segment.id, e)}
+                className="rounded-lg p-2 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+                title="Delete Segment"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
+            )}
           </div>
         );
       },
@@ -571,7 +579,7 @@ const Segments: React.FC = () => {
                 >
                   Clear filters
                 </button>
-              ) : (
+              ) : canCreate && (
                 <button
                   type="button"
                   onClick={() => openCreateSegment()}

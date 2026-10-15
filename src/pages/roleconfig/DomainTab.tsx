@@ -14,6 +14,7 @@ import { Domain } from "./RoleConfigTypes";
 import { StatusBadge, Toggle } from "./RoleConfigShared";
 import { AuthContext } from "../../context/AuthContext";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import { usePermissions } from "../../access/usePermissions";
 
 const API_BASE = "/v1/api/user/domains";
 const PAGE_SIZE = 10;
@@ -33,6 +34,7 @@ interface DomainTabProps {
 }
 
 const DomainTab: React.FC<DomainTabProps> = ({ selectedTenantFilter, onClearTenantFilter, onViewDepartments }) => {
+  const { canCreate, canDelete, canUpdate } = usePermissions();
   const { user } = useContext(AuthContext);
   const tenantId = user?.tenantId;
 
@@ -231,20 +233,20 @@ const DomainTab: React.FC<DomainTabProps> = ({ selectedTenantFilter, onClearTena
           >
             <BuildingLibraryIcon className="h-4 w-4" />
           </button>
-          <button
+          {canUpdate && (<button
             onClick={() => handleEdit(row)}
             className="p-1.5 text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             onClick={() => setShowDeleteConfirm(row.id)}
             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -294,7 +296,7 @@ const DomainTab: React.FC<DomainTabProps> = ({ selectedTenantFilter, onClearTena
           )}
         </div>
 
-        <button
+        {canCreate && (<button
           onClick={() => {
             setForm({ domainName: "", description: "", active: true });
             setEditingId(null);
@@ -304,7 +306,7 @@ const DomainTab: React.FC<DomainTabProps> = ({ selectedTenantFilter, onClearTena
         >
           <PlusIcon className="h-4 w-4" />
           Add Domain
-        </button>
+        </button>)}
       </div>
 
   
@@ -322,7 +324,7 @@ const DomainTab: React.FC<DomainTabProps> = ({ selectedTenantFilter, onClearTena
             <Cog6ToothIcon className="h-12 w-12 text-gray-300 mb-3" />
             <p className="text-gray-500 text-sm">No domains found</p>
             {!search && (
-              <button
+              canCreate && <button
                 onClick={() => {
                   setForm({ domainName: "", description: "", active: true });
                   setEditingId(null);

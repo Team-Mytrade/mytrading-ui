@@ -29,6 +29,7 @@ import {
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import PaginatedPopup from "../../components/common/unpopup";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_OPTIONS, apiError } from "./crmShared";
+import { usePermissions } from "../../access/usePermissions";
 const API_URL = "/v1/api/crm/leads";
 const CUSTOMER_API = "/v1/api/crm/customers";
 const getToken = () => localStorage.getItem("accessToken") || "";
@@ -104,6 +105,7 @@ const getCustomerLabel = (c: Customer) =>
 const Leads: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const leadSearchParams = new URLSearchParams(location.search);
   const scopedLeadId = Number(leadSearchParams.get("leadId")) || null;
   const scopedLeadName = leadSearchParams.get("leadName") || "Selected lead";
@@ -481,9 +483,9 @@ const confirmConvert = async () => {
       sortable: true,
       render: (lead) =>
         // A converted lead stays converted (it is linked to its customer)
-        lead.status === "CONVERTED" ? (
+        lead.status === "CONVERTED" || !canUpdate ? (
           <span className={`inline-flex w-[112px] items-center rounded-lg px-2 py-1.5 text-xs font-semibold ${getStatusBadgeColor(lead.status)}`}>
-            {LEAD_STATUS_LABELS.CONVERTED}
+            {LEAD_STATUS_LABELS[lead.status]}
           </span>
         ) : (
         <div onClick={(e) => e.stopPropagation()}>
@@ -521,7 +523,7 @@ const confirmConvert = async () => {
         >
           {/* Convert to Customer (or already-linked indicator) */}
           {!lead.customer ? (
-            <button
+            canCreate && <button
               type="button"
               onClick={() => openConvertPopup(lead)}
               disabled={convertingId === lead.id}
@@ -546,7 +548,7 @@ const confirmConvert = async () => {
           )}
 
           {/* Link to an existing customer (opens modal) — hidden if already linked */}
-          {!lead.customer && (
+          {!lead.customer && canCreate && (
             <button
               type="button"
               onClick={() => openLinkModal(lead.id)}
@@ -558,37 +560,41 @@ const confirmConvert = async () => {
           )}
 
           {/* Edit */}
-          <button
-            type="button"
-            onClick={() => {
-              setFormData({
-                name: lead.name,
-                email: lead.email,
-                phone: lead.phone,
-                status: lead.status,
-                customer: lead.customer ?? null,
-              });
-              setEditingId(lead.id);
-              setShowModal(true);
-            }}
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
-            title="Edit Lead"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
+          {canUpdate && (
+            <button
+              type="button"
+              onClick={() => {
+                setFormData({
+                  name: lead.name,
+                  email: lead.email,
+                  phone: lead.phone,
+                  status: lead.status,
+                  customer: lead.customer ?? null,
+                });
+                setEditingId(lead.id);
+                setShowModal(true);
+              }}
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
+              title="Edit Lead"
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+            </button>
+          )}
 
           {/* Delete */}
-          <button
-            type="button"
-            onClick={() => {
-              setDeleteLead(lead);
-              setShowDeletePopup(true);
-            }}
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-            title="Delete Lead"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteLead(lead);
+                setShowDeletePopup(true);
+              }}
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+              title="Delete Lead"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },

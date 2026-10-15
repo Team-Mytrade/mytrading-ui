@@ -12,6 +12,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { Domain, Permission } from "./RoleConfigTypes";
 import { AuthContext } from "../../context/AuthContext";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import { usePermissions } from "../../access/usePermissions";
 
 const API_BASE = "/v1/api/user/permissions";
 const DOMAIN_API_BASE = "/v1/api/user/domains";
@@ -22,6 +23,7 @@ interface PermissionTabProps {
 }
 
 const PermissionTab: React.FC<PermissionTabProps> = ({ onViewRolePermissions }) => {
+  const { canCreate, canDelete, canUpdate } = usePermissions();
   const { user } = useContext(AuthContext);
   const tenantId = user?.tenantId;
 
@@ -252,20 +254,20 @@ const PermissionTab: React.FC<PermissionTabProps> = ({ onViewRolePermissions }) 
           >
             <LinkIcon className="h-4 w-4" />
           </button>
-          <button
+          {canUpdate && (<button
             onClick={() => handleEdit(row)}
             className="p-1.5 text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             onClick={() => setShowDeleteConfirm(row.id)}
             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -295,7 +297,7 @@ const PermissionTab: React.FC<PermissionTabProps> = ({ onViewRolePermissions }) 
           )}
         </div>
 
-        <button
+        {canCreate && (<button
           onClick={() => {
             setForm({ permissionCode: "", permissionName: "", domainId: 0 });
             setEditingId(null);
@@ -305,7 +307,7 @@ const PermissionTab: React.FC<PermissionTabProps> = ({ onViewRolePermissions }) 
         >
           <PlusIcon className="h-4 w-4" />
           Add Permission
-        </button>
+        </button>)}
       </div>
 
 
@@ -323,7 +325,7 @@ const PermissionTab: React.FC<PermissionTabProps> = ({ onViewRolePermissions }) 
             <Cog6ToothIcon className="h-12 w-12 text-gray-300 mb-3" />
             <p className="text-gray-500 text-sm">No permissions found</p>
             {!search && (
-              <button
+              canCreate && <button
                 onClick={() => {
                   setForm({ permissionCode: "", permissionName: "", domainId: 0 });
                   setEditingId(null);

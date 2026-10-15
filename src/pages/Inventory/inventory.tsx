@@ -28,6 +28,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 /**
  * =====================================================================================
@@ -220,6 +221,7 @@ function getStockStatus(stock: InventoryStock) {
 }
 
 const InventoryStockManager: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const token = localStorage.getItem("accessToken");
   const headers = token
     ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
@@ -724,22 +726,22 @@ const InventoryStockManager: React.FC = () => {
       className: "text-right",
       render: (stock) => (
         <div className="flex justify-end gap-1">
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => openEdit(stock)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             type="button"
             onClick={() => setDeleteStock(stock)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -886,13 +888,13 @@ const InventoryStockManager: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               <CubeIcon className="mb-3 h-12 w-12 text-gray-400" />
               <p className="mb-2 text-sm text-gray-500">No inventory stock found</p>
-              <button
+              {canCreate && (<button
                 type="button"
                 onClick={openCreate}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
               >
                 Create your first stock entry
-              </button>
+              </button>)}
             </div>
           }
         />

@@ -41,6 +41,7 @@ import {
   toDateTimeInput,
   toLocalDateTime,
 } from "./crmShared";
+import { usePermissions } from "../../access/usePermissions";
 interface CommunicationEntry {
   id: number;
   type: string;
@@ -85,6 +86,7 @@ const typeLabel = (type: string) => COMMUNICATION_TYPE_OPTIONS.find((o) => o.id 
 
 const Interactions: React.FC = () => {
   const navigate = useNavigate();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   // Opened from a customer, lead or contact page: only their history
   const [searchParams] = useSearchParams();
   const scope = {
@@ -474,14 +476,16 @@ const Interactions: React.FC = () => {
           className="max-w-[120px] flex items-center justify-end gap-1"
           onClick={(e) => e.stopPropagation()}
         >
-          <button
-            type="button"
-            onClick={() => handleEdit(entry)}
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
-            title="Edit"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
+          {canUpdate && (
+            <button
+              type="button"
+              onClick={() => handleEdit(entry)}
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+              title="Edit"
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => openNotesModal(entry)}
@@ -490,17 +494,19 @@ const Interactions: React.FC = () => {
           >
             <DocumentTextIcon className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setDeleteId(entry.id);
-              setShowDeletePopup(true);
-            }}
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-            title="Delete"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteId(entry.id);
+                setShowDeletePopup(true);
+              }}
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+              title="Delete"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -593,13 +599,15 @@ const Interactions: React.FC = () => {
                 <p className="text-gray-500 text-sm mb-2">
                   No communications found
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setShowFormModal(true)}
-                  className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
-                >
-                  Add your first communication
-                </button>
+                {canCreate && (
+                  <button
+                    type="button"
+                    onClick={() => setShowFormModal(true)}
+                    className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
+                  >
+                    Add your first communication
+                  </button>
+                )}
               </div>
             }
           />

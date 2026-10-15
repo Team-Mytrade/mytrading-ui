@@ -29,6 +29,7 @@ import ConfirmDialog from "../../components/common/ConfirmDialog";
 import PaginatedPopup from "../../components/common/unpopup";
 import { AddButton } from "../../components/common/AddButton";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { usePermissions } from "../../access/usePermissions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -139,6 +140,7 @@ const formatTimeForDisplay = (timeStr: string): string => {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const OverTimeEntryPage: React.FC = () => {
+  const { canApprove, canCreate, canDelete, canUpdate } = usePermissions();
   const [entries, setEntries] = useState<OvertimeEntry[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [rules, setRules] = useState<OvertimeRule[]>([]);
@@ -519,7 +521,7 @@ const OverTimeEntryPage: React.FC = () => {
       headerClassName: "!text-right pr-8", className: "text-right",
       render: (row: OvertimeEntry) => (
         <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-          {row.status === "PENDING" && (
+          {row.status === "PENDING" && canApprove && (
             <>
               <button
                 onClick={() => openActionDialog(row, "APPROVE")}
@@ -538,7 +540,7 @@ const OverTimeEntryPage: React.FC = () => {
             </>
           )}
           {row.status === "PENDING" && (
-            <button
+            canUpdate && <button
               onClick={() => openEditForm(row)}
               title="Edit"
               className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors"
@@ -548,13 +550,13 @@ const OverTimeEntryPage: React.FC = () => {
               </svg>
             </button>
           )}
-          <button
+          {canDelete && (<button
             onClick={() => handleDelete(row.id!)}
             title="Delete"
             className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -670,13 +672,13 @@ const OverTimeEntryPage: React.FC = () => {
                 <BoltIcon className="h-8 w-8 text-gray-400" />
               </div>
               <p className="text-gray-500 text-sm font-medium mb-2">No overtime entries found</p>
-              <button
+              {canCreate && (<button
                 onClick={openCreateForm}
                 className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
               >
                 <PlusIcon className="h-4 w-4" />
                 Log your first overtime
-              </button>
+              </button>)}
             </div>
           }
         />

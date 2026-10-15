@@ -24,6 +24,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 // ========================== ENUM OPTION TYPE ==========================
 interface EnumOption {
@@ -214,6 +215,7 @@ function normalizeEnumOptions(raw: any, fallback: EnumOption[]): EnumOption[] {
 
 // ========================== MAIN COMPONENT ==========================
 const StockAdjustmentManager: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const token = localStorage.getItem("accessToken");
   const headers = token
     ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
@@ -968,22 +970,22 @@ const StockAdjustmentManager: React.FC = () => {
           >
             <EyeIcon className="h-4 w-4" />
           </button>
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => openEdit(adjustment)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             type="button"
             onClick={() => setDeletingAdjustment(adjustment)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -1047,13 +1049,13 @@ const StockAdjustmentManager: React.FC = () => {
               <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
                 No stock adjustments found
               </p>
-              <button
+              {canCreate && (<button
                 type="button"
                 onClick={openCreate}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 Create your first adjustment
-              </button>
+              </button>)}
             </div>
           }
         />

@@ -10,6 +10,7 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 // Relative API Base Endpoint (routing via Vite dev proxy)
 const BASE_REQUESTS_URL = '/v1/api/attendance/requests';
@@ -62,6 +63,7 @@ export interface OnDutyDateRow {
 }
 
 const AttendanceRequestsPage: React.FC = () => {
+  const { canUpdate } = usePermissions();
   // ── User Context Resolution ─────────────────────────────────────────────
   // Own employee identity from the login token (no hard-coded ids)
   const currentUser = useCurrentEmployee();
@@ -957,14 +959,14 @@ const AttendanceRequestsPage: React.FC = () => {
                               </td>
                               <td className="py-2.5 px-3 text-center">
                                 <div className="flex items-center justify-center gap-2">
-                                  <button
+                                  {canUpdate && (<button
                                     type="button"
                                     onClick={() => setEditingRow(row)}
                                     className="p-1 text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 transition-colors cursor-pointer"
                                     title="Edit Date Entry"
                                   >
                                     <Pencil className="w-4 h-4" />
-                                  </button>
+                                  </button>)}
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteDateRow(row.id)}

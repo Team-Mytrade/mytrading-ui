@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { todayIso } from "../../utils/localDate";
 import { apiError, useDeliveryLookups } from "./deliveryShared";
+import { usePermissions } from "../../access/usePermissions";
 
 // ================= TYPES =================
 
@@ -140,6 +141,7 @@ const isDeletable = (s: Shipment) => s.status === "DRAFT" || s.status === "CANCE
 // ================= COMPONENT =================
 
 const Shipment: React.FC = () => {
+  const { canCreate, canDelete, canUpdate } = usePermissions();
   const lookups = useDeliveryLookups(["products"]);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [search, setSearch] = useState("");
@@ -589,7 +591,7 @@ const Shipment: React.FC = () => {
             <EyeIcon className="h-4 w-4" />
           </button>
           {isEditable(row) && (
-            <button
+            canUpdate && <button
               type="button"
               onClick={() => handleEditShipment(row)}
               className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
@@ -599,7 +601,7 @@ const Shipment: React.FC = () => {
             </button>
           )}
           {nextStatuses(row.status).length > 0 && (
-            <button
+            canUpdate && <button
               type="button"
               onClick={() => handleOpenStatusModal(row)}
               className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-purple-50 hover:text-purple-600"
@@ -609,7 +611,7 @@ const Shipment: React.FC = () => {
             </button>
           )}
           {isDeletable(row) && (
-            <button
+            canDelete && <button
               type="button"
               onClick={() => handleDeleteClick(row)}
               className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
@@ -742,7 +744,7 @@ const Shipment: React.FC = () => {
               {search || statusFilter !== "ALL" ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
               ) : (
-                <button
+                canCreate && <button
                   type="button"
                   onClick={handleAddShipment}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
@@ -1019,7 +1021,7 @@ const Shipment: React.FC = () => {
 
               <div className="mt-4 border-t pt-4 flex justify-end gap-2">
                 {isEditable(selectedShipment) && (
-                  <button
+                  canUpdate && <button
                     onClick={() => {
                       setShowDetailModal(false);
                       handleEditShipment(selectedShipment);
@@ -1031,7 +1033,7 @@ const Shipment: React.FC = () => {
                   </button>
                 )}
                 {nextStatuses(selectedShipment.status).length > 0 && (
-                  <button
+                  canUpdate && <button
                     onClick={() => {
                       setShowDetailModal(false);
                       handleOpenStatusModal(selectedShipment);
@@ -1043,7 +1045,7 @@ const Shipment: React.FC = () => {
                   </button>
                 )}
                 {isDeletable(selectedShipment) && (
-                  <button
+                  canDelete && <button
                     onClick={() => {
                       setShowDetailModal(false);
                       handleDeleteClick(selectedShipment);

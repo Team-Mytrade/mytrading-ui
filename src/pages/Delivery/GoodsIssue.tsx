@@ -24,6 +24,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { todayIso } from "../../utils/localDate";
 import { DELIVERY_API, apiError, useDeliveryLookups } from "./deliveryShared";
+import { usePermissions } from "../../access/usePermissions";
 
 // A goods issue records what left the warehouse against a delivery note: drafted, then posted (or
 // cancelled). Quantities can never exceed what is still open on the note. Stock itself is taken out
@@ -89,6 +90,7 @@ const noteLines = (note?: DeliveryNoteOption): GoodsIssueItem[] =>
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const GoodsIssuePage: React.FC = () => {
+  const { canCreate, canDelete, canUpdate } = usePermissions();
   const lookups = useDeliveryLookups(["products"]);
   const [form, setForm] = useState<GoodsIssueForm>(emptyForm());
 
@@ -360,21 +362,21 @@ const GoodsIssuePage: React.FC = () => {
         <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
           {r.status === "DRAFT" && (
             <>
-              <button type="button" onClick={() => setStatusChange({ record: r, status: "POSTED" })} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-green-50 hover:text-green-600" title="Post">
+              {canUpdate && (<button type="button" onClick={() => setStatusChange({ record: r, status: "POSTED" })} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-green-50 hover:text-green-600" title="Post">
                 <CheckCircleIcon className="h-4 w-4" />
-              </button>
-              <button type="button" onClick={() => handleEdit(r)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600" title="Edit">
+              </button>)}
+              {canUpdate && (<button type="button" onClick={() => handleEdit(r)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600" title="Edit">
                 <PencilSquareIcon className="h-4 w-4" />
-              </button>
+              </button>)}
             </>
           )}
           {r.status !== "CANCELLED" && (
-            <button type="button" onClick={() => setStatusChange({ record: r, status: "CANCELLED" })} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-amber-50 hover:text-amber-600" title="Cancel">
+            canUpdate && <button type="button" onClick={() => setStatusChange({ record: r, status: "CANCELLED" })} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-amber-50 hover:text-amber-600" title="Cancel">
               <NoSymbolIcon className="h-4 w-4" />
             </button>
           )}
           {r.status !== "POSTED" && (
-            <button type="button" onClick={() => handleDelete(r)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600" title="Delete">
+            canDelete && <button type="button" onClick={() => handleDelete(r)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600" title="Delete">
               <TrashIcon className="h-4 w-4" />
             </button>
           )}
@@ -475,7 +477,7 @@ const GoodsIssuePage: React.FC = () => {
               {search || activeFilter !== "ALL" ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
               ) : (
-                <button type="button" onClick={handleAddNew} className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium">
+                canCreate && <button type="button" onClick={handleAddNew} className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium">
                   Create your first goods issue
                 </button>
               )}

@@ -10,6 +10,7 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 // Relative API Base URL (routing via Vite dev proxy)
 const BASE_SCHEDULE_URL = '/v1/api/attendance/shiftShedules';
@@ -53,6 +54,7 @@ export interface CurrentShiftModel {
 }
 
 const EmployeeShiftSchedulePage: React.FC = () => {
+  const { canCreate, canUpdate } = usePermissions();
   // ── States ─────────────────────────────────────────────────────────────
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [shifts, setShifts] = useState<ShiftOption[]>([]);
@@ -323,14 +325,14 @@ const EmployeeShiftSchedulePage: React.FC = () => {
       label: 'Actions',
       render: (row) => (
         <div className="flex items-center gap-1.5">
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => openEditModal(row)}
             className="p-1.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-transparent dark:hover:bg-[#222222] border border-cyan-200 dark:border-transparent rounded-lg text-cyan-700 dark:text-gray-400 dark:hover:text-cyan-400 transition-colors cursor-pointer"
             title="Edit Assignment"
           >
             <Edit2 className="w-3.5 h-3.5" />
-          </button>
+          </button>)}
         </div>
       )
     }
@@ -356,13 +358,13 @@ const EmployeeShiftSchedulePage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            <button
+            {canCreate && (<button
               type="button"
               onClick={openCreateModal}
               className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0 cursor-pointer"
             >
               <Plus className="w-4 h-4" /> Assign Shift
-            </button>
+            </button>)}
             <button
               type="button"
               onClick={() => loadEmployeeSchedules(selectedEmployeeId)}

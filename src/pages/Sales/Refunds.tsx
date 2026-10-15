@@ -22,6 +22,7 @@ import {
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { usePermissions } from "../../access/usePermissions";
 
 type Refund = {
   id: number;
@@ -150,6 +151,7 @@ function money(value: number | string | undefined) {
 }
 
 const Refunds: React.FC = () => {
+  const { canUpdate, canDelete } = usePermissions();
   const token = localStorage.getItem("accessToken");
   const headers = useMemo(
     () =>
@@ -430,7 +432,11 @@ const Refunds: React.FC = () => {
       key: "status",
       label: "Status",
       sortable: true,
-      render: (refund) => (
+      render: (refund) => !canUpdate ? (
+        <span className="inline-flex h-9 w-[112px] items-center rounded-xl border border-cyan-200 bg-cyan-50 px-3 text-sm font-medium text-cyan-700">
+          {refund.status || "--"}
+        </span>
+      ) : (
         <select
           value={refund.status || ""}
           onChange={(e) => {
@@ -458,22 +464,22 @@ const Refunds: React.FC = () => {
       className: "text-right",
       render: (refund) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => openEdit(refund)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             type="button"
             onClick={() => setDeleteRefund(refund)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },

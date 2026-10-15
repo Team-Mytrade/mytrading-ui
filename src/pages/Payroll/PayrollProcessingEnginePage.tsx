@@ -19,6 +19,7 @@ import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import { ReusableTable, ColumnDef } from "../../components/common/Table";
+import { usePermissions } from "../../access/usePermissions";
 
 export interface UploadedFile {
     fileName: string;
@@ -27,6 +28,7 @@ export interface UploadedFile {
 }
 
 const PayrollProcessingEnginePage: React.FC = () => {
+  const { canApprove, canCreate, canExport } = usePermissions();
     const [workflowStep, setWorkflowStep] = useState(1);
     const [activeTab, setActiveTab] = useState<'process' | 'history'>('process');
     const [batchInfo, setBatchInfo] = useState<any[]>([]);
@@ -315,13 +317,13 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                 First, download the Excel sheet containing basic info of all employees. After downloading, you can add different deductions/earnings for each employee.
                                             </p>
 
-                                            <button
+                                            {canExport && (<button
                                                 onClick={handleDownloadTemplate}
                                                 className="inline-flex items-center px-6 py-3 border border-transparent shadow-md text-base font-medium rounded-lg text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-all hover:scale-105 cursor-pointer"
                                             >
                                                 <CloudArrowDownIcon className="-ml-1 mr-2 h-6 w-6" />
                                                 Download Template
-                                            </button>
+                                            </button>)}
 
                                             <div className="mt-4 flex justify-center">
                                                 <button onClick={() => setWorkflowStep(2)} className="text-gray-500 hover:text-cyan-600 dark:text-gray-400 dark:hover:text-cyan-400 text-sm font-medium flex items-center cursor-pointer">
@@ -365,14 +367,14 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                     hover:file:bg-cyan-100 dark:hover:file:bg-[#2a2a2a] border border-gray-300 dark:border-transparent rounded-md shadow-sm bg-white dark:bg-[#191919]"
                                                     />
                                                 </div>
-                                                <button
+                                                {canCreate && (<button
                                                     onClick={handleFileUpload}
                                                     disabled={isUploading || !selectedFile}
                                                     className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 cursor-pointer"
                                                 >
                                                     {isUploading ? <ArrowPathIcon className="animate-spin -ml-1 mr-2 h-5 w-5" /> : <DocumentPlusIcon className="-ml-1 mr-2 h-5 w-5" />}
                                                     Upload File
-                                                </button>
+                                                </button>)}
                                             </div>
 
                                             <button
@@ -512,7 +514,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                     max={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
                                                 />
                                             </div>
-                                            <button
+                                            {canApprove && (<button
                                                 onClick={handleProcessAll}
                                                 disabled={isProcessing}
                                                 className="inline-flex items-center px-8 py-3.5 border border-transparent shadow-lg text-base font-medium rounded-xl text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 disabled:opacity-50 transition-all hover:scale-105 cursor-pointer"
@@ -520,7 +522,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                 {isProcessing ? (
                                                     <><ArrowPathIcon className="animate-spin -ml-1 mr-3 h-5 w-5" /> Processing Engine...</>
                                                 ) : "Run Payroll Engine"}
-                                            </button>
+                                            </button>)}
                                         </div>
 
                                         <div className="flex justify-center mt-12">
@@ -585,7 +587,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                             className: "text-right",
                                             headerClassName: "text-right",
                                             render: (row: any) => (
-                                                <button
+                                                canExport && <button
                                                     onClick={(e) => { e.stopPropagation(); handleDownloadReport(row.batchReference, row.salaryMonth); }}
                                                     className="text-cyan-600 hover:text-cyan-900 dark:text-gray-400 dark:hover:text-gray-200 bg-cyan-50 dark:bg-[#222222] p-2.5 rounded-full transition-colors inline-block cursor-pointer"
                                                     title="Download Bank Report"

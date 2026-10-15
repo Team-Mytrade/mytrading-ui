@@ -34,6 +34,7 @@ import {
   statusConfig,
   useDeliveryLookups,
 } from "./deliveryShared";
+import { usePermissions } from "../../access/usePermissions";
 
 // A delivery note records what was handed over to the customer. Goods issues are raised against it.
 
@@ -95,6 +96,7 @@ const emptyForm = (): NoteForm => ({
 const optionalId = (value: string) => (value ? Number(value) : undefined);
 
 const DeliveryNote: React.FC = () => {
+  const { canCreate, canDelete, canUpdate } = usePermissions();
   const lookups = useDeliveryLookups(["customers", "products", "salesOrders"]);
 
   const [notes, setNotes] = useState<DeliveryNoteRecord[]>([]);
@@ -381,17 +383,17 @@ const DeliveryNote: React.FC = () => {
           <button type="button" onClick={() => openView(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600" title="View">
             <EyeIcon className="h-4 w-4" />
           </button>
-          <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600" title="Edit">
+          {canUpdate && (<button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600" title="Edit">
             <PencilIcon className="h-4 w-4" />
-          </button>
-          {row.status !== "CANCELLED" && (
+          </button>)}
+          {row.status !== "CANCELLED" && canCreate && (
             <button type="button" onClick={() => issueGoods(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-emerald-50 hover:text-emerald-600" title="Issue goods">
               <PackageMinusIcon className="h-4 w-4" />
             </button>
           )}
-          <button type="button" onClick={() => openDelete(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600" title="Delete">
+          {canDelete && (<button type="button" onClick={() => openDelete(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600" title="Delete">
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -493,7 +495,7 @@ const DeliveryNote: React.FC = () => {
               {search || statusFilter !== "ALL" || dateFilter ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
               ) : (
-                <button type="button" onClick={openCreate} className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium">
+                canCreate && <button type="button" onClick={openCreate} className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium">
                   Create your first delivery note
                 </button>
               )}
@@ -675,17 +677,17 @@ const DeliveryNote: React.FC = () => {
               </div>
 
               <div className="mt-4 border-t pt-4 flex flex-wrap justify-end gap-2">
-                {selected.status !== "CANCELLED" && (
+                {selected.status !== "CANCELLED" && canCreate && (
                   <button onClick={() => issueGoods(selected)} className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 text-sm font-medium">
                     <PackageMinusIcon className="h-4 w-4 inline mr-1" />
                     Issue Goods
                   </button>
                 )}
-                <button onClick={() => openEdit(selected)} className="px-4 py-2 bg-cyan-50 text-cyan-700 rounded-lg hover:bg-cyan-100 text-sm font-medium">
+                {canUpdate && (<button onClick={() => openEdit(selected)} className="px-4 py-2 bg-cyan-50 text-cyan-700 rounded-lg hover:bg-cyan-100 text-sm font-medium">
                   <PencilIcon className="h-4 w-4 inline mr-1" />
                   Edit
-                </button>
-                <button
+                </button>)}
+                {canDelete && (<button
                   onClick={() => {
                     setShowDetailModal(false);
                     openDelete(selected);
@@ -694,7 +696,7 @@ const DeliveryNote: React.FC = () => {
                 >
                   <TrashIcon className="h-4 w-4 inline mr-1" />
                   Delete
-                </button>
+                </button>)}
               </div>
               {selected.createdDate && <p className="mt-4 border-t pt-3 text-xs text-gray-400">Created {formatDateTime(selected.createdDate)}</p>}
             </div>

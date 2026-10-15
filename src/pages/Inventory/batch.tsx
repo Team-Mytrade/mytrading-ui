@@ -26,6 +26,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 /**
  * =====================================================================================
@@ -283,6 +284,7 @@ function getLocalSupplierName(id: number): string {
 
 // ============ COMPONENT ============
 const BatchManagement: React.FC = () => {
+  const { canUpdate, canDelete } = usePermissions();
   const navigate = useNavigate();
 
   const [searchParams] = useSearchParams();
@@ -919,20 +921,20 @@ const BatchManagement: React.FC = () => {
           className="flex justify-end gap-1"
           onClick={(e) => e.stopPropagation()}
         >
-          <button
+          {canUpdate && (<button
             onClick={() => openEdit(batch)}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             onClick={() => setDeleteBatch(batch)}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -1028,7 +1030,7 @@ const BatchManagement: React.FC = () => {
           rowDetailsTitle="Batch Details"
           suspendRowDetails={showFormModal}
           rowDetailsActions={(batch) => (
-            <button
+            canUpdate && <button
               type="button"
               onClick={() => openEdit(batch)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-medium text-cyan-700 transition-colors hover:bg-cyan-100 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-300 dark:hover:bg-cyan-900/40"

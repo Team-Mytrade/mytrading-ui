@@ -30,6 +30,7 @@ import {
   CheckIcon
 } from "lucide-react";
 import { useDeliveryLookups } from "./deliveryShared";
+import { usePermissions } from "../../access/usePermissions";
 
 // ================= TYPES =================
 
@@ -134,6 +135,7 @@ const CustomerAddress: React.FC<CustomerAddressProps> = ({
   customerId: propCustomerId,
   onBack 
 }) => {
+  const { canDelete, canUpdate } = usePermissions();
   const navigate = useNavigate();
   const { id: urlCustomerId } = useParams<{ id: string }>();
   
@@ -676,22 +678,22 @@ const stats = getStats();
           >
             <EyeIcon className="h-4 w-4" />
           </button>
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => handleEditAddress(address)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
             title="Edit Address"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             type="button"
             onClick={() => handleDeleteClick(address)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
             title="Delete Address"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -1164,7 +1166,7 @@ const stats = getStats();
                 </div>
 
                 <div className="border-t pt-4 flex justify-end gap-2">
-                  <button
+                  {canUpdate && (<button
                     onClick={() => {
                       setShowDetailModal(false);
                       handleEditAddress(selectedAddress);
@@ -1173,8 +1175,8 @@ const stats = getStats();
                   >
                     <PencilSquareIcon className="h-4 w-4 inline mr-1" />
                     Edit
-                  </button>
-                  <button
+                  </button>)}
+                  {canDelete && (<button
                     onClick={() => {
                       setShowDetailModal(false);
                       handleDeleteClick(selectedAddress);
@@ -1183,7 +1185,7 @@ const stats = getStats();
                   >
                     <TrashIcon className="h-4 w-4 inline mr-1" />
                     Delete
-                  </button>
+                  </button>)}
                 </div>
               </div>
             </div>

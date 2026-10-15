@@ -35,6 +35,7 @@ import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { AddButton } from "../../components/common/AddButton";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -122,6 +123,7 @@ const emptyForm: AttendanceRecord = {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const AttendanceRecordPage: React.FC = () => {
+  const { canCreate } = usePermissions();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -872,13 +874,13 @@ const AttendanceRecordPage: React.FC = () => {
                     <CalendarDaysIcon className="h-8 w-8 text-gray-400" />
                   </div>
                   <p className="text-gray-500 text-sm font-medium mb-2">No attendance records found</p>
-                  <button
+                  {canCreate && (<button
                     onClick={openCreateForm}
                     className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
                   >
                     <PlusIcon className="h-4 w-4" />
                     Add your first record
-                  </button>
+                  </button>)}
                 </div>
               }
             />

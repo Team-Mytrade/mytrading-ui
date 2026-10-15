@@ -21,6 +21,7 @@ import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ToasterService } from "../../Services/ToasterService";
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type ActiveTab = "pending" | "approved" | "rejected";
@@ -92,6 +93,7 @@ const safeString = (val: any, fallback = ""): string => {
 };
 
 const OnDutyApprovalPage: React.FC = () => {
+  const { canApprove } = usePermissions();
   const [activeTab, setActiveTab] = useState<ActiveTab>("pending");
   const [requests, setRequests] = useState<OnDutyApprovalRequest[]>([]);
   const [loading, setLoading] = useState(false);
@@ -424,7 +426,7 @@ const OnDutyApprovalPage: React.FC = () => {
             <Eye className="w-4 h-4" />
           </button>
 
-          {row.status === "PENDING" && (
+          {row.status === "PENDING" && canApprove && (
             <>
               <button
                 type="button"

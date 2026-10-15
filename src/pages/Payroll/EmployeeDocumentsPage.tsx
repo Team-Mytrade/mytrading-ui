@@ -40,6 +40,7 @@ import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ArrowCircleDownRounded, Image } from "@mui/icons-material";
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 interface EmployeeDocument {
     id: number;
@@ -55,6 +56,7 @@ interface EmployeeDocument {
 const API_URL = "/v1/api/payroll/empdocuments";
 
 const EmployeeDocumentsPage: React.FC = () => {
+  const { canDelete, canExport } = usePermissions();
     const { employeeId } = useParams<{ employeeId: string }>();
     const employeeIdNum = Number(employeeId);
 
@@ -339,13 +341,13 @@ const EmployeeDocumentsPage: React.FC = () => {
                     >
                         <ArrowCircleDownRounded className="h-3.5 w-3.5" />
                     </button>
-                    <button
+                    {canDelete && (<button
                         onClick={() => handleDelete(row.id, row.fileName)}
                         className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-rose-400 p-1 rounded-md transition-colors border border-transparent dark:!border-transparent"
                         title="Delete"
                     >
                         <TrashIcon className="h-3.5 w-3.5" />
-                    </button>
+                    </button>)}
                 </div>
             )
         }
@@ -412,13 +414,13 @@ const EmployeeDocumentsPage: React.FC = () => {
                     <div className="flex items-center gap-3">
                         {/* Export Menu */}
                         <div className="relative">
-                            <button
+                            {canExport && (<button
                                 onClick={() => setShowExportMenu(!showExportMenu)}
                                 className="p-2 rounded-lg border border-gray-300 dark:!border-transparent bg-white dark:bg-[#222222] hover:bg-gray-50 dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 transition-colors"
                                 disabled={documents.length === 0}
                             >
                                 <DocumentArrowDownIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-                            </button>
+                            </button>)}
 
                             {showExportMenu && (
                                 <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-[#191919] shadow-lg rounded-md border border-gray-200 dark:!border-transparent z-50">

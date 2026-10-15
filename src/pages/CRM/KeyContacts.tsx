@@ -24,6 +24,7 @@ import { AddButton } from "../../components/common/AddButton";
 import FilterPopover from "../../components/common/filter";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { CONTACT_ROLE_OPTIONS, apiError } from "./crmShared";
+import { usePermissions } from "../../access/usePermissions";
 
 const roleLabel = (role?: string) => CONTACT_ROLE_OPTIONS.find((o) => o.id === role)?.name ?? role ?? "";
 
@@ -117,6 +118,7 @@ const mapContactsFromCustomers = (customerList: Customer[]): Contact[] =>
 
 const KeyContacts: React.FC = () => {
   const navigate = useNavigate();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const token = localStorage.getItem("accessToken");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -619,20 +621,22 @@ const handleEditContact = async (e: FormEvent) => {
       className: "w-[10%] text-right",
       render: (contact) => (
         <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={() => {
-              setEditContact(contact);
-              setShowEditModal(true);
-            }}
-            className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
-            title="Edit Contact"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
+          {canUpdate && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditContact(contact);
+                setShowEditModal(true);
+              }}
+              className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+              title="Edit Contact"
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+            </button>
+          )}
 
           {!contact.customer ? (
-            <button
+            canCreate && <button
               type="button"
               onClick={() => {
                 setActiveContactId(contact.id);
@@ -654,14 +658,16 @@ const handleEditContact = async (e: FormEvent) => {
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={() => handleDelete(contact.id)}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-            title="Delete Contact"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => handleDelete(contact.id)}
+              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+              title="Delete Contact"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -758,7 +764,7 @@ const handleEditContact = async (e: FormEvent) => {
                   <p className="text-gray-500 text-sm mb-2">No contacts found</p>
                   {search || activeFilter !== "ALL" ? (
                     <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
-                  ) : (
+                  ) : canCreate && (
                     <button
                       type="button"
                       onClick={() => setShowAddModal(true)}

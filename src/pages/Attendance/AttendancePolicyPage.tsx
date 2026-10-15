@@ -8,6 +8,7 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 const ATTENDANCE_POLICY_URL = '/v1/api/attendance/attendance-policies';
 const ASSIGNMENT_API_URL = '/v1/api/attendance/employee-attendance-policy-assignments';
@@ -40,6 +41,7 @@ export interface EmployeePolicyAssignment {
 }
 
 const AttendancePolicyPage: React.FC = () => {
+  const { canCreate, canDelete, canUpdate } = usePermissions();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'assignments' | 'policies'>('assignments');
   const [loading, setLoading] = useState(false);
@@ -111,21 +113,11 @@ const AttendancePolicyPage: React.FC = () => {
     setLoading(false);
   };
 
+  // Access follows the ATTENDANCE module permissions (route guard and buttons), not the old role names
   useEffect(() => {
-    try {
-      const userStr = localStorage.getItem("user");
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        if (user.role !== "SUPER_ADMIN" && !user.roles?.includes("SUPER_ADMIN") && !user.role?.includes("ADMIN")) {
-          ToasterService.error("Unauthorized access. Super Admin only.");
-          navigate("/");
-        }
-      }
-    } catch (e) {}
-
     loadPolicies();
     loadAssignments();
-  }, [navigate]);
+  }, []);
 
   // Handle Policy Master CRUD
   const openCreateModal = () => {
@@ -436,16 +428,16 @@ const AttendancePolicyPage: React.FC = () => {
           >
             <Eye className="w-3.5 h-3.5" />
           </button>
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => openEditModal(row)}
             className="p-1.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-transparent dark:hover:bg-[#222222] border border-cyan-200/80 dark:!border-transparent rounded-lg text-cyan-700 dark:text-gray-400 dark:hover:text-cyan-400 transition-colors"
             title="Edit Policy"
           >
             <Edit className="w-3.5 h-3.5" />
-          </button>
+          </button>)}
           {row.active !== false && (
-            <button
+            canUpdate && <button
               type="button"
               onClick={() => handleSoftDelete(row)}
               className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-transparent dark:hover:bg-[#222222] border border-rose-200/80 dark:!border-transparent rounded-lg text-rose-600 dark:text-gray-400 dark:hover:text-rose-400 transition-colors"
@@ -519,7 +511,7 @@ const AttendancePolicyPage: React.FC = () => {
       key: 'actions',
       label: 'Actions',
       render: (row) => (
-        <button
+        canDelete && <button
           type="button"
           onClick={() => row.id && setDeletingAssignmentId(row.id)}
           className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-transparent dark:hover:bg-[#222222] text-rose-600 dark:text-gray-400 dark:hover:text-rose-400 border border-rose-200/80 dark:!border-transparent rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs"
@@ -646,22 +638,24 @@ const AttendancePolicyPage: React.FC = () => {
                 </div>
 
                 {/* Right Side: Assign Policy CTA Button (Consistent sizing & alignment) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAssignForm({
-                      employeeId: '',
-                      attendancePolicyId: savedPolicies[0]?.id || '',
-                      effectiveFrom: todayIso(),
-                      effectiveTo: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-                    });
-                    setIsAssignModalOpen(true);
-                  }}
-                  className="h-8 px-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-[11px] font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0 active:scale-95"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Assign Policy to Employee</span>
-                </button>
+                {canCreate && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAssignForm({
+                        employeeId: '',
+                        attendancePolicyId: savedPolicies[0]?.id || '',
+                        effectiveFrom: todayIso(),
+                        effectiveTo: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+                      });
+                      setIsAssignModalOpen(true);
+                    }}
+                    className="h-8 px-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-[11px] font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0 active:scale-95"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Assign Policy to Employee</span>
+                  </button>
+                )}
 
               </div>
 
@@ -741,13 +735,15 @@ const AttendancePolicyPage: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={openCreateModal}
-                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0"
-                >
-                  <Plus className="w-4 h-4" /> Create Policy
-                </button>
+                {canCreate && (
+                  <button
+                    type="button"
+                    onClick={openCreateModal}
+                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0"
+                  >
+                    <Plus className="w-4 h-4" /> Create Policy
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={loadPolicies}

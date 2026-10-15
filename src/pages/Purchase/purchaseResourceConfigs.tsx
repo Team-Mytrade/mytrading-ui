@@ -612,6 +612,8 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
         label: value.charAt(0) + value.slice(1).toLowerCase(),
       })),
       widthClassName: "w-[136px]",
+      // Approval-status changes need PURCHASE:APPROVE
+      permission: "APPROVE",
       onChange: async (row, status) => {
         await axios.put(`${PURCHASE}/approval-status/${row.id}/${status}`);
       },

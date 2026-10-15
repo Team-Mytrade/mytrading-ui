@@ -27,6 +27,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { AddButton } from "../../components/common/AddButton";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { usePermissions } from "../../access/usePermissions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -78,6 +79,7 @@ const emptyForm: LeaveBalance = {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const LeaveBalancePage: React.FC = () => {
+  const { canUpdate, canDelete } = usePermissions();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
@@ -334,20 +336,20 @@ const LeaveBalancePage: React.FC = () => {
       className: "text-right",
       render: (row) => (
         <div className="flex items-center justify-end gap-2">
-          <button
+          {canUpdate && (<button
             onClick={() => openEditForm(row)}
             className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-all duration-200"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             onClick={() => handleDelete(row.id!)}
             className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },

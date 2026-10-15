@@ -22,6 +22,7 @@ import {
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { usePermissions } from "../../access/usePermissions";
 
 type WarehouseLocationType = string;
 type WarehouseStatus = string;
@@ -153,6 +154,7 @@ function getDisplayStatus(id: number): WarehouseStatus {
 // ---------------------------------------------------------------------------
 
 const WarehousePage: React.FC = () => {
+  const { canUpdate, canDelete } = usePermissions();
   const token = localStorage.getItem("accessToken");
 
   // ── NEW: read URL filter params ─────────────────────────────────
@@ -563,7 +565,11 @@ const WarehousePage: React.FC = () => {
       key: "locationType",
       label: "Location Type",
       sortable: true,
-      render: (warehouse) => (
+      render: (warehouse) => !canUpdate ? (
+        <span className={`inline-flex w-[150px] rounded-lg border px-2.5 py-1 text-xs font-medium ${getLocationTypeColor(warehouse.locationType)}`}>
+          {warehouse.locationType}
+        </span>
+      ) : (
         <select
           aria-label={`Location type for ${warehouse.name}`}
           value={warehouse.locationType}
@@ -587,6 +593,13 @@ const WarehousePage: React.FC = () => {
       sortable: true,
       render: (warehouse) => {
         const status = warehouse.status || "ACTIVE";
+        if (!canUpdate) {
+          return (
+            <span className={`inline-flex w-[100px] rounded-lg border px-2.5 py-1 text-xs font-medium ${getStatusColor(status)}`}>
+              {status}
+            </span>
+          );
+        }
         return (
           <select
             aria-label={`Status for ${warehouse.name}`}
@@ -628,7 +641,7 @@ const WarehousePage: React.FC = () => {
           className="flex justify-end gap-1"
           onClick={(e) => e.stopPropagation()}
         >
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => openEdit(warehouse)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
@@ -636,8 +649,8 @@ const WarehousePage: React.FC = () => {
             aria-label={`Edit ${warehouse.name}`}
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             type="button"
             onClick={() => setDeleteWarehouse(warehouse)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
@@ -645,7 +658,7 @@ const WarehousePage: React.FC = () => {
             aria-label={`Delete ${warehouse.name}`}
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },

@@ -132,6 +132,8 @@
 .dark .common-data-table .common-data-table__sticky-actions { background: #191919 !important; }
 .dark .common-data-table thead .common-data-table__sticky-actions { background: #222 !important; }
 .dark .common-data-table tbody tr:hover > .common-data-table__sticky-actions { background: #242424 !important; }
+/* No row has an action the user may use (pages hide what the user's permissions don't allow) */
+.common-data-table--no-row-actions .common-data-table__sticky-actions { display: none; }
 
 @media (max-width: 639px) {
   .common-data-table { border-radius: 8px; }

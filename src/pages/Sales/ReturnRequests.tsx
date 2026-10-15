@@ -24,6 +24,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 type ReturnItem = {
   id: number;
@@ -214,6 +215,7 @@ function scheduleItemLabel(
 }
 
 const ReturnRequests: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const token = localStorage.getItem("accessToken");
   const headers = useMemo(
     () => (token ? { Authorization: `Bearer ${token}` } : undefined),
@@ -629,7 +631,11 @@ const ReturnRequests: React.FC = () => {
       key: "status",
       label: "Status",
       sortable: true,
-      render: (item) => (
+      render: (item) => !canUpdate ? (
+        <span className="inline-flex h-9 w-[112px] items-center rounded-xl border border-cyan-200 bg-cyan-50 px-3 text-sm font-medium text-cyan-700">
+          {toFriendlyLabel(item.status || "")}
+        </span>
+      ) : (
         <select
           value={item.status || ""}
           onChange={(e) => {
@@ -662,30 +668,32 @@ const ReturnRequests: React.FC = () => {
       className: "text-right",
       render: (item) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => openEdit(item)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => openRefundModal(item)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600"
-            title="Refund"
-          >
-            <ReceiptRefundIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canCreate && (
+            <button
+              type="button"
+              onClick={() => openRefundModal(item)}
+              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600"
+              title="Refund"
+            >
+              <ReceiptRefundIcon className="h-4 w-4" />
+            </button>
+          )}
+          {canDelete && (<button
             type="button"
             onClick={() => setDeleteReturn(item)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },

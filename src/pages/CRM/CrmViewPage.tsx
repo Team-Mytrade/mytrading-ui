@@ -20,6 +20,7 @@ import {
   PencilSquareIcon,
 } from "@heroicons/react/24/outline";
 import { ToasterService } from "../../Services/ToasterService";
+import { usePermissions } from "../../access/usePermissions";
 const BASE_URL = "/v1/api/crm";
 
 // System fields to hide from display
@@ -86,6 +87,7 @@ export default function CrmViewPage() {
   const { id, requestFrom: paramRequestFrom } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { canUpdate } = usePermissions();
 
   const token = localStorage.getItem("accessToken");
   const requestFrom = paramRequestFrom || location.state?.from;
@@ -511,7 +513,7 @@ export default function CrmViewPage() {
                 </div>
               </div>
 
-              <div className="flex w-full items-center gap-3 sm:w-auto">
+              {canUpdate && <div className="flex w-full items-center gap-3 sm:w-auto">
                 <button
                   onClick={() => {
                     // Customers have their own edit page; the other lists open their edit form from ?editId=
@@ -536,7 +538,7 @@ export default function CrmViewPage() {
                   <PencilSquareIcon className="h-4 w-4" />
                   Edit {requestFrom?.replace(/s$/, "")}
                 </button>
-              </div>
+              </div>}
             </div>
           </div>
 

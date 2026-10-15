@@ -6,6 +6,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { FloatingDateRangePicker } from "../inputfeild/FloatingInput";
 import { todayIso } from "../../utils/localDate";
 import { publicAsset } from "../../utils/assets";
+import { usePermissions } from "../../access/usePermissions";
 
 type Primitive = string | number | boolean | null | undefined | Date;
 type ExportRangePreset = "all" | "1m" | "3m" | "6m" | "custom";
@@ -420,6 +421,7 @@ export function ListingPdfExportButton<T extends object>({
   buttonClassName = "",
   dateAccessor,
 }: ListingPdfExportButtonProps<T>) {
+  const { canExport } = usePermissions();
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportPreset, setExportPreset] = useState<ExportRangePreset>("all");
   const [exportFromDate, setExportFromDate] = useState<Date | null>(null);
@@ -520,6 +522,9 @@ export function ListingPdfExportButton<T extends object>({
     });
     setShowExportModal(false);
   };
+
+  // Exporting needs the page module's EXPORT permission
+  if (!canExport) return null;
 
   return (
     <>

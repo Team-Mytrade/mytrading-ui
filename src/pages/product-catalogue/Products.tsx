@@ -3,6 +3,7 @@ import axios from "axios";
 import { ArrowDownTrayIcon, CheckCircleIcon, NoSymbolIcon, PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ToasterService } from "../../Services/ToasterService";
+import { usePermissions } from "../../access/usePermissions";
 import PurchaseResourcePage, {
   PurchaseRecord,
   PurchaseResourceConfig,
@@ -167,6 +168,8 @@ const createInitialImageFile = async (row: PurchaseRecord) => {
 type LoadedImage = { url: string; type: string };
 
 const ProductImageCell = ({ row }: { row: PurchaseRecord }) => {
+  // Uploading an image is a POST (PRODUCT_CATALOGUE:CREATE)
+  const { canCreate: canUpload } = usePermissions();
   const [image, setImage] = useState<LoadedImage | null>(null);
   const [imageVersion, setImageVersion] = useState(0);
   const [isLoadingImage, setIsLoadingImage] = useState(false);
@@ -292,9 +295,9 @@ const ProductImageCell = ({ row }: { row: PurchaseRecord }) => {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          disabled={isBusy}
+          disabled={isBusy || !canUpload}
           className="h-12 w-12 overflow-hidden rounded-xl border border-cyan-200 bg-cyan-50 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
-          title={isUploading ? "Uploading image" : "Upload image"}
+          title={!canUpload ? productLabel : isUploading ? "Uploading image" : "Upload image"}
         >
           {isBusy || !initialPreviewUrl ? (
             <span className="flex h-full w-full items-center justify-center text-sm font-semibold text-cyan-700">
@@ -334,23 +337,27 @@ const ProductImageCell = ({ row }: { row: PurchaseRecord }) => {
             <div className="mt-4 text-sm font-semibold text-slate-800">{productLabel}</div>
 
             <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <PhotoIcon className="h-4 w-4" aria-hidden="true" />
-                {isUploading ? "Uploading..." : "Change"}
-              </button>
-              <button
-                type="button"
-                onClick={handleUseInitial}
-                disabled={isUploading}
-                className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Use Initial
-              </button>
+              {canUpload && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <PhotoIcon className="h-4 w-4" aria-hidden="true" />
+                    {isUploading ? "Uploading..." : "Change"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleUseInitial}
+                    disabled={isUploading}
+                    className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Use Initial
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 onClick={handleDownload}
@@ -648,6 +655,7 @@ const baseProductConfig: PurchaseResourceConfig = {
 
 export default function Products() {
   const navigate = useNavigate();
+  const { canUpdate } = usePermissions();
 
   // Set when the user clicks "+" on a category in the Categories page.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -717,6 +725,8 @@ export default function Products() {
     renderRowActions: (row) => {
       const name = String(row.productName || "this product");
       const isBusy = statusBusyId === row.id;
+      // Activating / deactivating is an update
+      if (!canUpdate) return null;
       return row.active ? (
         <button
           type="button"

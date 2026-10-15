@@ -18,6 +18,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import FilterPopover from "../../components/common/filter";
 import { FloatingInput, FloatingTextarea } from "../../components/inputfeild/FloatingInput";
 import { FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import { usePermissions } from "../../access/usePermissions";
 
 interface JournalEntry {
   id: number;
@@ -50,6 +51,7 @@ const sourceTones: Record<string, string> = {
 };
 
 const JournalEntries: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
@@ -273,22 +275,22 @@ const JournalEntries: React.FC = () => {
       className: "w-[10%] text-right",
       render: (entry) => (
         <div className="flex items-center justify-end gap-0.5">
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => handleEdit(entry)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
             title="Edit Journal Entry"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             type="button"
             onClick={() => handleDelete(entry)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
             title="Delete Journal Entry"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -388,7 +390,7 @@ const JournalEntries: React.FC = () => {
               {search || activeFilter !== "ALL" ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
               ) : (
-                <button
+                canCreate && <button
                   type="button"
                   onClick={() => openCreate()}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"

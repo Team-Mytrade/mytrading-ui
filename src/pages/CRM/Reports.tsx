@@ -20,6 +20,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import { LEAD_STATUS_LABELS } from "./crmShared";
 import { formatMoney } from "../Dashboard/dashboardKit";
+import { usePermissions } from "../../access/usePermissions";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -363,6 +364,7 @@ const TrendTile: React.FC<{
 /* ------------------------------------------------------------------ */
 
 const Reports: React.FC = () => {
+  const { canExport } = usePermissions();
   const [report, setReport] = useState<ReportSummary>({});
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
@@ -447,8 +449,11 @@ const Reports: React.FC = () => {
       );
     } catch (err: any) {
       console.error(`Error exporting ${type}:`, err);
+      // The body is a Blob here, so the service's message isn't readable; name the usual cause
       ToasterService.error(
-        err.response?.data?.message || `Failed to export ${type}`
+        err.response?.status === 403
+          ? "You don't have permission to export CRM reports (CRM:EXPORT). Ask your administrator for access."
+          : `Failed to export ${type === "pdf" ? "PDF" : "Excel"}`
       );
     } finally {
       setExporting(null);
@@ -492,24 +497,28 @@ const Reports: React.FC = () => {
               />
               Refresh
             </button>
-            <button
-              type="button"
-              onClick={() => handleExport("excel")}
-              disabled={!!exporting}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            >
-              <DocumentArrowDownIcon className="h-3.5 w-3.5" />
-              {exporting === "excel" ? "..." : "Excel"}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleExport("pdf")}
-              disabled={!!exporting}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:opacity-60"
-            >
-              <ArrowDownTrayIcon className="h-3.5 w-3.5" />
-              {exporting === "pdf" ? "..." : "PDF"}
-            </button>
+            {canExport && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleExport("excel")}
+                  disabled={!!exporting}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  <DocumentArrowDownIcon className="h-3.5 w-3.5" />
+                  {exporting === "excel" ? "..." : "Excel"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExport("pdf")}
+                  disabled={!!exporting}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:opacity-60"
+                >
+                  <ArrowDownTrayIcon className="h-3.5 w-3.5" />
+                  {exporting === "pdf" ? "..." : "PDF"}
+                </button>
+              </>
+            )}
           </div>
         }
       />

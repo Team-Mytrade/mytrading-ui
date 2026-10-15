@@ -15,6 +15,7 @@ import StatsCard from '../../components/common/Statscard';
 import { useNavigate } from 'react-router-dom';
 import { ToasterService } from '../../Services/ToasterService';
 import { AuthContext } from '../../context/AuthContext';
+import { usePermissions } from '../../access/usePermissions';
 import { useTheme } from '../../context/ThemeContext';
 import { todayIso } from "../../utils/localDate";
 
@@ -57,6 +58,7 @@ const MANAGER_DASHBOARD_CANDIDATES = [
 
 const LeaveManagerDashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const { canCreate } = usePermissions();
   const { user } = useContext(AuthContext);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -517,15 +519,17 @@ const LeaveManagerDashboardPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsAdjustmentModalOpen(true)}
-              className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" /> Post Adjustment
-            </button>
-          </div>
+          {canCreate && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsAdjustmentModalOpen(true)}
+                className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Post Adjustment
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 3 Dedicated Approval Queue Quick Cards */}

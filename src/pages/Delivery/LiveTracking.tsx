@@ -19,6 +19,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { todayIso } from "../../utils/localDate";
 import { DELIVERY_API, apiError } from "./deliveryShared";
 import { RoutePoint, TRACKING_API, TRIP_STATE_STYLE, Trip, mapUrl, timeAgo, tripState } from "./trackingApi";
+import { usePermissions } from "../../access/usePermissions";
 
 // Live map of vehicles whose drivers are on a trip (Driver Mode on their phone), plus past trips' routes.
 // Map tiles: OpenStreetMap (free; for heavy use switch to a commercial tile provider).
@@ -48,6 +49,7 @@ const durationLabel = (from?: string, to?: string) => {
 };
 
 const LiveTracking: React.FC = () => {
+  const { canUpdate } = usePermissions();
   const [tab, setTab] = useState<"live" | "history">("live");
   const [live, setLive] = useState<Trip[]>([]);
   const [loadingLive, setLoadingLive] = useState(true);
@@ -396,7 +398,7 @@ const LiveTracking: React.FC = () => {
                     </a>
                   )}
                   {selected.status === "ACTIVE" && (
-                    <button type="button" onClick={() => endTrip(selected)} disabled={ending}
+                    canUpdate && <button type="button" onClick={() => endTrip(selected)} disabled={ending}
                       className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
                       title="For a trip the driver forgot to end">
                       <SquareIcon className="h-3 w-3" /> End trip

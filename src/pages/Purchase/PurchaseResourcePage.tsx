@@ -26,6 +26,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import SearchableSelect from "../../components/inputfeild/SearchableSelect";
 import { ToasterService } from "../../Services/ToasterService";
+import { PermissionAction, usePermissions } from "../../access/usePermissions";
 
 export type PurchaseRecord = Record<string, any> & { id?: number | string };
 
@@ -131,6 +132,8 @@ export type PurchaseResourceConfig = {
     defaultValue?: string;
     /** Handles field changes that use an endpoint other than the resource update URL. */
     onChange?: (row: PurchaseRecord, nextValue: string) => Promise<void> | void;
+    /** Permission needed to change the value here (default UPDATE); without it the value is read-only. */
+    permission?: PermissionAction;
   }>;
   buildPayload?: (
     form: PurchaseRecord,
@@ -360,6 +363,9 @@ export const toNumberOrZero = (value: any) =>
 export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> = ({ config }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { can, canCreate, canUpdate, canDelete } = usePermissions();
+  const allowEdit = config.allowEdit !== false && canUpdate;
+  const allowDelete = config.allowDelete !== false && canDelete;
   const [searchParams] = useSearchParams();
   const scopeId = Number(config.scope ? searchParams.get(config.scope.idParam) : "") || null;
   const scopeName = config.scope ? searchParams.get(config.scope.nameParam) || `Selected ${config.scope.label.toLowerCase()}` : "";
@@ -482,11 +488,11 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
 
   useEffect(() => {
     const autoOpenKey = config.autoOpenCreateKey || config.title;
-    if (config.autoOpenCreate && autoOpenedKey.current !== autoOpenKey) {
+    if (config.autoOpenCreate && canCreate && autoOpenedKey.current !== autoOpenKey) {
       autoOpenedKey.current = autoOpenKey;
       openCreate(config.initialCreateState);
     }
-  }, [config.autoOpenCreate, config.autoOpenCreateKey, config.initialCreateState, config.title, openCreate]);
+  }, [canCreate, config.autoOpenCreate, config.autoOpenCreateKey, config.initialCreateState, config.title, openCreate]);
 
   const openEdit = async (row: PurchaseRecord) => {
     let selectedRow = row;
@@ -736,7 +742,9 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         const value = getValue(row, column.key);
         const link = column.link?.(row);
         if (link) return <button type="button" onClick={(event) => { event.stopPropagation(); navigate(link.to); }} className="max-w-[220px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline" title={link.title}>{formatCellValue(value)}</button>;
+        // Inline changes are updates; without UPDATE the value is shown read-only
         const isInlineBooleanField =
+          canUpdate &&
           typeof value === "boolean" &&
           ((column.key === "active" && config.allowInlineActiveToggle) ||
             config.inlineBooleanFields?.includes(column.key));
@@ -765,6 +773,13 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         );
         if (inlineSelectConfig) {
           const currentValue = String(value ?? inlineSelectConfig.defaultValue ?? "");
+          if (!can(inlineSelectConfig.permission ?? "UPDATE")) {
+            return (
+              <span className={`inline-flex rounded-2xl border px-4 py-2 text-sm font-medium ${getInlineSelectTone(currentValue)}`}>
+                {inlineSelectConfig.options.find((option) => String(option.value) === currentValue)?.label ?? formatCellValue(value)}
+              </span>
+            );
+          }
           return (
             <select
               value={currentValue}
@@ -793,7 +808,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       },
     }));
 
-    if (config.allowEdit === false && config.allowDelete === false && !config.renderRowActions) {
+    if (!allowEdit && !allowDelete && !config.renderRowActions) {
       return cols;
     }
 
@@ -809,7 +824,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           <div className="flex items-center justify-end gap-1">
             {config.renderRowActions?.(row, { refreshRows: loadRows })}
 
-            {config.allowEdit !== false && (
+            {allowEdit && (
               <button
                 type="button"
                 onClick={() => openEdit(row)}
@@ -819,7 +834,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
                 <PencilSquareIcon className="h-4 w-4" />
               </button>
             )}
-            {config.allowDelete !== false && (
+            {allowDelete && (
               <button
                 type="button"
                 onClick={() => setDeleteRow(row)}
@@ -833,7 +848,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         ),
       },
     ];
-  }, [config, emptyForm, inlineUpdatingId, navigate, openEdit, options]);
+  }, [allowDelete, allowEdit, can, canUpdate, config, emptyForm, inlineUpdatingId, navigate, openEdit, options]);
 
   const supportsActiveFilter = useMemo(
     () => rows.some((row) => typeof row.active === "boolean"),

@@ -25,6 +25,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import DynamicPopup from "../../components/common/Popup";
 import { todayIso } from "../../utils/localDate";
 import { COMMUNICATION_TYPE_OPTIONS, apiError, toDateTimeInput, toLocalDateTime } from "../CRM/crmShared";
+import { usePermissions } from "../../access/usePermissions";
 
 // Enums
 enum CustomerStatus {
@@ -34,6 +35,14 @@ enum CustomerStatus {
   BLOCKED = "BLOCKED",
   INACTIVE = "INACTIVE",
 }
+
+const STATUS_LABELS: Record<CustomerStatus, string> = {
+  [CustomerStatus.LEAD]: "Lead",
+  [CustomerStatus.ACTIVE]: "Active",
+  [CustomerStatus.CREDIT_HOLD]: "Credit Hold",
+  [CustomerStatus.BLOCKED]: "Blocked",
+  [CustomerStatus.INACTIVE]: "Inactive",
+};
 
 interface Address {
   type: string;
@@ -77,6 +86,7 @@ const PAGE_SIZE = 10;
 
 const Customers: React.FC = () => {
   const navigate = useNavigate();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const [searchParams] = useSearchParams();
   // /customer-management/:id shows that one customer
   const { id: routeCustomerId } = useParams<{ id: string }>();
@@ -365,6 +375,13 @@ const Customers: React.FC = () => {
           [CustomerStatus.BLOCKED]: "border-red-200 bg-red-50 text-red-700",
           [CustomerStatus.INACTIVE]: "border-red-200 bg-red-50 text-red-700",
         };
+        if (!canUpdate) {
+          return (
+            <span className={`inline-flex w-[116px] items-center rounded-lg border px-2 py-1.5 text-xs font-semibold ${statusColors[customer.status]}`}>
+              {STATUS_LABELS[customer.status] ?? customer.status}
+            </span>
+          );
+        }
         return (
           <div onClick={(event) => event.stopPropagation()}>
             <select
@@ -417,44 +434,52 @@ const Customers: React.FC = () => {
           >
             <EyeIcon className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            onClick={() => handleEditCustomer(customer)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit Customer"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
+          {canUpdate && (
+            <button
+              type="button"
+              onClick={() => handleEditCustomer(customer)}
+              className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+              title="Edit Customer"
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => openCommModal(customer)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-indigo-50 hover:text-indigo-600"
-            title="Add Communication"
-          >
-            <LinkIcon className="h-4 w-4" />
-          </button>
+          {canCreate && (
+            <>
+              <button
+                type="button"
+                onClick={() => openCommModal(customer)}
+                className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-indigo-50 hover:text-indigo-600"
+                title="Add Communication"
+              >
+                <LinkIcon className="h-4 w-4" />
+              </button>
 
-          <button
-            type="button"
-            onClick={() => openSegmentModal(customer)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-emerald-50 hover:text-emerald-600"
-            title="Add to Segment"
-          >
-            <UsersIcon className="h-4 w-4" />
-          </button>
+              <button
+                type="button"
+                onClick={() => openSegmentModal(customer)}
+                className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-emerald-50 hover:text-emerald-600"
+                title="Add to Segment"
+              >
+                <UsersIcon className="h-4 w-4" />
+              </button>
+            </>
+          )}
 
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedCustomer(customer);
-              setShowDeleteModal(true);
-            }}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-            title="Delete Customer"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCustomer(customer);
+                setShowDeleteModal(true);
+              }}
+              className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+              title="Delete Customer"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -516,7 +541,7 @@ const Customers: React.FC = () => {
               <p className="text-gray-500 text-sm mb-2">No customers found</p>
               {search || activeFilter !== "ALL" ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
-              ) : (
+              ) : canCreate && (
                 <button
                   type="button"
                   onClick={handleAddCustomer}

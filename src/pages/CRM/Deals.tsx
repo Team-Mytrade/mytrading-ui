@@ -41,6 +41,7 @@ import {
   apiError,
   isClosedStage,
 } from "./crmShared";
+import { usePermissions } from "../../access/usePermissions";
 
 const API_URL = "/v1/api/crm/deals";
 const LEADS_API = "/v1/api/crm/leads";
@@ -82,6 +83,7 @@ const getToken = () => localStorage.getItem("accessToken") || "";
 export default function Deals() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
 
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -390,7 +392,11 @@ export default function Deals() {
       key: "stage",
       label: "Stage",
       sortable: true,
-      render: (o) => (
+      render: (o) => !canUpdate ? (
+        <span className={`inline-flex w-[118px] items-center rounded-lg border px-2 py-1.5 text-xs font-semibold ${getStageColor(o.stage)}`}>
+          {stageOptions.find((option) => option.id === normalizeStage(o.stage))?.name ?? o.stage}
+        </span>
+      ) : (
         <div onClick={(e) => e.stopPropagation()}>
           <select
             value={normalizeStage(o.stage)}
@@ -423,6 +429,12 @@ export default function Deals() {
         // Won / Lost come from the stage; only an open deal can be made active or cancelled
         isClosedStage(normalizeStage(o.stage)) ? (
           <span className={`inline-flex w-[96px] items-center rounded-lg border px-2 py-1.5 text-xs font-semibold ${getStageColor(o.stage)}`}>
+            {DEAL_STATUS_LABELS[o.status] ?? o.status}
+          </span>
+        ) : !canUpdate ? (
+          <span className={`inline-flex w-[96px] items-center rounded-lg border px-2 py-1.5 text-xs font-semibold ${
+            o.status === "ACTIVE" ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-700"
+          }`}>
             {DEAL_STATUS_LABELS[o.status] ?? o.status}
           </span>
         ) : (
@@ -463,18 +475,20 @@ export default function Deals() {
           className="flex items-center justify-end gap-1"
           onClick={(e) => e.stopPropagation()}
         >
-          <button
-            type="button"
-            onClick={() => {
-              setForm(o);
-              setOwnerType(o.lead ? "LEAD" : "CUSTOMER");
-              setShowForm(true);
-            }}
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
-            title="Edit"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
+          {canUpdate && (
+            <button
+              type="button"
+              onClick={() => {
+                setForm(o);
+                setOwnerType(o.lead ? "LEAD" : "CUSTOMER");
+                setShowForm(true);
+              }}
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+              title="Edit"
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+            </button>
+          )}
 
           {o.lead ? (
             <button
@@ -490,7 +504,7 @@ export default function Deals() {
               <UsersIcon className="h-4 w-4" />
             </button>
           ) : (
-            <button
+            canUpdate && <button
               type="button"
               onClick={() => {
                 setForm(o);
@@ -516,7 +530,7 @@ export default function Deals() {
               <BuildingOfficeIcon className="h-4 w-4" />
             </button>
           ) : (
-            <button
+            canUpdate && <button
               type="button"
               onClick={() => {
                 setForm(o);
@@ -530,17 +544,19 @@ export default function Deals() {
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={() => {
-              setDeleteId(o.id);
-              setShowDeletePopup(true);
-            }}
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-            title="Delete"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteId(o.id);
+                setShowDeletePopup(true);
+              }}
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+              title="Delete"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -619,17 +635,19 @@ export default function Deals() {
               <p className="text-gray-500 text-sm mb-2">
                 No opportunities found
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setForm({ status: "ACTIVE", stage: "PROSPECTING" });
-                  setOwnerType("LEAD");
-                  setShowForm(true);
-                }}
-                className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
-              >
-                Add your first opportunity
-              </button>
+              {canCreate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm({ status: "ACTIVE", stage: "PROSPECTING" });
+                    setOwnerType("LEAD");
+                    setShowForm(true);
+                  }}
+                  className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
+                >
+                  Add your first opportunity
+                </button>
+              )}
             </div>
           }
         />

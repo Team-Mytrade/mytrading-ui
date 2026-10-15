@@ -46,6 +46,7 @@ import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import MyPayslipsTab from "./MyPayslipsTab";
 import { ToasterService } from "../../Services/ToasterService";
+import { usePermissions } from "../../access/usePermissions";
 
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 
@@ -121,6 +122,7 @@ interface EmployeeData {
 }
 
 const EmployeeViewPage: React.FC = () => {
+  const { canUpdate } = usePermissions();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [employee, setEmployee] = useState<EmployeeData | null>(null);
@@ -371,14 +373,14 @@ const EmployeeViewPage: React.FC = () => {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <button
+              {canUpdate && (<button
                 type="button"
                 onClick={() => navigate(`/addEmployee?editId=${employee.id}`)}
                 className="h-10 px-4 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 !text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-200 focus:outline-none shrink-0"
               >
                 <Edit className="w-4 h-4 !text-white shrink-0" />
                 <span className="!text-white whitespace-nowrap">Edit Employee</span>
-              </button>
+              </button>)}
               <button
                 type="button"
                 onClick={() => {/* Handle status toggle */ }}

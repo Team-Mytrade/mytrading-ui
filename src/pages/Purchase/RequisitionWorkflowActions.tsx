@@ -1,7 +1,6 @@
-import { useContext, useState } from "react";
+import { useState } from "react";
 import axios from "axios";
-import { AuthContext } from "../../context/AuthContext";
-import { hasPermission } from "../../access/access";
+import { usePermissions } from "../../access/usePermissions";
 import { ToasterService } from "../../Services/ToasterService";
 
 const BASE = "/v1/api/purchase/purchase-requisitions";
@@ -19,20 +18,20 @@ export default function RequisitionWorkflowActions({
   row: { id?: unknown; status?: unknown };
   refreshRows: () => Promise<void>;
 }) {
-  const { access } = useContext(AuthContext);
+  // Submit and cancel are POSTs (PURCHASE:CREATE); approve and reject need PURCHASE:APPROVE
+  const { canCreate, canApprove } = usePermissions("PURCHASE");
   const [busy, setBusy] = useState(false);
   const status = String(row.status ?? "");
-  const canApprove = hasPermission(access, "PURCHASE:APPROVE");
 
   const actions: Action[] = [];
-  if (status === "DRAFT") {
+  if (status === "DRAFT" && canCreate) {
     actions.push({ key: "submit", label: "Submit", done: "submitted", className: "text-cyan-700 hover:bg-cyan-50" });
   }
   if ((status === "SUBMITTED" || status === "IN_REVIEW") && canApprove) {
     actions.push({ key: "approve", label: "Approve", done: "approved", className: "text-green-700 hover:bg-green-50" });
     actions.push({ key: "reject", label: "Reject", done: "rejected", className: "text-red-700 hover:bg-red-50", needsReason: true });
   }
-  if (status === "DRAFT" || status === "SUBMITTED") {
+  if ((status === "DRAFT" || status === "SUBMITTED") && canCreate) {
     actions.push({ key: "cancel", label: "Cancel", done: "cancelled", className: "text-gray-600 hover:bg-gray-100" });
   }
 

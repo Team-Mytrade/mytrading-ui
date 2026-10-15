@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useLayoutEffect, useRef } from "react";
 import {
   ArrowUpIcon,
   ArrowDownIcon,
@@ -588,6 +588,7 @@ export function ReusableTable<T extends { id?: number | string }>({
   const [activeTableTooltip, setActiveTableTooltip] = useState<{ content: string; left: number; top: number; alignRight: boolean } | null>(null);
   const [viewportPageSize, setViewportPageSize] = useState(pageSize);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [hasRowActions, setHasRowActions] = useState(true);
   const [isToolbarRefreshing, setIsToolbarRefreshing] = useState(false);
   const [isLargeScreen, setIsLargeScreen] = useState(
     () => window.innerWidth >= 1024,
@@ -736,6 +737,14 @@ export function ReusableTable<T extends { id?: number | string }>({
     });
   }, [data]);
 
+  // Pages leave out row actions the user's permissions don't allow; when no row has any left
+  // (e.g. a view-only user), the Actions column is hidden. Its cells stay rendered so this re-checks.
+  useLayoutEffect(() => {
+    const cells = tableRootRef.current?.querySelectorAll("tbody td.common-data-table__sticky-actions");
+    if (!cells?.length) return;
+    setHasRowActions([...cells].some((cell) => cell.querySelector("button, a, input, select, [role='button']")));
+  });
+
   const tableWorkspaceLeft = isLargeScreen ? 60 : 0;
 
   const getFilterOptions = (column: ColumnDef<T>) => {
@@ -747,9 +756,12 @@ export function ReusableTable<T extends { id?: number | string }>({
   };
   const visibleColumns = columns.filter((column) => visibleColumnKeys.includes(column.key));
   const isLoading = loading || isToolbarRefreshing;
-  // Below this width the table scrolls sideways instead of squeezing columns until Actions is clipped
-  const tableMinWidth = Math.max(680, visibleColumns.length * 112);
   const isActionsColumn = (column: ColumnDef<T>) => column.key === "actions";
+  const hidesActions = !hasRowActions && visibleColumns.some(isActionsColumn);
+  // Last column on screen gets room for the full-screen button
+  const lastShownColumnKey = visibleColumns.filter((column) => !(hidesActions && isActionsColumn(column))).slice(-1)[0]?.key;
+  // Below this width the table scrolls sideways instead of squeezing columns until Actions is clipped
+  const tableMinWidth = Math.max(680, (visibleColumns.length - (hidesActions ? 1 : 0)) * 112);
   const actionsHeaderClass = (column: ColumnDef<T>) =>
     isActionsColumn(column)
       ? `common-data-table__sticky-actions ${/(^|\s)!?w-/.test(column.headerClassName ?? "") ? "" : "w-[132px]"}`
@@ -972,6 +984,7 @@ export function ReusableTable<T extends { id?: number | string }>({
           ref={tableShellRef}
           className={[
             "common-data-table relative rounded-lg border border-gray-200 bg-white shadow-none dark:border-gray-800 dark:bg-gray-900",
+            hidesActions ? "common-data-table--no-row-actions" : "",
             isTableFullscreen
               ? "flex min-h-0 flex-1 flex-col overflow-hidden"
               : "overflow-visible",
@@ -1022,7 +1035,7 @@ export function ReusableTable<T extends { id?: number | string }>({
             >
               <thead className="bg-gray-50 dark:bg-gray-800/70">
                 <tr>
-                  {visibleColumns.map((col, index) => (
+                  {visibleColumns.map((col) => (
                     <th
                       key={col.key}
                       onClick={() => col.sortable && handleSort(col.key)}
@@ -1038,7 +1051,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                           : "",
                         col.headerClassName ?? "",
                         actionsHeaderClass(col),
-                        index === visibleColumns.length - 1 ? "!pr-12" : "",
+                        col.key === lastShownColumnKey ? "!pr-12" : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -1089,7 +1102,7 @@ export function ReusableTable<T extends { id?: number | string }>({
               <tbody className="bg-white divide-y divide-gray-200 dark:divide-gray-800 dark:bg-gray-900">
                 {isLoading
                   ? Array.from({ length: skeletonRowCount }).map((_, i) => (
-                      <SkeletonRow key={i} cols={visibleColumns.length} />
+                      <SkeletonRow key={i} cols={visibleColumns.length - (hidesActions ? 1 : 0)} />
                     ))
                   : paginated.map((row, idx) => (
                       <tr

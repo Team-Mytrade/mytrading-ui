@@ -44,6 +44,7 @@ import {
   statusConfig,
   useDeliveryLookups,
 } from "./deliveryShared";
+import { usePermissions } from "../../access/usePermissions";
 
 // ================= API CONFIGURATION =================
 
@@ -114,6 +115,7 @@ const addressLabel = (a: AddressOption) => [a.addressLine1, a.addressLine2, a.ci
 // ================= COMPONENT =================
 
 const DeliveryOrderPage: React.FC = () => {
+  const { canCreate, canDelete, canUpdate } = usePermissions();
   const lookups = useDeliveryLookups(["customers", "products", "vehicles", "transporters", "warehouses", "salesOrders"]);
 
   const [orders, setOrders] = useState<DeliveryOrder[]>([]);
@@ -482,7 +484,7 @@ const DeliveryOrderPage: React.FC = () => {
             <EyeIcon className="h-4 w-4" />
           </button>
           {EDITABLE_ORDER_STATUSES.includes(row.status) && (
-            <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600" title="Edit">
+            canUpdate && <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600" title="Edit">
               <PencilIcon className="h-4 w-4" />
             </button>
           )}
@@ -492,7 +494,7 @@ const DeliveryOrderPage: React.FC = () => {
             </button>
           )}
           {DELETABLE_ORDER_STATUSES.includes(row.status) && (
-            <button type="button" onClick={() => openDelete(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600" title="Delete">
+            canDelete && <button type="button" onClick={() => openDelete(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600" title="Delete">
               <TrashIcon className="h-4 w-4" />
             </button>
           )}
@@ -608,7 +610,7 @@ const DeliveryOrderPage: React.FC = () => {
               {search || statusFilter !== "ALL" || dateFilter ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
               ) : (
-                <button type="button" onClick={openCreate} className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium">
+                canCreate && <button type="button" onClick={openCreate} className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium">
                   Create your first delivery order
                 </button>
               )}
@@ -880,7 +882,7 @@ const DeliveryOrderPage: React.FC = () => {
 
               <div className="mt-4 border-t pt-4 flex flex-wrap justify-end gap-2">
                 {EDITABLE_ORDER_STATUSES.includes(selected.status) && (
-                  <button onClick={() => openEdit(selected)} className="px-4 py-2 bg-cyan-50 text-cyan-700 rounded-lg hover:bg-cyan-100 text-sm font-medium">
+                  canUpdate && <button onClick={() => openEdit(selected)} className="px-4 py-2 bg-cyan-50 text-cyan-700 rounded-lg hover:bg-cyan-100 text-sm font-medium">
                     <PencilIcon className="h-4 w-4 inline mr-1" />
                     Edit
                   </button>
@@ -898,7 +900,7 @@ const DeliveryOrderPage: React.FC = () => {
                   </button>
                 )}
                 {DELETABLE_ORDER_STATUSES.includes(selected.status) && (
-                  <button
+                  canDelete && <button
                     onClick={() => {
                       setShowDetailModal(false);
                       openDelete(selected);
