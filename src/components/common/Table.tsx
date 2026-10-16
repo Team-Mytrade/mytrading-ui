@@ -622,10 +622,13 @@ export function ReusableTable<T extends { id?: number | string }>({
   const [sortOrder, setSortOrder] = useState<SortOrder>(defaultSortOrder);
   const [page, setPage] = useState(1);
   const [selectedRow, setSelectedRow] = useState<T | null>(null);
-  const [drawerWidth, setDrawerWidth] = useState(() => {
+   const [drawerWidth, setDrawerWidth] = useState(() => {
     const reservedSidebarWidth = window.innerWidth >= 1024 ? 220 : 0;
-    return Math.max(360, window.innerWidth - reservedSidebarWidth);
-  });
+    const available = window.innerWidth - reservedSidebarWidth;
+    // Same rule as Dragger.css: 75% of the screen, at least 720px, never over the sidebar
+    const preferred = Math.max(720, window.innerWidth * 0.75);
+    return Math.max(360, Math.min(available, preferred));
+  });                                                           // ← add this line
   const [isDrawerResizing, setIsDrawerResizing] = useState(false);
   const [isTableFullscreen, setIsTableFullscreen] = useState(false);
   const [showColumnFilters, setShowColumnFilters] = useState(showColumnFiltersInitially);

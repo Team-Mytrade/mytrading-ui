@@ -10,8 +10,13 @@
 
 /* ---------- Panel ---------- */
 .dragger__panel { display: flex; flex-direction: column; background: #fff; box-shadow: -16px 0 42px rgba(15, 23, 42, .22); }
-/* Standard drawer width: 760px (was 1180px), full width on phones. Slides in from the right. */
-.dragger__panel--drawer { width: min(760px, 100vw); height: 100dvh; animation: dragger-slide-in .22s cubic-bezier(.22, 1, .36, 1); }
+/* Same width as the row-details drawer (Table.tsx): the whole screen except the 220px sidebar
+   on screens 1024px and wider; full width on smaller screens. Slides in from the right. */
+.dragger__panel--drawer { width: 100vw; height: 100dvh; animation: dragger-slide-in .22s cubic-bezier(.22, 1, .36, 1); }
+@media (min-width: 1024px) {
+   /* 75% of the screen, at least 720px, never over the sidebar (same rule as Table.tsx) */
+  .dragger__panel--drawer { width: min(calc(100vw - 220px), max(720px, 75vw)); }
+}
 .dragger__panel--modal { width: min(1344px, 100%); max-height: min(590px, calc(100dvh - 48px)); border-radius: 16px; box-shadow: 0 24px 52px rgba(15, 23, 42, .26); animation: dragger-pop-in .2s cubic-bezier(.22, 1, .36, 1); }
 .dragger__panel--compact { height: auto; max-height: calc(100dvh - 32px); margin: 16px 0; border-radius: 14px 0 0 14px; }
 
