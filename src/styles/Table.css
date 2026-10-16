@@ -118,7 +118,16 @@
 .dark .common-data-table__tooltip-float { border-color: rgb(103 232 249 / 35%); background: #020617; }
 .dark .common-data-table__tooltip-float::after { border-color: rgb(103 232 249 / 35%); background: #020617; }
 @keyframes common-table-tooltip-in { from { opacity: 0; transform: translateY(calc(-100% + 4px)); } to { opacity: 1; transform: translateY(-100%); } }
-
+/* Tooltip shown BELOW the item (no room above, e.g. Edit button at top of drawer) */
+.common-data-table__tooltip-float--below {
+  animation: common-table-tooltip-fade 150ms ease-out;
+}
+.common-data-table__tooltip-float--below::after {
+  top: -5px;
+  bottom: auto;
+  transform: rotate(225deg);
+}
+@keyframes common-table-tooltip-fade { from { opacity: 0; } to { opacity: 1; } }
 /* Actions stay pinned to the right edge while the rest of a wide table scrolls under them. */
 .common-data-table__sticky-actions {
   position: sticky;

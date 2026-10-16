@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { clearSessionExpiredRedirect, getSessionExpiredRedirect } from "../../utils/sessionRecovery";
-import '../../styles/Login.css';
+// import '../../styles/Login.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 
 type FormValues = {
@@ -186,21 +186,21 @@ const SignInForm: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className={`w-full py-2.5 mt-1 h-[46px] bg-gradient-to-r from-cyan-500 via-cyan-600 to-sky-600 hover:from-cyan-600 hover:via-cyan-700 hover:to-sky-700 text-white !text-white font-extrabold rounded-2xl shadow-lg shadow-cyan-500/20 hover:shadow-cyan-600/40 transform hover:-translate-y-0.5 transition-all duration-300 group relative flex items-center justify-center ${isLoading ? 'opacity-70 cursor-not-allowed transform-none' : ''}`}
+            className={`w-full py-2.5 mt-1 h-[42px] bg-gradient-to-r from-cyan-500 via-cyan-600 to-sky-600 hover:from-cyan-600 hover:via-cyan-700 hover:to-sky-700 !text-white font-extrabold rounded-xl shadow-lg shadow-cyan-500/20 hover:shadow-cyan-600/40 transition-all duration-300 group relative flex items-center justify-center ${isLoading ? 'opacity-70 cursor-not-allowed transform-none' : ''}`}
           >
-            <span className="text-white !text-white tracking-wider uppercase text-xs font-extrabold text-center">
+            <span className="!text-white tracking-wider uppercase text-xs font-extrabold text-center">
               {isLoading ? "Signing In..." : "Sign In"}
             </span>
             {isLoading ? (
-              <i className="fas fa-circle-notch fa-spin text-white !text-white absolute left-4 text-xs"></i>
+              <i className="fas fa-circle-notch fa-spin !text-white absolute left-4 text-xs"></i>
             ) : (
-              <i className="fas fa-arrow-right text-xs text-white !text-white absolute right-4 transform group-hover:translate-x-1.5 transition-transform duration-200"></i>
+              <i className="fas fa-arrow-right text-xs !text-white absolute right-4 transform group-hover:translate-x-1.5 transition-transform duration-200"></i>
             )}
           </button>
         </form>
 
         {/* Footer */}
-        <div className="pt-3 border-t border-gray-200 dark:border-gray-700/50 text-center space-y-2">
+        <div className="pt-1 text-center space-y-2">
           <p className="text-xs text-gray-500 dark:text-gray-400">
             <Link
               to="/termsandconditions"

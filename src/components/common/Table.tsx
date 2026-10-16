@@ -635,7 +635,7 @@ export function ReusableTable<T extends { id?: number | string }>({
   const [visibleColumnKeys, setVisibleColumnKeys] = useState<string[]>(() => columns.map((column) => column.key));
   const tableShellRef = useRef<HTMLDivElement | null>(null);
   const tableRootRef = useRef<HTMLDivElement | null>(null);
-  const [activeTableTooltip, setActiveTableTooltip] = useState<{ content: string; left: number; top: number; alignRight: boolean } | null>(null);
+  const [activeTableTooltip, setActiveTableTooltip] = useState<{ content: string; left: number; top: number; alignRight: boolean; below:boolean } | null>(null);
   const [viewportPageSize, setViewportPageSize] = useState(pageSize);
   const [showExportModal, setShowExportModal] = useState(false);
   const [hasRowActions, setHasRowActions] = useState(true);
@@ -678,11 +678,13 @@ export function ReusableTable<T extends { id?: number | string }>({
     if (!target || !tableRootRef.current?.contains(target)) return;
     const bounds = target.getBoundingClientRect();
     const alignRight = window.innerWidth - bounds.right < 260;
+    const below = bounds.top < 60;
     setActiveTableTooltip({
       content: target.dataset.tableTooltip || "",
       left: alignRight ? bounds.right : bounds.left,
-      top: bounds.top - 8,
+      top: below ? bounds.bottom +8 : bounds.top - 8,
       alignRight,
+      below,
     });
   };
 
@@ -1287,9 +1289,10 @@ export function ReusableTable<T extends { id?: number | string }>({
 
       {activeTableTooltip?.content && (
         <div
-          className={`common-data-table__tooltip-float ${activeTableTooltip.alignRight ? "common-data-table__tooltip-float--align-right" : ""}`}
+          className={`common-data-table__tooltip-float ${activeTableTooltip.alignRight ? "common-data-table__tooltip-float--align-right" : ""} ${activeTableTooltip.below ? "common-data-table__tooltip-float--below" : ""}`}
           role="tooltip"
-          style={{ left: activeTableTooltip.left, top: activeTableTooltip.top }}
+          style={{ left: activeTableTooltip.left, top: activeTableTooltip.top,  ...(activeTableTooltip.below && { transform: `translateX(${activeTableTooltip.alignRight ? "-100%" : "0"})` }),
+           }}
         >
           {activeTableTooltip.content}
         </div>
