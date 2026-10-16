@@ -4,7 +4,6 @@ import * as XLSX from "xlsx";
 import {
     CloudArrowDownIcon,
     ArrowPathIcon,
-    CogIcon,
     DocumentArrowDownIcon,
     ChevronDownIcon,
     ChevronUpIcon,
@@ -261,13 +260,6 @@ const PayrollProcessingEnginePage: React.FC = () => {
 
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-0 -mt-2">
                 <div className="bg-white dark:bg-[#191919] rounded-xl shadow-sm border border-gray-200 dark:!border-transparent overflow-hidden">
-                    <div className="px-6 py-5 border-b border-gray-200 dark:border-transparent bg-gray-50 dark:bg-[#222222] flex items-center gap-3">
-                        <CogIcon className="h-6 w-6 text-cyan-600 dark:text-gray-400" />
-                        <h3 className="text-xl leading-6 font-bold text-gray-900 dark:text-white">
-                            Payroll Processing Engine
-                        </h3>
-                    </div>
-
                     <div className="p-4 sm:p-6">
                         {/* Tabs */}
                         <div className="border-b border-gray-200 dark:border-transparent mb-4">
