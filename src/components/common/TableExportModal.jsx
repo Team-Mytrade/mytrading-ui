@@ -52,7 +52,7 @@ export default function TableExportModal({ isOpen, onClose, data, columns, title
     if (period === "custom" && (!fromValue || !toValue || fromValue > toValue)) return;
     if (!flattenedRows.length) return;
     const fileBase = title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "table_export";
-    if (format === "pdf") exportListingPdf({ title, data: flattenedRows, fileName: `${fileBase}.pdf`, subtitle: "Table export", metadata: [{ label: "Range", value: range.label }, { label: "Total", value: flattenedRows.length }] });
+    if (format === "pdf") exportListingPdf({ title, data: flattenedRows, fileName: `${fileBase}.pdf`, reportLabel: "", metadata: [{ label: "Range", value: range.label }, { label: "Total", value: flattenedRows.length }] });
     else { const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(flattenedRows), "Export"); XLSX.writeFile(workbook, `${fileBase}.xlsx`); }
     onClose();
   };

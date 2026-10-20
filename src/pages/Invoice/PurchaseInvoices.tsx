@@ -1,24 +1,24 @@
-import React, { useEffect, useState, ChangeEvent, FormEvent, useMemo } from "react";
-import PaginatedPopup from "../../components/common/unpopup";
+import React, { useEffect, useLayoutEffect, useRef, useState, ChangeEvent, FormEvent, useMemo } from "react";
 import axios from "axios";
-import {
-  PencilSquareIcon,
-  TrashIcon,
-  MagnifyingGlassIcon,
-  XMarkIcon,
-  DocumentTextIcon,
-} from "@heroicons/react/24/outline";
+import { PencilSquareIcon, TrashIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import DynamicPopup from "../../components/common/Popup";
-import StatsCard from "../../components/common/Statscard";
+import Dragger from "../../components/common/Dragger";
+import StatsCardFilter, { StatsCardOption, useStatsCardFilter } from "../../components/common/StatsCardFilter";
 import { AddButton } from "../../components/common/AddButton";
-import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import FilterPopover from "../../components/common/filter";
-import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import { ICON_BUTTON_CLASS } from "../../components/common/CloseButton";
+import ReusableTable, { ColumnDef, formatDisplayDate, formatMoney } from "../../components/common/Table";
+import {
+  FloatingInput,
+  FloatingDatePicker,
+  FloatingTextarea,
+  FloatingSelect1 as FloatingSelect,
+} from "../../components/inputfeild/FloatingInput";
 import { toSelectOptions, useInvoiceEnum } from "./invoiceEnums";
 import { usePermissions } from "../../access/usePermissions";
+import { todayIso } from "../../utils/localDate";
 
 interface PurchaseInvoice {
   id: number;
@@ -52,6 +52,20 @@ const API_URL = "/v1/api/invoice/purchase-invoices";
 const PAGE_SIZE = 10;
 
 const PURCHASE_INVOICE_STATUS_FALLBACK = ["OPEN", "PARTIALLY_PAID", "PAID", "CANCELLED", "OVERDUE", "DRAFT", "VOID", "RETURNED", "APPROVED", "REJECTED", "PENDING", "COMPLETED", "FAILED", "REFUNDED", "CHARGEBACK", "WRITE_OFF", "OTHER"];
+const CURRENCY_FALLBACK = ["INR", "USD", "EUR"];
+
+/** Clickable stats cards: click one to show only those rows, click again to show all. */
+const STATS_CARDS: StatsCardOption<PurchaseInvoice>[] = [
+  { key: "ALL", label: "Total Invoices", match: () => true, tone: "cyan" },
+  { key: "PAID", label: "Paid", match: (i) => i.purchaseInvoiceStatus === "PAID", tone: "green" },
+  {
+    key: "OPEN",
+    label: "Open / Partially Paid",
+    match: (i) => i.purchaseInvoiceStatus === "OPEN" || i.purchaseInvoiceStatus === "PARTIALLY_PAID",
+    tone: "amber",
+  },
+  { key: "OVERDUE", label: "Overdue", match: (i) => i.purchaseInvoiceStatus === "OVERDUE", tone: "red" },
+];
 
 const statusTone = (status?: string) => {
   switch (status) {
@@ -73,10 +87,36 @@ const statusTone = (status?: string) => {
   }
 };
 
+/**
+ * Notes box that starts as one line (same height as an input) and grows as the text gets
+ * longer. Same behaviour as the Purchase module pages.
+ */
+const AutoGrowTextarea = (props: React.ComponentProps<typeof FloatingTextarea>) => {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const resize = () => {
+    const textarea = wrapperRef.current?.querySelector("textarea");
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.max(52, textarea.scrollHeight + 2)}px`;
+  };
+  // Also resizes when an existing note is loaded for Edit
+  useLayoutEffect(resize, [props.value]);
+  return (
+    <div ref={wrapperRef} onInput={resize}>
+      <FloatingTextarea {...props} rows={1} />
+    </div>
+  );
+};
+
+/** ₹ with Indian grouping for INR; other currencies show their code. */
+const formatInvoiceAmount = (amount?: number, currency?: string) => {
+  const value = Number(amount || 0);
+  if (!currency || currency === "INR") return formatMoney(value);
+  return `${currency} ${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
 const PurchaseInvoices: React.FC = () => {
   const { canCreate, canUpdate, canDelete } = usePermissions();
-  const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
   const [purchaseInvoices, setPurchaseInvoices] = useState<PurchaseInvoice[]>([]);
   const [form, setForm] = useState<Partial<PurchaseInvoice>>({});
@@ -85,20 +125,26 @@ const PurchaseInvoices: React.FC = () => {
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<PurchaseInvoice | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState("ALL");
   const purchaseInvoiceStatuses = useInvoiceEnum("PURCHASE_INVOICE_STATUS", PURCHASE_INVOICE_STATUS_FALLBACK);
+  const currencies = useInvoiceEnum("CURRENCY", CURRENCY_FALLBACK);
+
+  const { filteredRows, cardFilterProps, selected } = useStatsCardFilter(purchaseInvoices, STATS_CARDS);
 
   useEffect(() => {
     fetchPurchaseInvoices();
+    // Toolbar Refresh icon reloads the list
+    const reload = () => fetchPurchaseInvoices();
+    window.addEventListener("reusable-table:refresh", reload);
+    return () => window.removeEventListener("reusable-table:refresh", reload);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchPurchaseInvoices = async () => {
     try {
       setIsLoading(true);
-      const res = await axios.get<PurchaseInvoice[]>(API_URL, { headers });
+      const res = await axios.get<PurchaseInvoice[]>(API_URL);
       setPurchaseInvoices(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Error fetching purchase invoices", err);
@@ -125,13 +171,23 @@ const PurchaseInvoices: React.FC = () => {
       return;
     }
 
+    if (!form.invoiceDate) {
+      ToasterService.error("Invoice date is required");
+      return;
+    }
+
+    if (form.invoiceDate && form.dueDate && form.dueDate < form.invoiceDate) {
+      ToasterService.error("Due date cannot be before invoice date");
+      return;
+    }
+
     const payload: PurchaseInvoicePayload = {
       invoiceNumber: form.invoiceNumber.trim(),
       invoiceDate: form.invoiceDate || undefined,
       dueDate: form.dueDate || undefined,
       totalAmount,
       purchaseInvoiceStatus: form.purchaseInvoiceStatus || "OPEN",
-      currency: form.currency?.trim() || "INR",
+      currency: form.currency?.trim().toUpperCase() || "INR",
       referenceNumber: form.referenceNumber?.trim() || undefined,
       notes: form.notes?.trim() || undefined,
     };
@@ -140,8 +196,8 @@ const PurchaseInvoices: React.FC = () => {
     try {
       const res =
         editingId !== null
-          ? await axios.put(`${API_URL}/${editingId}`, form, { headers })
-          : await axios.post<PurchaseInvoice>(API_URL, payload, { headers });
+          ? await axios.put(`${API_URL}/${editingId}`, payload)
+          : await axios.post<PurchaseInvoice>(API_URL, payload);
       if (res.status === 200 || res.status === 201) {
         ToasterService.success(editingId !== null ? "Purchase invoice updated successfully!" : "Purchase invoice added successfully!");
         setShowFormModal(false);
@@ -158,14 +214,19 @@ const PurchaseInvoices: React.FC = () => {
   };
 
   const handleEdit = (invoice: PurchaseInvoice) => {
-    setForm(invoice);
+    setForm({
+      ...invoice,
+      invoiceDate: invoice.invoiceDate?.slice(0, 10),
+      dueDate: invoice.dueDate?.slice(0, 10),
+    });
     setEditingId(invoice.id);
     setShowFormModal(true);
   };
 
   const openCreate = () => {
     setShowFormModal(true);
-    setForm({ currency: "INR", purchaseInvoiceStatus: "OPEN", totalAmount: 0 });
+    // Invoice date defaults to today; the user can change it to the date on the vendor's bill
+    setForm({ currency: "INR", purchaseInvoiceStatus: "OPEN", totalAmount: 0, invoiceDate: todayIso() });
     setEditingId(null);
   };
 
@@ -181,9 +242,10 @@ const PurchaseInvoices: React.FC = () => {
   };
 
   const confirmDelete = async () => {
-    if (!invoiceToDelete) return;
+    if (!invoiceToDelete || deleting) return;
+    setDeleting(true);
     try {
-      await axios.delete(`${API_URL}/${invoiceToDelete.id}`, { headers });
+      await axios.delete(`${API_URL}/${invoiceToDelete.id}`);
       ToasterService.success("Purchase invoice deleted successfully!");
       setShowDeletePopup(false);
       setInvoiceToDelete(null);
@@ -191,39 +253,13 @@ const PurchaseInvoices: React.FC = () => {
     } catch (err) {
       console.error("Error deleting purchase invoice", err);
       ToasterService.error("Failed to delete purchase invoice");
+    } finally {
+      setDeleting(false);
     }
   };
 
-  const filteredInvoices = useMemo(() => {
-    return purchaseInvoices.filter((invoice) => {
-      const term = search.toLowerCase();
-      const matchesSearch =
-        (invoice.invoiceNumber || "").toLowerCase().includes(term) ||
-        (invoice.referenceNumber || "").toLowerCase().includes(term) ||
-        (invoice.purchaseInvoiceStatus || "").toLowerCase().includes(term);
-
-      let matchesFilter = true;
-      if (activeFilter === "PAID") {
-        matchesFilter = invoice.purchaseInvoiceStatus === "PAID";
-      } else if (activeFilter === "OPEN") {
-        matchesFilter = invoice.purchaseInvoiceStatus === "OPEN" || invoice.purchaseInvoiceStatus === "PARTIALLY_PAID";
-      } else if (activeFilter === "OVERDUE") {
-        matchesFilter = invoice.purchaseInvoiceStatus === "OVERDUE";
-      }
-
-      return matchesSearch && matchesFilter;
-    });
-  }, [purchaseInvoices, search, activeFilter]);
-
-  const stats = useMemo(
-    () => ({
-      total: purchaseInvoices.length,
-      paid: purchaseInvoices.filter((i) => i.purchaseInvoiceStatus === "PAID").length,
-      open: purchaseInvoices.filter((i) => i.purchaseInvoiceStatus === "OPEN" || i.purchaseInvoiceStatus === "PARTIALLY_PAID").length,
-      totalAmount: purchaseInvoices.reduce((acc, i) => acc + Number(i.totalAmount || 0), 0),
-    }),
-    [purchaseInvoices]
-  );
+  const statusLabel = (code?: string) =>
+    purchaseInvoiceStatuses.find((s) => s.code === code)?.label || code || "N/A";
 
   const tableColumns: ColumnDef<PurchaseInvoice>[] = [
     {
@@ -249,9 +285,10 @@ const PurchaseInvoices: React.FC = () => {
       sortable: true,
       headerClassName: "w-[12%] text-left",
       className: "w-[12%]",
+      exportValueGetter: (invoice) => (invoice.invoiceDate ? formatDisplayDate(invoice.invoiceDate) : ""),
       render: (invoice) => (
         <span className="text-sm text-slate-600">
-          {invoice.invoiceDate ? new Date(invoice.invoiceDate).toLocaleDateString() : "N/A"}
+          {invoice.invoiceDate ? formatDisplayDate(invoice.invoiceDate) : "N/A"}
         </span>
       ),
     },
@@ -261,9 +298,10 @@ const PurchaseInvoices: React.FC = () => {
       sortable: true,
       headerClassName: "w-[12%] text-left",
       className: "w-[12%]",
+      exportValueGetter: (invoice) => (invoice.dueDate ? formatDisplayDate(invoice.dueDate) : ""),
       render: (invoice) => (
         <span className="text-sm text-slate-600">
-          {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : "N/A"}
+          {invoice.dueDate ? formatDisplayDate(invoice.dueDate) : "N/A"}
         </span>
       ),
     },
@@ -274,9 +312,12 @@ const PurchaseInvoices: React.FC = () => {
       headerClassName: "w-[15%] text-right",
       className: "w-[15%] text-right",
       sortValueGetter: (invoice) => Number(invoice.totalAmount || 0),
+      // Drawer and export show the invoice's own currency (₹ only for INR)
+      detailFormatter: (invoice) => formatInvoiceAmount(invoice.totalAmount, invoice.currency),
+      exportValueGetter: (invoice) => formatInvoiceAmount(invoice.totalAmount, invoice.currency),
       render: (invoice) => (
         <span className="text-sm font-semibold text-slate-700">
-          {Number(invoice.totalAmount || 0).toLocaleString()}
+          {formatInvoiceAmount(invoice.totalAmount, invoice.currency)}
         </span>
       ),
     },
@@ -286,9 +327,13 @@ const PurchaseInvoices: React.FC = () => {
       sortable: true,
       headerClassName: "w-[18%] text-left",
       className: "w-[18%]",
+      // Column filter dropdown and drawer/export use the enum labels, e.g. "Partially Paid"
+      filterOptions: purchaseInvoiceStatuses.map((s) => ({ label: s.label, value: s.code })),
+      detailFormatter: (invoice) => statusLabel(invoice.purchaseInvoiceStatus),
+      exportValueGetter: (invoice) => statusLabel(invoice.purchaseInvoiceStatus),
       render: (invoice) => (
         <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full border ${statusTone(invoice.purchaseInvoiceStatus)}`}>
-          {invoice.purchaseInvoiceStatus || "N/A"}
+          {statusLabel(invoice.purchaseInvoiceStatus)}
         </span>
       ),
     },
@@ -300,22 +345,26 @@ const PurchaseInvoices: React.FC = () => {
       className: "w-[25%] text-right",
       render: (invoice) => (
         <div className="flex items-center justify-end gap-0.5">
-          {canUpdate && (<button
-            type="button"
-            onClick={() => handleEdit(invoice)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit Purchase Invoice"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>)}
-          {canDelete && (<button
-            type="button"
-            onClick={() => handleDelete(invoice)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-            title="Delete Purchase Invoice"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>)}
+          {canUpdate && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); handleEdit(invoice); }}
+              className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+              title="Edit Purchase Invoice"
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+            </button>
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); handleDelete(invoice); }}
+              className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+              title="Delete Purchase Invoice"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -324,189 +373,138 @@ const PurchaseInvoices: React.FC = () => {
   return (
     <>
       <PageMeta title="Purchase Invoices" description="Manage purchase invoices" />
-      <PageBreadcrumb pageTitle="Purchase Invoices" />
+      {/* Same layout as the Purchase module pages: Add button sits in the breadcrumb row */}
+      <PageBreadcrumb
+        className="mr-4"
+        pageTitle="Purchase Invoices"
+        actions={canCreate ? <AddButton className="-mr-5" label="Add Purchase Invoice" onClick={openCreate} /> : undefined}
+      />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Purchase Invoice" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatsCard
-            label="Total Invoices"
-            value={stats.total}
-            gradient="from-cyan-50 to-blue-50"
-            borderColor="border-cyan-100"
-            labelColor="text-cyan-600"
-          />
-          <StatsCard
-            label="Paid"
-            value={stats.paid}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-          />
-          <StatsCard
-            label="Open"
-            value={stats.open}
-            gradient="from-yellow-50 to-amber-50"
-            borderColor="border-yellow-100"
-            labelColor="text-yellow-600"
-          />
-          <StatsCard
-            label="Total Amount"
-            value={stats.totalAmount.toLocaleString()}
-            gradient="from-purple-50 to-pink-50"
-            borderColor="border-purple-100"
-            labelColor="text-purple-600"
-          />
-        </div>
-
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search invoices by number, reference, or status..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); }}
-                className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-              {search && (
-                <button
-                  onClick={() => { setSearch(""); }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
-            <FilterPopover
-              title="Filter Purchase Invoices"
-              buttonLabel="Filters"
-              label="Filter by Status"
-              value={activeFilter}
-              options={[
-                { label: "All Invoices", value: "ALL" },
-                { label: "Paid", value: "PAID" },
-                { label: "Open / Partial", value: "OPEN" },
-                { label: "Overdue", value: "OVERDUE" },
-              ]}
-              onChange={setActiveFilter}
-              onReset={() => setActiveFilter("ALL")}
-              onApply={() => undefined}
-            />
-          </div>
-        </div>
+      <div className="w-full max-w-none px-0 py-8">
+        <div className="py-5 px-3">
+        {/* Clickable cards + toolbar (columns, export, search, filter, refresh) */}
+        <StatsCardFilter {...cardFilterProps} />
 
         <ReusableTable
-          data={filteredInvoices}
+          data={filteredRows}
           columns={tableColumns}
           pageSize={PAGE_SIZE}
           defaultSortKey="invoiceNumber"
           defaultSortOrder="asc"
           loading={isLoading}
+          rowDetailsTitle={(invoice) => `Invoice ${invoice.invoiceNumber || ""}`.trim()}
+          rowDetailsSubtitle="Purchase invoice details"
+          // Hides the details drawer while the edit Dragger is open; it comes back with the saved data
+          suspendRowDetails={showFormModal}
+          // Edit icon next to ✕ in the row details drawer
+          rowDetailsActions={(invoice: PurchaseInvoice) =>
+            canUpdate ? (
+              <button
+                type="button"
+                onClick={() => handleEdit(invoice)}
+                // Same classes as the ✕ next to it (light and dark mode)
+                className={ICON_BUTTON_CLASS}
+                title="Edit"
+                aria-label="Edit this record"
+              >
+                <PencilSquareIcon className="h-5 w-5" aria-hidden="true" />
+              </button>
+            ) : null
+          }
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <DocumentTextIcon className="h-12 w-12 text-gray-400 mb-3" />
               <p className="text-gray-500 text-sm mb-2">No purchase invoices found</p>
-              {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
+              {selected !== "ALL" ? (
+                <p className="text-gray-400 text-xs">Click the selected card again to show all invoices</p>
               ) : (
-                canCreate && <button
-                  type="button"
-                  onClick={() => openCreate()}
-                  className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
-                >
-                  Create your first purchase invoice
-                </button>
+                canCreate && (
+                  <button
+                    type="button"
+                    onClick={() => openCreate()}
+                    className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
+                  >
+                    Create your first purchase invoice
+                  </button>
+                )
               )}
             </div>
           }
         />
+        </div>
 
-        <PaginatedPopup
+        <Dragger
           isOpen={showFormModal}
-          title={editingId !== null ? "Edit Purchase Invoice" : "Create New Purchase Invoice"}
+          title={editingId !== null ? "Edit Purchase Invoice" : "Add Purchase Invoice"}
           subtitle={editingId !== null ? "Update your invoice details" : "Add a new purchase invoice"}
           onClose={closeModal}
           onSubmit={handleSubmit}
           submitting={submitting}
-          submitLabel={editingId !== null ? "Update Invoice" : "Create Invoice"}
-          maxWidthClassName="max-w-2xl"
-          tabs={[
-            {
-              label: "Basic Info",
-              fields: [
-                <FloatingInput
-                  key="invoiceNumber"
-                  label="Invoice Number"
-                  name="invoiceNumber"
-                  value={form.invoiceNumber || ""}
-                  onChange={handleChange}
-                  required
-                />,
-                <FloatingInput
-                  key="invoiceDate"
-                  label="Invoice Date"
-                  name="invoiceDate"
-                  type="date"
-                  value={form.invoiceDate || ""}
-                  onChange={handleChange}
-                />,
-                <FloatingInput
-                  key="dueDate"
-                  label="Due Date"
-                  name="dueDate"
-                  type="date"
-                  value={form.dueDate || ""}
-                  onChange={handleChange}
-                />,
-                <FloatingInput
-                  key="totalAmount"
-                  label="Total Amount"
-                  name="totalAmount"
-                  type="number"
-                  value={form.totalAmount ?? ""}
-                  onChange={handleChange}
-                />,
-                <FloatingSelect
-                  key="purchaseInvoiceStatus"
-                  label="Status"
-                  name="purchaseInvoiceStatus"
-                  value={form.purchaseInvoiceStatus || ""}
-                  onChange={(e) => setForm({ ...form, purchaseInvoiceStatus: e.target.value })}
-                  options={toSelectOptions(purchaseInvoiceStatuses)}
-                />,
-                <FloatingInput
-                  key="currency"
-                  label="Currency"
-                  name="currency"
-                  value={form.currency || ""}
-                  onChange={handleChange}
-                  required
-                />,
-                <FloatingInput
-                  key="referenceNumber"
-                  label="Reference Number"
-                  name="referenceNumber"
-                  value={form.referenceNumber || ""}
-                  onChange={handleChange}
-                />,
-                <FloatingInput
-                  key="notes"
-                  label="Notes"
-                  name="notes"
-                  value={form.notes || ""}
-                  onChange={handleChange}
-                />,
-              ],
-            },
-          ]}
-        />
+          submitLabel={editingId !== null ? "Update" : "Create"}
+        >
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <FloatingInput
+              label="Invoice Number"
+              name="invoiceNumber"
+              value={form.invoiceNumber || ""}
+              onChange={handleChange}
+              required
+            />
+            <FloatingInput
+              label="Reference Number"
+              name="referenceNumber"
+              value={form.referenceNumber || ""}
+              onChange={handleChange}
+            />
+            <FloatingDatePicker
+              label="Invoice Date"
+              name="invoiceDate"
+              value={form.invoiceDate || ""}
+              onChange={handleChange}
+              required
+            />
+            <FloatingDatePicker
+              label="Due Date"
+              name="dueDate"
+              value={form.dueDate || ""}
+              onChange={handleChange}
+              minDate={form.invoiceDate || undefined}
+            />
+            <FloatingInput
+              label="Total Amount"
+              name="totalAmount"
+              type="number"
+              min={0}
+              step="0.01"
+              value={form.totalAmount ?? ""}
+              onChange={handleChange}
+            />
+            <FloatingSelect
+              label="Currency"
+              name="currency"
+              value={form.currency || ""}
+              onChange={(e) => setForm({ ...form, currency: e.target.value })}
+              // Currency shown as its code in capitals: INR, USD, EUR
+              options={currencies.map((c) => ({ id: c.code, name: c.code.toUpperCase() }))}
+              required
+            />
+            <FloatingSelect
+              label="Status"
+              name="purchaseInvoiceStatus"
+              value={form.purchaseInvoiceStatus || ""}
+              onChange={(e) => setForm({ ...form, purchaseInvoiceStatus: e.target.value })}
+              options={toSelectOptions(purchaseInvoiceStatuses)}
+            />
+            <div className="md:col-span-2">
+              <AutoGrowTextarea
+                label="Notes"
+                name="notes"
+                value={form.notes || ""}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              />
+            </div>
+          </div>
+        </Dragger>
 
         <DynamicPopup
           isPopupOpen={showDeletePopup}
@@ -519,13 +517,12 @@ const PurchaseInvoices: React.FC = () => {
               ? `Are you sure you want to delete "${invoiceToDelete.invoiceNumber}"? This action cannot be undone.`
               : "Are you sure you want to delete this purchase invoice?"
           }
-          confirmLabel="Delete"
+          confirmLabel={deleting ? "Deleting..." : "Delete"}
           cancelLabel="Cancel"
           onConfirm={confirmDelete}
           onCancel={() => setInvoiceToDelete(null)}
           confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
         />
-
       </div>
     </>
   );

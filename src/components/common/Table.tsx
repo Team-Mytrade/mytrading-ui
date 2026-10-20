@@ -89,6 +89,7 @@ export interface ReusableTableProps<T extends { id?: number | string }> {
   emptyState?: React.ReactNode;
   className?: string;
   align?: "left" | "center" | "right";
+    exportTitle?: string;
   showColumnFiltersInitially?: boolean;
 }
 
@@ -614,6 +615,7 @@ export function ReusableTable<T extends { id?: number | string }>({
   loading = false,
   emptyState,
   className = "",
+  exportTitle,
   align = "left",
   showColumnFiltersInitially = false,
 }: ReusableTableProps<T>) {
@@ -1355,7 +1357,7 @@ export function ReusableTable<T extends { id?: number | string }>({
         onClose={() => setShowExportModal(false)}
         data={filtered}
         columns={visibleColumns}
-        title="Table data"
+        title={exportTitle || document.title.split("|")[0].trim() || "Export"}
       />
     </div>
   );
