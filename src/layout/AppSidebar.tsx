@@ -712,7 +712,7 @@ const AppSidebar: React.FC = () => {
           aria-label={isExpanded || isMobileOpen ? "Collapse sidebar" : "Expand sidebar"}
           title={isExpanded || isMobileOpen ? "Collapse sidebar" : "Expand sidebar"}
         >
-          {isExpanded || isMobileOpen ? <ChevronsLeft size={17} /> : <ChevronsRight size={17} />}
+          {isExpanded || isMobileOpen ? <ChevronsLeft size={15} /> : <ChevronsRight size={15} />}
         </button>
         <nav className="app-sidebar__rail" aria-label="Primary modules">
           <Link to="/" className="app-sidebar__rail-brand" aria-label="Go to dashboard">
@@ -738,7 +738,7 @@ const AppSidebar: React.FC = () => {
           </div>
         </nav>
         {/* Logo */}
-        <div className="app-sidebar__brand flex items-center h-16 px-4 border-b border-gray-200">
+        <div className="app-sidebar__brand flex items-center h-14 px-4 border-b border-gray-200">
           <Link to="/" className="app-sidebar__brand-link flex items-center" aria-label="Go to dashboard">
             {isExpanded || isMobileOpen ? (
               <>
