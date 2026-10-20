@@ -135,7 +135,7 @@ const CustomerAddress: React.FC<CustomerAddressProps> = ({
   customerId: propCustomerId,
   onBack 
 }) => {
-  const { canDelete, canUpdate } = usePermissions();
+  const { canCreate, canDelete, canUpdate } = usePermissions();
   const navigate = useNavigate();
   const { id: urlCustomerId } = useParams<{ id: string }>();
   
@@ -877,7 +877,7 @@ const stats = getStats();
               {search || activeFilter !== "ALL" || defaultFilter !== "ALL" ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
               ) : (
-                <button
+                canCreate && <button
                   type="button"
                   onClick={handleAddAddress}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
