@@ -73,7 +73,8 @@ type StockLevelForm = {
 };
 
 const API_URL = "/v1/api/inventory";
-const PRODUCT_URL = "/v1/api/purchase/products";
+// Products live in the product catalogue (the purchase service no longer serves them)
+const PRODUCT_URL = "/v1/api/product/products";
 const PAGE_SIZE = 10;
 
 const PRODUCT_ROUTE = "/purchase-products";

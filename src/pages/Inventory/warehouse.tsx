@@ -237,7 +237,7 @@ const WarehousePage: React.FC = () => {
           code: resolveWarehouseCode(warehouse.code, warehouse.id),
           locationType: warehouse.locationType || "MAIN",
           stockCount,
-          status: getDisplayStatus(warehouse.id),
+          status: warehouse.active === false ? "INACTIVE" : "ACTIVE",
         };
       });
 

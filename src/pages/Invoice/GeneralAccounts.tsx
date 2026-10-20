@@ -1,243 +1,238 @@
-import React, { useEffect, useState, ChangeEvent, FormEvent, useMemo } from "react";
-import PaginatedPopup from "../../components/common/unpopup";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import {
-  PencilSquareIcon,
-  TrashIcon,
-  MagnifyingGlassIcon,
-  XMarkIcon,
-  BuildingOffice2Icon,
-} from "@heroicons/react/24/outline";
+import { BuildingOffice2Icon, PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import { ToasterService } from "../../Services/ToasterService";
-import DynamicPopup from "../../components/common/Popup";
 import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import FilterPopover from "../../components/common/filter";
-import { FloatingInput, FloatingTextarea } from "../../components/inputfeild/FloatingInput";
-import { FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import PaginatedPopup from "../../components/common/unpopup";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
+import { FloatingInput, FloatingSelect1, FloatingTextarea } from "../../components/inputfeild/FloatingInput";
+import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
+import { ACCOUNT_TYPE_OPTIONS, GeneralAccount, INVOICE_API, apiError, isDebitNormal, labelOf, money } from "./invoiceShared";
+import { DialogFooter, StatusBadge } from "./invoiceUi";
 
-interface GeneralAccount {
-  id: number;
-  accountCode?: string;
-  accountName?: string;
-  accountType?: string;
-  isActive?: boolean;
-  description?: string;
-  openingBalance?: number;
-}
+const API_URL = `${INVOICE_API}/general-accounts`;
+const PAGE_SIZE = 15;
 
-const API_URL = "/v1/api/invoice/general-accounts";
-const PAGE_SIZE = 10;
+// The invoice service's Currency enum
+const CURRENCY_OPTIONS = ["INR", "USD", "EUR", "GBP", "AUD", "CAD", "CHF", "CNY", "JPY", "SGD", "NZD", "SEK", "NOK", "DKK", "PLN", "TRY", "ZAR", "BRL", "MXN", "KRW", "RUB"].map(
+  (id) => ({ id, name: id })
+);
 
-const ACCOUNT_TYPE_OPTIONS = [
-  { id: "ASSET", name: "ASSET" },
-  { id: "LIABILITY", name: "LIABILITY" },
-  { id: "EQUITY", name: "EQUITY" },
-  { id: "INCOME", name: "INCOME" },
-  { id: "EXPENSE", name: "EXPENSE" },
-  { id: "OTHER", name: "OTHER" },
-];
-
-const typeTones: Record<string, string> = {
-  ASSET: "bg-blue-50 text-blue-700 border-blue-200/40",
-  LIABILITY: "bg-red-50 text-red-700 border-red-200/40",
-  EQUITY: "bg-purple-50 text-purple-700 border-purple-200/40",
-  INCOME: "bg-green-50 text-green-700 border-green-200/40",
-  EXPENSE: "bg-orange-50 text-orange-700 border-orange-200/40",
-  OTHER: "bg-gray-50 text-gray-700 border-gray-200/40",
+const TYPE_TONES: Record<string, string> = {
+  ASSET: "bg-blue-50 text-blue-700 border-blue-200/60",
+  LIABILITY: "bg-red-50 text-red-700 border-red-200/60",
+  EQUITY: "bg-purple-50 text-purple-700 border-purple-200/60",
+  INCOME: "bg-emerald-50 text-emerald-700 border-emerald-200/60",
+  EXPENSE: "bg-orange-50 text-orange-700 border-orange-200/60",
 };
 
-const GeneralAccounts: React.FC = () => {
-  const { canCreate, canUpdate, canDelete } = usePermissions();
-  const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+// A small starting chart for a trading business; codes follow the usual 1xxx–5xxx ranges
+const STARTER_ACCOUNTS: [string, string, string][] = [
+  ["1000", "Cash in hand", "ASSET"],
+  ["1010", "Bank", "ASSET"],
+  ["1100", "Accounts receivable", "ASSET"],
+  ["1200", "Inventory", "ASSET"],
+  ["1300", "GST input credit", "ASSET"],
+  ["2000", "Accounts payable", "LIABILITY"],
+  ["2100", "GST payable", "LIABILITY"],
+  ["3000", "Owner's capital", "EQUITY"],
+  ["3100", "Retained earnings", "EQUITY"],
+  ["4000", "Sales", "INCOME"],
+  ["4100", "Other income", "INCOME"],
+  ["5000", "Cost of goods sold", "EXPENSE"],
+  ["5100", "Freight and delivery", "EXPENSE"],
+  ["5200", "Rent", "EXPENSE"],
+  ["5300", "Salaries and wages", "EXPENSE"],
+  ["5400", "Utilities", "EXPENSE"],
+  ["5900", "Miscellaneous expenses", "EXPENSE"],
+];
 
+const emptyForm = () => ({
+  accountCode: "",
+  accountName: "",
+  accountType: "",
+  currency: "INR",
+  openingBalance: "",
+  description: "",
+  isActive: true,
+  allowTransactions: true,
+});
+
+const Toggle = ({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (value: boolean) => void }) => (
+  <label className="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
+    <span className="text-sm text-slate-700">
+      {label}
+      <span className="block text-xs text-slate-500">{hint}</span>
+    </span>
+    <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="mt-1 h-4 w-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
+  </label>
+);
+
+const GeneralAccounts: React.FC = () => {
+  const navigate = useNavigate();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const [accounts, setAccounts] = useState<GeneralAccount[]>([]);
-  const [form, setForm] = useState<Partial<GeneralAccount>>({});
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [showFormModal, setShowFormModal] = useState(false);
-  const [showDeletePopup, setShowDeletePopup] = useState(false);
-  const [accountToDelete, setAccountToDelete] = useState<GeneralAccount | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState("ALL");
-  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [typeFilter, setTypeFilter] = useState("ALL");
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<GeneralAccount | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState<GeneralAccount | null>(null);
+  const [seeding, setSeeding] = useState(false);
+
+  const fetchAccounts = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get<GeneralAccount[]>(API_URL);
+      setAccounts(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      ToasterService.error(apiError(err, "Failed to load accounts"));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchAccounts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const fetchAccounts = async () => {
-    try {
-      setIsLoading(true);
-      const res = await axios.get<GeneralAccount[]>(API_URL, { headers });
-      setAccounts(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error("Error fetching general accounts", err);
-      ToasterService.error("Failed to load general accounts");
-      setAccounts([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
-
-  const handleActiveChange = (e: ChangeEvent<HTMLInputElement>) =>
-    setForm({ ...form, isActive: e.target.checked });
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!form.accountName?.trim()) {
-      ToasterService.error("Account name is required");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res =
-        editingId !== null
-          ? await axios.put(`${API_URL}/${editingId}`, form, { headers })
-          : await axios.post(API_URL, form, { headers });
-      if (res.status === 200 || res.status === 201) {
-        ToasterService.success(editingId !== null ? "Account updated successfully!" : "Account added successfully!");
-        setShowFormModal(false);
-        setForm({});
-        setEditingId(null);
-        await fetchAccounts();
-      }
-    } catch (err) {
-      console.error("Error submitting account", err);
-      ToasterService.error("Failed to save account");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleEdit = (account: GeneralAccount) => {
-    setForm(account);
-    setEditingId(account.id);
-    setShowFormModal(true);
-  };
+  }, [fetchAccounts]);
 
   const openCreate = () => {
-    setShowFormModal(true);
-    setForm({});
-    setEditingId(null);
+    setEditing(null);
+    setForm(emptyForm());
+    setFormOpen(true);
   };
 
-  const closeModal = () => {
-    setShowFormModal(false);
-    setEditingId(null);
-    setForm({});
+  const openEdit = (account: GeneralAccount) => {
+    setEditing(account);
+    setForm({
+      accountCode: account.accountCode ?? "",
+      accountName: account.accountName ?? "",
+      accountType: account.accountType ?? "",
+      currency: account.currency || "INR",
+      openingBalance: account.openingBalance != null ? String(account.openingBalance) : "",
+      description: account.description ?? "",
+      isActive: account.isActive !== false,
+      allowTransactions: account.allowTransactions !== false,
+    });
+    setFormOpen(true);
   };
 
-  const handleDelete = (account: GeneralAccount) => {
-    setAccountToDelete(account);
-    setShowDeletePopup(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!accountToDelete) return;
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!form.accountCode.trim()) return ToasterService.error("Enter the account code");
+    if (!form.accountName.trim()) return ToasterService.error("Enter the account name");
+    if (!form.accountType) return ToasterService.error("Choose the account type");
+    const payload = {
+      accountCode: form.accountCode.trim(),
+      accountName: form.accountName.trim(),
+      accountType: form.accountType,
+      currency: form.currency || null,
+      openingBalance: form.openingBalance === "" ? 0 : Number(form.openingBalance),
+      description: form.description.trim() || null,
+      isActive: form.isActive,
+      allowTransactions: form.allowTransactions,
+    };
+    setBusy(true);
     try {
-      await axios.delete(`${API_URL}/${accountToDelete.id}`, { headers });
-      ToasterService.success("Account deleted successfully!");
-      setShowDeletePopup(false);
-      setAccountToDelete(null);
-      fetchAccounts();
+      if (editing) {
+        await axios.put(`${API_URL}/${editing.id}`, payload);
+        ToasterService.success(`${payload.accountCode} updated`);
+      } else {
+        await axios.post(API_URL, payload);
+        ToasterService.success(`${payload.accountCode} ${payload.accountName} added`);
+      }
+      setFormOpen(false);
+      await fetchAccounts();
     } catch (err) {
-      console.error("Error deleting account", err);
-      ToasterService.error("Failed to delete account");
+      ToasterService.error(apiError(err, "Could not save the account"));
+    } finally {
+      setBusy(false);
     }
   };
 
-  const filteredAccounts = useMemo(() => {
-    return accounts.filter((account) => {
-      const term = search.toLowerCase();
-      const matchesSearch =
-        (account.accountName || "").toLowerCase().includes(term) ||
-        (account.accountCode || "").toLowerCase().includes(term) ||
-        (account.accountType || "").toLowerCase().includes(term);
+  const remove = async () => {
+    if (!deleting) return;
+    setBusy(true);
+    try {
+      await axios.delete(`${API_URL}/${deleting.id}`);
+      ToasterService.success(`${deleting.accountCode} deleted`);
+      setDeleting(null);
+      await fetchAccounts();
+    } catch (err) {
+      setDeleting(null);
+      ToasterService.error(apiError(err, "Could not delete the account"));
+    } finally {
+      setBusy(false);
+    }
+  };
 
-      let matchesFilter = true;
-      if (activeFilter === "ACTIVE") {
-        matchesFilter = account.isActive === true;
-      } else if (activeFilter === "INACTIVE") {
-        matchesFilter = account.isActive !== true;
+  // Adds the starter accounts one by one; codes that already exist are skipped
+  const seedStarterChart = async () => {
+    setSeeding(true);
+    const existing = new Set(accounts.map((account) => account.accountCode.toUpperCase()));
+    let added = 0;
+    try {
+      for (const [accountCode, accountName, accountType] of STARTER_ACCOUNTS) {
+        if (existing.has(accountCode)) continue;
+        await axios.post(API_URL, { accountCode, accountName, accountType, currency: "INR", openingBalance: 0, isActive: true, allowTransactions: true });
+        added++;
       }
+      ToasterService.success(`${added} accounts added`);
+    } catch (err) {
+      ToasterService.error(apiError(err, `Stopped after ${added} accounts`));
+    } finally {
+      setSeeding(false);
+      await fetchAccounts();
+    }
+  };
 
-      return matchesSearch && matchesFilter;
-    });
-  }, [accounts, search, activeFilter]);
+  const filtered = useMemo(() => {
+    if (typeFilter === "ALL") return accounts;
+    if (typeFilter === "INACTIVE") return accounts.filter((account) => account.isActive === false);
+    return accounts.filter((account) => account.accountType === typeFilter);
+  }, [accounts, typeFilter]);
 
   const stats = useMemo(
     () => ({
-      totalAccounts: accounts.length,
-      active: accounts.filter((a) => a.isActive === true).length,
-      inactive: accounts.filter((a) => a.isActive !== true).length,
+      total: accounts.length,
+      active: accounts.filter((account) => account.isActive !== false).length,
+      posting: accounts.filter((account) => account.isActive !== false && account.allowTransactions !== false).length,
+      inactive: accounts.filter((account) => account.isActive === false).length,
     }),
     [accounts]
   );
 
-  const tableColumns: ColumnDef<GeneralAccount>[] = [
+  const columns: ColumnDef<GeneralAccount>[] = [
+    { key: "accountCode", label: "Code", sortable: true, render: (row) => <span className="font-mono text-sm font-semibold text-slate-900">{row.accountCode}</span> },
     {
       key: "accountName",
-      label: "Account Name",
+      label: "Account",
       sortable: true,
-      headerClassName: "w-[25%] text-left",
-      className: "w-[25%]",
-      render: (account) => (
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
-            <span className="text-sm font-semibold text-cyan-700">
-              {account.accountName ? account.accountName.charAt(0).toUpperCase() : "A"}
-            </span>
-          </div>
-          <span className="text-sm font-semibold text-slate-900 truncate leading-snug">
-            {account.accountName || "Unnamed Account"}
-          </span>
-        </div>
-      ),
-    },
-    {
-      key: "accountCode",
-      label: "Account Code",
-      sortable: true,
-      headerClassName: "w-[15%] text-left",
-      className: "w-[15%]",
-      render: (account) => (
-        <span className="text-sm text-slate-600 truncate">{account.accountCode || "N/A"}</span>
-      ),
-    },
-    {
-      key: "accountType",
-      label: "Account Type",
-      sortable: true,
-      headerClassName: "w-[15%] text-left",
-      className: "w-[15%]",
-      render: (account) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full border ${
-          typeTones[account.accountType || "OTHER"] || "bg-gray-50 text-gray-700 border-gray-200/40"
-        }`}>
-          {account.accountType || "OTHER"}
+      render: (row) => (
+        <span className="text-sm text-slate-800">
+          <span className="font-medium">{row.accountName}</span>
+          {row.description && <span className="block text-xs text-slate-400">{row.description}</span>}
         </span>
       ),
     },
+    { key: "accountType", label: "Type", sortable: true, render: (row) => <StatusBadge status={row.accountType} tones={TYPE_TONES} /> },
     {
       key: "openingBalance",
-      label: "Opening Balance",
+      label: "Opening balance",
       sortable: true,
-      headerClassName: "w-[15%] text-right",
-      className: "w-[15%] text-right",
-      sortValueGetter: (account) => Number(account.openingBalance || 0),
-      render: (account) => (
+      headerClassName: "text-right",
+      className: "text-right",
+      sortValueGetter: (row) => Number(row.openingBalance || 0),
+      render: (row) => (
         <span className="text-sm text-slate-600">
-          {Number(account.openingBalance || 0).toLocaleString()}
+          {money(row.openingBalance, row.currency)}
+          {Number(row.openingBalance) ? <span className="ml-1 text-xs text-slate-400">{isDebitNormal(row.accountType) ? "Dr" : "Cr"}</span> : null}
         </span>
       ),
     },
@@ -245,15 +240,16 @@ const GeneralAccounts: React.FC = () => {
       key: "isActive",
       label: "Status",
       sortable: true,
-      headerClassName: "w-[10%] text-left",
-      className: "w-[10%]",
-      render: (account) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full border ${
-          account.isActive
-            ? "bg-emerald-50 text-emerald-700 border-emerald-200/40"
-            : "bg-gray-50 text-gray-700 border-gray-200/40"
-        }`}>
-          {account.isActive ? "Active" : "Inactive"}
+      sortValueGetter: (row) => (row.isActive === false ? 1 : 0),
+      render: (row) => (
+        <span className="text-sm">
+          {row.isActive === false ? (
+            <span className="text-slate-400">Inactive</span>
+          ) : row.allowTransactions === false ? (
+            <span className="text-amber-700">Header (no postings)</span>
+          ) : (
+            <span className="text-emerald-700">Active</span>
+          )}
         </span>
       ),
     },
@@ -261,26 +257,20 @@ const GeneralAccounts: React.FC = () => {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "w-[10%] text-right pr-4",
-      className: "w-[10%] text-right",
-      render: (account) => (
-        <div className="flex items-center justify-end gap-0.5">
-          {canUpdate && (<button
-            type="button"
-            onClick={() => handleEdit(account)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit Account"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>)}
-          {canDelete && (<button
-            type="button"
-            onClick={() => handleDelete(account)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-            title="Delete Account"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>)}
+      headerClassName: "text-right",
+      className: "text-right",
+      render: (row) => (
+        <div className="flex justify-end gap-0.5" onClick={(event) => event.stopPropagation()}>
+          {canUpdate && (
+            <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title="Edit account">
+              <PencilSquareIcon className="h-4 w-4" />
+            </button>
+          )}
+          {canDelete && (
+            <button type="button" onClick={() => setDeleting(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Delete account">
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -288,203 +278,106 @@ const GeneralAccounts: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="General Accounts" description="Manage general accounts" />
+      <PageMeta title="General Accounts" description="The chart of accounts" />
       <PageBreadcrumb pageTitle="General Accounts" />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Account" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatsCard
-            label="Total Accounts"
-            value={stats.totalAccounts}
-            gradient="from-cyan-50 to-blue-50"
-            borderColor="border-cyan-100"
-            labelColor="text-cyan-600"
-          />
-          <StatsCard
-            label="Active"
-            value={stats.active}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-          />
-          <StatsCard
-            label="Inactive"
-            value={stats.inactive}
-            gradient="from-orange-50 to-yellow-50"
-            borderColor="border-orange-100"
-            labelColor="text-orange-600"
-          />
-          <StatsCard
-            label="Filtered"
-            value={filteredAccounts.length}
-            gradient="from-purple-50 to-pink-50"
-            borderColor="border-purple-100"
-            labelColor="text-purple-600"
-          />
+      <div className="w-full max-w-none space-y-4 py-4">
+        <div className="flex justify-end">{canCreate && <AddButton onClick={openCreate} label="Add account" />}</div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatsCard label="Accounts" value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label="Active" value={stats.active} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label="Accept postings" value={stats.posting} gradient="from-blue-50 to-indigo-50" borderColor="border-blue-100" labelColor="text-blue-600" />
+          <StatsCard label="Inactive" value={stats.inactive} gradient="from-orange-50 to-yellow-50" borderColor="border-orange-100" labelColor="text-orange-600" />
         </div>
 
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search accounts by name, code, or type..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); }}
-                className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-              {search && (
-                <button
-                  onClick={() => { setSearch(""); }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
-            <FilterPopover
-              title="Filter Accounts"
-              buttonLabel="Filters"
-              label="Filter by Status"
-              value={activeFilter}
-              options={[
-                { label: "All Accounts", value: "ALL" },
-                { label: "Active", value: "ACTIVE" },
-                { label: "Inactive", value: "INACTIVE" },
-              ]}
-              onChange={setActiveFilter}
-              onReset={() => setActiveFilter("ALL")}
-              onApply={() => undefined}
-            />
-          </div>
+        <div className="flex flex-wrap gap-2">
+          {[{ id: "ALL", name: "All" }, ...ACCOUNT_TYPE_OPTIONS.filter((option) => option.id !== "OTHER"), { id: "INACTIVE", name: "Inactive" }].map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => setTypeFilter(option.id)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${typeFilter === option.id ? "border-cyan-500 bg-cyan-50 text-cyan-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+            >
+              {option.name}
+            </button>
+          ))}
         </div>
 
         <ReusableTable
-          data={filteredAccounts}
-          columns={tableColumns}
+          data={filtered}
+          columns={columns}
           pageSize={PAGE_SIZE}
-          defaultSortKey="accountName"
+          loading={loading}
+          defaultSortKey="accountCode"
           defaultSortOrder="asc"
-          loading={isLoading}
+          onRowClick={(row) => navigate("/generalLedger", { state: { accountId: row.id } })}
           emptyState={
-            <div className="flex flex-col items-center justify-center py-12">
-              <BuildingOffice2Icon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No accounts found</p>
-              {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
-              ) : (
-                canCreate && <button
+            <div className="flex flex-col items-center justify-center py-8">
+              <BuildingOffice2Icon className="mb-3 h-12 w-12 text-gray-400" />
+              <p className="text-sm text-gray-500">No accounts yet</p>
+              {canCreate && accounts.length === 0 && (
+                <button
                   type="button"
-                  onClick={() => openCreate()}
-                  className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
+                  disabled={seeding}
+                  onClick={seedStarterChart}
+                  className="mt-2 rounded-lg border border-cyan-200 px-3 py-1.5 text-xs font-medium text-cyan-700 hover:bg-cyan-50 disabled:opacity-50"
                 >
-                  Create your first account
+                  {seeding ? "Adding accounts…" : `Start with a standard chart (${STARTER_ACCOUNTS.length} accounts)`}
                 </button>
               )}
             </div>
           }
         />
-
-        <PaginatedPopup
-          isOpen={showFormModal}
-          title={editingId !== null ? "Edit Account" : "Create New Account"}
-          subtitle={editingId !== null ? "Update your account details" : "Add a new account"}
-          onClose={closeModal}
-          onSubmit={handleSubmit}
-          submitting={submitting}
-          submitLabel={editingId !== null ? "Update Account" : "Create Account"}
-          maxWidthClassName="max-w-2xl"
-          tabs={[
-            {
-              label: "Basic Info",
-              fields: [
-                <FloatingInput
-                  label="Account Name"
-                  name="accountName"
-                  value={form.accountName || ""}
-                  onChange={handleChange}
-                  required
-                />,
-                <FloatingInput
-                  label="Account Code"
-                  name="accountCode"
-                  value={form.accountCode || ""}
-                  onChange={handleChange}
-                />,
-                <FloatingSelect
-                  label="Account Type"
-                  name="accountType"
-                  value={form.accountType || ""}
-                  options={ACCOUNT_TYPE_OPTIONS}
-                  onChange={handleChange}
-                />,
-                <FloatingInput
-                  label="Opening Balance"
-                  name="openingBalance"
-                  type="number"
-                  value={form.openingBalance ?? ""}
-                  onChange={handleChange}
-                />,
-                <FloatingTextarea
-                  label="Description"
-                  name="description"
-                  value={form.description || ""}
-                  onChange={handleChange}
-                  rows={3}
-                />,
-                <div className="flex items-center justify-between border border-gray-200 rounded-lg px-4 py-3">
-                  <label htmlFor="isActive" className="text-sm text-gray-600">
-                    Active Account
-                  </label>
-                  <input
-                    id="isActive"
-                    type="checkbox"
-                    name="isActive"
-                    checked={form.isActive ?? false}
-                    onChange={handleActiveChange}
-                    className="h-4 w-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
-                  />
-                </div>,
-              ],
-            },
-          ]}
-        />
-
-        <DynamicPopup
-          isPopupOpen={showDeletePopup}
-          setIsPopupOpen={setShowDeletePopup}
-          icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-          iconBg="bg-red-100"
-          innerText="Delete Account"
-          subText={
-            accountToDelete
-              ? `Are you sure you want to delete "${accountToDelete.accountName}"? This action cannot be undone.`
-              : "Are you sure you want to delete this account?"
-          }
-          confirmLabel="Delete"
-          cancelLabel="Cancel"
-          onConfirm={confirmDelete}
-          onCancel={() => setAccountToDelete(null)}
-          confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
-        />
-
-        <style>{`
-          @keyframes slide-up {
-            from { opacity: 0; transform: translateY(15px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          .animate-slide-up {
-            animation: slide-up 0.25s ease-out;
-          }
-        `}</style>
       </div>
+
+      <PaginatedPopup
+        isOpen={formOpen}
+        title={editing ? `Edit ${editing.accountCode}` : "Add account"}
+        subtitle="Codes are unique within your company"
+        onClose={() => setFormOpen(false)}
+        maxWidthClassName="max-w-2xl"
+        content={
+          <form onSubmit={save} className="flex flex-col">
+            <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
+              <FloatingInput label="Code" name="accountCode" required value={form.accountCode}
+                onChange={(event) => setForm((current) => ({ ...current, accountCode: event.target.value }))} />
+              <FloatingInput label="Name" name="accountName" required value={form.accountName}
+                onChange={(event) => setForm((current) => ({ ...current, accountName: event.target.value }))} />
+              <FloatingSelect1 label="Type" name="accountType" required value={form.accountType} options={ACCOUNT_TYPE_OPTIONS}
+                onChange={(event) => setForm((current) => ({ ...current, accountType: event.target.value }))} />
+              <FloatingSelect1 label="Currency" name="currency" value={form.currency} options={CURRENCY_OPTIONS}
+                onChange={(event) => setForm((current) => ({ ...current, currency: event.target.value }))} />
+              <FloatingInput label="Opening balance" name="openingBalance" type="number" value={form.openingBalance}
+                onChange={(event) => setForm((current) => ({ ...current, openingBalance: event.target.value }))} />
+              <p className="self-center text-xs text-slate-500">
+                {form.accountType
+                  ? `${labelOf(form.accountType)} accounts hold a ${isDebitNormal(form.accountType) ? "debit" : "credit"} balance; enter it as a positive amount.`
+                  : "Choose the type to see which side the balance sits on."}
+              </p>
+              <div className="sm:col-span-2">
+                <FloatingTextarea label="Description" name="description" rows={2} value={form.description}
+                  onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
+              </div>
+              <Toggle label="Active" hint="Inactive accounts are hidden from pickers" checked={form.isActive}
+                onChange={(isActive) => setForm((current) => ({ ...current, isActive }))} />
+              <Toggle label="Accepts postings" hint="Turn off for heading accounts that only group others" checked={form.allowTransactions}
+                onChange={(allowTransactions) => setForm((current) => ({ ...current, allowTransactions }))} />
+            </div>
+            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={editing ? "Save changes" : "Add account"} busy={busy} />
+          </form>
+        }
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(deleting)}
+        title="Delete account"
+        message={`Delete ${deleting?.accountCode ?? ""} ${deleting?.accountName ?? ""}? Accounts with postings can't be deleted; make them inactive instead.`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={remove}
+        onCancel={() => setDeleting(null)}
+      />
     </>
   );
 };

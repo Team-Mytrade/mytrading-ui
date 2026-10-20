@@ -8,15 +8,12 @@ import {
   ChartBarIcon,
   ClipboardDocumentCheckIcon,
   EyeIcon,
-  PencilSquareIcon,
-  TrashIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
-import DynamicPopup from "../../components/common/Popup";
 import PaginatedPopup from "../../components/common/unpopup";
 import {
   FloatingInput,
@@ -125,7 +122,8 @@ type StockAdjustmentForm = {
 };
 
 const API_URL = "/v1/api/inventory";
-const PRODUCT_URL = "/v1/api/purchase";
+// Products live in the product catalogue (the purchase service no longer serves them)
+const PRODUCT_URL = "/v1/api/product";
 const PAGE_SIZE = 10;
 
 const PRODUCT_ROUTE = "/purchase-products";
@@ -215,7 +213,7 @@ function normalizeEnumOptions(raw: any, fallback: EnumOption[]): EnumOption[] {
 
 // ========================== MAIN COMPONENT ==========================
 const StockAdjustmentManager: React.FC = () => {
-  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const { canCreate } = usePermissions();
   const token = localStorage.getItem("accessToken");
   const headers = token
     ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
@@ -235,7 +233,6 @@ const StockAdjustmentManager: React.FC = () => {
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [deletingAdjustment, setDeletingAdjustment] = useState<StockAdjustment | null>(null);
   const [viewingAdjustment, setViewingAdjustment] = useState<StockAdjustment | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
 
@@ -429,11 +426,16 @@ const StockAdjustmentManager: React.FC = () => {
     setForm((current) => ({ ...current, [name]: value }));
   };
 
+  // Batch and serial number are optional: a product without batches is adjusted without one
+  const serialsOfProduct = (productId: string) =>
+    serialNumbers.filter((sn) => sn.productId === Number(productId));
+
   const handleProductChange = (productId: string) => {
     setForm((prev) => ({ ...prev, productId, batchId: "", serialNumberId: "" }));
     if (productId) {
       const filtered = batches.filter((b) => b.productId === Number(productId));
       setFilteredBatches(filtered);
+      setFilteredSerialNumbers(serialsOfProduct(productId));
     } else {
       setFilteredBatches([]);
       setFilteredSerialNumbers([]);
@@ -451,7 +453,7 @@ const StockAdjustmentManager: React.FC = () => {
 
     const filtered = batches.filter((batch) => batch.productId === Number(form.productId));
     setFilteredBatches(filtered);
-    setFilteredSerialNumbers([]);
+    setFilteredSerialNumbers(serialsOfProduct(form.productId));
   };
 
   const handleBatchChange = (batchId: string) => {
@@ -464,7 +466,7 @@ const StockAdjustmentManager: React.FC = () => {
       });
       setFilteredSerialNumbers(filtered);
     } else {
-      setFilteredSerialNumbers([]);
+      setFilteredSerialNumbers(form.productId ? serialsOfProduct(form.productId) : []);
     }
   };
 
@@ -507,10 +509,6 @@ const StockAdjustmentManager: React.FC = () => {
     }
     if (!form.warehouseId) {
       ToasterService.error("Required field missing", "Warehouse selection is required.");
-      return;
-    }
-    if (!form.batchId) {
-      ToasterService.error("Required field missing", "Batch selection is required.");
       return;
     }
     if (!quantity || quantity <= 0) {
@@ -560,35 +558,6 @@ const StockAdjustmentManager: React.FC = () => {
     setShowFormModal(true);
   };
 
-  const openEdit = (adjustment: StockAdjustment) => {
-    const productId = adjustment.productId ?? adjustment.product?.id;
-    setEditingId(adjustment.id);
-    setForm({
-      adjustmentDate:
-        adjustment.adjustmentDate?.split("T")[0] || todayIso(),
-      reason: adjustment.reason || "",
-      quantity: String(adjustment.quantity || 0),
-      adjustmentType: adjustment.adjustmentType || AdjustmentType.POSITIVE,
-      productId: String(productId || ""),
-      warehouseId: String(adjustment.warehouse?.id || ""),
-      batchId: String(adjustment.batch?.id || ""),
-      serialNumberId: String(adjustment.serialNumber?.id || ""),
-    });
-
-    if (productId) {
-      const filtered = batches.filter((b) => b.productId === productId);
-      setFilteredBatches(filtered);
-    }
-    if (adjustment.batch?.id) {
-      const filtered = serialNumbers.filter(
-        (sn) => getSerialBatchId(sn) === adjustment.batch?.id
-      );
-      setFilteredSerialNumbers(filtered);
-    }
-
-    setShowFormModal(true);
-  };
-
   const openView = (adjustment: StockAdjustment) => {
     setViewingAdjustment(adjustment);
     setShowViewModal(true);
@@ -600,25 +569,6 @@ const StockAdjustmentManager: React.FC = () => {
     setFilteredBatches([]);
     setFilteredSerialNumbers([]);
     setShowFormModal(false);
-  };
-
-  const confirmDelete = async () => {
-    if (!deletingAdjustment) return;
-
-    try {
-      await axios.delete(`${API_URL}/stock-adjustments/${deletingAdjustment.id}`, { headers });
-      ToasterService.success("Stock adjustment deleted");
-      setAdjustments((current) =>
-        current.filter((item) => item.id !== deletingAdjustment.id)
-      );
-    } catch (error) {
-      ToasterService.error(
-        "Failed to delete stock adjustment",
-        getErrorMessage(error, "Please try again.")
-      );
-    } finally {
-      setDeletingAdjustment(null);
-    }
   };
 
   // ---------- Computed data ----------
@@ -970,22 +920,7 @@ const StockAdjustmentManager: React.FC = () => {
           >
             <EyeIcon className="h-4 w-4" />
           </button>
-          {canUpdate && (<button
-            type="button"
-            onClick={() => openEdit(adjustment)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-            title="Edit"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>)}
-          {canDelete && (<button
-            type="button"
-            onClick={() => setDeletingAdjustment(adjustment)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-            title="Delete"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>)}
+          {/* Adjustments are posted to stock: no edit or delete, post an adjustment the other way instead */}
         </div>
       ),
     },
@@ -1128,22 +1063,21 @@ const StockAdjustmentManager: React.FC = () => {
             fields: [
               <FloatingSelect
                 key="batchId"
-                label="Batch"
+                label="Batch (optional)"
                 name="batchId"
                 value={form.batchId}
                 onChange={(e) => handleBatchChange(e.target.value)}
                 options={batchOptions}
                 disabled={!form.productId}
-                required
               />,
               <FloatingSelect
                 key="serialNumberId"
-                label="Serial Number"
+                label="Serial Number (optional, quantity 1)"
                 name="serialNumberId"
                 value={form.serialNumberId}
                 onChange={handleChange}
                 options={serialOptions}
-                disabled={!form.batchId}
+                disabled={!form.productId}
               />,
               <FloatingSelect
                 key="reason"
@@ -1186,31 +1120,6 @@ const StockAdjustmentManager: React.FC = () => {
             ],
           },
         ]}
-      />
-
-      {/* ---------- Delete Confirmation Modal ---------- */}
-      <DynamicPopup
-        isPopupOpen={!!deletingAdjustment}
-        setIsPopupOpen={(open: boolean) => {
-          if (!open) setDeletingAdjustment(null);
-        }}
-        icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
-        iconBg="bg-red-100 dark:bg-red-950/40"
-        innerText="Delete Adjustment"
-        subText={
-          deletingAdjustment
-            ? `Are you sure you want to delete the ${getTypeLabel(
-                deletingAdjustment.adjustmentType
-              ).toLowerCase()} adjustment for "${getProductDisplayName(
-                deletingAdjustment
-              )}" (${deletingAdjustment.quantity} units)? This action cannot be undone.`
-            : "Are you sure you want to delete this adjustment?"
-        }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        onConfirm={confirmDelete}
-        onCancel={() => setDeletingAdjustment(null)}
-        confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
       />
     </>
   );

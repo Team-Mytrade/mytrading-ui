@@ -145,7 +145,8 @@ type Warehouse = {
 // ============ CONSTANTS ============
 const API_URL = "/v1/api/inventory/batches";
 const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
-const PRODUCT_API_URL = "/v1/api/purchase/products";
+// Products live in the product catalogue (the purchase service no longer serves them)
+const PRODUCT_API_URL = "/v1/api/product/products";
 // Confirmed real endpoint (see note at top of file) — returns a flat array of
 // { batchId, batchNumber, warehouseId, productId, quantity, reserved, available }.
 // A batch's quantity/reserved/available live ONLY here, never on the Batch
@@ -156,10 +157,6 @@ const PAGE_SIZE = 10;
 const PRODUCT_ROUTE = "/purchase-products";
 const WAREHOUSE_ROUTE = "/warehouse";
 const BATCH_ROUTE = "/batch";
-
-// TODO: replace with real values pulled from your auth/session context.
-const STATIC_CREATED_BY = "system-admin";
-const STATIC_TENANT_ID = "tenant-001";
 
 const SUPPLIER_STORAGE_KEY = "batchSupplierNames";
 
@@ -421,9 +418,8 @@ const BatchManagement: React.FC = () => {
   const buildPayload = () => {
     const selectedWarehouse = warehouses.find((w) => String(w.id) === form.warehouse);
 
+    // Tenant and creator come from the signed-in user on the server
     const payload: any = {
-      createdBy: STATIC_CREATED_BY,
-      tenantId: STATIC_TENANT_ID,
       manufacturingDate: form.manufacturingDate,
       expiryDate: form.expiryDate,
       productId: toNumber(form.productId),

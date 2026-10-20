@@ -1,19 +1,23 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import {
-  MagnifyingGlassIcon,
-  XMarkIcon,
-  ClockIcon,
-  CreditCardIcon,
-  DocumentTextIcon,
-} from "@heroicons/react/24/outline";
+import { ClockIcon } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import { ToasterService } from "../../Services/ToasterService";
 import StatsCard from "../../components/common/Statscard";
-import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import FilterPopover from "../../components/common/filter";
+import { ToasterService } from "../../Services/ToasterService";
+import { INVOICE_API, INVOICE_STATUS_TONES, apiError, dateLabel, daysOverdue, money, monthLabel } from "../Invoice/invoiceShared";
+import { StatusBadge } from "../Invoice/invoiceUi";
+
+interface OverdueInvoice {
+  invoiceNumber?: string;
+  customerName?: string;
+  dueDate?: string;
+  totalAmount?: number;
+  paidAmount?: number;
+  balanceAmount?: number;
+}
 
 interface FinanceReportData {
   totalInvoiced?: number;
@@ -21,268 +25,139 @@ interface FinanceReportData {
   outstandingAmount?: number;
   invoiceStatusSummary?: Record<string, number>;
   monthlyTotals?: Record<string, number>;
-  overdueInvoices?: Array<{
-    customerName?: string;
-    dueDate?: string;
-    totalAmount?: number;
-    paidAmount?: number;
-  }>;
+  overdueInvoices?: OverdueInvoice[];
 }
 
-interface OverdueRow {
-  id: string;
-  customerName?: string;
-  dueDate?: string;
-  totalAmount?: number;
-  paidAmount?: number;
-}
+type OverdueRow = OverdueInvoice & { id: string };
 
-const API_BASE = "/v1/api/invoice/reports/finance";
-const PAGE_SIZE = 10;
-
+/** Totals for issued sales invoices: what was billed, collected and is still due. */
 const FinanceReport: React.FC = () => {
-  const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-
+  const navigate = useNavigate();
   const [report, setReport] = useState<FinanceReportData>({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState("ALL");
+  const [loading, setLoading] = useState(false);
+
+  const fetchReport = useCallback(async () => {
+    try {
+      setLoading(true);
+      // A 403 here is a missing report permission, not an expired login
+      const res = await axios.get<FinanceReportData>(`${INVOICE_API}/reports/finance`, { skipSessionExpiredHandling: true } as object);
+      setReport(res.data && typeof res.data === "object" ? res.data : {});
+    } catch (err) {
+      ToasterService.error(apiError(err, "Failed to load the finance report"));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchReport();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchReport]);
 
-  const fetchReport = async () => {
-    try {
-      setIsLoading(true);
-      const res = await axios.get(API_BASE, {
-        headers,
-        // A 403 here is a report permission failure, not an expired login.
-        skipSessionExpiredHandling: true,
-      } as any);
-      if (res.data && typeof res.data === "object" && !Array.isArray(res.data)) {
-        setReport(res.data as FinanceReportData);
-      } else {
-        setReport({});
-      }
-    } catch (err) {
-      console.error("Error fetching finance report", err);
-      const status = axios.isAxiosError(err) ? err.response?.status : undefined;
-      if (status === 403) {
-        ToasterService.error(
-          "Access Denied",
-          "You do not have permission to view the finance report."
-        );
-      } else {
-        ToasterService.error("Failed to load finance report");
-      }
-      setReport({});
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const months = useMemo(() => Object.entries(report.monthlyTotals ?? {}).sort(([a], [b]) => b.localeCompare(a)).slice(0, 12), [report.monthlyTotals]);
+  const maxMonth = Math.max(1, ...months.map(([, value]) => Number(value || 0)));
+  const statuses = useMemo(() => Object.entries(report.invoiceStatusSummary ?? {}).filter(([, count]) => Number(count) > 0), [report.invoiceStatusSummary]);
 
-  const reportRows: OverdueRow[] = useMemo(
-    () =>
-      (report.overdueInvoices || []).map((invoice, index) => ({
-        id: `${invoice.customerName || "customer"}-${index}`,
-        customerName: invoice.customerName,
-        dueDate: invoice.dueDate,
-        totalAmount: invoice.totalAmount,
-        paidAmount: invoice.paidAmount,
-      })),
+  const overdue: OverdueRow[] = useMemo(
+    () => (report.overdueInvoices ?? []).map((row, index) => ({ ...row, id: `${row.invoiceNumber ?? "invoice"}-${index}` })),
     [report.overdueInvoices]
   );
+  const overdueTotal = overdue.reduce((sum, row) => sum + Number(row.balanceAmount ?? Number(row.totalAmount || 0) - Number(row.paidAmount || 0)), 0);
 
-  const filteredRows = useMemo(() => {
-    return reportRows.filter((row) => {
-      const term = search.toLowerCase();
-      const matchesSearch = (row.customerName || "").toLowerCase().includes(term);
-
-      let matchesFilter = true;
-      if (activeFilter === "OVERDUE") {
-        matchesFilter = true;
-      }
-
-      return matchesSearch && matchesFilter;
-    });
-  }, [reportRows, search, activeFilter]);
-
-  const stats = useMemo(
-    () => ({
-      totalInvoiced: Number(report.totalInvoiced || 0),
-      totalPaid: Number(report.totalPaid || 0),
-      outstandingAmount: Number(report.outstandingAmount || 0),
-      overdueCount: (report.overdueInvoices || []).length,
-    }),
-    [report]
-  );
-
-  const tableColumns: ColumnDef<OverdueRow>[] = [
-    {
-      key: "customerName",
-      label: "Customer Name",
-      sortable: true,
-      headerClassName: "w-[30%] text-left",
-      className: "w-[30%]",
-      render: (row) => (
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
-            <DocumentTextIcon className="h-4 w-4 text-cyan-600" />
-          </div>
-          <span className="text-sm font-semibold text-slate-900 truncate leading-snug">
-            {row.customerName || "Unnamed Customer"}
-          </span>
-        </div>
-      ),
-    },
+  const columns: ColumnDef<OverdueRow>[] = [
+    { key: "invoiceNumber", label: "Invoice", sortable: true, render: (row) => <span className="text-sm font-semibold text-slate-900">{row.invoiceNumber ?? "—"}</span> },
+    { key: "customerName", label: "Customer", sortable: true, render: (row) => <span className="text-sm text-slate-700">{row.customerName ?? "—"}</span> },
     {
       key: "dueDate",
-      label: "Due Date",
+      label: "Due",
       sortable: true,
-      headerClassName: "w-[20%] text-left",
-      className: "w-[20%]",
       render: (row) => (
-        <span className="text-sm text-slate-600 truncate">{row.dueDate || "N/A"}</span>
-      ),
-    },
-    {
-      key: "totalAmount",
-      label: "Total Amount",
-      sortable: true,
-      headerClassName: "w-[25%] text-right",
-      className: "w-[25%] text-right",
-      sortValueGetter: (row) => Number(row.totalAmount || 0),
-      render: (row) => (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-red-50 text-red-700 border border-red-200/40">
-          <CreditCardIcon className="h-3.5 w-3.5 text-red-600 opacity-80" />
-          {Number(row.totalAmount || 0).toLocaleString()}
+        <span className="text-sm text-slate-600">
+          {dateLabel(row.dueDate)}
+          <span className="block text-xs font-semibold text-red-600">{daysOverdue(row.dueDate)} days late</span>
         </span>
       ),
     },
+    { key: "totalAmount", label: "Amount", sortable: true, headerClassName: "text-right", className: "text-right", render: (row) => <span className="text-sm">{money(row.totalAmount)}</span> },
+    { key: "paidAmount", label: "Paid", sortable: true, headerClassName: "text-right", className: "text-right", render: (row) => <span className="text-sm text-slate-600">{money(row.paidAmount)}</span> },
     {
-      key: "paidAmount",
-      label: "Paid Amount",
+      key: "balanceAmount",
+      label: "Balance",
       sortable: true,
-      headerClassName: "w-[25%] text-right",
-      className: "w-[25%] text-right",
-      sortValueGetter: (row) => Number(row.paidAmount || 0),
-      render: (row) => (
-        <span className="text-sm text-slate-600">{Number(row.paidAmount || 0).toLocaleString()}</span>
-      ),
+      headerClassName: "text-right",
+      className: "text-right",
+      sortValueGetter: (row) => Number(row.balanceAmount || 0),
+      render: (row) => <span className="text-sm font-semibold text-red-700">{money(row.balanceAmount ?? Number(row.totalAmount || 0) - Number(row.paidAmount || 0))}</span>,
     },
   ];
 
   return (
     <>
-      <PageMeta title="Finance Report" description="Finance overview report" />
+      <PageMeta title="Finance Report" description="Invoiced, collected and outstanding" />
       <PageBreadcrumb pageTitle="Finance Report" />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={() => ToasterService.info("Finance report is read-only")} label="Add Report" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatsCard
-            label="Total Invoiced"
-            value={stats.totalInvoiced}
-            gradient="from-cyan-50 to-blue-50"
-            borderColor="border-cyan-100"
-            labelColor="text-cyan-600"
-          />
-          <StatsCard
-            label="Total Paid"
-            value={stats.totalPaid}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-          />
-          <StatsCard
-            label="Outstanding Amount"
-            value={stats.outstandingAmount}
-            gradient="from-orange-50 to-yellow-50"
-            borderColor="border-orange-100"
-            labelColor="text-orange-600"
-          />
-          <StatsCard
-            label="Overdue Invoices"
-            value={stats.overdueCount}
-            gradient="from-red-50 to-rose-50"
-            borderColor="border-red-100"
-            labelColor="text-red-600"
-          />
+      <div className="w-full max-w-none space-y-4 py-4">
+        <p className="text-xs text-slate-500">Issued sales invoices only; drafts and cancelled invoices are left out.</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatsCard label="Invoiced" value={money(report.totalInvoiced)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label="Collected" value={money(report.totalPaid)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label="Outstanding" value={money(report.outstandingAmount)} gradient="from-orange-50 to-yellow-50" borderColor="border-orange-100" labelColor="text-orange-600" />
+          <StatsCard label={`Overdue (${overdue.length})`} value={money(overdueTotal)} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
         </div>
 
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by customer name..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); }}
-                className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-              {search && (
-                <button
-                  onClick={() => { setSearch(""); }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <section className="rounded-xl border border-slate-200 bg-white p-4">
+            <h2 className="mb-3 text-sm font-semibold text-slate-800">Invoiced by month</h2>
+            {months.length === 0 ? (
+              <p className="text-sm text-slate-400">{loading ? "Loading…" : "No issued invoices yet"}</p>
+            ) : (
+              <ul className="space-y-2">
+                {months.map(([key, value]) => (
+                  <li key={key} className="grid grid-cols-[80px_1fr_auto] items-center gap-3 text-sm">
+                    <span className="text-slate-600">{monthLabel(key)}</span>
+                    <span className="h-2 rounded-full bg-slate-100">
+                      <span className="block h-2 rounded-full bg-cyan-500" style={{ width: `${(Number(value || 0) / maxMonth) * 100}%` }} />
+                    </span>
+                    <span className="font-medium text-slate-800">{money(value)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
-          <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
-            <FilterPopover
-              title="Filter Report"
-              buttonLabel="Filters"
-              label="Report"
-              value={activeFilter}
-              options={[
-                { label: "All Report", value: "ALL" },
-                { label: "Overdue Only", value: "OVERDUE" },
-              ]}
-              onChange={setActiveFilter}
-              onReset={() => setActiveFilter("ALL")}
-              onApply={() => undefined}
-            />
-          </div>
+          <section className="rounded-xl border border-slate-200 bg-white p-4">
+            <h2 className="mb-3 text-sm font-semibold text-slate-800">Invoices by status</h2>
+            {statuses.length === 0 ? (
+              <p className="text-sm text-slate-400">{loading ? "Loading…" : "No invoices yet"}</p>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {statuses.map(([status, count]) => (
+                  <li key={status} className="flex items-center justify-between py-2 text-sm">
+                    <StatusBadge status={status} tones={INVOICE_STATUS_TONES} />
+                    <button type="button" className="font-medium text-cyan-700 hover:underline" onClick={() => navigate("/invoices")}>
+                      {count}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
 
+        <h2 className="pt-2 text-sm font-semibold text-slate-800">Overdue invoices</h2>
         <ReusableTable
-          data={filteredRows}
-          columns={tableColumns}
-          pageSize={PAGE_SIZE}
-          defaultSortKey="customerName"
+          data={overdue}
+          columns={columns}
+          pageSize={10}
+          loading={loading}
+          defaultSortKey="dueDate"
           defaultSortOrder="asc"
-          loading={isLoading}
           emptyState={
-            <div className="flex flex-col items-center justify-center py-12">
-              <ClockIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No overdue invoices found</p>
-              {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
-              ) : (
-                <p className="text-gray-400 text-xs">No overdue invoice records available</p>
-              )}
+            <div className="flex flex-col items-center justify-center py-8">
+              <ClockIcon className="mb-3 h-12 w-12 text-gray-400" />
+              <p className="text-sm text-gray-500">Nothing overdue</p>
             </div>
           }
         />
-
-        <style>{`
-          @keyframes slide-up {
-            from { opacity: 0; transform: translateY(15px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          .animate-slide-up {
-            animation: slide-up 0.25s ease-out;
-          }
-        `}</style>
       </div>
     </>
   );

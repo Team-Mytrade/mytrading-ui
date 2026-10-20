@@ -3,6 +3,9 @@ import * as XLSX from "xlsx";
 import { exportListingPdf } from "./export";
 import "../../styles/TableExportModal.css";
 
+/** 13 Oct 2026 */
+const displayDate = (date) => date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
 const PERIODS = [{ label: "All time", value: "all" }, { label: "Last 30 days", value: "30" }, { label: "Last 90 days", value: "90" }, { label: "Custom range", value: "custom" }];
 
 /**
@@ -20,7 +23,7 @@ export default function TableExportModal({ isOpen, onClose, data, columns, title
     const from = period === "custom" ? new Date(`${fromValue}T00:00:00`) : new Date(to);
     if (period === "30") from.setDate(from.getDate() - 30);
     if (period === "90") from.setDate(from.getDate() - 90);
-    return { from, to, label: `${from.toLocaleDateString()} – ${to.toLocaleDateString()}` };
+    return { from, to, label: `${displayDate(from)} to ${displayDate(to)}` };
   }, [fromValue, period, toValue]);
   const exportRows = useMemo(() => data.filter((row) => {
     if (!range.from || !range.to) return true;
@@ -30,8 +33,19 @@ export default function TableExportModal({ isOpen, onClose, data, columns, title
     return Boolean(date && !Number.isNaN(date.getTime()) && date >= range.from && date <= range.to);
   }), [data, range]);
   const flattenedRows = useMemo(() => exportRows.map((row) => Object.fromEntries(columns.filter((column) => column.key !== "actions").map((column) => {
-    const raw = column.sortValueGetter ? column.sortValueGetter(row) : row[column.key];
-    const value = Array.isArray(raw) ? raw.length : raw && typeof raw === "object" ? JSON.stringify(raw) : raw ?? "—";
+    // exportValueGetter gives readable text (₹ amounts, 13 Oct 2026, Active/Inactive, names).
+    const raw = column.exportValueGetter
+      ? column.exportValueGetter(row)
+      : column.sortValueGetter
+        ? column.sortValueGetter(row)
+        : row[column.key];
+    const value = Array.isArray(raw)
+      ? raw.length
+      : raw && typeof raw === "object"
+        ? raw.name || raw.title || raw.label || "--"
+        : typeof raw === "boolean"
+          ? (raw ? "Active" : "Inactive")
+          : raw ?? "--";
     return [column.label, value];
   }))), [columns, exportRows]);
   const download = (format) => {

@@ -1,23 +1,27 @@
-import React, { useEffect, useState, ChangeEvent, FormEvent, useMemo } from "react";
-import PaginatedPopup from "../../components/common/unpopup";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import {
-  PencilSquareIcon,
-  TrashIcon,
-  MagnifyingGlassIcon,
-  XMarkIcon,
-  CreditCardIcon,
-} from "@heroicons/react/24/outline";
+import { CreditCardIcon } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import { ToasterService } from "../../Services/ToasterService";
-import DynamicPopup from "../../components/common/Popup";
 import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import FilterPopover from "../../components/common/filter";
-import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import PaginatedPopup from "../../components/common/unpopup";
+import { FloatingInput, FloatingSelect1 } from "../../components/inputfeild/FloatingInput";
+import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
+import { INVOICE_API, Option, SOURCE_MODULE_OPTIONS, apiError, dateLabel, labelOf, money, todayInput } from "./invoiceShared";
+import { DialogFooter, StatusBadge } from "./invoiceUi";
+
+const API_URL = `${INVOICE_API}/tax-record`;
+const PAGE_SIZE = 10;
+
+interface TaxType {
+  id: number;
+  taxName?: string;
+  taxRate?: number;
+  isActive?: boolean;
+}
 
 interface TaxRecord {
   id: number;
@@ -27,432 +31,261 @@ interface TaxRecord {
   taxableAmount?: number;
   taxAmount?: number;
   transactionDate?: string;
-  taxTypeName?: string;
-  taxTypeId?: number;
+  taxType?: TaxType | null;
 }
 
-const API_URL = "/v1/api/invoice/tax-record";
-const PAGE_SIZE = 10;
+interface Report {
+  taxCollected: number;
+  taxPaid: number;
+}
+
+const TRANSACTION_OPTIONS: Option[] = [
+  { id: "SALE", name: "Sale (tax collected)" },
+  { id: "PURCHASE", name: "Purchase (tax paid)" },
+  { id: "OTHER", name: "Other" },
+];
 
 const TRANSACTION_TONES: Record<string, string> = {
-  SALE: "bg-green-50 text-green-700 border-green-200/40",
-  PURCHASE: "bg-blue-50 text-blue-700 border-blue-200/40",
-  OTHER: "bg-gray-100 text-gray-600 border-gray-200",
+  SALE: "bg-emerald-50 text-emerald-700 border-emerald-200/60",
+  PURCHASE: "bg-blue-50 text-blue-700 border-blue-200/60",
 };
 
+const startOfYear = () => `${new Date().getFullYear()}-01-01`;
+
+const emptyForm = () => ({
+  transactionType: "SALE",
+  sourceModule: "SALES_INVOICE",
+  sourceId: "",
+  taxTypeId: "",
+  taxableAmount: "",
+  transactionDate: todayInput(),
+});
+
+/** Tax collected on sales and paid on purchases. Records are an audit trail: they are added, never changed. */
 const TaxRecords: React.FC = () => {
   const { canCreate } = usePermissions();
-  const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const [records, setRecords] = useState<TaxRecord[]>([]);
+  const [taxTypes, setTaxTypes] = useState<TaxType[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [typeFilter, setTypeFilter] = useState("ALL");
+  const [from, setFrom] = useState(startOfYear);
+  const [to, setTo] = useState(todayInput);
+  const [report, setReport] = useState<Report | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [busy, setBusy] = useState(false);
 
-  const [taxRecords, setTaxRecords] = useState<TaxRecord[]>([]);
-  const [form, setForm] = useState<Partial<TaxRecord>>({});
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [showFormModal, setShowFormModal] = useState(false);
-  const [showDeletePopup, setShowDeletePopup] = useState(false);
-  const [recordToDelete, setRecordToDelete] = useState<TaxRecord | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState("ALL");
-  const [taxTypes, setTaxTypes] = useState<{id:number;taxName?:string}[]>([]);
-
-  useEffect(() => {
-    fetchTaxRecords();
-    axios.get("/v1/api/invoice/tax-types", { headers }).then(r => setTaxTypes(Array.isArray(r.data) ? r.data : [])).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fetchRecords = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [recordRes, typeRes] = await Promise.all([
+        axios.get<TaxRecord[]>(API_URL),
+        axios.get<TaxType[]>(`${INVOICE_API}/tax-types`).catch(() => ({ data: [] as TaxType[] })),
+      ]);
+      setRecords(Array.isArray(recordRes.data) ? recordRes.data : []);
+      setTaxTypes(Array.isArray(typeRes.data) ? typeRes.data : []);
+    } catch (err) {
+      ToasterService.error(apiError(err, "Failed to load tax records"));
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const fetchTaxRecords = async () => {
-    try {
-      setIsLoading(true);
-      // The list; /report returns totals for a date range
-      const res = await axios.get(API_URL, { headers });
-      setTaxRecords(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error("Error fetching tax records", err);
-      ToasterService.error("Failed to load tax records");
-      setTaxRecords([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  useEffect(() => {
+    fetchRecords();
+  }, [fetchRecords]);
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
+  useEffect(() => {
+    if (!from || !to || from > to) return;
+    axios
+      .get<Report>(`${API_URL}/report`, { params: { from, to } })
+      .then((res) => setReport(res.data))
+      .catch((err) => ToasterService.error(apiError(err, "Could not load the tax summary")));
+  }, [from, to, records]);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!form.sourceModule?.trim()) {
-      ToasterService.error("Source module is required");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const payload: Record<string, unknown> = {
-        sourceModule: form.sourceModule,
-        transactionType: form.transactionType,
-        taxableAmount: form.taxableAmount ? Number(form.taxableAmount) : undefined,
-        transactionDate: form.transactionDate,
-      };
-      if (form.taxTypeId) payload.taxTypeId = Number(form.taxTypeId);
-      const res = await axios.post(`${API_URL}/record`, payload, { headers });
-      if (res.status === 200 || res.status === 201) {
-        ToasterService.success(editingId !== null ? "Tax record updated successfully!" : "Tax record added successfully!");
-        setShowFormModal(false);
-        setForm({});
-        setEditingId(null);
-        await fetchTaxRecords();
-      }
-    } catch (err) {
-      console.error("Error submitting tax record", err);
-      const data = axios.isAxiosError(err) ? err.response?.data : undefined;
-      ToasterService.error(data?.error || "Failed to save tax record");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleEdit = (record: TaxRecord) => {
-    setForm(record);
-    setEditingId(record.id);
-    setShowFormModal(true);
-  };
+  const selectedType = taxTypes.find((type) => String(type.id) === form.taxTypeId);
+  const previewTax = selectedType && Number(form.taxableAmount) > 0 ? (Number(form.taxableAmount) * Number(selectedType.taxRate || 0)) / 100 : null;
 
   const openCreate = () => {
-    setShowFormModal(true);
-    setForm({});
-    setEditingId(null);
+    setForm(emptyForm());
+    setFormOpen(true);
   };
 
-  const closeModal = () => {
-    setShowFormModal(false);
-    setEditingId(null);
-    setForm({});
-  };
-
-  const handleDelete = (record: TaxRecord) => {
-    setRecordToDelete(record);
-    setShowDeletePopup(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!recordToDelete) return;
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!form.taxTypeId) return ToasterService.error("Choose the tax type");
+    const taxable = Number(form.taxableAmount);
+    if (!taxable || taxable <= 0) return ToasterService.error("Enter the taxable amount");
+    setBusy(true);
     try {
-      await axios.delete(`${API_URL}/record/${recordToDelete.id}`, { headers });
-      ToasterService.success("Tax record deleted successfully!");
-      setShowDeletePopup(false);
-      setRecordToDelete(null);
-      fetchTaxRecords();
+      await axios.post(`${API_URL}/record`, {
+        transactionType: form.transactionType,
+        sourceModule: form.sourceModule,
+        sourceId: form.sourceId ? Number(form.sourceId) : null,
+        taxTypeId: Number(form.taxTypeId),
+        taxableAmount: taxable,
+        transactionDate: form.transactionDate || null,
+      });
+      ToasterService.success("Tax recorded");
+      setFormOpen(false);
+      await fetchRecords();
     } catch (err) {
-      console.error("Error deleting tax record", err);
-      ToasterService.error("Failed to delete tax record");
+      ToasterService.error(apiError(err, "Could not record the tax"));
+    } finally {
+      setBusy(false);
     }
   };
 
-  const filteredTaxRecords = useMemo(() => {
-    return taxRecords.filter((record) => {
-      const term = search.toLowerCase();
-      const matchesSearch =
-        (record.sourceModule || "").toLowerCase().includes(term) ||
-        (record.transactionType || "").toLowerCase().includes(term) ||
-        (record.taxTypeName || "").toLowerCase().includes(term);
-
-      let matchesFilter = true;
-      if (activeFilter !== "ALL") {
-        matchesFilter = (record.transactionType || "") === activeFilter;
-      }
-
-      return matchesSearch && matchesFilter;
-    });
-  }, [taxRecords, search, activeFilter]);
-
-  const stats = useMemo(
-    () => ({
-      total: taxRecords.length,
-      sales: taxRecords.filter((t) => t.transactionType === "SALE").length,
-      purchases: taxRecords.filter((t) => t.transactionType === "PURCHASE").length,
-      totalTax: taxRecords.reduce((sum, t) => sum + Number(t.taxAmount || 0), 0),
-    }),
-    [taxRecords]
+  const inPeriod = useMemo(
+    () => records.filter((record) => (!from || (record.transactionDate ?? "") >= from) && (!to || (record.transactionDate ?? "") <= to)),
+    [records, from, to]
   );
 
-  const tableColumns: ColumnDef<TaxRecord>[] = [
+  const filtered = useMemo(
+    () => (typeFilter === "ALL" ? inPeriod : inPeriod.filter((record) => record.transactionType === typeFilter)),
+    [inPeriod, typeFilter]
+  );
+
+  const collected = Number(report?.taxCollected ?? 0);
+  const paid = Number(report?.taxPaid ?? 0);
+
+  const columns: ColumnDef<TaxRecord>[] = [
+    { key: "transactionDate", label: "Date", sortable: true, render: (row) => <span className="text-sm text-slate-600">{dateLabel(row.transactionDate)}</span> },
+    { key: "transactionType", label: "Type", sortable: true, render: (row) => <StatusBadge status={row.transactionType} tones={TRANSACTION_TONES} /> },
     {
-      key: "transactionType",
-      label: "Transaction Type",
+      key: "taxType",
+      label: "Tax",
       sortable: true,
-      headerClassName: "w-[14%] text-left",
-      className: "w-[14%]",
-      render: (record) => (
-        <span
-          className={`inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full border ${
-            TRANSACTION_TONES[record.transactionType || ""] || "bg-gray-100 text-gray-600 border-gray-200"
-          }`}
-        >
-          {record.transactionType || "N/A"}
+      sortValueGetter: (row) => row.taxType?.taxName ?? "",
+      render: (row) => (
+        <span className="text-sm text-slate-700">
+          {row.taxType?.taxName ?? "—"}
+          {row.taxType?.taxRate != null && <span className="ml-1 text-xs text-slate-400">{Number(row.taxType.taxRate)}%</span>}
         </span>
       ),
     },
     {
       key: "sourceModule",
-      label: "Source Module",
+      label: "Source",
       sortable: true,
-      headerClassName: "w-[18%] text-left",
-      className: "w-[18%]",
-      render: (record) => (
-        <span className="text-sm font-semibold text-slate-900 truncate">{record.sourceModule || "N/A"}</span>
-      ),
-    },
-    {
-      key: "sourceId",
-      label: "Source ID",
-      sortable: true,
-      headerClassName: "w-[9%] text-left",
-      className: "w-[9%]",
-      sortValueGetter: (record) => Number(record.sourceId || 0),
-      render: (record) => (
-        <span className="text-sm text-slate-600">{record.sourceId ?? "N/A"}</span>
-      ),
-    },
-    {
-      key: "taxableAmount",
-      label: "Taxable Amount",
-      sortable: true,
-      headerClassName: "w-[13%] text-right",
-      className: "w-[13%] text-right",
-      sortValueGetter: (record) => Number(record.taxableAmount || 0),
-      render: (record) => (
-        <span className="text-sm text-slate-600">{Number(record.taxableAmount || 0).toLocaleString()}</span>
-      ),
-    },
-    {
-      key: "taxAmount",
-      label: "Tax Amount",
-      sortable: true,
-      headerClassName: "w-[13%] text-right",
-      className: "w-[13%] text-right",
-      sortValueGetter: (record) => Number(record.taxAmount || 0),
-      render: (record) => (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/40">
-          <CreditCardIcon className="h-3.5 w-3.5 text-cyan-600 opacity-80" />
-          {Number(record.taxAmount || 0).toLocaleString()}
+      render: (row) => (
+        <span className="text-sm text-slate-600">
+          {labelOf(row.sourceModule)}
+          {row.sourceId != null && <span className="block text-xs text-slate-400">#{row.sourceId}</span>}
         </span>
       ),
     },
     {
-      key: "transactionDate",
-      label: "Transaction Date",
+      key: "taxableAmount",
+      label: "Taxable",
       sortable: true,
-      headerClassName: "w-[23%] text-left",
-      className: "w-[23%]",
-      render: (record) => (
-        <span className="text-sm text-slate-600 truncate">{record.transactionDate || "N/A"}</span>
-      ),
+      headerClassName: "text-right",
+      className: "text-right",
+      sortValueGetter: (row) => Number(row.taxableAmount || 0),
+      render: (row) => <span className="text-sm text-slate-600">{money(row.taxableAmount)}</span>,
     },
     {
-      key: "actions",
-      label: "Actions",
-      sortable: false,
-      headerClassName: "w-[10%] text-right pr-4",
-      className: "w-[10%] text-right",
-      render: (record) => (
-        <div className="flex items-center justify-end gap-0.5">
-          <span className="text-[11px] text-slate-400" title="Tax records are an audit trail and cannot be changed">
-            {record.id ? `#${record.id}` : ""}
-          </span>
-        </div>
-      ),
+      key: "taxAmount",
+      label: "Tax",
+      sortable: true,
+      headerClassName: "text-right",
+      className: "text-right",
+      sortValueGetter: (row) => Number(row.taxAmount || 0),
+      render: (row) => <span className="text-sm font-semibold text-slate-900">{money(row.taxAmount)}</span>,
     },
   ];
 
   return (
     <>
-      <PageMeta title="Tax Records" description="Manage tax records" />
+      <PageMeta title="Tax Records" description="Tax collected on sales and paid on purchases" />
       <PageBreadcrumb pageTitle="Tax Records" />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Tax Record" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatsCard
-            label="Total Records"
-            value={stats.total}
-            gradient="from-cyan-50 to-blue-50"
-            borderColor="border-cyan-100"
-            labelColor="text-cyan-600"
-          />
-          <StatsCard
-            label="Sales Records"
-            value={stats.sales}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-          />
-          <StatsCard
-            label="Purchase Records"
-            value={stats.purchases}
-            gradient="from-blue-50 to-indigo-50"
-            borderColor="border-blue-100"
-            labelColor="text-blue-600"
-          />
-          <StatsCard
-            label="Total Tax Amount"
-            value={stats.totalTax.toLocaleString()}
-            gradient="from-purple-50 to-pink-50"
-            borderColor="border-purple-100"
-            labelColor="text-purple-600"
-          />
+      <div className="w-full max-w-none space-y-4 py-4">
+        <div className="flex justify-end">{canCreate && <AddButton onClick={openCreate} label="Record tax" />}</div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatsCard label="Tax collected" value={money(collected)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label="Tax paid" value={money(paid)} gradient="from-blue-50 to-indigo-50" borderColor="border-blue-100" labelColor="text-blue-600" />
+          <StatsCard label={collected >= paid ? "Net payable" : "Net credit"} value={money(Math.abs(collected - paid))} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label="Records" value={inPeriod.length} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
         </div>
 
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by source module, type, or tax type..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); }}
-                className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-              {search && (
-                <button
-                  onClick={() => { setSearch(""); }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
-            <FilterPopover
-              title="Filter Tax Records"
-              buttonLabel="Filters"
-              label="Filter by Type"
-              value={activeFilter}
-              options={[
-                { label: "All Records", value: "ALL" },
-                { label: "Sale", value: "SALE" },
-                { label: "Purchase", value: "PURCHASE" },
-                { label: "Other", value: "OTHER" },
-              ]}
-              onChange={setActiveFilter}
-              onReset={() => setActiveFilter("ALL")}
-              onApply={() => undefined}
-            />
+        <div className="flex flex-wrap items-center gap-2">
+          {[{ id: "ALL", name: "All" }, ...TRANSACTION_OPTIONS.map((option) => ({ id: option.id, name: labelOf(option.id) }))].map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => setTypeFilter(option.id)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${typeFilter === option.id ? "border-cyan-500 bg-cyan-50 text-cyan-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+            >
+              {option.name}
+            </button>
+          ))}
+          <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-slate-600">
+            <label className="flex items-center gap-1">
+              From <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-1 text-sm" />
+            </label>
+            <label className="flex items-center gap-1">
+              To <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-1 text-sm" />
+            </label>
           </div>
         </div>
+        {from && to && from > to && <p className="text-xs text-red-600">The start date is after the end date.</p>}
 
         <ReusableTable
-          data={filteredTaxRecords}
-          columns={tableColumns}
+          data={filtered}
+          columns={columns}
           pageSize={PAGE_SIZE}
-          defaultSortKey="sourceModule"
-          defaultSortOrder="asc"
-          loading={isLoading}
+          loading={loading}
+          defaultSortKey="transactionDate"
+          defaultSortOrder="desc"
           emptyState={
-            <div className="flex flex-col items-center justify-center py-12">
-              <CreditCardIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No tax records found</p>
-              {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
-              ) : (
-                canCreate && <button
-                  type="button"
-                  onClick={() => openCreate()}
-                  className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
-                >
-                  Create your first tax record
-                </button>
-              )}
+            <div className="flex flex-col items-center justify-center py-8">
+              <CreditCardIcon className="mb-3 h-12 w-12 text-gray-400" />
+              <p className="text-sm text-gray-500">No tax records in this period</p>
             </div>
           }
         />
-
-        <PaginatedPopup
-          isOpen={showFormModal}
-          title={editingId !== null ? "Edit Tax Record" : "Create New Tax Record"}
-          subtitle={editingId !== null ? "Update your tax record details" : "Add a new tax record"}
-          onClose={closeModal}
-          onSubmit={handleSubmit}
-          submitting={submitting}
-          submitLabel={editingId !== null ? "Update Record" : "Create Record"}
-          maxWidthClassName="max-w-2xl"
-          tabs={[
-            {
-              label: "Basic Info",
-              fields: [
-                <FloatingSelect
-                  key="sourceModule"
-                  label="Source Module"
-                  name="sourceModule"
-                  value={form.sourceModule || ""}
-                  onChange={(e) => setForm({ ...form, sourceModule: e.target.value })}
-                  options={["SALES_INVOICE", "PURCHASE_INVOICE", "CREDIT_NOTE", "DEBIT_NOTE", "ADJUSTMENT_NOTE", "OTHER"].map((m) => ({ id: m, name: m }))}
-                  required
-                />,
-                <FloatingSelect
-                  key="taxTypeId"
-                  label="Tax Type"
-                  name="taxTypeId"
-                  value={form.taxTypeId ?? ""}
-                  onChange={(e) => setForm({ ...form, taxTypeId: e.target.value ? Number(e.target.value) : undefined })}
-                  options={taxTypes.map((t) => ({ id: String(t.id), name: t.taxName || `Tax ${t.id}` }))}
-                  required
-                />,
-                <FloatingSelect
-                  key="transactionType"
-                  label="Transaction Type"
-                  name="transactionType"
-                  value={form.transactionType || ""}
-                  onChange={(e) => setForm({ ...form, transactionType: e.target.value })}
-                  options={["SALE", "PURCHASE", "OTHER"].map((t) => ({ id: t, name: t }))}
-                />,
-                <FloatingInput
-                  key="taxableAmount"
-                  label="Taxable Amount"
-                  name="taxableAmount"
-                  type="number"
-                  value={form.taxableAmount ?? ""}
-                  onChange={handleChange}
-                />,
-                <FloatingInput
-                  key="transactionDate"
-                  label="Transaction Date"
-                  name="transactionDate"
-                  type="date"
-                  value={form.transactionDate || ""}
-                  onChange={handleChange}
-                />,
-              ],
-            },
-          ]}
-        />
-
-        <DynamicPopup
-          isPopupOpen={showDeletePopup}
-          setIsPopupOpen={setShowDeletePopup}
-          icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-          iconBg="bg-red-100"
-          innerText="Delete Tax Record"
-          subText={
-            recordToDelete
-              ? `Are you sure you want to delete the tax record for "${recordToDelete.sourceModule || "this record"}"? This action cannot be undone.`
-              : "Are you sure you want to delete this tax record?"
-          }
-          confirmLabel="Delete"
-          cancelLabel="Cancel"
-          onConfirm={confirmDelete}
-          onCancel={() => setRecordToDelete(null)}
-          confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
-        />
-
-
       </div>
+
+      <PaginatedPopup
+        isOpen={formOpen}
+        title="Record tax"
+        subtitle="Tax records can't be edited or deleted afterwards"
+        onClose={() => setFormOpen(false)}
+        maxWidthClassName="max-w-2xl"
+        content={
+          <form onSubmit={save} className="flex flex-col">
+            <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
+              <FloatingSelect1 label="Type" name="transactionType" value={form.transactionType} options={TRANSACTION_OPTIONS} includeEmptyOption={false}
+                onChange={(event) => {
+                  const transactionType = event.target.value;
+                  const sourceModule = transactionType === "SALE" ? "SALES_INVOICE" : transactionType === "PURCHASE" ? "PURCHASE_INVOICE" : "OTHER";
+                  setForm((current) => ({ ...current, transactionType, sourceModule }));
+                }} />
+              <FloatingSelect1 label="Tax type" name="taxTypeId" required value={form.taxTypeId}
+                options={taxTypes
+                  .filter((type) => type.isActive !== false || String(type.id) === form.taxTypeId)
+                  .map((type) => ({ id: String(type.id), name: `${type.taxName ?? `Tax ${type.id}`} (${Number(type.taxRate ?? 0)}%)` }))}
+                onChange={(event) => setForm((current) => ({ ...current, taxTypeId: event.target.value }))} />
+              <FloatingInput label="Taxable amount" name="taxableAmount" type="number" required value={form.taxableAmount}
+                onChange={(event) => setForm((current) => ({ ...current, taxableAmount: event.target.value }))} />
+              <FloatingInput label="Date" name="transactionDate" type="date" value={form.transactionDate}
+                onChange={(event) => setForm((current) => ({ ...current, transactionDate: event.target.value }))} />
+              <FloatingSelect1 label="Source" name="sourceModule" value={form.sourceModule} options={SOURCE_MODULE_OPTIONS} includeEmptyOption={false}
+                onChange={(event) => setForm((current) => ({ ...current, sourceModule: event.target.value }))} />
+              <FloatingInput label="Source document id (optional)" name="sourceId" type="number" value={form.sourceId}
+                onChange={(event) => setForm((current) => ({ ...current, sourceId: event.target.value }))} />
+              {previewTax != null && (
+                <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700 sm:col-span-2">
+                  Tax: <span className="font-semibold">{money(previewTax)}</span> ({Number(selectedType?.taxRate ?? 0)}% of {money(form.taxableAmount)})
+                </p>
+              )}
+            </div>
+            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel="Record tax" busy={busy} />
+          </form>
+        }
+      />
     </>
   );
 };

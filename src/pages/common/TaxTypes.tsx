@@ -20,6 +20,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import FilterPopover from "../../components/common/filter";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { usePermissions } from "../../access/usePermissions";
+import { apiError } from "../../utils/apiError";
 
 interface TaxType {
   id: number;
@@ -93,8 +94,7 @@ const TaxTypes: React.FC = () => {
         await fetchTaxTypes();
       }
     } catch (err) {
-      console.error("Error submitting tax type", err);
-      ToasterService.error("Failed to save tax type");
+      ToasterService.error(apiError(err, "Failed to save tax type"));
     } finally {
       setSubmitting(false);
     }
@@ -132,8 +132,7 @@ const TaxTypes: React.FC = () => {
       setTaxTypeToDelete(null);
       fetchTaxTypes();
     } catch (err) {
-      console.error("Error deleting tax type", err);
-      ToasterService.error("Failed to delete tax type");
+      ToasterService.error(apiError(err, "Failed to delete tax type"));
     }
   };
 
@@ -275,7 +274,7 @@ const TaxTypes: React.FC = () => {
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Tax Type" />
+          {canCreate && <AddButton onClick={openCreate} label="Add Tax Type" />}
         </div>
         <div className="grid my-5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
