@@ -82,7 +82,7 @@ const REFUNDABLE_RETURN_STATUSES = ["APPROVED"];
 
 const emptyForm: RefundForm = {
   amount: "",
-  refundDate: new Date().toISOString().slice(0, 16),
+  refundDate: toLocalDateTimeInput(),
   status: "PENDING",
   paymentMethod: "BANK_TRANSFER",
   returnRequestId: "",
@@ -101,8 +101,9 @@ function toNumber(value: string) {
   return Number(value || 0);
 }
 
+/** The backend keeps the refund time as local wall-clock time (no zone), so send it as entered, not as UTC. */
 function toApiDateTime(value: string) {
-  return value ? new Date(value).toISOString() : new Date().toISOString();
+  return `${toLocalDateTimeInput(value || undefined)}:00`;
 }
 
 function toLocalDateTimeInput(value?: string) {

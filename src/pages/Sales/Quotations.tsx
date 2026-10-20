@@ -23,7 +23,7 @@ import StatsCard from "../../components/common/Statscard";
 import { loadImageAsDataUrl } from "../../components/common/export";
 import { ToasterService } from "../../Services/ToasterService";
 import { SellerProfile } from "../../components/quotation/QuotationPreviewTemplate";
-import { todayIso } from "../../utils/localDate";
+import { toLocalIsoDate, todayIso } from "../../utils/localDate";
 import { publicAsset } from "../../utils/assets";
 import { usePermissions } from "../../access/usePermissions";
 
@@ -245,6 +245,12 @@ const PRODUCT_CATALOGUE_PRODUCTS_API = "/v1/api/product/products";
 const PRODUCT_CATALOGUE_CATEGORIES_API = "/v1/api/product/product-categories";
 const PAGE_SIZE = 10;
 const statusOptions = ["DRAFT", "SENT", "ACCEPTED", "REJECTED"];
+/** Status moves the backend allows: a draft is sent, then the customer accepts or rejects it. */
+const nextQuotationStatuses: Record<string, string[]> = {
+  DRAFT: ["SENT"],
+  SENT: ["ACCEPTED", "REJECTED"],
+  VIEWED: ["ACCEPTED", "REJECTED"],
+};
 const quotationTypeOptions = ["PRODUCT", "SERVICE"];
 
 /** Normalizes API status values before they drive quotation actions. */
@@ -300,87 +306,73 @@ function getSellerProfile(): SellerProfile {
 
 const today = todayIso();
 
+/** Quotations are valid for 30 days unless the user picks another date. */
+const defaultValidUntil = () => {
+  const date = new Date();
+  date.setDate(date.getDate() + 30);
+  return toLocalIsoDate(date);
+};
+
 const emptyForm: QuotationForm = {
   tenantId: getStoredTenantId(),
-  customerId: "5",
-  customerName: "ABC Technologies Pvt Ltd",
+  customerId: "",
+  customerName: "",
   customerCode: "",
   quotationType: "PRODUCT",
-  validUntil: "2026-10-31",
+  validUntil: defaultValidUntil(),
   currencyCode: "INR",
-  customerReference: "RFQ-ABC-2026-1001",
-  customerReferenceDate: "2026-09-25",
-  paymentTerms: "30 days from invoice",
-  creditDays: "30",
-  deliveryTerms: "Delivery at customer premises",
-  shippingMethod: "ROAD",
-  quotationAdditionalDiscount: "5000",
-  remarks: "Delivery within agreed timeline",
-  internalNotes: "Priority corporate customer",
-  customerNotes: "Please mention PO number on invoice",
-  subject: "Quotation for Business Laptops",
-  email: "purchase@abctech.example",
+  customerReference: "",
+  customerReferenceDate: "",
+  paymentTerms: "",
+  creditDays: "",
+  deliveryTerms: "",
+  shippingMethod: "",
+  quotationAdditionalDiscount: "0",
+  remarks: "",
+  internalNotes: "",
+  customerNotes: "",
+  subject: "",
+  email: "",
   quoteNumber: "",
-  quoteDate: "2026-09-25",
+  quoteDate: today,
   status: "DRAFT",
   discountPercentage: "0",
-  salesPersonId: "1",
-  termsAndConditions: "Prices are valid until quotation expiry. Payment due within 30 days from invoice date.",
+  salesPersonId: "",
+  termsAndConditions: "",
   versionNo: "0",
-  billingAddressLine1: "ABC Technologies Pvt Ltd",
-  billingAddressLine2: "Building 10",
-  billingStreet: "Hitech City Road",
-  billingCity: "Hyderabad",
-  billingState: "Telangana",
-  billingCountry: "India",
-  billingPostalCode: "500081",
-  shippingAddressLine1: "ABC Technologies Warehouse",
-  shippingAddressLine2: "Gate 2",
-  shippingStreet: "Financial District",
-  shippingCity: "Hyderabad",
-  shippingState: "Telangana",
-  shippingCountry: "India",
-  shippingPostalCode: "500032",
+  billingAddressLine1: "",
+  billingAddressLine2: "",
+  billingStreet: "",
+  billingCity: "",
+  billingState: "",
+  billingCountry: "",
+  billingPostalCode: "",
+  shippingAddressLine1: "",
+  shippingAddressLine2: "",
+  shippingStreet: "",
+  shippingCity: "",
+  shippingState: "",
+  shippingCountry: "",
+  shippingPostalCode: "",
   itemCategoryId: "",
   itemCategoryName: "",
   itemType: "PRODUCT",
-  itemProductId: "2",
-  itemProductName: "Dell Latitude 5450",
+  itemProductId: "",
+  itemProductName: "",
   itemServiceItemId: "0",
-  itemDescription: "Dell Latitude business laptop",
+  itemDescription: "",
   itemProductCode: "",
   itemUom: "",
-  itemQuantity: "2",
-  itemUnitPrice: "63000",
-  itemDiscountPercentage: "3",
+  itemQuantity: "1",
+  itemUnitPrice: "",
+  itemDiscountPercentage: "0",
   itemDiscountAmount: "0",
-  itemTaxRate: "18",
-  itemTaxCode: "GST18",
-  itemRemarks: "3-year warranty",
+  itemTaxRate: "0",
+  itemTaxCode: "",
+  itemRemarks: "",
   itemAdditionalDiscount: "0",
   itemAdditionalDiscountPercentage: "0",
 };
-
-const defaultQuotationLineItems: QuotationItemPayload[] = [
-  {
-    id: 0,
-    categoryName: "",
-    itemType: "PRODUCT",
-    productId: 1,
-    productName: "Paracetamol 500mg",
-    description: "Paracetamol 500mg tablets",
-    productCode: "",
-    uom: "",
-    quantity: 200,
-    unitPrice: 250,
-    discountPercentage: 5,
-    discountAmount: 2500,
-    taxRate: 18,
-    taxCode: "GST18",
-    remarks: "3-year warranty",
-    additionalDiscount: 0,
-  },
-];
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {
@@ -1150,10 +1142,12 @@ const Quotations: React.FC = () => {
   const openCreate = () => {
     setEditingId(null);
     setEditingLineItemIndex(null);
-    setLineItems(defaultQuotationLineItems);
+    setLineItems([]);
     setForm({
       ...emptyForm,
       tenantId: getStoredTenantId(),
+      quoteDate: todayIso(),
+      validUntil: defaultValidUntil(),
     });
     setShowFormModal(true);
   };
@@ -1274,16 +1268,9 @@ const Quotations: React.FC = () => {
     try {
       setLoading(true);
       const requestConfig = { headers, params: { tenantId: getStoredTenantId() } };
-      const res =
-        status === "SENT"
-          ? await axios.post<Quotation>(`${API_URL}/${quotation.id}/send`, {}, requestConfig)
-          : status === "ACCEPTED"
-            ? await axios.post<Quotation>(`${API_URL}/${quotation.id}/accept`, {}, requestConfig)
-          : await axios.put<Quotation>(
-              `${API_URL}/${quotation.id}`,
-              { ...(await axios.get<Quotation>(`${API_URL}/${quotation.id}`, { headers })).data, status },
-              requestConfig
-            );
+      // Each status move has its own endpoint; a plain edit (PUT) never changes the status
+      const action = status === "SENT" ? "send" : status === "ACCEPTED" ? "accept" : "reject";
+      const res = await axios.post<Quotation>(`${API_URL}/${quotation.id}/${action}`, {}, requestConfig);
       const updatedQuotation =
         res.data && typeof res.data === "object" ? res.data : {};
       setQuotations((current) =>
@@ -1490,7 +1477,10 @@ const Quotations: React.FC = () => {
       render: (quotation) => {
         const apiError = quotationApiErrors[quotation.id];
         const currentStatus = getQuotationStatus(quotation.status) || "DRAFT";
-        const choices = statusOptions.filter((status) => status === currentStatus || canSetStatus(status));
+        const next = nextQuotationStatuses[currentStatus] || [];
+        const choices = statusOptions.filter(
+          (status) => status === currentStatus || (next.includes(status) && canSetStatus(status))
+        );
         if (choices.length <= 1) {
           return (
             <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
