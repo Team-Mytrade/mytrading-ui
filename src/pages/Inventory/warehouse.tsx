@@ -241,7 +241,7 @@ const WarehousePage: React.FC = () => {
           code: resolveWarehouseCode(warehouse.code, warehouse.id),
           locationType: warehouse.locationType || "MAIN",
           stockCount,
-          status: getDisplayStatus(warehouse.id),
+          status: getDisplayStatus(warehouse),
         };
       });
 

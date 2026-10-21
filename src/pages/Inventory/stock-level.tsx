@@ -73,10 +73,10 @@ type StockLevelForm = {
 };
 
 const API_URL = "/v1/api/inventory";
-const PRODUCT_URL = "/v1/api/purchase/products";
+const PRODUCT_URL = "/v1/api/product/products";
 const PAGE_SIZE = 10;
 
-const PRODUCT_ROUTE = "/purchase-products";
+const PRODUCT_ROUTE = "/product-products";
 const WAREHOUSE_ROUTE = "/warehouse";
 
 const emptyForm: StockLevelForm = {

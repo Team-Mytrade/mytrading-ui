@@ -139,13 +139,13 @@ type InventoryForm = {
 
 const API_URL = "/v1/api/inventory/inventory-reservations";
 const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
-const PRODUCT_API_URL = "/v1/api/purchase/products";
+const PRODUCT_API_URL = "/v1/api/product/products";
 const CUSTOMER_API_URL = "/v1/api/crm/customers";
 const SALES_ORDER_API_URL = "/v1/api/sales/sales-orders";
 const ENUM_API_URL = "/v1/api/inventory/enums";
 const PAGE_SIZE = 10;
 
-const PRODUCT_ROUTE = "/purchase-products";
+const PRODUCT_ROUTE = "/product-products";
 const WAREHOUSE_ROUTE = "/warehouse";
 const CUSTOMERS_PAGE_PATH = "/customer-management";
 const SALES_ORDERS_ROUTE = "/sales-orders";

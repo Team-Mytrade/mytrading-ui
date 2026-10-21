@@ -95,12 +95,12 @@ type SerialNumberForm = {
 
 // ---------- Constants ----------
 const API_URL = "/v1/api/inventory";
-const PRODUCT_URL = "/v1/api/purchase";
+const PRODUCT_URL = "/v1/api/product";
 const PAGE_SIZE = 10;
 
 // 🔧 Route paths — match your app's actual routes.
 const WAREHOUSE_ROUTE = "/warehouse";
-const PRODUCT_ROUTE = "/purchase-products";
+const PRODUCT_ROUTE = "/product-products";
 const BATCH_ROUTE = "/batch";   // ← change if your batch page lives elsewhere
 
 const CURRENT_STATUS_ENUM_TYPE = "CURRENTSTATUS";
