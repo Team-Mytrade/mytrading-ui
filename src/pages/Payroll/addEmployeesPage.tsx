@@ -31,6 +31,9 @@ import {
   Shield,
 } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
+import { ToasterService } from "../../Services/ToasterService";
+import { apiError, apiFieldErrors } from "../../utils/apiError";
+import { toLocalIsoDate } from "../../utils/localDate";
 import {
   Department,
   EmploymentType,
@@ -52,10 +55,37 @@ const NO_GEO_DATA: GeoData = {
 
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 const DEPARTMENT_API_URL = "/v1/api/payroll/department";
-const TENANT_API_URL = "/v1/api/user/tenants";
-const DOMAIN_API_URL = "/v1/api/user/domains";
 const ROLE_API_URL = "/v1/api/user/roles";
 
+// Dates travel as plain yyyy-MM-dd: toISOString() turns a local midnight into the previous day east of UTC
+const toApiDate = (date: Date | null) => (date ? toLocalIsoDate(date) : null);
+const fromApiDate = (value?: string | null) => {
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+};
+
+// The stored Aadhaar comes back masked; sending it back unchanged keeps it
+const MASKED_AADHAAR = /^XXXX-XXXX-\d{4}$/;
+const PAN_FORMAT = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+
+// Which form step shows a field, so a server-side field error can take the user there
+const FIELD_STEPS: Record<string, number> = {
+  firstName: 1, lastName: 1, personalEmail: 1, officialEmail: 1, dateOfBirth: 1,
+  designation: 2, department: 2, joiningDate: 2, employmentType: 2, userType: 2, role: 2,
+  aadhaarNumber: 4, panNumber: 4, "salary.ctc": 4,
+};
+
+// Pay components (Compensation page): basic is a % of CTC, HRA a % of basic
+interface PayComponent {
+  employeeRole: string;
+  componentDetails: Record<string, number>;
+}
+// Older set-ups saved the names as "Basic" / "HRA"
+const percentOf = (details: Record<string, number> | undefined, key: string): number | null => {
+  const entry = Object.entries(details ?? {}).find(([name]) => name.trim().toLowerCase() === key);
+  return entry && entry[1] != null ? Number(entry[1]) : null;
+};
 
 interface Employee {
   id: number;
@@ -75,19 +105,10 @@ interface AdditionalBenefit {
   amount: number;
 }
 
-interface Domain {
-  id: number;
-  domainName: string;
-  domainCode: string;
-  tenantId?: string; // Add tenantId to Domain interface if available
-}
-
 interface Role {
   id: number;
   roleName: string;
   roleCode: string;
-  permissions: any[];
-  department: Department;
 }
 
 enum Regime {
@@ -100,12 +121,6 @@ enum UserType {
   USER = "USER",
   EMPLOYEE = "EMPLOYEE",
 }
-
-type Tenant = {
-  tenantId: string;
-  tenantName: string;
-  active: boolean;
-};
 
 const customClassNames = {
   control: (state: any) =>
@@ -149,10 +164,10 @@ const AddEmployeePage: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [managers, setManagers] = useState<Employee[]>([]);
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [allDomains, setAllDomains] = useState<Domain[]>([]);
   const [allRoles, setAllRoles] = useState<Role[]>([]);
-  const [filteredDomains, setFilteredDomains] = useState<Domain[]>([]);
+  const [rolesUnavailable, setRolesUnavailable] = useState(false);
+  const [payComponents, setPayComponents] = useState<PayComponent[]>([]);
+  const [storedAadhaar, setStoredAadhaar] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sameAsPermanent, setSameAsPermanent] = useState(false);
@@ -176,7 +191,6 @@ const AddEmployeePage: React.FC = () => {
     personalEmail: "",
     officialEmail: "",
     userType: UserType.EMPLOYEE,
-    tenantId: "",
     maritalStatus: "SINGLE" as MaritalStatus,
     fatherName: "",
     phone: "",
@@ -202,8 +216,8 @@ const AddEmployeePage: React.FC = () => {
     pfNumber: "",
     uan: "",
     department: { id: 0, name: "" },
-    domain: null as Domain | null,
-    roleNames: [] as Role[],
+    // The login's role, by name (the user service grants one role)
+    role: "",
     userDetails: {
       phoneNumber: "",
       country: "",
@@ -238,65 +252,31 @@ const AddEmployeePage: React.FC = () => {
     },
   });
 
-  const ToasterService = {
-    error: (msg: string) => console.error(msg),
-    success: (msg: string) => console.log(msg),
-    warning: (msg: string) => console.warn(msg),
-  };
-
+  // The employee belongs to the signed-in user's company; the services take the tenant from the login
   useEffect(() => {
     fetchDepts();
     fetchManagers();
-    fetchTenants();
-    fetchDomains();
     fetchRoles();
+    fetchPayComponents();
     if (editId) fetchEmployee(editId);
   }, [editId]);
 
-  // Filter domains when tenantId changes
-  useEffect(() => {
-    if (form.tenantId) {
-      // Filter domains based on selected tenantId
-      const filtered = allDomains.filter(domain => domain.tenantId === form.tenantId);
-      setFilteredDomains(filtered);
-
-      // Reset selected domain if it doesn't belong to the new tenant
-      if (form.domain && form.domain.tenantId !== form.tenantId) {
-        handleChange("domain", null);
-      }
-    } else {
-      setFilteredDomains([]);
-      // Clear selected domain when no tenant is selected
-      if (form.domain) {
-        handleChange("domain", null);
-      }
-    }
-  }, [form.tenantId, allDomains]);
-
-  const fetchTenants = async () => {
-    try {
-      const res = await axios.get(`${TENANT_API_URL}`);
-      setTenants(res.data);
-    } catch (error) {
-      console.error("Error fetching tenants:", error);
-    }
-  };
-
-  const fetchDomains = async () => {
-    try {
-      const res = await axios.get(`${DOMAIN_API_URL}`);
-      setAllDomains(res.data);
-    } catch (error) {
-      console.error("Error fetching domains:", error);
-    }
-  };
-
+  // Listing roles needs Users access; without it the login is created without a role
   const fetchRoles = async () => {
     try {
       const res = await axios.get(`${ROLE_API_URL}/getAll`);
-      setAllRoles(res.data);
+      setAllRoles(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setRolesUnavailable(true);
+    }
+  };
+
+  const fetchPayComponents = async () => {
+    try {
+      const res = await axios.get(`${EMPLOYEE_API_URL}/getPayroleComponents`);
+      setPayComponents(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
-      console.error("Error fetching roles:", error);
+      ToasterService.error(apiError(error, "Designations could not be loaded"));
     }
   };
 
@@ -340,16 +320,16 @@ const AddEmployeePage: React.FC = () => {
   const fetchDepts = async () => {
     try {
       const res = await axios.get(`${DEPARTMENT_API_URL}/listAll`);
-      setDepartments(res.data);
+      setDepartments(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
-      console.error("Error fetching departments:", error);
+      ToasterService.error(apiError(error, "Departments could not be loaded"));
     }
   };
 
   const fetchManagers = async () => {
     try {
-      const res = await axios.get(`${EMPLOYEE_API_URL}/listAll`);
-      const managerList = res.data.filter(
+      const res = await axios.get(`${EMPLOYEE_API_URL}/all`);
+      const managerList = (Array.isArray(res.data) ? res.data : []).filter(
         (emp: Employee) =>
           emp.designation?.toLowerCase().includes("manager") ||
           emp.designation?.toLowerCase().includes("lead") ||
@@ -366,9 +346,13 @@ const AddEmployeePage: React.FC = () => {
     try {
       const res = await axios.get(`${EMPLOYEE_API_URL}/read/${id}`);
       const employeeData = res.data;
-      if (employeeData.dateOfBirth) employeeData.dateOfBirth = new Date(employeeData.dateOfBirth);
-      if (employeeData.joiningDate) employeeData.joiningDate = new Date(employeeData.joiningDate);
-      if (employeeData.exitDate) employeeData.exitDate = new Date(employeeData.exitDate);
+      employeeData.dateOfBirth = fromApiDate(employeeData.dateOfBirth);
+      employeeData.joiningDate = fromApiDate(employeeData.joiningDate);
+      employeeData.exitDate = fromApiDate(employeeData.exitDate);
+      employeeData.managerId = employeeData.managerId ?? "";
+      employeeData.branch = employeeData.branch ?? "";
+      employeeData.userType = employeeData.userType || UserType.EMPLOYEE;
+      employeeData.role = employeeData.userDto?.role || "";
 
       // Convert earnings object to array if needed
       if (employeeData.salary?.earnings && typeof employeeData.salary.earnings === 'object' && !Array.isArray(employeeData.salary.earnings)) {
@@ -391,10 +375,6 @@ const AddEmployeePage: React.FC = () => {
         employeeData.department = { id: employeeData.department, name: "" };
       } else if (!employeeData.department) {
         employeeData.department = { id: 0, name: "" };
-      }
-
-      if (!employeeData.roleNames) {
-        employeeData.roleNames = [];
       }
 
       if (!employeeData.permanentAddress) {
@@ -453,26 +433,10 @@ const AddEmployeePage: React.FC = () => {
           additionalBenefits: [],
         };
       } else {
-        const earnings: any[] = [];
-        if (employeeData.salary.basic) {
-          earnings.push({ name: "Basic", amount: employeeData.salary.basic });
-        }
-        if (employeeData.salary.hra) {
-          earnings.push({ name: "HRA", amount: employeeData.salary.hra });
-        }
-        if (employeeData.salary.allowances) {
-          earnings.push({ name: "Allowances", amount: employeeData.salary.allowances });
-        }
-        if (employeeData.salary.specialAllowance) {
-          earnings.push({ name: "Special Allowance", amount: employeeData.salary.specialAllowance });
-        }
-
-        if (earnings.length > 0) {
-          employeeData.salary.earnings = earnings;
-        } else if (!employeeData.salary.earnings) {
+        // Basic and HRA are worked out by the service from the CTC, so only the extra earnings are edited here
+        if (!employeeData.salary.earnings) {
           employeeData.salary.earnings = [];
         }
-
         if (!employeeData.salary.additionalBenefits) {
           employeeData.salary.additionalBenefits = [];
         }
@@ -482,6 +446,7 @@ const AddEmployeePage: React.FC = () => {
       if (employeeData.countrySpecificData) {
         employeeData.panNumber = employeeData.countrySpecificData.pan || "";
         employeeData.aadhaarNumber = employeeData.countrySpecificData.aadhaar || "";
+        setStoredAadhaar(MASKED_AADHAAR.test(employeeData.aadhaarNumber) ? employeeData.aadhaarNumber : "");
       } else {
         employeeData.panNumber = "";
         employeeData.aadhaarNumber = "";
@@ -502,14 +467,9 @@ const AddEmployeePage: React.FC = () => {
         employeeData.taxRegime = "New Regime";
       }
 
-      // Extract tenantId if tenant is returned as an object
-      if (employeeData.tenant && typeof employeeData.tenant === 'object') {
-        employeeData.tenantId = employeeData.tenant.tenantId || employeeData.tenant.id;
-      }
-
       setForm(employeeData);
     } catch (error) {
-      console.error("Error fetching employee:", error);
+      ToasterService.error(apiError(error, "The employee could not be loaded"));
     } finally {
       setLoading(false);
     }
@@ -539,19 +499,6 @@ const AddEmployeePage: React.FC = () => {
       return updated;
     });
     setErrors((prev) => ({ ...prev, [path]: "" }));
-  };
-
-  const handleTenantChange = (tenantId: string) => {
-    handleChange("tenantId", tenantId);
-    handleChange("domain", null);
-  };
-
-  const handleRoleNamesChange = (selectedOptions: any) => {
-    const roles = selectedOptions ? selectedOptions.map((opt: any) => {
-      const foundRole = allRoles.find(role => role.id === opt.value);
-      return foundRole;
-    }).filter(Boolean) : [];
-    handleChange("roleNames", roles);
   };
 
   const handleEarningChange = (index: number, field: "name" | "amount", value: string | number) => {
@@ -629,14 +576,6 @@ const AddEmployeePage: React.FC = () => {
     }
   };
 
-  const roleOptions = [
-    { value: "Super Administrator", label: "Super Administrator" },
-    { value: "Human Resources Manager", label: "Human Resources Manager" },
-    { value: "Payroll Manager", label: "Payroll Manager" },
-    { value: "Team Lead", label: "Team Lead" },
-    { value: "Employee", label: "Employee" },
-  ];
-
   const validateStep = (step: number): boolean => {
     const newErrors: { [key: string]: string } = {};
 
@@ -658,12 +597,12 @@ const AddEmployeePage: React.FC = () => {
         if (!form.phone) newErrors.phone = "Phone number is required";
         if (!form.dateOfBirth) newErrors.dateOfBirth = "Date of birth is required";
         if (!form.gender) newErrors.gender = "Gender is required";
-        if (!form.tenantId) newErrors.tenantId = "Tenant is required";
         break;
 
       case 2:
         if (!(form.designation || "").trim()) newErrors.designation = "Designation is required";
         if (!form.department.id || form.department.id === 0) newErrors.department = "Department is required";
+        else if (isOtherDepartment && !customDepartment.trim()) newErrors.department = "Enter the new department's name";
         if (!(form.location || "").trim()) newErrors.location = "Location is required";
         if (!form.joiningDate) newErrors.joiningDate = "Joining date is required";
         if (!form.employmentType) newErrors.employmentType = "Employment type is required";
@@ -695,7 +634,12 @@ const AddEmployeePage: React.FC = () => {
         if (!(form.bankAccountNumber || "").trim()) newErrors.bankAccountNumber = "Account number is required";
         if (form.permanentAddress.country?.value === "India") {
           if (!(form.ifscCode || "").trim()) newErrors.ifscCode = "IFSC code is required";
+          if (form.panNumber && !PAN_FORMAT.test(form.panNumber)) newErrors.panNumber = "PAN looks like ABCDE1234F";
+          if (form.aadhaarNumber && !MASKED_AADHAAR.test(form.aadhaarNumber) && !/^\d{12}$/.test(form.aadhaarNumber)) {
+            newErrors.aadhaarNumber = "Aadhaar has 12 digits";
+          }
         }
+        if (!(Number(form.salary.ctc) > 0)) newErrors["salary.ctc"] = "Enter the yearly CTC";
         break;
     }
 
@@ -703,10 +647,23 @@ const AddEmployeePage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // A department typed under "Other" is created first, so the employee can be filed under it
+  const resolveDepartmentId = async (): Promise<number> => {
+    if (!isOtherDepartment) return form.department.id;
+    const res = await axios.post(`${DEPARTMENT_API_URL}/create`, { name: customDepartment.trim() });
+    const created = res.data as Department;
+    setDepartments((prev) => [...prev, created]);
+    setIsOtherDepartment(false);
+    setCustomDepartment("");
+    handleChange("department", { id: created.id, name: created.name });
+    return created.id;
+  };
+
   const handleSubmit = async () => {
     if (!validateStep(currentStep)) return;
     setIsSubmitting(true);
     try {
+      const departmentId = await resolveDepartmentId();
       // Convert earnings array to object
       const earningsObject: Record<string, number> = {};
       form.salary.earnings.forEach((earning) => {
@@ -722,9 +679,8 @@ const AddEmployeePage: React.FC = () => {
           additionalBenefitsObject[benefit.name] = benefit.amount;
         }
       });
+      // The service numbers the employee per department and creates the login (signed in with the official email)
       const submitData = {
-        employeeCode: `EMP${Math.floor(1000 + Math.random() * 9000)}`,
-        password: "DefaultPassword@123",
         firstName: form.firstName,
         lastName: form.lastName,
         personalEmail: form.personalEmail,
@@ -733,24 +689,22 @@ const AddEmployeePage: React.FC = () => {
         fatherName: form.fatherName,
         phone: form.phone,
         gender: form.gender,
-        dateOfBirth: form.dateOfBirth?.toISOString().split("T")[0],
+        dateOfBirth: toApiDate(form.dateOfBirth),
         employmentType: form.employmentType,
         location: form.location,
         managerId: form.managerId || null,
-        joiningDate: form.joiningDate?.toISOString().split("T")[0],
+        joiningDate: toApiDate(form.joiningDate),
         designation: form.designation,
-        exitDate: form.exitDate?.toISOString().split("T")[0] || null,
+        exitDate: toApiDate(form.exitDate),
         bankAccountNumber: form.bankAccountNumber,
         bankName: form.bankName,
         ifscCode: form.ifscCode,
         branch: form.branch,
         countryCode: form.countryCode,
-        tenant: { tenantId: form.tenantId },
         userType: form.userType,
-        department: { id: form.department.id },
-        domain: form.domain ? { id: form.domain.id, name: form.domain.domainName, domainCode: form.domain.domainCode } : null,
-        role: form.roleNames.length > 0 ? form.roleNames.map(r => r.roleCode).join(",") : "SUPER_ADMIN",
-        
+        department: { id: departmentId },
+        // No role keeps the login's current role (a new login gets none until one is assigned)
+        role: form.role || null,
         userDetails: {
           phoneNumber: form.userDetails.phoneNumber || form.phone,
           country: form.userDetails.country || form.permanentAddress.country?.label || "",
@@ -799,15 +753,24 @@ const AddEmployeePage: React.FC = () => {
 
       if (editId) {
         await axios.put(`${EMPLOYEE_API_URL}/update/${editId}`, submitData);
-        ToasterService.success("Employee updated successfully");
+        ToasterService.success("Employee updated");
       } else {
-        await axios.post(`${EMPLOYEE_API_URL}/create`, submitData);
-        ToasterService.success("Employee created successfully");
+        const res = await axios.post(`${EMPLOYEE_API_URL}/create`, submitData);
+        ToasterService.success(
+          res.data?.employeeCode ? `Employee ${res.data.employeeCode} added` : "Employee added",
+          `They sign in as ${res.data?.userDto?.username ?? form.officialEmail.toLowerCase()}`
+        );
       }
       navigate(-1);
     } catch (error) {
-      console.error("Submission error:", error);
-      ToasterService.error("Submission failed. Please review your data and try again.");
+      // Show a field's error under the field, on its step
+      const fieldErrors = apiFieldErrors(error);
+      const field = Object.keys(fieldErrors)[0];
+      if (field) {
+        setErrors(fieldErrors);
+        if (FIELD_STEPS[field]) setCurrentStep(FIELD_STEPS[field]);
+      }
+      ToasterService.error(apiError(error, editId ? "The employee could not be updated" : "The employee could not be added"));
     } finally {
       setIsSubmitting(false);
     }
@@ -863,7 +826,33 @@ const AddEmployeePage: React.FC = () => {
   const totalEarnings = form.salary.earnings.reduce((sum, e) => sum + e.amount, 0);
   const totalBenefits = form.salary.additionalBenefits.reduce((sum, b) => sum + b.amount, 0);
   // const totalCTC = totalEarnings + totalBenefits;
-  const totalCTC = form.salary.ctc;
+  const totalCTC = Number(form.salary.ctc) || 0;
+
+  // What the service will store for the designation: basic = CTC × basic %, HRA = basic × hra %
+  const components = payComponents.find((c) => c.employeeRole === form.designation)?.componentDetails;
+  const basicPercent = percentOf(components, "basic");
+  const hraPercent = percentOf(components, "hra");
+  const basicAmount = basicPercent != null ? Math.round(totalCTC * basicPercent) / 100 : null;
+  const hraAmount = basicAmount != null && hraPercent != null ? Math.round(basicAmount * hraPercent) / 100 : null;
+  // Monthly pay is (basic + HRA + earnings) / 12, so CTC left outside them is never paid
+  const unallocated =
+    basicAmount != null && hraAmount != null
+      ? Math.round((totalCTC - basicAmount - hraAmount - totalEarnings - totalBenefits) * 100) / 100
+      : null;
+  const designationOptions = payComponents.map((c) => c.employeeRole);
+  if (form.designation && !designationOptions.includes(form.designation)) designationOptions.unshift(form.designation);
+  const roleOptions = allRoles.map((r) => r.roleName);
+  if (form.role && !roleOptions.includes(form.role)) roleOptions.unshift(form.role);
+
+  const addUnallocatedAsSpecialAllowance = () => {
+    if (!unallocated || unallocated <= 0) return;
+    const existing = form.salary.earnings.findIndex((e) => e.name === "Special Allowance");
+    const earnings = [...form.salary.earnings];
+    if (existing >= 0) earnings[existing] = { ...earnings[existing], amount: earnings[existing].amount + unallocated };
+    else earnings.push({ name: "Special Allowance", amount: unallocated });
+    handleChange("salary.earnings", earnings);
+  };
+  const money = (value: number) => `${currencySymbol} ${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
 
   return (
@@ -1072,24 +1061,6 @@ const AddEmployeePage: React.FC = () => {
                           <option value="WIDOWED">Widowed</option>
                         </select>
                       </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">
-                          Tenant <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          value={form.tenantId}
-                          onChange={(e) => handleTenantChange(e.target.value)}
-                          className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors.tenantId ? "border-red-500" : "border-gray-300"}`}
-                        >
-                          <option value="">Select Tenant</option>
-                          {tenants.map((tenant) => (
-                            <option key={tenant.tenantId} value={tenant.tenantId}>
-                              {tenant.tenantName}
-                            </option>
-                          ))}
-                        </select>
-                        <ErrorMessage message={errors.tenantId} />
-                      </div>
                     </div>
 
                     <div>
@@ -1152,6 +1123,9 @@ const AddEmployeePage: React.FC = () => {
                           />
                         </div>
                         <ErrorMessage message={errors.officialEmail} />
+                        {!editId && !errors.officialEmail && (
+                          <p className="mt-0.5 text-[11px] text-gray-500">The employee signs in with this email</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1172,42 +1146,50 @@ const AddEmployeePage: React.FC = () => {
                         <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                           Designation <span className="text-red-500">*</span>
                         </label>
-                        <input
-                          type="text"
+                        {/* Pay is split by designation, so only designations with pay components can be chosen */}
+                        <select
                           value={form.designation}
                           onChange={(e) => handleChange("designation", e.target.value)}
-                          className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.designation ? "border-red-500" : "border-gray-300"}`}
-                          placeholder="e.g., Software Engineer, Product Manager"
-                        />
+                          className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors.designation ? "border-red-500" : "border-gray-300"}`}
+                        >
+                          <option value="">Select designation</option>
+                          {designationOptions.map((designation) => (
+                            <option key={designation} value={designation}>{designation}</option>
+                          ))}
+                        </select>
                         <ErrorMessage message={errors.designation} />
+                        {!errors.designation && (
+                          <p className="mt-0.5 text-[11px] text-gray-500">
+                            {designationOptions.length === 0
+                              ? "No designations yet. Add their pay components on the Compensation page first."
+                              : "Designations come from the pay components on the Compensation page"}
+                          </p>
+                        )}
                       </div>
 
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-0.5">
-                          Domain
+                          Login Role
                         </label>
                         <select
-                          value={form.domain?.id || ""}
-                          onChange={(e) => {
-                            const domain = filteredDomains.find(d => d.id === Number(e.target.value));
-                            handleChange("domain", domain || null);
-                          }}
-                          disabled={!form.tenantId || filteredDomains.length === 0}
-                          className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          value={form.role}
+                          onChange={(e) => handleChange("role", e.target.value)}
+                          disabled={rolesUnavailable && !form.role}
+                          className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white disabled:bg-gray-100 disabled:cursor-not-allowed ${errors.role ? "border-red-500" : "border-gray-300"}`}
                         >
-                          <option value="">
-                            {!form.tenantId
-                              ? "Select a tenant first"
-                              : filteredDomains.length === 0
-                                ? "No domains available for this tenant"
-                                : "Select Domain"}
-                          </option>
-                          {filteredDomains.map((domain) => (
-                            <option key={domain.id} value={domain.id}>
-                              {domain.domainName} ({domain.domainCode})
-                            </option>
+                          <option value="">{editId ? "Keep the current role" : "No role yet"}</option>
+                          {roleOptions.map((role) => (
+                            <option key={role} value={role}>{role}</option>
                           ))}
                         </select>
+                        <ErrorMessage message={errors.role} />
+                        {!errors.role && (
+                          <p className="mt-0.5 text-[11px] text-gray-500">
+                            {rolesUnavailable
+                              ? "Roles can be assigned later on the Users page"
+                              : "What the employee can do after signing in"}
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -1217,15 +1199,15 @@ const AddEmployeePage: React.FC = () => {
                           Department <span className="text-red-500">*</span>
                         </label>
                         <select
-                          value={isOtherDepartment ? -1 : form.department.id}
+                          value={isOtherDepartment ? -1 : form.department.id || ""}
                           onChange={(e) => handleDepartmentChange(Number(e.target.value))}
-                          className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white"
+                          className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors.department ? "border-red-500" : "border-gray-300"}`}
                         >
                           <option value="">Select Department</option>
                           {departments.map((dept) => (
                             <option key={dept.id} value={dept.id}>{dept.name}</option>
                           ))}
-                          <option value="-1">Other</option>
+                          <option value="-1">Other (new department)</option>
                         </select>
                         {isOtherDepartment && (
                           <input
@@ -1235,7 +1217,7 @@ const AddEmployeePage: React.FC = () => {
                               setCustomDepartment(e.target.value);
                               handleChange("department", { id: -1, name: e.target.value });
                             }}
-                            placeholder="Enter custom department"
+                            placeholder="New department name (created when you save)"
                             className="mt-1.5 w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                           />
                         )}
@@ -1320,23 +1302,6 @@ const AddEmployeePage: React.FC = () => {
                           className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                         />
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-0.5">
-                        Roles
-                      </label>
-                      <Select classNames={customClassNames}
-                        isMulti
-                        options={allRoles.map(role => ({ value: role.id, label: role.roleName }))}
-                        value={form.roleNames.map(role => ({ value: role.id, label: role.roleName }))}
-                        onChange={handleRoleNamesChange}
-                        className="react-select-container"
-                        classNamePrefix="react-select"
-                        placeholder="Select roles..."
-                        getOptionLabel={(option) => option.label}
-                        getOptionValue={(option) => option.value.toString()}
-                      />
                     </div>
                   </div>
                 </div>
@@ -1724,7 +1689,7 @@ const AddEmployeePage: React.FC = () => {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">PAN Number <span className="text-red-500">*</span></label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">PAN Number</label>
                           <input
                             type="text"
                             value={form.panNumber}
@@ -1735,16 +1700,27 @@ const AddEmployeePage: React.FC = () => {
                           <ErrorMessage message={(errors as any).panNumber} />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">Aadhaar Number <span className="text-red-500">*</span></label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">Aadhaar Number</label>
                           <input
                             type="text"
                             value={form.aadhaarNumber}
                             onChange={(e) => handleChange("aadhaarNumber", e.target.value.replace(/\D/g, ''))}
-                            maxLength={12}
+                            onFocus={() => {
+                              // The stored number is masked; typing replaces it with a new full number
+                              if (MASKED_AADHAAR.test(form.aadhaarNumber)) handleChange("aadhaarNumber", "");
+                            }}
+                            onBlur={() => {
+                              // Left empty: keep the stored number
+                              if (!form.aadhaarNumber && storedAadhaar) handleChange("aadhaarNumber", storedAadhaar);
+                            }}
+                            maxLength={MASKED_AADHAAR.test(form.aadhaarNumber) ? 14 : 12}
                             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${(errors as any).aadhaarNumber ? "border-red-500" : "border-gray-300"}`}
                             placeholder="123456789012"
                           />
                           <ErrorMessage message={(errors as any).aadhaarNumber} />
+                          {storedAadhaar && !(errors as any).aadhaarNumber && (
+                            <p className="mt-1 text-xs text-gray-500">Saved as {storedAadhaar}. Type the full number only to change it.</p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">PF Number</label>
@@ -1803,7 +1779,7 @@ const AddEmployeePage: React.FC = () => {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                          CTC Amount <span className="text-red-500">*</span>
+                          Yearly CTC <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
                           <span className="absolute left-3 top-2.5 text-gray-500">
@@ -1811,12 +1787,46 @@ const AddEmployeePage: React.FC = () => {
                           </span>
                           <input
                             type="number"
+                            min={0}
                             value={form.salary.ctc === 0 ? "" : form.salary.ctc}
                             onChange={(e) => handleChange("salary.ctc", Number(e.target.value))}
-                            className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
-                            placeholder="Enter CTC amount"
+                            className={`w-full pl-8 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors["salary.ctc"] ? "border-red-500" : "border-gray-300"}`}
+                            placeholder="e.g. 1200000"
                           />
                         </div>
+                        <ErrorMessage message={errors["salary.ctc"]} />
+                      </div>
+
+                      {/* The split the service stores, from the designation's pay components */}
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs" data-testid="ctc-split">
+                        {!form.designation ? (
+                          <p className="text-gray-500">Choose a designation (Employment step) to see the basic / HRA split.</p>
+                        ) : basicAmount == null || hraAmount == null ? (
+                          <p className="text-amber-700">
+                            {form.designation} has no basic % and HRA % yet. Set them on the Compensation page.
+                          </p>
+                        ) : (
+                          <div className="space-y-1">
+                            <div className="flex justify-between"><span className="text-gray-600">Basic ({basicPercent}% of CTC)</span><span className="font-medium text-gray-900">{money(basicAmount)}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-600">HRA ({hraPercent}% of basic)</span><span className="font-medium text-gray-900">{money(hraAmount)}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-600">Earnings below</span><span className="font-medium text-gray-900">{money(totalEarnings)}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-600">Benefits below</span><span className="font-medium text-gray-900">{money(totalBenefits)}</span></div>
+                            {unallocated != null && totalCTC > 0 && unallocated !== 0 && (
+                              <div className={`flex items-center justify-between gap-2 border-t border-gray-200 pt-1 ${unallocated > 0 ? "text-amber-700" : "text-red-600"}`}>
+                                <span>
+                                  {unallocated > 0
+                                    ? `${money(unallocated)} of the CTC is not paid out yet`
+                                    : `Over the CTC by ${money(-unallocated)}`}
+                                </span>
+                                {unallocated > 0 && (
+                                  <button type="button" onClick={addUnallocatedAsSpecialAllowance} className="shrink-0 text-cyan-700 hover:underline">
+                                    Add as Special Allowance
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1856,7 +1866,7 @@ const AddEmployeePage: React.FC = () => {
                                   type="number"
                                   value={earning.amount === 0 ? "" : earning.amount}
                                   onChange={(e) => handleEarningChange(idx, "amount", e.target.value)}
-                                  placeholder="Amount"
+                                  placeholder="Yearly amount"
                                   className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                                 />
                               </div>
@@ -1905,7 +1915,7 @@ const AddEmployeePage: React.FC = () => {
                                   type="number"
                                   value={benefit.amount === 0 ? "" : benefit.amount}
                                   onChange={(e) => handleAdditionalBenefitsChange(idx, "amount", e.target.value)}
-                                  placeholder="Amount"
+                                  placeholder="Yearly amount"
                                   className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                                 />
                               </div>
@@ -1962,12 +1972,12 @@ const AddEmployeePage: React.FC = () => {
                           <div className="text-gray-500">Location</div>
                           <div className="text-gray-900">{form.location}</div>
                         </div>
-                        <div className="text-sm">
-                          <div className="text-gray-500">Tenant</div>
-                          <div className="text-gray-900">
-                            {tenants.find(t => t.tenantId === form.tenantId)?.tenantName || form.tenantId}
+                        {!editId && (
+                          <div className="text-sm break-all">
+                            <div className="text-gray-500">Signs in as</div>
+                            <div className="text-gray-900">{(form.officialEmail || form.personalEmail).trim().toLowerCase()}</div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     </div>
 
@@ -1976,18 +1986,12 @@ const AddEmployeePage: React.FC = () => {
                       <div className="space-y-3">
                         <div className="text-sm">
                           <div className="text-gray-500">Joining Date</div>
-                          <div className="text-gray-900">{form.joiningDate?.toLocaleDateString()}</div>
+                          <div className="text-gray-900">{form.joiningDate?.toLocaleDateString("en-IN")}</div>
                         </div>
                         <div className="text-sm">
                           <div className="text-gray-500">Department</div>
                           <div className="text-gray-900">{form.department.name}</div>
                         </div>
-                        {form.domain && (
-                          <div className="text-sm">
-                            <div className="text-gray-500">Domain</div>
-                            <div className="text-gray-900">{form.domain.domainName}</div>
-                          </div>
-                        )}
                         {form.managerId && (
                           <div className="text-sm">
                             <div className="text-gray-500">Manager</div>
@@ -1997,12 +2001,12 @@ const AddEmployeePage: React.FC = () => {
                             </div>
                           </div>
                         )}
-                        {form.roleNames.length > 0 && (
-                          <div className="text-sm">
-                            <div className="text-gray-500">Roles</div>
-                            <div className="text-gray-900">{form.roleNames.map(r => r.roleName).join(", ")}</div>
+                        <div className="text-sm">
+                          <div className="text-gray-500">Login Role</div>
+                          <div className="text-gray-900">
+                            {form.role || (editId ? "Unchanged" : "None yet (assign on the Users page)")}
                           </div>
-                        )}
+                        </div>
                       </div>
                     </div>
 
@@ -2030,18 +2034,25 @@ const AddEmployeePage: React.FC = () => {
                       <h4 className="text-sm font-semibold text-gray-900">Salary Summary</h4>
                       <div className="space-y-3">
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Total CTC</span>
-                          <span className="font-semibold text-gray-900">
-                            {currencySymbol} {totalCTC.toLocaleString()}
-                          </span>
+                          <span className="text-gray-600">Yearly CTC</span>
+                          <span className="font-semibold text-gray-900">{money(totalCTC)}</span>
                         </div>
+                        {basicAmount != null && hraAmount != null && (
+                          <div className="text-sm">
+                            <div className="flex justify-between text-xs"><span>Basic</span><span>{money(basicAmount)}</span></div>
+                            <div className="flex justify-between text-xs"><span>HRA</span><span>{money(hraAmount)}</span></div>
+                          </div>
+                        )}
+                        {unallocated != null && unallocated > 0 && (
+                          <div className="text-xs text-amber-700">{money(unallocated)} of the CTC is not in basic, HRA, earnings or benefits</div>
+                        )}
                         {form.salary.earnings.length > 0 && (
                           <div className="text-sm">
                             <div className="text-gray-500 mb-1">Earnings:</div>
                             {form.salary.earnings.map((earning, idx) => (
                               <div key={idx} className="flex justify-between text-xs">
                                 <span>{earning.name}</span>
-                                <span>{currencySymbol} {earning.amount.toLocaleString()}</span>
+                                <span>{money(earning.amount)}</span>
                               </div>
                             ))}
                           </div>
@@ -2052,7 +2063,7 @@ const AddEmployeePage: React.FC = () => {
                             {form.salary.additionalBenefits.map((benefit, idx) => (
                               <div key={idx} className="flex justify-between text-xs">
                                 <span>{benefit.name}</span>
-                                <span>{currencySymbol} {benefit.amount.toLocaleString()}</span>
+                                <span>{money(benefit.amount)}</span>
                               </div>
                             ))}
                           </div>

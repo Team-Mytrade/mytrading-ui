@@ -25,9 +25,17 @@ import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { apiError } from "../../utils/apiError";
 
 // API endpoints
 const COMPENSATION_API_URL = "/v1/api/payroll/employee";
+
+// Payroll uses two components: basic as a % of the yearly CTC and HRA as a % of basic (other names are kept for reference)
+const STANDARD_COMPONENTS = [{ name: "Basic", percentage: 0 }, { name: "HRA", percentage: 0 }];
+const componentLabel = (name: string) =>
+    name.trim().toLowerCase() === "basic" ? "Basic" : name.trim().toLowerCase() === "hra" ? "HRA" : name;
+const componentBase = (name: string) =>
+    name.trim().toLowerCase() === "basic" ? " of CTC" : name.trim().toLowerCase() === "hra" ? " of basic" : "";
 
 // Types
 interface ComponentDetail {
@@ -64,7 +72,7 @@ const EmployeeCompensationPage: React.FC = () => {
     // Form state
     const [formData, setFormData] = useState<CompensationFormData>({
         employeeRole: "",
-        components: [{ name: "", percentage: 0 }],
+        components: STANDARD_COMPONENTS.map((c) => ({ ...c })),
         isDefaultComponent: false,
     });
 
@@ -147,7 +155,7 @@ const EmployeeCompensationPage: React.FC = () => {
     const resetForm = () => {
         setFormData({
             employeeRole: "",
-            components: [{ name: "", percentage: 0 }],
+            components: STANDARD_COMPONENTS.map((c) => ({ ...c })),
             isDefaultComponent: false,
         });
         setEditingRole(null);
@@ -187,6 +195,12 @@ const EmployeeCompensationPage: React.FC = () => {
             return;
         }
 
+        const names = formData.components.map((c) => c.name.trim().toLowerCase());
+        if (!names.includes("basic") || !names.includes("hra")) {
+            ToasterService.error("Add a Basic % and an HRA %", "Payroll splits each employee's CTC with these two");
+            return;
+        }
+
         // Build payload
         const componentDetails: ComponentDetail = {};
         formData.components.forEach((c) => {
@@ -212,8 +226,7 @@ const EmployeeCompensationPage: React.FC = () => {
             fetchCompensations();
             resetForm();
         } catch (err: any) {
-            console.error("Error saving compensation:", err);
-            ToasterService.error(err.response?.data?.message || "Operation failed");
+            ToasterService.error(apiError(err, "The pay components could not be saved"));
         }
     };
 
@@ -248,8 +261,7 @@ const EmployeeCompensationPage: React.FC = () => {
             ToasterService.success("Compensation deleted successfully");
             fetchCompensations();
         } catch (err: any) {
-            console.error("Error deleting compensation:", err);
-            ToasterService.error(err.response?.data?.message || "Delete failed");
+            ToasterService.error(apiError(err, "The pay components could not be deleted"));
         }
     };
 
@@ -367,23 +379,12 @@ const EmployeeCompensationPage: React.FC = () => {
                     <div className="flex flex-wrap gap-1.5 py-1">
                         {entries.map(([name, pct]) => (
                             <span key={name} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-50 dark:bg-[#222222] text-gray-800 dark:text-gray-300 border border-gray-200 dark:border-transparent shadow-2xsm">
-                                <span className="font-semibold text-gray-600 dark:text-gray-400 mr-1">{name}:</span> {String(pct).endsWith('%') ? pct : `${pct}%`}
+                                <span className="font-semibold text-gray-600 dark:text-gray-400 mr-1">{componentLabel(name)}:</span> {String(pct).replace(/%$/, "")}%{componentBase(name)}
                             </span>
                         ))}
                     </div>
                 );
             },
-        },
-        {
-            key: "total",
-            label: "Total %",
-            sortable: true,
-            sortValueGetter: (row) => parseFloat(String(row.total)) || 0,
-            render: (row) => (
-                <span className="font-bold text-cyan-700 dark:text-gray-300 bg-cyan-50 dark:bg-transparent px-2.5 py-1 rounded-full text-xs border border-cyan-100 dark:border-transparent">
-                    {row.total}
-                </span>
-            ),
         },
         {
             key: "actions",
@@ -498,7 +499,7 @@ const EmployeeCompensationPage: React.FC = () => {
                             {/* Role Input */}
                             <div className="mb-6">
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Employee Role <span className="text-red-500">*</span>
+                                    Designation <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="text"
@@ -508,7 +509,7 @@ const EmployeeCompensationPage: React.FC = () => {
                                     className="w-full px-4 py-2 border border-gray-300 dark:border-transparent rounded-lg bg-white dark:bg-[#222222] text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                                     disabled={!!editingRole}
                                 />
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Enter the employee role name</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Employees with this designation get this split; it appears in the Add Employee form</p>
                             </div>
 
                             {/* Components Table */}
@@ -579,11 +580,8 @@ const EmployeeCompensationPage: React.FC = () => {
                                         </tbody>
                                         <tfoot className="bg-gray-50 dark:bg-[#222222]">
                                             <tr>
-                                                <td colSpan={2} className="px-4 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                    Total:
-                                                </td>
-                                                <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 dark:text-white">
-                                                    {formData.components.reduce((sum, c) => sum + c.percentage, 0)}%
+                                                <td colSpan={3} className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">
+                                                    Basic is a % of the yearly CTC and HRA a % of basic. Other components are kept for reference only.
                                                 </td>
                                             </tr>
                                         </tfoot>
@@ -633,12 +631,9 @@ const EmployeeCompensationPage: React.FC = () => {
                                             </div>
                                         </div>
                                     ))}
-                                    <div className="flex justify-between items-center pt-2">
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total:</span>
-                                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                                            {formData.components.reduce((sum, c) => sum + c.percentage, 0)}%
-                                        </span>
-                                    </div>
+                                    <p className="pt-2 text-xs text-gray-600 dark:text-gray-400">
+                                        Basic is a % of the yearly CTC and HRA a % of basic. Other components are kept for reference only.
+                                    </p>
                                 </div>
                             </div>
 

@@ -27,6 +27,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { usePermissions } from "../../access/usePermissions";
+import { apiError } from "../../utils/apiError";
 
 const API_URL = "/v1/api/payroll/department";
 
@@ -87,8 +88,7 @@ const EmployeeDepartmentsPage: React.FC = () => {
         fetchDepartments();
       }
     } catch (err: any) {
-      console.error("Error creating department:", err);
-      ToasterService.error(err.response?.data?.message || "Failed to create department");
+      ToasterService.error(apiError(err, "Failed to create department"));
     }
   };
 
@@ -113,8 +113,7 @@ const EmployeeDepartmentsPage: React.FC = () => {
         fetchDepartments();
       }
     } catch (err: any) {
-      console.error("Error updating department:", err);
-      ToasterService.error(err.response?.data?.message || "Failed to update department");
+      ToasterService.error(apiError(err, "Failed to update department"));
     }
   };
 
@@ -131,8 +130,7 @@ const EmployeeDepartmentsPage: React.FC = () => {
       ToasterService.success("Department deleted successfully");
       fetchDepartments();
     } catch (err: any) {
-      console.error("Error deleting department:", err);
-      ToasterService.error(err.response?.data?.message || "Failed to delete department");
+      ToasterService.error(apiError(err, "Failed to delete department"));
     }
   };
 

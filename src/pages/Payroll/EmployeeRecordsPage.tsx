@@ -39,6 +39,7 @@ import {
 } from "../../shared/types/employee.types";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { apiError } from "../../utils/apiError";
 
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 const DEPARTMENT_API_URL = "/v1/api/payroll/department";
@@ -160,18 +161,19 @@ const EmployeeRecordsPage: React.FC = () => {
     }, []);
 
     const handleDelete = async (id: number) => {
+        // The service keeps the record and marks the employee inactive
         const ok = await confirm({
-            message: "Are you sure you want to delete this employee record? This action cannot be undone.",
-            confirmLabel: "Delete",
+            message: "Deactivate this employee? Their record stays, marked inactive.",
+            confirmLabel: "Deactivate",
             variant: "danger",
         });
         if (!ok) return;
         try {
             await axios.delete(`${EMPLOYEE_API_URL}/delete/${id}`);
-            ToasterService.success("Employee deleted successfully");
+            ToasterService.success("Employee deactivated");
             fetchEmployees();
         } catch (err: any) {
-            ToasterService.error(err.response?.data?.message || "Delete failed");
+            ToasterService.error(apiError(err, "The employee could not be deactivated"));
         }
     };
 
