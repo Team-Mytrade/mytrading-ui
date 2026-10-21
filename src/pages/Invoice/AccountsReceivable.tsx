@@ -1,299 +1,273 @@
-import React, { useEffect, useState, ChangeEvent, FormEvent, useMemo } from "react";
-import PaginatedPopup from "../../components/common/unpopup";
+import React, { useEffect, useMemo, useState, FormEvent } from "react";
 import axios from "axios";
-import {
-  PencilSquareIcon,
-  TrashIcon,
-  MagnifyingGlassIcon,
-  XMarkIcon,
-  BuildingOffice2Icon,
-  CreditCardIcon,
-} from "@heroicons/react/24/outline";
+import { BuildingOffice2Icon, ChartBarIcon, DocumentMagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
-import DynamicPopup from "../../components/common/Popup";
-import StatsCard from "../../components/common/Statscard";
-import { AddButton } from "../../components/common/AddButton";
-import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import FilterPopover from "../../components/common/filter";
-import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
-import { usePermissions } from "../../access/usePermissions";
+import Dragger from "../../components/common/Dragger";
+import StatsCardFilter, { StatsCardOption, StatsCardTone, useStatsCardFilter } from "../../components/common/StatsCardFilter";
+import { ICON_BUTTON_CLASS } from "../../components/common/CloseButton";
+import ReusableTable, { ColumnDef, formatDisplayDate, formatMoney } from "../../components/common/Table";
+import { FloatingDatePicker } from "../../components/inputfeild/FloatingInput";
+import SearchableSelect from "../../components/inputfeild/SearchableSelect";
+import { formatEnumLabel } from "./invoiceEnums";
+import { todayIso } from "../../utils/localDate";
 
-interface AccountsReceivable {
+/* ------------------------------------------------------------------ */
+/* Types (match the Swagger for /v1/api/invoice/accounts-receivable)   */
+/* ------------------------------------------------------------------ */
+
+interface Receivable {
   id: number;
+  invoiceId?: number;
+  invoiceNumber?: string;
   customerId?: number;
-  invoiceAmount?: number;
+  customerCode?: string;
+  customerName?: string;
+  originalAmount?: number;
   amountPaid?: number;
-  balance?: number;
-  accountsReceivableStatus?: string;
+  balanceAmount?: number;
   invoiceDate?: string;
   dueDate?: string;
-  invoiceNumber?: string;
-  customerName?: string;
-  invoiceId?: number;
+  lastPaymentDate?: string;
+  status?: string;
+  createdDate?: string;
+  updatedDate?: string;
 }
 
-const API_BASE = "/v1/api/invoice/accounts-receivable";
+/** GET /customer/{customerId}/outstanding */
+interface OutstandingInvoice {
+  invoiceId: number;
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  dueDate?: string;
+  originalAmount?: number;
+  creditedAmount?: number;
+  cashPaid?: number;
+  creditApplied?: number;
+  outstandingAmount?: number;
+  status?: string;
+  overdueDays?: number;
+}
+
+/** GET /aging?customerId=&asOfDate= */
+interface AgingReport {
+  asOfDate?: string;
+  customerId?: number;
+  totalOutstanding?: number;
+  buckets?: { bucket: string; invoiceCount?: number; outstandingAmount?: number }[];
+}
+
+/* ------------------------------------------------------------------ */
+/* Settings                                                            */
+/* ------------------------------------------------------------------ */
+
+const API_URL = "/v1/api/invoice/accounts-receivable";
 const PAGE_SIZE = 10;
+// Status values from the Swagger (no enum API type for this list)
+const STATUSES = ["OPEN", "PARTIALLY_PAID", "PAID", "OVERDUE", "CANCELLED"];
 
-const STATUS_OPTIONS = [
-  { id: "OPEN", name: "OPEN" },
-  { id: "PARTIALLY_PAID", name: "PARTIALLY_PAID" },
-  { id: "PAID", name: "PAID" },
-  { id: "OVERDUE", name: "OVERDUE" },
-  { id: "OTHER", name: "OTHER" },
-];
-
-const getStatusBadgeClass = (status?: string) => {
+const toneForStatus = (status?: string): StatsCardTone => {
   switch (status) {
     case "PAID":
-      return "bg-emerald-50 text-emerald-700 border-emerald-200/40";
-    case "PARTIALLY_PAID":
-      return "bg-yellow-50 text-yellow-700 border-yellow-200/40";
+      return "green";
     case "OPEN":
-      return "bg-blue-50 text-blue-700 border-blue-200/40";
+      return "blue";
+    case "PARTIALLY_PAID":
+      return "amber";
     case "OVERDUE":
-      return "bg-red-50 text-red-700 border-red-200/40";
+    case "CANCELLED":
+      return "red";
     default:
-      return "bg-gray-100 text-gray-600 border-gray-200";
+      return "slate";
   }
 };
 
+const BADGE_CLASS: Record<StatsCardTone, string> = {
+  green: "bg-emerald-50 text-emerald-700 border-emerald-200/40",
+  blue: "bg-blue-50 text-blue-700 border-blue-200/40",
+  amber: "bg-yellow-50 text-yellow-700 border-yellow-200/40",
+  red: "bg-red-50 text-red-700 border-red-200/40",
+  cyan: "bg-cyan-50 text-cyan-700 border-cyan-200/40",
+  slate: "bg-gray-50 text-gray-700 border-gray-200/40",
+};
+
+const asArray = <T,>(value: any): T[] => {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.data)) return value.data;
+  if (Array.isArray(value?.content)) return value.content;
+  return [];
+};
+
+const apiError = (err: any, fallback: string) => err?.response?.data?.message || err?.response?.data?.error || fallback;
+
+const statusLabel = (code?: string) => (code ? formatEnumLabel(code) : "--");
+
+const customerText = (r: { customerCode?: string; customerName?: string; customerId?: number }) =>
+  [r.customerCode, r.customerName].filter(Boolean).join(" – ") || (r.customerId ? `Customer #${r.customerId}` : "--");
+
+const StatusBadge = ({ status }: { status?: string }) => (
+  <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full border ${BADGE_CLASS[toneForStatus(status)]}`}>
+    {statusLabel(status)}
+  </span>
+);
+
+/* ------------------------------------------------------------------ */
+/* Page                                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Accounts receivable is created and updated by the backend from invoices and receipts.
+ * The API is read-only, so this page shows the list, an aging report and a customer statement.
+ */
 const AccountsReceivable: React.FC = () => {
-  const { canCreate, canUpdate, canDelete } = usePermissions();
-  const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-
-  const [accounts, setAccounts] = useState<AccountsReceivable[]>([]);
-  const [form, setForm] = useState<Partial<AccountsReceivable>>({});
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [showFormModal, setShowFormModal] = useState(false);
-  const [showDeletePopup, setShowDeletePopup] = useState(false);
-  const [accountToDelete, setAccountToDelete] = useState<AccountsReceivable | null>(null);
+  const [receivables, setReceivables] = useState<Receivable[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [invoices, setInvoices] = useState<{id:number;invoiceNumber?:string;customerId?:number}[]>([]);
-  const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState("ALL");
 
-  useEffect(() => {
-    fetchAccounts();
-    axios.get("/v1/api/invoice/invoices", { headers }).then(r => setInvoices(Array.isArray(r.data) ? r.data : [])).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Aging & customer statement popup
+  const [showReport, setShowReport] = useState(false);
+  const [reportCustomerId, setReportCustomerId] = useState("");
+  const [asOfDate, setAsOfDate] = useState("");
+  const [aging, setAging] = useState<AgingReport | null>(null);
+  const [statement, setStatement] = useState<OutstandingInvoice[] | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
 
-  const fetchAccounts = async () => {
+  /* ---------------- Load ---------------- */
+
+  const fetchReceivables = async () => {
     try {
       setIsLoading(true);
-      let data: unknown = null;
-      try {
-        const res = await axios.get(API_BASE, { headers });
-        data = res.data;
-      } catch {
-        const res = await axios.get(`${API_BASE}/overdue`, { headers });
-        data = res.data;
-      }
-      setAccounts(Array.isArray(data) ? (data as AccountsReceivable[]) : []);
+      const res = await axios.get(API_URL);
+      setReceivables(asArray<Receivable>(res.data).map((r) => ({ ...r, customerName: r.customerName })));
     } catch (err) {
       console.error("Error fetching accounts receivable", err);
       ToasterService.error("Failed to load accounts receivable");
-      setAccounts([]);
+      setReceivables([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
+  useEffect(() => {
+    fetchReceivables();
+    // Toolbar Refresh icon reloads the list
+    const reload = () => fetchReceivables();
+    window.addEventListener("reusable-table:refresh", reload);
+    return () => window.removeEventListener("reusable-table:refresh", reload);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!form.customerName?.trim()) {
-      ToasterService.error("Customer name is required");
-      return;
-    }
-    setSubmitting(true);
+  /** Customers found in the receivables list. */
+  const customers = useMemo(() => {
+    const map = new Map<number, string>();
+    receivables.forEach((r) => r.customerId && !map.has(r.customerId) && map.set(r.customerId, customerText(r)));
+    return [...map.entries()].map(([id, name]) => ({ value: String(id), label: name })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [receivables]);
+
+  /* ---------------- Cards: Total + one per status found ---------------- */
+
+  const cards = useMemo<StatsCardOption<Receivable>[]>(() => {
+    const present = new Set(receivables.map((r) => r.status).filter(Boolean) as string[]);
+    const ordered = [...STATUSES.filter((s) => present.has(s)), ...[...present].filter((s) => !STATUSES.includes(s))];
+    return [
+      { key: "ALL", label: "Total Receivables", match: () => true, tone: "cyan" },
+      ...ordered.map((code) => ({
+        key: code,
+        label: statusLabel(code),
+        match: (r: Receivable) => r.status === code,
+        tone: toneForStatus(code),
+      })),
+    ];
+  }, [receivables]);
+  const { filteredRows, cardFilterProps, selected } = useStatsCardFilter(receivables, cards);
+
+  /* ---------------- Aging & statement ---------------- */
+
+  /** Opens the popup; from a row it is already set to that customer. */
+  const openReport = (customerId?: number) => {
+    setReportCustomerId(customerId ? String(customerId) : "");
+    setAsOfDate(todayIso());
+    setAging(null);
+    setStatement(null);
+    setShowReport(true);
+    if (customerId) loadReport(String(customerId), todayIso());
+  };
+
+  const loadReport = async (customerId: string, date: string) => {
+    setReportLoading(true);
     try {
-      const payload: Record<string, unknown> = {
-        customerId: form.customerId ? Number(form.customerId) : undefined,
-        invoiceAmount: form.invoiceAmount ? Number(form.invoiceAmount) : undefined,
-        amountPaid: form.amountPaid ? Number(form.amountPaid) : undefined,
-        balance: form.invoiceAmount && form.amountPaid ? Number(form.invoiceAmount) - Number(form.amountPaid) : undefined,
-        accountsReceivableStatus: form.accountsReceivableStatus,
-        invoiceDate: form.invoiceDate,
-        dueDate: form.dueDate,
-      };
-      if (form.invoiceId) payload.invoice = { id: Number(form.invoiceId) };
-      const res =
-        editingId !== null
-          ? await axios.put(`${API_BASE}/${editingId}`, payload, { headers })
-          : await axios.post(API_BASE, payload, { headers });
-      if (res.status === 200 || res.status === 201) {
-        ToasterService.success(editingId !== null ? "Account updated successfully!" : "Account added successfully!");
-        setShowFormModal(false);
-        setForm({});
-        setEditingId(null);
-        await fetchAccounts();
-      }
-    } catch (err: any) {
-      console.error("Error submitting account", err);
-      ToasterService.error(err?.response?.data?.error || "Failed to save account");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleEdit = (account: AccountsReceivable) => {
-    setForm(account);
-    setEditingId(account.id);
-    setShowFormModal(true);
-  };
-
-  const openCreate = () => {
-    setShowFormModal(true);
-    setForm({});
-    setEditingId(null);
-  };
-
-  const closeModal = () => {
-    setShowFormModal(false);
-    setEditingId(null);
-    setForm({});
-  };
-
-  const handleDelete = (account: AccountsReceivable) => {
-    setAccountToDelete(account);
-    setShowDeletePopup(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!accountToDelete) return;
-    try {
-      await axios.delete(`${API_BASE}/${accountToDelete.id}`, { headers });
-      ToasterService.success("Account deleted successfully!");
-      setShowDeletePopup(false);
-      setAccountToDelete(null);
-      fetchAccounts();
+      const [agingRes, statementRes] = await Promise.all([
+        axios.get<AgingReport>(`${API_URL}/aging`, {
+          params: { customerId: customerId ? Number(customerId) : undefined, asOfDate: date || undefined },
+        }),
+        customerId ? axios.get(`${API_URL}/customer/${customerId}/outstanding`) : Promise.resolve(null),
+      ]);
+      setAging(agingRes.data || null);
+      setStatement(statementRes ? asArray<OutstandingInvoice>(statementRes.data) : null);
     } catch (err) {
-      console.error("Error deleting account", err);
-      ToasterService.error("Failed to delete account");
+      console.error("Error loading aging report", err);
+      ToasterService.error(apiError(err, "Failed to load the aging report"));
+    } finally {
+      setReportLoading(false);
     }
   };
 
-  const filteredAccounts = useMemo(() => {
-    return accounts.filter((account) => {
-      const term = search.toLowerCase();
-      const matchesSearch =
-        (account.customerName || "").toLowerCase().includes(term) ||
-        (account.invoiceNumber || "").toLowerCase().includes(term);
+  const submitReport = (e: FormEvent) => {
+    e.preventDefault();
+    loadReport(reportCustomerId, asOfDate);
+  };
 
-      let matchesFilter = true;
-      if (activeFilter !== "ALL") {
-        matchesFilter = (account.accountsReceivableStatus || "") === activeFilter;
-      }
+  /* ---------------- Table ---------------- */
 
-      return matchesSearch && matchesFilter;
-    });
-  }, [accounts, search, activeFilter]);
+  const money = (key: "originalAmount" | "amountPaid" | "balanceAmount", label: string, bold = false): ColumnDef<Receivable> => ({
+    key,
+    label,
+    sortable: true,
+    filterable: false,
+    headerClassName: "text-right",
+    className: "text-right",
+    sortValueGetter: (r) => Number(r[key] || 0),
+    detailFormatter: (r) => formatMoney(Number(r[key] || 0)),
+    exportValueGetter: (r) => formatMoney(Number(r[key] || 0)),
+    render: (r) => <span className={`text-sm ${bold ? "font-semibold text-slate-700" : "text-slate-600"}`}>{formatMoney(Number(r[key] || 0))}</span>,
+  });
 
-  const stats = useMemo(
-    () => ({
-      total: accounts.length,
-      overdue: accounts.filter((a) => a.accountsReceivableStatus === "OVERDUE").length,
-      paid: accounts.filter((a) => a.accountsReceivableStatus === "PAID").length,
-      totalBalance: accounts.reduce((sum, a) => sum + Number(a.balance || 0), 0),
-    }),
-    [accounts]
-  );
+  const date = (key: "invoiceDate" | "dueDate" | "lastPaymentDate", label: string): ColumnDef<Receivable> => ({
+    key,
+    label,
+    sortable: true,
+    exportValueGetter: (r) => (r[key] ? formatDisplayDate(r[key] as string) : ""),
+    render: (r) => <span className="text-sm text-slate-600">{r[key] ? formatDisplayDate(r[key] as string) : "--"}</span>,
+  });
 
-  const tableColumns: ColumnDef<AccountsReceivable>[] = [
+  const tableColumns: ColumnDef<Receivable>[] = [
     {
       key: "customerName",
       label: "Customer",
       sortable: true,
-      headerClassName: "w-[18%] text-left",
-      className: "w-[18%]",
-      render: (account) => (
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
-            <span className="text-sm font-semibold text-cyan-700">
-              {account.customerName ? account.customerName.charAt(0).toUpperCase() : "A"}
-            </span>
-          </div>
-          <span className="text-sm font-semibold text-slate-900 truncate leading-snug">
-            {account.customerName || "Unnamed Customer"}
-          </span>
-        </div>
-      ),
+      sortValueGetter: (r) => customerText(r),
+      exportValueGetter: (r) => customerText(r),
+      render: (r) => <span className="block truncate text-sm font-semibold text-slate-900">{customerText(r)}</span>,
     },
     {
       key: "invoiceNumber",
       label: "Invoice",
       sortable: true,
-      headerClassName: "w-[14%] text-left",
-      className: "w-[14%]",
-      render: (account) => (
-        <span className="text-sm text-slate-600 truncate">{account.invoiceNumber || "N/A"}</span>
-      ),
+      render: (r) => <span className="text-sm text-slate-600">{r.invoiceNumber || "--"}</span>,
     },
+    date("invoiceDate", "Invoice Date"),
+    date("dueDate", "Due Date"),
+    money("originalAmount", "Amount", true),
+    money("amountPaid", "Paid"),
+    money("balanceAmount", "Balance", true),
     {
-      key: "invoiceAmount",
-      label: "Invoice Amount",
-      sortable: true,
-      headerClassName: "w-[12%] text-right",
-      className: "w-[12%] text-right",
-      sortValueGetter: (account) => Number(account.invoiceAmount || 0),
-      render: (account) => (
-        <span className="text-sm text-slate-600">{Number(account.invoiceAmount || 0).toLocaleString()}</span>
-      ),
-    },
-    {
-      key: "amountPaid",
-      label: "Amount Paid",
-      sortable: true,
-      headerClassName: "w-[12%] text-right",
-      className: "w-[12%] text-right",
-      sortValueGetter: (account) => Number(account.amountPaid || 0),
-      render: (account) => (
-        <span className="text-sm text-slate-600">{Number(account.amountPaid || 0).toLocaleString()}</span>
-      ),
-    },
-    {
-      key: "balance",
-      label: "Balance",
-      sortable: true,
-      headerClassName: "w-[12%] text-right",
-      className: "w-[12%] text-right",
-      sortValueGetter: (account) => Number(account.balance || 0),
-      render: (account) => (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200/40">
-          <CreditCardIcon className="h-3.5 w-3.5 text-cyan-600 opacity-80" />
-          {Number(account.balance || 0).toLocaleString()}
-        </span>
-      ),
-    },
-    {
-      key: "dueDate",
-      label: "Due Date",
-      sortable: true,
-      headerClassName: "w-[12%] text-left",
-      className: "w-[12%]",
-      render: (account) => (
-        <span className="text-sm text-slate-600 truncate">{account.dueDate || "N/A"}</span>
-      ),
-    },
-    {
-      key: "accountsReceivableStatus",
+      key: "status",
       label: "Status",
       sortable: true,
-      headerClassName: "w-[12%] text-center",
-      className: "w-[12%] text-center",
-      render: (account) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full border ${getStatusBadgeClass(account.accountsReceivableStatus)}`}>
-          {account.accountsReceivableStatus || "N/A"}
-        </span>
-      ),
+      filterOptions: STATUSES.map((s) => ({ label: statusLabel(s), value: s })),
+      detailFormatter: (r) => statusLabel(r.status),
+      exportValueGetter: (r) => statusLabel(r.status),
+      render: (r) => <StatusBadge status={r.status} />,
     },
     {
       key: "actions",
@@ -301,230 +275,181 @@ const AccountsReceivable: React.FC = () => {
       sortable: false,
       headerClassName: "w-[8%] text-right pr-4",
       className: "w-[8%] text-right",
-      render: (account) => (
+      render: (r) => (
         <div className="flex items-center justify-end gap-0.5">
-          {canUpdate && (<button
-            type="button"
-            onClick={() => handleEdit(account)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit Account"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>)}
-          {canDelete && (<button
-            type="button"
-            onClick={() => handleDelete(account)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-            title="Delete Account"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>)}
+          {r.customerId && (
+            <button
+              type="button"
+              onClick={() => openReport(r.customerId)}
+              className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+              title="Customer statement & aging"
+            >
+              <DocumentMagnifyingGlassIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },
   ];
 
+  const statementTotal = (statement || []).reduce((sum, s) => sum + Number(s.outstandingAmount || 0), 0);
+
   return (
     <>
-      <PageMeta title="Accounts Receivable" description="Manage accounts receivable" />
-      <PageBreadcrumb pageTitle="Accounts Receivable" />
+      <PageMeta title="Accounts Receivable" description="What customers owe, aging and statements" />
+      <PageBreadcrumb
+        className="mr-4"
+        pageTitle="Accounts Receivable"
+        actions={
+          <button
+            type="button"
+            onClick={() => openReport()}
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-cyan-200 bg-white px-3 text-sm font-medium text-cyan-700 transition hover:bg-cyan-50 dark:border-cyan-800 dark:bg-gray-900 dark:text-cyan-300"
+          >
+            <ChartBarIcon className="h-4 w-4" />
+            Aging Report
+          </button>
+        }
+      />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Account" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatsCard
-            label="Total Accounts"
-            value={stats.total}
-            gradient="from-cyan-50 to-blue-50"
-            borderColor="border-cyan-100"
-            labelColor="text-cyan-600"
-          />
-          <StatsCard
-            label="Overdue"
-            value={stats.overdue}
-            gradient="from-red-50 to-rose-50"
-            borderColor="border-red-100"
-            labelColor="text-red-600"
-          />
-          <StatsCard
-            label="Paid"
-            value={stats.paid}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-          />
-          <StatsCard
-            label="Total Balance"
-            value={stats.totalBalance}
-            gradient="from-purple-50 to-pink-50"
-            borderColor="border-purple-100"
-            labelColor="text-purple-600"
-          />
-        </div>
+      {/* Same wrapper as Payment Terms (no py), so the spacing matches */}
+      <div className="w-full max-w-none px-0">
+        <div className="px-3">
+          <StatsCardFilter {...cardFilterProps} />
 
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search accounts by customer or invoice..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); }}
-                className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-              {search && (
-                <button
-                  onClick={() => { setSearch(""); }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-4 w-4" />
+          <ReusableTable
+            data={filteredRows}
+            columns={tableColumns}
+            pageSize={PAGE_SIZE}
+            defaultSortKey="dueDate"
+            defaultSortOrder="asc"
+            loading={isLoading}
+            rowDetailsTitle={(r) => `Receivable – ${r.invoiceNumber || ""}`}
+            rowDetailsSubtitle="Updated automatically from invoices and receipts"
+            suspendRowDetails={showReport}
+            rowDetailsActions={(r: Receivable) =>
+              r.customerId ? (
+                <button type="button" onClick={() => openReport(r.customerId)} className={ICON_BUTTON_CLASS} title="Customer statement & aging" aria-label="Customer statement and aging">
+                  <DocumentMagnifyingGlassIcon className="h-5 w-5" aria-hidden="true" />
                 </button>
-              )}
-            </div>
-          </div>
+              ) : null
+            }
+            emptyState={
+              <div className="flex flex-col items-center justify-center py-12">
+                <BuildingOffice2Icon className="h-12 w-12 text-gray-400 mb-3" />
+                <p className="text-gray-500 text-sm mb-2">No receivables found</p>
+                <p className="text-gray-400 text-xs">
+                  {selected !== "ALL" ? "Click the selected card again to show all receivables" : "Receivables appear here when sales invoices are issued"}
+                </p>
+              </div>
+            }
+          />
+        </div>
 
-          <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
-            <FilterPopover
-              title="Filter Accounts"
-              buttonLabel="Filters"
-              label="Filter by Status"
-              value={activeFilter}
-              options={[
-                { label: "All Accounts", value: "ALL" },
-                { label: "Open", value: "OPEN" },
-                { label: "Partially Paid", value: "PARTIALLY_PAID" },
-                { label: "Paid", value: "PAID" },
-                { label: "Overdue", value: "OVERDUE" },
-              ]}
-              onChange={setActiveFilter}
-              onReset={() => setActiveFilter("ALL")}
-              onApply={() => undefined}
+        {/* Aging (GET /aging) + customer statement (GET /customer/{id}/outstanding) */}
+        <Dragger
+          isOpen={showReport}
+          variant="modal"
+          title="Aging Report"
+          subtitle="How long invoices have been unpaid. Choose a customer to also see their statement."
+          onClose={() => setShowReport(false)}
+          onSubmit={submitReport}
+          submitting={reportLoading}
+          submitLabel="Show Report"
+        >
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <SearchableSelect
+              label="Customer"
+              value={reportCustomerId}
+              options={customers}
+              onChange={(value: string | number) => setReportCustomerId(String(value ?? ""))}
+              placeholder="All customers"
+              emptyOptionLabel="All customers"
             />
+            <FloatingDatePicker label="As of Date" name="asOfDate" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)} />
           </div>
-        </div>
 
-        <ReusableTable
-          data={filteredAccounts}
-          columns={tableColumns}
-          pageSize={PAGE_SIZE}
-          defaultSortKey="customerName"
-          defaultSortOrder="asc"
-          loading={isLoading}
-          emptyState={
-            <div className="flex flex-col items-center justify-center py-12">
-              <BuildingOffice2Icon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No accounts receivable found</p>
-              {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
+          {aging && (
+            <div className="mb-4 space-y-3">
+              <div className="flex items-center justify-between rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-100">
+                <span>Total outstanding{aging.asOfDate ? ` as of ${formatDisplayDate(aging.asOfDate)}` : ""}</span>
+                <strong>{formatMoney(Number(aging.totalOutstanding || 0))}</strong>
+              </div>
+              {aging.buckets?.length ? (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                  {aging.buckets.map((b) => (
+                    <div key={b.bucket} className="rounded-lg border border-slate-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
+                      <span className="block text-xs text-slate-500">{b.bucket}</span>
+                      <strong className="block text-slate-800 dark:text-gray-100">{formatMoney(Number(b.outstandingAmount || 0))}</strong>
+                      <span className="text-xs text-slate-400">
+                        {b.invoiceCount || 0} invoice{b.invoiceCount === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               ) : (
-                canCreate && <button
-                  type="button"
-                  onClick={() => openCreate()}
-                  className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
-                >
-                  Create your first account
-                </button>
+                <p className="text-sm text-slate-500">Nothing outstanding.</p>
               )}
             </div>
-          }
-        />
+          )}
 
-        <PaginatedPopup
-          isOpen={showFormModal}
-          title={editingId !== null ? "Edit Account" : "Create New Account"}
-          subtitle={editingId !== null ? "Update your account details" : "Add a new account"}
-          onClose={closeModal}
-          onSubmit={handleSubmit}
-          submitting={submitting}
-          submitLabel={editingId !== null ? "Update Account" : "Create Account"}
-          maxWidthClassName="max-w-2xl"
-          tabs={[
-            {
-              label: "Basic Info",
-              fields: [
-                <FloatingInput
-                  key="customerName"
-                  label="Customer Name"
-                  name="customerName"
-                  value={form.customerName || ""}
-                  onChange={handleChange}
-                  required
-                />,
-                <FloatingSelect
-                  key="invoiceId"
-                  label="Invoice"
-                  name="invoiceId"
-                  value={form.invoiceId ?? ""}
-                  onChange={(e) => setForm({ ...form, invoiceId: e.target.value ? Number(e.target.value) : undefined })}
-                  options={invoices.map((inv) => ({ id: String(inv.id), name: inv.invoiceNumber || `Invoice ${inv.id}` }))}
-                />,
-                <FloatingInput
-                  key="customerId"
-                  label="Customer ID"
-                  name="customerId"
-                  type="number"
-                  value={form.customerId ?? ""}
-                  onChange={handleChange}
-                />,
-                <FloatingInput
-                  key="invoiceAmount"
-                  label="Invoice Amount"
-                  name="invoiceAmount"
-                  type="number"
-                  value={form.invoiceAmount ?? ""}
-                  onChange={handleChange}
-                />,
-                <FloatingInput
-                  key="amountPaid"
-                  label="Amount Paid"
-                  name="amountPaid"
-                  type="number"
-                  value={form.amountPaid ?? ""}
-                  onChange={handleChange}
-                />,
-                <FloatingInput
-                  key="dueDate"
-                  label="Due Date"
-                  name="dueDate"
-                  type="date"
-                  value={form.dueDate || ""}
-                  onChange={handleChange}
-                />,
-                <FloatingSelect
-                  key="accountsReceivableStatus"
-                  label="Status"
-                  name="accountsReceivableStatus"
-                  value={form.accountsReceivableStatus || ""}
-                  onChange={(e) => setForm({ ...form, accountsReceivableStatus: e.target.value })}
-                  options={STATUS_OPTIONS}
-                />,
-              ],
-            },
-          ]}
-        />
-
-        <DynamicPopup
-          isPopupOpen={showDeletePopup}
-          setIsPopupOpen={setShowDeletePopup}
-          icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-          iconBg="bg-red-100"
-          innerText="Delete Account"
-          subText={
-            accountToDelete
-              ? `Are you sure you want to delete "${accountToDelete.customerName || accountToDelete.invoiceNumber || "this account"}"? This action cannot be undone.`
-              : "Are you sure you want to delete this account?"
-          }
-          confirmLabel="Delete"
-          cancelLabel="Cancel"
-          onConfirm={confirmDelete}
-          onCancel={() => setAccountToDelete(null)}
-          confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
-        />
-
-
+          {statement && (
+            <div>
+              <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Customer Statement – Unpaid Invoices</h4>
+              {statement.length === 0 ? (
+                <p className="text-sm text-slate-500">This customer has no unpaid invoices.</p>
+              ) : (
+                <div className="max-h-72 overflow-auto rounded-lg border border-slate-200 dark:border-gray-700">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:bg-gray-800 dark:text-gray-400">
+                      <tr>
+                        <th className="px-3 py-2">Invoice</th>
+                        <th className="px-3 py-2">Due Date</th>
+                        <th className="px-3 py-2 text-right">Amount</th>
+                        <th className="px-3 py-2 text-right">Credited</th>
+                        <th className="px-3 py-2 text-right">Paid</th>
+                        <th className="px-3 py-2 text-right">Outstanding</th>
+                        <th className="px-3 py-2">Overdue</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                      {statement.map((s) => (
+                        <tr key={s.invoiceId}>
+                          <td className="px-3 py-2 font-medium text-slate-800 dark:text-gray-100">{s.invoiceNumber || `#${s.invoiceId}`}</td>
+                          <td className="px-3 py-2 text-slate-600">{s.dueDate ? formatDisplayDate(s.dueDate) : "--"}</td>
+                          <td className="px-3 py-2 text-right text-slate-600">{formatMoney(Number(s.originalAmount || 0))}</td>
+                          <td className="px-3 py-2 text-right text-slate-600">
+                            {formatMoney(Number(s.creditedAmount || 0) + Number(s.creditApplied || 0))}
+                          </td>
+                          <td className="px-3 py-2 text-right text-slate-600">{formatMoney(Number(s.cashPaid || 0))}</td>
+                          <td className="px-3 py-2 text-right font-semibold text-slate-800 dark:text-gray-100">{formatMoney(Number(s.outstandingAmount || 0))}</td>
+                          <td className="px-3 py-2">
+                            {Number(s.overdueDays || 0) > 0 ? (
+                              <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full border bg-red-50 text-red-700 border-red-200/40">
+                                {s.overdueDays} day{s.overdueDays === 1 ? "" : "s"}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-slate-400">Not due</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-slate-50 dark:bg-gray-800">
+                      <tr>
+                        <td colSpan={5} className="px-3 py-2 text-xs font-semibold uppercase text-slate-500">
+                          {statement.length} unpaid invoice{statement.length === 1 ? "" : "s"} · Total outstanding
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold text-slate-800 dark:text-gray-100">{formatMoney(statementTotal)}</td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </Dragger>
       </div>
     </>
   );

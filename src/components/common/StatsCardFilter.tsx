@@ -129,7 +129,7 @@ export default function StatsCardFilter<T>({
   cards,
   selected,
   onSelect,
-  className = "grid grid-cols-1 gap-4 sm:grid-cols-2 mb-[17px]",
+  className = "grid grid-cols-1 gap-4 sm:grid-cols-2",
 }: StatsCardFilterProps<T>) {
   return (
     <div className={className}>
