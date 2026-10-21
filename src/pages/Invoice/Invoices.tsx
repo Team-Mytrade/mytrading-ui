@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, ChangeEvent, FormEvent } from "react";
 import axios from "axios";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   PencilSquareIcon,
   TrashIcon,
@@ -180,6 +181,9 @@ const VIEW_OPTIONS: { value: CustomerView; label: string; endpoint?: string }[] 
 
 const Invoices: React.FC = () => {
   const { canCreate, canUpdate, canDelete } = usePermissions();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [detailInvoice, setDetailInvoice] = useState<Invoice | null>(null);
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [dispatches, setDispatches] = useState<DispatchOption[]>([]);
@@ -190,6 +194,17 @@ const Invoices: React.FC = () => {
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const dispatchId = Number(searchParams.get("dispatchId"));
+    if (!canCreate || !Number.isSafeInteger(dispatchId) || dispatchId <= 0) return;
+    setEditingInvoice(null);
+    setForm({ salesDispatchId: String(dispatchId), invoiceDate: todayIso() });
+    setShowFormModal(true);
+    const remaining = new URLSearchParams(searchParams);
+    remaining.delete("dispatchId");
+    setSearchParams(remaining, { replace: true });
+  }, [searchParams, setSearchParams, canCreate]);
 
   // Delete
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
@@ -358,6 +373,7 @@ const Invoices: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     if (!editingInvoice && !(Number(form.salesDispatchId) > 0)) {
       ToasterService.error(DISPATCH_LIST_URL ? "Choose a sales dispatch" : "Enter a valid Sales Dispatch ID");
       return;
@@ -420,6 +436,7 @@ const Invoices: React.FC = () => {
       ToasterService.error("Please enter a reason for cancelling");
       return;
     }
+    if (cancelReason.trim().length > 500) return ToasterService.error("Cancellation reason must be 500 characters or fewer");
     setBusy(true);
     try {
       await axios.post(`${API_URL}/${invoiceToCancel.id}/cancel`, { reason: cancelReason.trim() });
@@ -471,6 +488,7 @@ const Invoices: React.FC = () => {
       ToasterService.error("Please enter a reason for regenerating the PDF");
       return;
     }
+    if (regenerateReason.trim().length > 500) return ToasterService.error("Regeneration reason must be 500 characters or fewer");
     setBusy(true);
     try {
       const res = await axios.post<InvoiceDocument>(`${API_URL}/${invoiceToRegenerate.id}/documents/pdf/regenerate`, {
@@ -498,7 +516,7 @@ const Invoices: React.FC = () => {
       const documents = asArray<InvoiceDocument>(list.data).sort(
         (a, b) => Number(b.documentVersion || 0) - Number(a.documentVersion || 0)
       );
-      let document = documents[0];
+      let document = documents.find((item) => item.status === "GENERATED");
       if (!document) {
         const generated = await axios.post<InvoiceDocument>(`${API_URL}/${invoice.id}/documents/pdf`);
         document = generated.data;
@@ -515,6 +533,17 @@ const Invoices: React.FC = () => {
 
   /* ---------------- Table ---------------- */
 
+  /** Retrieve complete invoice lines before displaying a draft or issued invoice. */
+  const reviewInvoice = async (invoice: Invoice) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const { data } = await axios.get<Invoice>(`${API_URL}/${invoice.id}`);
+      setDetailInvoice(data);
+    } catch (error) { ToasterService.error(apiError(error, "Unable to load invoice details")); }
+    finally { setBusy(false); }
+  };
+
   const rowActions = (invoice: Invoice, inDrawer = false) => {
     const buttonClass = inDrawer
       ? ICON_BUTTON_CLASS
@@ -522,6 +551,8 @@ const Invoices: React.FC = () => {
     const iconClass = inDrawer ? "h-5 w-5" : "h-4 w-4";
     return (
       <>
+        <button type="button" disabled={busy} onClick={() => reviewInvoice(invoice)} className="px-2 text-sm font-semibold text-cyan-700">Review</button>
+        {!isDraft(invoice) && !isClosed(invoice) && Number(invoice.balanceAmount) > 0 && invoice.customerId && <button type="button" onClick={() => navigate(`/paymentReceipts?customerId=${invoice.customerId}`)} className="px-2 text-sm font-semibold text-cyan-700">Record Payment</button>}
         {canUpdate && isDraft(invoice) && (
           <button type="button" onClick={() => handleEdit(invoice)} className={buttonClass} title="Edit date / remarks">
             <PencilSquareIcon className={iconClass} />
@@ -532,12 +563,12 @@ const Invoices: React.FC = () => {
             <PaperAirplaneIcon className={iconClass} />
           </button>
         )}
-        {!isDraft(invoice) && (
+        {["ISSUED", "PARTIALLY_PAID", "PAID", "OVERDUE"].includes(invoice.status || "") && (
           <button type="button" onClick={() => downloadPdf(invoice)} className={buttonClass} title="Download PDF" disabled={busy}>
             <DocumentArrowDownIcon className={iconClass} />
           </button>
         )}
-        {canUpdate && !isDraft(invoice) && invoice.status !== "CANCELLED" && (
+        {canUpdate && ["ISSUED", "PARTIALLY_PAID", "PAID", "OVERDUE"].includes(invoice.status || "") && (
           <button type="button" onClick={() => setInvoiceToRegenerate(invoice)} className={buttonClass} title="Regenerate PDF">
             <ArrowPathIcon className={iconClass} />
           </button>
@@ -662,7 +693,7 @@ const Invoices: React.FC = () => {
             rowDetailsTitle={(i) => `Invoice ${i.invoiceNumber || ""}`.trim()}
             rowDetailsSubtitle="Sales invoice details"
             hiddenDetailKeys={["createdDate", "updatedDate"]}
-            suspendRowDetails={showFormModal || Boolean(invoiceToCancel) || Boolean(invoiceToRegenerate)}
+            suspendRowDetails={showFormModal || Boolean(detailInvoice) || Boolean(invoiceToIssue) || Boolean(invoiceToCancel) || Boolean(invoiceToRegenerate)}
             rowDetailsActions={(i: Invoice) => <>{rowActions(i, true)}</>}
             emptyState={
               <div className="flex flex-col items-center justify-center py-12">
@@ -681,6 +712,23 @@ const Invoices: React.FC = () => {
             }
           />
         </div>
+
+        <Dragger isOpen={Boolean(detailInvoice)} title={`Invoice ${detailInvoice?.invoiceNumber || ''}`} subtitle="Review the saved invoice before issuing or recording payment."
+          onClose={() => setDetailInvoice(null)} onSubmit={(event) => event.preventDefault()} submitLabel="Close" showSubmit={false}>
+          {detailInvoice && <div className="space-y-4">
+            <dl className="grid grid-cols-2 gap-3">
+              {([['Status', detailInvoice.status], ['Customer', detailInvoice.customerName], ['Customer code', detailInvoice.customerCode], ['Tax number', detailInvoice.customerTaxNumber], ['Email', detailInvoice.customerEmail], ['Invoice date', detailInvoice.invoiceDate], ['Due date', detailInvoice.dueDate], ['Sales order', detailInvoice.salesOrderNumber], ['Dispatch', detailInvoice.salesDispatchNumber], ['Payment terms', detailInvoice.paymentTerms]] as const).map(([label, value]) => <div key={label}><dt className="text-xs text-slate-500">{label}</dt><dd>{value || '—'}</dd></div>)}
+            </dl>
+            {(detailInvoice.items || []).map((item, index) => <section key={item.id || index} className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-gray-700">
+              <h3 className="font-semibold">{item.productName || item.description} · {item.productCode}</h3>
+              <p>{item.quantity} {item.uom} × {formatAmount(item.unitPrice, detailInvoice.currencyCode)}</p>
+              <p className="text-sm">Batch: {item.batchNumber || '—'} · Serials: {item.serialNumbers?.join(', ') || '—'}</p>
+              <p className="text-sm">Discount: {formatAmount(item.discountAmount, detailInvoice.currencyCode)} · Tax: {item.taxCode || '—'} ({item.taxRate ?? 0}%) {formatAmount(item.taxAmount, detailInvoice.currencyCode)} · Line total: {formatAmount(item.lineTotal, detailInvoice.currencyCode)}</p>
+            </section>)}
+            <dl className="grid grid-cols-2 gap-3">{([['Subtotal', detailInvoice.subTotal], ['Discount', detailInvoice.discountAmount], ['Tax', detailInvoice.taxAmount], ['Grand total', detailInvoice.grandTotal], ['Paid', detailInvoice.amountPaid], ['Balance', detailInvoice.balanceAmount]] as const).map(([label, value]) => <div key={label}><dt>{label}</dt><dd className="font-semibold">{formatAmount(value, detailInvoice.currencyCode)}</dd></div>)}</dl>
+            {canUpdate && isDraft(detailInvoice) && <button type="button" onClick={() => { setInvoiceToIssue(detailInvoice); setDetailInvoice(null); }} className="rounded-lg bg-cyan-600 px-4 py-2 text-white">Issue Invoice</button>}
+          </div>}
+        </Dragger>
 
         {/* Create (from a dispatch) / Edit (date + remarks of a draft) */}
         <Dragger

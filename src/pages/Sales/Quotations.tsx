@@ -244,7 +244,6 @@ const CUSTOMERS_API = "/v1/api/sales/quotations/getCustomers";
 const PRODUCT_CATALOGUE_PRODUCTS_API = "/v1/api/product/products";
 const PRODUCT_CATALOGUE_CATEGORIES_API = "/v1/api/product/product-categories";
 const PAGE_SIZE = 10;
-const statusOptions = ["DRAFT", "SENT", "ACCEPTED", "REJECTED"];
 const quotationTypeOptions = ["PRODUCT", "SERVICE"];
 
 /** Normalizes API status values before they drive quotation actions. */
@@ -1269,6 +1268,7 @@ const Quotations: React.FC = () => {
   };
 
   const updateQuotationStatus = async (quotation: Quotation, status: string) => {
+    if (loading) return;
     if (status === getQuotationStatus(quotation.status)) return;
 
     try {
@@ -1279,16 +1279,12 @@ const Quotations: React.FC = () => {
           ? await axios.post<Quotation>(`${API_URL}/${quotation.id}/send`, {}, requestConfig)
           : status === "ACCEPTED"
             ? await axios.post<Quotation>(`${API_URL}/${quotation.id}/accept`, {}, requestConfig)
-          : await axios.put<Quotation>(
-              `${API_URL}/${quotation.id}`,
-              { ...(await axios.get<Quotation>(`${API_URL}/${quotation.id}`, { headers })).data, status },
-              requestConfig
-            );
-      const updatedQuotation =
+          : await axios.post<Quotation>(`${API_URL}/${quotation.id}/reject`, {}, requestConfig);
+      const updatedQuotation: Partial<Quotation> =
         res.data && typeof res.data === "object" ? res.data : {};
       setQuotations((current) =>
         current.map((item) =>
-          item.id === quotation.id ? { ...item, ...updatedQuotation, status } : item
+          item.id === quotation.id ? { ...item, ...updatedQuotation, status: updatedQuotation.status || status } : item
         )
       );
       setQuotationApiErrors((current) => {
@@ -1309,6 +1305,7 @@ const Quotations: React.FC = () => {
   };
 
   const convertQuotationToSalesOrder = async (quotation: Quotation) => {
+    if (loading) return;
     try {
       setLoading(true);
       await axios.post(
@@ -1490,32 +1487,17 @@ const Quotations: React.FC = () => {
       render: (quotation) => {
         const apiError = quotationApiErrors[quotation.id];
         const currentStatus = getQuotationStatus(quotation.status) || "DRAFT";
-        const choices = statusOptions.filter((status) => status === currentStatus || canSetStatus(status));
-        if (choices.length <= 1) {
-          return (
-            <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
-              {currentStatus}
-            </span>
-          );
-        }
         return (
-          <select
-            value={getQuotationStatus(quotation.status) || "DRAFT"}
-            onChange={(event) => updateQuotationStatus(quotation, event.target.value)}
-            onClick={(event) => event.stopPropagation()}
-            title={apiError || "Update quotation status"}
+          <span
+            title={apiError || currentStatus}
             className={`rounded-full border-0 px-2.5 py-1 text-xs font-semibold ${
               apiError
                 ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
                 : "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300"
             }`}
           >
-            {choices.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
+            {currentStatus}
+          </span>
         );
       },
     },
@@ -1537,6 +1519,18 @@ const Quotations: React.FC = () => {
       className: "text-right",
       render: (quotation) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          {getQuotationStatus(quotation.status) === "DRAFT" && canSetStatus("SENT") && (
+            <button type="button" disabled={loading} onClick={() => updateQuotationStatus(quotation, "SENT")}
+              className="rounded-lg px-3 py-1.5 text-sm font-medium text-cyan-700 hover:bg-cyan-50 disabled:opacity-50">Send</button>
+          )}
+          {getQuotationStatus(quotation.status) === "SENT" && canSetStatus("ACCEPTED") && (
+            <button type="button" disabled={loading} onClick={() => updateQuotationStatus(quotation, "ACCEPTED")}
+              className="rounded-lg px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50">Accept</button>
+          )}
+          {getQuotationStatus(quotation.status) === "SENT" && canUpdate && (
+            <button type="button" disabled={loading} onClick={() => updateQuotationStatus(quotation, "REJECTED")}
+              className="rounded-lg px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50">Reject</button>
+          )}
           {canExport && (<button
             type="button"
             onClick={() => exportQuotationPdf(quotation)}
@@ -1559,10 +1553,11 @@ const Quotations: React.FC = () => {
             <button
               type="button"
               onClick={() => convertQuotationToSalesOrder(quotation)}
+              disabled={loading}
               className="rounded-lg p-1.5 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
               title={quotationApiErrors[quotation.id] || "Convert to sales order"}
             >
-              <ArrowRightCircleIcon className="h-4 w-4" />
+              <span className="inline-flex items-center gap-1"><ArrowRightCircleIcon className="h-4 w-4" />Convert to Order</span>
             </button>
           )}
           {canDelete && (<button

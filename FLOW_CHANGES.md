@@ -1,5 +1,16 @@
 # Flow Changes
 
+## 2026-10-21
+
+- Invoice navigation now starts with Invoices, Accounts Receivable, and Payment Receipts, matching the test document's invoice → receivables → payment sequence. Supporting accounting screens follow in their existing relative order. Customer Statements remain inside Accounts Receivable and PDF actions inside Invoices.
+
+- Confirmed dispatches now offer Generate Invoice, opening the existing invoice form with the dispatch ID selected. Invoices have a Review action that retrieves saved lines, batch/serial data and financial totals; draft review leads to Issue Invoice.
+- Issued invoices with an outstanding balance link to payment entry for their customer. Receipt rows link to a dated Customer Statement under Accounts Receivable. The statement shows opening, running and closing balances and current customer totals, separately from the existing aging/unpaid-invoice report.
+
+- Sales navigation now starts with Quotations followed by Sales Orders. Send and Accept move from the quotation status dropdown into sequential table actions; accepted quotations retain Convert to Order, and sent quotations can be rejected.
+- Sales Orders now expose the existing warehouse confirmation dialog through a Confirm Order action. Confirmed orders can load remaining dispatchable quantities, create a dispatch with batch/serial and delivery details, review it, and confirm it using the Sales API. Confirmed dispatches show readiness for invoice generation.
+- Dispatches created in this page session remain available in order actions. Restoring dispatch history after navigating away or refreshing requires a dispatch retrieval API not present in the supplied Swagger.
+
 ## 2026-10-06
 
 - Every Purchase Requisition now exposes the Create Purchase Order cart action; conversion is no longer restricted by a requisition status displayed in the list.

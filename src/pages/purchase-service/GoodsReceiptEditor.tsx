@@ -245,7 +245,7 @@ const validateItems = (items: GrnItem[], isEditing: boolean): string | null => {
     const name = item.productName || "A line";
     const received = num(item.receivedQuantity);
     const rejected = num(item.rejectedQuantity);
-    const accepted = Math.max(0, received - rejected); // same rule as the read-only box
+    const accepted = num(item.acceptedQuantity);
     const max = maxFor(item, isEditing);
 
     if (received <= 0) return `${name}: received quantity must be more than 0.`;
@@ -461,13 +461,27 @@ export default function GoodsReceiptEditor({
 
   /** Updates several fields of one line in a single change (two separate updates would overwrite each other). */
   const updateItem = (index: number, changes: Partial<GrnItem>) =>
-    onChange("items", items.map((item, current) => (current === index ? { ...item, ...changes } : item)));
+    onChange("items", items.map((item, current) => (current === index ? {
+      ...item, ...changes,
+      ...(changes.acceptedQuantity != null ? { serialNumbers: item.serialNumbers.slice(0, Math.max(0, Math.floor(num(changes.acceptedQuantity)))) } : {}),
+    } : item)));
 
   // Received or rejected changes keep accepted = received - rejected.
   const updateReceived = (index: number, value: string) => {
+    const rejected = Math.min(num(items[index].rejectedQuantity), num(value));
     updateItem(index, {
       receivedQuantity: value,
-      acceptedQuantity: Math.max(0, num(value) - num(items[index].rejectedQuantity)),
+      rejectedQuantity: rejected,
+      acceptedQuantity: Math.max(0, num(value) - rejected),
+    });
+  };
+  /** Editing accepted quantity recalculates rejected so both reconcile with received. */
+  const updateAccepted = (index: number, value: string) => {
+    const received = num(items[index].receivedQuantity);
+    const accepted = value === "" ? "" : String(Math.max(0, Math.min(num(value), received)));
+    updateItem(index, {
+      acceptedQuantity: accepted,
+      rejectedQuantity: received - num(accepted),
     });
   };
   const updateRejected = (index: number, value: string) => {
@@ -646,6 +660,10 @@ export default function GoodsReceiptEditor({
               </header>
               <div className="goods-receipt-editor__quantities">
                 <label>
+                  Ordered quantity
+                  <input value={item.orderedQuantity ?? ""} readOnly aria-readonly="true" title="Quantity from the purchase order" />
+                </label>
+                <label>
                   Received quantity
                   <input
                     required
@@ -660,18 +678,18 @@ export default function GoodsReceiptEditor({
                 </label>
                 <label>
                   Accepted quantity
-                  {/* Worked out, not typed: Accepted = Received − Rejected. So the three can never disagree. */}
                   <input
                     type="number"
-                    readOnly
-                    tabIndex={-1}
-                    aria-readonly="true"
-                    value={Math.max(0, num(item.receivedQuantity) - num(item.rejectedQuantity))}
-                    title="Received − Rejected"
-                    className="cursor-default"
+                    required
+                    min="0"
+                    max={num(item.receivedQuantity)}
+                    value={item.acceptedQuantity}
+                    onKeyDown={(event) => ["-", "+", "e", "E"].includes(event.key) && event.preventDefault()}
+                    onWheel={(event) => (event.target as HTMLInputElement).blur()}
+                    onChange={(event) => updateAccepted(index, event.target.value)}
                   />
                   <span className="mt-1 block text-xs font-normal text-gray-500 dark:text-gray-400">
-                    Received − Rejected
+                    Changing accepted updates rejected quantity.
                   </span>
                 </label>
                 <label>
@@ -736,7 +754,7 @@ export default function GoodsReceiptEditor({
                     {showSerial && (
                       <div className="goods-receipt-editor__serials">
                         <SerialInputs
-                          count={Math.max(0, num(item.receivedQuantity) - num(item.rejectedQuantity))}
+                          count={num(item.acceptedQuantity)}
                           required={Boolean(t?.serial)}
                           values={item.serialNumbers}
                           onChange={(serialNumbers) => updateItem(index, { serialNumbers })}
