@@ -118,6 +118,10 @@ function getStatusColor(status: string) {
       return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
   }
 }
+function getDisplayStatus(warehouse: Warehouse): WarehouseStatus {
+  if (warehouse.status) return warehouse.status;      // server sent a status string
+  return warehouse.active === false ? "INACTIVE" : "ACTIVE";
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -237,7 +241,7 @@ const WarehousePage: React.FC = () => {
           code: resolveWarehouseCode(warehouse.code, warehouse.id),
           locationType: warehouse.locationType || "MAIN",
           stockCount,
-          status: getDisplayStatus(warehouse.id),
+          status: getDisplayStatus(warehouse),
         };
       });
 

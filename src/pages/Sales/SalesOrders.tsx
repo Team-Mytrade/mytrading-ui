@@ -78,6 +78,27 @@ type WarehouseOption = {
   active?: boolean;
 };
 
+/** Dispatchable quantities returned by Sales; quantity and tracking text are form inputs. */
+type DispatchLine = {
+  salesOrderItemId: number;
+  productName?: string;
+  productCode?: string;
+  remainingQuantity: number;
+  quantity: string;
+  batchNumber: string;
+  serialText: string;
+};
+
+/** Server-created dispatch retained for confirmation during this page session. */
+type SalesDispatch = {
+  id: number;
+  salesOrderId: number;
+  dispatchNumber: string;
+  status: string;
+  inventoryReservationReference?: string;
+  items?: { salesOrderItemId: number; productName?: string; quantity: number; batchNumber?: string; serialNumbers?: string[] }[];
+};
+
 type SalesOrder = {
   id: number;
   orderNumber: string;
@@ -546,6 +567,12 @@ const SalesOrders: React.FC = () => {
   const [confirmOrder, setConfirmOrder] = useState<SalesOrder | null>(null);
   const [confirmWarehouseId, setConfirmWarehouseId] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const [dispatchOrder, setDispatchOrder] = useState<SalesOrder | null>(null);
+  const [dispatchLines, setDispatchLines] = useState<DispatchLine[]>([]);
+  const [dispatchBusy, setDispatchBusy] = useState(false);
+  const [dispatches, setDispatches] = useState<SalesDispatch[]>([]);
+  const [dispatchToConfirm, setDispatchToConfirm] = useState<SalesDispatch | null>(null);
+  const [delivery, setDelivery] = useState({ deliveryReference: "", transporterName: "", vehicleNumber: "", trackingNumber: "", remarks: "" });
   const [creditCheck, setCreditCheck] = useState<{
     status: "idle" | "checking" | "ok" | "insufficient" | "error";
     availableCredit?: number;
@@ -1064,6 +1091,7 @@ const SalesOrders: React.FC = () => {
 
   const confirmSalesOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (confirming) return;
     if (!confirmOrder || !isPositiveNumber(confirmWarehouseId)) {
       ToasterService.error("Warehouse required", "Select the warehouse that will fulfil this sales order.");
       return;
@@ -1085,6 +1113,72 @@ const SalesOrders: React.FC = () => {
     } finally {
       setConfirming(false);
     }
+  };
+
+  /** Load authoritative remaining quantities before preparing a dispatch. */
+  const openDispatch = async (order: SalesOrder) => {
+    if (dispatchBusy) return;
+    setDispatchBusy(true);
+    try {
+      const { data } = await axios.get<DispatchLine[]>(`${API_URL}/${order.id}/dispatchable-items`, { headers });
+      if (!Array.isArray(data)) throw new Error("Invalid dispatchable items response");
+      const remaining = data.filter((line) => Number(line.remainingQuantity) > 0);
+      if (!remaining.length) {
+        ToasterService.error("No remaining items to dispatch");
+        return;
+      }
+      setDispatchLines(remaining.map((line) => ({ ...line, quantity: "0", batchNumber: "", serialText: "" })));
+      setDelivery({ deliveryReference: "", transporterName: "", vehicleNumber: "", trackingNumber: "", remarks: "" });
+      setDispatchOrder(order);
+    } catch (error) {
+      ToasterService.error("Unable to load dispatchable items", getErrorMessage(error, "Please try again."));
+    } finally { setDispatchBusy(false); }
+  };
+
+  /** Submit only the fields supported by CreateDispatchRequest in Sales Swagger. */
+  const createDispatch = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!dispatchOrder || dispatchBusy) return;
+    const items = dispatchLines.map((line) => ({
+      salesOrderItemId: line.salesOrderItemId,
+      quantity: Number(line.quantity),
+      batchNumber: line.batchNumber.trim() || undefined,
+      serialNumbers: line.serialText.split(/[\n,]+/).map((value) => value.trim()).filter(Boolean),
+    }));
+    if (items.some((item, index) => !Number.isFinite(item.quantity) || item.quantity < 0 || item.quantity > Number(dispatchLines[index].remainingQuantity))) {
+      ToasterService.error("Enter quantities between zero and the remaining quantity");
+      return;
+    }
+    const selected = items.filter((item) => item.quantity > 0);
+    if (!selected.length || selected.some((item) => item.quantity < 0.001 || (item.serialNumbers.length > 0 && (item.serialNumbers.length !== item.quantity || new Set(item.serialNumbers).size !== item.serialNumbers.length)))) {
+      ToasterService.error("Select quantities and provide one unique serial per serialized unit");
+      return;
+    }
+    setDispatchBusy(true);
+    try {
+      const { data } = await axios.post<SalesDispatch>(`/v1/api/sales/dispatch/orders/${dispatchOrder.id}/dispatches`, { ...delivery, items: selected }, { headers });
+      setDispatches((current) => [...current.filter((item) => item.id !== data.id), data]);
+      setDispatchToConfirm(data);
+      setDispatchOrder(null);
+      ToasterService.success("Dispatch created", "Review and confirm the dispatch from the order actions.");
+    } catch (error) {
+      ToasterService.error("Unable to create dispatch", getErrorMessage(error, "Check the order before retrying if the request timed out."));
+    } finally { setDispatchBusy(false); }
+  };
+
+  /** Confirmation consumes reserved stock on the server; never adjust stock locally. */
+  const confirmDispatch = async (dispatch: SalesDispatch) => {
+    if (dispatchBusy) return;
+    setDispatchBusy(true);
+    try {
+      const { data } = await axios.post<SalesDispatch>(`/v1/api/sales/dispatch/dispatches/${dispatch.id}/confirm`, {}, { headers });
+      setDispatches((current) => current.map((item) => item.id === data.id ? data : item));
+      setDispatchToConfirm(null);
+      ToasterService.success("Dispatch updated", data.status === "CONFIRMED" ? "Ready for invoice generation." : data.status);
+      await fetchOrders();
+    } catch (error) {
+      ToasterService.error("Unable to confirm dispatch", getErrorMessage(error, "Please try again."));
+    } finally { setDispatchBusy(false); }
   };
 
   const closeForm = () => {
@@ -1258,7 +1352,21 @@ const SalesOrders: React.FC = () => {
       headerClassName: "text-right",
       className: "text-right",
       render: (order) => (
-        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex flex-wrap justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          {canUpdate && ["DRAFT", "APPROVED"].includes(order.status) && (
+            <button type="button" disabled={confirming} onClick={() => openConfirm(order)} className="rounded-lg px-3 py-1.5 text-sm font-medium text-cyan-700 hover:bg-cyan-50 disabled:opacity-50">Confirm Order</button>
+          )}
+          {canCreate && ["CONFIRMED", "PROCESSING", "PARTIALLY_DELIVERED"].includes(order.status) && !dispatches.some((dispatch) => dispatch.salesOrderId === order.id && dispatch.status !== "CONFIRMED") && (
+            <button type="button" disabled={dispatchBusy} onClick={() => openDispatch(order)} className="rounded-lg px-3 py-1.5 text-sm font-medium text-cyan-700 hover:bg-cyan-50 disabled:opacity-50">Create Dispatch</button>
+          )}
+          {dispatches.filter((dispatch) => dispatch.salesOrderId === order.id).map((dispatch) => (
+            <div key={dispatch.id} className="rounded-lg border border-slate-200 p-2 text-xs dark:border-slate-700">
+              <div>{dispatch.dispatchNumber} · {dispatch.status}</div>
+              {dispatch.status === "CONFIRMED" ? <button type="button" onClick={() => navigate(`/invoices?dispatchId=${dispatch.id}`)} className="p-1 font-semibold text-emerald-700">Generate Invoice</button> : canUpdate && (
+                <button type="button" disabled={dispatchBusy} onClick={() => setDispatchToConfirm(dispatch)} className="p-1 font-semibold text-cyan-700 disabled:opacity-50">Review / Confirm Dispatch</button>
+              )}
+            </div>
+          ))}
           {canUpdate && (<button
             type="button"
             onClick={() => openEdit(order)}
@@ -2056,6 +2164,7 @@ const SalesOrders: React.FC = () => {
         title="Confirm Sales Order"
         subtitle={`Select the fulfilment warehouse for ${confirmOrder?.orderNumber || "this sales order"}.`}
         onClose={() => {
+          if (confirming) return;
           setConfirmOrder(null);
           setConfirmWarehouseId("");
         }}
@@ -2078,6 +2187,61 @@ const SalesOrders: React.FC = () => {
             required
           />,
         ]}
+      />
+
+      <PaginatedPopup
+        isOpen={!!dispatchOrder}
+        title="Create Dispatch"
+        subtitle={`${dispatchOrder?.orderNumber || ""} · Enter quantities to dispatch; leave other lines at zero.`}
+        onClose={() => { if (!dispatchBusy) setDispatchOrder(null); }}
+        maxWidthClassName="max-w-4xl"
+        content={
+          <form onSubmit={createDispatch} className="space-y-5 p-4">
+            <fieldset disabled={dispatchBusy} className="space-y-4">
+              {dispatchLines.map((line, index) => (
+                <div key={line.salesOrderItemId} className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                  <p className="font-semibold">{line.productName || line.productCode || `Order item ${line.salesOrderItemId}`} · Remaining: {line.remainingQuantity}</p>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <label className="text-sm">Dispatch quantity
+                      <input className={inputClass} type="number" min="0" max={line.remainingQuantity} step="0.001" required value={line.quantity} onChange={(event) => setDispatchLines((current) => current.map((item, i) => i === index ? { ...item, quantity: event.target.value } : item))} />
+                    </label>
+                    <label className="text-sm">Batch number (for batch-tracked products)
+                      <input className={inputClass} value={line.batchNumber} onChange={(event) => setDispatchLines((current) => current.map((item, i) => i === index ? { ...item, batchNumber: event.target.value } : item))} />
+                    </label>
+                    <label className="text-sm">Serial numbers (one per line or comma separated)
+                      <textarea className={inputClass} rows={3} value={line.serialText} onChange={(event) => setDispatchLines((current) => current.map((item, i) => i === index ? { ...item, serialText: event.target.value } : item))} />
+                    </label>
+                  </div>
+                </div>
+              ))}
+              <div className="grid gap-3 sm:grid-cols-2">
+                {([
+                  ["deliveryReference", "Delivery reference"], ["transporterName", "Transporter"],
+                  ["vehicleNumber", "Vehicle number"], ["trackingNumber", "Tracking number"], ["remarks", "Remarks"],
+                ] as const).map(([key, label]) => (
+                  <label key={key} className="text-sm">{label}<input className={inputClass} value={delivery[key]} onChange={(event) => setDelivery((current) => ({ ...current, [key]: event.target.value }))} /></label>
+                ))}
+              </div>
+              <button type="submit" className="rounded-lg bg-cyan-600 px-4 py-2 font-semibold text-white disabled:opacity-50">{dispatchBusy ? "Creating…" : "Create Dispatch"}</button>
+            </fieldset>
+          </form>
+        }
+      />
+
+      <PaginatedPopup
+        isOpen={!!dispatchToConfirm}
+        title={`Review Dispatch ${dispatchToConfirm?.dispatchNumber || ""}`}
+        subtitle="Confirming dispatch consumes the reserved stock. Check quantities, batches, and serial numbers first."
+        onClose={() => { if (!dispatchBusy) setDispatchToConfirm(null); }}
+        content={<div className="space-y-4 p-4">
+          <p>Status: {dispatchToConfirm?.status} · Reservation: {dispatchToConfirm?.inventoryReservationReference || "Not returned"}</p>
+          {dispatchToConfirm?.items?.map((item, index) => <div key={`${item.salesOrderItemId}-${index}`} className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+            <p className="font-semibold">{item.productName || `Order item ${item.salesOrderItemId}`} · Quantity: {item.quantity}</p>
+            <p className="text-sm">Batch: {item.batchNumber || "—"}</p>
+            <p className="break-words text-sm">Serials: {item.serialNumbers?.join(", ") || "—"}</p>
+          </div>)}
+          {canUpdate && dispatchToConfirm?.status !== "CONFIRMED" && <button type="button" disabled={dispatchBusy} onClick={() => { if (dispatchToConfirm) void confirmDispatch(dispatchToConfirm); }} className="rounded-lg bg-cyan-600 px-4 py-2 font-semibold text-white disabled:opacity-50">{dispatchBusy ? "Confirming…" : "Confirm Dispatch"}</button>}
+        </div>}
       />
 
       <DynamicPopup

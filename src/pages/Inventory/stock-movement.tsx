@@ -109,7 +109,7 @@ type MovementForm = {
 
 const API_URL = "/v1/api/inventory/stock-movements";
 const ENUMS_API_URL = "/v1/api/inventory/enums";
-const PRODUCTS_API_URL = "/v1/api/purchase/products";
+const PRODUCTS_API_URL = "/v1/api/product/products";
 const WAREHOUSES_API_URL = "/v1/api/inventory/warehouses";
 const BATCHES_API_URL = "/v1/api/inventory/batches";
 const SERIALS_API_URL = "/v1/api/inventory/serial-numbers";
@@ -117,7 +117,7 @@ const STOCK_LEVELS_API_URL = "/v1/api/inventory/stock-levels";
 const PAGE_SIZE = 10;
 const MOVEMENT_TYPE_ENUM = "MOVEMENT_TYPE";
 
-const PRODUCT_ROUTE = "/purchase-products";
+const PRODUCT_ROUTE = "/product-products";
 
 const emptyForm: MovementForm = {
   movementDate: todayIso(),

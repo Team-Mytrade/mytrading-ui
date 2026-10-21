@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, ChangeEvent, FormEvent } from "react";
 import axios from "axios";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { CreditCardIcon, ArrowUturnLeftIcon } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -59,7 +60,7 @@ interface CreateReceiptPayload {
   customerId: number;
   paymentDate: string;
   totalAmountReceived: number;
-  paymentMethod?: string;
+  paymentMethod: string;
   referenceNumber?: string;
   notes?: string;
   allocations: { invoiceId: number; allocatedAmount: number }[];
@@ -154,6 +155,8 @@ const amountInputProps = {
  */
 const PaymentReceipts: React.FC = () => {
   const { canCreate, canUpdate } = usePermissions();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [receipts, setReceipts] = useState<PaymentReceipt[]>([]);
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
@@ -166,6 +169,17 @@ const PaymentReceipts: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   // Allocation per invoice id (text from the inputs)
   const [allocations, setAllocations] = useState<Record<number, string>>({});
+
+  useEffect(() => {
+    const customerId = Number(searchParams.get("customerId"));
+    if (!canCreate || !Number.isSafeInteger(customerId) || customerId <= 0) return;
+    setForm({ customerId: String(customerId), paymentDate: todayIso(), paymentMethod: "BANK_TRANSFER" });
+    setAllocations({});
+    setShowForm(true);
+    const remaining = new URLSearchParams(searchParams);
+    remaining.delete("customerId");
+    setSearchParams(remaining, { replace: true });
+  }, [searchParams, setSearchParams, canCreate]);
   // Customer's unpaid invoices: GET /invoices/outstanding?customerId=
   const [outstanding, setOutstanding] = useState<InvoiceRow[]>([]);
   const [outstandingLoading, setOutstandingLoading] = useState(false);
@@ -316,7 +330,9 @@ const PaymentReceipts: React.FC = () => {
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
+    if (submitting || outstandingLoading) return;
     if (!form.customerId) return ToasterService.error("Choose a customer");
+    if (!form.paymentMethod) return ToasterService.error("Choose a payment method");
     if (!form.paymentDate) return ToasterService.error("Payment date is required");
     if (receivedPaise <= 0) return ToasterService.error("Amount received must be more than 0");
     for (const i of outstanding) {
@@ -330,7 +346,7 @@ const PaymentReceipts: React.FC = () => {
       customerId: Number(form.customerId),
       paymentDate: form.paymentDate,
       totalAmountReceived: fromPaise(receivedPaise),
-      paymentMethod: form.paymentMethod || undefined,
+      paymentMethod: form.paymentMethod,
       referenceNumber: form.referenceNumber?.trim() || undefined,
       notes: form.notes?.trim() || undefined,
       allocations: outstanding
@@ -369,6 +385,7 @@ const PaymentReceipts: React.FC = () => {
     e.preventDefault();
     if (!reverseTarget || reversing) return;
     if (!reverseReason.trim()) return ToasterService.error("Please enter a reason for reversing");
+    if (reverseReason.trim().length > 500) return ToasterService.error("Reversal reason must be 500 characters or fewer");
     setReversing(true);
     try {
       await axios.post(`${API_URL}/${reverseTarget.id}/reverse`, { reason: reverseReason.trim() });
@@ -454,6 +471,7 @@ const PaymentReceipts: React.FC = () => {
       className: "w-[8%] text-right",
       render: (r) => (
         <div className="flex items-center justify-end gap-0.5">
+          {r.customerId && <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/accountsReceivable?customerId=${r.customerId}`); }} className="px-2 text-sm font-semibold text-cyan-700">Statement</button>}
           {canReverse(r) && (
             <button
               type="button"
@@ -565,6 +583,7 @@ const PaymentReceipts: React.FC = () => {
             <FloatingInput label="Amount Received" name="totalAmountReceived" {...amountInputProps} value={form.totalAmountReceived || ""} onChange={handleChange} required />
             <FloatingSelect
               label="Payment Method"
+              required
               name="paymentMethod"
               value={form.paymentMethod || ""}
               onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}

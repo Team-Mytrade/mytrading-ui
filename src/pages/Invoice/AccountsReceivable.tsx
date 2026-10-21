@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, FormEvent } from "react";
 import axios from "axios";
+import { useSearchParams } from "react-router-dom";
 import { BuildingOffice2Icon, ChartBarIcon, DocumentMagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -63,6 +64,26 @@ interface AgingReport {
 /* ------------------------------------------------------------------ */
 
 const API_URL = "/v1/api/invoice/accounts-receivable";
+
+/** Customer financial API response; entries retain the server's event order. */
+interface CustomerStatement {
+  customerId: number;
+  fromDate: string;
+  toDate: string;
+  openingBalance: number;
+  totalDebit: number;
+  totalCredit: number;
+  closingBalance: number;
+  entries: { transactionDate: string; type: string; documentNumber?: string; referenceNumber?: string; description?: string; debit: number; credit: number; affectsBalance: boolean }[];
+}
+
+/** Current customer totals, independent of the statement's date range. */
+interface CustomerFinancialSummary {
+  totalOutstanding: number;
+  availableCustomerCredit: number;
+  totalInvoiced: number;
+  totalCashReceived: number;
+}
 const PAGE_SIZE = 10;
 // Status values from the Swagger (no enum API type for this list)
 const STATUSES = ["OPEN", "PARTIALLY_PAID", "PAID", "OVERDUE", "CANCELLED"];
@@ -121,6 +142,7 @@ const StatusBadge = ({ status }: { status?: string }) => (
  * The API is read-only, so this page shows the list, an aging report and a customer statement.
  */
 const AccountsReceivable: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [receivables, setReceivables] = useState<Receivable[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -131,6 +153,57 @@ const AccountsReceivable: React.FC = () => {
   const [aging, setAging] = useState<AgingReport | null>(null);
   const [statement, setStatement] = useState<OutstandingInvoice[] | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
+  const [showStatement, setShowStatement] = useState(false);
+  const [statementCustomer, setStatementCustomer] = useState("");
+  const [fromDate, setFromDate] = useState(`${todayIso().slice(0, 7)}-01`);
+  const [toDate, setToDate] = useState(todayIso());
+  const [financialStatement, setFinancialStatement] = useState<CustomerStatement | null>(null);
+  const [statementLoading, setStatementLoading] = useState(false);
+  const [financialSummary, setFinancialSummary] = useState<CustomerFinancialSummary | null>(null);
+
+  useEffect(() => {
+    const customerId = Number(searchParams.get("customerId"));
+    if (!Number.isSafeInteger(customerId) || customerId <= 0) return;
+    setStatementCustomer(String(customerId));
+    setFinancialStatement(null);
+    setShowStatement(true);
+    const remaining = new URLSearchParams(searchParams);
+    remaining.delete("customerId");
+    setSearchParams(remaining, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  /** Read the dated ledger; balances and event order are owned by the backend. */
+  const loadStatement = async (event: FormEvent) => {
+    event.preventDefault();
+    if (statementLoading) return;
+    if (!statementCustomer || !fromDate || !toDate || fromDate > toDate) {
+      ToasterService.error("Choose a customer and a valid date range");
+      return;
+    }
+    setStatementLoading(true);
+    setFinancialStatement(null);
+    setFinancialSummary(null);
+    try {
+      const [ledger, summary] = await Promise.allSettled([
+        axios.get<CustomerStatement>(`/v1/api/customer-financial/${statementCustomer}/statement`, { params: { fromDate, toDate } }),
+        axios.get<CustomerFinancialSummary>(`/v1/api/customer-financial/${statementCustomer}/summary`),
+      ]);
+      if (ledger.status === "fulfilled") setFinancialStatement(ledger.value.data);
+      else ToasterService.error(apiError(ledger.reason, "Unable to load customer statement"));
+      if (summary.status === "fulfilled") setFinancialSummary(summary.value.data);
+      else ToasterService.error(apiError(summary.reason, "Unable to load current customer totals"));
+    } catch (error) {
+      ToasterService.error(apiError(error, "Unable to load customer statement"));
+    } finally { setStatementLoading(false); }
+  };
+
+  const statementRows = useMemo(() => {
+    let balance = Math.round(Number(financialStatement?.openingBalance || 0) * 100);
+    return (financialStatement?.entries || []).map((entry) => {
+      if (entry.affectsBalance) balance += Math.round(Number(entry.debit || 0) * 100) - Math.round(Number(entry.credit || 0) * 100);
+      return { ...entry, runningBalance: balance / 100 };
+    });
+  }, [financialStatement]);
 
   /* ---------------- Load ---------------- */
 
@@ -326,12 +399,12 @@ const AccountsReceivable: React.FC = () => {
             loading={isLoading}
             rowDetailsTitle={(r) => `Receivable – ${r.invoiceNumber || ""}`}
             rowDetailsSubtitle="Updated automatically from invoices and receipts"
-            suspendRowDetails={showReport}
+            suspendRowDetails={showReport || showStatement}
             rowDetailsActions={(r: Receivable) =>
               r.customerId ? (
-                <button type="button" onClick={() => openReport(r.customerId)} className={ICON_BUTTON_CLASS} title="Customer statement & aging" aria-label="Customer statement and aging">
+                <div className="flex gap-2"><button type="button" onClick={() => openReport(r.customerId)} className={ICON_BUTTON_CLASS} title="Customer aging" aria-label="Customer aging">
                   <DocumentMagnifyingGlassIcon className="h-5 w-5" aria-hidden="true" />
-                </button>
+                </button><button type="button" onClick={() => { setStatementCustomer(String(r.customerId)); setFinancialStatement(null); setShowStatement(true); }} className="text-sm font-semibold text-cyan-700">Customer Statement</button></div>
               ) : null
             }
             emptyState={
@@ -346,12 +419,33 @@ const AccountsReceivable: React.FC = () => {
           />
         </div>
 
-        {/* Aging (GET /aging) + customer statement (GET /customer/{id}/outstanding) */}
+        <button type="button" onClick={() => { setFinancialStatement(null); setShowStatement(true); }} className="m-3 rounded-lg border border-cyan-200 px-4 py-2 text-sm font-semibold text-cyan-700">Customer Statement</button>
+        <Dragger isOpen={showStatement} title="Customer Statement" variant="modal" subtitle="Opening balance, transactions and closing balance for the selected period."
+          onClose={() => { if (!statementLoading) setShowStatement(false); }} onSubmit={loadStatement} submitLabel="Load Statement" submitting={statementLoading}>
+          <fieldset disabled={statementLoading} className="grid gap-3 md:grid-cols-3">
+            <SearchableSelect label="Customer" value={statementCustomer} options={customers} onChange={(value: string | number) => { if (statementLoading) return; setStatementCustomer(String(value || "")); setFinancialStatement(null); setFinancialSummary(null); }} placeholder="Select customer" />
+            <FloatingDatePicker label="From date" name="fromDate" value={fromDate} onChange={(event) => { setFromDate(event.target.value); setFinancialStatement(null); }} required />
+            <FloatingDatePicker label="To date" name="toDate" value={toDate} onChange={(event) => { setToDate(event.target.value); setFinancialStatement(null); }} required />
+          </fieldset>
+          {financialStatement && <div className="space-y-4">
+            {financialSummary && <div className="rounded-lg bg-cyan-50 p-3 text-sm text-cyan-900 dark:bg-cyan-950 dark:text-cyan-100">Current outstanding: <strong>{formatMoney(financialSummary.totalOutstanding)}</strong> · Available customer credit: <strong>{formatMoney(financialSummary.availableCustomerCredit)}</strong><p className="mt-1 text-xs">Current totals may differ from a statement ending in the past.</p></div>}
+            <div className="grid grid-cols-2 gap-3">
+              {([['Opening balance', financialStatement.openingBalance], ['Debits', financialStatement.totalDebit], ['Credits', financialStatement.totalCredit], ['Closing balance', financialStatement.closingBalance]] as const).map(([label, amount]) => <div key={label} className="rounded-lg border border-slate-200 p-3 dark:border-gray-700"><span className="block text-sm">{label}</span><strong>{formatMoney(Number(amount))}</strong></div>)}
+            </div>
+            <div className="overflow-auto"><table className="w-full text-left text-sm"><thead><tr>{['Date', 'Type', 'Document / Reference', 'Description', 'Debit', 'Credit', 'Running balance'].map((label) => <th key={label} className="p-2">{label}</th>)}</tr></thead><tbody>
+              {statementRows.map((entry, index) => <tr key={index} className="border-t border-slate-200 dark:border-gray-700"><td className="p-2">{formatDisplayDate(entry.transactionDate)}</td><td className="p-2">{statusLabel(entry.type)}{!entry.affectsBalance && ' (informational)'}</td><td className="p-2">{entry.documentNumber || entry.referenceNumber || '—'}</td><td className="p-2">{entry.description}</td><td className="p-2">{formatMoney(Number(entry.debit || 0))}</td><td className="p-2">{formatMoney(Number(entry.credit || 0))}</td><td className="p-2">{formatMoney(entry.runningBalance)}</td></tr>)}
+              {!statementRows.length && <tr><td colSpan={7} className="p-4">No transactions in this period.</td></tr>}
+            </tbody></table></div>
+            {Math.round((statementRows[statementRows.length - 1]?.runningBalance ?? financialStatement.openingBalance) * 100) !== Math.round(financialStatement.closingBalance * 100) && <p role="alert" className="text-sm text-amber-700">The transaction running balance differs from the server closing balance. Review this statement before reconciliation.</p>}
+          </div>}
+        </Dragger>
+
+        {/* Aging and current unpaid invoices are separate from the dated financial statement. */}
         <Dragger
           isOpen={showReport}
           variant="modal"
           title="Aging Report"
-          subtitle="How long invoices have been unpaid. Choose a customer to also see their statement."
+          subtitle="How long invoices have been unpaid. Choose a customer to see their current unpaid invoices."
           onClose={() => setShowReport(false)}
           onSubmit={submitReport}
           submitting={reportLoading}

@@ -125,10 +125,10 @@ type StockAdjustmentForm = {
 };
 
 const API_URL = "/v1/api/inventory";
-const PRODUCT_URL = "/v1/api/purchase";
+const PRODUCT_URL = "/v1/api/product";
 const PAGE_SIZE = 10;
 
-const PRODUCT_ROUTE = "/purchase-products";
+const PRODUCT_ROUTE = "/product-products";
 const WAREHOUSE_ROUTE = "/warehouse";
 const BATCH_ROUTE = "/batch";
 
