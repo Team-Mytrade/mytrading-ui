@@ -1,767 +1,781 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import FilterPopover from "../../components/common/filter";
-import {
-  CubeIcon,
-  BuildingOffice2Icon,
-  ExclamationTriangleIcon,
-  MagnifyingGlassIcon,
-  XMarkIcon,
-  ArrowPathIcon,
-  ClockIcon,
-  UserIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon,
-  LockClosedIcon,
-} from "@heroicons/react/24/outline";
+import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import { ToasterService } from "../../Services/ToasterService";
-import StatsCard from "../../components/common/Statscard";
-import { ListingPdfExportButton } from "../../components/common/export";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import { todayIso } from "../../utils/localDate";
+import StatsCardFilter, { StatsCardOption, useStatsCardFilter } from "../../components/common/StatsCardFilter";
+import { ToasterService } from "../../Services/ToasterService";
+import { toLocalIsoDate, todayIso } from "../../utils/localDate";
 
-// ============ STATIC FALLBACK DATA ============
-const STATIC_STOCK_DATA = [
-  {
-    id: 1,
-    productId: 1,
-    productName: "Mouse",
-    productCode: "2-bu-0003",
-    warehouseId: 1,
-    warehouseName: "warehouse 1",
-    warehouseCode: "FSA",
-    quantity: 100,
-    reservedQty: 20,
-    minStockLevel: 10,
-    available: 80,
-    type: "GRN",
-    referenceNo: "TENANT_1-GRN-202607-000001",
-    movementDate: "2026-07-01",
-    createdDate: "2026-07-01T10:00:00Z",
-    movementCount: 45,
-    lastMovementDate: "2026-08-01",
-    price: 50,
-    expiryDate: "2028-12-31",
-  },
-  {
-    id: 2,
-    productId: 2,
-    productName: "Table",
-    productCode: "2-bu-0002",
-    warehouseId: 2,
-    warehouseName: "Mumbai",
-    warehouseCode: "WH-2026-001",
-    quantity: 54,
-    reservedQty: 52,
-    minStockLevel: 50,
-    available: 2,
-    type: "GRN",
-    referenceNo: "TENANT_1-GRN-202607-000002",
-    movementDate: "2026-07-02",
-    createdDate: "2026-07-02T10:00:00Z",
-    movementCount: 10,
-    lastMovementDate: "2026-07-15",
-    price: 150,
-    expiryDate: "2028-12-31",
-  },
-  {
-    id: 3,
-    productId: 3,
-    productName: "Refridgerator",
-    productCode: "2-bu-0001",
-    warehouseId: 3,
-    warehouseName: "etwet",
-    warehouseCode: "123",
-    quantity: 50,
-    reservedQty: 20,
-    minStockLevel: 20,
-    available: 30,
-    type: "RETURN",
-    referenceNo: "TENANT_1-RET-202607-000001",
-    movementDate: "2026-07-03",
-    createdDate: "2026-07-03T10:00:00Z",
-    movementCount: 5,
-    lastMovementDate: "2026-06-01",
-    price: 500,
-    expiryDate: "2028-12-31",
-  },
-  {
-    id: 4,
-    productId: 4,
-    productName: "Keyboard",
-    productCode: "2-bu-0004",
-    warehouseId: 1,
-    warehouseName: "warehouse 1",
-    warehouseCode: "FSA",
-    quantity: 45,
-    reservedQty: 10,
-    minStockLevel: 50,
-    available: 35,
-    type: "GRN",
-    referenceNo: "TENANT_1-GRN-202607-000004",
-    movementDate: "2026-07-04",
-    createdDate: "2026-07-04T10:00:00Z",
-    movementCount: 60,
-    lastMovementDate: "2026-08-05",
-    price: 80,
-    expiryDate: "2028-12-31",
-  },
-  {
-    id: 5,
-    productId: 5,
-    productName: "Monitor",
-    productCode: "2-bu-0005",
-    warehouseId: 2,
-    warehouseName: "Mumbai",
-    warehouseCode: "WH-2026-001",
-    quantity: 30,
-    reservedQty: 0,
-    minStockLevel: 10,
-    available: 30,
-    type: "TRANSFER",
-    referenceNo: "TENANT_1-TRF-202607-000001",
-    movementDate: "2026-07-05",
-    createdDate: "2026-07-05T10:00:00Z",
-    movementCount: 20,
-    lastMovementDate: "2026-07-20",
-    price: 300,
-    expiryDate: "2028-12-31",
-  },
-];
+/**
+ * Inventory reports built from the live inventory records (stock levels, movements, adjustments, batches,
+ * serial numbers, quality inspections) and the Product Catalogue (names, codes, standard cost).
+ * Nothing here is sample data: an empty report means there is nothing of that kind yet.
+ */
 
-const STATIC_WAREHOUSE_DATA = [
-  { id: 1, code: "FSA", name: "warehouse 1" },
-  { id: 2, code: "WH-2026-001", name: "Mumbai" },
-  { id: 3, code: "123", name: "etwet" },
-];
+const INVENTORY = "/v1/api/inventory";
+const PRODUCTS = "/v1/api/product/products";
 
-const STATIC_PRODUCT_DATA = [
-  { id: 1, productName: "Mouse", code: "2-bu-0003", category: "Electronics" },
-  { id: 2, productName: "Table", code: "2-bu-0002", category: "Furniture" },
-  { id: 3, productName: "Refridgerator", code: "2-bu-0001", category: "Appliances" },
-  { id: 4, productName: "Keyboard", code: "2-bu-0004", category: "Electronics" },
-  { id: 5, productName: "Monitor", code: "2-bu-0005", category: "Electronics" },
-];
+type Row = Record<string, any> & { id: string | number };
 
-const STATIC_BATCH_DATA = [
-  { id: 1, batchNumber: "BATCH-2026-001", productName: "Mouse", productId: 1, quantity: 50, manufacturingDate: "2026-01-15", expiryDate: "2028-01-15", warehouseName: "warehouse 1", status: "Good" },
-  { id: 2, batchNumber: "BATCH-2026-002", productName: "Table", productId: 2, quantity: 30, manufacturingDate: "2026-02-20", expiryDate: "2028-02-20", warehouseName: "Mumbai", status: "Expiring Soon" },
-  { id: 3, batchNumber: "BATCH-2026-003", productName: "Refridgerator", productId: 3, quantity: 20, manufacturingDate: "2026-03-10", expiryDate: "2028-03-10", warehouseName: "etwet", status: "Good" },
-];
-
-const STATIC_SERIAL_DATA = [
-  { id: 1, serial: "SN-001-2026", productName: "Mouse", productId: 1, warehouseName: "warehouse 1", status: "Active", warrantyEnd: "2028-01-15" },
-  { id: 2, serial: "SN-002-2026", productName: "Table", productId: 2, warehouseName: "Mumbai", status: "Active", warrantyEnd: "2028-02-20" },
-  { id: 3, serial: "SN-003-2026", productName: "Refridgerator", productId: 3, warehouseName: "etwet", status: "Sold", warrantyEnd: "2028-03-10" },
-];
-
-const STATIC_MOVEMENT_DATA = [
-  { id: 1, productName: "Mouse", warehouseName: "warehouse 1", movementType: "GRN", quantity: 10, movementDate: "2026-08-01", referenceNo: "GRN-001" },
-  { id: 2, productName: "Table", warehouseName: "Mumbai", movementType: "TRANSFER", quantity: 5, movementDate: "2026-07-28", referenceNo: "TRF-002" },
-  { id: 3, productName: "Refridgerator", warehouseName: "etwet", movementType: "RETURN", quantity: 2, movementDate: "2026-07-25", referenceNo: "RET-003" },
-  { id: 4, productName: "Keyboard", warehouseName: "warehouse 1", movementType: "GRN", quantity: 20, movementDate: "2026-08-05", referenceNo: "GRN-004" },
-  { id: 5, productName: "Monitor", warehouseName: "Mumbai", movementType: "TRANSFER", quantity: 3, movementDate: "2026-07-20", referenceNo: "TRF-005" },
-];
-
-const STATIC_ADJUSTMENT_DATA = [
-  { id: 1, productName: "Mouse", warehouseName: "warehouse 1", adjustmentType: "POSITIVE", quantity: 5, reason: "Inventory Count", adjustmentDate: "2026-07-30" },
-  { id: 2, productName: "Table", warehouseName: "Mumbai", adjustmentType: "NEGATIVE", quantity: 2, reason: "Damaged", adjustmentDate: "2026-07-25" },
-];
-
-// ============ API TYPES ============
-type ReportResponse = {
-  stockPerProduct: Record<string, number>;
-  stockPerWarehouse: {
-    warehouse: string;
-    product: string;
-    quantity: number;
-  }[];
-  agedStock: {
-    product: string;
-    receivedDate: string;
-    quantity: number;
-  }[];
-};
-
-// ============ TYPES ============
-type StockItem = {
-  id: number;
-  productId: number;
-  productName: string;
-  productCode: string;
-  warehouseId: number;
-  warehouseName: string;
-  warehouseCode: string;
-  quantity: number;
-  reservedQty: number;
-  minStockLevel: number;
-  available: number;
-  type: string;
-  referenceNo: string;
-  movementDate: string;
-  createdDate: string;
-  movementCount: number;
-  lastMovementDate: string;
-  price: number;
-  expiryDate: string;
-};
-
+type Warehouse = { id: number; code?: string; name?: string };
 type Product = {
   id: number;
-  productName: string;
-  code: string;
-  category: string;
+  productName?: string;
+  productCode?: string;
+  categoryName?: string;
+  productCategory?: { categoryName?: string };
+  standardCost?: number | null;
 };
-
-type Warehouse = {
+type StockLevel = {
   id: number;
-  code: string;
-  name: string;
-};
-
-type Batch = {
-  id: number;
-  batchNumber: string;
-  productName: string;
   productId: number;
   quantity: number;
-  manufacturingDate: string;
-  expiryDate: string;
-  warehouseName: string;
-  status: string;
+  reserved?: number;
+  available?: number;
+  reorderLevel?: number | null;
+  warehouse?: Warehouse | null;
 };
 
-type Serial = {
-  id: number;
-  serial: string;
-  productName: string;
-  productId: number;
-  warehouseName: string;
-  status: string;
-  warrantyEnd: string;
+type ReportType =
+  | "current"
+  | "low"
+  | "valuation"
+  | "reserved"
+  | "movement"
+  | "adjustment"
+  | "batch"
+  | "serial"
+  | "quality"
+  | "analysis";
+
+/** Extra data a report needs on top of stock levels, products and warehouses. */
+type Dataset = "movements" | "adjustments" | "batches" | "serials" | "inspections";
+
+const REPORTS: { key: ReportType; label: string; group: string; needs: Dataset[]; help: string }[] = [
+  { key: "current", label: "Current Stock", group: "Stock", needs: [], help: "Stock on hand, reserved for orders and still available, per product and warehouse." },
+  { key: "low", label: "Low Stock & Reorder", group: "Stock", needs: [], help: "Records at or below their reorder level, or out of stock. Order at least the shortfall to get back to the reorder level." },
+  { key: "valuation", label: "Stock Valuation", group: "Stock", needs: [], help: "Stock on hand × the product's standard cost from the Product Catalogue." },
+  { key: "reserved", label: "Reserved Stock", group: "Stock", needs: [], help: "Stock held for confirmed sales orders and not yet dispatched." },
+  { key: "movement", label: "Stock Movements", group: "Activity", needs: ["movements"], help: "Every receipt, issue, transfer and correction in the chosen period." },
+  { key: "adjustment", label: "Stock Adjustments", group: "Activity", needs: ["adjustments"], help: "Stock counted up or written off in the chosen period, with the reason." },
+  { key: "analysis", label: "Fast / Slow / Dead Stock", group: "Activity", needs: ["movements"], help: "Quantity issued (sold or issued, not written off) per product in the chosen period. Fast = top third, Slow = the rest, Not issued = received or moved but nothing issued, Dead = in stock with no movement at all." },
+  { key: "batch", label: "Batches & Expiry", group: "Tracking", needs: ["batches"], help: "Batches with stock, by expiry date. Expiring soon = within 30 days." },
+  { key: "serial", label: "Serial Numbers", group: "Tracking", needs: ["serials"], help: "Serial-tracked units and where they are." },
+  { key: "quality", label: "Quality Inspections", group: "Tracking", needs: ["inspections"], help: "Inspection results in the chosen period." },
+];
+
+const PERIODS = [
+  { days: 30, label: "Last 30 days" },
+  { days: 90, label: "Last 90 days" },
+  { days: 180, label: "Last 6 months" },
+  { days: 365, label: "Last 12 months" },
+];
+
+/** Reports that use the period selector. */
+const PERIOD_REPORTS: ReportType[] = ["movement", "adjustment", "analysis", "quality"];
+
+const IN_TYPES = ["GRN", "PURCHASE_RECEIPT", "RETURN", "CUSTOMER_RETURN"];
+const OUT_TYPES = ["ISSUE", "SALES_ISSUE", "SUPPLIER_RETURN", "DAMAGE"];
+/** What counts as demand in the movement analysis (write-offs and returns to the supplier don't). */
+const ISSUE_TYPES = ["ISSUE", "SALES_ISSUE"];
+const TRANSFER_TYPES = ["TRANSFER", "WAREHOUSE_TRANSFER"];
+
+const num = (value: unknown) => (Number.isFinite(Number(value)) ? Number(value) : 0);
+const qty = (value: unknown) => num(value).toLocaleString("en-IN");
+const rupees = (value: unknown) =>
+  `₹${num(value).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const humanize = (value: unknown) =>
+  String(value ?? "")
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/^\w/, (c) => c.toUpperCase()) || "--";
+
+/** "2026-10-21" (or [2026,10,21]) → "21 Oct 2026". */
+const toIso = (value: unknown): string => {
+  if (Array.isArray(value) && value.length >= 3) {
+    return `${value[0]}-${String(value[1]).padStart(2, "0")}-${String(value[2]).padStart(2, "0")}`;
+  }
+  const text = String(value ?? "");
+  return /^\d{4}-\d{2}-\d{2}/.test(text) ? text.slice(0, 10) : "";
+};
+const showDate = (value: unknown) => {
+  const iso = toIso(value);
+  if (!iso) return "--";
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-type Movement = {
-  id: number;
-  productName: string;
-  warehouseName: string;
-  movementType: string;
-  quantity: number;
-  movementDate: string;
-  referenceNo: string;
+const daysFromToday = (iso: string) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.round((new Date(y, m - 1, d).getTime() - start.getTime()) / 86400000);
 };
 
-type Adjustment = {
-  id: number;
-  productName: string;
-  warehouseName: string;
-  adjustmentType: string;
-  quantity: number;
-  reason: string;
-  adjustmentDate: string;
+/** In / Out / Transfer for a movement; adjustments and corrections by which side they have a location on. */
+const directionOf = (movement: Row) => {
+  const type = String(movement.movementType || "").toUpperCase();
+  if (IN_TYPES.includes(type)) return "In";
+  if (OUT_TYPES.includes(type)) return "Out";
+  if (TRANSFER_TYPES.includes(type)) return "Transfer";
+  if (movement.toLocation && !movement.fromLocation) return "In";
+  if (movement.fromLocation && !movement.toLocation) return "Out";
+  return "Other";
 };
 
-type ReportType = 
-  | "current" 
-  | "warehouse" 
-  | "product" 
-  | "low" 
-  | "reorder" 
-  | "movement" 
-  | "adjustment" 
-  | "batch" 
-  | "serial" 
-  | "valuation" 
-  | "reserved" 
-  | "expired" 
-  | "near-expiry" 
-  | "quality" 
-  | "dead" 
-  | "fast" 
-  | "slow";
+const Pill = ({ text, tone }: { text: string; tone: "green" | "amber" | "red" | "blue" | "slate" }) => {
+  const tones = {
+    green: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
+    amber: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
+    red: "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300",
+    blue: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
+    slate: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+  };
+  return <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${tones[tone]}`}>{text}</span>;
+};
 
-// ============ API CONFIG ============
-const API_URL = "/v1/api/inventory/reports";
+const STOCK_TONE: Record<string, "green" | "amber" | "red"> = { Healthy: "green", "Low Stock": "amber", "Out of Stock": "red" };
+const CLASS_TONE: Record<string, "green" | "amber" | "red"> = { Fast: "green", Slow: "amber", Dead: "red" };
+
+const listOf = (data: unknown): Row[] => (Array.isArray(data) ? data : []);
 
 const InventoryReports: React.FC = () => {
-  const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : undefined;
-
   const [reportType, setReportType] = useState<ReportType>("current");
-  const [selectedWarehouse, setSelectedWarehouse] = useState<number | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<number | null>(null);
-  
-  //  State for API data
-  const [apiData, setApiData] = useState<ReportResponse | null>(null);
+  const [warehouseId, setWarehouseId] = useState("");
+  const [periodDays, setPeriodDays] = useState(90);
+
+  const [stocks, setStocks] = useState<StockLevel[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [extra, setExtra] = useState<Partial<Record<Dataset, Row[]>>>({});
+  const [batchStock, setBatchStock] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("");
 
-  // Static fallback data
-  const [stocks, setStocks] = useState<StockItem[]>(STATIC_STOCK_DATA);
-  const [products] = useState<Product[]>(STATIC_PRODUCT_DATA);
-  const [warehouses] = useState<Warehouse[]>(STATIC_WAREHOUSE_DATA);
-  const [batches] = useState<Batch[]>(STATIC_BATCH_DATA);
-  const [serials] = useState<Serial[]>(STATIC_SERIAL_DATA);
-  const [movements] = useState<Movement[]>(STATIC_MOVEMENT_DATA);
-  const [adjustments] = useState<Adjustment[]>(STATIC_ADJUSTMENT_DATA);
+  const report = REPORTS.find((item) => item.key === reportType) ?? REPORTS[0];
 
-  // Fetch report data from API
-  const fetchReportData = async () => {
+  const loadBase = async () => {
+    setLoading(true);
+    const [stockRes, productRes, warehouseRes] = await Promise.allSettled([
+      axios.get(`${INVENTORY}/stock-levels`),
+      axios.get(PRODUCTS),
+      axios.get(`${INVENTORY}/warehouses`),
+    ]);
+    if (stockRes.status === "fulfilled") setStocks(listOf(stockRes.value.data) as StockLevel[]);
+    else ToasterService.error("Failed to load stock levels");
+    if (productRes.status === "fulfilled") setProducts(listOf(productRes.value.data) as Product[]);
+    else ToasterService.error("Failed to load products", "Product names and costs may be missing.");
+    if (warehouseRes.status === "fulfilled") setWarehouses(listOf(warehouseRes.value.data) as Warehouse[]);
+    setLoading(false);
+  };
+
+  const loadDataset = async (dataset: Dataset, force = false) => {
+    if (!force && extra[dataset]) return;
+    setLoading(true);
     try {
-      setLoading(true);
-      
-      const response = await axios.get<ReportResponse>(API_URL, { headers });
-      console.log("Report API Response:", response.data);
-      
-      setApiData(response.data);
-      
-      // Merge API data with static data
-      mergeApiData(response.data);
-      
-    } catch (err) {
-      console.error(" Failed to fetch report data:", err);
-      ToasterService.error("Failed to load report data", "Using fallback data.");
+      if (dataset === "batches") {
+        const [batches, details] = await Promise.all([
+          axios.get(`${INVENTORY}/batches`),
+          axios.get(`${INVENTORY}/batches/stock-details`),
+        ]);
+        setBatchStock(listOf(details.data));
+        setExtra((current) => ({ ...current, batches: listOf(batches.data) }));
+      } else {
+        const path = {
+          movements: "stock-movements",
+          adjustments: "stock-adjustments",
+          serials: "serial-numbers",
+          inspections: "quality-inspections",
+        }[dataset];
+        const res = await axios.get(`${INVENTORY}/${path}`);
+        setExtra((current) => ({ ...current, [dataset]: listOf(res.data) }));
+      }
+    } catch {
+      ToasterService.error(`Failed to load ${dataset} for this report`);
+      setExtra((current) => ({ ...current, [dataset]: [] }));
     } finally {
       setLoading(false);
     }
   };
 
-  // Merge API data with static data
-  const mergeApiData = (data: ReportResponse) => {
-    let mergedData = [...STATIC_STOCK_DATA];
-
-    // Merge stockPerWarehouse data
-    if (data.stockPerWarehouse && data.stockPerWarehouse.length > 0) {
-      data.stockPerWarehouse.forEach((item, index) => {
-        const existingIndex = mergedData.findIndex(
-          s => s.productName === item.product && s.warehouseName === item.warehouse
-        );
-        
-        if (existingIndex !== -1) {
-          // Update existing with API data
-          mergedData[existingIndex] = {
-            ...mergedData[existingIndex],
-            quantity: item.quantity,
-            available: item.quantity,
-          };
-        } else {
-          // Create new item from API data
-          mergedData.push({
-            id: 100 + index,
-            productId: 100 + index,
-            productName: item.product,
-            productCode: `API-${index}`,
-            warehouseId: 1,
-            warehouseName: item.warehouse,
-            warehouseCode: "API",
-            quantity: item.quantity,
-            reservedQty: 0,
-            minStockLevel: 10,
-            available: item.quantity,
-            type: "API",
-            referenceNo: `API-${index}`,
-            movementDate: todayIso(),
-            createdDate: new Date().toISOString(),
-            movementCount: 0,
-            lastMovementDate: todayIso(),
-            price: 0,
-            expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-          });
-        }
-      });
-    }
-
-    setStocks(mergedData);
-  };
-
   useEffect(() => {
-    fetchReportData();
+    void loadBase();
   }, []);
 
   useEffect(() => {
-    // Simulate loading when filters change
-    setLoading(true);
-    setTimeout(() => setLoading(false), 300);
-  }, [reportType, selectedWarehouse, selectedProduct]);
+    report.needs.forEach((dataset) => void loadDataset(dataset));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportType]);
 
-  // Helper Functions
-  const getProductName = (productId: number) => {
-    const product = products.find((p) => p.id === productId);
-    return product?.productName || `Product #${productId}`;
+  const refresh = () => {
+    void loadBase();
+    report.needs.forEach((dataset) => void loadDataset(dataset, true));
   };
 
-  const getProductCode = (productId: number) => {
-    const product = products.find((p) => p.id === productId);
-    return product?.code || "";
+  const productById = useMemo(() => new Map(products.map((p) => [Number(p.id), p])), [products]);
+  const warehouseById = useMemo(() => new Map(warehouses.map((w) => [Number(w.id), w])), [warehouses]);
+  const productName = (id: unknown) => productById.get(Number(id))?.productName || `Product #${id}`;
+  const productCode = (id: unknown) => productById.get(Number(id))?.productCode || "";
+  const warehouseName = (warehouse?: Warehouse | null, id?: unknown) => {
+    const found = warehouse ?? warehouseById.get(Number(id));
+    return found ? found.name || found.code || `Warehouse #${found.id}` : "--";
   };
 
-  const getProductCategory = (productId: number) => {
-    const product = products.find((p) => p.id === productId);
-    return product?.category || "";
+  const inWarehouse = (id: unknown) => !warehouseId || String(id) === warehouseId;
+  const since = useMemo(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - periodDays);
+    return toLocalIsoDate(date);
+  }, [periodDays]);
+  const inPeriod = (value: unknown) => {
+    const iso = toIso(value);
+    return Boolean(iso) && iso >= since;
   };
 
-  const getWarehouseName = (warehouseId: number) => {
-    const warehouse = warehouses.find((w) => w.id === warehouseId);
-    return warehouse?.name || `Warehouse #${warehouseId}`;
-  };
+  /* ---------------- rows per report ---------------- */
 
-  const getWarehouseCode = (warehouseId: number) => {
-    const warehouse = warehouses.find((w) => w.id === warehouseId);
-    return warehouse?.code || "";
-  };
+  const stockRows = useMemo<Row[]>(
+    () =>
+      stocks
+        .filter((s) => inWarehouse(s.warehouse?.id))
+        .map((s) => {
+          const available = num(s.available ?? num(s.quantity) - num(s.reserved));
+          const reorder = s.reorderLevel == null ? null : num(s.reorderLevel);
+          const status = available <= 0 ? "Out of Stock" : reorder != null && available <= reorder ? "Low Stock" : "Healthy";
+          const unitCost = productById.get(Number(s.productId))?.standardCost;
+          return {
+            id: s.id,
+            productId: s.productId,
+            product: productName(s.productId),
+            code: productCode(s.productId),
+            warehouse: warehouseName(s.warehouse),
+            onHand: num(s.quantity),
+            reserved: num(s.reserved),
+            available,
+            reorderLevel: reorder,
+            shortfall: reorder == null ? null : Math.max(0, reorder - available),
+            status,
+            unitCost: unitCost == null ? null : num(unitCost),
+            value: unitCost == null ? null : num(s.quantity) * num(unitCost),
+          };
+        }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [stocks, productById, warehouseById, warehouseId]
+  );
 
-  // Status Helper
-  const getStatus = (item: StockItem) => {
-    const available = item.quantity - item.reservedQty;
-    if (available <= 0) {
-      return { label: "Out of Stock", className: "bg-red-100 text-red-700" };
-    }
-    if (available <= item.minStockLevel) {
-      return { label: "Low Stock", className: "bg-yellow-100 text-yellow-700" };
-    }
-    return { label: "Healthy", className: "bg-green-100 text-green-700" };
-  };
+  const movementRows = useMemo<Row[]>(
+    () =>
+      (extra.movements ?? [])
+        .filter((m) => inWarehouse(m.warehouse?.id) && inPeriod(m.movementDate))
+        .map((m) => ({
+          id: m.id,
+          date: toIso(m.movementDate),
+          type: m.movementType,
+          direction: directionOf(m),
+          product: productName(m.productId),
+          code: productCode(m.productId),
+          warehouse: warehouseName(m.warehouse),
+          quantity: num(m.quantity),
+          route: [m.fromLocation, m.toLocation].some(Boolean) ? `${m.fromLocation || "—"} → ${m.toLocation || "—"}` : "--",
+          reference: m.reference || "--",
+        })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [extra.movements, productById, warehouseById, warehouseId, since]
+  );
 
-  // Filtered Data
-  const getFilteredData = () => {
+  const adjustmentRows = useMemo<Row[]>(
+    () =>
+      (extra.adjustments ?? [])
+        .filter((a) => inWarehouse(a.warehouse?.id) && inPeriod(a.adjustmentDate))
+        .map((a) => ({
+          id: a.id,
+          date: toIso(a.adjustmentDate),
+          product: productName(a.productId),
+          code: productCode(a.productId),
+          warehouse: warehouseName(a.warehouse),
+          direction: String(a.adjustmentType).toUpperCase() === "NEGATIVE" ? "Decrease" : "Increase",
+          quantity: num(a.quantity),
+          reason: humanize(a.reason),
+          batch: a.batch?.batchNumber || "--",
+        })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [extra.adjustments, productById, warehouseById, warehouseId, since]
+  );
+
+  const analysisRows = useMemo<Row[]>(() => {
+    const byProduct = new Map<number, { onHand: number; issued: number; received: number; movedInPeriod: boolean; last: string }>();
+    const entry = (productId: number) => {
+      if (!byProduct.has(productId)) byProduct.set(productId, { onHand: 0, issued: 0, received: 0, movedInPeriod: false, last: "" });
+      return byProduct.get(productId)!;
+    };
+    stocks.filter((s) => inWarehouse(s.warehouse?.id)).forEach((s) => (entry(Number(s.productId)).onHand += num(s.quantity)));
+    (extra.movements ?? [])
+      .filter((m) => inWarehouse(m.warehouse?.id))
+      .forEach((m) => {
+        const item = entry(Number(m.productId));
+        const date = toIso(m.movementDate);
+        if (date > item.last) item.last = date;
+        if (!inPeriod(m.movementDate)) return;
+        item.movedInPeriod = true;
+        const type = String(m.movementType || "").toUpperCase();
+        if (ISSUE_TYPES.includes(type)) item.issued += num(m.quantity);
+        if (IN_TYPES.includes(type)) item.received += num(m.quantity);
+      });
+
+    const issuing = [...byProduct.entries()].filter(([, v]) => v.issued > 0).sort((a, b) => b[1].issued - a[1].issued);
+    const fast = new Set(issuing.slice(0, Math.ceil(issuing.length / 3)).map(([id]) => id));
+    const classOf = (productId: number, v: { onHand: number; issued: number; movedInPeriod: boolean }) => {
+      if (v.issued > 0) return fast.has(productId) ? "Fast" : "Slow";
+      return v.movedInPeriod ? "Not issued" : "Dead";
+    };
+
+    return [...byProduct.entries()]
+      .filter(([, v]) => v.onHand > 0 || v.issued > 0)
+      .map(([productId, v]) => ({
+        id: productId,
+        product: productName(productId),
+        code: productCode(productId),
+        onHand: v.onHand,
+        issued: v.issued,
+        received: v.received,
+        lastMovement: v.last,
+        movementClass: classOf(productId, v),
+      }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stocks, extra.movements, productById, warehouseId, since]);
+
+  const batchRows = useMemo<Row[]>(() => {
+    const batchById = new Map((extra.batches ?? []).map((b) => [Number(b.id), b]));
+    return batchStock
+      .filter((b) => num(b.quantity) > 0 && inWarehouse(b.warehouseId))
+      .map((b) => {
+        const batch = batchById.get(Number(b.batchId));
+        const expiry = toIso(batch?.expiryDate);
+        const days = expiry ? daysFromToday(expiry) : null;
+        const expiryStatus = days == null ? "No expiry" : days < 0 ? "Expired" : days <= 30 ? "Expiring soon" : "OK";
+        return {
+          id: `${b.batchId}-${b.warehouseId}`,
+          batch: b.batchNumber || batch?.batchNumber || `Batch #${b.batchId}`,
+          product: productName(b.productId ?? batch?.productId),
+          code: productCode(b.productId ?? batch?.productId),
+          warehouse: warehouseName(null, b.warehouseId),
+          manufactured: toIso(batch?.manufacturingDate),
+          expiry,
+          daysLeft: days,
+          quantity: num(b.quantity),
+          available: num(b.available),
+          expiryStatus,
+        };
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batchStock, extra.batches, productById, warehouseById, warehouseId]);
+
+  const serialRows = useMemo<Row[]>(
+    () =>
+      (extra.serials ?? [])
+        .filter((s) => inWarehouse(s.warehouse?.id))
+        .map((s) => ({
+          id: s.id,
+          serial: s.serial,
+          product: productName(s.productId),
+          code: productCode(s.productId),
+          warehouse: warehouseName(s.warehouse),
+          batch: s.batch?.batchNumber || "--",
+          status: s.currentStatus || "--",
+          warrantyEnd: toIso(s.warrantyEnd),
+        })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [extra.serials, productById, warehouseById, warehouseId]
+  );
+
+  const inspectionRows = useMemo<Row[]>(
+    () =>
+      (extra.inspections ?? [])
+        .filter((q) => inPeriod(q.inspectionDate))
+        .map((q) => ({
+          id: q.id,
+          date: toIso(q.inspectionDate),
+          product: productName(q.productId),
+          code: productCode(q.productId),
+          item: q.serialNumber?.serial || q.batchNumber || q.batch?.batchNumber || "--",
+          inspectionType: humanize(q.inspectionType),
+          result: String(q.result || "").toUpperCase(),
+          inspector: q.inspector || "--",
+          remarks: q.remarks || "",
+        })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [extra.inspections, productById, since]
+  );
+
+  const rows: Row[] = {
+    current: stockRows,
+    low: stockRows.filter((r) => r.status !== "Healthy"),
+    valuation: stockRows.filter((r) => r.onHand !== 0),
+    reserved: stockRows.filter((r) => r.reserved > 0),
+    movement: movementRows,
+    adjustment: adjustmentRows,
+    analysis: analysisRows,
+    batch: batchRows,
+    serial: serialRows,
+    quality: inspectionRows,
+  }[reportType];
+
+  /* ---------------- cards per report ---------------- */
+
+  const cards = useMemo<StatsCardOption<Row>[]>(() => {
+    const all = (label: string): StatsCardOption<Row> => ({ key: "ALL", label, match: () => true, tone: "cyan" });
+    const by = (key: string, label: string, match: (row: Row) => boolean, tone: StatsCardOption<Row>["tone"]) => ({ key, label, match, tone });
     switch (reportType) {
       case "current":
-        return stocks;
-      case "warehouse":
-        return selectedWarehouse ? stocks.filter(s => s.warehouseId === selectedWarehouse) : stocks;
-      case "product":
-        return selectedProduct ? stocks.filter(s => s.productId === selectedProduct) : stocks;
+        return [
+          all("All Records"),
+          by("OK", "Healthy", (r) => r.status === "Healthy", "green"),
+          by("LOW", "Low Stock", (r) => r.status === "Low Stock", "amber"),
+          by("OUT", "Out of Stock", (r) => r.status === "Out of Stock", "red"),
+        ];
       case "low":
-        return stocks.filter(s => {
-          const available = s.quantity - s.reservedQty;
-          return available > 0 && available <= s.minStockLevel;
-        });
-      case "reorder":
-        return stocks.filter(s => s.quantity <= s.minStockLevel * 0.5);
-      case "movement":
-        return movements;
-      case "adjustment":
-        return adjustments;
-      case "batch":
-        return batches;
-      case "serial":
-        return serials;
+        return [all("Needs Attention"), by("LOW", "Low Stock", (r) => r.status === "Low Stock", "amber"), by("OUT", "Out of Stock", (r) => r.status === "Out of Stock", "red")];
       case "valuation":
-        return stocks.map(s => ({
-          ...s,
-          value: s.quantity * s.price,
-        }));
+        return [all("Records In Stock"), by("NOCOST", "No Standard Cost", (r) => r.unitCost == null || r.unitCost === 0, "amber")];
       case "reserved":
-        return stocks.filter(s => s.reservedQty > 0);
-      case "expired":
-        return stocks.filter(s => new Date(s.expiryDate) < new Date());
-      case "near-expiry":
-        const today = new Date();
-        const thirtyDaysFromNow = new Date(today);
-        thirtyDaysFromNow.setDate(today.getDate() + 30);
-        return stocks.filter(s => {
-          const expiry = new Date(s.expiryDate);
-          return expiry > today && expiry <= thirtyDaysFromNow;
-        });
+        return [all("Records With Reservations"), by("NONE", "Fully Reserved", (r) => r.available <= 0, "red")];
+      case "movement":
+        return [
+          all("All Movements"),
+          by("IN", "In", (r) => r.direction === "In", "green"),
+          by("OUT", "Out", (r) => r.direction === "Out", "red"),
+          by("TRANSFER", "Transfer", (r) => r.direction === "Transfer", "blue"),
+        ];
+      case "adjustment":
+        return [all("All Adjustments"), by("UP", "Increase", (r) => r.direction === "Increase", "green"), by("DOWN", "Decrease", (r) => r.direction === "Decrease", "red")];
+      case "analysis":
+        return [
+          all("Products"),
+          by("FAST", "Fast Moving", (r) => r.movementClass === "Fast", "green"),
+          by("SLOW", "Slow Moving", (r) => r.movementClass === "Slow", "amber"),
+          by("IDLE", "Not Issued", (r) => r.movementClass === "Not issued", "slate"),
+          by("DEAD", "Dead Stock", (r) => r.movementClass === "Dead", "red"),
+        ];
+      case "batch":
+        return [
+          all("Batches In Stock"),
+          by("EXPIRED", "Expired", (r) => r.expiryStatus === "Expired", "red"),
+          by("SOON", "Expiring Soon", (r) => r.expiryStatus === "Expiring soon", "amber"),
+          by("OK", "OK / No Expiry", (r) => r.expiryStatus === "OK" || r.expiryStatus === "No expiry", "green"),
+        ];
+      case "serial":
+        return [
+          all("All Serials"),
+          by("AVAILABLE", "Available", (r) => r.status === "AVAILABLE", "green"),
+          by("OUT", "Issued / Sold", (r) => r.status === "ISSUED" || r.status === "SOLD", "blue"),
+          by("OTHER", "In Repair / Returned", (r) => r.status === "IN_REPAIR" || r.status === "RETURNED", "amber"),
+        ];
       case "quality":
-        return stocks.filter(s => s.available > 0).slice(0, 3);
-      case "dead":
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-        return stocks.filter(s => new Date(s.lastMovementDate) < sixMonthsAgo);
-      case "fast":
-        return [...stocks].sort((a, b) => b.movementCount - a.movementCount).slice(0, 3);
-      case "slow":
-        return [...stocks].sort((a, b) => a.movementCount - b.movementCount).slice(0, 3);
+        return [
+          all("Inspections"),
+          by("PASS", "Pass", (r) => r.result === "PASS", "green"),
+          by("FAIL", "Fail", (r) => r.result === "FAIL", "red"),
+          by("CONDITIONAL", "Conditional", (r) => r.result === "CONDITIONAL", "amber"),
+        ];
       default:
-        return stocks;
+        return [all("All Records")];
     }
-  };
+  }, [reportType]);
 
-  const data = getFilteredData();
+  const { filteredRows, cardFilterProps, setSelected } = useStatsCardFilter(rows, cards);
 
-  // Stats
-  const stats = useMemo(() => {
-    const totalQty = stocks.reduce((sum, s) => sum + s.quantity, 0);
-    const lowStock = stocks.filter(s => {
-      const available = s.quantity - s.reservedQty;
-      return available > 0 && available <= s.minStockLevel;
-    });
-    const totalProducts = new Set(stocks.map(s => s.productId)).size;
-    const totalValue = stocks.reduce((sum, s) => sum + (s.quantity * s.price), 0);
+  // A new report starts with all its rows shown
+  useEffect(() => setSelected("ALL"), [reportType, setSelected]);
 
-    return {
-      totalProducts,
-      totalQty,
-      lowStock: lowStock.length,
-      totalItems: stocks.length,
-      totalValue,
-      totalBatches: batches.length,
-      totalSerials: serials.length,
-      totalMovements: movements.length,
-      totalAdjustments: adjustments.length,
-    };
-  }, [stocks]);
+  /* ---------------- columns per report ---------------- */
 
-  // Columns for different reports
-  const currentStockColumns: ColumnDef<any>[] = [
-    { key: "productName", label: "Product", sortable: true, render: (item) => item.productName },
-    { key: "productCode", label: "Code", sortable: true, render: (item) => item.productCode },
-    { key: "warehouseName", label: "Warehouse", sortable: true, render: (item) => item.warehouseName },
-    { key: "quantity", label: "Qty", sortable: true, render: (item) => item.quantity },
-    { key: "available", label: "Available", sortable: true, render: (item) => item.available },
-    { key: "status", label: "Status", sortable: false, render: (item) => {
-      const status = getStatus(item);
-      return <span className={`rounded-full px-2 py-1 text-xs font-medium ${status.className}`}>{status.label}</span>;
-    }},
+  const productColumns: ColumnDef<Row>[] = [
+    { key: "product", label: "Product", sortable: true },
+    { key: "code", label: "Code", sortable: true, className: "whitespace-nowrap" },
   ];
+  const dateColumn = (key: string, label: string): ColumnDef<Row> => ({
+    key,
+    label,
+    sortable: true,
+    render: (row) => showDate(row[key]),
+    exportValueGetter: (row) => showDate(row[key]),
+  });
+  const qtyColumn = (key: string, label: string): ColumnDef<Row> => ({
+    key,
+    label,
+    sortable: true,
+    className: "text-right tabular-nums",
+    headerClassName: "text-right",
+    render: (row) => (row[key] == null ? "--" : qty(row[key])),
+  });
 
-  const movementColumns: ColumnDef<any>[] = [
-    { key: "productName", label: "Product", sortable: true, render: (item) => item.productName },
-    { key: "warehouseName", label: "Warehouse", sortable: true, render: (item) => item.warehouseName },
-    { key: "movementType", label: "Type", sortable: true, render: (item) => (
-      <span className={`rounded-full px-2 py-1 text-xs font-medium ${item.movementType === "GRN" ? "bg-green-100 text-green-700" : item.movementType === "TRANSFER" ? "bg-blue-100 text-blue-700" : "bg-yellow-100 text-yellow-700"}`}>
-        {item.movementType}
-      </span>
-    )},
-    { key: "quantity", label: "Qty", sortable: true, render: (item) => item.quantity },
-    { key: "movementDate", label: "Date", sortable: true, render: (item) => new Date(item.movementDate).toLocaleDateString() },
-    { key: "referenceNo", label: "Reference", sortable: true, render: (item) => item.referenceNo },
-  ];
-
-  const batchColumns: ColumnDef<any>[] = [
-    { key: "batchNumber", label: "Batch No", sortable: true, render: (item) => item.batchNumber },
-    { key: "productName", label: "Product", sortable: true, render: (item) => item.productName },
-    { key: "quantity", label: "Qty", sortable: true, render: (item) => item.quantity },
-    { key: "manufacturingDate", label: "Manufacturing", sortable: true, render: (item) => new Date(item.manufacturingDate).toLocaleDateString() },
-    { key: "expiryDate", label: "Expiry", sortable: true, render: (item) => new Date(item.expiryDate).toLocaleDateString() },
-    { key: "warehouseName", label: "Warehouse", sortable: true, render: (item) => item.warehouseName },
-    { key: "status", label: "Status", sortable: false, render: (item) => (
-      <span className={`rounded-full px-2 py-1 text-xs font-medium ${item.status === "Good" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-        {item.status}
-      </span>
-    )},
-  ];
-
-  const serialColumns: ColumnDef<any>[] = [
-    { key: "serial", label: "Serial No", sortable: true, render: (item) => item.serial },
-    { key: "productName", label: "Product", sortable: true, render: (item) => item.productName },
-    { key: "warehouseName", label: "Warehouse", sortable: true, render: (item) => item.warehouseName },
-    { key: "status", label: "Status", sortable: true, render: (item) => (
-      <span className={`rounded-full px-2 py-1 text-xs font-medium ${item.status === "Active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
-        {item.status}
-      </span>
-    )},
-    { key: "warrantyEnd", label: "Warranty End", sortable: true, render: (item) => new Date(item.warrantyEnd).toLocaleDateString() },
-  ];
-
-  const valuationColumns: ColumnDef<any>[] = [
-    { key: "productName", label: "Product", sortable: true, render: (item) => item.productName },
-    { key: "quantity", label: "Qty", sortable: true, render: (item) => item.quantity },
-    { key: "price", label: "Unit Price", sortable: true, render: (item) => `₹${item.price}` },
-    { key: "value", label: "Total Value", sortable: true, render: (item) => `₹${item.value}` },
-    { key: "warehouseName", label: "Warehouse", sortable: true, render: (item) => item.warehouseName },
-  ];
-
-  const adjustmentColumns: ColumnDef<any>[] = [
-    { key: "productName", label: "Product", sortable: true, render: (item) => item.productName },
-    { key: "warehouseName", label: "Warehouse", sortable: true, render: (item) => item.warehouseName },
-    { key: "adjustmentType", label: "Type", sortable: true, render: (item) => (
-      <span className={`rounded-full px-2 py-1 text-xs font-medium ${item.adjustmentType === "POSITIVE" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-        {item.adjustmentType}
-      </span>
-    )},
-    { key: "quantity", label: "Qty", sortable: true, render: (item) => item.quantity },
-    { key: "reason", label: "Reason", sortable: true, render: (item) => item.reason },
-    { key: "adjustmentDate", label: "Date", sortable: true, render: (item) => new Date(item.adjustmentDate).toLocaleDateString() },
-  ];
-
-  // Get columns based on report type
-  const getColumns = () => {
+  const columns: ColumnDef<Row>[] = (() => {
     switch (reportType) {
-      case "movement": return movementColumns;
-      case "batch": return batchColumns;
-      case "serial": return serialColumns;
-      case "valuation": return valuationColumns;
-      case "adjustment": return adjustmentColumns;
-      default: return currentStockColumns;
+      case "current":
+      case "low":
+      case "reserved":
+        return [
+          ...productColumns,
+          { key: "warehouse", label: "Warehouse", sortable: true },
+          qtyColumn("onHand", "On Hand"),
+          qtyColumn("reserved", "Reserved"),
+          qtyColumn("available", "Available"),
+          ...(reportType === "reserved" ? [] : [qtyColumn("reorderLevel", "Reorder Level")]),
+          ...(reportType === "low" ? [qtyColumn("shortfall", "Shortfall")] : []),
+          ...(reportType === "reserved"
+            ? []
+            : [{
+                key: "status",
+                label: "Status",
+                sortable: true,
+                render: (row: Row) => <Pill text={row.status} tone={STOCK_TONE[row.status] || "slate"} />,
+                exportValueGetter: (row: Row) => row.status,
+              }]),
+        ];
+      case "valuation":
+        return [
+          ...productColumns,
+          { key: "warehouse", label: "Warehouse", sortable: true },
+          qtyColumn("onHand", "On Hand"),
+          {
+            key: "unitCost",
+            label: "Standard Cost",
+            sortable: true,
+            className: "text-right tabular-nums",
+            headerClassName: "text-right",
+            render: (row) => (row.unitCost == null ? "--" : rupees(row.unitCost)),
+            exportValueGetter: (row) => (row.unitCost == null ? "" : rupees(row.unitCost)),
+          },
+          {
+            key: "value",
+            label: "Stock Value",
+            sortable: true,
+            className: "text-right tabular-nums font-semibold",
+            headerClassName: "text-right",
+            render: (row) => (row.value == null ? "--" : rupees(row.value)),
+            exportValueGetter: (row) => (row.value == null ? "" : rupees(row.value)),
+          },
+        ];
+      case "movement":
+        return [
+          dateColumn("date", "Date"),
+          {
+            key: "direction",
+            label: "Direction",
+            sortable: true,
+            render: (row) => (
+              <Pill text={row.direction} tone={row.direction === "In" ? "green" : row.direction === "Out" ? "red" : row.direction === "Transfer" ? "blue" : "slate"} />
+            ),
+            exportValueGetter: (row) => row.direction,
+          },
+          { key: "type", label: "Type", sortable: true, render: (row) => humanize(row.type), exportValueGetter: (row) => humanize(row.type) },
+          ...productColumns,
+          { key: "warehouse", label: "Warehouse", sortable: true },
+          qtyColumn("quantity", "Qty"),
+          { key: "route", label: "From → To", sortable: false },
+          { key: "reference", label: "Reference", sortable: true },
+        ];
+      case "adjustment":
+        return [
+          dateColumn("date", "Date"),
+          ...productColumns,
+          { key: "warehouse", label: "Warehouse", sortable: true },
+          {
+            key: "direction",
+            label: "Type",
+            sortable: true,
+            render: (row) => <Pill text={row.direction} tone={row.direction === "Increase" ? "green" : "red"} />,
+            exportValueGetter: (row) => row.direction,
+          },
+          qtyColumn("quantity", "Qty"),
+          { key: "reason", label: "Reason", sortable: true },
+          { key: "batch", label: "Batch", sortable: true },
+        ];
+      case "analysis":
+        return [
+          ...productColumns,
+          qtyColumn("onHand", "On Hand"),
+          qtyColumn("issued", "Issued"),
+          qtyColumn("received", "Received"),
+          dateColumn("lastMovement", "Last Movement"),
+          {
+            key: "movementClass",
+            label: "Class",
+            sortable: true,
+            render: (row) => <Pill text={row.movementClass} tone={CLASS_TONE[row.movementClass] || "slate"} />,
+            exportValueGetter: (row) => row.movementClass,
+          },
+        ];
+      case "batch":
+        return [
+          { key: "batch", label: "Batch", sortable: true },
+          ...productColumns,
+          { key: "warehouse", label: "Warehouse", sortable: true },
+          dateColumn("manufactured", "Manufactured"),
+          dateColumn("expiry", "Expiry"),
+          qtyColumn("quantity", "Qty"),
+          qtyColumn("available", "Available"),
+          {
+            key: "expiryStatus",
+            label: "Status",
+            sortable: true,
+            sortValueGetter: (row) => row.daysLeft ?? Number.MAX_SAFE_INTEGER,
+            render: (row) => (
+              <Pill
+                text={row.expiryStatus === "Expiring soon" ? `Expires in ${row.daysLeft} day${row.daysLeft === 1 ? "" : "s"}` : row.expiryStatus}
+                tone={row.expiryStatus === "Expired" ? "red" : row.expiryStatus === "Expiring soon" ? "amber" : row.expiryStatus === "OK" ? "green" : "slate"}
+              />
+            ),
+            exportValueGetter: (row) => row.expiryStatus,
+          },
+        ];
+      case "serial":
+        return [
+          { key: "serial", label: "Serial No", sortable: true },
+          ...productColumns,
+          { key: "warehouse", label: "Warehouse", sortable: true },
+          { key: "batch", label: "Batch", sortable: true },
+          {
+            key: "status",
+            label: "Status",
+            sortable: true,
+            render: (row) => <Pill text={humanize(row.status)} tone={row.status === "AVAILABLE" ? "green" : row.status === "IN_REPAIR" ? "amber" : "blue"} />,
+            exportValueGetter: (row) => humanize(row.status),
+          },
+          dateColumn("warrantyEnd", "Warranty End"),
+        ];
+      case "quality":
+        return [
+          dateColumn("date", "Date"),
+          ...productColumns,
+          { key: "item", label: "Batch / Serial", sortable: true },
+          { key: "inspectionType", label: "Inspection", sortable: true },
+          {
+            key: "result",
+            label: "Result",
+            sortable: true,
+            render: (row) => <Pill text={humanize(row.result)} tone={row.result === "PASS" ? "green" : row.result === "FAIL" ? "red" : "amber"} />,
+            exportValueGetter: (row) => humanize(row.result),
+          },
+          { key: "inspector", label: "Inspector", sortable: true },
+          { key: "remarks", label: "Remarks", sortable: false },
+        ];
+      default:
+        return productColumns;
     }
-  };
+  })();
 
-  // Get report title
-  const getReportTitle = () => {
+  /** One line of totals under the cards, for the reports where a sum means something. */
+  const summary = (() => {
+    const sum = (key: string) => filteredRows.reduce((total, row) => total + num(row[key]), 0);
     switch (reportType) {
-      case "current": return "Current Stock Report";
-      case "warehouse": return "Warehouse Stock Report";
-      case "product": return "Product Stock Report";
-      case "low": return "Low Stock Report";
-      case "reorder": return "Reorder Report";
-      case "movement": return "Stock Movement Report";
-      case "adjustment": return "Inventory Adjustment Report";
-      case "batch": return "Batch Report";
-      case "serial": return "Serial Number Report";
-      case "valuation": return "Inventory Valuation Report";
-      case "reserved": return "Reserved Stock Report";
-      case "expired": return "Expired Product Report";
-      case "near-expiry": return "Near Expiry Report";
-      case "quality": return "Quality Inspection Report";
-      case "dead": return "Dead Stock Report";
-      case "fast": return "Fast Moving Products Report";
-      case "slow": return "Slow Moving Products Report";
-      default: return "Inventory Report";
+      case "current":
+        return `On hand ${qty(sum("onHand"))} · Reserved ${qty(sum("reserved"))} · Available ${qty(sum("available"))}`;
+      case "valuation":
+        return `Total stock value ${rupees(sum("value"))}`;
+      case "reserved":
+        return `Reserved ${qty(sum("reserved"))} of ${qty(sum("onHand"))} on hand`;
+      case "movement": {
+        const moved = (direction: string) =>
+          filteredRows.filter((row) => row.direction === direction).reduce((total, row) => total + num(row.quantity), 0);
+        return `In ${qty(moved("In"))} · Out ${qty(moved("Out"))} · Transferred ${qty(moved("Transfer"))}`;
+      }
+      case "batch":
+        return `Quantity in these batches ${qty(sum("quantity"))}`;
+      default:
+        return "";
     }
-  };
+  })();
 
-  // Flatten data for PDF
-  const flattenedData = data.map((item: any) => ({
-    ...item,
-    productName: item.productName || getProductName(item.productId),
-    productCode: item.productCode || getProductCode(item.productId),
-    warehouseName: item.warehouseName || getWarehouseName(item.warehouseId),
-  }));
+  const selectClass =
+    "rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200";
 
   return (
     <>
-      <PageMeta title="Inventory Reports" description="View inventory reports" />
+      <PageMeta title="Inventory Reports" description="Inventory reports from the live stock records" />
       <PageBreadcrumb pageTitle="Inventory Reports" />
 
-      <div className="w-full max-w-none px-0 py-8 space-y-6">
-         {/* Stats Cards - Dynamic based on report */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <StatsCard
-                label="Total Records"
-                value={data.length}
-                gradient="from-blue-50 to-indigo-50"
-                borderColor="border-blue-100"
-                labelColor="text-blue-600"
-                icon={<CubeIcon className="h-5 w-5" />}
-              />
-              <StatsCard
-                label="Total Products"
-                value={stats.totalProducts}
-                gradient="from-cyan-50 to-blue-50"
-                borderColor="border-cyan-100"
-                labelColor="text-cyan-600"
-                icon={<BuildingOffice2Icon className="h-5 w-5" />}
-              />
-              <StatsCard
-                label="Total Stock Quantity"
-                value={stats.totalQty.toLocaleString()}
-                gradient="from-green-50 to-emerald-50"
-                borderColor="border-green-100"
-                labelColor="text-green-600"
-                icon={<BuildingOffice2Icon className="h-5 w-5" />}
-              />
-              <StatsCard
-                label="Low Stock Items"
-                value={stats.lowStock}
-                gradient="from-yellow-50 to-orange-50"
-                borderColor="border-yellow-100"
-                labelColor="text-yellow-600"
-                icon={<ExclamationTriangleIcon className="h-5 w-5" />}
-              />
+      <div className="w-full max-w-none px-0 py-8">
+        <div className="px-3 py-5">
+          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={reportType}
+                onChange={(event) => setReportType(event.target.value as ReportType)}
+                className={`${selectClass} min-w-[220px]`}
+                aria-label="Report"
+              >
+                {["Stock", "Activity", "Tracking"].map((group) => (
+                  <optgroup key={group} label={group}>
+                    {REPORTS.filter((item) => item.group === group).map((item) => (
+                      <option key={item.key} value={item.key}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              {reportType !== "quality" && (
+                <select value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)} className={selectClass} aria-label="Warehouse">
+                  <option value="">All warehouses</option>
+                  {warehouses.map((warehouse) => (
+                    <option key={warehouse.id} value={String(warehouse.id)}>
+                      {warehouse.name || warehouse.code || `Warehouse #${warehouse.id}`}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {PERIOD_REPORTS.includes(reportType) && (
+                <select value={periodDays} onChange={(event) => setPeriodDays(Number(event.target.value))} className={selectClass} aria-label="Period">
+                  {PERIODS.map((period) => (
+                    <option key={period.days} value={period.days}>
+                      {period.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button
+                type="button"
+                onClick={refresh}
+                disabled={loading}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+              >
+                <ArrowPathIcon className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </button>
             </div>
+            <p className="max-w-xl text-sm text-gray-500 dark:text-gray-400">
+              {report.help}
+              {PERIOD_REPORTS.includes(reportType) && ` Since ${showDate(since)} (today ${showDate(todayIso())}).`}
+            </p>
+          </div>
 
-            
-    {/* Filters + PDF (Below Stats Cards) */}
-<div className=" mt-8 mb-6  flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
-  <div className="flex items-center gap-2">
-    {/* Report Type Dropdown */}
-    <select
-      value={reportType}
-      onChange={(e) => setReportType(e.target.value as ReportType)}
-      className="rounded-lg border border-gray-200 bg-white -mt-4 px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 min-w-[160px]"
-    >
-      <option value="current"> Current Stock</option>
-      <option value="warehouse"> Warehouse Stock</option>
-      <option value="product"> Product Stock</option>
-      <option value="low"> Low Stock</option>
-      <option value="reorder"> Reorder</option>
-      <option value="movement"> Movement</option>
-      <option value="adjustment"> Adjustment</option>
-      <option value="batch"> Batch</option>
-      <option value="serial"> Serial</option>
-      <option value="valuation"> Valuation</option>
-      <option value="reserved"> Reserved</option>
-      <option value="expired"> Expired</option>
-      <option value="near-expiry"> Near Expiry</option>
-      <option value="quality"> Quality</option>
-      <option value="dead"> Dead Stock</option>
-      <option value="fast"> Fast Moving</option>
-      <option value="slow"> Slow Moving</option>
-    </select>
+          <StatsCardFilter {...cardFilterProps} />
 
-    {/* Warehouse/Product Filters (shown when needed) */}
-    {reportType === "warehouse" && (
-      <select
-        value={selectedWarehouse || ""}
-        onChange={(e) => setSelectedWarehouse(Number(e.target.value) || null)}
-        className="rounded-lg border -mt-4 border-gray-200 bg-white px-3 pr-8 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-      >
-        <option value="">All Warehouses</option>
-        {warehouses.map((w) => (
-          <option key={w.id} value={w.id}>{w.name}</option>
-        ))}
-      </select>
-    )}
+          {summary && <p className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">{summary}</p>}
 
-    {reportType === "product" && (
-      <select
-        value={selectedProduct || ""}
-        onChange={(e) => setSelectedProduct(Number(e.target.value) || null)}
-        className="rounded-lg border border-gray-200 bg-white -mt-4 pr-8 px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-      >
-        <option value="">All Products</option>
-        {products.map((p) => (
-          <option key={p.id} value={p.id}>{p.productName}</option>
-        ))}
-      </select>
-    )}
-
-    {/* PDF Export Button */}
-    {/* <ListingPdfExportButton
-      title={getReportTitle()}
-      subtitle="Complete inventory report"
-      reportLabel="Inventory Report"
-      data={flattenedData}
-      fileName={`${getReportTitle().replace(/\s/g, '_')}`}
-      disabled={loading}
-      metadata={(rows, rangeLabel) => [
-        { label: "Total Records", value: rows.length },
-        { label: "Total Products", value: stats.totalProducts },
-        { label: "Total Stock Quantity", value: stats.totalQty },
-        { label: "Low Stock Items", value: stats.lowStock },
-      ]}
-      columns={[
-        { header: "Product", accessor: (item) => item.productName },
-        { header: "Code", accessor: (item) => item.productCode },
-        { header: "Warehouse", accessor: (item) => item.warehouseName },
-        { header: "Quantity", accessor: (item) => item.quantity },
-        { header: "Available", accessor: (item) => item.available },
-      ]}
-    /> */}
-  </div>
-</div>
-
-      {/* Table */}
-      <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-        <ReusableTable
-          data={data}
-          columns={getColumns()}
-          loading={loading}
-          pageSize={10}
-          defaultSortKey="id"
-          defaultSortOrder="desc"
-          enableRowDetails={false}
-          className=""
-        />
+          <ReusableTable
+            key={reportType}
+            data={filteredRows}
+            columns={columns}
+            loading={loading}
+            pageSize={10}
+            defaultSortKey={["movement", "adjustment", "quality"].includes(reportType) ? "date" : reportType === "batch" ? "expiryStatus" : "product"}
+            defaultSortOrder={["movement", "adjustment", "quality"].includes(reportType) ? "desc" : "asc"}
+            rowDetailsTitle={report.label}
+            emptyState={
+              <div className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                Nothing to show for {report.label.toLowerCase()}
+                {warehouseId ? " in this warehouse" : ""}
+                {PERIOD_REPORTS.includes(reportType) ? " in this period" : ""}.
+              </div>
+            }
+          />
+        </div>
       </div>
-    </div>
-  </>
-);
-}    
+    </>
+  );
+};
+
 export default InventoryReports;
