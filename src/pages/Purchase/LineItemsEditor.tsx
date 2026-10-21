@@ -45,7 +45,7 @@ const DEFAULT_UOM = ["PIECES", "KG", "LITER", "METER", "BOX", "PACK"];
 
 /** Units that can be measured in parts (2.5 KG). Everything else is counted in whole numbers. */
 const FRACTION_UOMS = ["KG", "KILOGRAM", "GRAM", "G", "LITER", "LITRE", "L", "ML", "METER", "METRE", "M"];
-const allowsFraction = (uom: string) => FRACTION_UOMS.includes(String(uom || "").toUpperCase());
+export const allowsFraction = (uom: string) => FRACTION_UOMS.includes(String(uom || "").toUpperCase());
 
 /** Biggest number accepted in any box (stops typos like 10000000000). */
 const MAX_VALUE = 99999999;
@@ -71,7 +71,7 @@ const cleanNumberText = (raw: string, decimals: number) => {
   return text;
 };
 
-const cellInput =
+export const cellInput =
   "w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-800 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100 disabled:bg-slate-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:focus:ring-cyan-900 dark:disabled:bg-gray-800";
 const errorInput = "border-red-400 focus:border-red-400 focus:ring-red-100 dark:border-red-500";
 
@@ -81,7 +81,7 @@ const errorInput = "border-red-400 focus:border-red-400 focus:ring-red-100 dark:
  * - The box can be empty while typing (no stuck "0" in front); it becomes 0 when you leave it.
  * - Mouse wheel does not change the number by mistake.
  */
-function NumberCell({
+export function NumberCell({
   value,
   onValue,
   decimals,

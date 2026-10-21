@@ -4,12 +4,9 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useNavigate } from "react-router-dom";
 import {
-  BanknotesIcon,
-  CalendarDaysIcon,
   DocumentTextIcon,
   ArrowDownTrayIcon,
   ArrowRightCircleIcon,
-  PlusIcon,
   PencilSquareIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
@@ -19,13 +16,29 @@ import Dragger from "../../components/common/Dragger";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import StatsCard from "../../components/common/Statscard";
+import StatsCardFilter, { StatsCardOption, useStatsCardFilter } from "../../components/common/StatsCardFilter";
+import {
+  FloatingDatePicker,
+  FloatingInput,
+  FloatingSelect1,
+  FloatingTextarea,
+} from "../../components/inputfeild/FloatingInput";
+import SearchableSelect from "../../components/inputfeild/SearchableSelect";
 import { loadImageAsDataUrl } from "../../components/common/export";
 import { ToasterService } from "../../Services/ToasterService";
 import { SellerProfile } from "../../components/quotation/QuotationPreviewTemplate";
 import { toLocalIsoDate, todayIso } from "../../utils/localDate";
 import { publicAsset } from "../../utils/assets";
 import { usePermissions } from "../../access/usePermissions";
+import QuotationItemsEditor, {
+  blankLine,
+  formatRupees,
+  lineAmounts,
+  lineError,
+  QuotationLine,
+  QuotationProduct,
+  quotationTotals,
+} from "./QuotationItemsEditor";
 
 type Address = {
   id: number;
@@ -113,35 +126,6 @@ type Customer = {
   contacts: CustomerContact[];
 };
 
-type ProductCategory = {
-  id: number;
-  categoryCode: string;
-  categoryName: string;
-  shortCode: string;
-  description: string;
-  parentId: number | null;
-  parentName: string | null;
-  active: boolean;
-};
-
-type ProductOption = {
-  id: number;
-  productCode?: string;
-  productName: string;
-  shortName?: string;
-  description?: string;
-  uom?: string;
-  sellingPrice?: number;
-  standardCost?: number;
-  categoryId?: number;
-  categoryName?: string;
-  category?: {
-    id?: number;
-    categoryName?: string;
-    parentId?: number | null;
-  };
-};
-
 type Quotation = {
   id: number;
   customerId: number;
@@ -217,24 +201,6 @@ type QuotationForm = {
   shippingState: string;
   shippingCountry: string;
   shippingPostalCode: string;
-  itemCategoryId: string;
-  itemCategoryName: string;
-  itemType: string;
-  itemProductId: string;
-  itemProductName: string;
-  itemServiceItemId: string;
-  itemDescription: string;
-  itemProductCode: string;
-  itemUom: string;
-  itemQuantity: string;
-  itemUnitPrice: string;
-  itemDiscountPercentage: string;
-  itemDiscountAmount: string;
-  itemTaxRate: string;
-  itemTaxCode: string;
-  itemRemarks: string;
-  itemAdditionalDiscount: string;
-  itemAdditionalDiscountPercentage: string;
 };
 
 const API_URL = "/v1/api/sales/quotations";
@@ -242,7 +208,6 @@ const CUSTOMERS_API = "/v1/api/sales/quotations/getCustomers";
 // Quotation line items are sourced from Product Catalogue, not Purchase.
 // Tenant context is supplied by the shared Axios interceptor via X-Tenant-ID.
 const PRODUCT_CATALOGUE_PRODUCTS_API = "/v1/api/product/products";
-const PRODUCT_CATALOGUE_CATEGORIES_API = "/v1/api/product/product-categories";
 const PAGE_SIZE = 10;
 const statusOptions = ["DRAFT", "SENT", "ACCEPTED", "REJECTED"];
 /** Status moves the backend allows: a draft is sent, then the customer accepts or rejects it. */
@@ -354,24 +319,6 @@ const emptyForm: QuotationForm = {
   shippingState: "",
   shippingCountry: "",
   shippingPostalCode: "",
-  itemCategoryId: "",
-  itemCategoryName: "",
-  itemType: "PRODUCT",
-  itemProductId: "",
-  itemProductName: "",
-  itemServiceItemId: "0",
-  itemDescription: "",
-  itemProductCode: "",
-  itemUom: "",
-  itemQuantity: "1",
-  itemUnitPrice: "",
-  itemDiscountPercentage: "0",
-  itemDiscountAmount: "0",
-  itemTaxRate: "0",
-  itemTaxCode: "",
-  itemRemarks: "",
-  itemAdditionalDiscount: "0",
-  itemAdditionalDiscountPercentage: "0",
 };
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -521,16 +468,6 @@ function isPositiveNumber(value: string) {
   return Number.isFinite(Number(value)) && Number(value) > 0;
 }
 
-function optionalPositiveNumber(value: string) {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) && numeric > 0 ? numeric : undefined;
-}
-
-function isPercent(value: string) {
-  const numeric = Number(value || 0);
-  return Number.isFinite(numeric) && numeric >= 0 && numeric <= 100;
-}
-
 function buildAddress(form: QuotationForm, type: "BILLING" | "SHIPPING"): Address {
   const prefix = type === "BILLING" ? "billing" : "shipping";
   return {
@@ -551,64 +488,7 @@ function buildAddress(form: QuotationForm, type: "BILLING" | "SHIPPING"): Addres
   };
 }
 
-function calculateItem(form: QuotationForm) {
-  const quantity = toNumber(form.itemQuantity);
-  const unitPrice = toNumber(form.itemUnitPrice);
-  const grossAmount = quantity * unitPrice;
-
-  const percentageDiscount = (grossAmount * toNumber(form.itemDiscountPercentage)) / 100;
-  const discountAmount = toNumber(form.itemDiscountAmount) || Number(percentageDiscount.toFixed(2));
-
-  const additionalDiscountAmount = toNumber(form.itemAdditionalDiscount);
-  const additionalDiscountFromPercent =
-    (grossAmount * toNumber(form.itemAdditionalDiscountPercentage)) / 100;
-  const additionalDiscount =
-    additionalDiscountAmount || Number(additionalDiscountFromPercent.toFixed(2));
-
-  const taxableAmount = Math.max(0, grossAmount - discountAmount - additionalDiscount);
-  const taxAmount = Number(((taxableAmount * toNumber(form.itemTaxRate)) / 100).toFixed(2));
-  return {
-    grossAmount,
-    discountAmount,
-    additionalDiscount,
-    taxAmount,
-    lineTotal: taxableAmount + taxAmount,
-  };
-}
-
-function resetItemFields(form: QuotationForm): QuotationForm {
-  return {
-    ...form,
-    itemCategoryId: "",
-    itemCategoryName: "",
-    itemType: "PRODUCT",
-    itemProductId: "",
-    itemProductName: "",
-    itemServiceItemId: "0",
-    itemDescription: "",
-    itemProductCode: "",
-    itemUom: "",
-    itemQuantity: "1",
-    itemUnitPrice: "0",
-    itemDiscountPercentage: "0",
-    itemDiscountAmount: "0",
-    itemTaxRate: "0",
-    itemTaxCode: "",
-    itemRemarks: "",
-    itemAdditionalDiscount: "0",
-    itemAdditionalDiscountPercentage: "0",
-  };
-}
-
-function calculateLineTotal(item: QuotationItemPayload) {
-  const grossAmount = toNumber(item.quantity) * toNumber(item.unitPrice);
-  const discountAmount = toNumber(item.discountAmount);
-  const additionalDiscount = toNumber(item.additionalDiscount);
-  const taxableAmount = Math.max(0, grossAmount - discountAmount - additionalDiscount);
-  const taxAmount = Number(((taxableAmount * toNumber(item.taxRate)) / 100).toFixed(2));
-  return Number((taxableAmount + taxAmount).toFixed(2));
-}
-
+/** Totals of saved lines, for the PDF of a quotation that came back without totals. */
 function calculateQuotationTotals(items: QuotationItemPayload[]) {
   return items.reduce(
     (acc, item) => {
@@ -629,14 +509,50 @@ function calculateQuotationTotals(items: QuotationItemPayload[]) {
   );
 }
 
-const itemFieldClass =
-  "w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800";
+/** Clickable cards above the table: click one to show only those quotations. */
+const quotationCards: StatsCardOption<Quotation>[] = [
+  { key: "ALL", label: "All Quotations", match: () => true, tone: "cyan" },
+  { key: "DRAFT", label: "Draft", match: (row) => getQuotationStatus(row.status) === "DRAFT", tone: "slate" },
+  { key: "SENT", label: "Sent", match: (row) => getQuotationStatus(row.status) === "SENT", tone: "blue" },
+  { key: "ACCEPTED", label: "Accepted", match: (row) => getQuotationStatus(row.status) === "ACCEPTED", tone: "green" },
+  { key: "REJECTED", label: "Rejected", match: (row) => getQuotationStatus(row.status) === "REJECTED", tone: "red" },
+];
 
-const itemFieldClassSmall =
-  "w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800";
+/** Section heading inside the drawer (same look as the other create / edit drawers). */
+const sectionTitle =
+  "col-span-full mt-2 mb-1 border-b border-slate-100 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-800 dark:text-gray-400";
 
-const itemStaticChipClass =
-  "rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400";
+const quotationTypeChoices = quotationTypeOptions.map((type) => ({
+  id: type,
+  name: type.charAt(0) + type.slice(1).toLowerCase(),
+}));
+
+/** A saved line as an editable line. The discount comes back as the line's effective %. */
+const toLine = (item: QuotationItem): QuotationLine => ({
+  ...blankLine(item.itemType === "SERVICE" ? "SERVICE" : "PRODUCT"),
+  id: item.id || undefined,
+  productId: item.productId || undefined,
+  categoryId: item.categoryId || undefined,
+  categoryName: item.categoryName || "",
+  productName: item.productName || "",
+  productCode: item.productCode || "",
+  description: item.description || "",
+  uom: item.uom || "",
+  quantity: Number(item.quantity) || 1,
+  unitPrice: Number(item.unitPrice) || 0,
+  discountPercentage: Number(item.discountPercentage) || 0,
+  taxRate: Number(item.taxRate) || 0,
+  taxCode: item.taxCode || "",
+  remarks: item.remarks || "",
+});
+
+const ADDRESS_FIELDS = [
+  { suffix: "AddressLine1", label: "Address" },
+  { suffix: "City", label: "City" },
+  { suffix: "State", label: "State" },
+  { suffix: "Country", label: "Country" },
+  { suffix: "PostalCode", label: "PIN Code" },
+] as const;
 
 const Quotations: React.FC = () => {
   const { canApprove, canCreate, canDelete, canExport, canUpdate } = usePermissions();
@@ -651,15 +567,15 @@ const Quotations: React.FC = () => {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [salesPersons, setSalesPersons] = useState<SalesPerson[]>([]);
-  const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
-  const [products, setProducts] = useState<ProductOption[]>([]);
+  const [products, setProducts] = useState<QuotationProduct[]>([]);
   const [form, setForm] = useState<QuotationForm>(emptyForm);
-  const [lineItems, setLineItems] = useState<QuotationItemPayload[]>([]);
-  const [editingLineItemIndex, setEditingLineItemIndex] = useState<number | null>(null);
+  const [lines, setLines] = useState<QuotationLine[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [showFormModal, setShowFormModal] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Line errors show only after the first Save, not while a new line is still being filled in
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   const [deleteQuotation, setDeleteQuotation] = useState<Quotation | null>(null);
   const [quotationApiErrors, setQuotationApiErrors] = useState<Record<number, string>>({});
 
@@ -667,88 +583,26 @@ const Quotations: React.FC = () => {
     fetchQuotations();
     fetchCustomers();
     fetchSalesPersons();
-    fetchProductCategories();
     fetchProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const selectedCustomer = customers.find((customer) => String(customer.id) === form.customerId);
-  const selectedSalesPerson = salesPersons.find((person) => String(person.id) === form.salesPersonId);
-  const activeCategories = productCategories.filter((category) => category.active !== false);
-  const selectedCategory = productCategories.find(
-    (category) => String(category.id) === form.itemCategoryId
-  );
   const sellerProfile = useMemo(() => getSellerProfile(), []);
-  const filteredProducts = products.filter((product) => {
-    if (form.itemType !== "PRODUCT") return false;
-    if (!form.itemCategoryId) return true;
-    const productCategoryId = product.category?.id ?? product.categoryId ?? 0;
-    const productCategoryName = String(
-      product.category?.categoryName || product.categoryName || ""
-    )
-      .trim()
-      .toLowerCase();
-    const selectedCategoryName = String(selectedCategory?.categoryName || "").trim().toLowerCase();
+  const activeProducts = useMemo(() => products.filter((product) => product.active !== false), [products]);
+  const { filteredRows, cardFilterProps } = useStatsCardFilter(quotations, quotationCards);
 
-    return (
-      String(productCategoryId) === String(form.itemCategoryId) ||
-      (Boolean(selectedCategoryName) && productCategoryName === selectedCategoryName)
-    );
-  });
-
-  const draftItemTotals = calculateItem(form);
-  const displayTotals = useMemo(() => {
-    const draftAsPayload: QuotationItemPayload = {
-      id: 0,
-      categoryName: form.itemCategoryName,
-      itemType: form.itemType,
-      productName: form.itemProductName,
-      description: form.itemDescription,
-      productCode: form.itemProductCode,
-      uom: form.itemUom,
-      quantity: toNumber(form.itemQuantity),
-      unitPrice: toNumber(form.itemUnitPrice),
-      discountPercentage: toNumber(form.itemDiscountPercentage),
-      discountAmount: draftItemTotals.discountAmount,
-      taxRate: toNumber(form.itemTaxRate),
-      taxCode: form.itemTaxCode,
-      remarks: form.itemRemarks,
-      additionalDiscount: draftItemTotals.additionalDiscount,
-    };
-    const draftHasData =
-      isPositiveNumber(form.itemQuantity) &&
-      isPositiveNumber(form.itemUnitPrice) &&
-      (form.itemProductName.trim() || form.itemDescription.trim());
-    const itemsForTotals =
-      editingLineItemIndex != null && draftHasData
-        ? lineItems.map((item, index) => (index === editingLineItemIndex ? draftAsPayload : item))
-        : lineItems.length > 0
-          ? draftHasData
-            ? [...lineItems, draftAsPayload]
-            : lineItems
-          : [draftAsPayload];
-    const totals = calculateQuotationTotals(itemsForTotals);
-    const quotationAdditionalDiscount = toNumber(form.quotationAdditionalDiscount);
-    return {
-      ...totals,
-      additionalDiscount: totals.additionalDiscount + quotationAdditionalDiscount,
-      grandTotal: Math.max(0, totals.grandTotal - quotationAdditionalDiscount),
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    lineItems,
-    editingLineItemIndex,
-    form.itemQuantity,
-    form.itemUnitPrice,
-    form.itemProductName,
-    form.itemDescription,
-    form.quotationAdditionalDiscount,
-    form.itemDiscountPercentage,
-    form.itemDiscountAmount,
-    form.itemTaxRate,
-    form.itemAdditionalDiscount,
-    form.itemAdditionalDiscountPercentage,
-  ]);
+  const customerOptions = useMemo(
+    () =>
+      customers.map((customer) => ({
+        value: String(customer.id),
+        label: customerOptionLabel(customer),
+        keywords: [customer.customerCode, customer.tradeName].filter(Boolean),
+      })),
+    [customers]
+  );
+  const salesPersonOptions = salesPersons
+    .filter((person) => person.active !== false || String(person.id) === form.salesPersonId)
+    .map((person) => ({ id: String(person.id), name: person.name || `Sales person #${person.id}` }));
 
   const fetchQuotations = async () => {
     try {
@@ -791,22 +645,9 @@ const Quotations: React.FC = () => {
     }
   };
 
-  const fetchProductCategories = async () => {
-    try {
-      const res = await axios.get<ProductCategory[]>(PRODUCT_CATALOGUE_CATEGORIES_API, { headers });
-      setProductCategories(Array.isArray(res.data) ? res.data : []);
-    } catch (error) {
-      ToasterService.error(
-        "Failed to load product categories",
-        getErrorMessage(error, "Please try again.")
-      );
-      setProductCategories([]);
-    }
-  };
-
   const fetchProducts = async () => {
     try {
-      const res = await axios.get<ProductOption[]>(PRODUCT_CATALOGUE_PRODUCTS_API, { headers });
+      const res = await axios.get<QuotationProduct[]>(PRODUCT_CATALOGUE_PRODUCTS_API, { headers });
       setProducts(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       ToasterService.error("Failed to load products", getErrorMessage(error, "Please try again."));
@@ -814,10 +655,8 @@ const Quotations: React.FC = () => {
     }
   };
 
-  const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
+  /** Sets one field. Picking a customer copies its currency, addresses and sales person; a sales person, their email. */
+  const setField = (name: keyof QuotationForm, value: string) => {
     setForm((current) => {
       const next = { ...current, [name]: value };
       if (name === "customerId") {
@@ -845,193 +684,54 @@ const Quotations: React.FC = () => {
         next.shippingState = shippingAddress?.state || "";
         next.shippingCountry = shippingAddress?.country || "";
         next.shippingPostalCode = shippingAddress?.postalCode || "";
+        // The customer's own sales person, unless one is already chosen
+        const customerSalesPerson = salesPersons.find((person) => person.id === customer?.salesPersonId);
+        if (!current.salesPersonId && customerSalesPerson) {
+          next.salesPersonId = String(customerSalesPerson.id);
+          next.email = customerSalesPerson.email || "";
+        }
       }
       if (name === "salesPersonId") {
         const person = salesPersons.find((item) => String(item.id) === value);
         next.email = person?.email || "";
       }
-      if (name === "itemType") {
-        next.itemCategoryId = "";
-        next.itemCategoryName = "";
-        next.itemProductId = "";
-        next.itemProductName = "";
-        next.itemProductCode = "";
-        next.itemDescription = "";
-        next.itemUom = "";
-        next.itemUnitPrice = "0";
-      }
-      if (name === "itemCategoryId") {
-        const category = productCategories.find((item) => String(item.id) === value);
-        next.itemCategoryName = category?.categoryName || "";
-        next.itemProductId = "";
-        next.itemProductName = "";
-        next.itemProductCode = "";
-        next.itemDescription = "";
-        next.itemUom = "";
-        next.itemUnitPrice = "0";
-      }
-      if (name === "itemProductId") {
-        const product = products.find((item) => String(item.id) === value);
-        const categoryName = String(
-          product?.category?.categoryName || product?.categoryName || ""
-        )
-          .trim()
-          .toLowerCase();
-        const matchedCategoryByName = productCategories.find(
-          (item) => String(item.categoryName || "").trim().toLowerCase() === categoryName
-        );
-        const resolvedCategoryId = String(
-          product?.category?.id ??
-            product?.categoryId ??
-            matchedCategoryByName?.id ??
-            next.itemCategoryId ??
-            ""
-        );
-        const resolvedCategory =
-          productCategories.find((item) => String(item.id) === resolvedCategoryId) ||
-          matchedCategoryByName;
-
-        next.itemCategoryId = resolvedCategoryId;
-        next.itemCategoryName = resolvedCategory?.categoryName || "";
-        next.itemProductName = product?.productName || "";
-        next.itemProductCode = product?.productCode || "";
-        next.itemDescription = product?.description || "";
-        next.itemUom = product?.uom || "";
-        next.itemUnitPrice = String(product?.sellingPrice ?? product?.standardCost ?? 0);
-      }
       return next;
     });
   };
 
-  const getPendingDraftItem = (): QuotationItemPayload | null => {
-    const hasValidDraft =
-      isPositiveNumber(form.itemQuantity) &&
-      isPositiveNumber(form.itemUnitPrice) &&
-      (form.itemProductName.trim() || form.itemDescription.trim());
-    return hasValidDraft ? buildItem() : null;
-  };
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => setField(e.target.name as keyof QuotationForm, e.target.value);
 
-  const buildItem = (): QuotationItemPayload => {
-    const calculated = calculateItem(form);
-    const item: QuotationItemPayload = {
-      id: 0,
-      categoryName: form.itemCategoryName,
-      itemType: form.itemType,
-      productName: form.itemProductName,
-      description: form.itemDescription,
-      productCode: form.itemProductCode,
-      uom: form.itemUom,
-      quantity: toNumber(form.itemQuantity),
-      unitPrice: toNumber(form.itemUnitPrice),
-      discountPercentage: toNumber(form.itemDiscountPercentage),
-      discountAmount: calculated.discountAmount,
-      taxRate: toNumber(form.itemTaxRate),
-      taxCode: form.itemTaxCode,
-      remarks: form.itemRemarks,
-      additionalDiscount: calculated.additionalDiscount,
-    };
-
-    const categoryId = optionalPositiveNumber(form.itemCategoryId);
-    const productId = optionalPositiveNumber(form.itemProductId);
-    const serviceItemId = optionalPositiveNumber(form.itemServiceItemId);
-
-    if (categoryId) item.categoryId = categoryId;
-    if (form.itemType === "SERVICE") {
-      if (serviceItemId) item.serviceItemId = serviceItemId;
-    } else if (productId) {
-      item.productId = productId;
-    }
-
-    return item;
-  };
-
-  const buildSalesPerson = (): Partial<SalesPerson> => ({
-    id: toNumber(form.salesPersonId),
-    tenantId: form.tenantId.trim(),
-    name: selectedSalesPerson?.name || "",
-    code: selectedSalesPerson?.code || "",
-    email: selectedSalesPerson?.email || "",
-    region: selectedSalesPerson?.region || "",
-    active: selectedSalesPerson?.active ?? true,
-    userId: selectedSalesPerson?.userId ?? "",
-    employeeId: selectedSalesPerson?.employeeId ?? 0,
-  });
-
-  const addCurrentItem = () => {
-    if (
-      lineItems.length === 0 &&
-      (!isPositiveNumber(form.itemQuantity) ||
-        !isPositiveNumber(form.itemUnitPrice) ||
-        (!form.itemProductName.trim() && !form.itemDescription.trim()))
-    ) {
-      ToasterService.error("Line item required", "Add at least one product using the + button.");
-      return;
-    }
-    if (
-      !isPercent(form.itemDiscountPercentage) ||
-      !isPercent(form.itemTaxRate) ||
-      !isPercent(form.itemAdditionalDiscountPercentage)
-    ) {
-      ToasterService.error(
-        "Invalid percentage",
-        "Discount, additional discount, and tax percentages must be between 0 and 100."
-      );
-      return;
-    }
-
-    setLineItems((current) =>
-      editingLineItemIndex == null
-        ? [...current, buildItem()]
-        : current.map((item, index) => (index === editingLineItemIndex ? buildItem() : item))
-    );
-    setEditingLineItemIndex(null);
-    setForm((current) => resetItemFields(current));
-  };
-
-  const removeLineItem = (index: number) => {
-    setLineItems((current) => current.filter((_, itemIndex) => itemIndex !== index));
-    setEditingLineItemIndex((current) => {
-      if (current == null || current === index) return null;
-      return current > index ? current - 1 : current;
-    });
-  };
-
-  const editLineItem = (item: QuotationItemPayload, index: number) => {
-    setEditingLineItemIndex(index);
+  const copyBillingToShipping = () =>
     setForm((current) => ({
       ...current,
-      itemCategoryId: String(item.categoryId || ""),
-      itemCategoryName: item.categoryName || "",
-      itemType: item.itemType || "PRODUCT",
-      itemProductId: String(item.productId || ""),
-      itemProductName: item.productName || "",
-      itemServiceItemId: String(item.serviceItemId || "0"),
-      itemDescription: item.description || "",
-      itemProductCode: item.productCode || "",
-      itemUom: item.uom || "",
-      itemQuantity: String(item.quantity || 1),
-      itemUnitPrice: String(item.unitPrice || 0),
-      itemDiscountPercentage: String(item.discountPercentage || 0),
-      itemDiscountAmount: String(item.discountAmount || 0),
-      itemTaxRate: String(item.taxRate || 0),
-      itemTaxCode: item.taxCode || "",
-      itemRemarks: item.remarks || "",
-      itemAdditionalDiscount: String(item.additionalDiscount || 0),
-      itemAdditionalDiscountPercentage: "0",
+      shippingAddressLine1: current.billingAddressLine1,
+      shippingAddressLine2: current.billingAddressLine2,
+      shippingStreet: current.billingStreet,
+      shippingCity: current.billingCity,
+      shippingState: current.billingState,
+      shippingCountry: current.billingCountry,
+      shippingPostalCode: current.billingPostalCode,
     }));
+
+  const buildSalesPerson = (): Partial<SalesPerson> => {
+    const selected = salesPersons.find((person) => String(person.id) === form.salesPersonId);
+    return {
+      id: toNumber(form.salesPersonId),
+      tenantId: form.tenantId.trim(),
+      name: selected?.name || "",
+      code: selected?.code || "",
+      email: selected?.email || "",
+      region: selected?.region || "",
+      active: selected?.active ?? true,
+      userId: selected?.userId ?? "",
+      employeeId: selected?.employeeId ?? 0,
+    };
   };
 
   const buildPayload = () => {
-    const pendingDraft = getPendingDraftItem();
-    const payloadItems =
-      editingLineItemIndex != null && pendingDraft
-        ? lineItems.map((item, index) => (index === editingLineItemIndex ? pendingDraft : item))
-        : lineItems.length > 0
-          ? pendingDraft
-            ? [...lineItems, pendingDraft]
-            : lineItems
-          : [buildItem()];
-    const totals = calculateQuotationTotals(payloadItems);
+    const totals = quotationTotals(lines, toNumber(form.quotationAdditionalDiscount));
 
     return {
       id: editingId || 0,
@@ -1041,7 +741,7 @@ const Quotations: React.FC = () => {
       validUntil: form.validUntil,
       currencyCode: form.currencyCode,
       customerReference: form.customerReference,
-      customerReferenceDate: form.customerReferenceDate,
+      customerReferenceDate: form.customerReferenceDate || null,
       paymentTerms: form.paymentTerms,
       creditDays: toNumber(form.creditDays),
       deliveryTerms: form.deliveryTerms,
@@ -1053,62 +753,62 @@ const Quotations: React.FC = () => {
       email: form.email,
       billingAddress: buildAddress(form, "BILLING"),
       shippingAddress: buildAddress(form, "SHIPPING"),
-      items: payloadItems,
+      items: lines.map((line) => ({
+        id: line.id || 0,
+        itemType: line.itemType,
+        categoryId: line.categoryId,
+        categoryName: line.categoryName,
+        productId: line.itemType === "PRODUCT" ? line.productId : undefined,
+        productName: line.productName.trim(),
+        productCode: line.productCode,
+        description: line.description.trim(),
+        // Blank is sent as null: the server only accepts its own unit names
+        uom: line.uom || null,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        discountPercentage: line.discountPercentage,
+        discountAmount: lineAmounts(line).discount,
+        taxRate: line.taxRate,
+        taxCode: line.taxCode,
+        remarks: line.remarks,
+        additionalDiscount: 0,
+      })),
       quoteNumber: form.quoteNumber,
       quoteDate: form.quoteDate,
       status: form.status,
-      subTotal: Number(totals.subTotal.toFixed(2)),
-      discountAmount: Number(totals.discountAmount.toFixed(2)),
-      additionalDiscount: Number(totals.additionalDiscount.toFixed(2)),
-      discountPercentage: toNumber(form.discountPercentage),
-      taxAmount: Number(totals.taxAmount.toFixed(2)),
-      grandTotal: Number(totals.grandTotal.toFixed(2)),
+      subTotal: totals.subTotal,
+      // Line discounts are inside each line; the header carries only the extra discount
+      // (sending the line discounts here too made the server take them off twice)
+      discountAmount: 0,
+      discountPercentage: 0,
+      additionalDiscount: totals.additionalDiscount,
+      taxAmount: totals.tax,
+      grandTotal: totals.grandTotal,
       salesPerson: buildSalesPerson(),
       termsAndConditions: form.termsAndConditions,
       versionNo: toNumber(form.versionNo),
     };
   };
 
+  /** First reason the quotation can't be saved yet, or null. */
+  const formProblem = () => {
+    if (!form.tenantId.trim()) return "Your session has no company selected. Sign in again.";
+    if (!isPositiveNumber(form.customerId)) return "Choose the customer.";
+    if (!isPositiveNumber(form.salesPersonId)) return "Choose the sales person.";
+    if (!form.quoteDate || !form.validUntil) return "Enter the quote date and the valid-until date.";
+    if (form.validUntil < form.quoteDate) return "Valid until can't be before the quote date.";
+    if (lines.length === 0) return "Add at least one product or service.";
+    const badLine = lines.findIndex((line) => lineError(line));
+    if (badLine >= 0) return `Item ${badLine + 1}: ${lineError(lines[badLine])}.`;
+    return null;
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-
-    if (!form.tenantId.trim()) {
-      ToasterService.error("Tenant ID is required");
-      return;
-    }
-    if (!isPositiveNumber(form.customerId) || !form.validUntil || !form.quoteDate) {
-      ToasterService.error(
-        "Required fields missing",
-        "Customer, quote date, and valid until date are required."
-      );
-      return;
-    }
-    if (!isPositiveNumber(form.salesPersonId)) {
-      ToasterService.error("Sales person required", "Select a sales person from the dropdown.");
-      return;
-    }
-    if (
-      lineItems.length === 0 &&
-      (!isPositiveNumber(form.itemQuantity) ||
-        !isPositiveNumber(form.itemUnitPrice) ||
-        (!form.itemProductName.trim() && !form.itemDescription.trim()))
-    ) {
-      ToasterService.error(
-        "Line item required",
-        "Add at least one item using the + button on the Items tab."
-      );
-      return;
-    }
-    if (
-      !isPercent(form.discountPercentage) ||
-      !isPercent(form.itemDiscountPercentage) ||
-      !isPercent(form.itemTaxRate) ||
-      !isPercent(form.itemAdditionalDiscountPercentage)
-    ) {
-      ToasterService.error(
-        "Invalid percentage",
-        "Discount, additional discount, and tax percentages must be between 0 and 100."
-      );
+    setSubmitAttempted(true);
+    const problem = formProblem();
+    if (problem) {
+      ToasterService.error("Can't save the quotation yet", problem);
       return;
     }
 
@@ -1141,15 +841,15 @@ const Quotations: React.FC = () => {
 
   const openCreate = () => {
     setEditingId(null);
-    setEditingLineItemIndex(null);
-    setLineItems([]);
+    setSubmitAttempted(false);
+    setLines([blankLine("PRODUCT")]);
     setForm({
       ...emptyForm,
       tenantId: getStoredTenantId(),
       quoteDate: todayIso(),
       validUntil: defaultValidUntil(),
     });
-    setShowFormModal(true);
+    setShowForm(true);
   };
 
   const openEdit = async (quotation: Quotation) => {
@@ -1162,43 +862,16 @@ const Quotations: React.FC = () => {
       setLoading(true);
       const res = await axios.get<Quotation>(`${API_URL}/${quotation.id}`, { headers });
       const full = res.data;
-      setLineItems(
-        (full.items || []).map((item) => ({
-          id: item.id || 0,
-          categoryId: item.categoryId,
-          categoryName: item.categoryName || "",
-          itemType: item.itemType || "PRODUCT",
-          productId: item.productId,
-          productName: item.productName || "",
-          serviceItemId: item.serviceItemId,
-          description: item.description || "",
-          productCode: item.productCode || "",
-          uom: item.uom || "",
-          quantity: item.quantity || 1,
-          unitPrice: item.unitPrice || 0,
-          discountPercentage: item.discountPercentage || 0,
-          discountAmount: item.discountAmount || 0,
-          taxRate: item.taxRate || 0,
-          taxCode: item.taxCode || "",
-          remarks: item.remarks || "",
-          additionalDiscount: item.additionalDiscount || 0,
-        }))
-      );
+      const customer = customers.find((item) => Number(item.id) === Number(full.customerId));
+      setLines((full.items || []).map(toLine));
       setEditingId(full.id);
-      setEditingLineItemIndex(null);
+      setSubmitAttempted(false);
       setForm({
+        ...emptyForm,
         tenantId: getStoredTenantId(),
         customerId: String(full.customerId || ""),
-        customerName:
-          customers.find((customer) => Number(customer.id) === Number(full.customerId))
-            ?.customerName ||
-          full.billingAddress?.customerName ||
-          "",
-        customerCode:
-          customers.find((customer) => Number(customer.id) === Number(full.customerId))
-            ?.customerCode ||
-          full.billingAddress?.customerCode ||
-          "",
+        customerName: customer?.customerName || full.billingAddress?.customerName || "",
+        customerCode: customer?.customerCode || full.billingAddress?.customerCode || "",
         quotationType: full.quotationType || "PRODUCT",
         validUntil: full.validUntil || today,
         currencyCode: full.currencyCode || "INR",
@@ -1217,7 +890,7 @@ const Quotations: React.FC = () => {
         quoteNumber: full.quoteNumber || "",
         quoteDate: full.quoteDate || today,
         status: full.status || "DRAFT",
-        discountPercentage: String(full.discountPercentage || 0),
+        discountPercentage: "0",
         salesPersonId: String(full.salesPerson?.id || ""),
         termsAndConditions: full.termsAndConditions || "",
         versionNo: String(full.versionNo || 0),
@@ -1235,26 +908,8 @@ const Quotations: React.FC = () => {
         shippingState: full.shippingAddress?.state || "",
         shippingCountry: full.shippingAddress?.country || "",
         shippingPostalCode: full.shippingAddress?.postalCode || "",
-        itemCategoryId: "",
-        itemCategoryName: "",
-        itemType: "PRODUCT",
-        itemProductId: "",
-        itemProductName: "",
-        itemServiceItemId: "0",
-        itemDescription: "",
-        itemProductCode: "",
-        itemUom: "",
-        itemQuantity: "1",
-        itemUnitPrice: "0",
-        itemDiscountPercentage: "0",
-        itemDiscountAmount: "0",
-        itemTaxRate: "0",
-        itemTaxCode: "",
-        itemRemarks: "",
-        itemAdditionalDiscount: "0",
-        itemAdditionalDiscountPercentage: "0",
       });
-      setShowFormModal(true);
+      setShowForm(true);
     } catch (error) {
       ToasterService.error("Failed to load quotation", getErrorMessage(error, "Please try again."));
     } finally {
@@ -1348,10 +1003,10 @@ const Quotations: React.FC = () => {
   };
 
   const closeForm = () => {
-    setShowFormModal(false);
+    setShowForm(false);
     setEditingId(null);
-    setLineItems([]);
-    setEditingLineItemIndex(null);
+    setLines([]);
+    setSubmitAttempted(false);
     setForm(emptyForm);
   };
 
@@ -1371,16 +1026,6 @@ const Quotations: React.FC = () => {
       setDeleteQuotation(null);
     }
   };
-
-  const stats = useMemo(
-    () => ({
-      total: quotations.length,
-      draft: quotations.filter((item) => getQuotationStatus(item.status) === "DRAFT").length,
-      accepted: quotations.filter((item) => getQuotationStatus(item.status) === "ACCEPTED").length,
-      rejected: quotations.filter((item) => getQuotationStatus(item.status) === "REJECTED").length,
-    }),
-    [quotations]
-  );
 
   const columns: ColumnDef<Quotation>[] = [
     {
@@ -1468,7 +1113,8 @@ const Quotations: React.FC = () => {
       key: "quoteDate",
       label: "Quote Date",
       sortable: true,
-      render: (quotation) => quotation.quoteDate || "--",
+      // 20 Oct 2026; sorting still uses the real date
+      render: (quotation) => (quotation.quoteDate ? formatPdfDate(quotation.quoteDate) : "--"),
     },
     {
       key: "status",
@@ -1513,9 +1159,11 @@ const Quotations: React.FC = () => {
       key: "grandTotal",
       label: "Grand Total",
       sortable: true,
+      className: "text-right",
+      headerClassName: "text-right",
       render: (quotation) => (
         <span className="font-semibold text-slate-900 dark:text-white">
-          {money(quotation.grandTotal)}
+          {formatRupees(Number(quotation.grandTotal || 0))}
         </span>
       ),
     },
@@ -1568,729 +1216,206 @@ const Quotations: React.FC = () => {
     },
   ];
 
-  if (showFormModal) {
-    const itemTotals = draftItemTotals;
-
-    return (
-      <>
-        <PageMeta
-          title={editingId ? "Edit Quotation" : "Create New Quotation"}
-          description="Manage sales quotations"
-        />
-        <Dragger
-          isOpen={showFormModal}
-          title={editingId ? "Edit Quotation" : "Create Quotation"}
-          subtitle="Configure quotation, customer, and line-item details."
-          onClose={closeForm}
-          onSubmit={handleSubmit}
-          submitLabel={editingId ? "Update Quotation" : "Create Quotation"}
-          submitting={submitting}
-          content={
-            <form onSubmit={handleSubmit} className="p-1">
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-                  <div className="flex flex-col gap-5">
-                    <div className="flex w-full flex-col gap-5">
-                      {/* CUSTOMER */}
-                      <div className="group flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:flex-row md:items-start md:gap-6">
-                        <label className="mt-3 shrink-0 text-[13px] font-bold uppercase tracking-wider text-slate-500 transition-colors group-focus-within:text-blue-600 dark:text-slate-400 dark:group-focus-within:text-blue-400 md:w-48">
-                          Customer <span className="text-red-500">*</span>
-                        </label>
-                        <div className="flex-1">
-                          <div className="flex max-w-[520px] overflow-hidden rounded-xl shadow-sm transition focus-within:ring-2 focus-within:ring-blue-500/20">
-                            <select
-                              name="customerId"
-                              value={form.customerId}
-                              onChange={handleChange}
-                              required
-                              className="min-w-0 flex-1 border border-slate-200 border-r-0 bg-slate-50 px-4 py-2.5 text-[15px] font-medium text-slate-800 transition hover:bg-slate-100 focus:border-blue-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800 dark:focus:bg-slate-900"
-                            >
-                              <option value="">Select Customer</option>
-                              {form.customerId &&
-                                !customers.some(
-                                  (customer) => String(customer.id) === form.customerId
-                                ) && (
-                                  <option value={form.customerId}>
-                                    {form.customerName || "Unknown Customer"}
-                                  </option>
-                                )}
-                              {customers.map((customer) => (
-                                <option key={customer.id} value={customer.id}>
-                                  {customerOptionLabel(customer)}
-                                </option>
-                              ))}
-                            </select>
-                            {selectedCustomer && (
-                              <div className="flex items-center justify-center border border-l-0 border-slate-200 bg-white px-4 dark:border-slate-700 dark:bg-slate-900">
-                                <span className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200">
-                                  <span className="flex h-5 w-5 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-emerald-700 shadow-sm dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400">
-                                    ₹
-                                  </span>
-                                  {selectedCustomer.currencyCode || form.currencyCode}
-                                </span>
-                              </div>
-                            )}
-                            {customers.length === 0 && canCreateCustomer && (
-                              <button
-                                type="button"
-                                onClick={() => navigate("/customers/new")}
-                                className="flex items-center justify-center border border-l-0 border-slate-200 bg-cyan-50 px-3 text-cyan-700 transition hover:bg-cyan-100 dark:border-slate-700 dark:bg-cyan-950/40 dark:text-cyan-400 dark:hover:bg-cyan-900/50"
-                                title="Create customer"
-                                aria-label="Create customer"
-                              >
-                                <PlusIcon className="h-5 w-5" />
-                              </button>
-                            )}
-                          </div>
-                          <details className="mt-3 max-w-3xl overflow-hidden rounded-xl border border-slate-200 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-800/40">
-                            <summary className="cursor-pointer px-3 py-2.5 text-xs font-semibold text-slate-600 marker:text-cyan-600 dark:text-slate-300">
-                              Address snapshots
-                              <span className="ml-2 font-normal text-slate-400">Billing and shipping details</span>
-                            </summary>
-                            <div className="grid grid-cols-1 gap-3 border-t border-slate-200 p-3 sm:grid-cols-2 dark:border-slate-700">
-                            <input
-                              name="billingAddressLine1"
-                              value={form.billingAddressLine1}
-                              onChange={handleChange}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
-                              placeholder="Billing address"
-                            />
-                            <input
-                              name="shippingAddressLine1"
-                              value={form.shippingAddressLine1}
-                              onChange={handleChange}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
-                              placeholder="Shipping address"
-                            />
-                            <input
-                              name="billingAddressLine2"
-                              value={form.billingAddressLine2}
-                              onChange={handleChange}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
-                              placeholder="Billing address line 2"
-                            />
-                            <input
-                              name="shippingAddressLine2"
-                              value={form.shippingAddressLine2}
-                              onChange={handleChange}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
-                              placeholder="Shipping address line 2"
-                            />
-                            <input
-                              name="billingStreet"
-                              value={form.billingStreet}
-                              onChange={handleChange}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
-                              placeholder="Billing street"
-                            />
-                            <input
-                              name="shippingStreet"
-                              value={form.shippingStreet}
-                              onChange={handleChange}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
-                              placeholder="Shipping street"
-                            />
-                            <input name="billingCity" value={form.billingCity} onChange={handleChange} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500" placeholder="Billing city" />
-                            <input name="shippingCity" value={form.shippingCity} onChange={handleChange} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500" placeholder="Shipping city" />
-                            <input name="billingState" value={form.billingState} onChange={handleChange} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500" placeholder="Billing state" />
-                            <input name="shippingState" value={form.shippingState} onChange={handleChange} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500" placeholder="Shipping state" />
-                            <input name="billingCountry" value={form.billingCountry} onChange={handleChange} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500" placeholder="Billing country" />
-                            <input name="shippingCountry" value={form.shippingCountry} onChange={handleChange} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500" placeholder="Shipping country" />
-                            <input name="billingPostalCode" value={form.billingPostalCode} onChange={handleChange} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500" placeholder="Billing postal code" />
-                            <input name="shippingPostalCode" value={form.shippingPostalCode} onChange={handleChange} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500" placeholder="Shipping postal code" />
-                            </div>
-                          </details>
-                        </div>
-                      </div>
-
-                      {/* QUOTE DETAILS */}
-                      <div className="group flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:flex-row md:items-center md:gap-6">
-                        <label className="shrink-0 text-[13px] font-bold uppercase tracking-wider text-slate-500 transition-colors group-focus-within:text-blue-600 dark:text-slate-400 dark:group-focus-within:text-blue-400 md:w-48">
-                          Quote Details
-                        </label>
-                        <div className="grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                          <input
-                            name="quoteDate"
-                            type="date"
-                            value={form.quoteDate}
-                            onChange={handleChange}
-                            required
-                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                          />
-                          <input
-                            name="validUntil"
-                            type="date"
-                            value={form.validUntil}
-                            onChange={handleChange}
-                            required
-                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                          />
-                          <select
-                            name="quotationType"
-                            value={form.quotationType}
-                            onChange={handleChange}
-                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                          >
-                            {quotationTypeOptions.map((type) => (
-                              <option key={type} value={type}>
-                                {type}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="group flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:flex-row md:items-center md:gap-6">
-                        <label className="shrink-0 text-[13px] font-bold uppercase tracking-wider text-slate-500 transition-colors group-focus-within:text-blue-600 dark:text-slate-400 dark:group-focus-within:text-blue-400 md:w-48">
-                          Commercial Details
-                        </label>
-                        <div className="grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                          <input name="customerReference" value={form.customerReference} onChange={handleChange} placeholder="Customer reference" className={itemFieldClass} />
-                          <input name="customerReferenceDate" type="date" value={form.customerReferenceDate} onChange={handleChange} className={itemFieldClass} />
-                          <input name="paymentTerms" value={form.paymentTerms} onChange={handleChange} placeholder="Payment terms" className={itemFieldClass} />
-                          <input name="creditDays" type="number" min="0" value={form.creditDays} onChange={handleChange} placeholder="Credit days" className={itemFieldClass} />
-                          <input name="deliveryTerms" value={form.deliveryTerms} onChange={handleChange} placeholder="Delivery terms" className={itemFieldClass} />
-                          <input name="shippingMethod" value={form.shippingMethod} onChange={handleChange} placeholder="Shipping method" className={itemFieldClass} />
-                          <input name="quotationAdditionalDiscount" type="number" min="0" step="0.01" value={form.quotationAdditionalDiscount} onChange={handleChange} placeholder="Additional discount" className={itemFieldClass} />
-                        </div>
-                      </div>
-
-                      {/* SALES PERSON */}
-                      <div className="group flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:flex-row md:items-center md:gap-6">
-                        <label className="shrink-0 text-[13px] font-bold uppercase tracking-wider text-slate-500 transition-colors group-focus-within:text-blue-600 dark:text-slate-400 dark:group-focus-within:text-blue-400 md:w-48">
-                          Sales Person <span className="text-red-500">*</span>
-                        </label>
-                        <div className="w-full max-w-3xl">
-                          <select
-                            name="salesPersonId"
-                            value={form.salesPersonId}
-                            onChange={handleChange}
-                            required
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                          >
-                            <option value="">Select sales person</option>
-                            {form.salesPersonId &&
-                              !salesPersons.some(
-                                (person) => String(person.id) === form.salesPersonId
-                              ) && (
-                                <option value={form.salesPersonId}>
-                                  Selected sales person
-                                </option>
-                              )}
-                            {salesPersons.map((person) => (
-                              <option key={person.id} value={person.id}>
-                                {person.name || "Unnamed sales person"}
-                              </option>
-                            ))}
-                          </select>
-                          {selectedSalesPerson?.email && (
-                            <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-                              Contact: {selectedSalesPerson.email}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* SUBJECT */}
-                      <div className="group flex flex-col gap-2 md:flex-row md:items-start md:gap-6">
-                        <label className="mt-3 shrink-0 text-[13px] font-bold uppercase tracking-wider text-slate-500 transition-colors group-focus-within:text-blue-600 dark:text-slate-400 dark:group-focus-within:text-blue-400 md:w-48">
-                          Subject
-                        </label>
-                        <textarea
-                          name="subject"
-                          value={form.subject}
-                          onChange={handleChange}
-                          rows={2}
-                          className="w-full max-w-xl resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[15px] font-medium text-slate-800 shadow-sm transition placeholder:text-slate-400 hover:bg-slate-100 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:hover:bg-slate-800 dark:focus:bg-slate-900"
-                          placeholder="e.g., Quotation for Q3 office furniture supply"
-                        />
-                      </div>
-                    </div>
-
-                    {/* ADD ITEM CARD */}
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-cyan-50/60 to-white px-5 py-4 dark:border-slate-800 dark:from-cyan-950/30 dark:to-slate-900">
-                        <div className="flex items-center gap-3">
-                          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-100 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-400">
-                            <PlusIcon className="h-5 w-5" />
-                          </span>
-                          <div>
-                            <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                              Add Item
-                            </h4>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">
-                              Fill in the details, then add it to this quotation
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => navigate("/purchase-products")}
-                          className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-700 shadow-sm transition hover:bg-cyan-100 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-400 dark:hover:bg-cyan-900/50"
-                        >
-                          Create Product Now
-                        </button>
-                      </div>
-
-                      <div className="space-y-4 p-5">
-                        {/* ITEM TYPE TOGGLE */}
-                        <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800">
-                          {(["PRODUCT", "SERVICE"] as const).map((type) => (
-                            <button
-                              key={type}
-                              type="button"
-                              onClick={() =>
-                                handleChange({
-                                  target: { name: "itemType", value: type },
-                                } as ChangeEvent<HTMLInputElement>)
-                              }
-                              className={`rounded-lg px-4 py-1.5 text-xs font-bold transition ${
-                                form.itemType === type
-                                  ? "bg-white text-cyan-700 shadow-sm dark:bg-slate-900 dark:text-cyan-400"
-                                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                              }`}
-                            >
-                              {type}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* CATEGORY / PRODUCT — PRODUCT mode uses selects,
-                            SERVICE mode shows name/code/UOM inputs. */}
-                        {form.itemType === "PRODUCT" ? (
-                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <select
-                              name="itemCategoryId"
-                              value={form.itemCategoryId}
-                              onChange={handleChange}
-                              className={itemFieldClass}
-                            >
-                              <option value="">Select category</option>
-                              {activeCategories.map((category) => (
-                                <option key={category.id} value={category.id}>
-                                  {category.parentName
-                                    ? `${category.parentName} / ${category.categoryName}`
-                                    : category.categoryName}
-                                </option>
-                              ))}
-                            </select>
-                            <select
-                              name="itemProductId"
-                              value={form.itemProductId}
-                              onChange={handleChange}
-                              className={itemFieldClass}
-                            >
-                              <option value="">Select product</option>
-                              {filteredProducts.map((product) => (
-                                <option key={product.id} value={product.id}>
-                                  {product.productName ||
-                                    product.shortName ||
-                                    "Unnamed product"}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                            <input
-                              name="itemProductName"
-                              value={form.itemProductName}
-                              onChange={handleChange}
-                              className={itemFieldClass}
-                              placeholder="Service name"
-                            />
-                            <input
-                              name="itemProductCode"
-                              value={form.itemProductCode}
-                              onChange={handleChange}
-                              className={itemFieldClass}
-                              placeholder="Service code"
-                            />
-                            <input
-                              name="itemUom"
-                              value={form.itemUom}
-                              onChange={handleChange}
-                              className={itemFieldClass}
-                              placeholder="UOM"
-                            />
-                          </div>
-                        )}
-
-                        {/* DESCRIPTION ROW */}
-                        {form.itemType === "PRODUCT" ? (
-                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                            <div className={itemStaticChipClass}>
-                              {form.itemProductCode || "Product code"}
-                            </div>
-                            <div className={itemStaticChipClass}>
-                              {form.itemDescription || "Description"}
-                            </div>
-                            <div className={itemStaticChipClass}>
-                              {form.itemUom || "UOM"}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 gap-3">
-                            <input
-                              name="itemDescription"
-                              value={form.itemDescription}
-                              onChange={handleChange}
-                              className={itemFieldClass}
-                              placeholder="Description"
-                            />
-                          </div>
-                        )}
-
-                        {/* QTY / RATE / DISC % / ADD DISC % / TAX % */}
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-                          <div>
-                            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                              Quantity
-                            </label>
-                            <input
-                              name="itemQuantity"
-                              type="number"
-                              min="1"
-                              value={form.itemQuantity}
-                              onChange={handleChange}
-                              required
-                              className={itemFieldClassSmall}
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                              Rate
-                            </label>
-                            <input
-                              name="itemUnitPrice"
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={form.itemUnitPrice}
-                              onChange={handleChange}
-                              required
-                              className={itemFieldClassSmall}
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                              Disc %
-                            </label>
-                            <input
-                              name="itemDiscountPercentage"
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={form.itemDiscountPercentage}
-                              onChange={handleChange}
-                              className={itemFieldClassSmall}
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                              Add Disc %
-                            </label>
-                            <input
-                              name="itemAdditionalDiscountPercentage"
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={form.itemAdditionalDiscountPercentage}
-                              onChange={handleChange}
-                              className={itemFieldClassSmall}
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                              Tax %
-                            </label>
-                            <input
-                              name="itemTaxRate"
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={form.itemTaxRate}
-                              onChange={handleChange}
-                              className={itemFieldClassSmall}
-                            />
-                          </div>
-                        </div>
-
-                        {/* LIVE LINE TOTAL + ADD BUTTON */}
-                        <div className="flex flex-col gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/50 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="text-sm text-slate-500 dark:text-slate-400">
-                            Line total{" "}
-                            <span className="ml-2 text-base font-black text-slate-900 dark:text-white">
-                              {money(itemTotals.lineTotal)}
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={addCurrentItem}
-                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-600"
-                          >
-                            <PlusIcon className="h-4 w-4" />
-                            {editingLineItemIndex == null ? "Add to Quotation" : "Update Item"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* ITEMS LIST */}
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-800">
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                          Items in this Quotation
-                        </h4>
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                          {lineItems.length} {lineItems.length === 1 ? "item" : "items"}
-                        </span>
-                      </div>
-
-                      {lineItems.length === 0 ? (
-                        <div className="px-5 py-10 text-center text-sm text-slate-400 dark:text-slate-500">
-                          No items added yet — use the card above to add your first item.
-                        </div>
-                      ) : (
-                        <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {lineItems.map((item, index) => (
-                            <div
-                              key={`line-item-${index}`}
-                              className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
-                            >
-                              <div className="flex items-start gap-3">
-                                <div className="mt-0.5 flex flex-col gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => editLineItem(item, index)}
-                                    className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-                                    title="Edit item"
-                                  >
-                                    <PencilSquareIcon className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeLineItem(index)}
-                                    className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                                    title="Remove item"
-                                  >
-                                    <TrashIcon className="h-4 w-4" />
-                                  </button>
-                                </div>
-                                <div>
-                                  <div className="text-sm font-semibold text-slate-900 dark:text-white">
-                                    {item.productName || "--"}
-                                  </div>
-                                  <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500 dark:text-slate-400">
-                                    {item.productCode && <span>{item.productCode}</span>}
-                                    {item.description && <span>{item.description}</span>}
-                                    {item.uom && <span>{item.uom}</span>}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-4 pl-9 text-xs text-slate-500 dark:text-slate-400 sm:pl-0">
-                                <span>
-                                  Qty{" "}
-                                  <strong className="text-slate-800 dark:text-slate-200">
-                                    {item.quantity}
-                                  </strong>
-                                </span>
-                                <span>
-                                  Rate{" "}
-                                  <strong className="text-slate-800 dark:text-slate-200">
-                                    {money(item.unitPrice)}
-                                  </strong>
-                                </span>
-                                <span>
-                                  Disc{" "}
-                                  <strong className="text-slate-800 dark:text-slate-200">
-                                    {item.discountPercentage}%
-                                  </strong>
-                                </span>
-                                {item.additionalDiscount > 0 && (
-                                  <span>
-                                    Add Disc{" "}
-                                    <strong className="text-slate-800 dark:text-slate-200">
-                                      {money(item.additionalDiscount)}
-                                    </strong>
-                                  </span>
-                                )}
-                                <span>
-                                  Tax{" "}
-                                  <strong className="text-slate-800 dark:text-slate-200">
-                                    {item.taxRate}%
-                                  </strong>
-                                </span>
-                                <span className="rounded-lg bg-cyan-50 px-2.5 py-1 font-bold text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-400">
-                                  {money(calculateLineTotal(item))}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* NOTES */}
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <textarea
-                        name="customerNotes"
-                        value={form.customerNotes}
-                        onChange={handleChange}
-                        rows={3}
-                        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
-                        placeholder="Customer notes"
-                      />
-                      <textarea
-                        name="termsAndConditions"
-                        value={form.termsAndConditions}
-                        onChange={handleChange}
-                        rows={3}
-                        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
-                        placeholder="Terms and conditions"
-                      />
-                      <textarea
-                        name="remarks"
-                        value={form.remarks}
-                        onChange={handleChange}
-                        rows={3}
-                        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
-                        placeholder="Remarks"
-                      />
-                      <textarea
-                        name="internalNotes"
-                        value={form.internalNotes}
-                        onChange={handleChange}
-                        rows={3}
-                        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
-                        placeholder="Internal notes"
-                      />
-                    </div>
-                  </div>
-
-                  {/* RIGHT SIDEBAR — TOTALS */}
-                  <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 lg:sticky lg:top-6">
-                    <div className="space-y-3 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Sub Total</span>
-                        <span className="font-semibold text-slate-900 dark:text-white">
-                          {money(displayTotals.subTotal)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Discount</span>
-                        <span className="font-semibold text-rose-600 dark:text-rose-400">
-                          -{money(displayTotals.discountAmount)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">
-                          Additional Discount
-                        </span>
-                        <span className="font-semibold text-rose-600 dark:text-rose-400">
-                          -{money(displayTotals.additionalDiscount)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Tax</span>
-                        <span className="font-semibold text-slate-900 dark:text-white">
-                          {money(displayTotals.taxAmount)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between border-t border-slate-200 pt-3 text-lg font-black dark:border-slate-700">
-                        <span className="text-slate-900 dark:text-white">Grand Total</span>
-                        <span className="text-cyan-600 dark:text-cyan-400">
-                          {money(displayTotals.grandTotal)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-2 border-t border-slate-200 pt-4 dark:border-slate-700">
-                      <button
-                        type="submit"
-                        disabled={submitting}
-                        className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 dark:bg-blue-500 dark:hover:bg-blue-600 dark:disabled:bg-slate-700"
-                      >
-                        {submitting
-                          ? "Saving..."
-                          : editingId
-                          ? "Update Quotation"
-                          : "Create Quotation"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={closeForm}
-                        className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                </div>
-            </form>
-          }
-        />
-      </>
-    );
-  }
+  /** Billing or shipping address boxes, one column of the Addresses section. */
+  const addressColumn = (prefix: "billing" | "shipping") => (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-semibold text-slate-600 dark:text-gray-300">
+          {prefix === "billing" ? "Billing" : "Shipping"}
+        </span>
+        {prefix === "shipping" && (
+          <button
+            type="button"
+            onClick={copyBillingToShipping}
+            className="text-xs font-medium text-cyan-700 hover:underline dark:text-cyan-400"
+          >
+            Same as billing
+          </button>
+        )}
+      </div>
+      {ADDRESS_FIELDS.map(({ suffix, label }) => {
+        const name = `${prefix}${suffix}` as keyof QuotationForm;
+        return (
+          <FloatingInput
+            key={name}
+            label={label}
+            name={name}
+            value={form[name]}
+            onChange={handleChange}
+            maxLength={suffix === "PostalCode" ? 10 : 150}
+          />
+        );
+      })}
+    </div>
+  );
 
   return (
     <>
       <PageMeta title="Quotations" description="Manage sales quotations" />
       <PageBreadcrumb
+        className="mr-4"
         pageTitle="Quotations"
-        actions={<AddButton onClick={openCreate} label="Add Quotation" />}
+        actions={canCreate ? <AddButton className="-mr-5" onClick={openCreate} label="Add Quotation" /> : undefined}
       />
 
       <div className="w-full max-w-none px-0 py-8">
-        <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="Quotations" value={stats.total} icon={<DocumentTextIcon />} />
-          <StatsCard
-            label="Draft"
-            value={stats.draft}
-            gradient="from-orange-50 to-yellow-50"
-            borderColor="border-orange-100"
-            labelColor="text-orange-600"
-            icon={<CalendarDaysIcon />}
-          />
-          <StatsCard
-            label="Accepted"
-            value={stats.accepted}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-            icon={<DocumentTextIcon />}
-          />
-          <StatsCard
-            label="Rejected"
-            value={stats.rejected}
-            gradient="from-rose-50 to-red-50"
-            borderColor="border-rose-100"
-            labelColor="text-rose-600"
-            icon={<BanknotesIcon />}
+        <div className="px-3 py-5">
+          {/* Click a card to show only its quotations; click it again to show all. */}
+          <StatsCardFilter {...cardFilterProps} />
+          <ReusableTable
+            data={filteredRows}
+            columns={columns}
+            loading={loading}
+            pageSize={PAGE_SIZE}
+            defaultSortKey="quoteDate"
+            defaultSortOrder="desc"
+            emptyState={
+              <div className="flex flex-col items-center justify-center py-12">
+                <DocumentTextIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+                <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No quotations found</p>
+                {canCreate && (<button
+                  type="button"
+                  onClick={openCreate}
+                  className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
+                >
+                  Create your first quotation
+                </button>)}
+              </div>
+            }
           />
         </div>
-
-        <ReusableTable
-          data={quotations}
-          columns={columns}
-          loading={loading}
-          pageSize={PAGE_SIZE}
-          defaultSortKey="quoteDate"
-          defaultSortOrder="desc"
-          emptyState={
-            <div className="flex flex-col items-center justify-center py-12">
-              <DocumentTextIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
-              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No quotations found</p>
-              {canCreate && (<button
-                type="button"
-                onClick={openCreate}
-                className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
-              >
-                Create your first quotation
-              </button>)}
-            </div>
-          }
-        />
       </div>
+
+      {/* Create / edit in the standard side drawer: sections, floating fields, Cancel / Save at the bottom */}
+      <Dragger
+        isOpen={showForm}
+        title={editingId ? "Edit Quotation" : "Add Quotation"}
+        subtitle={editingId ? `Draft ${form.quoteNumber || ""}`.trim() : "Prepare a price quote for a customer."}
+        onClose={closeForm}
+        onSubmit={handleSubmit}
+        submitLabel={editingId ? "Update" : "Create"}
+        submitting={submitting}
+      >
+        <div className="grid grid-cols-1 gap-x-3 md:grid-cols-2">
+          <h3 className={sectionTitle}>Quotation Details</h3>
+          <div className="mb-5">
+            <SearchableSelect
+              label="Customer"
+              required
+              value={form.customerId}
+              options={
+                // A saved customer that is no longer listed still shows by name
+                form.customerId && !customerOptions.some((option) => option.value === form.customerId)
+                  ? [{ value: form.customerId, label: form.customerName || "Unknown customer" }, ...customerOptions]
+                  : customerOptions
+              }
+              onChange={(value) => setField("customerId", value)}
+              placeholder="Type a customer name or code"
+            />
+            {customers.length === 0 && canCreateCustomer && (
+              <button
+                type="button"
+                onClick={() => navigate("/customers/new")}
+                className="mt-1 px-1 text-xs font-medium text-cyan-700 hover:underline dark:text-cyan-400"
+              >
+                No customers yet: create one
+              </button>
+            )}
+          </div>
+          <FloatingSelect1
+            label="Sales Person"
+            required
+            name="salesPersonId"
+            value={form.salesPersonId}
+            onChange={handleChange}
+            options={
+              form.salesPersonId && !salesPersonOptions.some((option) => option.id === form.salesPersonId)
+                ? [{ id: form.salesPersonId, name: "Selected sales person" }, ...salesPersonOptions]
+                : salesPersonOptions
+            }
+          />
+          <FloatingDatePicker
+            label="Quote Date"
+            required
+            name="quoteDate"
+            value={form.quoteDate}
+            onChange={handleChange}
+          />
+          <FloatingDatePicker
+            label="Valid Until"
+            required
+            name="validUntil"
+            value={form.validUntil}
+            onChange={handleChange}
+            minDate={form.quoteDate || undefined}
+          />
+          <FloatingSelect1
+            label="Quotation Type"
+            name="quotationType"
+            value={form.quotationType}
+            onChange={handleChange}
+            options={quotationTypeChoices}
+            includeEmptyOption={false}
+          />
+          <FloatingInput
+            label="Currency (from the customer)"
+            name="currencyCode"
+            value={form.currencyCode}
+            readOnly
+            tabIndex={-1}
+            className="cursor-default bg-slate-50"
+          />
+          <div className="md:col-span-2">
+            <FloatingInput
+              label="Subject (e.g. Quotation for Q3 office furniture)"
+              name="subject"
+              value={form.subject}
+              onChange={handleChange}
+              maxLength={200}
+            />
+          </div>
+
+          <h3 className={sectionTitle}>Items</h3>
+          <div className="mb-5 md:col-span-2">
+            <QuotationItemsEditor
+              lines={lines}
+              onChange={setLines}
+              products={activeProducts}
+              additionalDiscount={toNumber(form.quotationAdditionalDiscount)}
+              onAdditionalDiscountChange={(value) => setField("quotationAdditionalDiscount", String(value))}
+              showErrors={submitAttempted}
+              onCreateProduct={() => navigate("/purchase-products")}
+            />
+          </div>
+
+          <h3 className={sectionTitle}>Terms &amp; Delivery</h3>
+          <FloatingInput label="Payment Terms" name="paymentTerms" value={form.paymentTerms} onChange={handleChange} maxLength={100} />
+          <FloatingInput
+            label="Credit Days"
+            type="number"
+            min={0}
+            name="creditDays"
+            value={form.creditDays}
+            onChange={handleChange}
+            onKeyDown={(event) => ["-", "+", "e", "E", "."].includes(event.key) && event.preventDefault()}
+            onWheel={(event) => event.currentTarget.blur()}
+          />
+          <FloatingInput label="Delivery Terms" name="deliveryTerms" value={form.deliveryTerms} onChange={handleChange} maxLength={100} />
+          <FloatingInput label="Shipping Method" name="shippingMethod" value={form.shippingMethod} onChange={handleChange} maxLength={100} />
+          <FloatingInput label="Customer Reference (PO / enquiry no.)" name="customerReference" value={form.customerReference} onChange={handleChange} maxLength={100} />
+          <FloatingDatePicker label="Customer Reference Date" name="customerReferenceDate" value={form.customerReferenceDate} onChange={handleChange} />
+
+          <h3 className={sectionTitle}>Addresses</h3>
+          {addressColumn("billing")}
+          {addressColumn("shipping")}
+
+          <h3 className={sectionTitle}>Notes</h3>
+          <FloatingTextarea label="Customer Notes (on the quotation)" name="customerNotes" value={form.customerNotes} onChange={handleChange} rows={3} />
+          <FloatingTextarea label="Terms and Conditions" name="termsAndConditions" value={form.termsAndConditions} onChange={handleChange} rows={3} />
+          <FloatingTextarea label="Remarks" name="remarks" value={form.remarks} onChange={handleChange} rows={3} />
+          <FloatingTextarea label="Internal Notes (not shown to the customer)" name="internalNotes" value={form.internalNotes} onChange={handleChange} rows={3} />
+        </div>
+      </Dragger>
 
       <DynamicPopup
         isPopupOpen={!!deleteQuotation}
