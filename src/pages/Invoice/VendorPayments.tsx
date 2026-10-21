@@ -1,114 +1,253 @@
-import React, { useEffect, useState, ChangeEvent, FormEvent, useMemo } from "react";
-import PaginatedPopup from "../../components/common/unpopup";
+import React, { useEffect, useMemo, useState, ChangeEvent, FormEvent } from "react";
 import axios from "axios";
-import {
-  PencilSquareIcon,
-  TrashIcon,
-  MagnifyingGlassIcon,
-  XMarkIcon,
-  UserGroupIcon,
-  CreditCardIcon,
-} from "@heroicons/react/24/outline";
+import { PencilSquareIcon, TrashIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import DynamicPopup from "../../components/common/Popup";
-import StatsCard from "../../components/common/Statscard";
+import Dragger from "../../components/common/Dragger";
+import StatsCardFilter, { StatsCardOption, StatsCardTone, useStatsCardFilter } from "../../components/common/StatsCardFilter";
 import { AddButton } from "../../components/common/AddButton";
-import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import FilterPopover from "../../components/common/filter";
-import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import { ICON_BUTTON_CLASS } from "../../components/common/CloseButton";
+import ReusableTable, { ColumnDef, formatDisplayDate, formatMoney } from "../../components/common/Table";
+import { FloatingDatePicker, FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import SearchableSelect from "../../components/inputfeild/SearchableSelect";
 import { usePermissions } from "../../access/usePermissions";
+import { todayIso } from "../../utils/localDate";
 
+/* ------------------------------------------------------------------ */
+/* Types (match the Swagger for /v1/api/invoice/vendor-payments)       */
+/* ------------------------------------------------------------------ */
+
+interface PurchaseInvoiceRef {
+  id: number;
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  dueDate?: string;
+  totalAmount?: number;
+  purchaseInvoiceStatus?: string;
+}
+
+interface VendorRef {
+  id: number;
+  name?: string;
+  email?: string;
+  phone?: string;
+  invoices?: PurchaseInvoiceRef[];
+}
+
+/** GET returns vendor and invoice as nested objects. */
 interface VendorPayment {
   id: number;
   paymentReference?: string;
   paymentDate?: string;
+  vendor?: VendorRef;
+  invoice?: PurchaseInvoiceRef;
+  amountPaid?: number;
+  paymentMethod?: string;
+  paidBy?: string;
+  // Filled from vendor / invoice for the table, search and export
   vendorName?: string;
   invoiceNumber?: string;
-  amountPaid?: number;
+}
+
+/** POST body: vendor and invoice are sent as objects with their id. */
+interface CreatePaymentPayload {
+  paymentReference: string;
+  paymentDate: string;
+  vendor: { id: number };
+  invoice?: { id: number };
+  amountPaid: number;
   paymentMethod?: string;
   paidBy?: string;
 }
 
+/** PUT body: vendor and invoice are sent as plain ids (different from POST). */
+interface UpdatePaymentPayload {
+  paymentReference: string;
+  paymentDate: string;
+  vendorId: number;
+  invoiceId?: number;
+  amountPaid: number;
+  paymentMethod?: string;
+  paidBy?: string;
+}
+
+type PaymentForm = {
+  paymentReference?: string;
+  paymentDate?: string;
+  vendorId?: string;
+  invoiceId?: string;
+  amountPaid?: string;
+  paymentMethod?: string;
+  paidBy?: string;
+};
+
+/* ------------------------------------------------------------------ */
+/* Settings                                                            */
+/* ------------------------------------------------------------------ */
+
 const API_URL = "/v1/api/invoice/vendor-payments";
+const VENDORS_URL = "/v1/api/invoice/vendors";
+const PURCHASE_INVOICES_URL = "/v1/api/invoice/purchase-invoices";
 const PAGE_SIZE = 10;
+
+// No enum API for payment methods, so the list stays here
+const PAYMENT_METHODS = [
+  { code: "CASH", label: "Cash" },
+  { code: "BANK_TRANSFER", label: "Bank Transfer" },
+  { code: "CHECK", label: "Cheque" },
+  { code: "CREDIT_CARD", label: "Credit Card" },
+  { code: "OTHER", label: "Other" },
+];
+const methodLabel = (code?: string) => PAYMENT_METHODS.find((m) => m.code === code)?.label || code || "--";
+
+const METHOD_TONE: Record<string, StatsCardTone> = {
+  CASH: "green",
+  BANK_TRANSFER: "blue",
+  CHECK: "amber",
+  CREDIT_CARD: "cyan",
+};
+
+const asArray = <T,>(value: any): T[] => {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.data)) return value.data;
+  if (Array.isArray(value?.content)) return value.content;
+  return [];
+};
+
+const apiError = (err: any, fallback: string) => err?.response?.data?.message || err?.response?.data?.error || fallback;
+
+/** Copies vendor name and invoice number to the top level for the table. */
+const flatten = (p: VendorPayment): VendorPayment => ({
+  ...p,
+  vendorName: p.vendor?.name || p.vendorName,
+  invoiceNumber: p.invoice?.invoiceNumber || p.invoiceNumber,
+});
+
+/** Number box for money: blocks - + e E, ignores mouse-wheel scrolling. */
+const amountInputProps = {
+  type: "number" as const,
+  min: 0,
+  step: "0.01",
+  inputMode: "decimal" as const,
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault(),
+  onWheel: (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur(),
+};
+
+/* ------------------------------------------------------------------ */
+/* Page                                                                */
+/* ------------------------------------------------------------------ */
 
 const VendorPayments: React.FC = () => {
   const { canCreate, canUpdate, canDelete } = usePermissions();
-  const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-  const [vendorPayments, setVendorPayments] = useState<VendorPayment[]>([]);
-  const [form, setForm] = useState<Partial<VendorPayment>>({});
+  const [payments, setPayments] = useState<VendorPayment[]>([]);
+  const [vendors, setVendors] = useState<VendorRef[]>([]);
+  const [purchaseInvoices, setPurchaseInvoices] = useState<PurchaseInvoiceRef[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const [form, setForm] = useState<PaymentForm>({});
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
-  const [showDeletePopup, setShowDeletePopup] = useState(false);
-  const [paymentToDelete, setPaymentToDelete] = useState<VendorPayment | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState("ALL");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchVendorPayments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const [paymentToDelete, setPaymentToDelete] = useState<VendorPayment | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const fetchVendorPayments = async () => {
+  // Earlier payments to the chosen vendor: GET /vendor-payments/vendor/{vendorId}
+  const [vendorHistory, setVendorHistory] = useState<VendorPayment[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  /* ---------------- Load ---------------- */
+
+  const fetchPayments = async () => {
     try {
       setIsLoading(true);
-      const res = await axios.get<VendorPayment[]>(API_URL, { headers });
-      setVendorPayments(Array.isArray(res.data) ? res.data : []);
+      const res = await axios.get(API_URL);
+      setPayments(asArray<VendorPayment>(res.data).map(flatten));
     } catch (err) {
       console.error("Error fetching vendor payments", err);
       ToasterService.error("Failed to load vendor payments");
-      setVendorPayments([]);
+      setPayments([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const fetchVendors = () =>
+    axios
+      .get(VENDORS_URL)
+      .then((r) => setVendors(asArray<VendorRef>(r.data)))
+      .catch(() => ToasterService.error("Failed to load vendors"));
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!form.paymentReference?.trim()) {
-      ToasterService.error("Payment reference is required");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res =
-        editingId !== null
-          ? await axios.put(`${API_URL}/${editingId}`, form, { headers })
-          : await axios.post(API_URL, form, { headers });
-      if (res.status === 200 || res.status === 201) {
-        ToasterService.success(editingId !== null ? "Vendor payment updated successfully!" : "Vendor payment added successfully!");
-        setShowFormModal(false);
-        setForm({});
-        setEditingId(null);
-        await fetchVendorPayments();
-      }
-    } catch (err) {
-      console.error("Error submitting vendor payment", err);
-      ToasterService.error("Failed to save vendor payment");
-    } finally {
-      setSubmitting(false);
-    }
+  const fetchPurchaseInvoices = () =>
+    axios
+      .get(PURCHASE_INVOICES_URL)
+      .then((r) => setPurchaseInvoices(asArray<PurchaseInvoiceRef>(r.data)))
+      .catch(() => ToasterService.error("Failed to load purchase invoices"));
+
+  useEffect(() => {
+    fetchPayments();
+    fetchVendors();
+    fetchPurchaseInvoices();
+    // Toolbar Refresh icon reloads every list
+    const reload = () => {
+      fetchPayments();
+      fetchVendors();
+      fetchPurchaseInvoices();
+    };
+    window.addEventListener("reusable-table:refresh", reload);
+    return () => window.removeEventListener("reusable-table:refresh", reload);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* ---------------- Cards: Total + one per payment method found ---------------- */
+
+  const cards = useMemo<StatsCardOption<VendorPayment>[]>(() => {
+    const present = new Set(payments.map((p) => p.paymentMethod).filter(Boolean) as string[]);
+    const ordered = [
+      ...PAYMENT_METHODS.map((m) => m.code).filter((code) => present.has(code)),
+      ...[...present].filter((code) => !PAYMENT_METHODS.some((m) => m.code === code)),
+    ].slice(0, 5);
+    return [
+      { key: "ALL", label: "Total Payments", match: () => true, tone: "cyan" },
+      ...ordered.map((code) => ({
+        key: code,
+        label: methodLabel(code),
+        match: (p: VendorPayment) => p.paymentMethod === code,
+        tone: METHOD_TONE[code] || "slate",
+      })),
+    ];
+  }, [payments]);
+  const { filteredRows, cardFilterProps, selected } = useStatsCardFilter(payments, cards);
+
+  /* ---------------- Form ---------------- */
+
+  const selectedVendor = vendors.find((v) => String(v.id) === form.vendorId);
+
+  /** The chosen vendor's invoices (from the vendor), or every purchase invoice if the vendor has none listed. */
+  const invoiceChoices = selectedVendor?.invoices?.length ? selectedVendor.invoices : purchaseInvoices;
+  const selectedInvoice = invoiceChoices.find((i) => String(i.id) === form.invoiceId);
+
+  const openCreate = () => {
+    setForm({ paymentDate: todayIso(), paymentMethod: "BANK_TRANSFER" });
+    setEditingId(null);
+    setShowFormModal(true);
   };
 
   const handleEdit = (payment: VendorPayment) => {
-    setForm(payment);
+    setForm({
+      paymentReference: payment.paymentReference || "",
+      paymentDate: payment.paymentDate?.slice(0, 10),
+      vendorId: payment.vendor?.id ? String(payment.vendor.id) : "",
+      invoiceId: payment.invoice?.id ? String(payment.invoice.id) : "",
+      amountPaid: payment.amountPaid != null ? String(payment.amountPaid) : "",
+      paymentMethod: payment.paymentMethod || "",
+      paidBy: payment.paidBy || "",
+    });
     setEditingId(payment.id);
     setShowFormModal(true);
-  };
-
-  const openCreate = () => {
-    setShowFormModal(true);
-    setForm({});
-    setEditingId(null);
   };
 
   const closeModal = () => {
@@ -117,50 +256,101 @@ const VendorPayments: React.FC = () => {
     setForm({});
   };
 
-  const handleDelete = (payment: VendorPayment) => {
-    setPaymentToDelete(payment);
-    setShowDeletePopup(true);
-  };
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => setForm({ ...form, [e.target.name]: e.target.value });
 
-  const confirmDelete = async () => {
-    if (!paymentToDelete) return;
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    const paymentReference = form.paymentReference?.trim() || "";
+    const amount = Number(form.amountPaid);
+    if (!paymentReference) return ToasterService.error("Payment reference is required");
+    if (!form.vendorId) return ToasterService.error("Choose a vendor");
+    if (!form.paymentDate) return ToasterService.error("Payment date is required");
+    if (!Number.isFinite(amount) || amount <= 0) return ToasterService.error("Amount paid must be more than 0");
+    if (selectedInvoice?.totalAmount != null && amount > Number(selectedInvoice.totalAmount)) {
+      return ToasterService.error(`Amount paid cannot be more than the invoice total (${formatMoney(Number(selectedInvoice.totalAmount))})`);
+    }
+
+    setSubmitting(true);
     try {
-      await axios.delete(`${API_URL}/${paymentToDelete.id}`, { headers });
-      ToasterService.success("Vendor payment deleted successfully!");
-      setShowDeletePopup(false);
-      setPaymentToDelete(null);
-      fetchVendorPayments();
+      if (editingId !== null) {
+        const payload: UpdatePaymentPayload = {
+          paymentReference,
+          paymentDate: form.paymentDate,
+          vendorId: Number(form.vendorId),
+          invoiceId: form.invoiceId ? Number(form.invoiceId) : undefined,
+          amountPaid: amount,
+          paymentMethod: form.paymentMethod || undefined,
+          paidBy: form.paidBy?.trim() || undefined,
+        };
+        await axios.put(`${API_URL}/${editingId}`, payload);
+        ToasterService.success("Vendor payment updated successfully!");
+      } else {
+        const payload: CreatePaymentPayload = {
+          paymentReference,
+          paymentDate: form.paymentDate,
+          vendor: { id: Number(form.vendorId) },
+          invoice: form.invoiceId ? { id: Number(form.invoiceId) } : undefined,
+          amountPaid: amount,
+          paymentMethod: form.paymentMethod || undefined,
+          paidBy: form.paidBy?.trim() || undefined,
+        };
+        await axios.post(API_URL, payload);
+        ToasterService.success("Vendor payment added successfully!");
+      }
+      closeModal();
+      fetchPayments();
     } catch (err) {
-      console.error("Error deleting vendor payment", err);
-      ToasterService.error("Failed to delete vendor payment");
+      console.error("Error saving vendor payment", err);
+      ToasterService.error(apiError(err, "Failed to save vendor payment"));
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const filteredVendorPayments = useMemo(() => {
-    return vendorPayments.filter((payment) => {
-      const term = search.toLowerCase();
-      const matchesSearch =
-        (payment.paymentReference || "").toLowerCase().includes(term) ||
-        (payment.vendorName || "").toLowerCase().includes(term) ||
-        (payment.invoiceNumber || "").toLowerCase().includes(term);
+  /* ---------------- Vendor's earlier payments (inside the drawer) ---------------- */
 
-      let matchesFilter = true;
-      if (activeFilter !== "ALL") {
-        matchesFilter = (payment.paymentMethod || "") === activeFilter;
-      }
+  useEffect(() => {
+    if (!showFormModal || !form.vendorId) {
+      setVendorHistory([]);
+      return;
+    }
+    let active = true;
+    setHistoryLoading(true);
+    axios
+      .get(`${API_URL}/vendor/${form.vendorId}`)
+      .then((res) => active && setVendorHistory(asArray<VendorPayment>(res.data).map(flatten)))
+      .catch((err) => {
+        console.error("Error loading vendor payments", err);
+        if (active) setVendorHistory([]);
+      })
+      .finally(() => active && setHistoryLoading(false));
+    return () => {
+      active = false;
+    };
+  }, [showFormModal, form.vendorId]);
 
-      return matchesSearch && matchesFilter;
-    });
-  }, [vendorPayments, search, activeFilter]);
+  const historyRows = vendorHistory.filter((p) => p.id !== editingId);
+  const historyTotal = historyRows.reduce((sum, p) => sum + Number(p.amountPaid || 0), 0);
 
-  const stats = useMemo(
-    () => ({
-      total: vendorPayments.length,
-      methodsUsed: vendorPayments.filter((p) => (p.paymentMethod || "").trim()).length,
-      totalPaid: vendorPayments.reduce((sum, p) => sum + Number(p.amountPaid || 0), 0),
-    }),
-    [vendorPayments]
-  );
+  /* ---------------- Delete ---------------- */
+
+  const confirmDelete = async () => {
+    if (!paymentToDelete || deleting) return;
+    setDeleting(true);
+    try {
+      await axios.delete(`${API_URL}/${paymentToDelete.id}`);
+      ToasterService.success("Vendor payment deleted successfully!");
+      setPaymentToDelete(null);
+      fetchPayments();
+    } catch (err) {
+      console.error("Error deleting vendor payment", err);
+      ToasterService.error(apiError(err, "Failed to delete vendor payment"));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  /* ---------------- Table ---------------- */
 
   const tableColumns: ColumnDef<VendorPayment>[] = [
     {
@@ -169,9 +359,7 @@ const VendorPayments: React.FC = () => {
       sortable: true,
       headerClassName: "w-[15%] text-left",
       className: "w-[15%]",
-      render: (payment) => (
-        <span className="text-sm font-semibold text-slate-900 truncate">{payment.paymentReference || "N/A"}</span>
-      ),
+      render: (p) => <span className="text-sm font-semibold text-slate-900 truncate">{p.paymentReference || "--"}</span>,
     },
     {
       key: "vendorName",
@@ -179,16 +367,12 @@ const VendorPayments: React.FC = () => {
       sortable: true,
       headerClassName: "w-[18%] text-left",
       className: "w-[18%]",
-      render: (payment) => (
+      render: (p) => (
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
-            <span className="text-sm font-semibold text-cyan-700">
-              {payment.vendorName ? payment.vendorName.charAt(0).toUpperCase() : "V"}
-            </span>
+            <span className="text-sm font-semibold text-cyan-700">{p.vendorName ? p.vendorName.charAt(0).toUpperCase() : "V"}</span>
           </div>
-          <span className="text-sm font-semibold text-slate-900 truncate leading-snug">
-            {payment.vendorName || "Unknown Vendor"}
-          </span>
+          <span className="text-sm font-semibold text-slate-900 truncate leading-snug">{p.vendorName || "--"}</span>
         </div>
       ),
     },
@@ -198,33 +382,32 @@ const VendorPayments: React.FC = () => {
       sortable: true,
       headerClassName: "w-[13%] text-left",
       className: "w-[13%]",
-      render: (payment) => (
-        <span className="text-sm text-slate-600 truncate">{payment.invoiceNumber || "N/A"}</span>
-      ),
+      render: (p) => <span className="text-sm text-slate-600 truncate">{p.invoiceNumber || "--"}</span>,
     },
     {
       key: "amountPaid",
       label: "Amount Paid",
       sortable: true,
-      headerClassName: "w-[12%] text-right",
-      className: "w-[12%] text-right",
-      sortValueGetter: (payment) => Number(payment.amountPaid || 0),
-      render: (payment) => (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/40">
-          <CreditCardIcon className="h-3.5 w-3.5 text-emerald-600 opacity-80" />
-          {Number(payment.amountPaid || 0).toLocaleString()}
-        </span>
-      ),
+      filterable: false,
+      headerClassName: "w-[13%] text-right",
+      className: "w-[13%] text-right",
+      sortValueGetter: (p) => Number(p.amountPaid || 0),
+      detailFormatter: (p) => formatMoney(Number(p.amountPaid || 0)),
+      exportValueGetter: (p) => formatMoney(Number(p.amountPaid || 0)),
+      render: (p) => <span className="text-sm font-semibold text-slate-700">{formatMoney(Number(p.amountPaid || 0))}</span>,
     },
     {
       key: "paymentMethod",
       label: "Payment Method",
       sortable: true,
-      headerClassName: "w-[14%] text-left",
-      className: "w-[14%]",
-      render: (payment) => (
-        <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-200/40">
-          {payment.paymentMethod || "N/A"}
+      headerClassName: "w-[13%] text-left",
+      className: "w-[13%]",
+      filterOptions: PAYMENT_METHODS.map((m) => ({ label: m.label, value: m.code })),
+      detailFormatter: (p) => methodLabel(p.paymentMethod),
+      exportValueGetter: (p) => methodLabel(p.paymentMethod),
+      render: (p) => (
+        <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full border bg-blue-50 text-blue-700 border-blue-200/40">
+          {methodLabel(p.paymentMethod)}
         </span>
       ),
     },
@@ -232,36 +415,29 @@ const VendorPayments: React.FC = () => {
       key: "paymentDate",
       label: "Payment Date",
       sortable: true,
-      headerClassName: "w-[16%] text-left",
-      className: "w-[16%]",
-      render: (payment) => (
-        <span className="text-sm text-slate-600 truncate">{payment.paymentDate || "N/A"}</span>
-      ),
+      headerClassName: "w-[13%] text-left",
+      className: "w-[13%]",
+      exportValueGetter: (p) => (p.paymentDate ? formatDisplayDate(p.paymentDate) : ""),
+      render: (p) => <span className="text-sm text-slate-600">{p.paymentDate ? formatDisplayDate(p.paymentDate) : "--"}</span>,
     },
     {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "w-[12%] text-right pr-4",
-      className: "w-[12%] text-right",
-      render: (payment) => (
+      headerClassName: "w-[10%] text-right pr-4",
+      className: "w-[10%] text-right",
+      render: (p) => (
         <div className="flex items-center justify-end gap-0.5">
-          {canUpdate && (<button
-            type="button"
-            onClick={() => handleEdit(payment)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit Payment"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>)}
-          {canDelete && (<button
-            type="button"
-            onClick={() => handleDelete(payment)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-            title="Delete Payment"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>)}
+          {canUpdate && (
+            <button type="button" onClick={() => handleEdit(p)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600" title="Edit Payment">
+              <PencilSquareIcon className="h-4 w-4" />
+            </button>
+          )}
+          {canDelete && (
+            <button type="button" onClick={() => setPaymentToDelete(p)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600" title="Delete Payment">
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -270,203 +446,181 @@ const VendorPayments: React.FC = () => {
   return (
     <>
       <PageMeta title="Vendor Payments" description="Manage vendor payments" />
-      <PageBreadcrumb pageTitle="Vendor Payments" />
+      <PageBreadcrumb
+        className="mr-4"
+        pageTitle="Vendor Payments"
+        actions={canCreate ? <AddButton className="-mr-5" label="Add Vendor Payment" onClick={openCreate} /> : undefined}
+      />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Vendor Payment" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatsCard
-            label="Total Payments"
-            value={stats.total}
-            gradient="from-cyan-50 to-blue-50"
-            borderColor="border-cyan-100"
-            labelColor="text-cyan-600"
-          />
-          <StatsCard
-            label="Methods Used"
-            value={stats.methodsUsed}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-          />
-          <StatsCard
-            label="Total Paid"
-            value={stats.totalPaid.toLocaleString()}
-            gradient="from-blue-50 to-indigo-50"
-            borderColor="border-blue-100"
-            labelColor="text-blue-600"
-          />
-          <StatsCard
-            label="Filtered"
-            value={filteredVendorPayments.length}
-            gradient="from-purple-50 to-pink-50"
-            borderColor="border-purple-100"
-            labelColor="text-purple-600"
-          />
-        </div>
+      {/* Same wrapper as Payment Terms (no py), so the spacing matches */}
+      <div className="w-full max-w-none px-0">
+        <div className="px-3">
+          <StatsCardFilter {...cardFilterProps} />
 
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by reference, vendor, or invoice..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); }}
-                className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-              {search && (
-                <button
-                  onClick={() => { setSearch(""); }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-4 w-4" />
+          <ReusableTable
+            data={filteredRows}
+            columns={tableColumns}
+            pageSize={PAGE_SIZE}
+            defaultSortKey="paymentDate"
+            defaultSortOrder="desc"
+            loading={isLoading}
+            rowDetailsTitle={(p) => `Payment ${p.paymentReference || ""}`.trim()}
+            rowDetailsSubtitle="Vendor payment details"
+            // The nested vendor / invoice objects are long; their name and number are already shown
+            hiddenDetailKeys={["vendor", "invoice"]}
+            suspendRowDetails={showFormModal}
+            rowDetailsActions={(p: VendorPayment) =>
+              canUpdate ? (
+                <button type="button" onClick={() => handleEdit(p)} className={ICON_BUTTON_CLASS} title="Edit" aria-label="Edit this record">
+                  <PencilSquareIcon className="h-5 w-5" aria-hidden="true" />
                 </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
-            <FilterPopover
-              title="Filter Vendor Payments"
-              buttonLabel="Filters"
-              label="Filter by Method"
-              value={activeFilter}
-              options={[
-                { label: "All Payments", value: "ALL" },
-                { label: "Cash", value: "CASH" },
-                { label: "Bank Transfer", value: "BANK_TRANSFER" },
-                { label: "Check", value: "CHECK" },
-                { label: "Credit Card", value: "CREDIT_CARD" },
-                { label: "Other", value: "OTHER" },
-              ]}
-              onChange={setActiveFilter}
-              onReset={() => setActiveFilter("ALL")}
-              onApply={() => undefined}
-            />
-          </div>
+              ) : null
+            }
+            emptyState={
+              <div className="flex flex-col items-center justify-center py-12">
+                <UserGroupIcon className="h-12 w-12 text-gray-400 mb-3" />
+                <p className="text-gray-500 text-sm mb-2">No vendor payments found</p>
+                {selected !== "ALL" ? (
+                  <p className="text-gray-400 text-xs">Click the selected card again to show all payments</p>
+                ) : (
+                  canCreate && (
+                    <button type="button" onClick={openCreate} className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium">
+                      Create your first vendor payment
+                    </button>
+                  )
+                )}
+              </div>
+            }
+          />
         </div>
 
-        <ReusableTable
-          data={filteredVendorPayments}
-          columns={tableColumns}
-          pageSize={PAGE_SIZE}
-          defaultSortKey="paymentReference"
-          defaultSortOrder="asc"
-          loading={isLoading}
-          emptyState={
-            <div className="flex flex-col items-center justify-center py-12">
-              <UserGroupIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No vendor payments found</p>
-              {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
-              ) : (
-                canCreate && <button
-                  type="button"
-                  onClick={() => openCreate()}
-                  className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
-                >
-                  Create your first vendor payment
-                </button>
-              )}
-            </div>
-          }
-        />
-
-        <PaginatedPopup
+        <Dragger
           isOpen={showFormModal}
-          title={editingId !== null ? "Edit Vendor Payment" : "Create New Vendor Payment"}
-          subtitle={editingId !== null ? "Update your payment details" : "Add a new vendor payment"}
+          title={editingId !== null ? "Edit Vendor Payment" : "Add Vendor Payment"}
+          subtitle={editingId !== null ? "Update the payment details" : "Record a payment made to a vendor"}
           onClose={closeModal}
           onSubmit={handleSubmit}
           submitting={submitting}
-          submitLabel={editingId !== null ? "Update Payment" : "Create Payment"}
-          maxWidthClassName="max-w-2xl"
-          tabs={[
-            {
-              label: "Basic Info",
-              fields: [
-                <FloatingInput
-                  label="Payment Reference"
-                  name="paymentReference"
-                  value={form.paymentReference || ""}
-                  onChange={handleChange}
-                  required
-                />,
-                <FloatingInput
-                  label="Vendor Name"
-                  name="vendorName"
-                  value={form.vendorName || ""}
-                  onChange={handleChange}
-                />,
-                <FloatingInput
-                  label="Invoice Number"
-                  name="invoiceNumber"
-                  value={form.invoiceNumber || ""}
-                  onChange={handleChange}
-                />,
-                <FloatingInput
-                  label="Amount Paid"
-                  name="amountPaid"
-                  type="number"
-                  value={form.amountPaid ?? ""}
-                  onChange={handleChange}
-                />,
-                <FloatingSelect
-                  label="Payment Method"
-                  name="paymentMethod"
-                  value={form.paymentMethod || ""}
-                  onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
-                  options={["CASH", "BANK_TRANSFER", "CHECK", "CREDIT_CARD", "OTHER"].map((m) => ({ id: m, name: m }))}
-                />,
-                <FloatingInput
-                  label="Payment Date"
-                  name="paymentDate"
-                  type="date"
-                  value={form.paymentDate || ""}
-                  onChange={handleChange}
-                />,
-                <FloatingInput
-                  label="Paid By"
-                  name="paidBy"
-                  value={form.paidBy || ""}
-                  onChange={handleChange}
-                />,
-              ],
-            },
-          ]}
-        />
+          submitLabel={editingId !== null ? "Update" : "Create"}
+        >
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <SearchableSelect
+              label="Vendor"
+              value={form.vendorId || ""}
+              options={vendors.map((v) => ({ value: String(v.id), label: v.name || `Vendor ${v.id}` }))}
+              // A different vendor means a different invoice list
+              onChange={(value: string | number) => setForm({ ...form, vendorId: String(value ?? ""), invoiceId: "" })}
+              placeholder={vendors.length ? "Search vendor" : "No vendors loaded"}
+              required
+            />
+            <SearchableSelect
+              label="Purchase Invoice"
+              value={form.invoiceId || ""}
+              options={invoiceChoices.map((i) => ({
+                value: String(i.id),
+                label: [i.invoiceNumber || `Invoice ${i.id}`, i.totalAmount != null ? formatMoney(Number(i.totalAmount)) : ""].filter(Boolean).join(" – "),
+              }))}
+              onChange={(value: string | number) => setForm({ ...form, invoiceId: String(value ?? "") })}
+              placeholder={form.vendorId ? "Search invoice (optional)" : "Choose a vendor first"}
+              emptyOptionLabel="None"
+            />
+            <FloatingInput label="Payment Reference" name="paymentReference" value={form.paymentReference || ""} onChange={handleChange} maxLength={100} required />
+            <FloatingDatePicker label="Payment Date" name="paymentDate" value={form.paymentDate || ""} onChange={handleChange} maxDate={todayIso()} required />
+            <FloatingInput label="Amount Paid" name="amountPaid" {...amountInputProps} value={form.amountPaid ?? ""} onChange={handleChange} required />
+            <FloatingSelect
+              label="Payment Method"
+              name="paymentMethod"
+              value={form.paymentMethod || ""}
+              onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
+              options={PAYMENT_METHODS.map((m) => ({ id: m.code, name: m.label }))}
+            />
+            <div className="md:col-span-2">
+              <FloatingInput label="Paid By" name="paidBy" value={form.paidBy || ""} onChange={handleChange} maxLength={100} />
+            </div>
+          </div>
+
+          {selectedInvoice && (
+            <div className="mb-4 grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm sm:grid-cols-4 dark:border-gray-700 dark:bg-gray-800/60">
+              <div>
+                <span className="block text-xs text-slate-500">Invoice Date</span>
+                <strong className="text-slate-800 dark:text-gray-100">{selectedInvoice.invoiceDate ? formatDisplayDate(selectedInvoice.invoiceDate) : "--"}</strong>
+              </div>
+              <div>
+                <span className="block text-xs text-slate-500">Due Date</span>
+                <strong className="text-slate-800 dark:text-gray-100">{selectedInvoice.dueDate ? formatDisplayDate(selectedInvoice.dueDate) : "--"}</strong>
+              </div>
+              <div>
+                <span className="block text-xs text-slate-500">Invoice Total</span>
+                <strong className="text-slate-800 dark:text-gray-100">{formatMoney(Number(selectedInvoice.totalAmount || 0))}</strong>
+              </div>
+              <div>
+                <span className="block text-xs text-slate-500">Status</span>
+                <strong className="text-slate-800 dark:text-gray-100">{selectedInvoice.purchaseInvoiceStatus || "--"}</strong>
+              </div>
+            </div>
+          )}
+
+          {/* Earlier payments to the chosen vendor */}
+          {form.vendorId && (
+            <div className="mt-2 border-t border-slate-100 pt-4 dark:border-gray-800">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-gray-400">
+                Earlier Payments to {selectedVendor?.name || "this vendor"}
+              </h3>
+              {historyLoading ? (
+                <p className="text-sm text-slate-500">Loading payments…</p>
+              ) : historyRows.length === 0 ? (
+                <p className="text-sm text-slate-500">No earlier payments to this vendor.</p>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-gray-700">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:bg-gray-800 dark:text-gray-400">
+                      <tr>
+                        <th className="px-3 py-2">Reference</th>
+                        <th className="px-3 py-2">Date</th>
+                        <th className="px-3 py-2">Invoice</th>
+                        <th className="px-3 py-2">Method</th>
+                        <th className="px-3 py-2 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                      {historyRows.map((p) => (
+                        <tr key={p.id}>
+                          <td className="px-3 py-2 font-medium text-slate-800 dark:text-gray-100">{p.paymentReference || "--"}</td>
+                          <td className="px-3 py-2 text-slate-600">{p.paymentDate ? formatDisplayDate(p.paymentDate) : "--"}</td>
+                          <td className="px-3 py-2 text-slate-600">{p.invoiceNumber || "--"}</td>
+                          <td className="px-3 py-2 text-slate-600">{methodLabel(p.paymentMethod)}</td>
+                          <td className="px-3 py-2 text-right font-semibold text-slate-700">{formatMoney(Number(p.amountPaid || 0))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-slate-50 dark:bg-gray-800">
+                      <tr>
+                        <td colSpan={4} className="px-3 py-2 text-xs font-semibold uppercase text-slate-500">
+                          {historyRows.length} payment{historyRows.length === 1 ? "" : "s"} · Total paid
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold text-slate-800 dark:text-gray-100">{formatMoney(historyTotal)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </Dragger>
 
         <DynamicPopup
-          isPopupOpen={showDeletePopup}
-          setIsPopupOpen={setShowDeletePopup}
+          isPopupOpen={Boolean(paymentToDelete)}
+          setIsPopupOpen={(open: boolean) => !open && setPaymentToDelete(null)}
           icon={<TrashIcon className="h-6 w-6 text-red-600" />}
           iconBg="bg-red-100"
           innerText="Delete Vendor Payment"
-          subText={
-            paymentToDelete
-              ? `Are you sure you want to delete payment "${paymentToDelete.paymentReference || "this payment"}"? This action cannot be undone.`
-              : "Are you sure you want to delete this vendor payment?"
-          }
-          confirmLabel="Delete"
+          subText={`Are you sure you want to delete payment "${paymentToDelete?.paymentReference || "this payment"}"? This action cannot be undone.`}
+          confirmLabel={deleting ? "Deleting..." : "Delete"}
           cancelLabel="Cancel"
           onConfirm={confirmDelete}
           onCancel={() => setPaymentToDelete(null)}
           confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
         />
-
-        <style>{`
-          @keyframes slide-up {
-            from { opacity: 0; transform: translateY(15px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          .animate-slide-up {
-            animation: slide-up 0.25s ease-out;
-          }
-        `}</style>
       </div>
     </>
   );

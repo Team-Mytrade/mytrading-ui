@@ -510,8 +510,8 @@ const JournalEntries: React.FC = () => {
         actions={canCreate ? <AddButton className="-mr-5" label="Add Journal Entry" onClick={openCreate} /> : undefined}
       />
 
-      <div className="w-full max-w-none px-0 py-8">
-        <div className="py-5 px-3">
+      <div className="w-full max-w-none px-0">
+        <div className="px-3">
           <StatsCardFilter {...cardFilterProps} />
 
           <ReusableTable
