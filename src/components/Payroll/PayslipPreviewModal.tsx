@@ -87,8 +87,8 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
                                                 <span className="font-medium text-gray-900">{payslipData.employeeName || 'N/A'}</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span className="text-gray-500">Employee ID:</span>
-                                                <span className="font-medium text-gray-900">{payslipData.employeeId || 'N/A'}</span>
+                                                <span className="text-gray-500">Employee Code:</span>
+                                                <span className="font-medium text-gray-900">{payslipData.employeeCode || payslipData.employeeId || 'N/A'}</span>
                                             </div>
                                             <div className="flex justify-between">
                                                 <span className="text-gray-500">Designation:</span>
@@ -159,15 +159,8 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
                                         {/* Earnings */}
                                         <div className="p-4">
                                             <h5 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">Earnings</h5>
+                                            {/* The earnings lines include Basic and HRA, so they aren't listed again */}
                                             <div className="space-y-3 text-sm">
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-600">Basic Salary</span>
-                                                    <span className="font-medium">₹{payslipData.basic?.toLocaleString() || '0'}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-600">HRA</span>
-                                                    <span className="font-medium">₹{payslipData.hra?.toLocaleString() || '0'}</span>
-                                                </div>
                                                 {payslipData.earnings?.map((e: any, i: number) => (
                                                     <div key={i} className="flex justify-between">
                                                         <span className="text-gray-600">{e.componentName || e.name || e.earningName}</span>
@@ -176,8 +169,8 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
                                                 ))}
                                             </div>
                                             <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between">
-                                                <span className="font-bold text-gray-800">Gross Salary</span>
-                                                <span className="font-bold text-gray-900">₹{payslipData.grossSalary?.toLocaleString() || '0'}</span>
+                                                <span className="font-bold text-gray-800">Total Earnings</span>
+                                                <span className="font-bold text-gray-900">₹{(payslipData.totalEarnings ?? payslipData.grossSalary)?.toLocaleString() || '0'}</span>
                                             </div>
                                         </div>
 

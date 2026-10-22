@@ -29,7 +29,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { Menu, Transition } from "@headlessui/react";
 import { Fragment } from "react";
-import { useSearchParams, useLocation } from "react-router-dom";
+import { useSearchParams, useLocation, useNavigate } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
@@ -42,9 +42,24 @@ import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import PayslipPreviewModal from "../../components/Payroll/PayslipPreviewModal";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { apiError } from "../../utils/apiError";
 
 const BASE_URL = "/v1/api/payroll";
 const PAGE_SIZE = 10;
+
+// File downloads ask for a blob, so an error's JSON body arrives as one too
+const blobError = async (err: any, fallback: string) => {
+    const data = err?.response?.data;
+    if (data instanceof Blob) {
+        try {
+            const body = JSON.parse(await data.text());
+            return body.message || body.error || fallback;
+        } catch {
+            return fallback;
+        }
+    }
+    return apiError(err, fallback);
+};
 
 interface Employee {
     id: number;
@@ -95,12 +110,11 @@ const PayrollPage: React.FC = () => {
         return empCode || empName || "";
     });
     const [loading, setLoading] = useState(false);
-    const [filterMonth, setFilterMonth] = useState("2026-06");
-    const [processMonth, setProcessMonth] = useState("");
+    const navigate = useNavigate();
+    const [filterMonth, setFilterMonth] = useState(() => todayIso().slice(0, 7));
     const [viewItem, setViewItem] = useState<EmployeeSalary | null>(null);
     const [viewDetails, setViewDetails] = useState<any>(null);
     const [detailsLoading, setDetailsLoading] = useState(false);
-    const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
     const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
     const [generateMonth, setGenerateMonth] = useState("");
     const [isZipModalOpen, setIsZipModalOpen] = useState(false);
@@ -156,8 +170,8 @@ const PayrollPage: React.FC = () => {
 
             const merged = salaryData.map((s: any, index: number) => {
                 const emp = employeeMap.get(s.employeeId) || s.employee || null;
-                const empName = emp ? `${emp.firstName || ''} ${emp.lastName || ''}`.trim() : `Employee #${s.employeeId || index}`;
-                const empCode = emp?.employeeCode || (s.employeeId ? `EMP-${String(s.employeeId).padStart(4, '0')}` : '');
+                const empName = s.employeeName || (emp ? `${emp.firstName || ''} ${emp.lastName || ''}`.trim() : `Employee #${s.employeeId || index}`);
+                const empCode = s.employeeCode || emp?.employeeCode || '';
                 const empLabel = `${empName}${empCode ? ` (${empCode})` : ''}`;
 
                 const gross = s.grossSalary || 0;
@@ -195,8 +209,10 @@ const PayrollPage: React.FC = () => {
                 }
 
                 // Non-enumerable properties: accessible by code, modals, actions, and downloads
+                // id is the monthly salary record (what Rollback takes), never the employee id
                 Object.defineProperties(rowItem, {
-                    id: { value: s.employeeSalaryId || s.employeeId || index, enumerable: false, writable: true },
+                    id: { value: s.employeeSalaryId ?? `row-${index}`, enumerable: false, writable: true },
+                    payslipGenerated: { value: Boolean(s.payslipGenerated), enumerable: false, writable: true },
                     isProcessed: { value: isProc, enumerable: false, writable: true },
                     currency: { value: s.currency || 'INR', enumerable: false, writable: true },
                     totalEarnings: { value: s.totalEarnings || gross, enumerable: false, writable: true },
@@ -217,36 +233,8 @@ const PayrollPage: React.FC = () => {
 
             setSalaries(merged);
         } catch (err) {
-            console.error("Error loading salaries", err);
-            ToasterService.error("Failed to load salary records");
+            ToasterService.error(apiError(err, "Failed to load salary records"));
             setSalaries([]);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const processAll = async () => {
-        if (!processMonth) {
-            ToasterService.warning("Please select a month to process");
-            return;
-        }
-
-        const ok = await confirm({
-            message: `Are you sure you want to process payroll for ${processMonth}? This action will mark all salaries for this month as processed.`,
-            confirmLabel: "Process",
-            variant: "info",
-        });
-        if (!ok) return;
-
-        setLoading(true);
-        try {
-            await axios.post(`${BASE_URL}/process-all?month=${processMonth}`);
-            ToasterService.success(`Payroll processed successfully for ${processMonth}`);
-            await fetchAll();
-            setIsProcessModalOpen(false);
-            setProcessMonth("");
-        } catch (err: any) {
-            ToasterService.error(err.response?.data?.message || "Failed to process payroll");
         } finally {
             setLoading(false);
         }
@@ -260,8 +248,7 @@ const PayrollPage: React.FC = () => {
             const res = await axios.get(`/v1/api/payroll/payslips/preview/${salary.employee?.id}?month=${salary.month}`);
             setViewDetails(res.data);
         } catch (err) {
-            console.error("Failed to fetch salary details", err);
-            ToasterService.error("Failed to fetch detailed salary breakdown.");
+            ToasterService.error(apiError(err, "Failed to fetch detailed salary breakdown."));
         } finally {
             setDetailsLoading(false);
         }
@@ -274,7 +261,7 @@ const PayrollPage: React.FC = () => {
         }
 
         const ok = await confirm({
-            message: `Are you sure you want to generate payslips for ${generateMonth}?`,
+            message: `Make the payslips of everyone paid for ${generateMonth} again? Existing payslips for the month are replaced.`,
             confirmLabel: "Generate",
             variant: "info",
         });
@@ -291,7 +278,7 @@ const PayrollPage: React.FC = () => {
             setIsGenerateModalOpen(false);
             setGenerateMonth("");
         } catch (err: any) {
-            ToasterService.error(err.response?.data?.message || "Failed to generate payslips");
+            ToasterService.error(apiError(err, "Failed to generate payslips"));
         } finally {
             setLoading(false);
         }
@@ -329,7 +316,7 @@ const PayrollPage: React.FC = () => {
             setFromMonth("");
             setToMonth("");
         } catch (err) {
-            ToasterService.error("Failed to download ZIP file");
+            ToasterService.error(await blobError(err, "Failed to download ZIP file"));
         } finally {
             setLoading(false);
         }
@@ -337,7 +324,7 @@ const PayrollPage: React.FC = () => {
 
     const rollback = async (id: number, employeeName: string) => {
         const ok = await confirm({
-            message: `Are you sure you want to rollback salary record for ${employeeName}? This action cannot be undone.`,
+            message: `Roll back ${employeeName}'s salary for ${filterMonth}? The payslip is removed and the run's bank transfer file no longer lists them.`,
             confirmLabel: "Rollback",
             variant: "danger",
         });
@@ -345,10 +332,10 @@ const PayrollPage: React.FC = () => {
 
         try {
             await axios.post(`${BASE_URL}/rollback/${id}`);
-            ToasterService.success("Salary record rolled back successfully");
+            ToasterService.success("Salary rolled back", "Run payroll again to pay them for the month");
             await fetchAll();
         } catch (err: any) {
-            ToasterService.error(err.response?.data?.message || "Rollback failed");
+            ToasterService.error(apiError(err, "Rollback failed"));
         }
     };
 
@@ -369,7 +356,7 @@ const PayrollPage: React.FC = () => {
             window.URL.revokeObjectURL(url);
             ToasterService.success("Payslip downloaded successfully");
         } catch (err: any) {
-            ToasterService.error(err.response?.data?.message || "Failed to download payslip");
+            ToasterService.error(await blobError(err, "Failed to download payslip"));
         }
     };
 
@@ -525,8 +512,9 @@ const PayrollPage: React.FC = () => {
                     </button>
                     <button
                         onClick={() => downloadPayslip(row.employee?.id as number, row.month, `${row.employee?.firstName} ${row.employee?.lastName}`)}
-                        className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-gray-200 p-1.5 rounded-md transition-colors cursor-pointer"
-                        title="Download Payslip"
+                        disabled={!row.payslipGenerated}
+                        className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-gray-200 p-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={row.payslipGenerated ? "Download Payslip" : "Payslip not generated yet (Generate Payslips)"}
                     >
                         <DocumentArrowDownIcon className="h-3.5 w-3.5" />
                     </button>
@@ -569,7 +557,8 @@ const PayrollPage: React.FC = () => {
 
             <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
                 <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-                    <AddButton label={actionButtonLabel} permission="APPROVE" onClick={() => setIsProcessModalOpen(true)} />
+                    {/* Payroll is run (with its uploads and review) on the Payroll Engine page */}
+                    <AddButton label={actionButtonLabel} permission="APPROVE" onClick={() => navigate("/payrollEngine")} />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 [&_.stats-card]:dark:!border-transparent [&_.stats-card]:dark:!bg-[#191919] [&_.stats-card__icon]:dark:!bg-[#222222] [&_.stats-card__icon]:dark:!text-gray-300 [&_.stats-card__value]:dark:!text-white [&_.stats-card__label]:dark:!text-gray-400">
@@ -632,6 +621,18 @@ const PayrollPage: React.FC = () => {
                             )}
                         </div>
 
+                        {canCreate && (
+                            <button
+                                type="button"
+                                onClick={() => { setGenerateMonth(filterMonth); setIsGenerateModalOpen(true); }}
+                                className="h-10 px-3 flex items-center gap-2 border border-gray-300 dark:border-transparent bg-white dark:bg-[#191919] dark:hover:bg-[#222222] rounded-lg hover:bg-gray-50 transition-colors text-sm text-gray-700 dark:text-gray-300 cursor-pointer"
+                                title="Make the month's payslips again"
+                            >
+                                <DocumentTextIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                                Generate Payslips
+                            </button>
+                        )}
+
                         {/* Print Button */}
                         <button
                             onClick={handlePrint}
@@ -673,40 +674,6 @@ const PayrollPage: React.FC = () => {
                     />
                 </div>
 
-                {/* Process Payroll Modal */}
-                <PaginatedPopup
-                    isOpen={isProcessModalOpen}
-                    title="Process Payroll"
-                    onClose={() => setIsProcessModalOpen(false)}
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        processAll();
-                    }}
-                    submitLabel="Process Payroll"
-                    cancelLabel="Cancel"
-                    maxWidthClassName="max-w-lg"
-                    fields={[
-                        <div key="select-process-month" className="col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Select Month
-                            </label>
-                            <input
-                                type="month"
-                                value={processMonth}
-                                onChange={(e) => setProcessMonth(e.target.value)}
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                required
-                            />
-                        </div>,
-                        <div key="warning-box" className="col-span-2 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                            <p className="text-sm text-yellow-800">
-                                <strong>Warning:</strong> This action will mark all salary records for the selected month as processed.
-                                This cannot be undone for individual records without a rollback operation.
-                            </p>
-                        </div>
-                    ]}
-                />
-
                 {/* Generate Payslips Modal */}
                 <PaginatedPopup
                     isOpen={isGenerateModalOpen}
@@ -734,7 +701,7 @@ const PayrollPage: React.FC = () => {
                         </div>,
                         <div key="info-box" className="col-span-2 p-4 bg-cyan-50 rounded-lg border border-cyan-200">
                             <p className="text-sm text-cyan-800">
-                                <strong>Info:</strong> This action will generate payslips for all processed salary records in the selected month.
+                                <strong>Info:</strong> Payslips are made when payroll runs. This makes them again for everyone paid in the month (e.g. after a payslip went missing).
                             </p>
                         </div>
                     ]}

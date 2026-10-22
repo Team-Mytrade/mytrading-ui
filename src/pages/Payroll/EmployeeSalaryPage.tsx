@@ -153,20 +153,21 @@ const EmployeeSalaryPage: React.FC = () => {
                 const isProc = Boolean(record.processed);
                 const empName = emp ? `${emp.firstName || ''} ${emp.lastName || ''}`.trim() : (record.employee ? `${record.employee.firstName || ''} ${record.employee.lastName || ''}`.trim() : `Employee #${empId || index}`);
                 const empCode = emp?.employeeCode || record.employee?.employeeCode || `EMP-${String(empId || index).padStart(4, '0')}`;
-                const regimeStr = record.regime ? (String(record.regime).toUpperCase().includes('OLD') ? 'Old Regime (OLD)' : 'New Regime (NEW)') : 'New Regime (NEW)';
+                // The regime chosen on the employee's salary details
+                const regime = record.regime || record.countrySpecificData?.taxRegime;
+                const regimeStr = regime ? (String(regime).toUpperCase().includes('OLD') ? 'Old Regime (OLD)' : 'New Regime (NEW)') : 'New Regime (NEW)';
 
+                // These are salary structures: yearly amounts (Add Employee / Salary Structure); a month pays one twelfth.
                 // Enumerable properties visible in Table & drawer:
-                // First 4 columns: employeeName, month, basic, netSalary -> top 4 summary metric cards in drawer
+                // First 4 columns: employeeName, month, basic, grossSalary -> top 4 summary metric cards in drawer
                 const rowItem: Record<string, any> = {
                     employeeName: empName,
                     month: record.month || todayIso().slice(0, 7),
                     basic: basic,
-                    netSalary: netSalary,
-                    status: isProc ? "PROCESSED" : "PENDING",
-                    employeeCode: empCode,
                     grossSalary: grossSalary,
+                    monthlyGross: Math.round(grossSalary / 12 * 100) / 100,
+                    employeeCode: empCode,
                     hra: hra,
-                    totalDeductions: sumDeductions,
                     taxRegime: regimeStr,
                 };
 
@@ -184,6 +185,8 @@ const EmployeeSalaryPage: React.FC = () => {
                 Object.defineProperties(rowItem, {
                     id: { value: record.id || record.employeeSalaryId || empId || index, enumerable: false, writable: true },
                     employeeId: { value: empId || 0, enumerable: false, writable: true },
+                    netSalary: { value: netSalary, enumerable: false, writable: true },
+                    totalDeductions: { value: sumDeductions, enumerable: false, writable: true },
                     isProcessed: { value: isProc, enumerable: false, writable: true },
                     totalEarnings: { value: record.totalEarnings || grossSalary, enumerable: false, writable: true },
                     bonus: { value: bonus, enumerable: false, writable: true },
@@ -242,9 +245,10 @@ const EmployeeSalaryPage: React.FC = () => {
 
     // Calculate stats from real data
     const totalRecords = filteredSalaries.length;
-    const totalProcessed = filteredSalaries.filter(s => s?.isProcessed === true).length;
-    const totalPaid = filteredSalaries.reduce((sum, s) => sum + (s?.isProcessed && s?.netSalary ? s.netSalary : 0), 0);
-    const averageNet = filteredSalaries.length > 0 ? totalPaid / filteredSalaries.length : 0;
+    const yearlyPayroll = filteredSalaries.reduce((sum, s) => sum + (s?.grossSalary || 0), 0);
+    const monthlyPayroll = yearlyPayroll / 12;
+    const averageMonthly = filteredSalaries.length > 0 ? monthlyPayroll / filteredSalaries.length : 0;
+    const lakhs = (value: number) => "Rs " + (value / 100000).toFixed(2) + "L";
 
     // Get unique employees for filter
     const uniqueEmployees = [...new Map(salaries.map(s => [s.employeeId, { id: s.employeeId, name: s.employeeName, code: s.employeeCode }])).values()];
@@ -279,7 +283,7 @@ const EmployeeSalaryPage: React.FC = () => {
         },
         {
             key: "month",
-            label: "Month",
+            label: "Effective From",
             sortable: true,
             render: (row) => (
                 <div className="flex items-center justify-center mx-auto">
@@ -290,32 +294,21 @@ const EmployeeSalaryPage: React.FC = () => {
         },
         {
             key: "basic",
-            label: "Basic",
+            label: "Basic (yearly)",
             sortable: true,
-            render: (row) => <span className="text-xs text-gray-900 dark:text-gray-300 font-mono whitespace-nowrap">₹{row.basic.toLocaleString()}</span>
+            render: (row) => <span className="text-xs text-gray-900 dark:text-gray-300 font-mono whitespace-nowrap">₹{row.basic.toLocaleString("en-IN")}</span>
         },
         {
-            key: "netSalary",
-            label: "Net Salary",
+            key: "grossSalary",
+            label: "Yearly Gross",
             sortable: true,
-            render: (row) => <span className="text-xs font-bold text-cyan-600 dark:text-gray-200 font-mono whitespace-nowrap">₹{row.netSalary.toLocaleString()}</span>
+            render: (row) => <span className="text-xs text-gray-900 dark:text-gray-300 font-mono whitespace-nowrap">₹{row.grossSalary.toLocaleString("en-IN")}</span>
         },
         {
-            key: "status",
-            label: "Status",
+            key: "monthlyGross",
+            label: "Monthly Gross",
             sortable: true,
-            sortValueGetter: (row) => row.isProcessed ? 1 : 0,
-            render: (row) => row.isProcessed ? (
-                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-transparent dark:text-gray-300 dark:border dark:border-transparent">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 shrink-0" />
-                    Processed
-                </span>
-            ) : (
-                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-transparent dark:text-gray-300 dark:border dark:border-transparent">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 shrink-0" />
-                    Pending
-                </span>
-            )
+            render: (row) => <span className="text-xs font-bold text-cyan-600 dark:text-gray-200 font-mono whitespace-nowrap">₹{row.monthlyGross.toLocaleString("en-IN")}</span>
         }
     ];
 
@@ -330,10 +323,10 @@ const EmployeeSalaryPage: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 [&_.stats-card]:dark:!border-transparent [&_.stats-card]:dark:!bg-[#191919] [&_.stats-card__icon]:dark:!bg-[#222222] [&_.stats-card__icon]:dark:!text-gray-300 [&_.stats-card__value]:dark:!text-white [&_.stats-card__label]:dark:!text-gray-400">
-                    <StatsCard label="Total Records" value={totalRecords} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-6 w-6" />} />
-                    <StatsCard label="Processed Records" value={totalProcessed} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
-                    <StatsCard label="Total Paid" value={"Rs " + (totalPaid / 1000).toFixed(1) + "K"} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CurrencyDollarIcon className="h-6 w-6" />} />
-                    <StatsCard label="Average Net Salary" value={"Rs " + Math.round(averageNet).toLocaleString()} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-6 w-6" />} />
+                    <StatsCard label="Employees" value={totalRecords} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-6 w-6" />} />
+                    <StatsCard label="Yearly Gross Payroll" value={lakhs(yearlyPayroll)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
+                    <StatsCard label="Monthly Gross Payroll" value={lakhs(monthlyPayroll)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CurrencyDollarIcon className="h-6 w-6" />} />
+                    <StatsCard label="Average Monthly Gross" value={"Rs " + Math.round(averageMonthly).toLocaleString("en-IN")} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-6 w-6" />} />
                 </div>
 
                 {/* Table */}
@@ -348,7 +341,7 @@ const EmployeeSalaryPage: React.FC = () => {
                     defaultSortKey="month"
                     defaultSortOrder="desc"
                     rowDetailsTitle={(row) => `${row.employeeName || 'Employee'} - ${row.month}`}
-                    rowDetailsSubtitle="Monthly salary breakdown and net take-home details"
+                    rowDetailsSubtitle="Salary structure in yearly amounts; each month pays one twelfth (see Payslips for what was paid)"
                     emptyState={
                         <div className="flex flex-col items-center">
                             <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />
