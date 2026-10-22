@@ -1,15 +1,19 @@
 import axios from 'axios';
 
+// SUBMITTED / UNDER_REVIEW await HR; APPROVED / NOTICE_PERIOD run to the last working day; the rest are closed
+export type ExitStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'NOTICE_PERIOD' | 'REJECTED' | 'REVERTED' | 'COMPLETED' | 'CANCELLED';
+
 export interface ExitRequest {
     id?: number;
     resignationDate: string;
     lastWorkingDay: string;
-    status: 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'REVERTED' | 'Pending' | 'Completed' | 'WITHDRAW_REQUESTED' | 'WITHDRAW_APPROVED';
+    status: ExitStatus;
     reason: string;
     exitInterviewFeedback?: string;
     clearanceCompleted?: boolean;
     finalSettlementProcessed?: boolean;
     employeeId: number;
+    employeeCode?: string;
     employeeName?: string;
     designation?: string;
     location?: string;
@@ -23,51 +27,90 @@ export interface ExitRequest {
     approvedDate?: string | null;
     noticePeriodStartDate?: string | null;
     relievedDate?: string | null;
-    noticePeriod?: number | string;
-    comment?: string;
-    proposedLastWorkingDay?: string;
+    // The employee asked to withdraw an approved resignation; HR decides
+    withdrawalRequested?: boolean;
+    // Days from the resignation to the last working day
+    noticeDays?: number | null;
 }
 
 const EXIT_API_URL = "/v1/api/payroll/exit";
 
+const withReason = (reason?: string) => (reason ? { params: { reason } } : undefined);
+
 export const ExitManagementService = {
-    // 1) Create Exit request
+    // The caller's own resignation unless HR passes an employee id
     submitExitRequest: async (data: Partial<ExitRequest>): Promise<ExitRequest> => {
         const response = await axios.post(`${EXIT_API_URL}/request/submitExitRequest`, data);
         return response.data;
     },
 
-    // 2) Update Exit request
+    // Last working day, reason and exit interview notes of an open resignation
     updateExitDetails: async (data: Partial<ExitRequest>): Promise<ExitRequest> => {
         const response = await axios.put(`${EXIT_API_URL}/updateExitDetails`, data);
         return response.data;
     },
 
-    // 3) Reject Resignation by employee id
-    rejectResignation: async (employeeId: number, reason: string): Promise<any> => {
-        const response = await axios.put(`${EXIT_API_URL}/reject-resignation/${employeeId}?reason=${encodeURIComponent(reason)}`);
+    rejectResignation: async (employeeId: number, reason: string): Promise<string> => {
+        const response = await axios.put(`${EXIT_API_URL}/reject-resignation/${employeeId}`, null, withReason(reason));
         return response.data;
     },
 
-    // 4) Revert Resignation by employee id and reason
-    revertResignation: async (employeeId: number, reason: string): Promise<any> => {
-        const response = await axios.put(`${EXIT_API_URL}/revert-resignation/${employeeId}?reason=${encodeURIComponent(reason)}`);
+    // HR withdraws the resignation, or accepts the employee's request to withdraw it
+    revertResignation: async (employeeId: number, reason: string): Promise<string> => {
+        const response = await axios.put(`${EXIT_API_URL}/revert-resignation/${employeeId}`, null, withReason(reason));
         return response.data;
     },
 
-    // 5) Approve Exit Request by Exit req ID
-    approveExitRequest: async (id: number): Promise<any> => {
+    approveExitRequest: async (id: number): Promise<ExitRequest> => {
         const response = await axios.put(`${EXIT_API_URL}/${id}/approve`);
         return response.data;
     },
 
-    // 6) Get exit request by employeeId
+    startNoticePeriod: async (id: number): Promise<ExitRequest> => {
+        const response = await axios.put(`${EXIT_API_URL}/${id}/start-notice-period`);
+        return response.data;
+    },
+
+    // Needs clearance, the final settlement and the last working day; the employee's login is switched off
+    completeExit: async (id: number): Promise<ExitRequest> => {
+        const response = await axios.put(`${EXIT_API_URL}/${id}/complete`);
+        return response.data;
+    },
+
+    // HR keeps a resignation the employee asked to withdraw
+    declineWithdrawal: async (id: number, reason?: string): Promise<ExitRequest> => {
+        const response = await axios.put(`${EXIT_API_URL}/${id}/decline-withdrawal`, null, withReason(reason));
+        return response.data;
+    },
+
+    updateClearance: async (id: number, clearanceCompleted: boolean): Promise<ExitRequest> => {
+        const response = await axios.put(`${EXIT_API_URL}/clearance/${id}`, null, { params: { clearanceCompleted } });
+        return response.data;
+    },
+
+    // The settlement is the last month's pay: that month's payroll must be processed first
+    updateSettlement: async (id: number, settlementProcessed: boolean): Promise<ExitRequest> => {
+        const response = await axios.put(`${EXIT_API_URL}/settlement/${id}`, null, { params: { settlementProcessed } });
+        return response.data;
+    },
+
     getExitRequestByEmployeeId: async (employeeId: number): Promise<ExitRequest[]> => {
         const response = await axios.get(`${EXIT_API_URL}/getExitRequest/${employeeId}`);
         return response.data;
     },
 
-    // 7) Get All exit Request
+    // The signed-in employee's own resignations, newest first
+    getMyExitRequests: async (): Promise<ExitRequest[]> => {
+        const response = await axios.get(`${EXIT_API_URL}/my`);
+        return response.data;
+    },
+
+    // Withdraws at once before HR decides; after approval it asks HR
+    withdrawMyResignation: async (reason?: string): Promise<ExitRequest> => {
+        const response = await axios.put(`${EXIT_API_URL}/my/withdraw`, null, withReason(reason));
+        return response.data;
+    },
+
     getAllExitRequests: async (): Promise<ExitRequest[]> => {
         const response = await axios.get(`${EXIT_API_URL}/getAllExitRequests`);
         return response.data;

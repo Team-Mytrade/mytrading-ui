@@ -41,24 +41,47 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ArrowCircleDownRounded, Image } from "@mui/icons-material";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { apiError } from "../../utils/apiError";
 
 interface EmployeeDocument {
     id: number;
+    employeeId?: number;
+    employeeCode?: string;
+    employeeName?: string;
     documentType: string;
     fileName: string;
     fileType: string;
     fileSize?: number;
+    // PENDING until HR decides
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
     verified: boolean;
     uploadedAt?: string;
+    // HR's reason when rejected
     remarks?: string;
 }
 
 const API_URL = "/v1/api/payroll/empdocuments";
 
+// The document types the payroll service accepts
+const DOCUMENT_TYPES: { value: string; label: string }[] = [
+    { value: "PAN", label: "PAN Card" },
+    { value: "AADHAAR", label: "Aadhaar Card" },
+    { value: "PASSPORT", label: "Passport" },
+    { value: "NATIONAL_ID", label: "National ID" },
+    { value: "DRIVER_LICENSE", label: "Driving Licence" },
+    { value: "WORK_PERMIT", label: "Work Permit" },
+    { value: "BIRTH_CERTIFICATE", label: "Birth Certificate" },
+    { value: "SOCIAL_SECURITY", label: "Social Security" },
+    { value: "TAX_ID", label: "Tax ID" },
+];
+
+const STATUS_LABEL = { PENDING: "Pending", APPROVED: "Verified", REJECTED: "Rejected" } as const;
+
 const EmployeeDocumentsPage: React.FC = () => {
-  const { canDelete, canExport } = usePermissions();
+  const { canDelete, canExport, canApprove } = usePermissions();
+    // One employee's documents (/employees/:employeeId/documents), or everyone's
     const { employeeId } = useParams<{ employeeId: string }>();
-    const employeeIdNum = Number(employeeId);
+    const employeeIdNum = Number(employeeId) || 0;
 
     const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
     const [documentType, setDocumentType] = useState("");
@@ -80,11 +103,10 @@ const EmployeeDocumentsPage: React.FC = () => {
     const loadDocs = async () => {
         setLoading(true);
         try {
-            const response = await axios.get(`${API_URL}/employee/${employeeIdNum}`);
-            setDocuments(response.data);
+            const response = await axios.get(employeeIdNum ? `${API_URL}/employee/${employeeIdNum}` : `${API_URL}/getAllEmployeeDocs`);
+            setDocuments(Array.isArray(response.data) ? response.data : []);
         } catch (err) {
-            console.error("Failed to load documents", err);
-            ToasterService.error("Failed to load documents");
+            ToasterService.error(apiError(err, "Failed to load documents"));
             setDocuments([]);
         } finally {
             setLoading(false);
@@ -92,8 +114,26 @@ const EmployeeDocumentsPage: React.FC = () => {
     };
 
     useEffect(() => {
-        if (employeeIdNum) loadDocs();
+        loadDocs();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [employeeIdNum]);
+
+    // HR's decision; a rejection carries a reason for the employee
+    const decide = async (doc: EmployeeDocument, action: "approve" | "reject") => {
+        let comment: string | null = null;
+        if (action === "reject") {
+            comment = window.prompt(`Why is "${doc.fileName}" rejected? The employee sees this note.`);
+            if (!comment?.trim()) return;
+        }
+        try {
+            const response = await axios.post(`${API_URL}/${doc.id}/${action}`, null,
+                comment ? { params: { comment: comment.trim() } } : undefined);
+            setDocuments(prev => prev.map(d => (d.id === doc.id ? { ...d, ...response.data } : d)));
+            ToasterService.success(action === "approve" ? "Document verified" : "Document rejected");
+        } catch (err) {
+            ToasterService.error(apiError(err, "The document was not updated"));
+        }
+    };
 
     const handleUpload = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -114,7 +154,7 @@ const EmployeeDocumentsPage: React.FC = () => {
             setFile(null);
             setDocumentType("");
         } catch (err: any) {
-            ToasterService.error(err.response?.data?.message || "Upload failed");
+            ToasterService.error(apiError(err, "Upload failed"));
         } finally {
             setLoading(false);
         }
@@ -129,11 +169,11 @@ const EmployeeDocumentsPage: React.FC = () => {
         if (!ok) return;
 
         try {
-            await axios.delete(`${API_URL}/documents/${id}`);
+            await axios.delete(`${API_URL}/${id}/delete`);
             ToasterService.success("Document deleted successfully");
             await loadDocs();
         } catch (err: any) {
-            ToasterService.error(err.response?.data?.message || "Delete failed");
+            ToasterService.error(apiError(err, "Delete failed"));
         }
     };
 
@@ -179,11 +219,12 @@ const EmployeeDocumentsPage: React.FC = () => {
         doc.text(`Total Documents: ${filtered.length}`, 14, 28);
 
         autoTable(doc, {
-            head: [["Document Type", "File Name", "Status", "Uploaded Date"]],
+            head: [["Employee", "Document Type", "File Name", "Status", "Uploaded Date"]],
             body: filtered.map(d => [
+                d.employeeName || "-",
                 d.documentType,
                 d.fileName,
-                d.verified ? "Verified" : "Pending",
+                STATUS_LABEL[d.status] || d.status,
                 d.uploadedAt ? new Date(d.uploadedAt).toLocaleDateString() : "-"
             ]),
             startY: 35,
@@ -196,11 +237,13 @@ const EmployeeDocumentsPage: React.FC = () => {
 
     const exportExcel = () => {
         const ws = XLSX.utils.json_to_sheet(filtered.map(d => ({
+            'Employee': d.employeeName || "",
+            'Employee Code': d.employeeCode || "",
             'Document Type': d.documentType,
             'File Name': d.fileName,
             'File Type': d.fileType,
             'File Size': d.fileSize ? `${(d.fileSize / 1024).toFixed(2)} KB` : "-",
-            'Status': d.verified ? "Verified" : "Pending",
+            'Status': STATUS_LABEL[d.status] || d.status,
             'Uploaded Date': d.uploadedAt ? new Date(d.uploadedAt).toLocaleDateString() : "-",
             'Remarks': d.remarks || "",
         })));
@@ -240,8 +283,8 @@ const EmployeeDocumentsPage: React.FC = () => {
     const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
 
     // Calculate stats from real data
-    const verifiedCount = documents.filter(d => d.verified).length;
-    const pendingCount = documents.filter(d => !d.verified).length;
+    const verifiedCount = documents.filter(d => d.status === "APPROVED").length;
+    const pendingCount = documents.filter(d => d.status === "PENDING").length;
     const totalDocuments = documents.length;
 
 
@@ -267,7 +310,20 @@ const EmployeeDocumentsPage: React.FC = () => {
         return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
     };
 
+    const employeeColumn: ColumnDef<EmployeeDocument>[] = employeeIdNum ? [] : [{
+        key: "employeeName",
+        label: "Employee",
+        sortable: true,
+        render: (row) => (
+            <div className="flex flex-col">
+                <span className="font-semibold text-gray-900 dark:text-white text-xs">{row.employeeName || `Employee ${row.employeeId}`}</span>
+                {row.employeeCode && <span className="text-[10px] text-gray-500 dark:text-gray-400">{row.employeeCode}</span>}
+            </div>
+        )
+    }];
+
     const columns: ColumnDef<EmployeeDocument>[] = [
+        ...employeeColumn,
         {
             key: "documentType",
             label: "Document Type",
@@ -292,13 +348,19 @@ const EmployeeDocumentsPage: React.FC = () => {
             render: (row) => <span className="text-xs text-gray-600 dark:text-gray-400">{formatFileSize(row.fileSize)}</span>
         },
         {
-            key: "verified",
+            key: "status",
             label: "Status",
             sortable: true,
-            render: (row) => row.verified ? (
+            render: (row) => row.status === "APPROVED" ? (
                 <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-transparent dark:text-gray-300 border border-transparent">
                     <CheckCircleIcon className="h-3 w-3 mr-1 shrink-0" />
                     Verified
+                </span>
+            ) : row.status === "REJECTED" ? (
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-transparent dark:text-rose-400 border border-transparent"
+                    title={row.remarks}>
+                    <XCircleIcon className="h-3 w-3 mr-1 shrink-0" />
+                    Rejected
                 </span>
             ) : (
                 <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-transparent dark:text-gray-400 border border-transparent">
@@ -316,10 +378,28 @@ const EmployeeDocumentsPage: React.FC = () => {
         {
             key: "actions",
             label: "Actions",
-            headerClassName: "text-right w-40",
-            className: "text-right w-40",
+            headerClassName: "text-right w-48",
+            className: "text-right w-48",
             render: (row) => (
                 <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    {canApprove && row.status !== "APPROVED" && (
+                        <button
+                            onClick={() => decide(row, "approve")}
+                            className="text-emerald-600 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-emerald-400 p-1 rounded-md transition-colors border border-transparent dark:!border-transparent"
+                            title="Verify"
+                        >
+                            <CheckCircleIcon className="h-3.5 w-3.5" />
+                        </button>
+                    )}
+                    {canApprove && row.status === "PENDING" && (
+                        <button
+                            onClick={() => decide(row, "reject")}
+                            className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-rose-400 p-1 rounded-md transition-colors border border-transparent dark:!border-transparent"
+                            title="Reject"
+                        >
+                            <XCircleIcon className="h-3.5 w-3.5" />
+                        </button>
+                    )}
                     <button
                         onClick={() => { setSelectedDocument(row); setViewModalOpen(true); }}
                         className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-blue-400 p-1 rounded-md transition-colors border border-transparent dark:!border-transparent"
@@ -369,14 +449,15 @@ const EmployeeDocumentsPage: React.FC = () => {
                             </h2>
                         </div>
                         <div className="flex items-center gap-3">
-                            <button
+                            {/* Uploads go to one employee: open them from the employee's page */}
+                            {employeeIdNum > 0 && <button
                                 type="button"
                                 onClick={() => setIsUploadOpen(true)}
                                 className="inline-flex items-center justify-center h-10 px-5 text-sm font-semibold !text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg border border-transparent shadow-sm transition-all duration-200 focus:outline-none gap-2"
                             >
                                 <ArrowUpIcon className="h-4 w-4 !text-white shrink-0" />
                                 <span className="!text-white whitespace-nowrap">Upload Document</span>
-                            </button>
+                            </button>}
                         </div>
                     </div>
                 </div>
@@ -504,15 +585,9 @@ const EmployeeDocumentsPage: React.FC = () => {
                                 required
                             >
                                 <option value="" className="dark:bg-[#222222] dark:text-gray-400">Select Document Type</option>
-                                <option value="PAN" className="dark:bg-[#222222] dark:text-white">PAN Card</option>
-                                <option value="AADHAAR" className="dark:bg-[#222222] dark:text-white">Aadhaar Card</option>
-                                <option value="PASSPORT" className="dark:bg-[#222222] dark:text-white">Passport</option>
-                                <option value="WORK_PERMIT" className="dark:bg-[#222222] dark:text-white">Work Permit</option>
-                                <option value="EDUCATION" className="dark:bg-[#222222] dark:text-white">Education Certificate</option>
-                                <option value="EXPERIENCE" className="dark:bg-[#222222] dark:text-white">Experience Letter</option>
-                                <option value="PHOTO" className="dark:bg-[#222222] dark:text-white">Photograph</option>
-                                <option value="SIGNATURE" className="dark:bg-[#222222] dark:text-white">Signature</option>
-                                <option value="OTHER" className="dark:bg-[#222222] dark:text-white">Other</option>
+                                {DOCUMENT_TYPES.map(type => (
+                                    <option key={type.value} value={type.value} className="dark:bg-[#222222] dark:text-white">{type.label}</option>
+                                ))}
                             </select>
                         </div>,
                         <div key="file-upload">
@@ -525,6 +600,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                                             <span>Upload a file</span>
                                             <input
                                                 type="file"
+                                                accept=".pdf,.jpg,.jpeg,.png"
                                                 className="sr-only"
                                                 onChange={e => setFile(e.target.files?.[0] || null)}
                                                 required
@@ -533,7 +609,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                                         <p className="pl-1">or drag and drop</p>
                                     </div>
                                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        PDF, PNG, JPG, DOC up to 10MB
+                                        PDF, JPG or PNG up to 5 MB
                                     </p>
                                     {file && (
                                         <p className="text-xs text-cyan-600 dark:text-cyan-400 mt-2 font-medium">
@@ -545,8 +621,8 @@ const EmployeeDocumentsPage: React.FC = () => {
                         </div>,
                         <div key="note-box" className="col-span-2 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:!border-transparent">
                             <p className="text-sm text-blue-800 dark:text-gray-300">
-                                <strong className="dark:text-white">Note:</strong> Encrypted assets take 24-48 hours for auditing. 
-                                Ensure clarity in source scans for faster verification.
+                                <strong className="dark:text-white">Note:</strong> HR verifies each document.
+                                Clear scans are verified faster.
                             </p>
                         </div>
                     ]}

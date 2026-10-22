@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import {
     FileText,
@@ -17,20 +18,22 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
-import { AuthContext } from '../../context/AuthContext';
-import { Employee } from '../../shared/types/employee.types';
 import { formatFileSize } from '../../shared/utils/file';
-import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { ToasterService } from '../../Services/ToasterService';
+import { apiError } from '../../utils/apiError';
 
 interface Document {
     id: number;
+    employeeName?: string;
     documentType: DocumentType;
     fileName: string;
     fileType: string;
-    uploadDate?: string;
-    fileSize?: string;
+    uploadedAt?: string;
+    fileSize?: number;
     status: DocumentStatus;
+    // HR's reason when rejected
+    remarks?: string;
 }
 
 
@@ -49,13 +52,15 @@ type DocumentStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 
 const BASE_API_URL = "/v1/api/payroll/empdocuments";
-const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 
 const DocumentManagementPage: React.FC = () => {
   // Approving or rejecting a document needs HRM:APPROVE
   const { canApprove, canDelete } = usePermissions();
-    const { user } = useContext(AuthContext);
-    const [resolvedEmployeeId, setResolvedEmployeeId] = useState<number | null>(null);
+    // HR opens an employee's documents with ?id= (from the employee page); everyone else sees their own
+    const searchParams = new URLSearchParams(useLocation().search);
+    const viewedEmployeeId = canApprove && searchParams.get('id') ? Number(searchParams.get('id')) : null;
+    const viewedEmployeeName = searchParams.get('employeeName');
+    const [notLinked, setNotLinked] = useState<string | null>(null);
     const [documents, setDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState(false);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -105,36 +110,27 @@ const DocumentManagementPage: React.FC = () => {
 
 
     useEffect(() => {
-        if (user) resolveEmployee();
-    }, [user]);
-
-    const resolveEmployee = async () => {
-        try {
-            const res = await axios.get(`${EMPLOYEE_API_URL}/all`);
-            const matched = res.data.find((emp: Employee) =>
-                emp.officialEmail?.toLowerCase() === user?.username?.toLowerCase()
-            );
-            setResolvedEmployeeId(matched?.id || 1);
-        } catch { setResolvedEmployeeId(1); }
-    };
-
-    useEffect(() => {
-        if (resolvedEmployeeId) fetchDocuments();
-    }, [resolvedEmployeeId]);
+        fetchDocuments();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [viewedEmployeeId]);
 
     const fetchDocuments = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${BASE_API_URL}/employee/${resolvedEmployeeId}`);
-            setDocuments(res.data);
-        } catch {
+            const res = await axios.get(viewedEmployeeId ? `${BASE_API_URL}/employee/${viewedEmployeeId}` : `${BASE_API_URL}/my`);
+            setDocuments(Array.isArray(res.data) ? res.data : []);
+            setNotLinked(null);
+        } catch (error) {
             setDocuments([]);
+            // An account without an employee record has no documents here
+            if (axios.isAxiosError(error) && error.response?.status === 403 && !viewedEmployeeId) setNotLinked(apiError(error, "No employee record is linked to your account."));
+            else ToasterService.error(apiError(error, "Could not load the documents"));
         } finally { setLoading(false); }
     };
 
     const handleUpload = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!uploadFile || !documentType || !resolvedEmployeeId) return;
+        if (!uploadFile || !documentType) return;
 
         setIsUploading(true);
         setUploadProgress(0);
@@ -145,7 +141,7 @@ const DocumentManagementPage: React.FC = () => {
             form.append("documentType", documentType);
 
             await axios.post(
-                `${BASE_API_URL}/upload/${resolvedEmployeeId}`,
+                viewedEmployeeId ? `${BASE_API_URL}/upload/${viewedEmployeeId}` : `${BASE_API_URL}/my/upload`,
                 form,
                 {
                     onUploadProgress: (progressEvent) => {
@@ -158,20 +154,11 @@ const DocumentManagementPage: React.FC = () => {
                 }
             );
 
+            ToasterService.success("Document uploaded", "HR will verify it.");
             fetchDocuments();
             closeUpload();
-        } catch {
-            const mockDoc: Document = {
-                id: Date.now(),
-                documentType: documentType as DocumentType,
-                fileName: uploadFile.name,
-                fileType: uploadFile.type,
-                uploadDate: todayIso(),
-                fileSize: formatFileSize(uploadFile.size),
-                status: 'PENDING'
-            };
-            setDocuments([mockDoc, ...documents]);
-            closeUpload();
+        } catch (error) {
+            ToasterService.error(apiError(error, "The upload failed"));
         } finally {
             setIsUploading(false);
             setUploadProgress(0);
@@ -216,24 +203,26 @@ const DocumentManagementPage: React.FC = () => {
             link.remove();
             window.URL.revokeObjectURL(url);
         } catch (err) {
-            console.error('Download failed', err);
-            alert('Failed to download document.');
+            ToasterService.error(apiError(err, 'Failed to download the document'));
         } finally {
             setDownloadingId(null);
             setDownloadProgress(0);
         }
     };
 
-    const handleDelete = async (docId: number) => {
+    // Employees remove their own uploads until HR approves them; HR (HRM:DELETE) removes any
+    const canRemove = (doc: Document) => (viewedEmployeeId ? canDelete : doc.status !== 'APPROVED' || canDelete);
+
+    const handleDelete = async (doc: Document) => {
         if (!window.confirm('Are you sure you want to delete this document?')) return;
 
         try {
-            await axios.delete(`${BASE_API_URL}/${docId}/delete`);
-
-            setDocuments((prev) => prev.filter((d) => d.id !== docId));
+            const ownPending = !viewedEmployeeId && doc.status !== 'APPROVED';
+            await axios.delete(ownPending ? `${BASE_API_URL}/my/${doc.id}` : `${BASE_API_URL}/${doc.id}/delete`);
+            setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
+            ToasterService.success('Document deleted');
         } catch (error) {
-            console.error('Delete failed:', error);
-            alert('Failed to delete document. Please try again.');
+            ToasterService.error(apiError(error, 'Failed to delete the document'));
         }
     };
 
@@ -241,19 +230,19 @@ const DocumentManagementPage: React.FC = () => {
         docId: number,
         action: 'approve' | 'reject'
     ) => {
+        // A rejection tells the employee why
+        let comment: string | null = null;
+        if (action === 'reject') {
+            comment = window.prompt('Why is this document rejected? The employee sees this note.');
+            if (!comment?.trim()) return;
+        }
         try {
-            await axios.post(`${BASE_API_URL}/${docId}/${action}`);
-
-            setDocuments((prev) =>
-                prev.map((doc) =>
-                    doc.id === docId
-                        ? { ...doc, status: action === 'approve' ? 'APPROVED' : 'REJECTED' }
-                        : doc
-                )
-            );
+            const res = await axios.post(`${BASE_API_URL}/${docId}/${action}`, null,
+                comment ? { params: { comment: comment.trim() } } : undefined);
+            setDocuments((prev) => prev.map((doc) => (doc.id === docId ? { ...doc, ...res.data } : doc)));
+            ToasterService.success(action === 'approve' ? 'Document approved' : 'Document rejected');
         } catch (error) {
-            console.error('Status update failed', error);
-            alert('Failed to update document status.');
+            ToasterService.error(apiError(error, 'Failed to update the document'));
         }
     };
 
@@ -295,9 +284,14 @@ const DocumentManagementPage: React.FC = () => {
                     <div className="mt-6 flex items-center justify-between">
                         <div>
                             <h1 className="text-3xl font-semibold text-neutral-900 tracking-tight">Documents</h1>
-                            <p className="mt-1 text-sm text-neutral-500">Manage and organize your files</p>
+                            <p className="mt-1 text-sm text-neutral-500">
+                                {viewedEmployeeId
+                                    ? `${viewedEmployeeName || documents[0]?.employeeName || `Employee ${viewedEmployeeId}`}'s documents`
+                                    : 'Manage and organize your files'}
+                            </p>
                         </div>
                         <button
+                            disabled={!!notLinked}
                             onClick={() => setIsUploadModalOpen(true)}
                             className="inline-flex items-center gap-2 px-4 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors"
                         >
@@ -331,7 +325,7 @@ const DocumentManagementPage: React.FC = () => {
 
                     <StatCard
                         label="Storage Used"
-                        value={`${(documents.length * 1.5).toFixed(1)} MB`}
+                        value={formatFileSize(documents.reduce((sum, d) => sum + (d.fileSize || 0), 0))}
                         icon={<Shield size={18} />}
                     />
                 </div>
@@ -438,6 +432,12 @@ const DocumentManagementPage: React.FC = () => {
                                                         Loading documents...
                                                     </td>
                                                 </tr>
+                                            ) : notLinked ? (
+                                                <tr>
+                                                    <td colSpan={5} className="px-6 py-16 text-center text-sm text-neutral-500">
+                                                        {notLinked}
+                                                    </td>
+                                                </tr>
                                             ) : filteredDocs.length > 0 ? (
                                                 filteredDocs.map((doc, idx) => (
                                                     <motion.tr
@@ -457,7 +457,7 @@ const DocumentManagementPage: React.FC = () => {
                                                                         {shortenFileName(doc.fileName)}
                                                                     </div>
                                                                     <div className="text-xs text-neutral-500 mt-0.5">
-                                                                        {doc.uploadDate}
+                                                                        {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : ''}
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -496,10 +496,15 @@ const DocumentManagementPage: React.FC = () => {
                                                                     }`}
                                                             >
 
-                                                                <option value="PENDING">Pending</option>
+                                                                <option value="PENDING" disabled>Pending</option>
                                                                 <option value="APPROVED">Approved</option>
                                                                 <option value="REJECTED">Rejected</option>
                                                             </select>
+                                                            {doc.status === 'REJECTED' && doc.remarks && (
+                                                                <div className="mt-1 text-xs text-red-600 max-w-[200px] truncate" title={doc.remarks}>
+                                                                    {doc.remarks}
+                                                                </div>
+                                                            )}
                                                         </td>
 
                                                         <td className="px-6 py-4 text-right">
@@ -525,9 +530,9 @@ const DocumentManagementPage: React.FC = () => {
                                                                         <Download size={18} />
                                                                     </button>
                                                                 )}
-                                                                {doc.status !== 'APPROVED' && (
-                                                                    canDelete && <button title="Delete"
-                                                                        onClick={() => handleDelete(doc.id)}
+                                                                {canRemove(doc) && (
+                                                                    <button title="Delete"
+                                                                        onClick={() => handleDelete(doc)}
                                                                         className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors"
                                                                     >
                                                                         <Trash2 size={18} />
@@ -626,6 +631,7 @@ const DocumentManagementPage: React.FC = () => {
                                             </div>
                                             <input disabled={isUploading}
                                                 type="file"
+                                                accept=".pdf,.jpg,.jpeg,.png"
                                                 required
                                                 className="absolute inset-0 opacity-0 cursor-pointer"
                                                 onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
@@ -653,7 +659,7 @@ const DocumentManagementPage: React.FC = () => {
                                     <div className="flex gap-3 p-4 bg-neutral-50 rounded-lg">
                                         <Shield size={18} className="text-neutral-500 shrink-0 mt-0.5" />
                                         <p className="text-xs text-neutral-600 leading-relaxed">
-                                            Your documents are encrypted and stored securely. They will be reviewed before verification.
+                                            PDF, JPG or PNG up to 5 MB. HR reviews each document before it is verified.
                                         </p>
                                     </div>
                                 </div>

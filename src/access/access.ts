@@ -251,6 +251,14 @@ const SELF_SERVICE_ROUTES: [string, AppModule][] = [
 export const isSelfServicePath = (pathname: string): AppModule | null =>
   SELF_SERVICE_ROUTES.find(([p]) => pathname === p || pathname.startsWith(`${p}/`))?.[1] ?? null;
 
+// Pages where employees keep their own records and HR (module permissions) handles everyone's:
+// open to the module's users as usual, and to any linked employee of a tenant with the module
+const SHARED_ROUTES: [string, AppModule][] = [
+  ["/it-declaration", "HRM"],
+  ["/document-management", "HRM"],
+  ["/exit-management", "HRM"],
+];
+
 export const canAccessPath = (access: AccessInfo, pathname: string): boolean => {
   const selfService = isSelfServicePath(pathname);
   if (selfService) {
@@ -259,6 +267,8 @@ export const canAccessPath = (access: AccessInfo, pathname: string): boolean => 
       (hasModule(access, selfService) || access.tenantModules.includes(selfService))
     );
   }
+  const shared = SHARED_ROUTES.find(([p]) => pathname === p || pathname.startsWith(`${p}/`))?.[1];
+  if (shared && access.employeeId != null && access.tenantModules.includes(shared)) return true;
   const module = moduleForPath(pathname);
   if (module === null) return true;
   if (module === "PLATFORM") return access.superAdmin;
