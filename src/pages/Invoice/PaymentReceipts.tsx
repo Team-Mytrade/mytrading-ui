@@ -98,6 +98,20 @@ type ReceiptForm = {
 
 const API_URL = "/v1/api/invoice/receipts";
 const INVOICES_URL = "/v1/api/invoice/invoices";
+/** One customer's money position. */
+const CUSTOMER_FINANCIAL_URL = "/v1/api/customer-financial";
+interface CustomerSummary {
+  customerId?: number;
+  totalInvoiced?: number;
+  totalCreditNotes?: number;
+  totalCashReceived?: number;
+  totalCreditApplied?: number;
+  totalOutstanding?: number;
+  availableCustomerCredit?: number;
+  openInvoiceCount?: number;
+  overdueInvoiceCount?: number;
+}
+
 /** Customer master (Common → Customers). */
 const CUSTOMERS_URL = "/v1/api/crm/customers";
 
@@ -180,6 +194,8 @@ const PaymentReceipts: React.FC = () => {
   // Customer's unpaid invoices: GET /invoices/outstanding?customerId=
   const [outstanding, setOutstanding] = useState<InvoiceRow[]>([]);
   const [outstandingLoading, setOutstandingLoading] = useState(false);
+  // Customer's balance: GET /v1/api/customer-financial/{customerId}/summary
+  const [customerSummary, setCustomerSummary] = useState<CustomerSummary | null>(null);
   // Customer's earlier receipts: GET /receipts/customer/{customerId}
   const [customerReceipts, setCustomerReceipts] = useState<PaymentReceipt[]>([]);
 
@@ -290,6 +306,25 @@ const PaymentReceipts: React.FC = () => {
   };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, [e.target.name]: e.target.value });
+
+  // Customer's balance summary when a customer is chosen
+  useEffect(() => {
+    if (!showForm || !form.customerId) {
+      setCustomerSummary(null);
+      return;
+    }
+    let active = true;
+    axios
+      .get<CustomerSummary>(`${CUSTOMER_FINANCIAL_URL}/${form.customerId}/summary`)
+      .then((res) => active && setCustomerSummary(res.data || null))
+      .catch((err) => {
+        console.error("Error loading customer summary", err);
+        if (active) setCustomerSummary(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [showForm, form.customerId]);
 
   // Load the customer's unpaid invoices and earlier receipts when a customer is chosen
   useEffect(() => {
@@ -579,6 +614,7 @@ const PaymentReceipts: React.FC = () => {
           submitLabel="Save Receipt"
         >
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="md:col-span-2">
             <SearchableSelect
               label="Customer"
               value={form.customerId || ""}
@@ -590,6 +626,23 @@ const PaymentReceipts: React.FC = () => {
               placeholder={customers.size ? "Search customer" : "No customers found"}
               required
             />
+            </div>
+            {/* What this customer owes right now (customer-financial summary) */}
+            {customerSummary && (
+              <div className="md:col-span-2 -mt-2 mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  { label: "Outstanding", value: formatMoney(Number(customerSummary.totalOutstanding || 0)), tone: Number(customerSummary.totalOutstanding || 0) > 0 ? "text-red-600" : "text-slate-800 dark:text-gray-100" },
+                  { label: "Available credit", value: formatMoney(Number(customerSummary.availableCustomerCredit || 0)), tone: "text-emerald-700 dark:text-emerald-400" },
+                  { label: "Open invoices", value: String(customerSummary.openInvoiceCount ?? 0), tone: "text-slate-800 dark:text-gray-100" },
+                  { label: "Overdue invoices", value: String(customerSummary.overdueInvoiceCount ?? 0), tone: Number(customerSummary.overdueInvoiceCount || 0) > 0 ? "text-red-600" : "text-slate-800 dark:text-gray-100" },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/60">
+                    <span className="block text-xs text-slate-500 dark:text-gray-400">{s.label}</span>
+                    <strong className={`text-sm ${s.tone}`}>{s.value}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
             <FloatingDatePicker label="Payment Date" name="paymentDate" value={form.paymentDate || ""} onChange={handleChange} maxDate={todayIso()} required />
             <FloatingInput label="Amount Received" name="totalAmountReceived" {...amountInputProps} value={form.totalAmountReceived || ""} onChange={handleChange} required />
             <FloatingSelect
@@ -599,9 +652,7 @@ const PaymentReceipts: React.FC = () => {
               onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
               options={PAYMENT_METHODS.map((m) => ({ id: m.code, name: m.label }))}
             />
-            <div className="md:col-span-2">
-              <FloatingInput label="Reference Number" name="referenceNumber" value={form.referenceNumber || ""} onChange={handleChange} maxLength={100} />
-            </div>
+            <FloatingInput label="Reference Number" name="referenceNumber" value={form.referenceNumber || ""} onChange={handleChange} maxLength={100} />
             <div className="md:col-span-2">
               <FloatingTextarea label="Notes" name="notes" rows={2} value={form.notes || ""} onChange={handleChange} />
             </div>

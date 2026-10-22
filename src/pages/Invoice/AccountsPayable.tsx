@@ -755,11 +755,6 @@ const AccountsPayable: React.FC = () => {
                 placeholder={createForm.vendorId ? (vendorInvoices.length ? "Search invoice" : "No unpaid invoices for this vendor") : "Choose a vendor first"}
                 emptyOptionLabel="Don't use an invoice"
               />
-              {selectedInvoice && (
-                <p className="-mt-3 mb-3 px-1 text-xs text-slate-500">
-                  Amount and due date copied from invoice {selectedInvoice.invoiceNumber}. The payable is not linked to the invoice yet (waiting for backend).
-                </p>
-              )}
             </div>
 
             <FloatingInput label="Amount" name="invoiceAmount" {...amountInputProps} value={createForm.invoiceAmount} onChange={handleCreateChange} required />
