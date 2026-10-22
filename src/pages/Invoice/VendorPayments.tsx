@@ -220,7 +220,19 @@ const VendorPayments: React.FC = () => {
       })),
     ];
   }, [payments]);
-  const { filteredRows, cardFilterProps, selected } = useStatsCardFilter(payments, cards);
+  // The payment API returns the vendor and invoice with only their id (name / number are null).
+  // Fill them from the vendors list (GET /vendors) and the purchase invoices list by id.
+  const rows = useMemo(() => {
+    const vendorNames = new Map(vendors.map((v: any) => [String(v.id), v.name as string | undefined]));
+    const invoiceNumbers = new Map(purchaseInvoices.map((pi: any) => [String(pi.id), pi.invoiceNumber as string | undefined]));
+    return payments.map((p: any) => ({
+      ...p,
+      vendorName: p.vendorName || vendorNames.get(String(p.vendor?.id ?? p.vendorId ?? "")) || undefined,
+      invoiceNumber: p.invoiceNumber || invoiceNumbers.get(String(p.invoice?.id ?? p.invoiceId ?? "")) || undefined,
+    })) as VendorPayment[];
+  }, [payments, vendors, purchaseInvoices]);
+
+  const { filteredRows, cardFilterProps, selected } = useStatsCardFilter(rows, cards);
 
   /* ---------------- Form ---------------- */
 
