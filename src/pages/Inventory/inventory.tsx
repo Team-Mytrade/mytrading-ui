@@ -826,46 +826,7 @@ const InventoryStockManager: React.FC = () => {
         </div>
 
         <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
-          <ListingPdfExportButton
-            title="Inventory Stock"
-            subtitle="Current inventory stock listing"
-            reportLabel="Inventory Stock Report"
-            data={stocks}
-            fileName="Inventory_Stock"
-            disabled={loading}
-            columns={[
-              { header: "Reference", accessor: (row) => row.referenceNo || "-" },
-              { header: "Type", accessor: (row) => row.type },
-              { header: "Product", accessor: (row) => getProductLabelForStock(row) },
-              { header: "Warehouse", accessor: (row) => getWarehouseName(row.warehouse) },
-              { header: "Quantity", accessor: (row) => String(row.quantity) },
-              { header: "Reserved", accessor: (row) => String(row.reservedQty) },
-              {
-                header: "Available",
-                accessor: (row) => String(Math.max(0, row.quantity - row.reservedQty)),
-              },
-              { header: "Min Stock Level", accessor: (row) => String(row.minStockLevel) },
-              { header: "Status", accessor: (row) => getStockStatus(row).label },
-              {
-                header: "Movement Date",
-                accessor: (row) =>
-                  row.movementDate ? new Date(row.movementDate).toLocaleDateString() : "-",
-              },
-            ]}
-            metadata={(rows) => [
-              { label: "Total Records", value: rows.length },
-              { label: "Total Quantity", value: rows.reduce((sum, s) => sum + (s.quantity || 0), 0) },
-              { label: "Total Reserved", value: rows.reduce((sum, s) => sum + (s.reservedQty || 0), 0) },
-              {
-                label: "Low Stock Items",
-                value: rows.filter((s) => {
-                  const available = Math.max(0, s.quantity - s.reservedQty);
-                  return available > 0 && available <= s.minStockLevel;
-                }).length,
-              },
-            ]}
-          />
-
+        
           <button
             onClick={() => setShowAvailabilityModal(true)}
             className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600"
