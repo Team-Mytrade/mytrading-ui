@@ -364,7 +364,7 @@ export default function AppRouter() {
           <Route path="/att_payrollRecord" element={<PayrollRecordPage />} />
           <Route path="/att_remoteAttendanceLog" element={<RemoteAttendanceLogPage />} />
           <Route path="/att_workFromHomeRequests" element={<WorkFromHomeRequestPage />} />
-          <Route path="/att_shift" element={<UnifiedShiftManagementPage defaultTab="shifts" />} />
+          <Route path="/att_shift" element={<Navigate to="/att_shiftSchedule" replace />} />
           <Route path="/att_notifications" element={<NotificationPage />} />
           <Route path="/att_attendancePolicy" element={<AttendancePolicyPage />} />
           <Route path="/att_holidayCalendar" element={<HolidayCalendarPage />} />

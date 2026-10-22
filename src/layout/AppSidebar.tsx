@@ -301,14 +301,9 @@ export const navItems: NavItem[] = [
       { name: "On-Duty Requests", path: "/att_requests", icon: Briefcase, section: "Requests" },
 
       { name: "Shift & Roster", path: "/att_shiftSchedule", permission: "ATTENDANCE:UPDATE", icon: CalendarClock, section: "Shifts" },
-      { name: "Shift Master", path: "/att_shift", permission: "ATTENDANCE:ADMIN", icon: Clock, section: "Shifts" },
 
       { name: "Attendance Policy", path: "/att_attendancePolicy", permission: "ATTENDANCE:ADMIN", icon: ScrollText, section: "Policies" },
       { name: "Leave Policy Master", path: "/att_leavePolicy", permission: "ATTENDANCE:ADMIN", icon: BookOpen, section: "Policies" },
-
-      { name: "Leave Approvals", path: "/att_attendanceApproval", permission: "ATTENDANCE:APPROVE", icon: CalendarCheck, section: "Approvals" },
-      { name: "Regularization Approvals", path: "/att_regularizationApproval", permission: "ATTENDANCE:APPROVE", icon: ClipboardCheck, section: "Approvals" },
-      { name: "On-Duty Approvals", path: "/att_onDutyApproval", permission: "ATTENDANCE:APPROVE", icon: BadgeCheck, section: "Approvals" },
 
       { name: "Attendance Reports", path: "/att_reports", icon: BarChart3, section: "Reports" },
     ],
